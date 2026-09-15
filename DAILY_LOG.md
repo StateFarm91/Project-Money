@@ -18,3 +18,4 @@ Meaningful work, results, and next actions. Newest first.
 - Etsy API client `etsy_api.py` (PKCE auth, search, taxonomy, create/upload/activate, receipts) with 8 offline tests passing.
 - Heartbeat design finalized (`ops/HEARTBEAT_PROMPT.md`, `ops/lock.py`).
 - Next: owner Block 1 → OAuth → competitor pull → publish listing 1 → EXP-001. Unblocked work: listing 2-4 generators, shop policy text, ledger importer.
+- heartbeat 2026-09-15T17:14:08Z: operator session plumbing check; lease held by session_01HgvZLG32EjL8kfcsoWVTmJ, no work
