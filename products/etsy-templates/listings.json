@@ -1,0 +1,41 @@
+{
+  "listing-1": {
+    "sku": "MS-T2125-2026",
+    "title": "Canadian Bookkeeping Spreadsheet for Sole Proprietors | T2125 Tax Tracker, GST HST PST QST, Quick Method, Home Office | Excel Google Sheets",
+    "price_cad": 29.0,
+    "tags": [
+      "canadian bookkeeping",
+      "T2125 template",
+      "GST HST tracker",
+      "sole proprietor",
+      "income tracker",
+      "tax spreadsheet",
+      "google sheets",
+      "excel bookkeeping",
+      "self employed canada",
+      "home office expenses",
+      "quick method GST",
+      "freelancer canada",
+      "business expenses"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets",
+      "PDF guide"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "Built for Canadians who do their own books. Every category maps to a line on CRA Form T2125, sales tax is calculated for your province (GST, HST, PST, RST or QST), and the GST/HST sheet shows what you would owe under the regular method AND the quick method (RC4058 rates) so you can see which saves you money. Works in Microsoft Excel and Google Sheets.\n\nWHAT'S INSIDE\n• Start here: pick your province and settings; the rates fill in for you\n• Income: log every sale or invoice; GST/HST and PST/QST calculate automatically; unpaid-invoice tracker\n• Expenses: pick the T2125 category from a dropdown; meals limited to 50% automatically; ITC-eligible tax tracked\n• T2125 Summary: Part 3 income and every Part 4 expense line (8521 to 9270, 9936), net income 9369, home office 9945, net 9946, ready to copy into your tax software\n• GST-HST: regular vs quick method comparison, the 1% quick-method credit, and a $30,000 small-supplier tracker that tells you when you must register\n• Home office: T2125 Part 7 (7A to 7P) with the loss cap and carry-forward handled\n• Vehicle: logbook plus Chart A actual-cost method with business-use %\n• Dashboard: month-by-month income, expenses, net, and a tax set-aside estimate\n• Quick-start guide (PDF) and a README\n\nDETAILS\n• Tax year 2026 edition; rates and line numbers checked against CRA pages in September 2026 (sources listed in the guide)\n• 500 rows per ledger sheet; dropdowns for provinces, categories and channels\n• Formulas use only functions that work identically in Excel and Google Sheets (no macros, no add-ons)\n• Instant download: ZIP with the .xlsx, the PDF guide and README. Import the .xlsx into Google Sheets with File > Import\n\nWHO IT IS FOR\nFreelancers, consultants, Etsy and Shopify sellers, contractors, side-hustlers and any sole proprietor in any province or territory who files a T2125 with their personal return.\n\nHONEST NOTES\n• This is a bookkeeping tool, not tax, legal or accounting advice. Verify anything that affects your return with CRA or an accountant.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; every rate was cross-checked against CRA's published tables and the workbook is validated by an automated test before release.\n• Digital product, no physical item is shipped. If something does not work for you, message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-income.png",
+      "03-expenses.png",
+      "04-t2125.png",
+      "05-gst-hst.png",
+      "06-whats-inside.png"
+    ],
+    "files": [
+      "Canadian-Sole-Proprietor-Bookkeeping-T2125-2026.zip"
+    ]
+  }
+}

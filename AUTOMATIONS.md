@@ -8,7 +8,9 @@ What runs unattended, how, its dependencies, and how it fails safely. Never fabr
 |---|---|---|---|---|---|
 | _none yet_ | | | | | |
 
-## Planned: mission heartbeat (design, to be created at the end of the Day-1 session)
+## Planned: mission heartbeat (design; the trigger is created at the end of the Day-1 session and its id recorded here)
+
+The exact prompt is `ops/HEARTBEAT_PROMPT.md`; the lease lock is `ops/lock.py`.
 
 **Purpose.** The directive requires deterministic recurring work without an active conversation (sections 21, 22, 31). The environment offers Claude Code Routines: a cron-scheduled trigger that opens a fresh Claude Code session in this environment with a standalone prompt.
 

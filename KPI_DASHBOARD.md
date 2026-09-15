@@ -1,6 +1,6 @@
 # KPI_DASHBOARD
 
-_Last updated: 2026-09-15T11:05Z. Values are measured; N/A means no data exists yet. Never invent a value._
+_Last updated: 2026-09-15T17:10Z. Values are measured; N/A means no data exists yet. Never invent a value._
 
 | Metric | Value |
 |---|---|
@@ -16,9 +16,9 @@ _Last updated: 2026-09-15T11:05Z. Values are measured; N/A means no data exists 
 | CAC | N/A |
 | Conversion rate | N/A |
 | Average order value | N/A |
-| Best product / offer | N/A (none launched) |
+| Best product / offer | N/A (listing 1 built, not yet published) |
 | Best acquisition channel | N/A |
-| Active experiments | 0 |
-| Biggest current bottleneck | Strategy not yet selected (research in progress) |
-| Current Day-90 projection | N/A until a strategy is selected; see `finance/PROJECTIONS.md` |
-| Owner time required this week | ~0 h so far; one batched account-setup block (est. 45-90 min) expected once the strategy is selected |
+| Active experiments | 0 running; EXP-001 and EXP-002 planned (start when the shop is live) |
+| Biggest current bottleneck | Owner Block 1 (Etsy shop + API access) not yet done |
+| Current Day-90 projection | Base CA$300-450 gross / ≈ 0 to +150 net; upside CA$1,200-1,800 (assumptions in `finance/PROJECTIONS.md`) |
+| Owner time required this week | 45 min (Block 1 in OWNER_ACTIONS.md) |
