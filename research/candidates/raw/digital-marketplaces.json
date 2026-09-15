@@ -1,0 +1,366 @@
+{
+  "lens": "Digital products on marketplaces (Gumroad, Etsy digital downloads, Lemon Squeezy, Notion Marketplace, TPT, Eloquens, Creative Market, Envato, Whop, Framer/Webflow/Figma)",
+  "searches_run": 39,
+  "pages_read": 11,
+  "market_notes": "The most important structural finding is that the platforms split into two kinds: marketplaces with built-in buyer search (Etsy, Teachers Pay Teachers, Eloquens, Notion Marketplace) versus checkout tools with almost no organic discovery (Gumroad, Lemon Squeezy). Gumroad's own Discover feed is unavailable to a new product until it has $100 of verified prior sales and risk-team approval, and Discover sales cost 30% instead of 10% + $0.50; an August 2026 traffic analysis concludes \"Gumroad traffic is a mirror, not a source,\" and Gumroad's own data (146k products, Jan-Apr 2026) shows a $72/month median, 44% of products earning zero, 99.5% of revenue to the top 1%, and 6-12 months to a first $100 without an audience. Etsy is the opposite: real search demand for planners, spreadsheets, Canva and Notion templates, but a $15-29 one-time shop setup fee, photo-ID + selfie verification (owner task), 6.5% transaction + 3% + C$0.25 processing for Canadian sellers, $0.20 per listing, mandatory AI-assistance disclosure (\"Designed by\" attribute plus a disclosure line) since the June 2025 Creativity Standards update, heavy saturation in generic categories (50,000+ \"Notion template\" listings), and reported first-sale times ranging from 3 days to 4 months. Notion Marketplace has attractive economics (8-10% + $0.40, Notion is merchant of record, Canada eligible) but the creator waitlist \"may take a few months,\" which pushes it to a Day-180 asset rather than a Day-90 revenue source. Several design-asset marketplaces are poor fits in 2026: Envato moves every author to a flat 50% fee on July 1, 2026; Creative Market takes 40-50% and requires a 10-20 piece portfolio application; Figma is not approving new creators for paid files; Webflow (95% payout) and Framer review in batches of roughly 2-4 weeks to a month, and all four require GUI design tools the operator cannot drive programmatically. TPT has huge built-in demand (85% of US pre-K-12 educators, ~$253M 2024 payouts) but low payout tiers (55% basic / 80% premium), an average active-seller income of ~$27/month, and an August 2026 Chalkbeat expose on \"AI slop\" with the CEO stating TPT algorithmically demotes stores associated with low-quality AI content, so only verifiably accurate, curated resources are viable. Lemon Squeezy still works (5% + $0.50 MoR) but post-Stripe-acquisition onboarding delays of days to weeks are reported, so Gumroad (Stripe KYC, $100 payout minimum until identity verified) is the safer checkout. Whop removed its 30% marketplace commission in May 2025 (now ~3% + processing) but its catalogue skews to communities/memberships that need live engagement. Across every source, the repeatable success pattern is niche-specific (profession- or jurisdiction-specific) tools priced $25-79 rather than generic $5-9 items (sub-$10 products are 0.8% of Gumroad revenue), a catalogue of 3+ products (5.7x revenue of single-product sellers), and external traffic from Pinterest, SEO and email rather than marketplace luck. Amazon KDP (outside this lens) allows AI-generated books with internal disclosure and a 10-titles-per-format-per-week cap, but was not pursued because a genuinely high-quality book is slow to produce and the category is flooded.",
+  "candidates": [
+    {
+      "name": "CRA-Ready Sole-Prop Bookkeeping System (Google Sheets + Excel) on Etsy",
+      "one_liner": "A Canadian-specific bookkeeping spreadsheet that maps every category to CRA form T2125, tracks GST/HST/QST/PST by province with quick-method and regular-method remittance calculators, mileage and home-office claims, and auto-imports bank CSVs via Apps Script, sold as an Etsy digital download with Gumroad as a secondary checkout.",
+      "model_type": "one-time digital product (spreadsheet template) on a marketplace, with catalogue variants",
+      "target_customer": "Canadian freelancers, sole proprietors, Etsy/Shopify sellers, rideshare/delivery drivers and side-hustlers who file a T2125 and (often) remit GST/HST, and who do not want a $20-60/month accounting subscription",
+      "problem": "Most bookkeeping templates on Etsy are US Schedule C products; Canadians need T2125 line mapping, GST/HST vs QST/PST handling by province, instalment tracking, and business-use-of-home/vehicle calculations, and they scramble at year-end and again before the June 15 filing deadline",
+      "offer_and_pricing": "Core system CA$29 (Sheets + Excel, 2026 and 2027 tax-year tabs, T2125 summary, GST/HST module for 4 provincial regimes, mileage log, home-office worksheet); Pro bundle CA$49 adds bank-CSV auto-categorizer (Apps Script), invoice tracker, quarterly instalment planner and lifetime updates; variant listings for Etsy/Shopify sellers, gig drivers and real-estate agents at CA$24-34 each; multi-listing catalogue of 6-10 SKUs",
+      "first_10_customers": "Etsy search on long-tail Canadian tax keywords the operator can see competitors already ranking for ('canadian bookkeeping spreadsheet', 'T2125 template', 'GST HST tracker', 'etsy tax template canada'), with 6-10 fully disclosed AI-assisted listings, 5+ mockup images and a video-free but screenshot-rich description; a CA$3-5/day Etsy Ads test on those exact terms for the first 30 days; Pinterest pins (Sheets dashboards pin well); a free GitHub-Pages 'GST/HST quick-method calculator' page linking to the listing for Google traffic. Owner does the one-time Etsy shop setup (ID + selfie, $15-29 setup fee, bank/Payoneer), then nothing except forwarding the occasional buyer message.",
+      "first_100_customers": "Review accumulation on Etsy (the operator writes a genuine post-purchase help guide that invites honest reviews, no incentives), scaling Etsy Ads only on listings with a positive ROAS, cross-listing the same files on Gumroad and an SEO page ('T2125 spreadsheet') so non-Etsy Google traffic converts at 10% + $0.50 instead of ~16%, and the natural demand surge from January to April 2027 tax season, which falls after Day 90 but makes this a strong Day-180 asset.",
+      "why_over_alternatives": "Incumbent Canadian listings exist but are few (roughly 8-12 visible in search) versus hundreds of US ones, and none found advertise bank-CSV auto-categorization, all four sales-tax regimes, or quick-method vs regular-method comparison; the operator can genuinely encode CRA rules and keep the 2026/2027 versions current, and pricing at CA$29-49 sits in the $25-49 'professional system' band that Kupkaike's April 2026 data shows still sells while sub-$10 generic items do not.",
+      "evidence": [
+        {
+          "claim": "Canadian Etsy sellers pay a 6.5% transaction fee, 3% + C$0.25 payment processing and a US$0.20 listing fee; Etsy adds GST/HST to its own fees; Offsite Ads fee 15% if attributed.",
+          "source_url": "https://jonescosman.com/etsy-fees-canada/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "New Etsy shops pay a one-time nonrefundable setup fee of $15-29 and must pass photo-ID plus selfie verification before going live (introduced Sept 2024).",
+          "source_url": "https://help.erank.com/blog/understanding-etsys-new-15-setup-fee/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Etsy states sales of digital items are not held in a Payment Account Reserve, so new-seller reserves do not delay digital-download cash.",
+          "source_url": "https://help.etsy.com/hc/en-us/articles/360058722214-What-is-a-Payment-Account-Reserve",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Multiple Canadian-specific competitor listings exist (e.g. 'Canadian Business Owner Spreadsheet / Track GST/HST', 'Etsy Tax Template ... T2125 Form Helper', '2026 Canadian Tax Tracker | Google Sheets T2125, GST/HST (CPA Designed)'), showing live demand and current-year versioning; listing pages returned 403/CAPTCHA so prices and review counts could not be read directly (not found).",
+          "source_url": "https://www.etsy.com/au/listing/4458714502/2026-canadian-tax-tracker-google-sheets",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Etsy requires AI-assisted digital products to carry the 'Designed by' seller attribute and a disclosure line in the description; bulk near-identical listings get removed and repeat violations suspend shops (guide updated Sept 2026).",
+          "source_url": "https://www.promptlesspress.com/blog-etsy-ai-policy-2026-digital-products",
+          "recency": "2026-09",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Etsy sellers in the community thread report first sales from 3 days to about 2 weeks on average, with some taking 3-4 months.",
+          "source_url": "https://community.etsy.com/t5/etsian-newbie/first-sale-how-long-did-it-take/td-p/36869097",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Professional-grade template systems sell at $25-49 while generic starter templates sit at $5-9; profession-specific niches show 8-60 reviews on top listings versus 500-2,000+ for generic ones.",
+          "source_url": "https://kupkaike.com/blog/is-selling-notion-templates-still-profitable-2026",
+          "recency": "2026-04-06",
+          "kind": "evidence"
+        },
+        {
+          "claim": "ChartSheets (spreadsheet templates, reported $40k/month) started by testing on Etsy, then moved to its own site using Pinterest, Facebook Ads and SEO.",
+          "source_url": "https://boringcashcow.com/interview/interview-with-the-founder-of-chartsheets",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Search demand for Canadian tax spreadsheets peaks Feb-Apr (T1/T2125 filing) and is comparatively soft in Oct-Dec, so Day-90 (Dec 13) revenue will be a fraction of Day-180 revenue.",
+          "source_url": "https://www.etsy.com/ca/listing/4336668570/etsy-tax-template-small-business",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 220,
+      "est_days_to_first_revenue": 18,
+      "est_day90_revenue_base_cad": 900,
+      "gross_margin_est": "~84% after Etsy fees on a CA$29 sale; ~65-70% net of a CA$150 Etsy Ads test budget in the first 60 days",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "One-time: open Etsy shop (ID + selfie, $15-29 fee, bank), open Gumroad (Stripe KYC), authorize ~CA$150 of Etsy Ads. Ongoing: forward/approve replies to buyer messages that the operator drafts (Etsy Messages require a logged-in session; expect 1-3 per week), roughly 15 minutes weekly.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "A zero-review shop never gets surfaced by Etsy search against incumbents with hundreds of reviews, and the strongest demand window (Feb-Apr tax season) falls after the Day-90 cutoff, so the 90-day number stays in the low hundreds of dollars.",
+      "key_risks": [
+        "Etsy listing pages were unreadable (403), so competitor prices/review counts are unverified",
+        "Etsy's AI-detection and Creativity Standards enforcement could flag listings even with disclosure",
+        "Etsy Ads may not reach positive ROAS on low-volume Canadian keywords",
+        "Buyer support (formula questions, CRA edge cases) requires accurate, timely replies; wrong tax guidance is a reputational risk and copy must state it is not tax advice",
+        "Q4 seasonality: revenue mostly arrives in 2027"
+      ],
+      "why_now_2026": "Etsy's June 2025 Creativity Standards and 2026 AI-disclosure enforcement are removing bulk low-effort listings, which favours a genuinely engineered tool with disclosed AI assistance; the 2026 tax year is closing (year-end catch-up buying starts in Nov-Dec) and 2027-dated versions are a fresh differentiator; incumbents' listings show current-year versioning is what buyers search for.",
+      "day180_asset_potential": "high",
+      "confidence": "medium"
+    },
+    {
+      "name": "Open-Core AI-Agent Production Starter Kit sold via Gumroad/Lemon Squeezy",
+      "one_liner": "A paid, continuously updated starter repository for developers shipping LLM/agent apps (tracing, evals, cost guardrails, MCP server scaffold with auth and billing, deployment recipes), distributed as a free lite version on GitHub and a paid pro licence on Gumroad.",
+      "model_type": "one-time digital product (code/boilerplate licence) via creator checkout, open-core distribution",
+      "target_customer": "Indie developers, freelancers and 2-5 person teams building agent/LLM products in Node or Python who want production plumbing (observability, evals, guardrails, MCP auth, billing) without a week of setup",
+      "problem": "Agent frameworks and MCP specs change monthly; developers rebuild the same tracing, eval, rate-limit, cost-cap and auth scaffolding repeatedly, and existing SaaS boilerplates (ShipFast, SaaSPegasus) are CRUD/Next.js-oriented rather than agent-infrastructure-oriented",
+      "offer_and_pricing": "Free MIT lite repo (basic scaffold); Pro licence US$79 solo / US$149 team (full kit, eval harness, MCP auth + billing module, 12 months of updates, private issue tracker); launch discount US$59 for the first 50 buyers announced honestly as a launch price, not fake scarcity",
+      "first_10_customers": "GitHub is the channel: the free lite repo is published with a clear README, topics and a comparison table; a Show HN post, r/SideProject and r/ClaudeAI/r/LocalLLaMA posts (within each subreddit's self-promotion rules), a dev.to and Medium write-up ('what it actually takes to run agents in production'), and a Product Hunt launch route readers to the Gumroad checkout. Owner does the one-time Gumroad + Stripe KYC setup; the operator handles everything else including support via GitHub issues.",
+      "first_100_customers": "Compounding GitHub stars and search traffic to the lite repo, SEO articles on the exact pain points (e.g. 'MCP server authentication', 'LLM cost guardrails'), submissions to TLDR/JavaScript Weekly/Python Weekly, Gumroad email list of lite-repo users (email drives 42% of Gumroad sales), a Gumroad affiliate programme for dev YouTubers, and monthly changelog updates that give existing buyers reasons to recommend it.",
+      "why_over_alternatives": "Gumroad's Software Development category has the highest revenue per product on the platform ($60,814 average across 1,083 products, average price $39.95) and it is the operator's native competency; the operator can keep the kit current with API changes every scheduled run, which a solo human maintainer of a boilerplate rarely does; open-core lets buyers verify quality before paying, which matters because Gumroad has no marketplace traffic for new products.",
+      "evidence": [
+        {
+          "claim": "Software Development is Gumroad's top revenue category ($65.8M across 1,083 products, $60,814 per product, avg price $39.95); median creator earns $72/month; 44% of products earn zero; without an audience, first $100 takes 6-12 months; email drives 42% of sales; multi-product sellers earn 5.7x single-product sellers.",
+          "source_url": "https://insightraider.com/en/state-of-gumroad-2026",
+          "recency": "2026-05-21",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Top-10 Gumroad categories by revenue with average prices and per-product revenue (Software Dev $60.8k, Business & Money $10.1k at $49.49 avg, Education $235 avg price).",
+          "source_url": "https://insightraider.com/en/answers/what-digital-products-sell-best-on-gumroad",
+          "recency": "2026-06-29",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Prebuilt developer boilerplates sell at $49-249; first sale typically 3-8 weeks after launch with active promotion; 60-80 hours of build + marketing; claimed $1,200-4,800 in the first 90 days across 73 Gumroad developers (blog-reported, unverified).",
+          "source_url": "https://jakeinsight.com/side-income/2026-04-26-sell-prebuilt-stripe-billing-integration-boilerpla/",
+          "recency": "2026-04-26",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Gumroad charges 10% + $0.50 on direct sales and a flat 30% on Discover sales, plus Stripe processing; effective ~20.9% on a $10 product falling to ~13.1% on a $500 product; Gumroad is merchant of record since Jan 2025.",
+          "source_url": "https://checkoutpage.com/blog/gumroad-fees",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Gumroad Discover requires completed payout settings, $100 of verified prior sales and risk-team approval, so new products get no Discover traffic at launch; 'Gumroad traffic is a mirror, not a source'.",
+          "source_url": "https://roo.beehiiv.com/p/gumroad-traffic-2026-real-data",
+          "recency": "2026-08-13",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Since March 2026 Gumroad's minimum payout is $100 for accounts that have not completed identity verification, dropping to $10 once verified.",
+          "source_url": "https://roo.beehiiv.com/p/gumroad-fees-2026",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Lemon Squeezy charges 5% + $0.50 all-in as merchant of record, but post-Stripe-acquisition onboarding delays of days to weeks are reported.",
+          "source_url": "https://fungies.io/lemon-squeezy-stripe-acquisition-saas-founders-2026/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "There is an underserved gap for agent-infrastructure (evals, tracing, MCP auth/billing) starter kits as opposed to generic SaaS boilerplates; no direct evidence of a market-leading paid product in this sub-niche was found.",
+          "source_url": "https://adminlte.io/blog/nextjs-saas-templates/",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 40,
+      "est_days_to_first_revenue": 28,
+      "est_day90_revenue_base_cad": 2000,
+      "gross_margin_est": "~86% on a US$79 sale via Gumroad (10% + $0.50 + processing); ~93% via Lemon Squeezy if onboarding succeeds",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "One-time: Gumroad account + Stripe KYC (and optionally Lemon Squeezy), GitHub org ownership, approve the licence terms. Ongoing: essentially none; support runs through GitHub issues and the operator's scheduled runs. Optional: a Product Hunt account (needs a human profile) for launch day.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "No audience: Gumroad supplies zero organic traffic to a new product, so if the Show HN / Reddit / Product Hunt launches do not land, the kit sits at the 44%-of-products-earn-nothing baseline regardless of quality.",
+      "key_risks": [
+        "Developer buyers rely on GitHub stars and known maintainers; an anonymous operator-run repo may not earn trust quickly",
+        "Jake's Insights 90-day figures are unverified blog claims",
+        "Agent tooling churn means the kit needs constant updates or it becomes stale within weeks",
+        "Refund requests and support expectations are higher for code products",
+        "Reddit/HN posts can be removed as self-promotion if not framed as genuine contribution"
+      ],
+      "why_now_2026": "MCP adoption and agent frameworks matured through 2025-2026 with breaking changes every few weeks, so a kit that is demonstrably kept current has a maintenance moat; Gumroad's 2026 data shows code products earn 6-8x more per product than templates; Lemon Squeezy/Stripe Managed Payments and Gumroad MoR remove tax-compliance friction for a Canadian seller.",
+      "day180_asset_potential": "high",
+      "confidence": "medium"
+    },
+    {
+      "name": "Private-Practice OS for Therapists and Allied-Health Solo Practitioners (Notion) on Etsy + Gumroad",
+      "one_liner": "A profession-specific Notion practice-management system (caseload and waitlist tracker, scheduling, intake and consent form library, income/expense and CE-credit tracking, marketing pipeline) for solo therapists, counsellors, dietitians and SLPs, sold on Etsy and Gumroad now and submitted to the Notion Marketplace as a Day-180 channel.",
+      "model_type": "one-time digital product (Notion template) on marketplaces, with profession variants",
+      "target_customer": "Solo and small private-practice clinicians (psychotherapists, counsellors, social workers, dietitians, SLPs, coaches) in Canada/US/UK/AU who run their practice admin in spreadsheets and notebooks",
+      "problem": "Practice-management SaaS (Jane, SimplePractice) costs $40-100+/month and is overkill for a 5-15 client caseload; generic Notion 'life OS' templates ignore clinical-practice workflows like waitlists, supervision logs, CE tracking and session-fee reconciliation",
+      "offer_and_pricing": "Core Practice OS US$29; Pro US$49 adds intake/consent/informed-consent form library, supervision log, sliding-scale fee calculator, referral-source analytics and a private-practice launch checklist; profession variants (dietitian, SLP, coach) as separate US$29-39 listings; explicit positioning as admin/business tooling, not a clinical-record or PHI store",
+      "first_10_customers": "Etsy search where a dedicated market page ('notion template for therapists') already exists and top listings show only 8-45 reviews per Kupkaike's April 2026 data, 3-5 variant listings with disclosed AI assistance and detailed screenshots; Pinterest pins targeting 'private practice checklist' and 'therapist client tracker'; a free 'Private Practice Startup Checklist' Notion page distributed on Gumroad as an email-capture lead magnet. Owner setup is shared with candidate 1 (Etsy + Gumroad); the operator builds templates through the Notion API with an integration token the owner creates.",
+      "first_100_customers": "Etsy reviews compounding on the niche keywords, a small Etsy Ads test, SEO articles on practice-launch questions, the Gumroad email list from the free checklist, cross-listing on Gumroad for community-driven traffic, and Notion Marketplace listing once the creator waitlist clears (documented as 'a few months'), which brings Notion's own search demand at 8-10% + $0.40 fees.",
+      "why_over_alternatives": "Profession-specific templates are the segment Kupkaike's 2026 data flags as still open (top-5 therapist listings at 8-45 reviews versus 500-2,000+ for generic ones) at the $25-49 price band; the operator can build deeper structure (relations, rollups, formula-driven fee reconciliation) than most designer-made templates, and can ship variants per profession cheaply.",
+      "evidence": [
+        {
+          "claim": "On Etsy, 'notion template' returns 50,000+ listings, but therapist-specific top-5 listings have only 8-45 reviews; professional-grade systems price at $25-49; healthcare-professional niches are listed as 'wide open' while generic productivity/student templates are saturated.",
+          "source_url": "https://kupkaike.com/blog/is-selling-notion-templates-still-profitable-2026",
+          "recency": "2026-04-06",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Etsy has a dedicated market page for 'notion template for therapists' and a 'Therapist Toolkit Notion Template' listed from $22+ with reviews praising it as the best therapist planner found.",
+          "source_url": "https://www.etsy.com/market/notion_template_for_therapists",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Notion Marketplace: Notion is merchant of record, charges 8% + $0.40 (other sources say 10% + $0.40), pays biweekly after a 14-day hold with a $20 minimum, Canada is eligible, but creators join a waitlist that 'may take a few months to get reviewed'; buyers can refund within 14 days and copies are removed.",
+          "source_url": "https://www.notion.com/help/selling-on-marketplace",
+          "recency": "undated (read 2026-09-15)",
+          "kind": "evidence"
+        },
+        {
+          "claim": "A single Notion template ('Ultimate Brain for Notion') is estimated at $1.9M lifetime on Gumroad, showing the category ceiling.",
+          "source_url": "https://insightraider.com/en/answers/what-digital-products-sell-best-on-gumroad",
+          "recency": "2026-06-29",
+          "kind": "evidence"
+        },
+        {
+          "claim": "A creator selling aesthetic Notion templates on Gumroad reached their first $100 using Pinterest as the traffic source (Aug 2026 post; full timeline not readable, page returned 403).",
+          "source_url": "https://medium.com/@DigitalWithSann/how-i-made-my-first-100-selling-aesthetic-notion-templates-on-gumroad-using-pinterest-in-2026-4ea181756b29",
+          "recency": "2026-08",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Clinicians will accept a Notion admin tool if it is clearly positioned away from PHI/clinical notes (PIPEDA/HIPAA concerns), and the operator can build production-quality templates via the Notion API without GUI work.",
+          "source_url": "https://www.notion.com/help/template-gallery-guidelines-and-terms",
+          "recency": "undated",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 100,
+      "est_days_to_first_revenue": 21,
+      "est_day90_revenue_base_cad": 700,
+      "gross_margin_est": "~84% on Etsy sales, ~86% on Gumroad direct sales; ~75% net of a small Etsy Ads test",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Shares the Etsy + Gumroad setup with candidate 1; additionally creates a Notion workspace and an internal integration token, and later submits the Notion Marketplace creator profile (a 10-minute form). Ongoing: forwarding buyer messages, under 15 minutes per week.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "Conversion on Notion templates depends heavily on video walkthroughs and a visible creator persona, neither of which the operator can supply, so listings get views but not sales in a category with 50,000+ competing Etsy listings.",
+      "key_risks": [
+        "Etsy competitor prices/reviews unverified (pages blocked)",
+        "Notion Marketplace approval takes months, so its traffic is a Day-180 not Day-90 factor",
+        "Privacy-sensitive buyers may reject Notion for anything client-related unless positioning is precise",
+        "Notion template refunds are easy (14 days on Marketplace) and copying is trivial",
+        "Kupkaike is a secondary source that cites no primary data"
+      ],
+      "why_now_2026": "Notion's 2025-2026 push into the Marketplace (30,000+ templates, 19,000 creators) has saturated generic templates and left profession-specific systems under-supplied per April 2026 data; practice-management SaaS price increases push solo clinicians toward one-time tools; the Marketplace's merchant-of-record model makes cross-border selling frictionless once approved.",
+      "day180_asset_potential": "high",
+      "confidence": "low"
+    },
+    {
+      "name": "Accuracy-Verified, Curriculum-Coded Math Practice Bundles on Teachers Pay Teachers",
+      "one_liner": "Programmatically generated, machine-verified K-8 math practice sets (differentiated worksheets, answer keys, Google Forms self-grading versions) tagged to specific Common Core and Ontario curriculum expectations, sold on TPT where teachers already search by standard code.",
+      "model_type": "one-time digital product (PDF/Forms resources) on a marketplace with built-in search",
+      "target_customer": "US and Canadian elementary/middle-school teachers, tutors and homeschool parents searching TPT for practice aligned to a specific standard (e.g. 4.NBT.B.5, Ontario B2.4)",
+      "problem": "Teachers need many unique, differentiated practice sets per standard with correct answer keys; TPT is now polluted with error-ridden AI-generated resources (missing letters, wrong answers), so accuracy and standard-alignment are the scarce attributes",
+      "offer_and_pricing": "Single standard set US$3.50-5 (3 difficulty tiers x 10 unique pages + answer keys + Forms version); grade-level bundles US$18-25; a few free sample sets to gather ratings; every set generated deterministically and auto-checked so the answer keys are provably correct, with an honest note that generation was software-assisted and human-reviewed for pedagogy",
+      "first_10_customers": "TPT's own search: titles and metadata carry the exact standard codes teachers type; free sample resources with the same design language collect ratings; cover thumbnails built to TPT conventions; Pinterest pins of the preview pages. Owner pays the one-time US$29 basic (or US$59.95/yr premium for 80% payout) and completes tax/payout setup once; the operator uploads and updates listings through the seller dashboard on a schedule.",
+      "first_100_customers": "Catalogue breadth (a full grade's standards, then a second grade), bundles that lift average order value, TPT's seasonal cycle (January and back-to-school), ratings compounding, and repeat purchases from teachers who found one accurate set; premium membership once volume justifies the 55% to 80% payout jump.",
+      "why_over_alternatives": "Chalkbeat's August 2026 investigation and TPT's CEO response (algorithmic demotion of low-quality AI stores) mean accuracy is now the differentiator; deterministic generation with automated answer-key verification produces resources that are correct by construction, unique per page, and cheap to extend across every standard, which hand-made or ChatGPT-pasted competitors cannot match at scale.",
+      "evidence": [
+        {
+          "claim": "TPT 2026 data: basic sellers keep 55% + $0.30/transaction, premium sellers keep 80% (US$59.95/yr); average active seller earns ~$27/month; ~233k active sellers and ~$253M payouts in 2024; a cited new seller earned $31.72 in month 2 and $76.91 in month 3; first meaningful sale example at 8 days; 6-12 months to consistent income.",
+          "source_url": "https://seolumina.com/blog/how-much-do-tpt-sellers-make-in-2026-real-data-income-breakdown",
+          "recency": "2026-02-04",
+          "kind": "evidence"
+        },
+        {
+          "claim": "TPT official help page: basic sellers earn 55% per sale with a $0.30 transaction fee; premium sellers earn 80% with $0.15 only on orders under $3 (page returned 403 on direct read; figures from search result).",
+          "source_url": "https://help.teacherspayteachers.com/hc/en-us/articles/360044219891-Seller-Fees-and-Payout-Rates",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Chalkbeat found obviously wrong AI-generated TPT resources (alphabet missing F, mislabeled posters); TPT's CEO said the company uses algorithmic tools to identify and demote stores associated with low-quality AI content and that such products are a minuscule fraction of sales; TPT reaches 85% of US pre-K-12 educators.",
+          "source_url": "https://www.chalkbeat.org/2026/08/03/ai-slop-on-teachers-curriculum-marketplace/",
+          "recency": "2026-08-03",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Basic membership is a one-time US$29 fee (non-refundable, not creditable toward premium); premium is US$60/yr.",
+          "source_url": "https://seolumina.com/blog/how-to-start-selling-on-teachers-pay-teachers-in-2026-complete-beginners-guide",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Ontario-curriculum-coded resources are under-supplied relative to Common Core-coded ones on TPT; not directly measured.",
+          "source_url": "https://www.teacherspayteachers.com/become-a-seller",
+          "recency": "undated",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 120,
+      "est_days_to_first_revenue": 14,
+      "est_day90_revenue_base_cad": 300,
+      "gross_margin_est": "55% of list price on basic membership (80% on premium), minus $0.30 per transaction; no ad spend assumed",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "One-time: create the TPT seller account, pay US$29/60, complete tax and payout details. Ongoing: nothing routine; TPT pays monthly by the 21st of the following month. Possible one-off: responding if TPT's quality team asks about software-assisted generation.",
+      "automation_potential": "high",
+      "competition_intensity": "extreme",
+      "biggest_failure_reason": "TPT's post-August-2026 algorithmic demotion of stores it associates with AI generation buries a brand-new software-generated catalogue regardless of accuracy, and at US$3-5 with a 55% payout the revenue stays in the tens of dollars per month.",
+      "key_risks": [
+        "TPT has no published AI policy found, so enforcement is discretionary and could hit a compliant store",
+        "Low price points plus 55% payout make meaningful Day-90 revenue unlikely",
+        "Teachers buy from trusted, long-running stores with hundreds of ratings",
+        "SEOLumina figures are a secondary compilation; official pages were not readable",
+        "Design/pedagogy quality (layout, age-appropriate language) needs care beyond math correctness"
+      ],
+      "why_now_2026": "The August 2026 AI-slop coverage created visible demand for verifiably correct resources exactly when TPT is demoting sloppy stores; deterministic generation with automated verification is a 2026-feasible way to be the accurate option, and TPT remains the single largest built-in teacher audience.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "name": "Vertical Financial-Model and Business-Plan Templates (Excel/Sheets) on Eloquens + Gumroad",
+      "one_liner": "Bank-ready, industry-specific financial projection models (e.g. short-term-rental, café, dental/physio clinic, SaaS, marketplace) with CAD/HST-aware versions, sold on Eloquens (90% author royalty, built-in B2B search) and via Gumroad for SEO-calculator traffic.",
+      "model_type": "one-time digital product (Excel/Google Sheets financial models) on a B2B template marketplace plus creator checkout",
+      "target_customer": "Founders preparing bank or BDC loan applications, consultants and accountants building projections for clients, MBA/finance students, and small-business buyers evaluating a purchase",
+      "problem": "Generic 3-statement templates ignore vertical unit economics (occupancy and ADR for STRs, chair utilisation for clinics, churn for SaaS) and Canadian specifics (HST input credits, CCA classes), so buyers spend days adapting them or pay a consultant $1-3k",
+      "offer_and_pricing": "Per-vertical model US$39-79 (assumptions sheet, 5-year monthly P&L/cash-flow/balance sheet, scenario toggles, dashboard, loan and CCA schedules, lender-ready summary); 5-model bundle US$149; free 'lite' calculators (e.g. Airbnb profitability calculator Canada) on GitHub Pages as SEO lead-ins",
+      "first_10_customers": "Eloquens category pages where paid models already list at $15-300 (marketplace/startup categories show multiple priced tools); 8-10 vertical models published with detailed descriptions and preview images, plus free lite versions to seed downloads and ratings on the author page; parallel Gumroad listings linked from the free calculators. Owner does the one-time Eloquens author signup (bank/PayPal payout details) and the Gumroad KYC.",
+      "first_100_customers": "Eloquens tool pages rank on Google for long-tail 'X financial model template' searches; SEO calculator pages route to Gumroad; Gumroad email list of free-calculator users; cross-listing selected models on Etsy's 'business plan template' searches; adding models per vertical each month to compound catalogue coverage.",
+      "why_over_alternatives": "Eloquens keeps authors at ~90% of net (versus 50% at Envato and 40-50% at Creative Market) and has category-level demand for exactly this product; the operator can generate rigorous, formula-checked models with scenario logic and Canadian tax handling faster than most template authors, and vertical specificity is where Gumroad's Business & Money category ($49.49 average price) still converts.",
+      "evidence": [
+        {
+          "claim": "Eloquens pays authors 90% of net sales (net of Stripe/PayPal fees; one page cites 85%), authors set prices between US$15 and US$300, and balances are wired monthly (pages returned 403 on direct read; figures from search results dated 2024).",
+          "source_url": "https://about.eloquens.com/the-place-to-share-and-sell-your-best-practices/financial-models/",
+          "recency": "2024",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Eloquens has a live 'Marketplace financial model' category with multiple priced, author-branded Excel models, indicating an active catalogue and buyer demand for vertical models.",
+          "source_url": "https://www.eloquens.com/category/startups/marketplaces/135",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Gumroad's Business & Money category totals $15.4M across 1,520 products at a $49.49 average price ('strong demand but crowded'); Education products average $235.",
+          "source_url": "https://insightraider.com/en/answers/what-digital-products-sell-best-on-gumroad",
+          "recency": "2026-06-29",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Real-estate and 'complete system' templates sell at $35-79 and the real-estate professional niche is listed as still open.",
+          "source_url": "https://kupkaike.com/blog/is-selling-notion-templates-still-profitable-2026",
+          "recency": "2026-04-06",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Eloquens listing review/approval time and monthly buyer traffic: not found; assumed to be days rather than months and modest but purchase-intent-heavy traffic.",
+          "source_url": "https://www.eloquens.com/",
+          "recency": "undated",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 40,
+      "est_days_to_first_revenue": 30,
+      "est_day90_revenue_base_cad": 500,
+      "gross_margin_est": "~85-90% on Eloquens (after processor fees), ~86% on Gumroad direct",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "One-time: Eloquens author account with payout details and Gumroad/Stripe KYC (shared with other candidates). Ongoing: none beyond forwarding occasional buyer questions; the operator maintains the models and calculators on schedule.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Eloquens' actual buyer traffic and approval speed are unverified; if the marketplace is thin, this collapses into another Gumroad product with no distribution, and $39-79 financial models need visible credibility (author credentials, walkthroughs) that an anonymous operator lacks.",
+      "key_risks": [
+        "Eloquens terms and traffic could not be read directly (403); royalty and pricing are from 2024 search snippets",
+        "Financial-model buyers expect Excel polish, macros-free stability and support for lender questions",
+        "Errors in a projection template carry reputational risk; disclaimers required",
+        "Category on Gumroad is described as crowded",
+        "Canadian-specific versions narrow the audience further"
+      ],
+      "why_now_2026": "Envato's July 2026 move to a flat 50% author fee and Creative Market's 40-50% commission push template authors toward high-royalty niches like Eloquens and direct checkout; 2026 lending conditions keep small-business owners preparing projections for bank/BDC loans; spreadsheet buyers still favour one-time purchases over SaaS planning tools.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    }
+  ]
+}
