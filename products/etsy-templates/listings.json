@@ -37,5 +37,36 @@
     "files": [
       "Canadian-Sole-Proprietor-Bookkeeping-T2125-2026.zip"
     ]
+  },
+  "listing-2": {
+    "sku": "MS-GSTQM-2026",
+    "title": "GST HST Quick Method Calculator Canada | Regular vs Quick Method Comparison, $30,000 Small Supplier Tracker | Excel Google Sheets",
+    "price_cad": 14.0,
+    "tags": [
+      "GST HST calculator",
+      "quick method GST",
+      "small business tax",
+      "sole proprietor",
+      "self employed canada",
+      "GST HST tracker",
+      "tax spreadsheet",
+      "google sheets",
+      "excel template",
+      "freelancer canada",
+      "HST calculator",
+      "bookkeeping canada",
+      "small supplier"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "Should you use the GST/HST quick method? Enter your quarterly sales and the GST/HST you paid, pick your province and business type, and this calculator shows what you would remit under the regular method and under the quick method (CRA RC4058 rates, including the 1% credit on your first $30,000 and the special rates for goods for resale). It also tracks the $30,000 small-supplier threshold and tells you when you must register, and includes a simple 'should I register voluntarily?' worksheet.\n\nWHAT'S INSIDE\n• Settings: province (all 13 provinces and territories), business type, registered or not\n• Quarterly inputs: taxable sales, ITC-eligible GST/HST paid, GST/HST on capital purchases\n• Regular method net tax by quarter and year\n• Quick method: eligible supplies, RC4058 remittance rate for your province and rate charged, 1% credit, goods credit, capital ITCs, net tax\n• Comparison: which method keeps more in your pocket and by how much; eligibility check ($400,000 limit)\n• Small-supplier tracker: highest quarter, rolling four quarters, status that turns red when you must register\n• Voluntary registration worksheet: ITCs you would recover vs the time it costs you\n\nDETAILS\n• 2026 edition; RC4058 rates and the Nova Scotia 14% HST checked against CRA in September 2026\n• Works in Excel 2016+ and Google Sheets (File > Import); no macros\n• Instant download (.xlsx). Example figures included; replace them with yours.\n\nHONEST NOTES\n• Bookkeeping tool, not tax advice. Some businesses cannot use the quick method (accountants, bookkeepers, lawyers, financial consultants, listed financial institutions and others listed in RC4058); confirm with the CRA or an accountant before electing.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; validated by an automated test before release.\n• Problems? Message us: we fix it or refund it.",
+    "images": [],
+    "files": [
+      "GST-HST-Quick-Method-Calculator-Small-Supplier-Tracker-2026.xlsx"
+    ]
   }
 }
