@@ -6,9 +6,9 @@ What runs unattended, how, its dependencies, and how it fails safely. Never fabr
 
 | Name | Trigger | What it does | Dependencies | Failure mode | Status |
 |---|---|---|---|---|---|
-| _none yet_ | | | | | |
+| **project-money-heartbeat** | Claude Code Routine `trig_011Jxkszohr4k7TKLuEqQPu1`, cron `8 */8 * * *` UTC (00:08, 08:08, 16:08), fresh session per firing in environment `env_011Rqnj5AepURDBdtY9dZ92j`, push notification on noteworthy runs | Clones/pulls the working branch, reads state, takes the `ops/LOCK` lease, does the highest-value unblocked work (stats pull, listings, generators, docs), persists state, pushes | GitHub push access from a fresh session (clone fallback + `add_repo` in the prompt); env vars `ETSY_KEYSTRING`/`ETSY_REFRESH_TOKEN` for shop work; owner's Claude usage (~3 sessions/day) | A firing that hits the usage limit or fails shows `last_run.status != SUCCEEDED` in the owner's Routines list; the next firing continues from the repo. Concurrent sessions are serialized by the lease (stale after 3 h). Owner can pause/delete the Routine at claude.ai/code → Routines. | created 2026-09-15T17:08Z; plumbing test firing pending |
 
-## Planned: mission heartbeat (design; the trigger is created at the end of the Day-1 session and its id recorded here)
+## Mission heartbeat design (trigger created 2026-09-15; see table above)
 
 The exact prompt is `ops/HEARTBEAT_PROMPT.md`; the lease lock is `ops/lock.py`.
 
