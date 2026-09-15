@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node products/store/intel/adlibrary_probe.mjs *)",
+      "Bash(node products/store/intel/adlibrary_probe.mjs)"
+    ]
+  }
+}
