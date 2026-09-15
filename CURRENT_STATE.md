@@ -22,7 +22,7 @@ Day 1. Strategy selected (D-005): **MapleSheets**, an Etsy shop of Canadian smal
 
 ## Owner-only blockers
 
-- **Block 1 (Etsy shop + API app + OAuth), ~45 min** — `OWNER_ACTIONS.md`. Until done: no listings, no EXP-001.
+- **Block 1 (Etsy shop + API app + OAuth, optional Printify), ~45-55 min** — `OWNER_ACTIONS.md`. Owner confirmed on Day 1 they will do it (D-008). Until done: no listings, no EXP-001.
 
 ## Exact next actions (in order)
 
@@ -31,4 +31,4 @@ Day 1. Strategy selected (D-005): **MapleSheets**, an Etsy shop of Canadian smal
 3. Resolve the taxonomy id (`etsy_api.py taxonomy template`), create listing 1 as draft, upload the ZIP and six images, activate; record the listing id in `products/etsy-templates/listings.json`.
 4. Start EXP-001 (14-day visibility test): daily stats pull → `KPI_DASHBOARD.md`.
 5. Build listing 2 (quick-method calculator + small-supplier tracker) with its own tests; publish; then the bundle.
-6. Meanwhile (no credentials needed): listing 3 (home-office + vehicle) and listing 4 (instalment planner; verify 2026 brackets first) generators with tests and images; ledger importer for Etsy Payments; `ops/status.py` Etsy extension.
+6. Meanwhile (no credentials needed): listing 3 (home-office + vehicle) and listing 4 (instalment planner; verify 2026 brackets first) generators with tests and images; ledger importer for Etsy Payments; `ops/status.py` Etsy extension; Printify API client + 3-5 Canadian-gift designs for the POD line (publish once `PRINTIFY_TOKEN` exists).

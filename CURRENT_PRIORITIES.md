@@ -8,3 +8,4 @@ _Updated 2026-09-15 (Day 1, evening)_
 4. **Waiting on owner:** `OWNER_ACTIONS.md` Block 1 → then run EXP-001 immediately.
 5. **Heartbeat Routine** live (`AUTOMATIONS.md`) so the mission continues without this session.
 6. Listings 2-4 generators (quick-method calculator; home-office/vehicle workbook; instalment planner) after listing 1 is published.
+7. **POD line (D-008):** Printify API client (`products/pod/`), 3-5 Canadian-gift designs rendered programmatically, product mockups, listing copy; publish when `PRINTIFY_TOKEN` exists. Zero cost until an order.
