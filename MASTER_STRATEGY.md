@@ -99,15 +99,15 @@ Shopify Admin API for catalogue, orders and fulfilment; CJ API for order routing
 | Shopify (3 months at $1) + domain | ~20 |
 | fal.ai credits (video/images) | 35 |
 | Anthropic API credits (support agent) | 35 |
-| Meta ads, stage 1 (3 products × ~CA$50, kill fast) | 150 |
-| Meta ads, stage 2 (only if a product converts) | 250 |
+| Meta ads, stage 1 (3 products × CA$50 screens + CA$50 diagnostic extension pool) | 200 |
+| Meta ads, stage 2 (only if a product converts) | 200 |
 | Product sample (only for a scaling product) | 30 |
 | **Track B cap** | **≈ 520** |
 Track A ≤ 190; reserve ≥ 290. Proceeds from a converting product are reinvested into its ad budget (D-009), never beyond measured ROAS.
 
 ## Stage gates (EXP-004, EXP-005)
-- **Stage 1 (Days ~10-24):** 3 products live, CA$15/day each, lifetime cap CA$50 per product. Kill a product at CA$50 spend with zero purchases or at 60 clicks with zero add-to-carts. Pass = any product with ≥ 2 purchases and ROAS ≥ 1.2 at stage end.
-- **Stage 2:** the passing product gets up to CA$250 more, scaled in +30% steps every 3 days while ROAS ≥ 1.6; the others are retired. A second research batch replaces killed products only if stage 1 leaves budget.
+- **Stage 1 (Days ~10-24):** the top 3 of the product-intelligence queue (SPEC §8) go live at CA$15/day each, lifetime cap CA$50 per product, plus a CA$50 extension pool. Kills follow the funnel diagnosis in SPEC §9 (creative swap allowed; extension for healthy CTR/ATC without a purchase). Pass = any product with ≥ 2 purchases and ROAS ≥ 1.2 at stage end.
+- **Stage 2:** the passing product gets up to CA$200 more, scaled in +30% steps every 3 days while ROAS ≥ 1.6; the others are retired. A second research batch replaces killed products only if stage 1 leaves budget.
 - **Track kill:** stage 1 ends with no passing product → Track B stops; remaining budget returns to reserve; the store stays up passively. No sunk-cost extension.
 - **Scale:** ROAS ≥ 2 on ≥ 20 purchases → reinvest proceeds, add creatives, add a second country or product, raise cadence of operator runs.
 

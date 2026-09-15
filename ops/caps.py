@@ -9,7 +9,7 @@ LEDGER = ROOT / "finance" / "FINANCIAL_LEDGER.csv"
 TOTAL_BANKROLL = 1000.00
 CAPS = {  # MASTER_STRATEGY allocations; change only via DECISION_LOG
     "A": {"ads": 200.00, "total": 240.00},  # Track A: Etsy setup + listing fees + ads (planning figure 190; hard guard 240)
-    "B": {"ads_stage1": 150.00, "ads_stage2": 250.00, "ads": 400.00, "tools": 120.00, "total": 520.00},
+    "B": {"ads_stage1": 150.00, "ads_stage1_extension": 50.00, "ads_stage2": 200.00, "ads": 400.00, "tools": 120.00, "total": 520.00},
 }
 RESERVE_MIN = 290.00
 

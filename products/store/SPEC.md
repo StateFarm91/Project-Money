@@ -42,3 +42,25 @@ Owner: Claude operator sessions. Status: spec; implement in this order as creden
 - Store: policies live with real delivery ranges; support address working end-to-end (test email round-trip); pixel firing on purchase (test order); prices and markets set; product pages honest.
 - Ads: lifetime caps set in Meta; UTM on all links; creatives reviewed for claims.
 - Ops: support agent deployed and tested with 5 scripted cases; kill switch tested; ledger importer tested; `EXPERIMENTS.md` EXP-004 status = running with start date.
+
+## 8. Product-intelligence pipeline (added Day 1 evening after an external audit; D-012)
+Purpose: replace a one-time product pick with a scored queue that is re-run on every heartbeat, so the three products that receive stage-1 budget are the best available on launch day, not on September 15.
+
+**Discovery (target 100-300 candidates).** CJ Dropshipping weekly winning-product reports and trending lists (public; API after Block 2A); supplier category feeds; Q4 seasonal lists from at least two independent 2026 sources; optional one-month subscription to one paid ad-intelligence tool (Minea, Dropship.io or Sell The Trend) only if the free pipeline cannot rank with confidence, funded from the tools budget with a cap decision logged first.
+**Ad validation.** Meta Ad Library (public transparency tool) queried by product keyword and country via the sandbox's headless browser: count of active ads, number of distinct advertisers, earliest "started running" dates (longevity), media types. Rate-limited, keyword-level, no login. Signal: multiple independent advertisers with ads older than 3-4 weeks and new ads still appearing.
+**Demand validation.** Google Trends (pytrends or the export endpoint) for 12-month direction, Q4 seasonality and CA/US geography; Amazon best-seller movement from published reports (no scraping of Amazon).
+**Saturation and pricing.** Competitor Shopify stores found by search; their public `/products.json` catalogues give prices, variants and how many stores sell the item; page quality noted by hand-rules (reviews, shipping statement, trust elements).
+**Supplier economics.** CJ API: landed cost to CA and US, warehouse stock (US/CA flag), processing and delivery estimates, supplier rating; margin rule (landed ≤ 1/3 retail) and break-even ROAS computed per product.
+**Scoring (0-100).** Demand 20, ad longevity/independent advertisers 20, saturation (inverse) 15, margin 15, shipping speed/reliability 15, Q4 relevance 10, creative potential (visual demo, problem obvious in 3 seconds) 5. Legitimacy filter is pass/fail before scoring. Output `products/store/PRODUCT_QUEUE.md` with per-product sub-scores, estimated break-even ROAS, evidence links and a TEST / WATCH / REJECT verdict. Re-run each heartbeat; the queue can change until the day ads launch; a product already in test is not swapped mid-test.
+**Implementation.** `products/store/intel/`: `adlibrary_probe.mjs` (Playwright), `trends.py`, `shopify_catalog.py`, `cj_costs.py` (after key), `score.py`, `build_queue.py`; fixtures and offline tests; a `--dry` mode that scores from cached inputs.
+
+## 9. Stage-1 diagnostic gates (replaces "no purchase at CA$50 → kill"; D-012)
+The CA$50 per product is a screen, not proof. After each CA$25 of spend (and daily), classify the funnel with Meta insights + Shopify analytics before any kill:
+| Symptom | Likely cause | Action (within the product's budget) |
+|---|---|---|
+| Link CTR < 0.8% after ~1,500 impressions | creative or hook | swap to the next creative variant (2-3 prepared per product); one swap allowed |
+| CTR ≥ 0.8% but landing-page-view → add-to-cart < 3% | product page, offer, price | fix page (images, benefits, price test, shipping statement); continue |
+| ATC ≥ 3% but initiate-checkout low | trust, shipping cost/time, price shock | fix shipping display, add trust elements, test free shipping threshold |
+| Checkouts but no purchases | checkout or payment friction | verify Shopify Payments, wallets, address/tax display |
+| CTR ≥ 1.5% and ATC ≥ 5% but no purchase yet at CA$50 | insufficient data | extend from the CA$50 extension pool |
+Kill when: CTR < 0.6% after a creative swap, OR the diagnosed fix has been applied and a further CA$25 shows no improvement, OR both CTR and ATC are below threshold. Budget: three screens of CA$50 (CA$150) plus a CA$50 extension pool (moved from stage 2, which becomes CA$200); total ads for Track B unchanged at CA$400. Creative-level reporting (per ad) is mandatory in the daily insights pull.

@@ -54,13 +54,13 @@ Every major commercial assumption is an experiment. Template:
 - Result / decision: pending.
 
 ### EXP-004: Track B stage 1 — three products, kill fast
-- Status: planned (needs OWNER_ACTIONS Block 2 and 3 researched products)
+- Status: planned (needs OWNER_ACTIONS Block 2 and the top 3 of the product-intelligence queue, SPEC section 8; the Day-1 picks are candidates, not winners)
 - Hypothesis: at least one of three research-selected products converts on Meta at ROAS ≥ 1.2 within CA$50 of spend each.
-- Max test cost: CA$150 ads + CA$20 store/domain + CA$35 fal.ai + CA$35 Anthropic credits.
+- Max test cost: CA$150 ads (+ CA$50 extension pool moved from stage 2) + CA$20 store/domain + CA$35 fal.ai + CA$35 Anthropic credits.
 - Expected result: 1 of 3 products reaches ≥ 2 purchases.
 - Primary metric: purchases, ROAS, add-to-cart rate, CPC (Meta Marketing API insights; Shopify orders).
 - Success threshold: any product with ≥ 2 purchases and ROAS ≥ 1.2 at CA$50 spend.
-- Failure threshold: per product: CA$50 spent with 0 purchases, or 60 clicks with 0 add-to-carts → kill. Track: all three killed → Track B stops.
+- Failure threshold (revised D-012): per product, kill only after funnel diagnosis per SPEC section 9: CTR < 0.6% after a creative swap, OR the diagnosed fix applied and a further CA$25 shows no improvement, OR CTR and ATC both below threshold. A product with healthy CTR/ATC but no purchase at CA$50 draws from the CA$50 extension pool. Track: all three killed → Track B stops.
 - Decision deadline: 10 days after ads start.
 - If successful: EXP-005 (stage 2 scale) on the passing product.
 - If unsuccessful: Track B stops; budget back to reserve; lessons logged.
@@ -68,7 +68,7 @@ Every major commercial assumption is an experiment. Template:
 
 ### EXP-005: Track B stage 2 — scale the passing product
 - Status: planned
-- Hypothesis: the passing product holds ROAS ≥ 1.6 while budget rises 30% every 3 days up to CA$250 additional spend.
+- Hypothesis: the passing product holds ROAS ≥ 1.6 while budget rises 30% every 3 days up to CA$200 additional spend (CA$50 moved to the stage-1 extension pool, D-012).
 - Primary metric: ROAS on ≥ 20 purchases; refund rate < 8%; delivery complaints < 5%.
 - Success threshold: ROAS ≥ 1.6 sustained; then reinvest proceeds.
 - Failure threshold: ROAS < 1.2 over any CA$80 of spend → stop scaling; ROAS < 1.0 → kill.
