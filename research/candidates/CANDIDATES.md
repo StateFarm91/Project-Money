@@ -1,6 +1,6 @@
 # CANDIDATES — opportunity sweep
 
-_Built 2026-09-15T16:30Z by `ops/build_candidates.py` from 3 raw research files. 15 candidates. Every evidence item carries a URL and an evidence/assumption label as returned by the researcher; numbers are researcher estimates, not measurements._
+_Built 2026-09-15T16:39Z by `ops/build_candidates.py` from 6 raw research files. 42 candidates. Every evidence item carries a URL and an evidence/assumption label as returned by the researcher; numbers are researcher estimates, not measurements._
 
 ## Summary table
 
@@ -21,6 +21,33 @@ _Built 2026-09-15T16:30Z by `ops/build_candidates.py` from 3 raw research files.
 | C13 | DeliverySettle (third-party delivery payout reconciliation for independent restaurants) | micro-SaaS subscription per location, with a bookkeeper mult | Independent restaurant owners with 1-5 locations (Canada and US) and t | Canadian-first SEO/Reddit content that does not exist yet ('How to read a SkipTheDishes st | 30 | 220 | 500 | low | medium | low |
 | C14 | Sprint Scope Guard (Forge 'Runs on Atlassian' app for Jira Cloud) | Atlassian Marketplace paid app (Atlassian bills customers; 1 | Scrum masters, delivery managers and Jira admins on Jira Cloud sites o | Atlassian Marketplace search for 'sprint scope change', 'sprint report', 'carry-over' wher | 65 | 80 | 150 | medium | high | low |
 | C15 | Reorder Radar (focused Shopify inventory forecasting between $9 alert apps and $49+ planners) | Shopify App Store subscription (Shopify Billing, 0% revenue  | Small and mid-size Shopify merchants with 100-5,000 SKUs (typically $0 | Shopify App Store category listing (Orders & shipping > Inventory > Inventory optimization | 55 | 60 | 150 | low | extreme | low |
+| C16 | Canadian Money Tools (FHSA/TFSA/RRSP intent calculators + Wealthsimple/EQ affiliate) | affiliate intent-tool site | Canadians aged 20-40 checking FHSA/TFSA/RRSP room and comparing accoun | First 10 affiliate conversions from Reddit r/PersonalFinanceCanada answers that link the c | 45 | 40 | 150 | low | high | low |
+| C17 | DrawWatch: Express Entry / PNP draw alerts with CRS-threshold push and history API | freemium data/alert product (one-time or annual fee) | Express Entry and PNP candidates (hundreds of thousands in the pool) a | Organic posts/answers in immigration subreddits and Discord servers where tool links are p | 21 | 60 | 300 | low | high | medium |
+| C18 | SmallBid: SMB-sized Canadian public tender alerts (CanadaBuys + provincial portals) with AI summaries | paid alert/data subscription (freemium) | Canadian small service businesses (1-20 staff) who could bid on small  | SEO pages per trade and province ('janitorial tenders Ontario') and posts in Canadian smal | 30 | 80 | 200 | low | high | low |
+| C19 | Hometown Personalized Gifts on Etsy (Printify, Canadian print providers) | print-on-demand e-commerce (Etsy + Printify) | Canadian gift buyers (moving-away, new-home, hockey-family, cottage) w | Etsy search (Canadian-specific long-tail keywords like town names and 'Canada' gifts) plus | 25 | 150 | 450 | low | extreme | medium |
+| C20 | Canadian Test-Prep Workbooks on Amazon KDP | self-published paperback (Amazon KDP) | Newcomers preparing for the Canadian citizenship test, new drivers by  | Amazon.ca organic search for exam-name keywords plus a free companion quiz site linking to | 30 | 60 | 120 | low | high | low |
+| C21 | Multi-marketplace passive POD (Redbubble/TeePublic) for niche Canadian humour designs | marketplace POD (zero-inventory, platform-run) | Casual gift shoppers browsing Redbubble/TeePublic for niche-identity s | Marketplace internal search driven by tag-rich listings; no external marketing. | 40 | 0 | 40 | low | extreme | low |
+| C22 | HiresCanadians: remote jobs board of roles explicitly open to Canada-based applicants | niche job board (free aggregated listings + paid featured) | Candidate side: Canadian knowledge workers filtering out US-only remot | Employers whose aggregated listings already get clicks are offered an upgrade via the list | 40 | 60 | 200 | low | high | low |
+| C23 | Exclusive-lead RFQ site for one trade in one province (e.g., septic pumping / basement waterproofing in Ontario) | inbound lead generation (pay-per-lead, exclusive) | Small Ontario contractors in one high-ticket, low-competition trade wh | Contractors arrive via the site's 'get leads' page found through SEO ('exclusive [trade] l | 35 | 300 | 500 | medium | medium | medium |
+| C24 | HostedInCanada: directory of SaaS/cloud tools with Canadian data residency, monetized by featured vendor listings | directory with paid featured listings/sponsorship | Buyers: Canadian SMBs, clinics, law firms, municipalities and public-s | Vendors whose free listing page ranks for '[category] Canadian data residency' see the upg | 45 | 60 | 200 | low | medium | low |
+| C25 | VibeLaunch: launch board for AI-built apps with paid featured slots | Marketplace / directory with paid featured listings (one-tim | Solo founders and vibe-coders (Lovable, Cursor, Bolt users) launching  | Post the board itself on r/SideProject, r/indiehackers, X build-in-public and Indie Hacker | 18 | 80 | 1500 | low | high | medium |
+| C26 | FounderSwitch: continuity dead-man's switch for solo SaaS operators | Pay-once / low-subscription single-purpose utility | Solo SaaS founders and indie devs with paying customers who worry abou | Launch post on Indie Hackers and HN ('Ask HN: what happens to your SaaS if you die?' angle | 21 | 60 | 600 | low | medium | low |
+| C27 | Pay-once Chrome extension for Etsy sellers (listing tag/SEO analyzer) | Chrome extension, pay-once via ExtensionPay/Stripe | Etsy sellers (7M+ active shops) who resent $9.99-$29.99/mo SEO subscri | Chrome Web Store organic search ('Etsy tags', 'Etsy SEO') plus a launch in r/EtsySellers a | 25 | 40 | 700 | low | high | low |
+| C28 | PulseNPS: flat-rate Stripe-native NPS/CSAT for small SaaS (Delighted replacement) | Micro-SaaS subscription (Stripe) | Indie and early-stage SaaS teams (50-2,000 active customers, under $1M | Comment-and-answer presence in the Reddit threads (r/SaaS, r/SideProject, r/CustomerSucces | 28 | 120 | 900 | low | high | medium |
+| C29 | AI-Label Kit: Article 50 disclosure + C2PA marking for small publishers and agencies | Freemium WordPress plugin + pay-once policy generator (Freem | Small agencies, bloggers, e-commerce and media sites in or selling int | WordPress.org plugin directory organic installs (search 'AI label', 'AI Act'); a bilingual | 30 | 100 | 500 | low | medium | low |
+| C30 | CountKit: Shopify POS stocktake, purchase-order and transfer app for Stocky refugees | Shopify App Store subscription (Shopify Billing API) | Small multi-location or single-store Shopify POS retailers (boutiques, | Shopify App Store search for 'Stocky', 'stocktake', 'purchase orders' (Stocky's removal le | 35 | 150 | 600 | medium | high | low |
+| C31 | Avis de hausse: bilingual Quebec TAL rent-increase notice generator for small landlords | Pay-per-document / low annual subscription (Stripe) | Quebec small landlords (duplex/triplex owners, ~40% of Quebec rental u | SEO in French and English for 'avis d'augmentation de loyer 2027 modèle', 'TAL rent increa | 30 | 60 | 300 | low | medium | low |
+| C32 | Manuel RH bilingue: Quebec bilingual (FR/EN) employee handbook and HR policy pack | Digital product / template pack (Stripe Managed Payments + E | Quebec employers with 5-50 employees (and Canadian firms hiring in Que | Etsy search ('manuel de l'employé Québec', 'employee handbook Quebec'), Google SEO in Fren | 21 | 80 | 900 | low | medium | medium |
+| C33 | FrancoCheck: Bill 96 French-content audit for Quebec-facing online stores | Pay-per-report SaaS + monthly monitoring (Stripe); optional  | Canadian and US e-commerce merchants selling into Quebec (Shopify Plus | SEO for 'Bill 96 Shopify', 'Loi 96 boutique en ligne conformité', 'OQLF complaint e-commer | 25 | 90 | 500 | low | low | low |
+| C34 | Loi 25 Consent for WordPress (Freemius) | freemium plugin, annual licence | Quebec and Canadian small businesses and their web agencies running Wo | WordPress.org search for 'loi 25' / 'law 25' (plugin listing ranks for exact-match niche t | 25 | 60 | 900 | low | medium | medium |
+| C35 | MeetRoll: Google Meet attendance and chat exporter (Chrome, ExtensionPay) | freemium Chrome extension, ExtensionPay one-time + annual | Teachers, corporate trainers, tutoring businesses and compliance-bound | Chrome Web Store search for 'google meet attendance' (established intent; prior extensions | 18 | 40 | 700 | low | medium | medium |
+| C36 | Canadian Sales Tax Invoicer for Google Sheets (Workspace Marketplace) | Workspace add-on, freemium with annual licence (Stripe via o | Canadian freelancers and micro-businesses invoicing from Google Sheets | Workspace Marketplace search for 'invoice Canada' / 'GST HST', r/PersonalFinanceCanada and | 40 | 50 | 400 | low | medium | low |
+| C37 | Bill 96 French Storefront Pack (Shopify/WooCommerce catalogue translation) | productized service, landing page (Stripe) + Fiverr gig | English-only Canadian and US Shopify/WooCommerce merchants selling int | Fiverr gig in Translation > Website localisation (search 'Bill 96', 'French Canadian Shopi | 16 | 120 | 2400 | low | medium | medium |
+| C38 | Podcast Episode Kit (transcript, chapters, show notes, clips list) | productized service on Fiverr + landing page subscriptions | Independent podcasters and YouTube creators publishing weekly who lack | Fiverr search in Podcast Editing / Podcast Transcript categories (24+ listed gigs show buy | 14 | 80 | 900 | low | extreme | medium |
+| C39 | CleanList: CRM/CSV deduplication and standardisation (Upwork Project Catalog) | productized service on Upwork Project Catalog + landing page | Small businesses and nonprofits migrating between CRMs (HubSpot, Mailc | Upwork Project Catalog listings under Data Cleaning (multiple active catalog products show | 21 | 60 | 800 | low | high | low |
+| C40 | StatementCSV: bank/credit-card statement PDF to CSV with credit packs | web tool, one-time credit packs via Stripe Managed Payments | Bookkeepers, sole proprietors and tax preparers reconciling year-end w | Google/Bing searches 'convert RBC statement to CSV', 'TD statement pdf to excel' (many pai | 24 | 90 | 600 | low | high | low |
+| C41 | ChatExhibit: WhatsApp/iMessage export to court-ready PDF | web tool, one-time payment via Stripe Managed Payments | Self-represented litigants, paralegals and small law firms in Canada/U | Google searches 'whatsapp chat to pdf for court' (multiple paid competitors and 2025 legal | 20 | 70 | 700 | low | medium | medium |
+| C42 | SubTranslate: pay-per-file SRT/VTT subtitle translator with fr-CA and timing preservation | web tool, credits via Stripe Managed Payments, LLM-fulfilled | Small video producers, course creators and Canadian organisations that | Google searches 'translate srt file', 'srt translator french canadian' (2026 roundups list | 22 | 80 | 400 | low | high | low |
 
 ## Candidates
 
@@ -434,6 +461,646 @@ _Lens: Vertical micro-SaaS / B2B tools_
   - [evidence] The Shopify 'Inventory optimization' category lists 573 apps — <https://apps.shopify.com/categories/orders-and-shipping-inventory-inventory-optimization/all> (2026)
   - [assumption] A $19 flat plan positioned as 'forecasting-lite' will convert merchants who currently use $9 alert apps; no identical flat-priced competitor was verified — <https://apps.shopify.com/categories/orders-and-shipping-inventory-inventory-optimization/all> (undated)
 
+### C16 — Canadian Money Tools (FHSA/TFSA/RRSP intent calculators + Wealthsimple/EQ affiliate)
+
+_Lens: CONTENT, AFFILIATE, NEWSLETTER, DATA PRODUCTS_
+
+- **One-liner:** A small site of Canada-specific personal-finance calculators (FHSA contribution room, TFSA room by birth year, RRSP-vs-TFSA, 2026 mortgage stress test) monetized by Canadian fintech affiliate payouts.
+- **Model:** affiliate intent-tool site
+- **Target customer:** Canadians aged 20-40 checking FHSA/TFSA/RRSP room and comparing accounts before opening one (Wealthsimple, EQ Bank).
+- **Problem:** Government pages explain rules but do not compute a person's room or compare accounts; existing calculator sites are US-centric or bank-owned.
+- **Offer and pricing:** Free calculators; revenue from Wealthsimple affiliate (5% per sale / up to $1,250 per funded client) and EQ Bank referral bonuses; optional CAD 9 'export my plan' PDF later.
+- **First 10 customers:** First 10 affiliate conversions from Reddit r/PersonalFinanceCanada answers that link the calculator only where subreddit rules allow tool links, plus long-tail SEO for 'FHSA contribution room calculator 2026' style queries.
+- **First 100 customers:** Programmatic pages per year-of-birth/province (TFSA room tables), Pinterest pins of the charts, and inclusion in Canadian finance Discord/Reddit wikis; 100 funded referrals is a Day-120+ outcome, not Day-90.
+- **Why over alternatives:** Canada-specific 2026 limits, no login, no bank bias; the affiliate payout per funded account is large enough that a few hundred monthly visitors can pay for the site.
+- **Why now (2026):** FHSA is still new (2023) and 2026 limits/mortgage rules changed, creating fresh query demand; Canadian fintech affiliate payouts are at record highs while US-centric calculator sites ignore Canada.
+- **Gross margin (est.):** 90%+ (hosting near zero; affiliate payouts net of nothing)
+- **Owner involvement:** Owner registers domain and applies to Wealthsimple/EQ affiliate programs (identity, tax info) in setup block; nothing weekly.
+- **Biggest failure reason:** Affiliate approval delayed or denied for a brand-new site, and SEO traffic too slow inside 90 days.
+- **Estimates:** capital 40 CAD; days to first revenue 45; Day-90 base revenue 150 CAD; owner low; automation high; competition high; Day-180 asset medium; confidence low
+- **Key risks:** Affiliate program may require established traffic before approval; AI Overviews absorb simple 'what is my TFSA room' queries; Reddit self-promotion rules limit distribution; Payout lag: funded-account conversions may post after Day 90
+- **Evidence:**
+  - [evidence] Wealthsimple affiliate program pays 5% per sale and a referral marketing fee up to $1,250 when a client opens and funds an account within 30 days. — <https://getlasso.co/affiliate/wealthsimple/> (2026)
+  - [evidence] Wealthsimple's own affiliate referral program page confirms compensation is tied to a Promotion Account opened via tracked link and funded within 30 days. — <https://promotions.wealthsimple.com/hc/en-ca/articles/29448182409499-Wealthsimple-Affiliate-Referral-Program> (2025-2026)
+  - [evidence] EQ Bank runs a referral program with bonuses up to $500 (customer referral, not a formal affiliate rate). — <https://www.savvynewcanadians.com/eq-bank-promotion/> (2026)
+  - [assumption] Calculator pages will earn organic clicks despite AI Overviews; no case study found either way. — <not found> (n/a)
+
+### C17 — DrawWatch: Express Entry / PNP draw alerts with CRS-threshold push and history API
+
+_Lens: CONTENT, AFFILIATE, NEWSLETTER, DATA PRODUCTS_
+
+- **One-liner:** Free draw alerts plus a one-time paid tier that pushes instantly (email/Telegram/Discord) when a draw meets the user's category and CRS score, backed by a public JSON API of draw history.
+- **Model:** freemium data/alert product (one-time or annual fee)
+- **Target customer:** Express Entry and PNP candidates (hundreds of thousands in the pool) and small immigration consultants tracking draws for clients.
+- **Problem:** IRCC's free emails are generic; candidates want to know within minutes whether THEIR score/category was drawn and what the trend implies.
+- **Offer and pricing:** Free basic alerts; CAD 19 lifetime or CAD 4/mo for personalized threshold alerts, category tracking and history dashboards; CAD 29/mo API tier for consultants.
+- **First 10 customers:** Organic posts/answers in immigration subreddits and Discord servers where tool links are permitted, and SEO pages 'latest Express Entry draw' auto-updated within minutes of each draw.
+- **First 100 customers:** Ranking for per-category draw pages (CEC, French, healthcare) and referral links from users; consultants discover the API via the public history pages.
+- **Why over alternatives:** Personalized threshold alerts and a machine-readable history API; TraceCA proves paid demand but offers only generic alerts.
+- **Why now (2026):** Category-based draws (French, healthcare, trades) multiplied in 2025-2026, making generic alerts less useful and score/category-specific alerts more valuable.
+- **Gross margin (est.):** 90%+ (Stripe fees only; scraping of public IRCC pages is free)
+- **Owner involvement:** Owner sets up Stripe and domain once; all draw ingestion, alerts and support FAQs are automated.
+- **Biggest failure reason:** Free alternatives (IRCC email, X accounts, consultancy pages) are good enough and users will not pay even CAD 19.
+- **Estimates:** capital 60 CAD; days to first revenue 21; Day-90 base revenue 300 CAD; owner low; automation high; competition high; Day-180 asset medium; confidence medium
+- **Key risks:** Immigration subreddits restrict promotional links; Draw frequency is irregular so value is episodic; Consultancy sites dominate SEO for draw queries; Must not present as immigration advice (regulated in Canada)
+- **Evidence:**
+  - [evidence] TraceCA sells 'lifetime access for unlimited future alerts' on top of free email alerts and claims 2,807 applicants have used it. — <https://www.traceca.site/> (2026 (fetched 2026-09-15))
+  - [evidence] IRCC offers free generic Express Entry email updates, setting the free baseline the paid tier must beat. — <https://ircc.canada.ca/english/immigrate/express/express-entry/sign-up.asp> (ongoing)
+  - [evidence] Multiple consultancies (canadim.com, immigration.ca) publish draw trackers, indicating high search demand for draw results. — <https://www.canadim.com/immigrate/express-entry/draws/> (2025)
+  - [assumption] Conversion of free alert users to a CAD 19 tier at 2-3% is assumed, not measured. — <not found> (n/a)
+
+### C18 — SmallBid: SMB-sized Canadian public tender alerts (CanadaBuys + provincial portals) with AI summaries
+
+_Lens: CONTENT, AFFILIATE, NEWSLETTER, DATA PRODUCTS_
+
+- **One-liner:** A vertical-specific tender alert and digest service for small Canadian service firms (e.g., janitorial, landscaping, IT services under $100k) built on free CanadaBuys open data.
+- **Model:** paid alert/data subscription (freemium)
+- **Target customer:** Canadian small service businesses (1-20 staff) who could bid on small federal/provincial contracts but do not pay MERX.
+- **Problem:** CanadaBuys is free but noisy; MERX charges $15-$160/mo; owners want only the small contracts in their trade, summarized in plain language.
+- **Offer and pricing:** Free weekly digest; CAD 15/mo per trade vertical with daily alerts, AI summaries and deadline calendar; CAD 39/mo multi-vertical.
+- **First 10 customers:** SEO pages per trade and province ('janitorial tenders Ontario') and posts in Canadian small-business communities where tool sharing is allowed; free tier converts to paid when a relevant tender appears.
+- **First 100 customers:** Programmatic coverage of every trade x province, a public 'awarded contracts' dataset that earns links, and referrals from bookkeepers/associations.
+- **Why over alternatives:** Cheaper and narrower than MERX/Biddingo; unlike GovBids (general), it is filtered to small-value contracts a micro-business can actually win.
+- **Why now (2026):** CanadaBuys fully replaced BuyandSell and publishes open data; cheap LLM summarization makes plain-language, trade-filtered digests feasible for a solo operator.
+- **Gross margin (est.):** 85% (LLM summaries ~US$0.005/call, Stripe fees)
+- **Owner involvement:** Owner sets up Stripe/domain; ingestion, summaries and billing are fully automated.
+- **Biggest failure reason:** Crowded with recent indie clones of the same free data; differentiation by vertical may not overcome buyer inertia.
+- **Estimates:** capital 80 CAD; days to first revenue 30; Day-90 base revenue 200 CAD; owner low; automation high; competition high; Day-180 asset medium; confidence low
+- **Key risks:** CanadaBuys data licence terms must be respected; Provincial portals vary and some restrict scraping; Small firms rarely bid; low activation; Churn after first unsuccessful bid
+- **Evidence:**
+  - [evidence] GovBids sells CanadaBuys-derived alerts at $19/$39/$79 per month, claiming ~80% less than MERX's $30-$160/mo; data refreshed every 2 hours. — <https://govbids.ca/pricing> (2026 (fetched 2026-09-15))
+  - [evidence] MERX entry plan is approximately CAD 14.95/mo (early 2026) or $70/document; CanadaBuys itself is free. — <https://govbid.ca/guide/what-is-merx> (2026)
+  - [evidence] At least four indie aggregators (GovBid, GovBids, BidFit, Jorpex) already compete on this data. — <https://bidfit.ca/guides/merx-vs-canadabuys> (2026)
+  - [assumption] Small service firms will pay CAD 15/mo for a narrowed feed; conversion rates not found. — <not found> (n/a)
+
+### C19 — Hometown Personalized Gifts on Etsy (Printify, Canadian print providers)
+
+_Lens: E-COMMERCE / PRINT-ON-DEMAND_
+
+- **One-liner:** Etsy shop selling personalized Canadian-town/name/date mugs, prints and tote bags, printed and shipped from Canadian Printify providers, with personalization rendered automatically from the Etsy order field.
+- **Model:** print-on-demand e-commerce (Etsy + Printify)
+- **Target customer:** Canadian gift buyers (moving-away, new-home, hockey-family, cottage) who search Etsy for personalized items shipped domestically without duties.
+- **Problem:** Most Etsy POD ships from the US to Canada with slow delivery, duties and CAD/USD confusion; personalized Canadian-specific designs are thin.
+- **Offer and pricing:** Mugs CAD 24-29, 8x10 prints CAD 22-28, totes CAD 29-34; free shipping over CAD 35; personalization included.
+- **First 10 customers:** Etsy search (Canadian-specific long-tail keywords like town names and 'Canada' gifts) plus a small Etsy Ads test (CAD 2-3/day) ahead of Q4 gifting.
+- **First 100 customers:** Expand SKUs across 100+ town/city names and occasions, Pinterest pins of mockups, and Etsy's Q4 traffic (17.2M gross buyer adds in Q4 2025).
+- **Why over alternatives:** Ships from Canada in 4-8 days in CAD; personalization automated so it can be fulfilled without the owner touching orders.
+- **Why now (2026):** Canadian Printify providers now offer 4-8 day domestic delivery and Etsy is explicitly promoting personalization for Q4 2025-2026; cross-border duty confusion pushes Canadian buyers toward domestic sellers.
+- **Gross margin (est.):** 25-35% net of Printify cost, Etsy fees (6.5% + payment + $0.20 listing) and any ads
+- **Owner involvement:** Owner opens Etsy and Printify accounts (identity, bank) once; orders flow Etsy -> Printify automatically; occasional buyer messages answered by scheduled runs.
+- **Biggest failure reason:** Invisible in Etsy search among millions of POD listings; Q4 window missed if listings are not live by early November.
+- **Estimates:** capital 150 CAD; days to first revenue 25; Day-90 base revenue 450 CAD; owner low; automation high; competition extreme; Day-180 asset medium; confidence medium
+- **Key risks:** Etsy account suspensions common for new POD shops; Refunds/reprints on personalization errors erode margin; Printify price changes; Etsy Ads spend can exceed early profit
+- **Evidence:**
+  - [evidence] Printify with Canadian providers yields 30-50% margins in CAD with 4-8 day Canadian ship times; production 2-7 business days. — <https://merchize.com/print-on-demand-in-canada/> (2026)
+  - [evidence] Etsy Fall/Winter 2025 seller trend report: shoppers want personalized gifts with a name or date (mugs, wall art). — <https://www.etsy.com/seller-handbook/article/1417223353768> (2025)
+  - [evidence] Real POD margin on Etsy is reduced by listing fees, transaction and payment fees, discounts and offsite ads; experienced sellers price for 40-50%. — <https://mydesigns.io/blog/print-on-demand-profit-margin/> (2026)
+  - [assumption] Time to first sale for a new shop with 30-50 listings is 2-6 weeks; no median found. — <not found> (n/a)
+
+### C20 — Canadian Test-Prep Workbooks on Amazon KDP
+
+_Lens: E-COMMERCE / PRINT-ON-DEMAND_
+
+- **One-liner:** Paperback medium-content workbooks for Canadian-specific exams (citizenship test practice, provincial driver knowledge tests, Red Seal trade practice questions) published via KDP for Amazon.ca.
+- **Model:** self-published paperback (Amazon KDP)
+- **Target customer:** Newcomers preparing for the Canadian citizenship test, new drivers by province, and apprentices preparing for Red Seal exams.
+- **Problem:** Amazon.ca has few updated, province-specific practice books; most available ones are US-focused or outdated.
+- **Offer and pricing:** Paperbacks CAD 14.99-19.99 (KDP 60% royalty minus print cost ~CAD 4-5); optional Kindle edition CAD 6.99.
+- **First 10 customers:** Amazon.ca organic search for exam-name keywords plus a free companion quiz site linking to the books.
+- **First 100 customers:** A 10-15 book portfolio across provinces/trades, Amazon A+ content, and Kindle Unlimited reads; 100 sales by Day 90 requires a portfolio, not one title.
+- **Why over alternatives:** Current-year Canadian content, province-specific editions and practice-question volume that generic titles lack.
+- **Why now (2026):** Record immigration-backlog cohorts and Red Seal demand keep exam searches high while 2025-2026 rule changes date the existing books.
+- **Gross margin (est.):** 45-55% of list price after print cost and Amazon's 40% share
+- **Owner involvement:** Owner creates the KDP account with tax/bank info once; manuscripts, covers and uploads are generated by the operator.
+- **Biggest failure reason:** Tiny sales velocity in the first 90 days; KDP payouts are 60 days in arrears so cash lands after the period.
+- **Estimates:** capital 60 CAD; days to first revenue 30; Day-90 base revenue 120 CAD; owner low; automation high; competition high; Day-180 asset medium; confidence low
+- **Key risks:** KDP AI-content disclosure and quality review may delay or reject titles; Royalties paid ~60 days after month end; Question accuracy liability for exams; Amazon.ca low review count suppresses ranking
+- **Evidence:**
+  - [evidence] Most KDP publishers earn $0-$30/month in their first 6 months; a 15-40 book portfolio is needed for $500-$3,000/month. — <https://www.kdpeasy.com/blog/how-to-make-money-with-amazon-kdp> (2026)
+  - [evidence] One low/medium-content publisher reported >$600 royalties in August 2025 from 14 books. — <https://lowcontentprofits.com/amazon-kdp-income-report-breakdown/> (2025)
+  - [evidence] KDP income in year one typically spans $0-$300/month during portfolio validation. — <https://www.zonguru.com/blog/how-much-do-self-published-authors-make-on-amazon> (2026)
+  - [assumption] Canadian exam-prep niches on Amazon.ca have lower competition than US equivalents; not verified with keyword tools. — <not found> (n/a)
+
+### C21 — Multi-marketplace passive POD (Redbubble/TeePublic) for niche Canadian humour designs
+
+_Lens: E-COMMERCE / PRINT-ON-DEMAND_
+
+- **One-liner:** Upload the same 100-300 designs (Canadian regional humour, trades, hobbies) to marketplace-native POD sites where the platform handles traffic, fulfilment and support.
+- **Model:** marketplace POD (zero-inventory, platform-run)
+- **Target customer:** Casual gift shoppers browsing Redbubble/TeePublic for niche-identity stickers, tees and mugs.
+- **Problem:** Niche identity designs are underserved outside the biggest fandoms; buyers want stickers/tees that reference their trade, town or hobby.
+- **Offer and pricing:** Platform-set prices; artist margin set at 20-30% on stickers (USD 2-4), tees (USD 22-28).
+- **First 10 customers:** Marketplace internal search driven by tag-rich listings; no external marketing.
+- **First 100 customers:** Design volume (hundreds of tagged designs) plus Pinterest pins; realistically Day 120+.
+- **Why over alternatives:** Requires no Etsy account, no ads and no customer service; lowest owner involvement of any POD option.
+- **Why now (2026):** Weak: 2025 fee changes made this worse, not better; only the near-zero capital and involvement argue for it.
+- **Gross margin (est.):** ~50% of artist margin after Redbubble Standard fee; effectively 10-15% of retail
+- **Owner involvement:** Owner creates accounts and PayPal once; uploads scripted.
+- **Biggest failure reason:** 50% platform fee on Standard tier plus saturated catalogues make Day-90 revenue negligible; included for completeness, not recommended.
+- **Estimates:** capital 0 CAD; days to first revenue 40; Day-90 base revenue 40 CAD; owner low; automation high; competition extreme; Day-180 asset low; confidence low
+- **Key risks:** Platform fee changes; Design takedowns for trademark; Payout thresholds delay cash; Mass low-quality uploads violate the legitimacy rule and platform policy
+- **Evidence:**
+  - [evidence] Since Sept 1 2025 Redbubble charges Standard-tier artists a 50% platform fee (capped at $150/period); Premium 20%, Pro 0%, tier assigned by Redbubble. — <https://help.redbubble.com/hc/en-us/articles/50959863016724-How-does-my-Account-Tier-determine-my-account-fees> (2025)
+  - [evidence] Independent review: Redbubble is a supplementary income stream for artists with an existing audience, not a reliable primary income after 2025 fee changes. — <https://lavaritte.com/blogs/redbubble-for-artists-review/> (2026)
+  - [assumption] TeePublic/other marketplaces will accept mass uploads of AI-assisted designs without account limits; not verified. — <not found> (n/a)
+
+### C22 — HiresCanadians: remote jobs board of roles explicitly open to Canada-based applicants
+
+_Lens: NICHE MARKETPLACES, DIRECTORIES, JOB BOARDS, INBOUND LEAD-GEN_
+
+- **One-liner:** Aggregates jobs from public Greenhouse/Lever/Ashby boards that state Canada eligibility, then sells featured placements and employer profiles.
+- **Model:** niche job board (free aggregated listings + paid featured)
+- **Target customer:** Candidate side: Canadian knowledge workers filtering out US-only remote roles; paying side: startups and Canadian employers hiring remote in Canada.
+- **Problem:** Remote boards are dominated by US-only listings; Canadians waste time on ineligible roles and employers hiring in Canada struggle to reach them.
+- **Offer and pricing:** Free aggregated listings; CAD 99 featured 30-day listing, CAD 199 featured + newsletter mention, CAD 49/mo employer profile.
+- **First 10 customers:** Employers whose aggregated listings already get clicks are offered an upgrade via the listing page (inbound only); posts in Canadian tech/remote-work communities that allow sharing.
+- **First 100 customers:** SEO on 'remote jobs Canada [role]' pages, a weekly digest newsletter, and recurring employers; 100 paid listings is a Day-180+ outcome.
+- **Why over alternatives:** Eligibility-verified Canadian listings and CAD pricing well below We Work Remotely's $299 per post.
+- **Why now (2026):** Remote-work eligibility confusion peaked as US firms tightened geography; cheap LLM classification makes eligibility filtering feasible for a solo operator.
+- **Gross margin (est.):** 95% (hosting + Stripe fees)
+- **Owner involvement:** Owner sets up Stripe/domain once; aggregation, eligibility classification (LLM), newsletter and checkout are automated.
+- **Biggest failure reason:** Chicken-and-egg: employers will not pay until candidate traffic exists, and traffic takes longer than 90 days.
+- **Estimates:** capital 60 CAD; days to first revenue 40; Day-90 base revenue 200 CAD; owner low; automation high; competition high; Day-180 asset high; confidence low
+- **Key risks:** ATS scraping terms; Employer outreach is banned under CASL so upgrades must be strictly inbound; Existing Canadian boards (Jobillico, Indeed) dominate search; Paid listing demand is lumpy
+- **Evidence:**
+  - [evidence] Real Work From Anywhere passed $5k MRR after 3 years; first paid job listing came in March 2025 with ~99% margin. — <https://www.indiehackers.com/post/my-job-board-has-passed-5k-mrr-after-3-years-of-building-527416c1c1> (2025)
+  - [evidence] Early-stage niche boards charge $99-$199 per listing and manually sell 1-3 listings/month; $1,500-$5,000/mo takes 12-18 months. — <https://jakeinsight.com/side-income/2026-03-26-build-a-niche-job-board-with-revenue-from-listings/> (2026)
+  - [evidence] We Work Remotely charges $299/post; 15-25% of employers buy premium upgrades when offered at checkout. — <https://www.jobboardly.com/blog/how-to-price-your-job-board-listings-a-complete-guide> (2025)
+  - [assumption] Public ATS boards can be aggregated under their terms with attribution; needs per-source checking. — <not found> (n/a)
+
+### C23 — Exclusive-lead RFQ site for one trade in one province (e.g., septic pumping / basement waterproofing in Ontario)
+
+_Lens: NICHE MARKETPLACES, DIRECTORIES, JOB BOARDS, INBOUND LEAD-GEN_
+
+- **One-liner:** A single-trade, single-province quote-request site that delivers each homeowner request exclusively to one contractor who has opted in, priced per lead below HomeStars but without lead sharing.
+- **Model:** inbound lead generation (pay-per-lead, exclusive)
+- **Target customer:** Small Ontario contractors in one high-ticket, low-competition trade who currently buy shared leads from HomeStars/Angi or rely on word of mouth.
+- **Problem:** HomeStars leads are shared with 3-8 contractors, cost C$40-80 plus $200-500/mo, and contractors rate the service 2.7/5 with lock-in contracts.
+- **Offer and pricing:** CAD 45-75 per exclusive lead billed via Stripe (prepaid credits, no contract); contractors sign up inbound on the site.
+- **First 10 customers:** Contractors arrive via the site's 'get leads' page found through SEO ('exclusive [trade] leads Ontario') and via the homeowner side telling providers where they found them; no cold outreach (CASL).
+- **First 100 customers:** Replicate the template across trades/provinces once one trade converts; 100 contractors is a Day-180+ outcome, but 100 leads sold by Day 90 is plausible with small ad spend.
+- **Why over alternatives:** Exclusive leads, no annual contract, CAD pricing, instant email/SMS delivery; contractors already pay more for worse leads.
+- **Why now (2026):** Contractor frustration with HomeStars/Angi lead sharing and contracts is well documented in 2025-2026, and lightweight LLM lead qualification makes exclusive, verified leads cheap to produce.
+- **Gross margin (est.):** 50-70% after ad spend; 90%+ on organic leads
+- **Owner involvement:** Owner must open and fund a Google Ads account and Stripe; lead routing, billing and contractor onboarding are automated. Lead disputes may need a monthly 15-minute review.
+- **Biggest failure reason:** Homeowner demand side stalls (no organic ranking yet and ads too expensive), so there are no leads to sell in the window.
+- **Estimates:** capital 300 CAD; days to first revenue 35; Day-90 base revenue 500 CAD; owner medium; automation high; competition medium; Day-180 asset high; confidence medium
+- **Key risks:** Google Ads cost per homeowner request may exceed lead price; Lead quality disputes/refunds; Contractor acquisition must be strictly inbound under CASL; Seasonality of the chosen trade
+- **Evidence:**
+  - [evidence] Canadian contractors report C$40-80 per HomeStars lead, annual contracts with 30-35% cancellation penalties; leads shared with 3-8 contractors. — <https://www.leadtruffle.co/blog/angi-leads-cost-pricing-contractors-2026/> (2026)
+  - [evidence] HomeStars subscriptions run $200-$500+/month plus $10-$100 per lead; charged when homeowners shortlist regardless of contact. — <https://www.launchandfound.co/homestars-for-contractors/> (2026)
+  - [evidence] HomeStars.ca rated 2.7/5 by 194 customers; BBB complaint history documents contractor dissatisfaction. — <https://www.smartcustomer.com/reviews/homestars.ca> (2026)
+  - [assumption] A new site can generate 20-40 qualified homeowner requests/month in one trade with SEO plus CAD 150-250 of Google Ads; not verified. — <not found> (n/a)
+
+### C24 — HostedInCanada: directory of SaaS/cloud tools with Canadian data residency, monetized by featured vendor listings
+
+_Lens: NICHE MARKETPLACES, DIRECTORIES, JOB BOARDS, INBOUND LEAD-GEN_
+
+- **One-liner:** A curated, verifiable directory of software and hosting vendors that store data in Canada, seeded from public docs and monetized with $99/mo featured placements and category sponsorships.
+- **Model:** directory with paid featured listings/sponsorship
+- **Target customer:** Buyers: Canadian SMBs, clinics, law firms, municipalities and public-sector procurement needing data residency; payers: vendors selling to them.
+- **Problem:** Buyers must check each vendor's privacy page for residency claims; vendors with Canadian hosting have no place to stand out on that attribute.
+- **Offer and pricing:** Free basic listing (seeded); CAD 99/mo featured in category; CAD 299/mo category sponsorship; 'verified residency' badge included with paid tiers after documentation review.
+- **First 10 customers:** Vendors whose free listing page ranks for '[category] Canadian data residency' see the upgrade CTA; inbound only. Communities of Canadian IT/privacy professionals where sharing is allowed.
+- **First 100 customers:** Programmatic category x compliance pages (PIPEDA, PHIPA, Quebec Law 25), a public residency dataset earning links, and vendor referrals; 100 paying vendors is a 12-month goal.
+- **Why over alternatives:** Only directory verifying residency claims; SaaSHub-style pricing works because vendors' buyer intent is compliance-driven and high-ticket.
+- **Why now (2026):** Quebec Law 25 enforcement, federal privacy reform debate and US data-sovereignty concerns in 2025-2026 make 'is my data in Canada' a live procurement question.
+- **Gross margin (est.):** 95%
+- **Owner involvement:** Owner sets up Stripe/domain once; seeding from public privacy pages, verification checklists and billing are automated.
+- **Biggest failure reason:** Directory traffic takes longer than 90 days to reach the level at which vendors see value; first paid listing may slip past Day 45.
+- **Estimates:** capital 60 CAD; days to first revenue 45; Day-90 base revenue 200 CAD; owner low; automation high; competition medium; Day-180 asset high; confidence low
+- **Key risks:** Residency claims must be accurate to avoid misrepresentation; Vendor upgrades must be inbound (CASL); AI Overviews may answer residency questions directly; Quebec Law 25 nuance requires careful, non-legal-advice framing
+- **Evidence:**
+  - [evidence] SaaSHub charges $99/month for featured placement and with 108 featured listings exceeds $10k MRR. — <https://www.indiehackers.com/post/tech/stuck-at-300-mo-until-revenue-skyrocketed-to-17k-mo-in-a-month-uMOSolSKjXGX74a0lVGQ> (2025)
+  - [evidence] OpenAlternative (community directory launched Feb 2023) makes ~$3-3.5k/month; directory sites commonly reach $600-$3,500/mo each. — <https://www.goodreads.com/author_blog_posts/25546562-this-2-year-old-directory-site-makes-3500-per-month?tab=author> (2025)
+  - [assumption] Vendors will pay CAD 99/mo for a compliance-attribute directory within 90 days of launch; not verified. — <not found> (n/a)
+
+### C25 — VibeLaunch: launch board for AI-built apps with paid featured slots
+
+_Lens: REVENUE REPORTS_
+
+- **One-liner:** A Product-Hunt-style launch/listing site for vibe-coded and AI-built apps where makers pay $19-49 for a featured/verified slot; replicates the SoloPush pattern ($2K MRR in 19 days).
+- **Model:** Marketplace / directory with paid featured listings (one-time + optional monthly sponsor)
+- **Target customer:** Solo founders and vibe-coders (Lovable, Cursor, Bolt users) launching their first product and hungry for any distribution; global, mostly US/EU/India.
+- **Problem:** Product Hunt is crowded and algorithmic; r/SaaS tightened self-promo rules in April 2026; new makers will pay small sums for guaranteed visibility, badges and a backlink.
+- **Offer and pricing:** Free basic listing; $19 one-time 'featured for 7 days' + verified badge; $49 'homepage spotlight + newsletter mention'; $99/mo category sponsor. Stripe Managed Payments (digital).
+- **First 10 customers:** Post the board itself on r/SideProject, r/indiehackers, X build-in-public and Indie Hackers as a free launch venue; the first ~100 free listings create the audience; the first 10 payers are makers who want the featured slot the week they launch (SoloPush got 60 payers in 19 days this way).
+- **First 100 customers:** Weekly 'top AI-built apps' newsletter + automated X posts of each launch (makers reshare for their own promotion, compounding traffic); SEO pages per launch ('X alternative', 'built with Lovable'); DR/backlink value becomes the selling point.
+- **Why over alternatives:** Product Hunt has no cheap paid featured option and a harsh algorithm; existing niche boards (Uneed, Fazier, SoloPush) prove willingness to pay but none focuses on AI-built apps with a lightweight automated security/quality badge the operator can run automatically.
+- **Why now (2026):** The 2026 wave of no-code/vibe-coded apps (34% of Q1-2026 micro-SaaS launches by non-programmers per IdeaProof) created a huge population of first-time makers with launches but no audience, at the same moment r/SaaS restricted self-promotion.
+- **Gross margin (est.):** 90-95% (Stripe fees + domain + Cloudflare free tier)
+- **Owner involvement:** Owner: domain + Stripe in the setup block. Operator runs listing moderation, badges, newsletter and social posts on schedule.
+- **Biggest failure reason:** Cold-start: without a few hundred free listings and real visitor traffic in the first 3 weeks, a featured slot has no value and nobody pays.
+- **Estimates:** capital 80 CAD; days to first revenue 18; Day-90 base revenue 1500 CAD; owner low; automation high; competition high; Day-180 asset medium; confidence medium
+- **Key risks:** Dozens of launch boards exist (Uneed, Fazier, Launching Next); differentiation must be real; Directory SEO takes months; early traffic depends on community posts within subreddit rules; Low-quality or scam app listings damage trust; needs automated screening
+- **Evidence:**
+  - [evidence] SoloPush, a 'alternative to Product Hunt' launch platform, reached 300+ users, 60+ paying customers and $2,000 MRR 19 days after launch. — <https://www.goodreads.com/author_blog_posts/25759986-alternative-to-popular-platform-2k-mrr-in-19-days> (2026)
+  - [evidence] jobboardsearch.com, a meta-directory run solo and grown by building in public on X, reports ~$100k lifetime revenue. — <https://news.ycombinator.com/item?id=49417766> (2026-01)
+  - [evidence] r/SaaS tightened its promotional posture in April 2026: accounts that exist mainly to promote are removed, pushing makers toward dedicated launch venues. — <https://voicepo.st/blog/r-saas-vs-r-indiehackers> (2026-04)
+  - [assumption] Makers of AI-built apps will pay $19-49 for a featured slot at meaningful conversion (>2% of free listers). — <https://www.goodreads.com/author_blog_posts/25759986-alternative-to-popular-platform-2k-mrr-in-19-days> (2026)
+
+### C26 — FounderSwitch: continuity dead-man's switch for solo SaaS operators
+
+_Lens: REVENUE REPORTS_
+
+- **One-liner:** Pay-once utility that pings the founder weekly and, on silence, releases a pre-written runbook, credentials vault link and customer notice to a named successor; replicates Dead Man's Switch ($1k/mo on $10/mo cost).
+- **Model:** Pay-once / low-subscription single-purpose utility
+- **Target customer:** Solo SaaS founders and indie devs with paying customers who worry about 'bus factor' (spouse or co-founder has no idea how to keep the servers on).
+- **Problem:** Solo founders have customers, servers and subscriptions but no continuity plan; generic dead-man's switches only send an email and do not structure a business handover.
+- **Offer and pricing:** $39 one-time (lifetime) or $4/mo; check-in by email link, escalation ladder (3 reminders), encrypted handover note, optional auto-post to a status page. Stripe Managed Payments.
+- **First 10 customers:** Launch post on Indie Hackers and HN ('Ask HN: what happens to your SaaS if you die?' angle) and r/indiehackers; the audience is exactly the people who upvoted the Dead Man's Switch comment in the Jan-2026 HN thread.
+- **First 100 customers:** SEO for 'dead man's switch for founders / SaaS continuity plan', a free 'bus-factor checklist' lead magnet, and cross-listing on the VibeLaunch board and Indie Hackers products directory; word-of-mouth in founder communities.
+- **Why over alternatives:** DeadMansSwitch.net and Google Inactive Account Manager send messages only; this bundles the founder-specific handover template, status-page notice and successor onboarding, at a pay-once price the Uruky/Dead Man's Switch reports show privacy-minded users prefer.
+- **Why now (2026):** Record number of one-person SaaS businesses with real customers (AI-assisted building) and heightened awareness after 2026 shutdowns of Delighted, Relay.app and Stocky left customers stranded without notice.
+- **Gross margin (est.):** 90%+ (email sending on free tier, Workers free tier)
+- **Owner involvement:** Only the Stripe/domain setup; product is fully unattended by design.
+- **Biggest failure reason:** Low urgency: founders agree it matters but defer buying; conversion from launch traffic may be under 1% and there is no recurring trigger to bring them back.
+- **Estimates:** capital 60 CAD; days to first revenue 21; Day-90 base revenue 600 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence low
+- **Key risks:** Trust: users must believe a tiny unknown service will still exist when needed; Free generic alternatives (Google Inactive Account Manager); Small TAM; revenue ceiling likely low four figures/month
+- **Evidence:**
+  - [evidence] Dead Man's Switch (launched 2008) still makes ~$1k/mo with ~$10/mo running costs; customers come from Reddit and word-of-mouth. — <https://news.ycombinator.com/item?id=49417766> (2026-01)
+  - [evidence] Uruky earns over EUR1k/month from 250+ pay-once accounts with no subscriptions, showing a pay-once utility can sustain revenue. — <https://news.ycombinator.com/item?id=49417766> (2026-01)
+  - [assumption] Founders will pay $39 one-time for a continuity-specific variant rather than use a free generic switch. — <https://news.ycombinator.com/item?id=49417766> (2026-01)
+
+### C27 — Pay-once Chrome extension for Etsy sellers (listing tag/SEO analyzer)
+
+_Lens: REVENUE REPORTS_
+
+- **One-liner:** A $19 pay-once Chrome extension that scores an Etsy listing's title/tags/attributes against Etsy's 13-tag rules and shows competitor tag overlap, sold via Chrome Web Store + ExtensionPay; replicates the two-extension $1,000/mo passive pattern.
+- **Model:** Chrome extension, pay-once via ExtensionPay/Stripe
+- **Target customer:** Etsy sellers (7M+ active shops) who resent $9.99-$29.99/mo SEO subscriptions (eRank, Marmalead) but want tag help while editing listings.
+- **Problem:** Existing Etsy SEO tools are subscriptions with dashboards outside Etsy; sellers want in-page hints while writing the listing and dislike another monthly fee.
+- **Offer and pricing:** Free: title/tag length and duplicate checks. Pro $19 one-time (or $4/mo): competitor tag overlap, category attribute suggestions, seasonal keyword alerts. Payment via ExtensionPay.
+- **First 10 customers:** Chrome Web Store organic search ('Etsy tags', 'Etsy SEO') plus a launch in r/EtsySellers and r/Etsy within their self-promo rules and a Product-Hunt/VibeLaunch listing; review-driven ranking in the store.
+- **First 100 customers:** Chrome Web Store ranking on Etsy keywords, YouTube/blog 'Etsy SEO 2026' SEO articles with the extension as the tool, and Etsy-seller Facebook/Discord groups where members share tools.
+- **Why over alternatives:** eRank/Marmalead are subscriptions; the extension works inside the Etsy listing editor and is pay-once, which the ExtensionPay/Chrome-extension income reports show converts among tool-fatigued users.
+- **Why now (2026):** Subscription fatigue among micro-sellers and Etsy's continued push of listing attributes/SEO changes in 2025-26 keep sellers hunting for cheap tag help.
+- **Gross margin (est.):** 85-90% (ExtensionPay/Stripe fees; Chrome dev fee US$5 one-time)
+- **Owner involvement:** Owner registers the Chrome Web Store developer account (identity, US$5) and ExtensionPay/Stripe in the setup block.
+- **Biggest failure reason:** Chrome Web Store review delays and Etsy DOM/anti-scraping changes break the extension; and free eRank tier already covers basic tag checks.
+- **Estimates:** capital 40 CAD; days to first revenue 25; Day-90 base revenue 700 CAD; owner low; automation high; competition high; Day-180 asset medium; confidence low
+- **Key risks:** Etsy terms restrict scraping competitor data; must stay within public-page, user-initiated use; Store review can take 1-3 weeks, delaying first revenue; Many existing Etsy helper extensions
+- **Evidence:**
+  - [evidence] Two simple Chrome extensions generate ~$1,000/month passive income for one developer; Chrome Web Store hosts 130k+ extensions and provides organic traffic with zero hosting cost. — <https://www.goodreads.com/author_blog_posts/24571270-1000-month-passive-income-from-2-simple-chrome-extensions> (2024-2026)
+  - [evidence] Chrome extensions are highlighted as a low-cost micro-SaaS form factor with store-driven discovery; Superpower ChatGPT reaches $20-30K MRR. — <https://microsaasbytes.substack.com/p/chrome-extension-products> (2025-2026)
+  - [assumption] Etsy sellers will pay $19 pay-once instead of a subscription for an in-page tag analyzer. — <https://microsaasbytes.substack.com/p/chrome-extension-products> (2026)
+
+### C28 — PulseNPS: flat-rate Stripe-native NPS/CSAT for small SaaS (Delighted replacement)
+
+_Lens: ARBITRAGE 2026_
+
+- **One-liner:** A $19-29/mo flat-rate, unlimited-response NPS/CSAT/CES email-survey tool triggered by Stripe events with a Slack detractor alert, aimed at the 10k-100k small teams stranded when Qualtrics killed Delighted on 2026-06-30.
+- **Model:** Micro-SaaS subscription (Stripe)
+- **Target customer:** Indie and early-stage SaaS teams (50-2,000 active customers, under $1M ARR) that used Delighted's cheap plan and refuse $59-119/mo incumbents.
+- **Problem:** Delighted vanished with data deleted; the cheapest replacement (Nicereply) is $59/mo for 100 responses, Survicate $89, Refiner $99, Simplesat $109; small teams are either overpaying or have stopped measuring.
+- **Offer and pricing:** $19/mo unlimited responses (1 project) / $39/mo (3 projects, CSV export, API). Stripe webhook triggers (post-purchase, 30-day, renewal), 0-10 email survey, trend dashboard, Slack/webhook alert for scores <=6. 14-day trial, annual discount.
+- **First 10 customers:** Comment-and-answer presence in the Reddit threads (r/SaaS, r/SideProject, r/CustomerSuccess) already asking for Delighted alternatives; a public 'Delighted alternative' comparison page targeting the documented search spike; Indie Hackers launch.
+- **First 100 customers:** SEO on 'Delighted alternative', 'NPS for Stripe', 'cheap NPS tool'; listing in the Stripe App Marketplace and on Delighted-alternative roundup posts (Featurebase, Zonka, Koji pages accept submissions); referral from the small indie alternatives' gaps (Wyapy $29, Thrilled free).
+- **Why over alternatives:** Flat unlimited pricing at a third of incumbents, built around Stripe lifecycle events (incumbents are built for CX teams and per-response pricing); indie rivals Wyapy/Thrilled lack the Stripe trigger + Slack routing combo.
+- **Why now (2026):** Qualtrics sunset Delighted on 2026-06-30 to push its enterprise XM suite; all established replacements are priced for larger teams, leaving a datable low-end vacuum documented by search and Reddit activity.
+- **Gross margin (est.):** 85% (email via Resend/SES, Cloudflare Workers/D1, Stripe fees)
+- **Owner involvement:** Owner sets up Stripe and domain; Stripe App Marketplace listing may need owner identity review. Operator handles builds, docs and support via email on schedule (no real-time support promised).
+- **Biggest failure reason:** Being late: two and a half months after the shutdown many teams have already migrated, and a dozen vendors already own the 'Delighted alternative' SERP, so acquisition may cost more than a $19 plan supports.
+- **Estimates:** capital 120 CAD; days to first revenue 28; Day-90 base revenue 900 CAD; owner low; automation high; competition high; Day-180 asset high; confidence medium
+- **Key risks:** Email deliverability for survey sends (needs domain warm-up, DKIM); Free indie alternative (Thrilled) undercuts to $0; SaaS trials convert slowly; Day-90 MRR may be only a few hundred dollars
+- **Evidence:**
+  - [evidence] Delighted shut down 2026-06-30 with data deleted; cheapest paid replacement Nicereply $59/mo for 100 responses, Survicate $89/mo; 10,000-30,000 small SaaS teams lost their workflow. — <https://www.microgaps.com/blog/delighted-alternative-nps-csat-small-saas-2026> (2026-07)
+  - [evidence] Gap analysis: 'Delighted alternative' search volume rising post-shutdown, multiple Reddit threads in r/SaaS, r/SideProject, r/CustomerSuccess; proposed price $19-29/mo flat; indie entrants Wyapy ($29) and Thrilled (free). — <https://www.microgaps.com/gaps/stripe-native-nps-csat-tool-delighted-replacement> (2026-07)
+  - [evidence] Vendors (Zonka, Featurebase, Eletive, Koji, FeedSense) all published 'Delighted alternatives' pages, confirming active demand capture. — <https://www.featurebase.app/blog/delighted-alternatives> (2026)
+  - [evidence] Survicate reached $4.4M ARR with 1,600 customers (2025), showing the segment pays. — <https://www.microgaps.com/gaps/stripe-native-nps-csat-tool-delighted-replacement> (2025)
+
+### C29 — AI-Label Kit: Article 50 disclosure + C2PA marking for small publishers and agencies
+
+_Lens: ARBITRAGE 2026_
+
+- **One-liner:** WordPress plugin (freemium via Freemius) plus web tool that adds the EU standardised 'AI' label, machine-readable C2PA/metadata marks and a generated AI-content disclosure policy, for small sites that fall under the EU AI Act transparency rules effective 2026-08-02.
+- **Model:** Freemium WordPress plugin + pay-once policy generator (Freemius / Stripe Managed Payments)
+- **Target customer:** Small agencies, bloggers, e-commerce and media sites in or selling into the EU that publish AI-generated images/text and have no compliance team; also Canadian/US shops with EU traffic.
+- **Problem:** From 2 Aug 2026 AI-generated/manipulated content must be machine-readable-marked and, for deepfakes and public-interest text, visibly labelled; fines up to EUR15M or 3% turnover; small sites have no cheap tool that embeds the mark and label at publish time.
+- **Offer and pricing:** Free: visible 'AI-generated' label block. Pro EUR49/yr per site: automatic C2PA/IPTC metadata embedding on upload, per-post AI-usage flags, disclosure policy page generator, audit log export. Agency EUR149/yr (10 sites).
+- **First 10 customers:** WordPress.org plugin directory organic installs (search 'AI label', 'AI Act'); a bilingual EN/DE/FR SEO guide 'Article 50 checklist for small websites'; posts in r/Wordpress and WP agency communities within rules.
+- **First 100 customers:** WordPress.org listing growth + Freemius upsell, guest content on EU digital-agency blogs, comparison pages vs. enterprise C2PA vendors, and inclusion in AI Act compliance roundups by law firms/newsletters.
+- **Why over alternatives:** Enterprise provenance vendors (Truepic, Digimarc) sell to platforms, not $49/yr sites; existing WP 'AI disclosure' plugins add a badge but not machine-readable marks or a policy document aligned to the Commission's Code of Practice.
+- **Why now (2026):** Article 50 became enforceable on 2026-08-02 and the Code of Practice/standard label were finalised in 2026; searches for practical compliance tooling by non-lawyers are new this quarter.
+- **Gross margin (est.):** 80% (Freemius takes ~7-27%; no per-use cost)
+- **Owner involvement:** Owner creates WordPress.org and Freemius accounts in the setup block; everything else is code and content.
+- **Biggest failure reason:** Obligations mostly bind 'providers' of AI systems and platforms rather than small deployers, so small sites may conclude they are not liable and never buy; plugin review on WordPress.org can take weeks.
+- **Estimates:** capital 100 CAD; days to first revenue 30; Day-90 base revenue 500 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence low
+- **Key risks:** Legal scope ambiguity; must avoid giving legal advice; WordPress.org review queue delays launch past Day 30; Big CMS/platforms may ship labelling natively
+- **Evidence:**
+  - [evidence] Article 50 transparency obligations apply from 2 August 2026; providers must apply machine-readable marks to synthetic content; fines up to EUR15M or 3% of worldwide turnover. — <https://artificialintelligenceact.eu/transparency-rules-article-50/> (2026)
+  - [evidence] The EU finalised transparency rules, a standardised 'AI' visual label and a Code of Practice on marking/labelling AI-generated content (voluntary), with distinct requirements for fully AI-generated vs AI-assisted content. — <https://www.paulweiss.com/insights/client-memos/eu-finalises-transparency-rules-for-ai-generated-content> (2026)
+  - [evidence] Commission guidelines and Code of Practice on transparency of AI-generated content published as the compliance framework. — <https://digital-strategy.ec.europa.eu/en/policies/guidelines-transparency-ai-generated-content> (2026)
+  - [assumption] Small sites will pay EUR49/yr for automated labelling rather than ignore the rule or rely on platform-side marking. — <https://artificialintelligenceact.eu/transparency-rules-article-50/> (2026)
+
+### C30 — CountKit: Shopify POS stocktake, purchase-order and transfer app for Stocky refugees
+
+_Lens: ARBITRAGE 2026_
+
+- **One-liner:** A $12-29/mo Shopify app for brick-and-mortar retailers that recreates Stocky's core (cycle counts/stocktakes, supplier purchase orders, location transfers) after Shopify delisted Stocky on 2026-02-02 and shut it on 2026-08-31.
+- **Model:** Shopify App Store subscription (Shopify Billing API)
+- **Target customer:** Small multi-location or single-store Shopify POS retailers (boutiques, cafes, bike shops) that relied on the free Stocky app and find inFlow/Cin7 too expensive and complex.
+- **Problem:** Stocky was free and bundled with Shopify POS Pro; replacements are full inventory suites (inFlow from ~US$110/mo) or Shopify's basic built-ins that lack purchase orders with supplier costs and barcode stocktakes.
+- **Offer and pricing:** $12/mo single location; $29/mo multi-location; barcode-scanner stocktake in browser, PO creation/receiving with cost updates, transfers, CSV export. 14-day trial; Shopify Billing so no extra checkout.
+- **First 10 customers:** Shopify App Store search for 'Stocky', 'stocktake', 'purchase orders' (Stocky's removal leaves keyword demand); answers in Shopify Community forum threads about Stocky replacement; listing in Stocky-replacement blog posts.
+- **First 100 customers:** App Store ranking on 'purchase order'/'stocktake', Shopify Community and r/shopify (rules-compliant), review flywheel, partner referrals from Shopify POS agencies who need a cheap recommendation.
+- **Why over alternatives:** Purpose-built to Stocky's workflows at a fraction of inFlow/Cin7 pricing; distinct from reorder-alert apps because it covers counting, POs and transfers, the tasks Stocky users actually lost.
+- **Why now (2026):** Stocky's final shutdown on 2026-08-31 is two weeks old; App Store keyword demand for 'Stocky' persists while all suggested replacements are enterprise-priced.
+- **Gross margin (est.):** 85% (Shopify keeps 0% on first US$1M/yr for registered devs; hosting minimal)
+- **Owner involvement:** Owner must create the Shopify Partner account (identity) and complete app-store submission steps that need a human; app review typically 1-3 weeks and may need a demo video/store.
+- **Biggest failure reason:** Shopify app review and the need for a polished POS-adjacent UI push first revenue past Day 45; Shopify may extend its native inventory features and erase the gap.
+- **Estimates:** capital 150 CAD; days to first revenue 35; Day-90 base revenue 600 CAD; owner medium; automation high; competition high; Day-180 asset medium; confidence low
+- **Key risks:** Adjacent to an already-found inventory-reorder idea; must be clearly positioned around stocktakes/POs; Retailers already migrated in Feb-Aug 2026; Support expectations from brick-and-mortar merchants
+- **Evidence:**
+  - [evidence] Stocky removed from the Shopify App Store 2026-02-02 and fully shut down 2026-08-31; options cited are Shopify built-ins or dedicated inventory software like inFlow. — <https://www.inflowinventory.com/blog/stocky-shopify-app-sunsetting/> (2026)
+  - [evidence] Stocky replacement demand is being captured by higher-priced inventory suites (inFlow), leaving no low-cost purpose-built option. — <https://www.inflowinventory.com/blog/stocky-shopify-app-sunsetting/> (2026)
+  - [assumption] Small POS retailers will pay $12-29/mo for a Stocky-like app rather than adopt a full inventory suite. — <https://www.inflowinventory.com/blog/stocky-shopify-app-sunsetting/> (2026)
+
+### C31 — Avis de hausse: bilingual Quebec TAL rent-increase notice generator for small landlords
+
+_Lens: CANADA-SPECIFIC_
+
+- **One-liner:** A CAD 19/notice (or $49/yr per building) web tool that applies the 2026 TAL formula and produces the bilingual, TAL-compliant written notice of rent increase plus a calculation worksheet and reminder timeline for Quebec's 3-6-month notice window.
+- **Model:** Pay-per-document / low annual subscription (Stripe)
+- **Target customer:** Quebec small landlords (duplex/triplex owners, ~40% of Quebec rental units are in small buildings) who self-manage and must send a French-first notice each year.
+- **Problem:** TAL changed the calculation method on 2026-01-01 (3.1% base + tax/insurance excess + 5% of major work); landlords who mis-time or mis-format the notice lose the increase for a year; free calculators only output a number, not the notice document.
+- **Offer and pricing:** Free calculator (lead magnet) -> $19 CAD per generated bilingual notice PDF (French predominant, English mirror) with worksheet; $49/yr unlimited units + deadline reminders; Stripe Managed Payments.
+- **First 10 customers:** SEO in French and English for 'avis d'augmentation de loyer 2027 modèle', 'TAL rent increase notice template'; answers in r/montreal, r/quebec, r/CanadaHousing2 landlord threads (rules-compliant); landlord Facebook groups via shared free calculator.
+- **First 100 customers:** Seasonal spike: notices for July 1 leases must go out Jan-Mar 2027; free calculator traffic converts to paid notices; partnerships with property-management bloggers (Gestion Aura, Coloka) and Kijiji landlord communities.
+- **Why over alternatives:** doclinc, AA Location, Coloka and hausseloyer.org compute the number for free but do not produce a bilingual, compliant notice with worksheet and reminders; TAL's own form is French-only PDF with no calculation.
+- **Why now (2026):** The 2026 TAL formula change created confusion (multiple explainers and calculators in 2026) and 2027 will be the second year under the new method, with landlords now aware they need help.
+- **Gross margin (est.):** 90%+
+- **Owner involvement:** Stripe + domain only; operator writes bilingual content and templates.
+- **Biggest failure reason:** Seasonality: the mass notice season is January-March 2027, after Day 90 (2026-12-13); only off-cycle leases generate revenue before then.
+- **Estimates:** capital 60 CAD; days to first revenue 30; Day-90 base revenue 300 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence low
+- **Key risks:** Free calculators may add notice templates; Must avoid unauthorized legal advice; document is a template; Quebec-only market
+- **Evidence:**
+  - [evidence] Since 2026-01-01 TAL applies a new calculation method: 3.1% base (3-year CPI average) plus excess tax/insurance increases plus 5% of major work. — <https://educaloi.qc.ca/en/legal-news/rent-increase-what-to-watch-out-for/> (2026)
+  - [evidence] At least four free 2026 TAL rent-increase calculators launched (doclinc, AA Location, Coloka, hausseloyer.org), demonstrating search demand. — <https://www.doclinc.io/rent-increase-calculator> (2026)
+  - [assumption] Landlords will pay $19 for a compliant bilingual notice document rather than assemble one themselves. — <https://www.aalocation.com/en/tools/tal-rent-increase> (2026)
+
+### C32 — Manuel RH bilingue: Quebec bilingual (FR/EN) employee handbook and HR policy pack
+
+_Lens: CANADA-SPECIFIC_
+
+- **One-liner:** A CAD 149 downloadable pack (Word + Notion) of Quebec-law-aligned employee handbook and 20 HR policies in French with mirrored English, sold to SMBs that would otherwise pay ~$5,000 for translation to satisfy Bill 96 / Charter of the French Language obligations.
+- **Model:** Digital product / template pack (Stripe Managed Payments + Etsy)
+- **Target customer:** Quebec employers with 5-50 employees (and Canadian firms hiring in Quebec) whose owners or bookkeepers must issue French-first written HR communications.
+- **Problem:** Employers must communicate in writing with staff in French; Bill 96 lowered francization thresholds to 25 employees (OQLF registration); CFIB's template is French-only, English generics are not compliant, and professional translation of a 30-page manual costs ~$5,000.
+- **Offer and pricing:** $149 CAD full pack (handbook + policies: harassment, telework, vacation under LNT, disconnection, language-at-work, privacy under Law 25); $49 single-policy bundles; $29 annual update add-on. Etsy listing at same price for marketplace discovery.
+- **First 10 customers:** Etsy search ('manuel de l'employé Québec', 'employee handbook Quebec'), Google SEO in French for 'modèle manuel employé Québec 2026', and answers in r/quebec / r/PersonalFinanceCanada small-business threads within rules.
+- **First 100 customers:** SEO cluster in both languages (each policy page = lead), Etsy reviews, bookkeeper/payroll-provider referrals (they get asked constantly), and LinkedIn organic posts about Bill 96 deadlines from the operator's account (not cold outreach).
+- **Why over alternatives:** OHS Manuals sells a Quebec HR manual but not a mirrored bilingual set; CFIB's is French-only and members-only; law firms charge thousands; this is instant, editable and updated for 2025-26 changes (Law 25 privacy, right-to-disconnect debates, Bill 96).
+- **Why now (2026):** Bill 96 provisions in force since June 2025 plus Law 25 privacy rules and OQLF enforcement give SMBs a concrete, current reason to formalise bilingual HR documents in 2026.
+- **Gross margin (est.):** 90% (Etsy ~9.5% fees or Stripe MoR fees; no delivery cost)
+- **Owner involvement:** Owner opens Etsy shop (identity) and Stripe in the setup block; operator drafts, formats and maintains the pack. Optional: owner asks a Quebec HR consultant to review (cost).
+- **Biggest failure reason:** Buyers distrust an AI-drafted legal-adjacent document without a named HR/legal reviewer, so conversion stalls; Quebec labour-standards accuracy errors would cause refunds and reputational damage.
+- **Estimates:** capital 80 CAD; days to first revenue 21; Day-90 base revenue 900 CAD; owner low; automation high; competition medium; Day-180 asset high; confidence medium
+- **Key risks:** Must disclaim it is not legal advice; needs careful sourcing from CNESST/LNT; Etsy may treat as generic template category with many competitors; French drafting quality must be native-level
+- **Evidence:**
+  - [evidence] June 1 2025 Bill 96 provisions require French in commercial contexts; francization obligations now hit firms with 25+ employees; translating a 30-page bilingual employee manual costs roughly $5,000. — <https://www.swlaw.com/publication/impacts-on-doing-business-in-canada-newly-effective-provisions-of-quebec-bill-96/> (2025-2026)
+  - [evidence] CFIB's employee handbook template is only available in French for Quebec and English for other provinces, leaving a bilingual gap. — <https://www.cfib-fcei.ca/en/tools-resources/employee-handbook-template> (2026)
+  - [evidence] Employers must use French in written communications to staff; translations allowed only if French is as prominent and of comparable quality. — <https://educaloi.qc.ca/en/capsules/language-used-in-the-workplace-in-quebec/> (2025-2026)
+  - [evidence] A Quebec-specific HR policy manual template is already sold commercially (ohsmanuals.ca), showing willingness to pay for templates. — <https://www.ohsmanuals.ca/human-resource-policies-manual-quebec.html> (2026)
+
+### C33 — FrancoCheck: Bill 96 French-content audit for Quebec-facing online stores
+
+_Lens: CANADA-SPECIFIC_
+
+- **One-liner:** A one-time CAD 29 report (or $9/mo monitor) that crawls a Shopify/WooCommerce store and flags English-only product descriptions, checkout strings, policies and emails that breach Quebec's Charter e-commerce rules, with a fix checklist in FR/EN.
+- **Model:** Pay-per-report SaaS + monthly monitoring (Stripe); optional Shopify App listing later
+- **Target customer:** Canadian and US e-commerce merchants selling into Quebec (Shopify Plus not required) who received or fear OQLF complaints; agencies serving them.
+- **Problem:** Since June 2025 product info, catalogues, contracts of adhesion and marketing must be in French with French at least equivalent; merchants use translation apps but do not know which strings (checkout, notifications, policies, app-injected text) remain English; OQLF acts on public complaints.
+- **Offer and pricing:** $29 CAD single audit PDF (score + list of non-French pages/strings + priority fixes); $9/mo re-crawl and alert when new products/pages go live in English only; agency plan $39/mo for 10 stores.
+- **First 10 customers:** SEO for 'Bill 96 Shopify', 'Loi 96 boutique en ligne conformité', 'OQLF complaint e-commerce'; Shopify Community and r/shopify threads asking about Quebec French requirements; comment on Weglot/Langify comparison posts.
+- **First 100 customers:** Free 'French coverage score' widget shared on LinkedIn and agency blogs, referrals from Quebec Shopify agencies and translators (they upsell the fixes), and a Shopify App Store listing once the owner's Partner account exists.
+- **Why over alternatives:** Weglot/Langify translate but do not audit coverage or app-injected/checkout/email strings; law-firm audits cost thousands; existing Bill 96 checklists are static PDFs (2727 Coworking, Smartcat).
+- **Why now (2026):** The June 2025 provisions are the first to reach ordinary e-commerce merchants, OQLF has an active complaint mechanism, and 2026 guides show SMBs are still searching for practical compliance steps.
+- **Gross margin (est.):** 85-90% (crawler on Workers/GitHub Actions; optional Haiku calls ~US$0.05 per audit)
+- **Owner involvement:** Stripe + domain in setup block; Shopify Partner account optional later. Audits run unattended on schedule.
+- **Biggest failure reason:** Merchants underestimate OQLF enforcement risk and wait for a complaint before spending; demand may be real but latent, producing few paid audits within 90 days.
+- **Estimates:** capital 90 CAD; days to first revenue 25; Day-90 base revenue 500 CAD; owner low; automation high; competition low; Day-180 asset medium; confidence low
+- **Key risks:** Crawling JS-heavy storefronts and detecting language reliably; Must not present output as legal compliance certification; Small market (Quebec-facing merchants)
+- **Evidence:**
+  - [evidence] On 2025-06-01 new Bill 96 provisions took effect requiring French in advertising, products/packaging and certain contracts; public signage and marketing must be French-predominant. — <https://www.smartcat.com/blog/bill-96/> (2025-2026)
+  - [evidence] A May 2026 Bill 96 compliance guide/checklist for Quebec small businesses was published, indicating ongoing SMB confusion and demand for practical checklists. — <https://2727coworking.com/articles/quebec-bill-96-business-compliance> (2026-05)
+  - [evidence] Law 25 / Bill 96 non-compliance penalties for private companies range from CAD 15,000 up to 4% of global turnover. — <https://pontiacchamberofcommerce.ca/tackling-the-regulatory-maze-bill-96-and-bill-25s-impact-on-quebecs-business-landscape/> (2025-2026)
+  - [assumption] Merchants will pay $29 for an automated audit report instead of manually checking or hiring a firm. — <https://www.smartcat.com/blog/bill-96/> (2026)
+
+### C34 — Loi 25 Consent for WordPress (Freemius)
+
+_Lens: APP STORES_
+
+- **One-liner:** Quebec Law 25 cookie-consent and script-blocking WordPress plugin with bilingual FR/EN banner and consent log, free on WordPress.org, Pro via Freemius.
+- **Model:** freemium plugin, annual licence
+- **Target customer:** Quebec and Canadian small businesses and their web agencies running WordPress/WooCommerce sites that collect Quebec residents' data
+- **Problem:** Law 25 requires opt-in consent and script blocking with fines from $15,000 up to $25M / 4% turnover; generic CMPs (CookieYes, CookieHub) are subscription SaaS and not Quebec-first, and the only Quebec-specific WP plugin found is a free SourceForge project with no support.
+- **Offer and pricing:** Free: banner + Vault script blocking. Pro CAD $59/yr per site, CAD $149/yr agency 10 sites: consent-record export (proof for CAI), Google Consent Mode v2, geo-target Quebec only, FR/EN privacy-policy generator.
+- **First 10 customers:** WordPress.org search for 'loi 25' / 'law 25' (plugin listing ranks for exact-match niche terms within days of approval); r/Quebec and r/montreal small-business threads answering compliance questions within community rules; a bilingual comparison post 'Law 25 cookie plugins compared' on the product site.
+- **First 100 customers:** WP.org install base converting at ~1% (needs ~5-10k installs, unrealistic by Day 90; expect 30-60 Pro sales), agency bundle pricing, listing on Freemius marketplace and WP plugin directories, bilingual SEO content on Law 25 updates.
+- **Why over alternatives:** Only Quebec-first, bilingual, one-time-per-year price versus CookieYes-style monthly SaaS; agency multi-site licence; installs from the trusted WP.org directory rather than a foreign SaaS.
+- **Why now (2026):** Law 25 fully in force since Sept 2024 and enforcement/awareness rising in 2025-2026; Google Consent Mode v2 pressure; Quebec businesses want a FR-first, one-time licence rather than monthly SaaS.
+- **Gross margin (est.):** 85-90% after Freemius 7% + payment fees
+- **Owner involvement:** Owner creates WordPress.org and Freemius accounts (Freemius payouts need identity/PayPal or bank) in the setup block; operator handles code, listing, support forum replies on its schedule.
+- **Biggest failure reason:** Sub-1% conversion means Pro revenue needs thousands of installs that a new listing will not accumulate in 90 days; big CMPs already cover Law 25 in marketing.
+- **Estimates:** capital 60 CAD; days to first revenue 25; Day-90 base revenue 900 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence medium
+- **Key risks:** WP.org review rejection or delay; Legal-adjacent product needs careful 'not legal advice' framing; Support burden from consent-mode edge cases; Free plugin cannibalises Pro
+- **Evidence:**
+  - [evidence] Law 25 fines range $15,000 to $25M or 4% of worldwide turnover; opt-in consent required for cookies, applies to any org handling Quebec residents' data — <https://www.cookiehub.com/quebec-law-25> (2025)
+  - [evidence] Only one free open-source WordPress plugin claims full Law 25 compliance (script Vault blocking), hosted on SourceForge, signalling a thin niche — <https://sourceforge.net/projects/loi-25-quebec/> (2025)
+  - [evidence] WordPress.org plugin review is manual, 1-10 days; Freemius SDK is WP.org-compliant and hundreds of products use it — <https://freemius.com/blog/submit-plugin-wordpress-repository/> (2025)
+  - [evidence] Free-to-paid conversion for most WP plugins has dropped below 1% — <https://mktclarity.com/blogs/news/wordpress-plugin-worth-it> (2025)
+
+### C35 — MeetRoll: Google Meet attendance and chat exporter (Chrome, ExtensionPay)
+
+_Lens: APP STORES_
+
+- **One-liner:** One-click Chrome extension that exports Google Meet attendance (join/leave times), chat and reactions to CSV/PDF for teachers, trainers and HR.
+- **Model:** freemium Chrome extension, ExtensionPay one-time + annual
+- **Target customer:** Teachers, corporate trainers, tutoring businesses and compliance-bound HR teams on Google Workspace who must document attendance
+- **Problem:** Native Meet attendance reports require Workspace Business Standard+ and arrive by email; free tier and Education Fundamentals users have no reliable attendance export, and existing extensions are abandoned or ad-laden.
+- **Offer and pricing:** Free: attendance list for meetings under 30 min. Pro CAD $19 one-time or CAD $29/yr: unlimited, join/leave timestamps, chat log, auto-save to Drive, PDF certificate of attendance.
+- **First 10 customers:** Chrome Web Store search for 'google meet attendance' (established intent; prior extensions had tens of thousands of users), r/Teachers and r/googleworkspace answers within rules, a demo GIF on the listing.
+- **First 100 customers:** Store search plus SEO page 'Google Meet attendance report without Business plan', education Facebook groups where permitted, Product Hunt launch; expect 2-5k installs converting ~1-2% on a low one-time price.
+- **Why over alternatives:** Cheaper than upgrading Workspace tiers, works on free Gmail accounts, client-side (no data leaves browser), maintained and Manifest V3 compliant while older competitors were removed in 2025 policy purges.
+- **Why now (2026):** 2025 Chrome policy purge cleared out abandoned Meet extensions; Manifest V3 raised the bar; hybrid teaching/training remains standard and attendance documentation is still gated behind paid Workspace tiers.
+- **Gross margin (est.):** ~90% (ExtensionPay 5% + Stripe)
+- **Owner involvement:** Owner registers Chrome Web Store developer account ($5, identity) and ExtensionPay/Stripe once; operator ships updates and answers store reviews.
+- **Biggest failure reason:** Chrome review rejection or Meet DOM changes breaking scraping; Google could ship attendance to more tiers, erasing the gap.
+- **Estimates:** capital 40 CAD; days to first revenue 18; Day-90 base revenue 700 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence medium
+- **Key risks:** Meet UI changes break the extension between scheduled runs; Store review delays (days to weeks) with no SLA; Low willingness to pay among teachers; Policy risk around reading meeting content
+- **Evidence:**
+  - [evidence] Google Meet niche extension Blue Dot reports ~$3,000 MRR; indie extensions typically earn $500-2,000 MRR side-hustle tier; ~112k active extensions after 18.5% purge; $5 listing fee; 2025 policy tightening removed many extensions — <https://chromegoldmine.com/blog/profitable-chrome-extension-niches/> (2026)
+  - [evidence] ExtensionPay charges 5% + $0.30 per transaction with no backend required; suited to validation-stage extensions — <https://addonews.com/extensionpay-review-scale/> (2025)
+  - [evidence] Reddit-reported benchmark: 50,000 users yielded ~$21K ARR, implying sub-1% conversion — <https://chromegoldmine.com/blog/chrome-extension-monetization/chrome-extension-revenue-benchmarks/> (2026)
+  - [assumption] Teachers and trainers on free/Education Fundamentals tiers lack attendance export; assumption based on Google plan feature gating — <https://chromegoldmine.com/blog/profitable-chrome-extension-niches/> (2026)
+
+### C36 — Canadian Sales Tax Invoicer for Google Sheets (Workspace Marketplace)
+
+_Lens: APP STORES_
+
+- **One-liner:** Google Sheets add-on that applies correct GST/HST/PST/QST by province, generates numbered bilingual PDF invoices and a CRA-ready tax summary.
+- **Model:** Workspace add-on, freemium with annual licence (Stripe via own site)
+- **Target customer:** Canadian freelancers and micro-businesses invoicing from Google Sheets who are GST-registered but too small for QuickBooks
+- **Problem:** Provincial tax rules (13% HST vs 5% GST + PST/QST) are error-prone; invoicing apps cost CAD $20-40/mo; Sheets users hand-build invoices and mis-tax out-of-province clients.
+- **Offer and pricing:** Free: tax calculator for one province. Pro CAD $39/yr: all provinces, invoice numbering, PDF/email from Sheets, quarterly GST/HST return summary, French templates.
+- **First 10 customers:** Workspace Marketplace search for 'invoice Canada' / 'GST HST', r/PersonalFinanceCanada and r/smallbusinesscanada self-employed threads (answering, not spamming), SEO page 'GST HST invoice template Google Sheets'.
+- **First 100 customers:** Marketplace ranking on Canadian tax keywords, a free public Sheets template funnel that upsells the add-on, cross-promotion with Canadian bookkeeping content.
+- **Why over alternatives:** Lives in the tool they already use; one-time annual price versus monthly invoicing SaaS; Canada-specific tax logic and bilingual output that generic invoice add-ons lack.
+- **Why now (2026):** More Canadian solo workers registered for GST/HST as thresholds bite; Google pushed Sheets AI features increasing add-on discovery; Bill 96 makes bilingual invoices relevant for Quebec clients.
+- **Gross margin (est.):** ~90% (Stripe fees only)
+- **Owner involvement:** Owner must own the Google Cloud project, complete OAuth consent screen and possibly a verification video; operator does the rest. Review timeline is the main owner-independent blocker.
+- **Biggest failure reason:** OAuth/Marketplace verification slips past Day 45, leaving too little selling time; can be mitigated by distributing a Sheets template with Apps Script directly while awaiting listing.
+- **Estimates:** capital 50 CAD; days to first revenue 40; Day-90 base revenue 400 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence low
+- **Key risks:** Review delays of weeks; Restricted-scope review if Drive/Gmail scopes are needed; Tax-rule changes require maintenance; Free templates satisfy most users
+- **Evidence:**
+  - [evidence] Workspace add-ons need OAuth verification plus Marketplace review; budget 2-3 weeks, with separate branding/scope checks — <https://medium.com/@info.brightconstruct/the-real-google-workspace-marketplace-app-review-journey-what-they-actually-check-2c3918aabc61> (2025)
+  - [evidence] Developer reports OAuth verification stuck 8+ weeks due to submission volume — <https://security.googlecloudcommunity.com/security-validation-5/oauth-verification-for-workspace-add-on-stuck-for-8-weeks-client-critical-6543> (2025)
+  - [evidence] Google's own guidance: allot at least one week for OAuth verification before listing publishes — <https://developers.google.com/workspace/marketplace/about-app-review> (2025)
+  - [assumption] Demand for Canada-specific Sheets invoicing is inferred from freelancer volume and tax complexity; no keyword volume verified — <https://developers.google.com/workspace/marketplace/about-app-review> (2026)
+
+### C37 — Bill 96 French Storefront Pack (Shopify/WooCommerce catalogue translation)
+
+_Lens: AI-FULFILLED PRODUCTIZED SERVICES_
+
+- **One-liner:** Fixed-price, 72-hour French-Canadian translation of an online store's product catalogue, policies and checkout strings, delivered as import-ready CSV plus a compliance checklist.
+- **Model:** productized service, landing page (Stripe) + Fiverr gig
+- **Target customer:** English-only Canadian and US Shopify/WooCommerce merchants selling into Quebec with 50-500 SKUs
+- **Problem:** Bill 96 (in force 1 June 2025) requires French web content on terms no less favourable than English, applies regardless of company size, with $3,000-30,000 per-violation penalties; translation agencies quote per word and Weglot-style SaaS costs monthly forever.
+- **Offer and pricing:** Starter CAD $149 (up to 50 products + policies/checkout), Growth CAD $349 (up to 250 products), Pro CAD $699 (up to 750 products); add-on CAD $49 monthly delta translation for new SKUs. Fulfilled by LLM pipeline with glossary, fr-CA style rules and automated QA; human spot-check optional add-on.
+- **First 10 customers:** Fiverr gig in Translation > Website localisation (search 'Bill 96', 'French Canadian Shopify'); Shopify Community and r/shopify threads asking about Bill 96 (answer with the checklist); SEO page 'Bill 96 Shopify checklist' targeting merchants Googling compliance.
+- **First 100 customers:** Ranking for Bill 96 long-tail terms, Shopify Partner directory listing (after owner creates partner account), referrals from Canadian Shopify agencies who do not want small translation jobs, repeat delta orders.
+- **Why over alternatives:** 10x cheaper than agencies ($0.15-0.25/word), no monthly SaaS, fr-CA not fr-FR, delivered as CSV that imports cleanly rather than JS overlay; includes compliance checklist that translators do not provide.
+- **Why now (2026):** First full year of Bill 96 enforcement with the June 2025 deadline behind us; OQLF complaints process is live; LLM fr-CA quality is good enough for catalogue text at near-zero marginal cost.
+- **Gross margin (est.):** 75-85% direct (LLM cost ~CAD $2-8 per order); ~60% via Fiverr after 20%
+- **Owner involvement:** Owner creates Fiverr seller account and Stripe once; operator runs the pipeline per order on its schedule (72-h SLA fits a few runs per day). Optional native-speaker spot check would need a contractor, initially skipped and disclosed.
+- **Biggest failure reason:** Merchants treat Bill 96 as low-enforcement and defer; AI-translation quality complaints (fr-CA nuance, product jargon) trigger refunds without a human reviewer.
+- **Estimates:** capital 120 CAD; days to first revenue 16; Day-90 base revenue 2400 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence medium
+- **Key risks:** Quality perception of AI translation; Fiverr new-seller invisibility; Shopify Translate & Adapt free app covers basic needs; OQLF enforcement pace uncertain
+- **Evidence:**
+  - [evidence] Bill 96 fully in effect 1 June 2025; websites, e-commerce, catalogues must be available in French on terms no less favourable; penalties $3,000-$30,000 per violation; applies regardless of employee count — <https://www.weglot.com/blog/bill-96-explained> (2025)
+  - [evidence] CFIB guidance confirms Law 14 (Bill 96) obligations reach small businesses; francisation threshold dropped to 25 employees June 2025 — <https://www.cfib-fcei.ca/en/site/qc-law-14-bill-96> (2025)
+  - [evidence] Fiverr seller fee is 20% plus 5.5% buyer fee; Fiverr actively promotes AI-assisted fulfilment (Fiverr Go, AI Video Hub) — <https://www.fastlancer.org/en/fastlancer-blog/fiverr-review/> (2026)
+  - [assumption] Agency per-word rates and time-to-first-order for a new seller were not found; assume 2-4 weeks on Fiverr, faster via SEO/community inbound — <https://www.weglot.com/blog/bill-96-explained> (2026)
+
+### C38 — Podcast Episode Kit (transcript, chapters, show notes, clips list)
+
+_Lens: AI-FULFILLED PRODUCTIZED SERVICES_
+
+- **One-liner:** Fixed-price per-episode package: accurate transcript, timestamped chapters, SEO show notes, quote pulls and social captions, delivered in 24 hours.
+- **Model:** productized service on Fiverr + landing page subscriptions
+- **Target customer:** Independent podcasters and YouTube creators publishing weekly who lack an editor or VA
+- **Problem:** Show notes, chapters and clips are tedious weekly chores; Fiverr transcription gigs are cheap but deliver raw text only, and creators still have to write notes and chapters.
+- **Offer and pricing:** Fiverr: CAD $25 per 60-min episode basic (transcript + chapters), CAD $49 standard (+ show notes, titles, captions), CAD $89 premium (+ 10 clip timestamps, newsletter blurb, guest bio). Landing page: CAD $79/mo for 4 episodes via Stripe.
+- **First 10 customers:** Fiverr search in Podcast Editing / Podcast Transcript categories (24+ listed gigs show buyer traffic), r/podcasting weekly promo threads, Podcast Movement community forums within rules.
+- **First 100 customers:** Fiverr level progression, bundling with hosting-platform communities (Buzzsprout/Transistor forums), SEO 'podcast show notes service' page, repeat monthly buyers converting to subscription.
+- **Why over alternatives:** Full kit not raw transcript; 24-h turnaround; cheaper than VA agencies; consistent house style per show maintained across episodes; Descript/Riverside AI features exist but many creators still buy done-for-you.
+- **Why now (2026):** Hosting platforms added AI transcripts but not editorial show notes; video podcasting growth increases clip demand; ASR costs near zero make 24-h fixed-price delivery profitable.
+- **Gross margin (est.):** 65-75% after Fiverr 20% and ~CAD $0.50-1.50 LLM/ASR cost per episode
+- **Owner involvement:** Owner creates Fiverr account; operator processes orders via Whisper/LLM pipeline a few times daily, which fits 24-h delivery. Human touch: none unavoidable beyond reading a revision request.
+- **Biggest failure reason:** Race to the bottom: $5 competitors and free built-in AI in Descript/Spotify for Creators/YouTube make paid kits hard to sell above cost.
+- **Estimates:** capital 80 CAD; days to first revenue 14; Day-90 base revenue 900 CAD; owner low; automation high; competition extreme; Day-180 asset low; confidence medium
+- **Key risks:** New-seller invisibility on Fiverr; Refunds on transcript accuracy for poor audio; Platform AI features keep improving; Low order values
+- **Evidence:**
+  - [evidence] Fiverr transcription rates $5-15 per 10 minutes; top sellers using AI capture most revenue; podcasters buy for accessibility and SEO — <https://medium.com/write-a-catalyst/top-5-fiverr-gigs-of-2025-ba88427031df> (2025)
+  - [evidence] Fiverr lists dedicated 'podcast transcript' gig category with 24 best-seller results, indicating active buyer demand — <https://www.fiverr.com/gigs/podcast-transcript> (2026)
+  - [evidence] Competing gigs offer chapters + timestamps + transcription from $5, evidencing price compression — <https://www.fiverr.com/shabir355666/do-youtube-video-chapters-timestamps-podcast-transcription> (2026)
+
+### C39 — CleanList: CRM/CSV deduplication and standardisation (Upwork Project Catalog)
+
+_Lens: AI-FULFILLED PRODUCTIZED SERVICES_
+
+- **One-liner:** Fixed-price cleanup of messy contact or product lists: dedupe, normalise names/phones/addresses to Canadian/US formats, flag invalid emails, return import-ready CSV plus a change report.
+- **Model:** productized service on Upwork Project Catalog + landing page
+- **Target customer:** Small businesses and nonprofits migrating between CRMs (HubSpot, Mailchimp, Salesforce) or cleaning e-commerce catalogues
+- **Problem:** Duplicate and malformed records break CRM imports and email deliverability; freelancers price by hour and take days; buyers want a fixed scope and fast turnaround.
+- **Offer and pricing:** CAD $79 up to 2,000 rows, CAD $199 up to 20,000 rows, CAD $449 up to 100,000 rows; add-ons: email syntax/MX validation, postal-code and province standardisation, fuzzy dedupe report. 48-h delivery.
+- **First 10 customers:** Upwork Project Catalog listings under Data Cleaning (multiple active catalog products show buyer traffic), plus Fiverr data-cleaning category; r/CRM and r/hubspot help threads answered with a free 'dedupe check' sample.
+- **First 100 customers:** Catalog ranking via reviews, an SEO page 'clean CSV before HubSpot import', repeat jobs from agencies handling migrations, referral from bookkeepers already in the operator's network of products.
+- **Why over alternatives:** Deterministic script + LLM classification gives auditable change logs that hourly freelancers rarely provide; fixed price and 48-h SLA; Canadian data-format expertise (postal codes, provinces, bilingual fields).
+- **Why now (2026):** CRM consolidation and AI-sales-tool adoption forces clean data imports; Upwork fee cut (0-15%) improved seller economics in 2025; LLM-assisted fuzzy matching makes 48-h fixed-price delivery feasible.
+- **Gross margin (est.):** 85% after Upwork ~10%; negligible compute
+- **Owner involvement:** Owner creates Upwork profile (identity verification) once; operator fulfils via scripts; unavoidable human touch is clarifying ambiguous merge rules, handled asynchronously in order messages.
+- **Biggest failure reason:** New Upwork profile with no reviews gets no catalog visibility; buyers default to cheap offshore hourly freelancers.
+- **Estimates:** capital 60 CAD; days to first revenue 21; Day-90 base revenue 800 CAD; owner low; automation high; competition high; Day-180 asset low; confidence low
+- **Key risks:** Handling customer PII (need privacy statement, delete-after-delivery); Scope creep on 'messy' data; Upwork identity verification friction; Low repeat rate
+- **Evidence:**
+  - [evidence] Multiple Upwork Project Catalog products exist for CRM data cleanup and deduplication, including 'up to 500 records' scoped packages — <https://www.upwork.com/services/product/development-it-crm-data-cleanup-deduplication-expert-1943509675379725300> (2025)
+  - [evidence] Upwork freelancer fee is variable 0-15% since May 2025 (most pay ~10%); clients pay 5% marketplace fee and a $0.99-14.99 contract initiation fee — <https://golance.com/blogs/upwork-fees-explained-2026> (2026)
+  - [assumption] Specific price points and time-to-first-order for new catalog sellers were not found; CAD $79-449 tiers are an assumption benchmarked against existing catalog scoping — <https://www.upwork.com/services/data-entry/get/data-cleansing> (2026)
+
+### C40 — StatementCSV: bank/credit-card statement PDF to CSV with credit packs
+
+_Lens: MICRO-UTILITIES WITH INTENT_
+
+- **One-liner:** Browser tool that converts Canadian bank and credit-card statement PDFs (RBC, TD, Scotia, BMO, CIBC, Tangerine) to clean CSV/QBO for bookkeepers, sold as one-time page-credit packs.
+- **Model:** web tool, one-time credit packs via Stripe Managed Payments
+- **Target customer:** Bookkeepers, sole proprietors and tax preparers reconciling year-end when bank feeds are missing or the account is closed
+- **Problem:** Bank CSV exports are limited to 90 days-2 years; year-end and CRA reviews need older transactions locked in PDFs; existing converters are US-centric and subscription-priced.
+- **Offer and pricing:** 3 free pages; CAD $9 for 30 pages, CAD $29 for 150 pages, CAD $79 for 600 pages; no subscription. Templates tuned for Canadian bank layouts; QBO/Xero CSV presets; client-side PDF parsing where possible, otherwise server with immediate deletion.
+- **First 10 customers:** Google/Bing searches 'convert RBC statement to CSV', 'TD statement pdf to excel' (many paid competitors and 2026 comparison posts evidence intent); r/cantax and r/Bookkeeping answers; listing on tool directories (AlternativeTo, ToolPilot).
+- **First 100 customers:** Long-tail SEO pages per bank and per software (QuickBooks, Wave, Xero), a free Google Workspace/Sheets integration later, bookkeeping Facebook groups within rules, Canadian tax-season peak (Jan-Apr) beyond Day 90.
+- **Why over alternatives:** Canadian-bank templates and CAD one-time pricing versus CapyParse/MoneyThumb monthly plans; ChatGPT can parse statements but mis-orders columns and users distrust uploading financial data to a chat.
+- **Why now (2026):** Open banking in Canada still not live for small business, so PDFs remain the source of truth; LLM+OCR make multi-layout parsing cheap; bookkeepers increasingly self-serve tools instead of staff.
+- **Gross margin (est.):** 85-90% (Stripe MoR fee, small OCR/LLM cost per page)
+- **Owner involvement:** Owner sets up Stripe Managed Payments and domain; operator builds parser, SEO pages and monitors accuracy tickets on its schedule.
+- **Biggest failure reason:** SEO for 'bank statement converter' is dominated by incumbents; without ranking, traffic is too low by Day 90, and financial-data trust favours established brands.
+- **Estimates:** capital 90 CAD; days to first revenue 24; Day-90 base revenue 600 CAD; owner low; automation high; competition high; Day-180 asset medium; confidence low
+- **Key risks:** Parsing accuracy across bank layouts; Privacy/security expectations for financial docs; Seasonality (peak Jan-Apr, after Day 90); Free ChatGPT/Claude alternatives
+- **Evidence:**
+  - [evidence] Competitors price CapyParse $29/mo (150 pages) with $5/20-page one-time packs; MoneyThumb $24.95-$99.95/mo; evidence of willingness to pay per page — <https://capyparse.com/blog/bank-statement-converter-pricing-comparison> (2026)
+  - [evidence] At least 10 competing converters reviewed in a 2026 roundup, indicating sustained search demand and a crowded but validated niche — <https://capyparse.com/blog/best-bank-statement-to-csv-converters-2026> (2026)
+  - [evidence] An Apify pay-per-page actor for bank statement to CSV exists, evidencing developer-side demand too — <https://apify.com/eastwoodapps/bank-statement-to-csv> (2025)
+  - [assumption] Search volume for bank-specific Canadian queries not verified with a keyword tool — <https://capyparse.com/blog/bank-statement-converter-pricing-comparison> (2026)
+
+### C41 — ChatExhibit: WhatsApp/iMessage export to court-ready PDF
+
+_Lens: MICRO-UTILITIES WITH INTENT_
+
+- **One-liner:** Client-side web tool that turns a WhatsApp or SMS chat export (.txt/.zip) into a paginated, timestamped, hash-certified PDF exhibit for family, small-claims and employment disputes.
+- **Model:** web tool, one-time payment via Stripe Managed Payments
+- **Target customer:** Self-represented litigants, paralegals and small law firms in Canada/US/UK needing readable message evidence
+- **Problem:** Screenshots are rejected or unreadable; WhatsApp's export is a raw text file with media in a zip; existing tools are Android apps or US-only services, and users fear uploading private chats.
+- **Offer and pricing:** Free preview (first 50 messages watermarked). CAD $12 per chat export PDF; CAD $29 bundle of 5; add-on CAD $9 SHA-256 integrity page and date-range filtering. All processing in-browser (no upload), which is the trust wedge.
+- **First 10 customers:** Google searches 'whatsapp chat to pdf for court' (multiple paid competitors and 2025 legal-guide content prove intent), r/legaladvicecanada and r/FamilyLaw style questions where linking is allowed, tool directories (AlternativeTo lists ChatToCourt).
+- **First 100 customers:** SEO articles per jurisdiction ('WhatsApp evidence Ontario small claims'), paralegal association newsletters, Google Ads on exact-match terms once unit economics known (cap CAD $150 test), repeat buys from paralegals.
+- **Why over alternatives:** In-browser privacy vs upload services; cheaper than ProofSnap ($59.99) and ChatToCourt ($29 licence); exhibit formatting (numbered pages, participant header, date filters) that ChatGPT cannot produce reliably for 5,000-message files.
+- **Why now (2026):** Courts increasingly accept chat evidence with formatting expectations; privacy concern about uploading chats is high; browser-side PDF generation is mature so no server costs.
+- **Gross margin (est.):** ~92% (Stripe MoR fees only; no server compute)
+- **Owner involvement:** Owner sets up Stripe Managed Payments and domain; operator builds static tool on Cloudflare, writes SEO pages, answers email support asynchronously.
+- **Biggest failure reason:** Traffic: a new domain needs months to rank for the legal long-tail; without ranking or ads, orders are a trickle.
+- **Estimates:** capital 70 CAD; days to first revenue 20; Day-90 base revenue 700 CAD; owner low; automation high; competition medium; Day-180 asset medium; confidence medium
+- **Key risks:** Must avoid implying legal admissibility (disclaimer); WhatsApp export format changes; Chargebacks from emotionally charged buyers; Competitors copy privacy angle
+- **Evidence:**
+  - [evidence] Paid competitors: ChatToPDF from $7, ChatToCourt $29 one-time, ProofSnap certified transcript $59.99 with 24-h delivery; Android apps sell one-time premium unlocks — <https://getproofsnap.com/whatsapp-chat-evidence.html> (2025)
+  - [evidence] Multiple 2025 legal-guide pages (Decipher Tools, PrintChat) target 'save WhatsApp messages for court', evidencing search intent — <https://deciphertools.com/blog/how-to-save-whatsapp-messages-for-court/> (2025)
+  - [evidence] ChatToPDF markets a 30-second legal export flow, confirming a self-serve web format works — <https://chattopdf.app/legal> (2025)
+  - [assumption] Keyword volumes not verified; iMessage export path requires desktop steps the user does themselves (assumption) — <https://chattopdf.app/legal> (2026)
+
+### C42 — SubTranslate: pay-per-file SRT/VTT subtitle translator with fr-CA and timing preservation
+
+_Lens: MICRO-UTILITIES WITH INTENT_
+
+- **One-liner:** Upload an SRT/VTT, get it translated into up to 10 languages with line-length and timing rules preserved, priced per file rather than per month.
+- **Model:** web tool, credits via Stripe Managed Payments, LLM-fulfilled
+- **Target customer:** Small video producers, course creators and Canadian organisations that must publish FR/EN captions (bilingual requirements, accessibility)
+- **Problem:** Subtitle SaaS forces $17-29/mo subscriptions for occasional use; free translators break timing, exceed 42-char lines and mistranslate fr-CA; ChatGPT chokes on long SRT files and drops cue numbers.
+- **Offer and pricing:** First 200 cues free. CAD $4 per file per language up to 1,000 cues, CAD $15 for 5 files, CAD $49 for 25; glossary upload and fr-CA/es-MX/pt-BR variants; batch zip processing.
+- **First 10 customers:** Google searches 'translate srt file', 'srt translator french canadian' (2026 roundups list 9-12 competitors: proven intent); r/VideoEditing and r/Subtitles help threads; tool directories.
+- **First 100 customers:** SEO per language pair and per platform ('translate YouTube captions to French'), Canadian e-learning and municipal comms teams (bilingual obligations), integration listing on Descript/CapCut community pages, repeat batch buyers.
+- **Why over alternatives:** Per-file pricing vs OpenL/Vmake subscriptions; cheaper than editingtools.io credits for typical 60-min video (~7k chars ≈ $0.70 there vs $4 flat but with QA checks on timing/line length); handles fr-CA variant explicitly.
+- **Why now (2026):** LLM translation quality for subtitles jumped in 2025-2026 while incumbents kept subscription pricing; Canadian accessibility and bilingual obligations increase caption translation volume; Haiku-class pricing makes CAD $4/file profitable.
+- **Gross margin (est.):** 80-85% (LLM cost ~CAD $0.05-0.20 per file plus Stripe MoR)
+- **Owner involvement:** Owner sets up Stripe and domain; operator deploys Cloudflare Worker + Haiku pipeline, handles quality tickets asynchronously.
+- **Biggest failure reason:** Free alternatives (YouTube auto-translate, CapCut, ChatGPT) are good enough for most casual users; paid conversion depends on professional buyers a new site cannot reach quickly.
+- **Estimates:** capital 80 CAD; days to first revenue 22; Day-90 base revenue 400 CAD; owner low; automation high; competition high; Day-180 asset low; confidence low
+- **Key risks:** Crowded SERP; LLM translation quality complaints; Low ticket size requires volume; Subtitle format edge cases
+- **Evidence:**
+  - [evidence] Editingtools.io charges ~1 credit per 800 characters (~$0.08); OpenL $17-89/mo; Kapwing from $12 per 60 min; Vmake Pro $24/mo: market has both credit and subscription pricing — <https://blog.openl.io/best-subtitle-translators-2026/> (2026)
+  - [evidence] Bluente and Maestra roundups list 9-12 competing SRT translators (free and paid), evidencing search demand and crowding — <https://www.bluente.com/blog/best-srt-file-translators> (2025)
+  - [evidence] Subtitle translation agency rates are far higher than tool pricing, leaving room for a mid-priced automated tier — <https://golocalise.com/blog/subtitling-rates-guide/> (2025)
+  - [assumption] Willingness to pay CAD $4 per file over free options is an assumption; no founder revenue report found for a small SRT tool — <https://blog.openl.io/best-subtitle-translators-2026/> (2026)
+
 ## Market notes by research source
 
 ### AI-agent and developer-tool ecosystem (2026): MCP servers, Claude Code / Cursor / Codex plugins and skills, CLI tools, GitHub Actions, paid packages, evals/observability, agent templates
@@ -450,3 +1117,20 @@ The most important structural finding is that the platforms split into two kinds
 _searches: 60, pages read: 9_
 
 The biggest structural finding for this lens is that the fastest inbound B2B channels for a solo, unattended operator are platform marketplaces, and their gating differs enormously: Stripe App Marketplace reviews in ~4 business days (341 apps / 302 vendors, so thin), Chrome Web Store in 1-3 days, Shopify 2-6 weeks (18,000 apps, 500-800 new per month, median app under $1,000/mo, 0% rev share to $1M), Atlassian 10-15 business days plus mandatory KYB with a registered business entity (100% of Forge revenue to $1M lifetime from Jan 2026, but a 30-day free trial is standard so first cash lands ~Day 60+), Wix and Webflow 15 business days, GitHub Marketplace requires 100 installs and a verified org, Etsy API approval has a backlog with no ETA, and Bubble plugins earn almost nothing (most devs under $100/mo). Regulatory deadlines are the strongest 2026 demand drivers I found: the European Accessibility Act has been enforced since 28 June 2025 with first French lawsuits in Nov 2025, Ontario AODA compliance reports are due 31 Dec 2026 for organisations with 20+ employees, and the FTC fined accessiBe $1M (Jan 2025) for claiming an overlay makes sites compliant, which pushes agencies toward real scan-and-report tools. Several 'boring' niches are already commoditised and SEO-driven with 5-10 fresh 2025-26 entrants each (bank-statement-to-CSV at $29/mo for 60 pages, DMARC monitoring with free tiers and a $4/domain floor, AI Google-review replies at $10-18/mo, Law 25 cookie banners, Canadian tender alerts with free GovBid-style aggregators), so I excluded them. Stripe Invoicing has documented, still-unsolved gaps (no late fees, single-email dunning, expiring links) and the only mature late-fee tool, Paidnice, starts at $69/mo, leaving room for a $19-39/mo Stripe-native app. Independent restaurants demonstrably lose 25-35% of delivery gross to fees/errors and reconcile CSV statements by hand (all three portals incl. SkipTheDishes export CSVs), but a free entrant (DeliverGuard) and enterprise players (Voosh, KoreFi) already exist and no SMB pricing was found. Realistic Day-90 revenue for any single candidate here is in the hundreds to low thousands CAD, not $25k; the accessibility-reporting and Stripe-invoicing plays are the only two with plausible first revenue inside 30 days, and the marketplace plays (Atlassian, Shopify) are better treated as Day-180 assets because of review queues and built-in free trials.
+
+### Lenses 1-3: content/affiliate/data, e-commerce/POD, marketplaces/directories/lead-gen
+_searches: 15, pages read: 2_
+
+LENS 1 (content/affiliate/newsletter/data): Sponsorship pricing for sub-5k lists is a flat $50-$300 per placement (destinicopp.com, paved.com), so a newsletter started on Day 1 with zero list cannot plausibly produce sponsorship revenue by Day 45; content plays must instead be "intent tools" (calculators, alert services) that monetize the first users directly via affiliate payouts or a small paid tier. Canadian fintech affiliates are unusually rich (Wealthsimple affiliate: 5% per sale / up to $1,250 per funded client per getlasso.co and promotions.wealthsimple.com), which makes small Canadian-specific calculator sites viable even at low traffic, but approval and SEO lag put first revenue at 30-60 days. Alert/data products built on free government feeds (IRCC Express Entry draws, CanadaBuys tenders) have proven paid competitors (TraceCA lifetime tier with 2,807 users claimed; GovBids $19-$79/mo) and can charge from week 2-3, though the tender-alert space already has 4+ indie entrants. No evidence was found on calculator-site revenue post AI Overviews; treat all traffic assumptions as unverified. LENS 2 (e-commerce/POD): TikTok Shop is NOT available in Canada as of mid-2026 (atlanticworks.ca, rubylegal.ai), Redbubble now takes a 50% platform fee from Standard-tier artists since Sept 2025 (help.redbubble.com, lavaritte.com), and KDP publishers earn $0-$30/month in their first 6 months (kdpeasy.com, zonguru.com). Printify via Etsy with Canadian print providers gives 30-50% margins and 4-8 day domestic shipping (merchize.com, printify.com), and Etsy's own trend reports confirm personalization demand (etsy.com seller handbook, Q4 2025 buyer growth). No source gave a median time-to-first-sale for new Etsy shops; every estimate here is an assumption. Net: POD/KDP can produce a first sale in 2-6 weeks but Day-90 revenue is small and margin after Etsy/Amazon fees is thin; only the personalized-Etsy candidate has a realistic path to a few hundred CAD by Day 90. LENS 3 (marketplaces/directories/lead-gen): Job boards and directories show real solo-operator income (Real Work From Anywhere >$5k MRR, SaaSHub $99/mo featured x108 = >$10k MRR, OpenAlternative $3-3.5k/mo) but the chicken-and-egg lag is severe: RWFA took years to its first paid listing (indiehackers.com), and early-stage boards sell 1-3 listings/month at $99-$199 (jakeinsight.com, jobboardly.com). Inbound lead-gen has the strongest willingness to pay: Canadian contractors already pay HomeStars C$40-80 per shared lead plus $200-500/mo subscriptions and rate it 2.7/5 (leadtruffle.co, smartcustomer.com, BBB), so an exclusive-lead niche RFQ site has a clear value proposition, but it depends on SEO or small ad spend to generate homeowner requests and on the owner setting up an ads account. All three lens-3 candidates are plausible for a first dollar by Day 30-45 only if the supply side is seeded from public data (ATS feeds, public listings) so the site is useful before the first paying customer.
+
+### Revenue Reports / Arbitrage 2026 / Canada-Specific
+_searches: 18, pages read: 2_
+
+REVENUE REPORTS: First-hand 2026 reports cluster around three shapes. (1) Launch/visibility platforms and directories monetized by featured listings: SoloPush reached $2K MRR and 60+ paying customers 19 days after launch (Niall Doherty write-up, 2026); jobboardsearch.com, a meta-directory, reported ~$100k lifetime revenue (HN Jan 2026). (2) Single-purpose utilities with near-zero opex: Dead Man's Switch makes ~$1k/mo on ~$10/mo costs, customers from Reddit/word-of-mouth (HN Jan 2026); Uruky earns >EUR1k/mo from 250 pay-once accounts. (3) Dev-facing APIs sold via build-in-public: PostPeer did ~$2.9k in its first month (April 2026, Indie Hackers); IndiePilot got 5 paying customers in week one purely from Reddit communities (Feb 2026). Median path to $1K MRR is still 12-18 months (SaaSRanger), so candidates below deliberately pick the fast-cash shapes (featured listings, pay-once). ARBITRAGE 2026: Datable gaps with evidence: Qualtrics killed Delighted on 2026-06-30 (10k-100k small teams displaced; cheapest incumbent replacement $59/mo vs Delighted's low-cost plan; MicroGaps documents rising 'Delighted alternative' search volume and Reddit threads); Shopify's Stocky app leaves the store 2026-02-02 and dies 2026-08-31; EU AI Act Article 50 transparency/labelling obligations took effect 2026-08-02 with fines up to EUR15M. Relay.app (paid data deleted 2026-09-14) and Tenor API (dead 2026-06-30) were evaluated and rejected: window closed / content-licensing risk. CANADA: Quebec's June 1 2025 Bill 96 provisions push French-first contracts, e-commerce and employee communications onto SMBs; a translated 30-page handbook costs ~$5,000 (Snell & Wilmer) and CFIB's handbook template is French-only for Quebec. TAL changed its rent-increase formula for 2026 (3.1% base) and at least four free calculators appeared within months (doclinc, AA Location, Coloka, hausseloyer.org), proving demand but also free competition; the paid angle is the bilingual notice document, not the math. Canadian contractor invoicing is saturated (Just Invoice, OFFIX, TraderInvoice, InvoiceCast, CrewQuote, Jobber) and 'Buy Canadian' directories list businesses for free, so both were rejected.
+
+### app-stores / ai-productized-services / micro-utilities
+_searches: 15, pages read: 1_
+
+APP STORES: Evidence shows small extensions/plugins earn side-hustle money ($500-3,000 MRR) but slowly; conversion free-to-paid is typically <1% (chromegoldmine benchmarks; Freemius/mktclarity for WP). Store timelines: WordPress.org manual review 1-10 days (Freemius guide); Chrome Web Store $5 fee, tighter 2025 policies, no published SLA (typically days); Google Workspace Marketplace requires OAuth verification plus Marketplace review, budget 2-3 weeks and community reports of 8+ week stalls, which pushes first revenue toward Day 35-50 and makes it the riskiest store for this competition. ExtensionPay (5% + $0.30) and Freemius let the operator sell without building billing. Distribution inside stores is search-driven, so revenue within 90 days depends on picking a query with existing intent, not on novelty.
+AI-FULFILLED PRODUCTIZED SERVICES: Fiverr takes 20% from sellers plus a 5.5% buyer fee; Upwork freelancer fee is variable 0-15% (since May 2025) plus a client contract-initiation fee. Fiverr openly promotes AI-assisted work (Fiverr Go, AI Video Hub, 2025-2026) but has no crisp disclosure rule; transcription/show-notes gigs are commoditised to $5-15 per 10 minutes, so pure-AI deliverables only pay if there is a compliance or specialist angle. The strongest 2026 angle found is Quebec Bill 96 (fully in force 1 June 2025, $3,000-30,000 per violation, applies to any store selling to Quebec regardless of size), which creates urgent, non-optional demand for French web/catalogue content from small Canadian e-commerce merchants. No time-to-first-order data for new sellers was found; assume 2-4 weeks with zero reviews (assumption).
+MICRO-UTILITIES: Small tools with intent do earn: FreeConvert ~US$1M/yr (ads), SocialKit ~$3.5k/mo, PostPeer ~$2.9k/mo including one-time payments (Indie Hackers/ideaproof). Verified paid niches: bank-statement PDF-to-CSV (CapyParse $5 for 20 pages, MoneyThumb $24.95/mo), WhatsApp chat-to-court-PDF (ChatToPDF from $7, ChatToCourt $29, ProofSnap $59.99), SRT translation (editingtools.io ~$0.08 per 800 characters; OpenL from $17/mo). All three have free or freemium alternatives, including ChatGPT/Claude uploads, so the paid wedge must be format fidelity, privacy (client-side processing), batch volume or an evidence-grade output, not the AI itself. Search-volume numbers were not verified with a keyword tool (not found); demand is inferred from the number of competing paid tools and comparison articles dated 2025-2026.

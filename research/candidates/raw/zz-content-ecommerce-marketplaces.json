@@ -1,0 +1,500 @@
+{
+  "group": "Lenses 1-3: content/affiliate/data, e-commerce/POD, marketplaces/directories/lead-gen",
+  "searches_run": 15,
+  "pages_read": 2,
+  "market_notes": "LENS 1 (content/affiliate/newsletter/data): Sponsorship pricing for sub-5k lists is a flat $50-$300 per placement (destinicopp.com, paved.com), so a newsletter started on Day 1 with zero list cannot plausibly produce sponsorship revenue by Day 45; content plays must instead be \"intent tools\" (calculators, alert services) that monetize the first users directly via affiliate payouts or a small paid tier. Canadian fintech affiliates are unusually rich (Wealthsimple affiliate: 5% per sale / up to $1,250 per funded client per getlasso.co and promotions.wealthsimple.com), which makes small Canadian-specific calculator sites viable even at low traffic, but approval and SEO lag put first revenue at 30-60 days. Alert/data products built on free government feeds (IRCC Express Entry draws, CanadaBuys tenders) have proven paid competitors (TraceCA lifetime tier with 2,807 users claimed; GovBids $19-$79/mo) and can charge from week 2-3, though the tender-alert space already has 4+ indie entrants. No evidence was found on calculator-site revenue post AI Overviews; treat all traffic assumptions as unverified. LENS 2 (e-commerce/POD): TikTok Shop is NOT available in Canada as of mid-2026 (atlanticworks.ca, rubylegal.ai), Redbubble now takes a 50% platform fee from Standard-tier artists since Sept 2025 (help.redbubble.com, lavaritte.com), and KDP publishers earn $0-$30/month in their first 6 months (kdpeasy.com, zonguru.com). Printify via Etsy with Canadian print providers gives 30-50% margins and 4-8 day domestic shipping (merchize.com, printify.com), and Etsy's own trend reports confirm personalization demand (etsy.com seller handbook, Q4 2025 buyer growth). No source gave a median time-to-first-sale for new Etsy shops; every estimate here is an assumption. Net: POD/KDP can produce a first sale in 2-6 weeks but Day-90 revenue is small and margin after Etsy/Amazon fees is thin; only the personalized-Etsy candidate has a realistic path to a few hundred CAD by Day 90. LENS 3 (marketplaces/directories/lead-gen): Job boards and directories show real solo-operator income (Real Work From Anywhere >$5k MRR, SaaSHub $99/mo featured x108 = >$10k MRR, OpenAlternative $3-3.5k/mo) but the chicken-and-egg lag is severe: RWFA took years to its first paid listing (indiehackers.com), and early-stage boards sell 1-3 listings/month at $99-$199 (jakeinsight.com, jobboardly.com). Inbound lead-gen has the strongest willingness to pay: Canadian contractors already pay HomeStars C$40-80 per shared lead plus $200-500/mo subscriptions and rate it 2.7/5 (leadtruffle.co, smartcustomer.com, BBB), so an exclusive-lead niche RFQ site has a clear value proposition, but it depends on SEO or small ad spend to generate homeowner requests and on the owner setting up an ads account. All three lens-3 candidates are plausible for a first dollar by Day 30-45 only if the supply side is seeded from public data (ATS feeds, public listings) so the site is useful before the first paying customer.",
+  "candidates": [
+    {
+      "lens": "CONTENT, AFFILIATE, NEWSLETTER, DATA PRODUCTS",
+      "name": "Canadian Money Tools (FHSA/TFSA/RRSP intent calculators + Wealthsimple/EQ affiliate)",
+      "one_liner": "A small site of Canada-specific personal-finance calculators (FHSA contribution room, TFSA room by birth year, RRSP-vs-TFSA, 2026 mortgage stress test) monetized by Canadian fintech affiliate payouts.",
+      "model_type": "affiliate intent-tool site",
+      "target_customer": "Canadians aged 20-40 checking FHSA/TFSA/RRSP room and comparing accounts before opening one (Wealthsimple, EQ Bank).",
+      "problem": "Government pages explain rules but do not compute a person's room or compare accounts; existing calculator sites are US-centric or bank-owned.",
+      "offer_and_pricing": "Free calculators; revenue from Wealthsimple affiliate (5% per sale / up to $1,250 per funded client) and EQ Bank referral bonuses; optional CAD 9 'export my plan' PDF later.",
+      "first_10_customers": "First 10 affiliate conversions from Reddit r/PersonalFinanceCanada answers that link the calculator only where subreddit rules allow tool links, plus long-tail SEO for 'FHSA contribution room calculator 2026' style queries.",
+      "first_100_customers": "Programmatic pages per year-of-birth/province (TFSA room tables), Pinterest pins of the charts, and inclusion in Canadian finance Discord/Reddit wikis; 100 funded referrals is a Day-120+ outcome, not Day-90.",
+      "why_over_alternatives": "Canada-specific 2026 limits, no login, no bank bias; the affiliate payout per funded account is large enough that a few hundred monthly visitors can pay for the site.",
+      "evidence": [
+        {
+          "claim": "Wealthsimple affiliate program pays 5% per sale and a referral marketing fee up to $1,250 when a client opens and funds an account within 30 days.",
+          "source_url": "https://getlasso.co/affiliate/wealthsimple/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Wealthsimple's own affiliate referral program page confirms compensation is tied to a Promotion Account opened via tracked link and funded within 30 days.",
+          "source_url": "https://promotions.wealthsimple.com/hc/en-ca/articles/29448182409499-Wealthsimple-Affiliate-Referral-Program",
+          "recency": "2025-2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "EQ Bank runs a referral program with bonuses up to $500 (customer referral, not a formal affiliate rate).",
+          "source_url": "https://www.savvynewcanadians.com/eq-bank-promotion/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Calculator pages will earn organic clicks despite AI Overviews; no case study found either way.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 40,
+      "est_days_to_first_revenue": 45,
+      "est_day90_revenue_base_cad": 150,
+      "gross_margin_est": "90%+ (hosting near zero; affiliate payouts net of nothing)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner registers domain and applies to Wealthsimple/EQ affiliate programs (identity, tax info) in setup block; nothing weekly.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Affiliate approval delayed or denied for a brand-new site, and SEO traffic too slow inside 90 days.",
+      "key_risks": [
+        "Affiliate program may require established traffic before approval",
+        "AI Overviews absorb simple 'what is my TFSA room' queries",
+        "Reddit self-promotion rules limit distribution",
+        "Payout lag: funded-account conversions may post after Day 90"
+      ],
+      "why_now_2026": "FHSA is still new (2023) and 2026 limits/mortgage rules changed, creating fresh query demand; Canadian fintech affiliate payouts are at record highs while US-centric calculator sites ignore Canada.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "lens": "CONTENT, AFFILIATE, NEWSLETTER, DATA PRODUCTS",
+      "name": "DrawWatch: Express Entry / PNP draw alerts with CRS-threshold push and history API",
+      "one_liner": "Free draw alerts plus a one-time paid tier that pushes instantly (email/Telegram/Discord) when a draw meets the user's category and CRS score, backed by a public JSON API of draw history.",
+      "model_type": "freemium data/alert product (one-time or annual fee)",
+      "target_customer": "Express Entry and PNP candidates (hundreds of thousands in the pool) and small immigration consultants tracking draws for clients.",
+      "problem": "IRCC's free emails are generic; candidates want to know within minutes whether THEIR score/category was drawn and what the trend implies.",
+      "offer_and_pricing": "Free basic alerts; CAD 19 lifetime or CAD 4/mo for personalized threshold alerts, category tracking and history dashboards; CAD 29/mo API tier for consultants.",
+      "first_10_customers": "Organic posts/answers in immigration subreddits and Discord servers where tool links are permitted, and SEO pages 'latest Express Entry draw' auto-updated within minutes of each draw.",
+      "first_100_customers": "Ranking for per-category draw pages (CEC, French, healthcare) and referral links from users; consultants discover the API via the public history pages.",
+      "why_over_alternatives": "Personalized threshold alerts and a machine-readable history API; TraceCA proves paid demand but offers only generic alerts.",
+      "evidence": [
+        {
+          "claim": "TraceCA sells 'lifetime access for unlimited future alerts' on top of free email alerts and claims 2,807 applicants have used it.",
+          "source_url": "https://www.traceca.site/",
+          "recency": "2026 (fetched 2026-09-15)",
+          "kind": "evidence"
+        },
+        {
+          "claim": "IRCC offers free generic Express Entry email updates, setting the free baseline the paid tier must beat.",
+          "source_url": "https://ircc.canada.ca/english/immigrate/express/express-entry/sign-up.asp",
+          "recency": "ongoing",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Multiple consultancies (canadim.com, immigration.ca) publish draw trackers, indicating high search demand for draw results.",
+          "source_url": "https://www.canadim.com/immigrate/express-entry/draws/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Conversion of free alert users to a CAD 19 tier at 2-3% is assumed, not measured.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 60,
+      "est_days_to_first_revenue": 21,
+      "est_day90_revenue_base_cad": 300,
+      "gross_margin_est": "90%+ (Stripe fees only; scraping of public IRCC pages is free)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner sets up Stripe and domain once; all draw ingestion, alerts and support FAQs are automated.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Free alternatives (IRCC email, X accounts, consultancy pages) are good enough and users will not pay even CAD 19.",
+      "key_risks": [
+        "Immigration subreddits restrict promotional links",
+        "Draw frequency is irregular so value is episodic",
+        "Consultancy sites dominate SEO for draw queries",
+        "Must not present as immigration advice (regulated in Canada)"
+      ],
+      "why_now_2026": "Category-based draws (French, healthcare, trades) multiplied in 2025-2026, making generic alerts less useful and score/category-specific alerts more valuable.",
+      "day180_asset_potential": "medium",
+      "confidence": "medium"
+    },
+    {
+      "lens": "CONTENT, AFFILIATE, NEWSLETTER, DATA PRODUCTS",
+      "name": "SmallBid: SMB-sized Canadian public tender alerts (CanadaBuys + provincial portals) with AI summaries",
+      "one_liner": "A vertical-specific tender alert and digest service for small Canadian service firms (e.g., janitorial, landscaping, IT services under $100k) built on free CanadaBuys open data.",
+      "model_type": "paid alert/data subscription (freemium)",
+      "target_customer": "Canadian small service businesses (1-20 staff) who could bid on small federal/provincial contracts but do not pay MERX.",
+      "problem": "CanadaBuys is free but noisy; MERX charges $15-$160/mo; owners want only the small contracts in their trade, summarized in plain language.",
+      "offer_and_pricing": "Free weekly digest; CAD 15/mo per trade vertical with daily alerts, AI summaries and deadline calendar; CAD 39/mo multi-vertical.",
+      "first_10_customers": "SEO pages per trade and province ('janitorial tenders Ontario') and posts in Canadian small-business communities where tool sharing is allowed; free tier converts to paid when a relevant tender appears.",
+      "first_100_customers": "Programmatic coverage of every trade x province, a public 'awarded contracts' dataset that earns links, and referrals from bookkeepers/associations.",
+      "why_over_alternatives": "Cheaper and narrower than MERX/Biddingo; unlike GovBids (general), it is filtered to small-value contracts a micro-business can actually win.",
+      "evidence": [
+        {
+          "claim": "GovBids sells CanadaBuys-derived alerts at $19/$39/$79 per month, claiming ~80% less than MERX's $30-$160/mo; data refreshed every 2 hours.",
+          "source_url": "https://govbids.ca/pricing",
+          "recency": "2026 (fetched 2026-09-15)",
+          "kind": "evidence"
+        },
+        {
+          "claim": "MERX entry plan is approximately CAD 14.95/mo (early 2026) or $70/document; CanadaBuys itself is free.",
+          "source_url": "https://govbid.ca/guide/what-is-merx",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "At least four indie aggregators (GovBid, GovBids, BidFit, Jorpex) already compete on this data.",
+          "source_url": "https://bidfit.ca/guides/merx-vs-canadabuys",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Small service firms will pay CAD 15/mo for a narrowed feed; conversion rates not found.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 80,
+      "est_days_to_first_revenue": 30,
+      "est_day90_revenue_base_cad": 200,
+      "gross_margin_est": "85% (LLM summaries ~US$0.005/call, Stripe fees)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner sets up Stripe/domain; ingestion, summaries and billing are fully automated.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Crowded with recent indie clones of the same free data; differentiation by vertical may not overcome buyer inertia.",
+      "key_risks": [
+        "CanadaBuys data licence terms must be respected",
+        "Provincial portals vary and some restrict scraping",
+        "Small firms rarely bid; low activation",
+        "Churn after first unsuccessful bid"
+      ],
+      "why_now_2026": "CanadaBuys fully replaced BuyandSell and publishes open data; cheap LLM summarization makes plain-language, trade-filtered digests feasible for a solo operator.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "lens": "E-COMMERCE / PRINT-ON-DEMAND",
+      "name": "Hometown Personalized Gifts on Etsy (Printify, Canadian print providers)",
+      "one_liner": "Etsy shop selling personalized Canadian-town/name/date mugs, prints and tote bags, printed and shipped from Canadian Printify providers, with personalization rendered automatically from the Etsy order field.",
+      "model_type": "print-on-demand e-commerce (Etsy + Printify)",
+      "target_customer": "Canadian gift buyers (moving-away, new-home, hockey-family, cottage) who search Etsy for personalized items shipped domestically without duties.",
+      "problem": "Most Etsy POD ships from the US to Canada with slow delivery, duties and CAD/USD confusion; personalized Canadian-specific designs are thin.",
+      "offer_and_pricing": "Mugs CAD 24-29, 8x10 prints CAD 22-28, totes CAD 29-34; free shipping over CAD 35; personalization included.",
+      "first_10_customers": "Etsy search (Canadian-specific long-tail keywords like town names and 'Canada' gifts) plus a small Etsy Ads test (CAD 2-3/day) ahead of Q4 gifting.",
+      "first_100_customers": "Expand SKUs across 100+ town/city names and occasions, Pinterest pins of mockups, and Etsy's Q4 traffic (17.2M gross buyer adds in Q4 2025).",
+      "why_over_alternatives": "Ships from Canada in 4-8 days in CAD; personalization automated so it can be fulfilled without the owner touching orders.",
+      "evidence": [
+        {
+          "claim": "Printify with Canadian providers yields 30-50% margins in CAD with 4-8 day Canadian ship times; production 2-7 business days.",
+          "source_url": "https://merchize.com/print-on-demand-in-canada/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Etsy Fall/Winter 2025 seller trend report: shoppers want personalized gifts with a name or date (mugs, wall art).",
+          "source_url": "https://www.etsy.com/seller-handbook/article/1417223353768",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Real POD margin on Etsy is reduced by listing fees, transaction and payment fees, discounts and offsite ads; experienced sellers price for 40-50%.",
+          "source_url": "https://mydesigns.io/blog/print-on-demand-profit-margin/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Time to first sale for a new shop with 30-50 listings is 2-6 weeks; no median found.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 150,
+      "est_days_to_first_revenue": 25,
+      "est_day90_revenue_base_cad": 450,
+      "gross_margin_est": "25-35% net of Printify cost, Etsy fees (6.5% + payment + $0.20 listing) and any ads",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner opens Etsy and Printify accounts (identity, bank) once; orders flow Etsy -> Printify automatically; occasional buyer messages answered by scheduled runs.",
+      "automation_potential": "high",
+      "competition_intensity": "extreme",
+      "biggest_failure_reason": "Invisible in Etsy search among millions of POD listings; Q4 window missed if listings are not live by early November.",
+      "key_risks": [
+        "Etsy account suspensions common for new POD shops",
+        "Refunds/reprints on personalization errors erode margin",
+        "Printify price changes",
+        "Etsy Ads spend can exceed early profit"
+      ],
+      "why_now_2026": "Canadian Printify providers now offer 4-8 day domestic delivery and Etsy is explicitly promoting personalization for Q4 2025-2026; cross-border duty confusion pushes Canadian buyers toward domestic sellers.",
+      "day180_asset_potential": "medium",
+      "confidence": "medium"
+    },
+    {
+      "lens": "E-COMMERCE / PRINT-ON-DEMAND",
+      "name": "Canadian Test-Prep Workbooks on Amazon KDP",
+      "one_liner": "Paperback medium-content workbooks for Canadian-specific exams (citizenship test practice, provincial driver knowledge tests, Red Seal trade practice questions) published via KDP for Amazon.ca.",
+      "model_type": "self-published paperback (Amazon KDP)",
+      "target_customer": "Newcomers preparing for the Canadian citizenship test, new drivers by province, and apprentices preparing for Red Seal exams.",
+      "problem": "Amazon.ca has few updated, province-specific practice books; most available ones are US-focused or outdated.",
+      "offer_and_pricing": "Paperbacks CAD 14.99-19.99 (KDP 60% royalty minus print cost ~CAD 4-5); optional Kindle edition CAD 6.99.",
+      "first_10_customers": "Amazon.ca organic search for exam-name keywords plus a free companion quiz site linking to the books.",
+      "first_100_customers": "A 10-15 book portfolio across provinces/trades, Amazon A+ content, and Kindle Unlimited reads; 100 sales by Day 90 requires a portfolio, not one title.",
+      "why_over_alternatives": "Current-year Canadian content, province-specific editions and practice-question volume that generic titles lack.",
+      "evidence": [
+        {
+          "claim": "Most KDP publishers earn $0-$30/month in their first 6 months; a 15-40 book portfolio is needed for $500-$3,000/month.",
+          "source_url": "https://www.kdpeasy.com/blog/how-to-make-money-with-amazon-kdp",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "One low/medium-content publisher reported >$600 royalties in August 2025 from 14 books.",
+          "source_url": "https://lowcontentprofits.com/amazon-kdp-income-report-breakdown/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "KDP income in year one typically spans $0-$300/month during portfolio validation.",
+          "source_url": "https://www.zonguru.com/blog/how-much-do-self-published-authors-make-on-amazon",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Canadian exam-prep niches on Amazon.ca have lower competition than US equivalents; not verified with keyword tools.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 60,
+      "est_days_to_first_revenue": 30,
+      "est_day90_revenue_base_cad": 120,
+      "gross_margin_est": "45-55% of list price after print cost and Amazon's 40% share",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner creates the KDP account with tax/bank info once; manuscripts, covers and uploads are generated by the operator.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Tiny sales velocity in the first 90 days; KDP payouts are 60 days in arrears so cash lands after the period.",
+      "key_risks": [
+        "KDP AI-content disclosure and quality review may delay or reject titles",
+        "Royalties paid ~60 days after month end",
+        "Question accuracy liability for exams",
+        "Amazon.ca low review count suppresses ranking"
+      ],
+      "why_now_2026": "Record immigration-backlog cohorts and Red Seal demand keep exam searches high while 2025-2026 rule changes date the existing books.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "lens": "E-COMMERCE / PRINT-ON-DEMAND",
+      "name": "Multi-marketplace passive POD (Redbubble/TeePublic) for niche Canadian humour designs",
+      "one_liner": "Upload the same 100-300 designs (Canadian regional humour, trades, hobbies) to marketplace-native POD sites where the platform handles traffic, fulfilment and support.",
+      "model_type": "marketplace POD (zero-inventory, platform-run)",
+      "target_customer": "Casual gift shoppers browsing Redbubble/TeePublic for niche-identity stickers, tees and mugs.",
+      "problem": "Niche identity designs are underserved outside the biggest fandoms; buyers want stickers/tees that reference their trade, town or hobby.",
+      "offer_and_pricing": "Platform-set prices; artist margin set at 20-30% on stickers (USD 2-4), tees (USD 22-28).",
+      "first_10_customers": "Marketplace internal search driven by tag-rich listings; no external marketing.",
+      "first_100_customers": "Design volume (hundreds of tagged designs) plus Pinterest pins; realistically Day 120+.",
+      "why_over_alternatives": "Requires no Etsy account, no ads and no customer service; lowest owner involvement of any POD option.",
+      "evidence": [
+        {
+          "claim": "Since Sept 1 2025 Redbubble charges Standard-tier artists a 50% platform fee (capped at $150/period); Premium 20%, Pro 0%, tier assigned by Redbubble.",
+          "source_url": "https://help.redbubble.com/hc/en-us/articles/50959863016724-How-does-my-Account-Tier-determine-my-account-fees",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Independent review: Redbubble is a supplementary income stream for artists with an existing audience, not a reliable primary income after 2025 fee changes.",
+          "source_url": "https://lavaritte.com/blogs/redbubble-for-artists-review/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "TeePublic/other marketplaces will accept mass uploads of AI-assisted designs without account limits; not verified.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 0,
+      "est_days_to_first_revenue": 40,
+      "est_day90_revenue_base_cad": 40,
+      "gross_margin_est": "~50% of artist margin after Redbubble Standard fee; effectively 10-15% of retail",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner creates accounts and PayPal once; uploads scripted.",
+      "automation_potential": "high",
+      "competition_intensity": "extreme",
+      "biggest_failure_reason": "50% platform fee on Standard tier plus saturated catalogues make Day-90 revenue negligible; included for completeness, not recommended.",
+      "key_risks": [
+        "Platform fee changes",
+        "Design takedowns for trademark",
+        "Payout thresholds delay cash",
+        "Mass low-quality uploads violate the legitimacy rule and platform policy"
+      ],
+      "why_now_2026": "Weak: 2025 fee changes made this worse, not better; only the near-zero capital and involvement argue for it.",
+      "day180_asset_potential": "low",
+      "confidence": "low"
+    },
+    {
+      "lens": "NICHE MARKETPLACES, DIRECTORIES, JOB BOARDS, INBOUND LEAD-GEN",
+      "name": "HiresCanadians: remote jobs board of roles explicitly open to Canada-based applicants",
+      "one_liner": "Aggregates jobs from public Greenhouse/Lever/Ashby boards that state Canada eligibility, then sells featured placements and employer profiles.",
+      "model_type": "niche job board (free aggregated listings + paid featured)",
+      "target_customer": "Candidate side: Canadian knowledge workers filtering out US-only remote roles; paying side: startups and Canadian employers hiring remote in Canada.",
+      "problem": "Remote boards are dominated by US-only listings; Canadians waste time on ineligible roles and employers hiring in Canada struggle to reach them.",
+      "offer_and_pricing": "Free aggregated listings; CAD 99 featured 30-day listing, CAD 199 featured + newsletter mention, CAD 49/mo employer profile.",
+      "first_10_customers": "Employers whose aggregated listings already get clicks are offered an upgrade via the listing page (inbound only); posts in Canadian tech/remote-work communities that allow sharing.",
+      "first_100_customers": "SEO on 'remote jobs Canada [role]' pages, a weekly digest newsletter, and recurring employers; 100 paid listings is a Day-180+ outcome.",
+      "why_over_alternatives": "Eligibility-verified Canadian listings and CAD pricing well below We Work Remotely's $299 per post.",
+      "evidence": [
+        {
+          "claim": "Real Work From Anywhere passed $5k MRR after 3 years; first paid job listing came in March 2025 with ~99% margin.",
+          "source_url": "https://www.indiehackers.com/post/my-job-board-has-passed-5k-mrr-after-3-years-of-building-527416c1c1",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Early-stage niche boards charge $99-$199 per listing and manually sell 1-3 listings/month; $1,500-$5,000/mo takes 12-18 months.",
+          "source_url": "https://jakeinsight.com/side-income/2026-03-26-build-a-niche-job-board-with-revenue-from-listings/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "We Work Remotely charges $299/post; 15-25% of employers buy premium upgrades when offered at checkout.",
+          "source_url": "https://www.jobboardly.com/blog/how-to-price-your-job-board-listings-a-complete-guide",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Public ATS boards can be aggregated under their terms with attribution; needs per-source checking.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 60,
+      "est_days_to_first_revenue": 40,
+      "est_day90_revenue_base_cad": 200,
+      "gross_margin_est": "95% (hosting + Stripe fees)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner sets up Stripe/domain once; aggregation, eligibility classification (LLM), newsletter and checkout are automated.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Chicken-and-egg: employers will not pay until candidate traffic exists, and traffic takes longer than 90 days.",
+      "key_risks": [
+        "ATS scraping terms",
+        "Employer outreach is banned under CASL so upgrades must be strictly inbound",
+        "Existing Canadian boards (Jobillico, Indeed) dominate search",
+        "Paid listing demand is lumpy"
+      ],
+      "why_now_2026": "Remote-work eligibility confusion peaked as US firms tightened geography; cheap LLM classification makes eligibility filtering feasible for a solo operator.",
+      "day180_asset_potential": "high",
+      "confidence": "low"
+    },
+    {
+      "lens": "NICHE MARKETPLACES, DIRECTORIES, JOB BOARDS, INBOUND LEAD-GEN",
+      "name": "Exclusive-lead RFQ site for one trade in one province (e.g., septic pumping / basement waterproofing in Ontario)",
+      "one_liner": "A single-trade, single-province quote-request site that delivers each homeowner request exclusively to one contractor who has opted in, priced per lead below HomeStars but without lead sharing.",
+      "model_type": "inbound lead generation (pay-per-lead, exclusive)",
+      "target_customer": "Small Ontario contractors in one high-ticket, low-competition trade who currently buy shared leads from HomeStars/Angi or rely on word of mouth.",
+      "problem": "HomeStars leads are shared with 3-8 contractors, cost C$40-80 plus $200-500/mo, and contractors rate the service 2.7/5 with lock-in contracts.",
+      "offer_and_pricing": "CAD 45-75 per exclusive lead billed via Stripe (prepaid credits, no contract); contractors sign up inbound on the site.",
+      "first_10_customers": "Contractors arrive via the site's 'get leads' page found through SEO ('exclusive [trade] leads Ontario') and via the homeowner side telling providers where they found them; no cold outreach (CASL).",
+      "first_100_customers": "Replicate the template across trades/provinces once one trade converts; 100 contractors is a Day-180+ outcome, but 100 leads sold by Day 90 is plausible with small ad spend.",
+      "why_over_alternatives": "Exclusive leads, no annual contract, CAD pricing, instant email/SMS delivery; contractors already pay more for worse leads.",
+      "evidence": [
+        {
+          "claim": "Canadian contractors report C$40-80 per HomeStars lead, annual contracts with 30-35% cancellation penalties; leads shared with 3-8 contractors.",
+          "source_url": "https://www.leadtruffle.co/blog/angi-leads-cost-pricing-contractors-2026/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "HomeStars subscriptions run $200-$500+/month plus $10-$100 per lead; charged when homeowners shortlist regardless of contact.",
+          "source_url": "https://www.launchandfound.co/homestars-for-contractors/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "HomeStars.ca rated 2.7/5 by 194 customers; BBB complaint history documents contractor dissatisfaction.",
+          "source_url": "https://www.smartcustomer.com/reviews/homestars.ca",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "A new site can generate 20-40 qualified homeowner requests/month in one trade with SEO plus CAD 150-250 of Google Ads; not verified.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 300,
+      "est_days_to_first_revenue": 35,
+      "est_day90_revenue_base_cad": 500,
+      "gross_margin_est": "50-70% after ad spend; 90%+ on organic leads",
+      "owner_involvement": "medium",
+      "owner_involvement_notes": "Owner must open and fund a Google Ads account and Stripe; lead routing, billing and contractor onboarding are automated. Lead disputes may need a monthly 15-minute review.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "Homeowner demand side stalls (no organic ranking yet and ads too expensive), so there are no leads to sell in the window.",
+      "key_risks": [
+        "Google Ads cost per homeowner request may exceed lead price",
+        "Lead quality disputes/refunds",
+        "Contractor acquisition must be strictly inbound under CASL",
+        "Seasonality of the chosen trade"
+      ],
+      "why_now_2026": "Contractor frustration with HomeStars/Angi lead sharing and contracts is well documented in 2025-2026, and lightweight LLM lead qualification makes exclusive, verified leads cheap to produce.",
+      "day180_asset_potential": "high",
+      "confidence": "medium"
+    },
+    {
+      "lens": "NICHE MARKETPLACES, DIRECTORIES, JOB BOARDS, INBOUND LEAD-GEN",
+      "name": "HostedInCanada: directory of SaaS/cloud tools with Canadian data residency, monetized by featured vendor listings",
+      "one_liner": "A curated, verifiable directory of software and hosting vendors that store data in Canada, seeded from public docs and monetized with $99/mo featured placements and category sponsorships.",
+      "model_type": "directory with paid featured listings/sponsorship",
+      "target_customer": "Buyers: Canadian SMBs, clinics, law firms, municipalities and public-sector procurement needing data residency; payers: vendors selling to them.",
+      "problem": "Buyers must check each vendor's privacy page for residency claims; vendors with Canadian hosting have no place to stand out on that attribute.",
+      "offer_and_pricing": "Free basic listing (seeded); CAD 99/mo featured in category; CAD 299/mo category sponsorship; 'verified residency' badge included with paid tiers after documentation review.",
+      "first_10_customers": "Vendors whose free listing page ranks for '[category] Canadian data residency' see the upgrade CTA; inbound only. Communities of Canadian IT/privacy professionals where sharing is allowed.",
+      "first_100_customers": "Programmatic category x compliance pages (PIPEDA, PHIPA, Quebec Law 25), a public residency dataset earning links, and vendor referrals; 100 paying vendors is a 12-month goal.",
+      "why_over_alternatives": "Only directory verifying residency claims; SaaSHub-style pricing works because vendors' buyer intent is compliance-driven and high-ticket.",
+      "evidence": [
+        {
+          "claim": "SaaSHub charges $99/month for featured placement and with 108 featured listings exceeds $10k MRR.",
+          "source_url": "https://www.indiehackers.com/post/tech/stuck-at-300-mo-until-revenue-skyrocketed-to-17k-mo-in-a-month-uMOSolSKjXGX74a0lVGQ",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "OpenAlternative (community directory launched Feb 2023) makes ~$3-3.5k/month; directory sites commonly reach $600-$3,500/mo each.",
+          "source_url": "https://www.goodreads.com/author_blog_posts/25546562-this-2-year-old-directory-site-makes-3500-per-month?tab=author",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Vendors will pay CAD 99/mo for a compliance-attribute directory within 90 days of launch; not verified.",
+          "source_url": "not found",
+          "recency": "n/a",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 60,
+      "est_days_to_first_revenue": 45,
+      "est_day90_revenue_base_cad": 200,
+      "gross_margin_est": "95%",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner sets up Stripe/domain once; seeding from public privacy pages, verification checklists and billing are automated.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "Directory traffic takes longer than 90 days to reach the level at which vendors see value; first paid listing may slip past Day 45.",
+      "key_risks": [
+        "Residency claims must be accurate to avoid misrepresentation",
+        "Vendor upgrades must be inbound (CASL)",
+        "AI Overviews may answer residency questions directly",
+        "Quebec Law 25 nuance requires careful, non-legal-advice framing"
+      ],
+      "why_now_2026": "Quebec Law 25 enforcement, federal privacy reform debate and US data-sovereignty concerns in 2025-2026 make 'is my data in Canada' a live procurement question.",
+      "day180_asset_potential": "high",
+      "confidence": "low"
+    }
+  ]
+}
