@@ -1,0 +1,44 @@
+# Track B — store stack specification (v1, Day 1)
+
+Owner: Claude operator sessions. Status: spec; implement in this order as credentials land (`CREDENTIALS_SETUP.md`). Every module has offline tests with recorded fixtures; no live call is made until its env var exists. Nothing here stores secrets.
+
+## 0. Safety rails (build first, test hardest)
+- `ops/caps.py`: single source of truth for money caps: `TRACK_B_STAGE1_ADS=150`, `TRACK_B_STAGE2_ADS=250`, `PER_PRODUCT_STAGE1=50`, `TRACK_A_ADS=200`, `TOTAL_BANKROLL=1000`. Any function that creates or raises a budget imports these and refuses to exceed them; the ledger (`finance/FINANCIAL_LEDGER.csv`) is read to compute spend-to-date before any increase.
+- Meta campaigns are created with **lifetime budgets and end dates** so caps hold even when no session runs. Daily-budget mode is forbidden in code.
+- Idempotency: every external write records an idempotency key in `ops/actions.log` (append-only, committed) before the call; reruns check the log first.
+- Kill switch: `ops/killswitch.py pause-all` pauses every active ad set and is the first thing a session runs if ROAS data is missing or the ledger is inconsistent.
+
+## 1. `products/store/shopify_client.py` (Admin GraphQL API, version 2026-07)
+- Auth: `SHOPIFY_ADMIN_TOKEN`, `SHOPIFY_STORE_DOMAIN`.
+- Ops: create/update products with variants, images, SEO fields; set inventory tracking to "continue selling"/managed by CJ; markets CA (CAD) + US (USD, rounded pricing); shipping profiles with honest delivery ranges (from CJ estimates + 2 days); policies pages (shipping, refunds, privacy, terms) generated from templates; theme settings (Dawn: hero, trust bar, product page blocks); orders read; fulfilment/tracking sync; discounts; abandoned checkout read (for the support agent's context only, no unsolicited email: CASL).
+- Tests: fixture-based; a `--dry-run` that prints the mutations.
+
+## 2. `products/store/cj_client.py` (CJ open API v2)
+- Auth: `CJ_API_KEY` → access token refresh.
+- Ops: product search with warehouse filter (US/CA), variant and shipping-cost query per destination, landed-cost calculator (product + shipping + payment fees), order creation from Shopify orders (or rely on the CJ Shopify app; the client verifies routing and pulls tracking), tracking sync back to Shopify fulfilments.
+
+## 3. `products/store/meta_client.py` (Marketing API)
+- Auth: `META_SYSTEM_TOKEN`, `META_AD_ACCOUNT_ID`, `META_PAGE_ID`, `META_PIXEL_ID`.
+- Ops: create campaign (objective SALES, Advantage+ shopping where available), ad set with **lifetime budget** and end date, CA+US targeting, pixel purchase optimization; upload image/video creatives; create ads with honest primary text and a landing URL carrying UTM; pull insights (spend, impressions, clicks, add-to-cart, purchases, ROAS) daily into `KPI_DASHBOARD.md` and `EXPERIMENTS.md`; pause/scale ad sets under the gate rules (+30% every 3 days while ROAS ≥ 1.6; kill rules from EXP-004/005).
+- Pixel/CAPI: install the pixel via Shopify's Facebook channel or theme snippet; server events optional in v1.
+
+## 4. Creative pipeline `products/store/creatives/`
+- Inputs: supplier photos (rights: provided by the supplier for resale listings), product facts, angle.
+- Images: Pillow compositions (1080×1080 and 1080×1350): product on clean background, benefit headline, price badge, trust line; 4 variants per product.
+- Video: fal.ai image-to-video (Kling/Wan) 5-10 s clips from 2-3 product photos → ffmpeg (imageio-ffmpeg) stitches clips, adds captions (DejaVu font), 9:16 and 1:1 exports, no music (or CC0 only); 2-3 variants per product; cost target ≤ US$2 per product.
+- Copy: honest claims only; delivery time stated on the ad's landing page; no urgency fakery.
+
+## 5. Support agent `products/store/support-agent/` (Cloudflare Worker)
+- Inbound: Cloudflare Email Routing (support@domain) → Worker → parse (postal-mime) → D1 `messages`.
+- Brain: Anthropic API (Haiku 4.5) with a policy prompt (shipping times, refund policy, tone), tools: Shopify order lookup by email/order number, CJ tracking lookup. Auto-replies for: where is my order, delivery time, change address before shipment, refund request within policy (issue via Shopify refund mutation when order ≤ policy window and not shipped), cancellation. Escalates everything else (writes to D1 `escalations`, surfaced in the next operator run's checklist, SLA ≤ 8 h).
+- Outbound: reply via Cloudflare Email Workers send (or Resend if needed); every reply logged; no marketing content (CASL).
+- Chargebacks: `disputes.py` pulls Shopify Payments disputes and drafts evidence (tracking, policy, correspondence) for the operator to submit.
+
+## 6. Ledger and KPIs
+- `ops/ledger_import.py`: Shopify payouts (Admin API) and Meta invoices/spend (insights) → ledger rows with evidence references; CJ purchase costs per order; Etsy Payments statements for Track A.
+- Dashboard fields for Track B: spend, revenue, orders, ROAS, refund rate, delivery complaints, support auto-resolution rate.
+
+## 7. Launch checklist (all must be true before any ad set goes live)
+- Store: policies live with real delivery ranges; support address working end-to-end (test email round-trip); pixel firing on purchase (test order); prices and markets set; product pages honest.
+- Ads: lifetime caps set in Meta; UTM on all links; creatives reviewed for claims.
+- Ops: support agent deployed and tested with 5 scripted cases; kill switch tested; ledger importer tested; `EXPERIMENTS.md` EXP-004 status = running with start date.
