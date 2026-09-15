@@ -17,5 +17,8 @@ Meaningful work, results, and next actions. Newest first.
 - Built listing 1: `products/etsy-templates/build_templates.py` (9-sheet T2125 workbook), validated with the `formulas` engine (0 errors / 6,122 cells; key values checked), packaged (ZIP + QuickStart.pdf + README + 6 images) by `package.py`; copy in `listings.json` within Etsy limits. LibreOffice here lacks Calc, so validation uses the Python evaluator.
 - Etsy API client `etsy_api.py` (PKCE auth, search, taxonomy, create/upload/activate, receipts) with 8 offline tests passing.
 - Heartbeat design finalized (`ops/HEARTBEAT_PROMPT.md`, `ops/lock.py`).
-- Next: owner Block 1 → OAuth → competitor pull → publish listing 1 → EXP-001. Unblocked work: listing 2-4 generators, shop policy text, ledger importer.
+- Listing 2 built and validated (`build_listing2.py`), copy and images packaged; shop policy/About text written (`SHOP_TEXT.md`).
+- Heartbeat: first design (fresh session per firing) failed its test (no repo attached; LL-006); replaced by persistent operator session `session_01GpoRAgr4kBWxi1752HufQh` + Routine `trig_019rtbCKLSFc8hNajuiWm9E4`; plumbing check passed (the operator session pulled, committed and pushed).
+- Founding session ends ~17:20Z. Spend to date: $0.00. Revenue: $0.00. Owner-only blocker: Block 1 in OWNER_ACTIONS.md.
+- Next: owner Block 1 → OAuth → competitor pull → publish listings 1-2 → EXP-001. Unblocked work for heartbeats: listings 3-4, ledger importer, status extension.
 - heartbeat 2026-09-15T17:14:08Z: operator session plumbing check; lease held by session_01HgvZLG32EjL8kfcsoWVTmJ, no work

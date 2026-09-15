@@ -1,10 +1,10 @@
 # CURRENT_STATE
 
-_Last updated: 2026-09-15T17:10Z (Day 1)_
+_Last updated: 2026-09-15T17:20Z (Day 1, end of the founding session)_
 
 ## One-paragraph state
 
-Day 1. Strategy selected (D-005): **MapleSheets**, an Etsy shop of Canadian small-business templates, run sequentially; the AODA/WCAG scanner is a deferred cheap pre-test and Bill 96 is parked. Listing 1 (Canadian Sole Proprietor Bookkeeping System, T2125 edition 2026, CA$29) is built, validated (0 formula errors, key values verified) and packaged with a quick-start PDF, README and six listing images. The Etsy API client is written and unit-tested. Nothing is published yet because the shop does not exist: **owner Block 1 in `OWNER_ACTIONS.md` is the only blocker.** No money has been spent.
+Day 1. Strategy selected (D-005): **MapleSheets**, an Etsy shop of Canadian small-business templates, run sequentially; the AODA/WCAG scanner is a deferred cheap pre-test and Bill 96 is parked. Listing 1 (Canadian Sole Proprietor Bookkeeping System, T2125 edition 2026, CA$29) and listing 2 (GST/HST quick-method calculator + small-supplier tracker, CA$14) are built, validated (0 formula errors, key values verified) and packaged with copy and images. The Etsy API client is written and unit-tested. Nothing is published yet because the shop does not exist: **owner Block 1 in `OWNER_ACTIONS.md` is the only blocker.** No money has been spent.
 
 ## Money
 
@@ -18,7 +18,7 @@ Day 1. Strategy selected (D-005): **MapleSheets**, an Etsy shop of Canadian smal
 
 ## What is running
 
-- Nothing unattended yet; the mission-heartbeat Routine is created at the end of the Day-1 session (`AUTOMATIONS.md`).
+- **Mission heartbeat is live:** Routine `trig_019rtbCKLSFc8hNajuiWm9E4` fires the persistent operator session `session_01GpoRAgr4kBWxi1752HufQh` at 00:14, 08:14 and 16:14 UTC; plumbing verified by a test commit (`AUTOMATIONS.md`).
 
 ## Owner-only blockers
 
@@ -31,4 +31,4 @@ Day 1. Strategy selected (D-005): **MapleSheets**, an Etsy shop of Canadian smal
 3. Resolve the taxonomy id (`etsy_api.py taxonomy template`), create listing 1 as draft, upload the ZIP and six images, activate; record the listing id in `products/etsy-templates/listings.json`.
 4. Start EXP-001 (14-day visibility test): daily stats pull → `KPI_DASHBOARD.md`.
 5. Build listing 2 (quick-method calculator + small-supplier tracker) with its own tests; publish; then the bundle.
-6. Meanwhile (no credentials needed): listing 2-4 generators, shop policy and About text for the owner, ledger importer for Etsy Payments.
+6. Meanwhile (no credentials needed): listing 3 (home-office + vehicle) and listing 4 (instalment planner; verify 2026 brackets first) generators with tests and images; ledger importer for Etsy Payments; `ops/status.py` Etsy extension.
