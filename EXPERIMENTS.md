@@ -52,3 +52,25 @@ Every major commercial assumption is an experiment. Template:
 - Primary metric: free scans/week and paid pre-checks.
 - Success threshold: ≥2 paid by day 21 of the page being live. Failure: <30 free scans/week or 0 paid → freeze.
 - Result / decision: pending.
+
+### EXP-004: Track B stage 1 — three products, kill fast
+- Status: planned (needs OWNER_ACTIONS Block 2 and 3 researched products)
+- Hypothesis: at least one of three research-selected products converts on Meta at ROAS ≥ 1.2 within CA$50 of spend each.
+- Max test cost: CA$150 ads + CA$20 store/domain + CA$35 fal.ai + CA$35 Anthropic credits.
+- Expected result: 1 of 3 products reaches ≥ 2 purchases.
+- Primary metric: purchases, ROAS, add-to-cart rate, CPC (Meta Marketing API insights; Shopify orders).
+- Success threshold: any product with ≥ 2 purchases and ROAS ≥ 1.2 at CA$50 spend.
+- Failure threshold: per product: CA$50 spent with 0 purchases, or 60 clicks with 0 add-to-carts → kill. Track: all three killed → Track B stops.
+- Decision deadline: 10 days after ads start.
+- If successful: EXP-005 (stage 2 scale) on the passing product.
+- If unsuccessful: Track B stops; budget back to reserve; lessons logged.
+- Result / decision: pending.
+
+### EXP-005: Track B stage 2 — scale the passing product
+- Status: planned
+- Hypothesis: the passing product holds ROAS ≥ 1.6 while budget rises 30% every 3 days up to CA$250 additional spend.
+- Primary metric: ROAS on ≥ 20 purchases; refund rate < 8%; delivery complaints < 5%.
+- Success threshold: ROAS ≥ 1.6 sustained; then reinvest proceeds.
+- Failure threshold: ROAS < 1.2 over any CA$80 of spend → stop scaling; ROAS < 1.0 → kill.
+- Decision deadline: CA$250 spent or Day 60, whichever first.
+- Result / decision: pending.

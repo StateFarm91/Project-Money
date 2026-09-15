@@ -14,7 +14,9 @@ Self-directed work queue. Items move to `CURRENT_PRIORITIES.md` when selected.
 - [ ] Weekly title/tag rewrite routine from API view data
 - [ ] Line extension candidates: Shopify/Etsy-seller variant; therapist/allied-health practice templates (C08)
 - [ ] Physical line via print-on-demand (C19): Printify API, Canadian print providers, personalized Canadian gifts for Q4; owner creates a Printify account (10 min); zero cost until an order (D-007)
-- [ ] Optional Track B (owner-gated, D-007): paid-social dropshipping test with a hard CA$300 cap, only if the owner opens Shopify + Meta ad account and takes the human parts
+- [x] Track B authorized (D-009): see MASTER_STRATEGY Track B section and CURRENT_PRIORITIES 8-9
+- [ ] Track B: `products/store/` — Shopify Admin API client, CJ client, Meta Marketing API client (campaign/ad set/ad creation with lifetime budgets, insights pull), creative pipeline (Pillow images; fal.ai image-to-video; ffmpeg captions/stitching), support-agent Worker (Email Routing → D1 → Anthropic API with Shopify order lookup → reply; escalation log), disputes evidence helper, ledger importer for Shopify payouts and Meta invoices
+- [ ] Track B: TikTok ads only after Meta results exist; Amazon excluded (policy/fees/time); TikTok Shop not available in Canada
 - [ ] Ledger automation from Etsy Payments statements (`ops/ledger.py` importer)
 
 ## Track B — deferred pre-test (EXP-003; only after EXP-001 passes and compute allows)

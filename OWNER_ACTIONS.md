@@ -31,8 +31,30 @@ When you finish an item, change its status to `done` (or tell Claude in chat); t
 
 ---
 
-## Deferred — Block 2: own-domain checkout and the WCAG pre-check page (only if Claude asks after Day 21)
-Domain (Cloudflare Registrar, ~CA$15/yr), Cloudflare account + API token, Stripe account (plain Checkout; Managed Payments later if EU buyers appear), Resend API key, GitHub Actions secrets. ~40 minutes. Not needed for Track A.
+## OWNER ACTION REQUIRED — Block 2: the e-commerce stack for Track B (D-009)
+
+**Status:** open · **Requested:** 2026-09-15 (Day 1) · **Estimated time:** about 2 hours, in three parts you can do separately · **Cost now:** Shopify CA$1/month for 3 months; domain ≈ CA$15-20/yr; fal.ai credits US$25; Anthropic API credits US$25. Ad spend is charged later to the card on the Meta ad account, capped by Claude at CA$150 for stage 1 and CA$250 for stage 2. · **Why Claude cannot do it:** every one of these platforms requires the account holder's identity, a payment method, and acceptance of terms. · **What is blocked until done:** Part A blocks the store build; Part B blocks the support agent and the domain; Part C blocks ads. Claude does product research and creative preparation meanwhile.
+
+**Where to put keys:** claude.ai/code → Environments → Default → Environment variables (and the same names as GitHub Actions secrets at https://github.com/StateFarm91/Project-Money/settings/secrets/actions for scheduled deploys). Never paste keys into chat unless Claude explicitly asks for a one-time value.
+
+### Part A — Shopify + supplier (≈ 40 min)
+1. **Shopify store (10 min).** https://www.shopify.com/ca → Start free trial → use a placeholder store name (Claude renames it once the product research settles the brand) → pick the **Basic** plan on the CA$1/month-for-3-months offer. Country Canada, currency CAD.
+2. **Shopify Payments (15 min).** Settings → Payments → Activate Shopify Payments: legal name, address, DOB, bank details, ID if asked. Also enable PayPal Express if you have a PayPal account (optional).
+3. **Admin API access for Claude (10 min).** Settings → Apps and sales channels → Develop apps → Allow custom app development → Create an app named `Operator` → Configure Admin API scopes: `read_products, write_products, read_orders, write_orders, read_customers, write_customers, read_inventory, write_inventory, read_fulfillments, write_fulfillments, read_shipping, write_shipping, read_discounts, write_discounts, read_themes, write_themes, read_content, write_content, read_markets, write_markets, read_locations, read_price_rules, write_price_rules, read_merchant_managed_fulfillment_orders, write_merchant_managed_fulfillment_orders, read_third_party_fulfillment_orders, write_third_party_fulfillment_orders` → Install app → reveal the **Admin API access token** once → environment variables `SHOPIFY_ADMIN_TOKEN` and `SHOPIFY_STORE_DOMAIN` (the `xxxx.myshopify.com` address).
+4. **CJ Dropshipping (5 min).** https://cjdropshipping.com → sign up → My CJ → Authorization → API → generate a key → `CJ_API_KEY`. Then install the CJ app from the Shopify App Store and connect it to the store (so orders route automatically).
+
+### Part B — Domain, hosting, support agent (≈ 30 min)
+5. **Cloudflare account (5 min).** https://dash.cloudflare.com/sign-up → verify email → Billing → add your card (needed only for the domain).
+6. **Let Claude buy the domain (5 min).** Domain Registration → accept the Domain Registration Agreement when prompted → Registrar → set a default registrant contact (your name/address). Then create an API token (My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template, and add **Registrar: Write**, **Zone → DNS: Write**, **D1: Write**, **Email Routing: Write**) → `CLOUDFLARE_API_TOKEN`, plus your **Account ID** as `CLOUDFLARE_ACCOUNT_ID`. Claude will register one .com (≈ CA$15) through the API once the brand name is chosen, and connect it to Shopify and the support inbox.
+7. **Anthropic API credits (10 min).** https://platform.claude.com → create an organization → Billing → buy US$25 of credits → set a monthly spend limit of US$40 → auto-reload off → API Keys → create → `ANTHROPIC_API_KEY`. This powers the customer-support agent (about half a cent per reply).
+
+### Part C — Meta ads + video (≈ 45 min; Meta is the fiddly one)
+8. **Meta Business Manager (15 min).** https://business.facebook.com → create a business portfolio → add a Facebook Page for the brand (placeholder name is fine) and, if you have Instagram, connect it → Ad accounts → create an ad account (currency CAD, timezone yours) → add a payment method. Complete any identity or business verification Meta requests.
+9. **Meta developer app + system user (20 min).** https://developers.facebook.com → My Apps → Create App → type Business → add the **Marketing API** product. Then in Business Settings → Users → System users → Add (name `operator`, role Admin) → Add assets: the ad account (Manage), the Page (Manage) → Generate token → select the app, choose **never expires**, permissions `ads_management, ads_read, business_management, pages_read_engagement, pages_manage_ads` → copy once → `META_SYSTEM_TOKEN`. Also copy the **ad account id** (`act_...`) → `META_AD_ACCOUNT_ID`, the **Page id** → `META_PAGE_ID`, and create a **Pixel/Dataset** in Events Manager → `META_PIXEL_ID`.
+10. **fal.ai credits (5 min).** https://fal.ai → sign up → Billing → add US$25 → Keys → create → `FAL_KEY`. Claude generates product videos and images with it.
+
+### Then
+Tell Claude "Block 2 done" (or which parts). Everything else, from product research to ads to customer support, is Claude's.
 
 ## Done
 _None yet._
