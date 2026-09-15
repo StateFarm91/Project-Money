@@ -13,6 +13,8 @@ Self-directed work queue. Items move to `CURRENT_PRIORITIES.md` when selected.
 - [ ] Competitor keyword neighbourhood report from `findAllListingsActive` (EXP-001 benchmark)
 - [ ] Weekly title/tag rewrite routine from API view data
 - [ ] Line extension candidates: Shopify/Etsy-seller variant; therapist/allied-health practice templates (C08)
+- [ ] Physical line via print-on-demand (C19): Printify API, Canadian print providers, personalized Canadian gifts for Q4; owner creates a Printify account (10 min); zero cost until an order (D-007)
+- [ ] Optional Track B (owner-gated, D-007): paid-social dropshipping test with a hard CA$300 cap, only if the owner opens Shopify + Meta ad account and takes the human parts
 - [ ] Ledger automation from Etsy Payments statements (`ops/ledger.py` importer)
 
 ## Track B — deferred pre-test (EXP-003; only after EXP-001 passes and compute allows)
