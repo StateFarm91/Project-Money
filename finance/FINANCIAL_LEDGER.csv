@@ -1,0 +1,2 @@
+id,datetime_utc,description,business_product_channel,revenue_cad,expense_cad,platform_payment_fees_cad,advertising_cad,refunds_chargebacks_cad,net_contribution_cad,running_available_cash_cad,capital_deployed_committed_cad,evidence_ref
+L-0000,2026-09-15T11:00:07Z,Competition start; owner authorizes up to 1000.00 CAD seed capital (not yet transferred to any business account),n/a,0.00,0.00,0.00,0.00,0.00,0.00,1000.00,0.00,COMPETITION_RULES.md

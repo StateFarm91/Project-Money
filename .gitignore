@@ -1,0 +1,16 @@
+# secrets and local env
+.env
+.env.*
+*.pem
+*.key
+# tooling
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+# scratch
+tmp/
