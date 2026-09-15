@@ -68,7 +68,7 @@ Kill when: CTR < 0.6% after a creative swap, OR the diagnosed fix has been appli
 ### 8a. Tooling facts established on Day 1 (what the pipeline can actually use here)
 | Source | Status in this sandbox | Use |
 |---|---|---|
-| Meta Ad Library (browser) | Not reachable: headless Chromium cannot complete TLS through the egress proxy and the safety classifier declined certificate pinning (LL-007). Plain fetch returns 403. | Keep `intel/adlibrary_probe.mjs` for an environment with a normal trust store; otherwise substitute third-party public ad-intelligence pages found via search, and the count of independent Shopify stores selling the item as an adoption proxy. |
+| Meta Ad Library (browser) | **Works under the owner-approved rule (D-013):** `node products/store/intel/adlibrary_probe.mjs "<keyword>" US|CA [--json]` returns active-ad count, dated ads, earliest start and ads older than 28 days. Occasionally declined by the safety check (LL-008): retry once, then mark unavailable. A few keywords per run. | Ad-longevity and advertiser-breadth signal for scoring (SPEC section 8). Plain fetch still returns 403. |
 | Google Trends via `pytrends` (needs `urllib3<2`) | Works | 12-month direction, seasonality, CA vs US geo, related queries. Verified 2026-09-15 for the three Day-1 candidates. |
 | Competitor Shopify catalogues (`/products.json`) | Works (plain HTTPS) | Prices, variants, catalogue size, product rotation over time (the two single-product stores cited for the windshield cover had already rotated to other items by Day 1: a signal in itself). |
 | CJ Dropshipping | Product pages block automated fetches; API after Block 2A | Landed cost, warehouse stock, delivery estimates, supplier ratings. |

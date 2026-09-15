@@ -205,3 +205,17 @@ All five original names and the backup have registered .coms, so none is a clean
 Trend lists: easync.io Q4 2026 guide; eprolo.com Q4 products; sourcinbox.com Q4 list; autods.com Q4 products & holiday guides; cjdropshipping.com TikTok-viral 2026, pet-products 2026, Aug-2025 winning products, US-warehouse articles 164/146; adnabu.com TikTok trending 2026; webbeeglobal.com; quicksync.pro; findniche.com; sellthetrend.com; wiio.com; sovran.ai.
 Product evidence: asinsight.com cocktail-smoker report; bourboninspector.com; prohibitiondenver.com; theconsumers.guide; orifuture.com; blindpigdrinkingco.com; amazon.com (B01BE5Q4FY, B0G2Q88JFD, B0GTZKFB5T, wearable-blankets new releases); walmart.com; mileskimball.com; autoprimez.com; winkflo.com; icekingusa.com; productlair.com; spocket.co; alidropship.com; doba.com; sheknows.com; yahoo.com; aol.com; stylecaster.com; medium.com (Daily-Smart-Finds); bobvila.com; dadimprovement.com; bigblanket.com; bedsurehome.com; target.com; techsciresearch.com; deepmarketinsights.com; fzgolden.com.
 Brand checks: tuckwells.com; tracxn.com; fernbay.com; yelp.com (Fern Bay Store); dwell.com; wikipedia (Dwell retailer); faire.com; klossfurniture.com; brambleberry.com; globaldata.com (Brambles); wyncroftwine.com; marlowstore.com; marlowgoods.com.
+
+## Addendum (Day 1, evening): first live Meta Ad Library probes (public page, via `intel/adlibrary_probe.mjs`)
+
+Run 2026-09-15 under the owner-approved project permission rule (D-013). Counts are active ads returned for a keyword search; "dated" ads are those whose start date was visible on the loaded page; longevity = ads older than 28 days. Snapshot values.
+
+| Keyword | Country | Active ads | Dated | Earliest start | Older than 28 d | Read |
+|---|---|---|---|---|---|---|
+| cocktail smoker kit | US | 58 | 13 | 2024-07-03 | 11 | **Strong**: many advertisers, several ads running for months; someone is profiting |
+| windshield snow cover | CA | 29 | 29 | 2026-05-26 | 5 | **Seasonal ramp**: all ads started since late May, five past four weeks, new ones daily |
+| windshield snow cover | US | 140 | 30 | 2026-05-26 | 4 | **Broad seasonal ramp**: 140 active ads, mostly new; supports a Canada + northern-US test after first frost |
+| self cleaning slicker brush | US | 6 | 5 | 2026-08-30 | 0 | **Weak**: almost no paid-ad activity; demand is Amazon-search-driven and saturated; low AOV |
+| wearable hooded blanket | US | 69 | 24 | 2025-12-10 | 7 | **Strong Q4 signal**: broad advertiser base, several long-running; blocked only by the landed-cost rule until CJ pricing is verified |
+
+**Provisional re-ranking (pending CJ landed costs, Block 2A):** 1. cocktail smoker kit (torch-free SKU); 2. wearable hooded blanket (only if a US-warehouse SKU lands at or under US$14); 3. magnetic windshield snow cover (Canada + northern US, launch after first frost); pet brush bundle moves to WATCH. The full scored queue (SPEC section 8) replaces this list before any ad spend.
