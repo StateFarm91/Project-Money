@@ -32,5 +32,7 @@ Competition start: **2026-09-15T11:00:07Z** (see `COMPETITION_RULES.md`). Run `p
 | `CREDENTIALS_SETUP.md` | Integration status and instructions; never secrets |
 | `research/` | Opportunity sweep, finalists, ranking |
 | `products/` | Product code |
-| `ops/` | Scripts that keep the state files honest |
+| `ops/` | Scripts that keep the state files honest, the lease lock and the heartbeat prompt |
 | `docs/MASTER_DIRECTIVE.txt` | The owner's original directive |
+| `docs/infra/` | Hosting and payments research (Day 1) |
+| `products/etsy-templates/` | MapleSheets product line: workbook generators, validators, Etsy API client, listing copy, packages (`dist/`) |
