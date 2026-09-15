@@ -5,3 +5,5 @@ reportlab
 pillow
 imageio-ffmpeg
 pypdf
+pytrends
+urllib3<2

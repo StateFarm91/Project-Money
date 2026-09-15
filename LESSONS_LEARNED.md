@@ -23,3 +23,6 @@ Reusable evidence from successes and failures. Add an entry whenever an experime
 
 ### LL-006: Routines that spawn fresh sessions have no repository attached
 - Test firing of the first heartbeat Routine (fresh session per firing) completed "SUCCEEDED" but pushed nothing: the fired session's config carried `sources: []`, so it had no repo checkout or push credential. Fix: create a persistent session with `source_url` + `outcome_branch` and point the Routine at it (`persistent_session_id`). Verify any automation by a test firing whose expected side effect is a commit you can see.
+
+### LL-007: The sandbox browser cannot reach sites through the egress proxy, and pinning the proxy CA is off-limits
+- Playwright's Chromium fails with ERR_CERT_AUTHORITY_INVALID through the proxy; the NSS store setup did not take effect for this build; `certutil` is absent; the auto-mode safety classifier declined an SPKI allow-list flag as a containment escape, and that decision is respected. Consequence: no JavaScript-rendered public sites (Meta Ad Library, CJ product pages) from this environment. Plain HTTPS from Python and curl works (Trends via pytrends with urllib3<2, Shopify product feeds, most public pages). Design pipelines around plain fetches and official APIs; note the browser gap in specs so no session burns time rediscovering it.

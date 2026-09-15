@@ -64,3 +64,12 @@ The CA$50 per product is a screen, not proof. After each CA$25 of spend (and dai
 | Checkouts but no purchases | checkout or payment friction | verify Shopify Payments, wallets, address/tax display |
 | CTR ≥ 1.5% and ATC ≥ 5% but no purchase yet at CA$50 | insufficient data | extend from the CA$50 extension pool |
 Kill when: CTR < 0.6% after a creative swap, OR the diagnosed fix has been applied and a further CA$25 shows no improvement, OR both CTR and ATC are below threshold. Budget: three screens of CA$50 (CA$150) plus a CA$50 extension pool (moved from stage 2, which becomes CA$200); total ads for Track B unchanged at CA$400. Creative-level reporting (per ad) is mandatory in the daily insights pull.
+
+### 8a. Tooling facts established on Day 1 (what the pipeline can actually use here)
+| Source | Status in this sandbox | Use |
+|---|---|---|
+| Meta Ad Library (browser) | Not reachable: headless Chromium cannot complete TLS through the egress proxy and the safety classifier declined certificate pinning (LL-007). Plain fetch returns 403. | Keep `intel/adlibrary_probe.mjs` for an environment with a normal trust store; otherwise substitute third-party public ad-intelligence pages found via search, and the count of independent Shopify stores selling the item as an adoption proxy. |
+| Google Trends via `pytrends` (needs `urllib3<2`) | Works | 12-month direction, seasonality, CA vs US geo, related queries. Verified 2026-09-15 for the three Day-1 candidates. |
+| Competitor Shopify catalogues (`/products.json`) | Works (plain HTTPS) | Prices, variants, catalogue size, product rotation over time (the two single-product stores cited for the windshield cover had already rotated to other items by Day 1: a signal in itself). |
+| CJ Dropshipping | Product pages block automated fetches; API after Block 2A | Landed cost, warehouse stock, delivery estimates, supplier ratings. |
+| CJ weekly winning-product reports, Q4 trend lists, Amazon market reports | Public pages via search/fetch | Discovery and demand cross-checks; no Amazon scraping. |
