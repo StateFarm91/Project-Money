@@ -20,5 +20,6 @@ Meaningful work, results, and next actions. Newest first.
 - Listing 2 built and validated (`build_listing2.py`), copy and images packaged; shop policy/About text written (`SHOP_TEXT.md`).
 - Heartbeat: first design (fresh session per firing) failed its test (no repo attached; LL-006); replaced by persistent operator session `session_01GpoRAgr4kBWxi1752HufQh` + Routine `trig_019rtbCKLSFc8hNajuiWm9E4`; plumbing check passed (the operator session pulled, committed and pushed).
 - Founding session ends ~17:20Z. Spend to date: $0.00. Revenue: $0.00. Owner-only blocker: Block 1 in OWNER_ACTIONS.md.
-- Next: owner Block 1 → OAuth → competitor pull → publish listings 1-2 → EXP-001. Unblocked work for heartbeats: listings 3-4, ledger importer, status extension.
+- Evening: owner challenged the Etsy-only plan and removed all setup restrictions; Claude re-decided on its own evidence (D-009/D-010): Track A floor + capped Track B paid-social store. Owner Block 2 written (Shopify, CJ, Cloudflare, Anthropic, Meta, fal.ai). Track B spec (`products/store/SPEC.md`), money caps (`ops/caps.py`, tested) and product research (D-011) completed. ffmpeg available via imageio-ffmpeg.
+- Next: owner Blocks 1 and 2 → Etsy OAuth + listings + EXP-001; store stack build per SPEC; CJ verification of products; launch checklist → EXP-004. Unblocked work for heartbeats: SPEC modules 0-3 with offline tests, Etsy listings 3-4, ledger importer.
 - heartbeat 2026-09-15T17:14:08Z: operator session plumbing check; lease held by session_01HgvZLG32EjL8kfcsoWVTmJ, no work
