@@ -20,3 +20,6 @@ Reusable evidence from successes and failures. Add an entry whenever an experime
 
 ### LL-005: Channels the operator can run alone are the ranking criterion that matters most
 - Community posting, social accounts and outreach all need the owner (and CASL forbids cold contact). Rank opportunities first by whether their first-10 channel is a marketplace with native search and a publishing API, the operator's own domain, or in-marketplace ads; discount "post in r/..." plans heavily.
+
+### LL-006: Routines that spawn fresh sessions have no repository attached
+- Test firing of the first heartbeat Routine (fresh session per firing) completed "SUCCEEDED" but pushed nothing: the fired session's config carried `sources: []`, so it had no repo checkout or push credential. Fix: create a persistent session with `source_url` + `outcome_branch` and point the Routine at it (`persistent_session_id`). Verify any automation by a test firing whose expected side effect is a commit you can see.
