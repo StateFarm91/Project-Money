@@ -8,7 +8,7 @@ Self-directed work queue. Items move to `CURRENT_PRIORITIES.md` when selected.
 - [ ] Listing 1 copy/tags/images; publish via API once credentials exist
 - [ ] Listing 2 (GST/HST quick-method calculator + small-supplier tracker) generator
 - [ ] Listing 3 (home-office + vehicle) and 4 (instalment planner; verify 2026 brackets first) generators
-- [ ] Bundle listing; Q4 "get ready for the 2026 tax year" copy angle
+- [x] Bundle listing (5 = 1+2+3+4, CA$44); Q4 "get ready for the 2026 tax year" copy angle still open
 - [ ] Shop policies + About text for the owner to paste
 - [ ] Competitor keyword neighbourhood report from `findAllListingsActive` (EXP-001 benchmark)
 - [ ] Weekly title/tag rewrite routine from API view data

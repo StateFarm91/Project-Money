@@ -142,5 +142,40 @@
     "files": [
       "Self-Employed-Tax-Set-Aside-Instalment-Planner-2026.xlsx"
     ]
+  },
+  "listing-5": {
+    "sku": "MS-BUNDLE-2026",
+    "title": "Canadian Self Employed Tax Bundle 2026 | T2125 Bookkeeping, GST HST, Home Office Vehicle, Instalment Planner | Excel Google Sheets",
+    "price_cad": 44.0,
+    "tags": [
+      "canadian bookkeeping",
+      "T2125 template",
+      "GST HST tracker",
+      "sole proprietor",
+      "self employed canada",
+      "tax bundle canada",
+      "home office tax",
+      "vehicle expense log",
+      "instalment planner",
+      "google sheets",
+      "excel bookkeeping",
+      "freelancer canada",
+      "small business tax"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "All four MapleSheets 2026 tools in one download, at a discount to buying them separately (CA$67 worth for CA$44). Everything a Canadian sole proprietor needs to track the year and get ready for tax time.\n\nWHAT'S INSIDE\n1. Canadian Sole Proprietor Bookkeeping System (T2125 edition) — income, expenses, GST/HST by province, home office, vehicle, T2125 Summary, dashboard\n2. GST/HST Quick Method vs Regular Method Calculator + $30,000 Small-Supplier Tracker\n3. Home Office and Vehicle Expense Tracker — T2125 Part 7 and Chart A, loss cap and carry-forward handled, printable logbook\n4. Self-Employed Tax Set-Aside and Instalment Planner — all provinces and territories, CPP, monthly set-aside, CRA instalment due dates\n\nDETAILS\n• 2026 edition; every rate checked against CRA's own pages or cross-checked provincial sources in September 2026, with sources listed in each guide\n• Works in Microsoft Excel and Google Sheets (File > Import); no macros\n• Instant download: one ZIP with all four workbooks and a bundle README pointing you to the right file for each job\n• Formulas use only functions that behave identically in Excel and Google Sheets, validated by an automated test before release\n\nWHO IT IS FOR\nFreelancers, consultants, Etsy and Shopify sellers, contractors and any Canadian sole proprietor who wants their bookkeeping, sales tax, home office/vehicle claims and tax set-aside handled by one consistent set of spreadsheets instead of four different templates from different sellers.\n\nHONEST NOTES\n• These are bookkeeping tools, not tax, legal or accounting advice. Verify anything that affects your return with CRA or an accountant.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; every workbook is validated by an automated test before release.\n• Digital product, no physical item is shipped. If something does not work for you, message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-whats-inside.png",
+      "03-savings.png"
+    ],
+    "files": [
+      "MapleSheets-2026-Bundle.zip"
+    ]
   }
 }
