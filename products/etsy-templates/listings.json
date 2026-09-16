@@ -72,5 +72,40 @@
     "files": [
       "GST-HST-Quick-Method-Calculator-Small-Supplier-Tracker-2026.xlsx"
     ]
+  },
+  "listing-3": {
+    "sku": "MS-HOVEH-2026",
+    "title": "Home Office and Vehicle Expense Tracker Canada | T2125 Part 7 Business Use of Home, Chart A Mileage Log | Excel Google Sheets",
+    "price_cad": 12.0,
+    "tags": [
+      "home office tax",
+      "vehicle expense log",
+      "T2125 template",
+      "mileage log canada",
+      "sole proprietor",
+      "self employed canada",
+      "business use of home",
+      "tax spreadsheet",
+      "google sheets",
+      "excel template",
+      "freelancer canada",
+      "bookkeeping canada",
+      "logbook template"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "Two of the trickiest T2125 schedules, done right: business-use-of-home (Part 7) and motor vehicle expenses (Chart A). Enter your space and yearly home costs and the sheet applies the business-use percentage, the loss cap and the carry-forward automatically. Keep your vehicle logbook and enter yearly costs, and the sheet works out the actual-cost deduction (a per-kilometre claim is not allowed on T2125 for the self-employed).\n\nWHAT'S INSIDE\n• Home office: area and time-share inputs, all seven cost lines (7A heat to 7G other), the loss cap against your net income (7N), and the carry-forward (7O) so nothing is lost\n• Vehicle: a 200-row logbook (date, from, to, purpose, km, business trip?), yearly cost inputs, and the actual-cost deduction (costs × business-use %) plus 100% business parking\n• Printable logbook page for the glovebox\n• Clear labels showing exactly which CRA line each number goes on (9945, 9281, 9936)\n\nDETAILS\n• 2026 edition; CRA Part 7 and Chart A rules checked in September 2026\n• Works in Excel 2016+ and Google Sheets (File > Import); no macros\n• Instant download (.xlsx). Example figures included; replace them with yours.\n\nHONEST NOTES\n• Bookkeeping tool, not tax advice. The home-office claim cannot create or increase a loss; verify your figures with the CRA or an accountant.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; validated by an automated test before release.\n• Problems? Message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-home-office.png",
+      "03-vehicle.png"
+    ],
+    "files": [
+      "Home-Office-Vehicle-Expense-Workbook-2026.xlsx"
+    ]
   }
 }

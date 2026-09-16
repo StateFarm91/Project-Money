@@ -1,10 +1,10 @@
 # CURRENT_STATE
 
-_Last updated: 2026-09-15T18:05Z (Day 1, end of the founding session)_
+_Last updated: 2026-09-16T00:20Z (Day 1, heartbeat)_
 
 ## One-paragraph state
 
-Day 1. Strategy selected (D-005) and amended the same evening (D-009): **Track A, MapleSheets** (Etsy shop of Canadian small-business templates, plus a print-on-demand line) is the floor; **Track B, a capped paid-social e-commerce store** (Shopify + CJ Dropshipping + Meta ads + AI creatives + AI support agent) is the owner-authorized swing with stage gates. The AODA/WCAG scanner is now a backlog option only. Listing 1 (Canadian Sole Proprietor Bookkeeping System, T2125 edition 2026, CA$29) and listing 2 (GST/HST quick-method calculator + small-supplier tracker, CA$14) are built, validated (0 formula errors, key values verified) and packaged with copy and images. The Etsy API client is written and unit-tested. Nothing is published yet because the shop does not exist: **owner Block 1 in `OWNER_ACTIONS.md` is the only blocker.** No money has been spent.
+Day 1. Strategy selected (D-005) and amended the same evening (D-009): **Track A, MapleSheets** (Etsy shop of Canadian small-business templates, plus a print-on-demand line) is the floor; **Track B, a capped paid-social e-commerce store** (Shopify + CJ Dropshipping + Meta ads + AI creatives + AI support agent) is the owner-authorized swing with stage gates. The AODA/WCAG scanner is now a backlog option only. Listing 1 (Canadian Sole Proprietor Bookkeeping System, T2125 edition 2026, CA$29), listing 2 (GST/HST quick-method calculator + small-supplier tracker, CA$14) and listing 3 (Home-Office and Vehicle Expense Workbook, CA$12) are built, validated (0 formula errors, key values verified, including the home-office loss-cap logic against a below-cap net income) and packaged with copy and images. The Etsy API client is written and unit-tested. Nothing is published yet because the shop does not exist: **owner Block 1 in `OWNER_ACTIONS.md` is the only blocker.** No money has been spent.
 
 ## Money
 
@@ -32,4 +32,4 @@ Day 1. Strategy selected (D-005) and amended the same evening (D-009): **Track A
 4. Start EXP-001 (14-day visibility test): daily stats pull → `KPI_DASHBOARD.md`.
 5. Build listing 2 (quick-method calculator + small-supplier tracker) with its own tests; publish; then the bundle.
 6. **Track B:** product research done (`products/store/PRODUCT_RESEARCH.md`, D-011: cocktail smoker kit, windshield snow cover, pet brush bundle; brand Pine and Nook). Next: implement `products/store/SPEC.md` modules 0-3 with offline tests now; when Block 2A lands, verify CJ landed costs/warehouses and re-confirm or swap products; when 2B lands, trademark check → buy domain via Cloudflare API → support agent; when 2C lands, creatives → launch checklist → EXP-004.
-7. Meanwhile for Track A (no credentials needed): listing 3 (home-office + vehicle) and listing 4 (instalment planner; verify 2026 brackets first) generators with tests and images; ledger importer for Etsy Payments; `ops/status.py` Etsy extension; Printify API client + 3-5 Canadian-gift designs for the POD line (publish once `PRINTIFY_TOKEN` exists).
+7. Meanwhile for Track A (no credentials needed): listing 4 (instalment planner; verify 2026 federal/provincial brackets and CPP rates first — not yet done, needs a web check) generator with tests and images; ledger importer for Etsy Payments; `ops/status.py` Etsy extension; Printify API client + 3-5 Canadian-gift designs for the POD line (publish once `PRINTIFY_TOKEN` exists).
