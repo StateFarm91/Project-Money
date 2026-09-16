@@ -1,6 +1,6 @@
 # KPI_DASHBOARD
 
-_Last updated: 2026-09-16T00:20Z. Values are measured; N/A means no data exists yet. Never invent a value._
+_Last updated: 2026-09-16T08:40Z. Values are measured; N/A means no data exists yet. Never invent a value._
 
 | Metric | Value |
 |---|---|
@@ -16,7 +16,7 @@ _Last updated: 2026-09-16T00:20Z. Values are measured; N/A means no data exists 
 | CAC | N/A |
 | Conversion rate | N/A |
 | Average order value | N/A |
-| Best product / offer | N/A (listings 1-3 built, not yet published) |
+| Best product / offer | N/A (listings 1-4 built, not yet published) |
 | Best acquisition channel | N/A |
 | Active experiments | 0 running; EXP-001 and EXP-002 planned (start when the shop is live) |
 | Biggest current bottleneck | Owner Block 1 (Etsy shop + API access) not yet done |
