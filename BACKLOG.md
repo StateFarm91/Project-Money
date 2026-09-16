@@ -20,7 +20,8 @@ Self-directed work queue. Items move to `CURRENT_PRIORITIES.md` when selected.
 - [ ] Ledger automation from Etsy Payments statements (`ops/ledger.py` importer)
 
 ## Track B — deferred pre-test (EXP-003; only after EXP-001 passes and compute allows)
-- [ ] One static page + single-page free WCAG scan + plain-Stripe Payment Link for a CA$29 full-site automated pre-check (never "readiness"/"compliant"); owner Block 2 then
+- [ ] **Design correction (D-014, 2026-09-16):** do not center this on a website/WCAG scanner. Tier it like a real filing-readiness tool: **20-49 employees** = applicability + self-attestation filing readiness only, no website module (D1 in `research/ADVERSARIAL_REVIEW.md`: this tier has no website obligation, so a scanner-first pitch is selling most of the market something irrelevant to their filing); **50+ employees** = adds the WCAG 2.0 AA website check plus the documented multi-year plan/policy requirement. One static page + a short applicability/readiness assessment + plain-Stripe Payment Link for a CA$29-59 report (never "readiness"/"compliant" — automated pre-check only); owner Block 2 then.
+- [ ] Still unresolved even with the tiering fix, re-check before building: a brand-new domain will not rank in Google within a 90-day window (X3) so distribution needs paid search on exact-intent AODA-2026 terms or another channel, not organic SEO; CPCs on compliance/legal terms run CA$3-8+; buyers attesting to a government portal may prefer a human-reviewed audit over an automated one for filing confidence (noted failure mode in `research/finalists/F2-C11-aoda-wcag-compliance-scanner.md`); scope the pre-test to the assessment + one-time report only (skip the evidence vault/document engine/remediation tracker — that is a multi-week SaaS build, not a cheap pre-test).
 - [ ] Bill 96 French-content scan module (parked; F3)
 
 ## Runner-ups kept warm
