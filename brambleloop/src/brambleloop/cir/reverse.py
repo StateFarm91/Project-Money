@@ -132,10 +132,53 @@ def _parse_body(body: str, terminology: str) -> list[OpNode]:
     return nodes
 
 
+# "Repeat rows 25-48 3 more times" / "once more". The reader has to understand this or a
+# collapsed pattern looks like a pattern missing ninety rows. Parsed here, in the reader, from
+# the customer text alone -- the writer does not hand over the expansion, because then the two
+# would no longer be independent and the whole check would be circular.
+_ROW_REPEAT_RE = re.compile(
+    r"repeat\s+rows?\s+(\d+)\s*[-\u2013to]+\s*(\d+)\s+"
+    r"(?:(once)\s+more|(\d+)\s+more\s+times)", re.I)
+
+
+def parse_row_repeat(line: str) -> tuple[int, int, int] | None:
+    """(start, end, further_passes) from a repeat instruction, or None."""
+    m = _ROW_REPEAT_RE.search(line)
+    if not m:
+        return None
+    start, end = int(m.group(1)), int(m.group(2))
+    times = 1 if m.group(3) else int(m.group(4))
+    if end < start or times < 1:
+        raise ParseProblem(
+            f"nonsensical row repeat: rows {start}-{end} {times} more times")
+    return start, end, times
+
+
 def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
-    """Parse customer-facing text with no knowledge of the source CIR."""
+    """Parse customer-facing text with no knowledge of the source CIR.
+
+    Expands row-level repeats as it goes, so the caller always sees the full row sequence a
+    maker would work. A reader that skipped the expansion would report a collapsed pattern as
+    ninety rows short, which is worse than not supporting it at all.
+    """
     rows: list[ParsedRow] = []
     for raw in text.splitlines():
+        repeat = parse_row_repeat(raw)
+        if repeat is not None:
+            start, end, times = repeat
+            block = [r for r in rows if start <= r.index <= end]
+            if len(block) != end - start + 1:
+                raise ParseProblem(
+                    f"the text says to repeat rows {start}-{end}, but only "
+                    f"{len(block)} of those rows appear above it")
+            next_index = rows[-1].index + 1 if rows else 1
+            for _ in range(times):
+                for r in block:
+                    rows.append(ParsedRow(r.label, next_index, list(r.ops),
+                                          r.declared_count, r.turning_chain))
+                    next_index += 1
+            continue
+
         line = _NOTE_RE.sub("", raw).strip()
         m = _ROW_RE.match(line)
         if not m:

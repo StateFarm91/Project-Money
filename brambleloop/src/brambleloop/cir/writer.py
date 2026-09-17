@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from .. cir import stitches
 from .compiler import CompileResult
+from .rowcycle import describe, detect_cycle
 from .model import CIR, Component, Op, OpNode, Repeat, Row
 
 
@@ -79,6 +80,17 @@ def write_row(
     return line
 
 
+def collapses_rows(cir: CIR) -> bool:
+    """True when the written pattern will collapse a repeated block into an instruction.
+
+    Listing copy has to say what the PDF actually contains. "A stitch count on every single
+    row" stops being true the moment the writer collapses rows 49-120 into one sentence, and
+    a claim that was true last week is the kind that ships. Derived from the same
+    `detect_cycle` the writer uses, so the copy and the document cannot drift apart.
+    """
+    return any(detect_cycle(c.rows) is not None for c in cir.components)
+
+
 def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> str:
     """Render the full customer-facing pattern body."""
     out: list[str] = [f"{cir.title}", f"Version {cir.version}", ""]
@@ -100,12 +112,21 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> s
             out.append(f"## {comp.name}{make}")
         if comp.foundation and comp.foundation_kind == "chain":
             out.append(f"Foundation: ch {comp.foundation}.")
+        # Collapse a repeated row-block into an instruction, the way a real pattern does.
+        # Printing all 120 rows of a five-repeat blanket is complete and unusable: a maker
+        # loses their place in four pages of near-identical lines. The cycle is derived from
+        # the rows, so it cannot disagree with them.
+        cycle = detect_cycle(comp.rows)
         for row in comp.rows:
+            if cycle is not None and cycle.covers(row.index):
+                continue
             try:
                 count = result.row(comp.name, row.index).stitch_count
             except KeyError:
                 count = None
             out.append(write_row(row, comp, count, terminology))
+            if cycle is not None and row.index == cycle.end:
+                out.append(describe(cycle, comp.rows[-1].index))
         out.append("")
 
     return "\n".join(out).rstrip() + "\n"

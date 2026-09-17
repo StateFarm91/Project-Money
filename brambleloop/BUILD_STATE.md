@@ -17,10 +17,10 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **378 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **398 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
-Suites: CIR engine, platform, release gates, market radar, model gateway, brand and
+Suites: CIR engine (including row-level repeats), platform, release gates, market radar, model gateway, brand and
 storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
 portfolio), quality (confidence, regression), finance, shadow pipeline, real-process
 persistence, chaos, deployment surface, flagship run and adversarial attacks, generated
@@ -37,9 +37,10 @@ catalogue, and the acceptance gates.
   hand-placed flagship). Every one compiles, reverse-compiles and certifies. Ten of the eleven
   release candidates ship an engineered design; the eleventh is the collection bundle, which
   correctly has no pattern of its own.
-- Storefront, listings, imagery and content: **drafted and held.** 11 listings, 70 listing
-  images, ~97 content pieces and a collection, none of it published. Nothing in this system
-  can publish: there is no Etsy, Pinterest, email, video or messaging integration at all.
+- Storefront, listings, imagery and content: **drafted and held.** Production currently holds
+  15 certified patterns, 16 listings, 94 listing images, 129 content pieces and 1 collection,
+  none of it published. Nothing in this system can publish: there is no Etsy, Pinterest,
+  email, video or messaging integration at all.
 - Model providers: **none configured.** The Model Gateway is built and tested, but no API
   key exists in this environment, so `available_providers()` returns an empty list and the
   dashboard says "none". Nothing in the pipeline currently calls a model: every load-bearing
@@ -90,6 +91,13 @@ alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and t
   revenue; a CFO/Skeptic that reports concerns when everything is nominally fine and blocks on
   infrastructure above the owner's ceiling or advertising with no attributable orders; and a
   CA$100K trajectory that refuses to forecast from zero orders.
+- **Row-level repeats (§2).** Written patterns now collapse a repeated row block into
+  "Repeat rows 25-48 3 more times, ending with row 120", the way a printed pattern does.
+  The flagship prints 48 rows instead of 120 and its PDF is 7 pages instead of 8. The cycle
+  is *derived* from the compiled rows rather than declared in the CIR, so there is no field
+  that can disagree with them, and the reverse compiler parses and expands the instruction
+  itself from the customer text — it does not receive the writer's expansion, because then
+  the two halves would no longer be independent.
 - **The catalogue (§16).** A motif library and a builder; sixteen designs generated, every one
   compiling and reverse-compiling clean. Ten of eleven release candidates now ship an
   engineered design rather than the striped template; the eleventh is the bundle, which
@@ -167,7 +175,12 @@ See `DECISION_LOG.md` for reasoning. Summary:
 - `cir/compiler.py` — deterministic compiler. Validates per row: stitch availability, over/
   under-run, repeat divisibility, declared-vs-computed count, unknown colour, row ordering,
   empty rows. Warns on missing turning chains for tall stitches.
-- `cir/writer.py` — CIR → customer-facing pattern text, US/UK terminology, magic-ring aware.
+- `cir/writer.py` — CIR → customer-facing pattern text, US/UK terminology, magic-ring aware,
+  repeated row blocks collapsed into an instruction. `collapses_rows()` is the single place
+  that answers whether a document collapsed anything, so listing copy cannot promise a
+  printed line for every row when the PDF no longer prints one.
+- `cir/rowcycle.py` — detects the longest repeated row block in the compiled rows, expands it
+  back, and writes the maker-facing sentence. Derived, never declared.
 - `cir/reverse.py` — independent parser of customer-facing text + structural diff against
   canonical CIR. Shares no parsing code with the writer by design.
 - `cir/twin.py` — digital twin: cell-level fabric model, chart/colour grids, finished
@@ -248,6 +261,11 @@ Exact and verified. Nothing here is projected.
   it produces, or the upgrade will never reach products that already shipped. `chain.rebuild`
   runs hourly and restarts certified releases that have no listing at the current version.
 
+- **Collapsed patterns and support.** The PDF may not print a line for row 97, but the
+  compiled rows still contain it, and the concierge answers row questions from the compile
+  result rather than the written text. A maker who asks about a row inside a repeat gets the
+  right stitch count.
+
 ## Known refinements (tracked, not urgent)
 - The test suite now takes roughly twenty minutes, because several files each run the full
   eleven-product pipeline including 2000px image rendering. Slow and representative beats fast
@@ -263,18 +281,14 @@ Exact and verified. Nothing here is projected.
   flagged so it is decided deliberately, not by default.
 
 ## Next highest-value unblocked actions
-1. Row-level repeats in the CIR ("repeat rows 2-25 four more times"). Written instructions
-   currently spell out every row where a real pattern would collapse them. This is the largest
-   remaining *product-quality* gap and it is a CIR schema change, so it touches the compiler,
-   the writer, the reverse compiler and the twin together.
-2. Construction beyond flat rows: worked-in-the-round shaping, seaming and assembly. Until the
+1. Construction beyond flat rows: worked-in-the-round shaping, seaming and assembly. Until the
    CIR can model them, amigurumi, bags and garments cannot be engineered honestly, which is
    why they are absent from the catalogue rather than approximated.
-3. Physical test coordination (section 3): the PHYSICAL_TESTS table exists and nothing writes
+2. Physical test coordination (section 3): the PHYSICAL_TESTS table exists and nothing writes
    to it. Yardage stays uncalibrated and Class B/C products stay unshippable until a real
    person crochets a real sample. This is the next genuine owner-adjacent gate.
-4. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
-5. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
+3. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
+4. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
    and correctly refuse to act without observations that do not exist yet.
 
 ## Changelog
@@ -338,6 +352,15 @@ Exact and verified. Nothing here is projected.
   spent six of thirteen slots on the word "mosaic"; and the pipeline had been certifying a
   "Collection Bundle" whose PDF was a twelve-row striped panel — a product sold as three
   patterns and delivered as one invented swatch.
-- Totals: 378 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- 2026-09-17: **Row-level repeats** (20 tests). Written patterns collapse a repeated row
+  block into an instruction: the flagship prints 48 rows instead of 120. The cycle is derived
+  from the compiled rows, not declared, so no field can disagree with them; the reverse
+  compiler parses and expands the instruction from the customer text alone, so the two halves
+  stay independent. It also exposed a claim the copy had been making for two deploys — "a
+  stitch count on every single row", in the description and in listing frame 2 — which stops
+  being true the moment the document collapses rows 49-120 into one sentence. The claim is now
+  derived from the document. `CHAIN_VERSION` bumped to 4 so both reach products already
+  certified.
+- Totals: 398 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

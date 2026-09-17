@@ -14,7 +14,7 @@ Nothing here is published. The store operator refused, by design, because the sy
 ## The product
 
 - Finished size: **90 x 122 cm** at the stated gauge
-- PDF: **8 pages**, sha256 `cacbb1c13f84f24e…`
+- PDF: **7 pages**, sha256 `a41ac8105490b723…`
 - Chart: sha256 `76384b17b752d249…`
 - Yarn (estimate, ±20%, uncalibrated):
   - cream: about 328–492 m
@@ -45,10 +45,10 @@ No struck-through reference price. The category runs a near-universal permanent 
 Nordic Forest Overlay Mosaic Throw — a crochet pattern, not a finished item. You receive an instant digital download.
 
 WHAT YOU GET
-- Written row-by-row instructions with a stitch count on every single row
+- Written instructions row by row, with a stitch count on each — the repeated section is written once, the way a printed pattern does it, rather than retyped for every pass
 - A colour chart generated from the same data as the written instructions, so the two cannot disagree
 - US terms, with the equivalent terms listed in the stitch key
-- 8-page PDF, laid out to be readable on a phone or printed
+- 7-page PDF, laid out to be readable on a phone or printed
 
 THE DETAILS
 - Finished size: 90 x 122 cm, worked at the gauge below
@@ -104,7 +104,7 @@ Seven frames in a deliberate order, every one rendered from the same digital twi
 | # | Role | Asset class | Approved | sha256 |
 |---|---|---|---|---|
 | 1 | hero | DIGITAL_TWIN_RENDER | yes | `a832f579df8e…` |
-| 2 | whats_included | INFOGRAPHIC | yes | `a0ba8a98217e…` |
+| 2 | whats_included | INFOGRAPHIC | yes | `0939b30574f8…` |
 | 3 | size | INFOGRAPHIC | yes | `419b4b09feed…` |
 | 4 | materials | INFOGRAPHIC | yes | `c351c427bfd0…` |
 | 5 | pattern_preview | PATTERN_PREVIEW | yes | `accf9c1529f7…` |

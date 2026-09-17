@@ -27,6 +27,7 @@ from PIL import Image, ImageDraw, ImageFont
 from ..brand import bible
 from ..cir.model import CIR
 from ..cir.twin import TwinModel
+from ..cir.writer import collapses_rows
 from ..gates.asset_truth import Asset, AssetClass, Claims, Provenance
 from .charts import (
     ChartSpec, _font, _hex_to_rgb, crop_grids, detect_repeat, render_chart, render_fabric,
@@ -198,12 +199,15 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
                  claims=Claims(colors=sorted(c for c in twin.colors_used if c)))
 
 
-def _whats_included(cir: CIR, twin: TwinModel, pages: int | None) -> Frame:
+def _whats_included(cir: CIR, twin: TwinModel, pages: int | None,
+                    collapsed_repeats: bool = False) -> Frame:
     size = CANVAS
     img, d = _canvas(size)
     y = _title_block(d, "What you get", int(size * 0.10), size)
     items = [
-        ("Written pattern", "Every row, with a stitch count on every single row"),
+        ("Written pattern",
+         "Row by row with a stitch count on each; the repeat written once"
+         if collapsed_repeats else "Every row, with a stitch count on each"),
         ("Colour chart", "Generated from the same data as the words, so they cannot disagree"),
         ("Terminology", "US terms, with the UK equivalent in the stitch key"),
     ]
@@ -350,7 +354,7 @@ def build_frames(cir: CIR, twin: TwinModel, *, pattern_text: str,
     """
     frames = [
         _hero(cir, twin),
-        _whats_included(cir, twin, pages),
+        _whats_included(cir, twin, pages, collapses_rows(cir)),
         _size_frame(cir, twin),
         _materials_frame(cir, twin, difficulty),
         _pattern_preview(cir, twin, pattern_text),

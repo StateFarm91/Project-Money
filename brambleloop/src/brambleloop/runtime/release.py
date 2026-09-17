@@ -17,6 +17,7 @@ from datetime import date
 from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import build_twin
+from ..cir.writer import collapses_rows
 from ..commerce import launch as launch_mod
 from ..commerce import pricing as pricing_mod
 from ..commerce import pricing_intel as pricing_mod_intel
@@ -46,7 +47,7 @@ from .worker import JobContext, handlers
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "3"
+CHAIN_VERSION = "4"
 
 
 def chain_key(stage: str, slug: str, version: str) -> str:
@@ -255,7 +256,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             tolerance_pct=tolerance_pct, difficulty=_difficulty(twin, cir),
             colors=sorted(c for c in twin.colors_used if c), terminology="US",
             gauge_line=gauge_line, stitches=sorted(twin.stitch_types_used),
-            season=season, pages=i.get("pages")),
+            season=season, pages=i.get("pages"),
+            collapsed_repeats=collapses_rows(cir)),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],

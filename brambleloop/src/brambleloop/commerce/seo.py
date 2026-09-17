@@ -139,14 +139,23 @@ def build_description(product_title: str, *, size_label: str | None,
                       yardage_lines: list[str], tolerance_pct: int,
                       difficulty: str, colors: list[str], terminology: str,
                       gauge_line: str | None, stitches: list[str],
-                      season: str | None = None, pages: int | None = None) -> str:
+                      season: str | None = None, pages: int | None = None,
+                      collapsed_repeats: bool = False) -> str:
     """Assemble the description entirely from verified pattern facts."""
     out: list[str] = []
     out.append(f"{product_title} — a crochet pattern, not a finished item. You receive an "
                f"instant digital download.")
     out.append("")
     out.append("WHAT YOU GET")
-    out.append(f"- Written row-by-row instructions with a stitch count on every single row")
+    if collapsed_repeats:
+        # Say what the PDF does. A buyer who is told "every single row" and opens a document
+        # that stops printing rows at 48 has been misled, even though collapsing the repeat
+        # is what makes the pattern usable.
+        out.append("- Written instructions row by row, with a stitch count on each — the "
+                   "repeated section is written once, the way a printed pattern does it, "
+                   "rather than retyped for every pass")
+    else:
+        out.append("- Written instructions for every row, with a stitch count on each")
     out.append(f"- A colour chart generated from the same data as the written instructions, "
                f"so the two cannot disagree")
     out.append(f"- {terminology} terms, with the equivalent terms listed in the stitch key")
