@@ -1,0 +1,30 @@
+BRAMBLELOOP BRAND MODEL — INITIAL CHARACTER BIBLE
+=================================================
+Purpose:
+A consistent fictional adult model for wearables/accessories so the Etsy grid looks like one premium design house.
+
+Direction:
+- adult woman
+- glamorous brunette
+- long rich dark-brown hair
+- striking light eyes
+- strong defined brows
+- refined, balanced facial features
+- polished editorial beauty
+- warm, approachable expression
+- tasteful natural-to-polished makeup
+- premium but relatable lifestyle presentation
+- clothing appropriate to the crochet garment, season and setting
+
+Continuity requirements:
+- preserve the same fictional identity across generations
+- maintain stable face proportions, eye colour, hair colour/length, body proportions and approximate age
+- store approved reference assets and generation metadata
+- reject material character drift
+- do not duplicate Megan Fox or any other real person; the desired direction is a general high-glamour brunette aesthetic
+- do not use the model where product-first imagery is stronger (blankets, table decor, amigurumi, etc.)
+
+Visual brand:
+- warm cream / forest / wine / muted gold / botanical accents
+- premium editorial, cozy, heirloom, clean
+- avoid generic AI-store appearance
