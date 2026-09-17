@@ -22,6 +22,7 @@ from ..core.models import (
     Agent, AuditLog, CostEntry, Incident, Job, JobStatus, LedgerEntry, OwnerAction,
     PatternVersion, Product, SpendLimit, utcnow,
 )
+from ..gateway.model_gateway import available_providers
 from ..queue.durable import JobQueue
 from ..runtime import pipeline  # noqa: F401  -- registers job handlers
 from ..runtime.worker import Scheduler
@@ -96,6 +97,10 @@ def api_status() -> dict:
         "revenue_cad": round(float(revenue), 2),
         "owner_actions_open": owner_open,
         "runner": runner.STATE.to_dict(),
+        # Reported rather than assumed. An empty list is the truthful answer until a key is
+        # configured, and no part of the system may imply a model integration that does not
+        # exist.
+        "model_providers": available_providers(),
     }
 
 
@@ -214,6 +219,7 @@ def dashboard() -> str:
   <div class="card"><span>Agent opex</span><b>CA${st['agent_opex_cad']:.2f}</b></div>
   <div class="card"><span>Revenue</span><b>CA${st['revenue_cad']:.2f}</b></div>
   <div class="card"><span>Worker</span><b>{'live' if st['runner']['worker_alive'] else ('off' if not st['runner']['enabled'] else 'stalled')}</b></div>
+  <div class="card"><span>Model providers</span><b>{len(st['model_providers']) or 'none'}</b></div>
 </div>
 <div class="sub" style="color:var(--muted);font-size:12px;margin:-14px 0 18px">
 Runner: {st['runner']['worker'] or 'not started'} &middot; last tick

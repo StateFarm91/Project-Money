@@ -50,8 +50,11 @@ def test_status_endpoint_exposes_what_an_absent_owner_needs():
         body = c.get("/api/status").json()
     for key in ("queue", "dead_letters", "products", "certified_versions",
                 "open_incidents", "agent_opex_cad", "revenue_cad",
-                "owner_actions_open", "runner"):
+                "owner_actions_open", "runner", "model_providers"):
         assert key in body, key
+    # No API key is configured here, and the status endpoint must say so rather than imply a
+    # model integration that does not exist.
+    assert body["model_providers"] == []
 
 
 def test_dashboard_renders_without_a_build_step():

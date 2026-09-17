@@ -13,11 +13,11 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **167 tests passing, 0 failing**:
+Verified by `./run_tests.sh` — **188 tests passing, 0 failing**:
 
-- CIR engine (27), platform layer (14), release gates (27), market radar (31), shadow
-  pipeline (8), real-process persistence (5), chaos/resilience (21), deployment surface (8),
-  flagship product run and adversarial attacks (26).
+- CIR engine (27), platform layer (14), release gates (27), market radar (31), model gateway
+  (21), shadow pipeline (8), real-process persistence (5), chaos/resilience (21), deployment
+  surface (8), flagship product run and adversarial attacks (26).
 - The full release chain runs end to end with no human in the loop, and correctly *refuses*
   to publish in shadow mode. A single `plan.cycle` now carries an entire 11-SKU portfolio
   from market scan to eleven release certificates without intervention.
@@ -29,6 +29,10 @@ Verified by `./run_tests.sh` — **167 tests passing, 0 failing**:
   a 5 GB volume**, created 2026-09-17. The **application service was not created**: the
   request was refused by this session's permission policy as a production deploy. So the
   database is up and nothing is running against it. See OWNER ACTION REQUIRED below.
+- Model providers: **none configured.** The Model Gateway is built and tested, but no API
+  key exists in this environment, so `available_providers()` returns an empty list and the
+  dashboard says "none". Nothing in the pipeline currently calls a model: every load-bearing
+  step is deterministic code.
 - Object storage: **none.** Rendered PDFs and charts are written to local disk, which is
   ephemeral in a container. The system knows this: artifact *hashes* are stored in Postgres
   and survive, the bytes may not, and `assets.storage_not_durable` is audited on every run.
@@ -86,6 +90,20 @@ See `DECISION_LOG.md` for reasoning. Summary:
 - `radar/opportunity.py` — the 34-concept pool, the six-component score, and the section 33
   portfolio constraints.
 - `radar/report.py` — renders the whole decision as reviewable markdown.
+- `gateway/prompts.py` — immutable, content-hashed, version-pinned prompts.
+- `gateway/model_gateway.py` — provider-agnostic routing, per-provider circuit breakers,
+  strict JSON parsing, per-agent cost recording, and `require_deterministic()` which refuses
+  to let a model verdict stand where the compiler has one.
+- `gateway/evals.py` — property-based eval fixtures that block a prompt version change if the
+  model starts inventing or dropping factual claims.
+- `products/nordic_forest.py` — the first engineered design: a motif grid, three generated
+  sizes.
+- `publish/charts.py`, `publish/pdf.py` — charts and the customer PDF, rendered from the twin.
+- `commerce/pricing.py`, `commerce/seo.py`, `commerce/launch.py` — fee-aware pricing that
+  refuses deceptive discounts, listing copy assembled only from computed facts, and a launch
+  plan anchored on the buying window.
+- `support/concierge.py` — answers from the exact released version and cannot amend it.
+- `core/artifacts.py` — content-addressed artifacts; hashes durable, bytes not.
 - `core/resilience.py` — transient/permanent classification, Retry-After honouring, circuit
   breaker, artifact hash integrity, strict model-output parsing.
 - `app/main.py`, `app/worker_entry.py`, `app/scheduler_entry.py`, `Dockerfile`,
@@ -170,18 +188,16 @@ object storage for artifact durability → brand/trademark clearance for "Brambl
   flagged so it is decided deliberately, not by default.
 
 ## Next highest-value unblocked actions
-1. Model Gateway (section 27): provider-agnostic routing, failover, pinned prompt versions,
-   cost logging, eval fixtures. Needed before any LLM call enters the pipeline.
-2. Incident → regression-fixture automation to close Gate B.
-3. Storefront Director and the brand/model system (section 6): collection naming, crop and
+1. Incident → regression-fixture automation to close Gate B.
+2. Storefront Director and the brand/model system (section 6): collection naming, crop and
    lighting rules, visual QA, and the disclosure question around AI lifestyle imagery.
-4. Search Domination and Thumbnail Warfare (sections 10, 7): keyword coverage modelling and
+3. Search Domination and Thumbnail Warfare (sections 10, 7): keyword coverage modelling and
    listing-image variant scoring.
-5. Engineer the remaining ten release candidates rather than letting them ship the templated
+4. Engineer the remaining ten release candidates rather than letting them ship the templated
    striped panel. Only the flagship has a real design so far.
-6. Row-level repeats in the CIR ("repeat rows 2-25 four more times"). The flagship's written
+5. Row-level repeats in the CIR ("repeat rows 2-25 four more times"). The flagship's written
    instructions currently spell out all 120 rows where a real pattern would collapse them.
-7. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
+6. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
 
 ## Changelog
 - 2026-09-17: Initial build. Competition retired. CIR engine complete (27 tests).
@@ -214,5 +230,11 @@ object storage for artifact durability → brand/trademark clearance for "Brambl
   confidently answered the wrong row; and the flagship's written instructions flattened every
   repeat across the full 144 stitches, producing a row instruction eleven lines long that no
   maker could follow.
-- Totals: 167 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
+- 2026-09-17: Model Gateway (21 tests). Prompts are immutable and content-hashed, output is
+  parsed strictly, cost is recorded per agent so a runaway loop hits the daily ceiling rather
+  than the bill, and a dead provider's circuit opens instead of absorbing doomed calls. Two
+  standing constraints are now asserted rather than documented: no registered prompt may ask
+  a model for pattern content, and `require_deterministic()` raises if a model verdict is
+  offered where the compiler has one.
+- Totals: 188 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
   regression automation.
