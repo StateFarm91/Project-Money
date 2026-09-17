@@ -13,20 +13,25 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **132 tests passing, 0 failing**:
+Verified by `./run_tests.sh` — **167 tests passing, 0 failing**:
 
-- CIR engine (27), platform layer (14), release gates (27), market radar (30), shadow
-  pipeline (8), real-process persistence (5), chaos/resilience (21).
+- CIR engine (27), platform layer (14), release gates (27), market radar (31), shadow
+  pipeline (8), real-process persistence (5), chaos/resilience (21), deployment surface (8),
+  flagship product run and adversarial attacks (26).
 - The full release chain runs end to end with no human in the loop, and correctly *refuses*
   to publish in shadow mode. A single `plan.cycle` now carries an entire 11-SKU portfolio
   from market scan to eleven release certificates without intervention.
 - Persistence is **proven, not assumed**: a worker is SIGKILLed mid-job against a file-backed
   database and a fresh process recovers and completes the work, inputs intact, with no
   duplicate side effects.
-- Cloud deployment: **none.** The deployable surface exists (FastAPI admin/API, Dockerfile,
-  worker and scheduler entrypoints, `railway.json`) but **no Railway project is provisioned**
-  and nothing runs when this session is off. This remains the single biggest gap between the
-  spec and reality, and it is the first genuine owner gate (paid infrastructure).
+- Cloud deployment: **half provisioned.** A Railway project `brambleloop` exists in the
+  owner's personal workspace (`production` environment) with a **live Postgres 18 service and
+  a 5 GB volume**, created 2026-09-17. The **application service was not created**: the
+  request was refused by this session's permission policy as a production deploy. So the
+  database is up and nothing is running against it. See OWNER ACTION REQUIRED below.
+- Object storage: **none.** Rendered PDFs and charts are written to local disk, which is
+  ephemeral in a container. The system knows this: artifact *hashes* are stored in Postgres
+  and survive, the bytes may not, and `assets.storage_not_durable` is audited on every run.
 - Etsy shop, listings, customers, revenue, ad spend: **none, CA$0, zero.**
 - Market Radar now runs on **real observed competitor intelligence** (five seeded shops,
   dated 2026-09-17, with price bands, discount patterns, format signals and named gaps) and a
@@ -34,11 +39,18 @@ Verified by `./run_tests.sh` — **132 tests passing, 0 failing**:
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
-Market Radar and the section 33 portfolio decision. A 34-concept pool is scored on six named
-components, and a constrained selector chooses eleven release candidates — refusing to
-concentrate the portfolio in one demand pattern, capping unverifiable Class C work, and
-holding back a bundle whose members were not themselves selected. The full ranking, every
-component score and every selector swap are written to `reports/opportunity_pool.md`.
+The complete shadow release chain on a real product. One unattended `plan.cycle` now runs
+market scan → portfolio selection → engineered CIR → compile → digital twin → reverse compile
+→ certificate → PDF and charts → pricing → listing and SEO → launch plan → refused publish,
+for all eleven release candidates, with 101 jobs completed and no unexpected failures. The
+flagship's actual output — the 8-page PDF, the chart, the price net of Etsy fees, the listing
+copy, the launch dates and a support transcript — is written to
+`reports/shadow_release_nordic_forest.md` so it can be inspected rather than taken on trust.
+The chain was then deliberately attacked: 16 attack tests covering a single wrong stitch in a
+motif, a stale chart from another size, drifted customer text, unsupported size claims,
+invented motifs, a fake was-price, a bundle that is not cheaper, an unsupportable listing
+claim, an agent reaching outside its permissions, support trying to amend a pattern, and a
+corrupted or missing artifact. All are rejected by construction.
 
 ## Architecture decisions
 See `DECISION_LOG.md` for reasoning. Summary:
@@ -116,10 +128,28 @@ See `DECISION_LOG.md` for reasoning. Summary:
 - None. Railway account exists but no project is provisioned.
 
 ## Owner actions required
-- None right now. Do not ask the owner for Etsy/KYC/banking until the system actually reaches
-  the integration that needs it (Master Plan section 35). Deferred, in the order they will be
-  needed: paid infrastructure approval → brand/trademark clearance for "Brambleloop Studio"
-  → Etsy account/KYC → banking.
+
+**1. Create the Railway application service (blocking 24/7 operation).**
+- *Exact action:* in the Railway project `brambleloop` → `production`, add a service from
+  GitHub repo `StateFarm91/Project-Money`, branch `claude/repository-setup-nc9x6o`, root
+  directory `brambleloop`. Set variables `BRAMBLELOOP_REQUIRE_POSTGRES=1`,
+  `BRAMBLELOOP_PHASE=shadow`, and `DATABASE_URL=${{Postgres.DATABASE_URL}}`. Generate a
+  domain. Alternatively, approve this session's Railway `create-service` call and it will do
+  all of the above.
+- *Why required:* the deploy was refused by this session's permission policy as a production
+  deploy. Postgres is already live; nothing is running against it. Until a service exists,
+  the OS only runs while a session is open, which is the one thing the spec exists to fix.
+- *Maximum cost:* Railway bills by usage. One small always-on service plus the existing
+  Postgres is roughly **CA$8–14 per month**; the Hobby plan's included credit covers part of
+  it. Web, worker and scheduler deliberately run in **one** container to keep this to a
+  single service's usage rather than three.
+- *Minutes required:* about 5.
+- *Consequence of waiting:* the company stops when this session ends. Everything else is
+  built and tested; this is the only thing between "runs when invoked" and "runs unattended".
+
+Deferred until the system actually reaches them (Master Plan section 35), in order:
+object storage for artifact durability → brand/trademark clearance for "Brambleloop Studio"
+→ Etsy account/KYC → banking. **Do not ask for these yet.**
 
 ## Financial state
 - Spend: CA$0 (verified — nothing provisioned, nothing purchased)
@@ -140,18 +170,18 @@ See `DECISION_LOG.md` for reasoning. Summary:
   flagged so it is decided deliberately, not by default.
 
 ## Next highest-value unblocked actions
-1. **Provision Railway** (Postgres + web + worker + cron). The container and entrypoints are
-   built; what is missing is the paid project. This is what turns the OS from "runs when
-   invoked" into "runs when everyone is asleep", and it is the first real owner gate.
-2. Take the top-ranked product (`nordic-forest-mosaic-throw`) through the *complete* chain:
-   premium PDF and charts from the twin, truthful listing assets, pricing, SEO draft, launch
-   plan and simulated support — then attack it deliberately and prove the gates reject.
-3. Model Gateway (section 27): provider-agnostic routing, failover, pinned prompt versions,
+1. Model Gateway (section 27): provider-agnostic routing, failover, pinned prompt versions,
    cost logging, eval fixtures. Needed before any LLM call enters the pipeline.
-4. Incident → regression-fixture automation to close Gate B.
-5. Storefront Director, brand/model system, Pricing Intelligence, Search Domination,
-   Thumbnail Warfare, Growth/Marketing and AI Customer Experience departments.
-6. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
+2. Incident → regression-fixture automation to close Gate B.
+3. Storefront Director and the brand/model system (section 6): collection naming, crop and
+   lighting rules, visual QA, and the disclosure question around AI lifestyle imagery.
+4. Search Domination and Thumbnail Warfare (sections 10, 7): keyword coverage modelling and
+   listing-image variant scoring.
+5. Engineer the remaining ten release candidates rather than letting them ship the templated
+   striped panel. Only the flagship has a real design so far.
+6. Row-level repeats in the CIR ("repeat rows 2-25 four more times"). The flagship's written
+   instructions currently spell out all 120 rows where a real pattern would collapse them.
+7. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
 
 ## Changelog
 - 2026-09-17: Initial build. Competition retired. CIR engine complete (27 tests).
@@ -175,5 +205,14 @@ See `DECISION_LOG.md` for reasoning. Summary:
   in September against direct evidence to the contrary; the constraint-repair loop could
   evict a quick low-price make to make room for a quick low-price make and spin forever; and
   the bundle was outranking everything in the pool while its members went unbuilt.
-- Totals: 132 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
+- 2026-09-17: Full shadow release chain on the flagship (26 tests) plus the deployment
+  surface (8). Four real defects found and fixed while building it: the digital twin was using
+  turning-chain units as physical row heights, overstating a blanket's finished length by
+  half — a size claim, therefore a refund; the yardage constants were set by feel and came out
+  at less than half of a checkable reference, which would have told a customer a throw needed
+  190 m of yarn; support indexed row counts by row number into a zero-based list, so it
+  confidently answered the wrong row; and the flagship's written instructions flattened every
+  repeat across the full 144 stitches, producing a row instruction eleven lines long that no
+  maker could follow.
+- Totals: 167 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
   regression automation.

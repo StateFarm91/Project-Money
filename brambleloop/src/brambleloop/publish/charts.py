@@ -1,0 +1,243 @@
+"""Stitch and colour charts rendered from the digital twin.
+
+Every pixel here is derived from the compiled CIR. Nothing is drawn from a description, a
+prompt or a reference image, which is the only way a chart can be trusted to agree with the
+written instructions -- if the chart and the text can disagree, one of them is lying to a
+customer who is forty hours into a blanket.
+
+Charts are also the clearest differentiation available to us. The profiled competitors ship
+charts as flat images with no legend discipline and one finished size; ours are generated,
+so they are consistent, legible and reproducible for every size we publish.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from PIL import Image, ImageDraw, ImageFont
+
+from ..cir.model import CIR
+from ..cir.twin import TwinModel
+
+# Brand palette (Brand Model Bible): pine, cream, gold, wine, ink.
+INK = (26, 43, 60)
+PINE = (36, 74, 58)
+CREAM = (250, 246, 235)
+GOLD = (196, 149, 69)
+LINE = (214, 206, 188)
+MUTED = (107, 114, 128)
+
+# Stitch glyphs. Deliberately ASCII-safe: a chart that depends on an exotic font renders as
+# empty boxes on someone else's machine, and we cannot see that happen.
+GLYPHS: dict[str, str] = {
+    "ch": "o", "slst": ".", "sc": "x", "hdc": "T", "dc": "F", "tr": "H",
+    "inc": "V", "dec": "A", "dc_inc": "W", "dc_dec": "M", "sk": "-",
+}
+
+
+def _font(size: int) -> ImageFont.ImageFont:
+    """Load a real TrueType face when one exists, else fall back without crashing."""
+    for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _hex_to_rgb(value: str | None, fallback: tuple[int, int, int] = CREAM):
+    if not value or not value.startswith("#") or len(value) != 7:
+        return fallback
+    try:
+        return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5))  # type: ignore[return-value]
+    except ValueError:
+        return fallback
+
+
+def _readable_on(bg: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Pick ink or cream for text, whichever a human can actually read on this square."""
+    luminance = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) / 255
+    return INK if luminance > 0.55 else CREAM
+
+
+def detect_repeat(grid: list[list[str]], colors: list[list[str | None]]
+                  ) -> tuple[int, int]:
+    """Find the smallest block the chart is built from, in (columns, rows).
+
+    A 144 x 120 blanket chart printed on one page gives each stitch about one pixel, which is
+    decoration, not a chart. Real mosaic patterns publish one repeat and say how many times to
+    work it, and that is only honest if the repeat is *derived* from the fabric rather than
+    asserted by whoever wrote the copy. So it is computed here: the smallest column period and
+    row period that the whole grid actually satisfies.
+
+    Colour is part of the comparison. Two rows with identical stitches in different colours are
+    different rows to a maker.
+    """
+    rows = len(grid)
+    cols = max((len(r) for r in grid), default=0)
+    if rows == 0 or cols == 0:
+        return 0, 0
+
+    def row_key(i: int) -> list[tuple[str, str | None]]:
+        cs = colors[i] if i < len(colors) else []
+        return [(grid[i][j], cs[j] if j < len(cs) else None) for j in range(len(grid[i]))]
+
+    col_period = cols
+    for period in range(1, cols + 1):
+        if cols % period:
+            continue
+        if all(row_key(i)[j] == row_key(i)[j % period]
+               for i in range(rows) for j in range(len(grid[i]))):
+            col_period = period
+            break
+
+    row_period = rows
+    for period in range(1, rows + 1):
+        if rows % period:
+            continue
+        if all(row_key(i) == row_key(i % period) for i in range(rows)):
+            row_period = period
+            break
+    return col_period, row_period
+
+
+def crop_grids(grid: list[list[str]], colors: list[list[str | None]],
+               cols: int, rows: int) -> tuple[list[list[str]], list[list[str | None]]]:
+    """The bottom-left block of the chart: the unit a maker actually reads."""
+    g = [r[:cols] for r in grid[:rows]]
+    c = [r[:cols] for r in colors[:rows]]
+    return g, c
+
+
+@dataclass(frozen=True)
+class ChartSpec:
+    cell_px: int = 26
+    margin_px: int = 56
+    max_width_px: int = 2400
+    show_glyphs: bool = True
+
+
+def _cell_size(twin: TwinModel, spec: ChartSpec) -> int:
+    """Shrink cells rather than emit an image nobody can open.
+
+    A 160-stitch blanket at 26px per cell is over four thousand pixels wide. Scaling down is
+    better than truncating: a chart missing its right-hand edge is worse than a small chart.
+    """
+    widest = max(twin.row_widths.values(), default=1)
+    usable = spec.max_width_px - 2 * spec.margin_px
+    return max(6, min(spec.cell_px, usable // max(1, widest)))
+
+
+def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
+                 grids: tuple[list[list[str]], list[list[str | None]]] | None = None,
+                 caption: str | None = None) -> Image.Image:
+    """Colour chart with stitch glyphs, row numbers and working direction.
+
+    Row 1 is drawn at the bottom, the way fabric actually grows, and alternate rows are
+    numbered on alternating sides because that is the side the maker is working from.
+    """
+    spec = spec or ChartSpec()
+    cell = _cell_size(twin, spec) if grids is None else max(
+        6, min(spec.cell_px,
+               (spec.max_width_px - 2 * spec.margin_px) // max(1, len(grids[0][0]))))
+    glyph_font = _font(max(7, int(cell * 0.62)))
+    label_font = _font(max(9, int(cell * 0.55)))
+
+    grid = grids[0] if grids else twin.chart_grid()
+    colors = grids[1] if grids else twin.color_grid()
+    rows = len(grid)
+    cols = max((len(r) for r in grid), default=0)
+    if rows == 0 or cols == 0:
+        raise ValueError("cannot render a chart for a twin with no cells")
+
+    gutter = spec.margin_px
+    grid_w = cols * cell
+    title = caption or f"{cir.title} - {twin.component}"
+    footer = "odd rows read right to left   even rows read left to right"
+    # A small repeat chart is narrower than its own caption. Sizing the canvas to the grid
+    # alone silently crops the title and the reading-direction note off both edges, which is
+    # the sort of thing that looks like a broken file to a customer.
+    probe = Image.new("RGB", (1, 1))
+    pd = ImageDraw.Draw(probe)
+    text_w = max(pd.textlength(title, font=label_font),
+                 pd.textlength(footer, font=label_font))
+    width = int(max(grid_w + gutter * 2, text_w + gutter * 2))
+    height = gutter * 2 + rows * cell
+    left = (width - grid_w) // 2
+    img = Image.new("RGB", (width, height), CREAM)
+    d = ImageDraw.Draw(img)
+
+    for r_idx in range(rows):
+        row_number = r_idx + 1
+        y = gutter + (rows - row_number) * cell   # row 1 at the bottom
+        row_cells = grid[r_idx]
+        row_colors = colors[r_idx] if r_idx < len(colors) else []
+        for c_idx in range(len(row_cells)):
+            x = left + c_idx * cell
+            hexval = cir.colors.get(row_colors[c_idx]) if c_idx < len(row_colors) else None
+            bg = _hex_to_rgb(hexval)
+            d.rectangle([x, y, x + cell, y + cell], fill=bg, outline=LINE)
+            if spec.show_glyphs and cell >= 10:
+                code = row_cells[c_idx]
+                g = GLYPHS.get(code, code[:1])
+                d.text((x + cell / 2, y + cell / 2), g, font=glyph_font,
+                       fill=_readable_on(bg), anchor="mm")
+
+        # Number every row on the side it is worked from; on a tiny cell, every fifth.
+        if cell >= 10 or row_number % 5 == 0 or row_number == rows:
+            label = str(row_number)
+            if row_number % 2 == 1:
+                d.text((left - 8, y + cell / 2), label, font=label_font, fill=MUTED,
+                       anchor="rm")
+            else:
+                d.text((left + len(row_cells) * cell + 8, y + cell / 2), label,
+                       font=label_font, fill=MUTED, anchor="lm")
+
+    d.text((width / 2, gutter - 26), title, font=label_font, fill=PINE, anchor="ms")
+    d.text((width / 2, height - gutter + 22), footer, font=label_font, fill=MUTED,
+           anchor="ms")
+    return img
+
+
+def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> Image.Image:
+    """A legend covering exactly the stitches and colours the chart actually uses.
+
+    Listing every stitch in the taxonomy would be padding; listing fewer than the chart uses
+    would be a defect. Both are derived from the twin so neither can happen.
+    """
+    spec = spec or ChartSpec()
+    row_h = 34
+    stitches = sorted(twin.stitch_types_used)
+    used_colors = sorted(c for c in twin.colors_used if c)
+    entries = len(stitches) + len(used_colors) + 2
+    width, height = 720, 40 + entries * row_h
+    img = Image.new("RGB", (width, height), CREAM)
+    d = ImageDraw.Draw(img)
+    head, body = _font(17), _font(15)
+
+    y = 20
+    d.text((24, y), "STITCH KEY", font=head, fill=PINE)
+    y += row_h
+    from ..cir import stitches as taxonomy
+
+    for code in stitches:
+        d.rectangle([24, y, 24 + 24, y + 24], fill=CREAM, outline=LINE)
+        d.text((36, y + 12), GLYPHS.get(code, code[:1]), font=body, fill=INK, anchor="mm")
+        try:
+            st = taxonomy.get(code)
+            name = f"{st.name_us}  (UK {st.name_uk})"
+        except taxonomy.UnknownStitch:  # pragma: no cover - taxonomy is closed
+            name = code
+        d.text((64, y + 12), f"{code}   {name}", font=body, fill=INK, anchor="lm")
+        y += row_h
+
+    y += 8
+    d.text((24, y), "COLOUR KEY", font=head, fill=PINE)
+    y += row_h
+    for name in used_colors:
+        bg = _hex_to_rgb(cir.colors.get(name))
+        d.rectangle([24, y, 24 + 24, y + 24], fill=bg, outline=LINE)
+        d.text((64, y + 12), f"{name}   {cir.colors.get(name, '')}", font=body, fill=INK,
+               anchor="lm")
+        y += row_h
+    return img

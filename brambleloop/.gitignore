@@ -4,3 +4,5 @@
 __pycache__/
 *.pyc
 backups/
+reports/shadow_release/_store/
+artifacts/

@@ -51,6 +51,12 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="policy", description="Platform policy and compliance checks; can veto",
          allowed_job_types=["gate.policy"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
+    dict(name="publishing", description="Renders the PDF, charts and listing assets",
+         allowed_job_types=["assets.build", "assets.render"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=2.0),
+    dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
+         allowed_job_types=["launch.plan", "marketing.schedule"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=2.0),
     dict(name="listing", description="Drafts listings and SEO. Cannot spend ad money.",
          allowed_job_types=["listing.draft", "listing.seo"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
@@ -78,6 +84,10 @@ FORBIDDEN_COMBINATIONS: dict[str, set[str]] = {
     "marketing": {"cir.draft", "cir.revise"},
     "support": {"cir.draft", "cir.revise", "store.publish"},
     "pricing": {"gate.policy"},
+    # Publishing renders what was certified; it never decides what ships or authors a pattern.
+    "publishing": {"store.publish", "store.update", "cir.draft", "cir.revise", "gate.certify"},
+    # Growth schedules attention. Pattern content and live publication are not its business.
+    "growth": {"cir.draft", "cir.revise", "store.publish", "gate.certify"},
 }
 
 

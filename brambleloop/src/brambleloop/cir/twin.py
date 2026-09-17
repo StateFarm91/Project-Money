@@ -22,9 +22,15 @@ from .model import CIR
 # Yarn length consumed per stitch, expressed as a multiple of one gauge stitch-width.
 # Derived from the stitch's height: a dc eats far more yarn than a sc. These are starting
 # constants with a wide tolerance; physical tests replace them per yarn/hook combination.
+# Anchored on a checkable reference rather than picked to look plausible: a worsted-weight
+# 120 x 150 cm throw at 16 sts / 18 rows per 10 cm is about 51,800 stitches and is widely
+# reported to take 1,800-2,000 m of yarn, which is roughly 3.9 cm of yarn per single crochet,
+# or 6.2 stitch-widths at that gauge. The first version of this table was set by feel and came
+# out at less than half of that -- it would have told a customer a throw needed 190 m. An
+# estimate can be wrong by its stated tolerance; being wrong by a factor of two is a refund.
 _YARN_FACTOR = {
-    "ch": 1.0, "slst": 1.2, "sc": 2.9, "hdc": 3.8, "dc": 4.9, "tr": 6.1,
-    "inc": 5.8, "dec": 4.4, "dc_inc": 9.8, "dc_dec": 8.2, "sk": 0.0,
+    "ch": 2.2, "slst": 2.6, "sc": 6.2, "hdc": 8.2, "dc": 10.5, "tr": 13.1,
+    "inc": 12.4, "dec": 9.5, "dc_inc": 21.0, "dc_dec": 17.6, "sk": 0.0,
 }
 YARDAGE_TOLERANCE = 0.20  # +/- 20% until calibrated by a physical test
 
@@ -89,11 +95,11 @@ def _dimensions(rows: list[ResolvedRow], cir: CIR) -> tuple[float | None, float 
     width_cm = widest / g.stitches_per_10cm * 10.0
 
     # Row height scales with stitch height relative to the gauge stitch.
-    base = stitches.get(g.stitch_type).height or 1.0
+    base = stitches.get(g.stitch_type).row_height or 1.0
     row_cm = 10.0 / g.rows_per_10cm
     height_cm = 0.0
     for r in rows:
-        tallest = max((stitches.get(o.stitch).height for o in r.ops), default=base)
+        tallest = max((stitches.get(o.stitch).row_height for o in r.ops), default=base)
         height_cm += row_cm * (tallest / base)
     return round(width_cm, 1), round(height_cm, 1)
 

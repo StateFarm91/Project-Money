@@ -228,8 +228,40 @@ def handle_radar_score(ctx: JobContext) -> dict:
                 f"score {rescored.score} below promotion threshold {PROMOTION_THRESHOLD}")}
 
 
+# Concepts whose pattern is engineered rather than templated. The generic builder below makes
+# a striped panel, which proves the machinery and is not a product; where a real design exists
+# it wins. A slug absent from here is not a failure -- it means that concept has not been
+# through design yet, and the templated geometry stands in until it has.
+ENGINEERED: dict[str, str] = {
+    "nordic-forest-mosaic-throw": "brambleloop.products.nordic_forest",
+}
+
+
+def _engineered_cir(slug: str, version: str = "1.0.0") -> CIR | None:
+    module_path = ENGINEERED.get(slug)
+    if not module_path:
+        return None
+    import importlib
+
+    module = importlib.import_module(module_path)
+    cir = module.build(version=version)
+    # Keep the concept's slug so the radar, the portfolio and the product row agree on the
+    # name; the size-specific slugs are for the variants, not the headline product.
+    return CIR.from_dict({**cir.to_dict(), "slug": slug})
+
+
 @handlers.register("cir.draft")
 def handle_cir_draft(ctx: JobContext) -> dict:
+    engineered = _engineered_cir(ctx.job.inputs["slug"])
+    if engineered is not None:
+        ctx.audit("cir.drafted", artifact=f"{engineered.slug}@{engineered.version}",
+                  detail={"source": "engineered design", "rows": sum(
+                      len(c.rows) for c in engineered.components)})
+        ctx.enqueue("validator", "cir.compile", {"cir": engineered.to_dict()},
+                    idempotency_key=f"compile:{engineered.slug}:{engineered.version}")
+        return {"artifact": f"{engineered.slug}@{engineered.version}",
+                "rows": len(engineered.components[0].rows), "engineered": True}
+
     i = ctx.job.inputs
     concept = Concept(
         slug=i["slug"], title=i["title"], category=i["category"],
@@ -343,11 +375,17 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
 
 @handlers.register("listing.draft")
 def handle_listing_draft(ctx: JobContext) -> dict:
+    """Hand a certified pattern to the second half of the chain.
+
+    Asset rendering comes before listing copy, not after, because the listing quotes the
+    assets: page count, finished size, yardage range. Writing the copy first and rendering
+    afterwards is how a description ends up promising a PDF that does not exist.
+    """
     slug = ctx.job.inputs["slug"]
+    version = ctx.job.inputs["version"]
     ctx.audit("listing.drafted", artifact=slug)
-    ctx.enqueue("store_operator", "store.publish",
-                {"slug": slug, "version": ctx.job.inputs["version"]},
-                idempotency_key=f"publish:{slug}:{ctx.job.inputs['version']}")
+    ctx.enqueue("publishing", "assets.build", {"slug": slug, "version": version},
+                idempotency_key=f"assets:{slug}:{version}")
     return {"artifact": slug, "drafted": True}
 
 
@@ -452,3 +490,8 @@ def handle_finance_reconcile(ctx: JobContext) -> dict:
                       "agent_opex": round(opex, 4), "contribution": contribution})
     return {"revenue_cad": revenue, "agent_opex_cad": round(opex, 4),
             "contribution_cad": contribution}
+
+
+# Importing the back half registers its handlers. Kept at the bottom because `release` imports
+# job-context helpers from this module's neighbours, and a top-of-file import would be a cycle.
+from . import release  # noqa: E402,F401
