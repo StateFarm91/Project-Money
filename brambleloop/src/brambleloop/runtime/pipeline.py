@@ -425,8 +425,11 @@ def handle_plan_cycle(ctx: JobContext) -> dict:
     Re-running rather than freezing matters. The pool does not change often, but the date
     does, and a concept that was three weeks early last month is in its window this month.
     """
-    ctx.enqueue("market_radar", "radar.scan", {"target": 10})
-    return {"planned": True}
+    today = _scan_date(ctx)
+    ctx.enqueue("market_radar", "radar.scan",
+                {"target": 10, "as_of": today.isoformat()},
+                idempotency_key=f"radar.scan:{today.isoformat()}")
+    return {"planned": True, "as_of": today.isoformat()}
 
 
 @handlers.register("portfolio.review")

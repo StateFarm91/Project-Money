@@ -321,6 +321,45 @@ def test_portfolio_review_reports_drift_without_acting_on_no_evidence():
         assert "portfolio.reviewed" in actions
 
 
+def test_a_planning_cycle_scores_against_the_date_it_was_given():
+    """The cycle's date must reach the radar, or a dated run silently re-scores today.
+
+    Found in production: plan.cycle dropped `as_of` when it enqueued the scan, so a cycle
+    requested for a future date scored against today and every downstream idempotency key
+    collapsed into the morning's run. The cycle "succeeded" and did nothing.
+    """
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401
+    from brambleloop.runtime.worker import Worker
+    from sqlalchemy import select
+
+    later = date(2027, 1, 20)
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Database(f"sqlite:///{tmp}/c.sqlite")
+        db.create_all()
+        Registry(db).seed_defaults()
+        JobQueue(db).enqueue("orchestrator", "plan.cycle", {"as_of": later.isoformat()})
+        w = Worker(db, "cycle-worker")
+        w.run_once()   # plan.cycle
+        w.run_once()   # radar.scan
+
+        with db.session() as s:
+            scan = next(j for j in s.scalars(select(Job))
+                        if j.job_type == "radar.scan" and j.status == JobStatus.DONE)
+            scored = [j for j in s.scalars(select(Job)) if j.job_type == "radar.score"]
+        assert scan.inputs["as_of"] == later.isoformat(), scan.inputs
+        assert scan.outputs["as_of"] == later.isoformat(), scan.outputs
+        assert scored, "the scan promoted nothing at all"
+        # January's portfolio is not September's, which is the whole reason the date travels.
+        assert {c.slug for c in select_portfolio(today=later).selected} == \
+            {j.inputs["slug"] for j in scored}
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
