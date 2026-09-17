@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **376 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **378 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
 Suites: CIR engine, platform, release gates, market radar, model gateway, brand and
@@ -338,6 +338,6 @@ Exact and verified. Nothing here is projected.
   spent six of thirteen slots on the word "mosaic"; and the pipeline had been certifying a
   "Collection Bundle" whose PDF was a twelve-row striped panel — a product sold as three
   patterns and delivered as one invented swatch.
-- Totals: 376 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 378 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

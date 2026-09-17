@@ -148,6 +148,15 @@ def test_the_support_endpoint_shows_that_nothing_was_sent():
     assert all(case["sent"] is False for case in body["cases"])
 
 
+def test_a_chain_rebuild_can_be_started_on_demand():
+    """The cadence is hourly, which is slow when a deploy has just landed a fix."""
+    with _client() as c:
+        first = c.post("/api/chain-rebuild").json()
+        second = c.post("/api/chain-rebuild").json()
+    assert first["enqueued"] is True
+    assert second["enqueued"] is False, "two rebuilds queued at once"
+
+
 def test_verify_endpoint_reports_the_standing_safety_assertions():
     """"Railway says deployed" is not "the company is alive and behaving"."""
     with _client() as c:

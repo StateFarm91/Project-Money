@@ -219,6 +219,27 @@ def api_plan_cycle(as_of: str | None = None) -> dict:
     return {"enqueued": True, "job_id": job.id, "as_of": as_of}
 
 
+@app.post("/api/chain-rebuild")
+def api_chain_rebuild() -> dict:
+    """Restart the post-certification chain for releases whose listing is missing or stale.
+
+    The cadence runs hourly, which is right for an unattended system and slow when a deploy
+    has just landed a fix that needs to reach shipped products. GREEN: it enqueues work the
+    system already does on a schedule, spends nothing, and cannot publish.
+    """
+    # Keyed to the minute: a burst of clicks collapses into one rebuild, and an operator who
+    # genuinely wants another can have it a minute later. A rebuild is idempotent anyway, but
+    # queueing fifty of them turns a safe operation into a self-inflicted load test.
+    key = f"chain.rebuild:{utcnow():%Y%m%dT%H%M}"
+    try:
+        job = JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False,
+                "reason": "a rebuild was already queued this minute; it is idempotent, so "
+                          "the queued one does the same work"}
+    return {"enqueued": True, "job_id": job.id}
+
+
 @app.get("/api/jobs")
 def api_jobs(limit: int = 50) -> dict:
     with db.session() as s:

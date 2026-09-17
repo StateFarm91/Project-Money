@@ -326,6 +326,37 @@ def test_a_column_added_in_code_reaches_a_database_that_already_exists():
         assert Database(url).create_all() == [], "the migration is not idempotent"
 
 
+def test_an_added_column_is_backfilled_with_the_models_default():
+    """Otherwise a fresh database and a migrated one hold two different shapes.
+
+    A NULL where the model promises a value means the comparison that decides whether a row is
+    stale quietly compares against None — which is how a fix reaches nothing.
+    """
+    import tempfile
+
+    from sqlalchemy import select, text
+
+    from brambleloop.core.models import Listing
+
+    with tempfile.TemporaryDirectory() as tmp:
+        url = f"sqlite:///{tmp}/backfill.sqlite"
+        db = Database(url)
+        db.create_all()
+        with db.session() as s:
+            s.add(Listing(product_slug="x", version="1.0.0", title="t", description="d"))
+        with db.engine.begin() as conn:
+            conn.execute(text("DROP INDEX IF EXISTS ix_listings_chain_version"))
+            conn.execute(text("ALTER TABLE listings DROP COLUMN chain_version"))
+
+        again = Database(url)
+        changes = again.create_all()
+        assert any("backfilled" in c for c in changes), changes
+        with again.session() as s:
+            rows = list(s.scalars(select(Listing)))
+        assert rows and all(r.chain_version == "1" for r in rows), \
+            [r.chain_version for r in rows]
+
+
 def test_the_migration_refuses_a_change_it_cannot_make_safely():
     """Additive only. A NOT NULL column with no default cannot be added to a table with rows."""
     import tempfile

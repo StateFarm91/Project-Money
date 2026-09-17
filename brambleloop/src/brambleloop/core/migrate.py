@@ -59,6 +59,15 @@ def plan(engine: Engine) -> list[tuple[str, str, str]]:
     return out
 
 
+def _scalar_default(table: str, column: str):
+    """The model's literal default for a column, or None when there is not one."""
+    col = Base.metadata.tables[table].columns[column]
+    default = col.default
+    if default is None or default.is_callable or default.is_sequence:
+        return None
+    return default.arg
+
+
 def apply(engine: Engine) -> list[str]:
     """Add every missing column, then every missing index. Returns what changed.
 
@@ -70,8 +79,18 @@ def apply(engine: Engine) -> list[str]:
     for table, column, ddl in plan(engine):
         with engine.begin() as conn:
             conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{column}" {ddl}'))
-        changes.append(f"{table}.{column} {ddl}")
-        log.info("added column %s.%s (%s)", table, column, ddl)
+            # Backfill the model's scalar default. Without this, a fresh database has the
+            # column NOT NULL with a value and a migrated one has it NULL, so the same code
+            # reads two different shapes -- and the comparison that decides whether a row is
+            # stale quietly compares against None. Only literal defaults are backfilled;
+            # anything callable is per-row logic this module has no business guessing.
+            default = _scalar_default(table, column)
+            if default is not None:
+                conn.execute(text(f'UPDATE "{table}" SET "{column}" = :v '
+                                  f'WHERE "{column}" IS NULL'), {"v": default})
+                changes.append(f"{table}.{column} {ddl} backfilled={default!r}")
+            else:
+                log.info("added column %s.%s (%s)", table, column, ddl)
 
     if changes:
         insp = inspect(engine)
