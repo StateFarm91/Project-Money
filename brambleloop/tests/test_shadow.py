@@ -164,6 +164,33 @@ def test_worker_survives_a_handler_that_explodes():
     assert w.stats.completed == 0
 
 
+
+def test_a_product_that_stops_certifying_has_its_listing_withdrawn():
+    """Refusing a certificate and leaving the storefront alone leaves a draft for a product
+    the release chain has just rejected. Shadow mode is what stands between that draft and a
+    customer, and shadow mode is a phase, not a guarantee."""
+    from brambleloop.core.models import Listing
+    from brambleloop.products.vessels import build_hexagon_coaster
+
+    db = boot()
+    cir = build_hexagon_coaster()
+    with db.session() as s:
+        s.add(Listing(product_slug=cir.slug, version=cir.version, title="Hexagon Coaster Set",
+                      description="drafted earlier, when this product still certified",
+                      price_cad=4.5, state="draft"))
+
+    # Break the pattern the way a bad edit would: round 5 now claims a count it cannot reach.
+    cir.components[0].rows[4].declared_count = 999
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    drain(db)
+
+    with db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == cir.slug))
+        assert listing.state == "withdrawn", listing.state
+        withdrawn = s.scalars(
+            select(AuditLog).where(AuditLog.action == "listing.withdrawn")).all()
+        assert withdrawn, "the withdrawal was not recorded"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

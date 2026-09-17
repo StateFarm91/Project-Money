@@ -51,8 +51,16 @@ def write_node(node: OpNode, terminology: str = "US") -> str:
 
 
 def write_row(
-    row: Row, component: Component, count: int | None, terminology: str = "US"
+    row: Row, component: Component, count: int | None, terminology: str = "US",
+    state_color: bool = False,
 ) -> str:
+    """One row or round of customer-facing instruction.
+
+    `state_color` names the yarn in the line. It is on whenever the pattern has more than one
+    colour, because a two-colour pattern whose written instructions never say which yarn to
+    pick up is not a written pattern -- it is a chart with sentences next to it. Overlay
+    mosaic in particular is one colour per row, and the colour *is* the design.
+    """
     label = "Row" if component.construction == "flat_rows" else "Rnd"
     parts: list[str] = []
     if row.turning_chain:
@@ -72,12 +80,71 @@ def write_row(
     else:
         body = ", ".join(write_node(n, terminology) for n in row.ops)
         parts.append(body + ".")
-    line = f"{label} {row.index}: " + " ".join(parts)
+    heading = f"{label} {row.index}"
+    if state_color and row.color:
+        heading += f" ({row.color})"
+    line = f"{heading}: " + " ".join(parts)
     if count is not None:
         line += f" ({count} sts)"
     if row.note:
         line += f"  -- {row.note}"
     return line
+
+
+SPIRAL_LINE = ("Work in a continuous spiral. Do not join the rounds; mark the first stitch "
+               "of each round and move the marker up as you go.")
+JOINED_LINE = ("Join each round with a sl st to the first stitch, then ch 1 to begin the "
+               "next round.")
+
+
+def construction_lines(comp: Component) -> list[str]:
+    """How the rounds are worked, stated once rather than repeated on every line.
+
+    A maker who does not know whether to join has a different fabric from the one the
+    pattern was validated as: joining leaves a seam up the side, spiralling does not. Saying
+    it once at the top of the component keeps one source of truth, and the reverse compiler
+    reads this line back and checks it against the CIR, so a document that says "spiral"
+    over a joined pattern is caught rather than shipped.
+    """
+    if comp.construction == "spiral_rounds":
+        return [SPIRAL_LINE]
+    if comp.construction == "joined_rounds":
+        return [JOINED_LINE]
+    return []
+
+
+ASSEMBLY_HEADING = "## Assembly"
+
+_SEAM_WORDS = {
+    "whipstitch": "Whipstitch",
+    "slst": "Slip stitch",
+    "mattress": "Mattress stitch",
+    "sew": "Sew",
+}
+
+
+def write_seam(seam, position: int) -> str:
+    """One finishing step, in the same regular grammar as a row so it can be read back."""
+    verb = _SEAM_WORDS.get(seam.method, "Join")
+    if seam.is_self_seam:
+        where = f"the two edges of the {seam.piece_a} together"
+    else:
+        where = f"the {seam.piece_a} to the {seam.piece_b}"
+    line = f"Step {position}: {verb} {where}."
+    if seam.stuff_before_closing:
+        line += " Stuff firmly before closing."
+    if seam.note:
+        note = seam.note.rstrip(".")
+        line += f" {note[0].upper()}{note[1:]}."
+    return line
+
+
+def assembly_lines(cir: CIR) -> list[str]:
+    if not cir.assembly:
+        return []
+    out = [ASSEMBLY_HEADING]
+    out.extend(write_seam(seam, i) for i, seam in enumerate(cir.assembly, start=1))
+    return out
 
 
 def collapses_rows(cir: CIR) -> bool:
@@ -102,7 +169,8 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> s
             f"{_term(g.stitch_type, terminology)}{hook}"
         )
     if cir.materials:
-        out.append("Materials: " + "; ".join(m.name for m in cir.materials))
+        out.append("Materials: " + "; ".join(
+            f"{m.name} ({m.colorway})" if m.colorway else m.name for m in cir.materials))
     out.append(f"Terminology: {terminology.upper()} terms")
     out.append("")
 
@@ -112,11 +180,13 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> s
             out.append(f"## {comp.name}{make}")
         if comp.foundation and comp.foundation_kind == "chain":
             out.append(f"Foundation: ch {comp.foundation}.")
+        out.extend(construction_lines(comp))
         # Collapse a repeated row-block into an instruction, the way a real pattern does.
         # Printing all 120 rows of a five-repeat blanket is complete and unusable: a maker
         # loses their place in four pages of near-identical lines. The cycle is derived from
         # the rows, so it cannot disagree with them.
         cycle = detect_cycle(comp.rows)
+        state_color = len(cir.colors) > 1
         for row in comp.rows:
             if cycle is not None and cycle.covers(row.index):
                 continue
@@ -124,9 +194,11 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> s
                 count = result.row(comp.name, row.index).stitch_count
             except KeyError:
                 count = None
-            out.append(write_row(row, comp, count, terminology))
+            out.append(write_row(row, comp, count, terminology, state_color))
             if cycle is not None and row.index == cycle.end:
                 out.append(describe(cycle, comp.rows[-1].index))
         out.append("")
+
+    out.extend(assembly_lines(cir))
 
     return "\n".join(out).rstrip() + "\n"

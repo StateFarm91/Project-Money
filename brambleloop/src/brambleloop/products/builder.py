@@ -148,13 +148,6 @@ CATALOGUE: dict[str, Design] = {
     "harvest-table-runner": Design(
         slug="harvest-table-runner", title="Harvest Table Runner",
         motif="chevron-band", palette="autumn", width_stitches=48, motif_repeats=14),
-    "market-basket-trio": Design(
-        slug="market-basket-trio", title="Market Basket Trio",
-        motif="basketweave", palette="cottage", width_stitches=72, motif_repeats=3,
-        risk_class="B",
-        note="The side panel, seamed into the basket. Class B: a flat panel's arithmetic is "
-             "verifiable but how it stands up is not, so this one wants a physical sample "
-             "before anything is claimed about it holding its shape."),
     "mosaic-placemat-pair": Design(
         slug="mosaic-placemat-pair", title="Mosaic Placemat Pair",
         motif="diamond-lattice", palette="cottage", width_stitches=45, motif_repeats=5),
@@ -172,9 +165,6 @@ CATALOGUE: dict[str, Design] = {
     "pet-snuggle-mat": Design(
         slug="pet-snuggle-mat", title="Pet Snuggle Mat",
         motif="basketweave", palette="hearth", width_stitches=56, motif_repeats=7),
-    "hexie-coaster-set": Design(
-        slug="hexie-coaster-set", title="Hexagon Coaster Set",
-        motif="diamond-lattice", palette="cottage", width_stitches=27, motif_repeats=2),
     "pressed-flower-motifs": Design(
         slug="pressed-flower-motifs", title="Pressed Flower Motif Library (12)",
         motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2,

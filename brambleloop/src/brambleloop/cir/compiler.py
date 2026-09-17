@@ -313,9 +313,30 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
     return resolved
 
 
+def check_assembly(cir: CIR, findings: list[Finding]) -> None:
+    """Validate the finishing: a seam that names a piece the pattern does not contain is a
+    maker standing there with two rectangles and an instruction about a third."""
+    names = {c.name for c in cir.components}
+    stuffing = any("stuff" in m.name.lower() or "fibre" in m.name.lower()
+                   or "fiber" in m.name.lower() for m in cir.materials)
+    for position, seam in enumerate(cir.assembly, start=1):
+        for piece in (seam.piece_a, seam.piece_b):
+            if piece not in names:
+                findings.append(Finding(
+                    ERROR, "ASSEMBLY_UNKNOWN_PIECE",
+                    f"assembly step {position} joins {piece!r}, which is not a component of "
+                    f"this pattern (have: {sorted(names)})"))
+        if seam.stuff_before_closing and not stuffing:
+            findings.append(Finding(
+                WARNING, "ASSEMBLY_NO_STUFFING_DECLARED",
+                f"assembly step {position} says to stuff before closing, but no stuffing is "
+                f"in the materials list, so the buyer will not have bought any"))
+
+
 def compile_cir(cir: CIR) -> CompileResult:
     """Compile and validate a CIR. Never raises on pattern problems -- it reports them."""
     result = CompileResult(cir=cir)
     for comp in cir.components:
         result.rows.extend(compile_component(comp, cir, result.findings))
+    check_assembly(cir, result.findings)
     return result

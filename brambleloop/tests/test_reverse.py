@@ -6,6 +6,7 @@ clean round trip is evidence rather than a tautology.
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -84,14 +85,20 @@ def test_declared_count_mutation_is_caught():
 
 def test_turning_chain_removal_is_caught():
     cir = fixtures.good_mosaic_panel()
-    mutated = _text(cir).replace("Row 2: Ch 1, turn. ", "Row 2: ")
+    # Take the line out of the rendered text rather than matching a literal: the heading
+    # gained a colour when written patterns started naming the yarn, and a tamper that no
+    # longer applies is a test that proves nothing.
+    text = _text(cir)
+    victim = next(l for l in text.splitlines() if re.match(r"^Row 2\b", l))
+    mutated = text.replace(victim, victim.replace("Ch 1, turn. ", ""), 1)
+    assert mutated != text, "the tamper did not apply"
     findings = compare(cir, mutated)
     assert "REVERSE_TURNING_CHAIN" in codes(findings)
 
 
 def test_dropped_row_is_caught():
     cir = fixtures.good_sphere()
-    lines = [l for l in _text(cir).splitlines() if not l.startswith("Rnd 5:")]
+    lines = [l for l in _text(cir).splitlines() if not re.match(r"^Rnd 5\b", l)]
     findings = compare(cir, "\n".join(lines))
     assert "REVERSE_ROW_COUNT" in codes(findings)
 

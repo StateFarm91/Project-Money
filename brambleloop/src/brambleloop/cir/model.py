@@ -157,6 +157,33 @@ class Component:
             raise ValueError(f"component {self.name!r} foundation must be >= 0")
 
 
+SeamMethod = Literal["whipstitch", "slst", "mattress", "sew"]
+
+
+@dataclass
+class Seam:
+    """One join in the finishing: which pieces, by what method, in what order.
+
+    Without this a multi-piece pattern is a bag of rectangles and a wish. The catalogue
+    shipped exactly that once -- a "Market Basket Trio" whose CIR was one flat panel, with a
+    designer note saying it was "the side panel, seamed into the basket" and no seaming
+    instruction anywhere in the document (B-059).
+
+    `piece_a == piece_b` is a self-seam: the two edges of one panel joined to each other,
+    which is how a flat rectangle legitimately becomes a tube.
+    """
+
+    method: SeamMethod
+    piece_a: str
+    piece_b: str
+    note: str | None = None
+    stuff_before_closing: bool = False
+
+    @property
+    def is_self_seam(self) -> bool:
+        return self.piece_a == self.piece_b
+
+
 @dataclass
 class CIR:
     """The canonical pattern object."""
@@ -172,6 +199,7 @@ class CIR:
     risk_class: Literal["A", "B", "C"] = "A"
     designer_notes: str | None = None
     finished_size_note: str | None = None
+    assembly: list[Seam] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.components:
@@ -179,6 +207,15 @@ class CIR:
         names = [c.name for c in self.components]
         if len(names) != len(set(names)):
             raise ValueError(f"component names must be unique, got {names}")
+
+    @property
+    def makes_a_closed_form(self) -> bool:
+        """True when the finishing turns the pieces into one three-dimensional object.
+
+        A flat panel is a flat panel until something joins it. This is what a name like
+        "basket" or "bag" has to be able to point at.
+        """
+        return bool(self.assembly)
 
     def iter_rows(self) -> Iterator[tuple[Component, Row]]:
         for comp in self.components:
@@ -238,6 +275,7 @@ class CIR:
             risk_class=d.get("risk_class", "A"),
             designer_notes=d.get("designer_notes"),
             finished_size_note=d.get("finished_size_note"),
+            assembly=[Seam(**seam) for seam in d.get("assembly", [])],
         )
 
     @staticmethod

@@ -24,7 +24,7 @@ from ..cir.compiler import compile_cir
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
 from ..core.models import Phase, Product, PatternVersion
 from ..gates.asset_truth import Asset, AssetClass, Claims, Provenance
-from ..gates.certificate import certify
+from ..gates.certificate import DOC_VERSION, certify
 from ..gates.incidents import IncidentTracker
 from ..gates.policy import ListingDraft
 from ..radar.opportunity import POOL, ConceptSeed, score_concept, select_portfolio
@@ -242,8 +242,14 @@ def handle_radar_score(ctx: JobContext) -> dict:
 # `nordic_forest` stays a module of its own because it is the flagship and its motif was
 # hand-placed; everything else is generated from the motif library by `products.builder`,
 # which is how twelve exceptional products are achievable without twelve chances to slip.
+# "module" or "module:function", so one module can hold several engineered designs.
 ENGINEERED: dict[str, str] = {
     "nordic-forest-mosaic-throw": "brambleloop.products.nordic_forest",
+    # Both of these were flat rectangles named for shapes they did not make: the basket was a
+    # side panel with no seaming instructions, the "hexagon" coaster had the same stitch
+    # count on every row. They are worked in the round now (B-059).
+    "market-basket-trio": "brambleloop.products.vessels:build",
+    "hexie-coaster-set": "brambleloop.products.vessels:build_hexagon_coaster",
 }
 
 
@@ -252,8 +258,9 @@ def _engineered_cir(slug: str, version: str = "1.0.0") -> CIR | None:
     if module_path:
         import importlib
 
-        module = importlib.import_module(module_path)
-        cir = module.build(version=version)
+        name, _, function = module_path.partition(":")
+        module = importlib.import_module(name)
+        cir = getattr(module, function or "build")(version=version)
         # Keep the concept's slug so the radar, the portfolio and the product row agree on the
         # name; the size-specific slugs are for the variants, not the headline product.
         return CIR.from_dict({**cir.to_dict(), "slug": slug})
@@ -318,7 +325,7 @@ def handle_cir_compile(ctx: JobContext) -> dict:
         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
                 "errors": [str(f) for f in result.errors]}
     ctx.enqueue("quality_director", "gate.certify", {"cir": ctx.job.inputs["cir"]},
-                idempotency_key=f"certify:{cir.slug}:{cir.version}")
+                idempotency_key=f"certify:{cir.slug}:{cir.version}:d{DOC_VERSION}")
     return {"artifact": f"{cir.slug}@{cir.version}", "compiled": True,
             "counts": result.counts(cir.components[0].name)}
 
@@ -367,10 +374,35 @@ def handle_certify(ctx: JobContext) -> dict:
         ctx.enqueue("listing", "listing.draft",
                     {"slug": cir.slug, "version": cir.version},
                     idempotency_key=chain_key("listing", cir.slug, cir.version))
+    else:
+        _withdraw_listing(ctx, cir)
 
     return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
             "release_hash": cert.release_hash,
             "reasons": cert.blocking_reasons[:5]}
+
+
+def _withdraw_listing(ctx: JobContext, cir: CIR) -> None:
+    """A product that no longer certifies must not keep a listing marked ready to publish.
+
+    Refusing the certificate and leaving the storefront untouched means the store still holds
+    a draft for something the release chain has just rejected -- and the only thing standing
+    between that draft and a customer is shadow mode, which is a phase, not a guarantee.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with ctx.db.session() as s:
+        listings = list(s.scalars(
+            select(Listing).where(Listing.product_slug == cir.slug,
+                                  Listing.state != "withdrawn")))
+        for listing in listings:
+            listing.state = "withdrawn"
+    if listings:
+        ctx.audit("listing.withdrawn", artifact=f"{cir.slug}@{cir.version}",
+                  detail={"listings": len(listings),
+                          "reason": "certification refused for this product"})
 
 
 def _flatten_stitches(ops) -> list:
@@ -403,6 +435,21 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             s.add(PatternVersion(product_id=product.id, version=cir.version,
                                  cir_json=cir.to_dict(), release_hash=release_hash,
                                  certified=True, certificate=certificate))
+        elif existing.release_hash != release_hash:
+            # Re-certification of a version that already exists. Insert-if-absent was how the
+            # agent-permission fix failed to reach production (B-027), and it would fail the
+            # same way here: the stored certificate would keep describing a document the
+            # writer no longer produces, while the PDF regenerates from the new one. The
+            # record is replaced and the change is audited rather than left to be discovered.
+            previous = existing.release_hash
+            existing.cir_json = cir.to_dict()
+            existing.release_hash = release_hash
+            existing.certificate = certificate
+            existing.certified = True
+            ctx.audit("gate.recertified", artifact=f"{cir.slug}@{cir.version}",
+                      detail={"previous_release_hash": previous,
+                              "release_hash": release_hash,
+                              "doc_version": DOC_VERSION})
 
 
 @handlers.register("listing.draft")

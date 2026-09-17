@@ -17,10 +17,10 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **398 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **436 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
-Suites: CIR engine (including row-level repeats), platform, release gates, market radar, model gateway, brand and
+Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
 storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
 portfolio), quality (confidence, regression), finance, shadow pipeline, real-process
 persistence, chaos, deployment surface, flagship run and adversarial attacks, generated
@@ -33,10 +33,17 @@ catalogue, and the acceptance gates.
   duplicate side effects.
 - Cloud deployment: **live and verified.** See "Deployment" below for the exact
   configuration, the twelve production checks that pass, and the measured cost.
-- Catalogue: **17 engineered designs** (16 generated from the motif library plus the
-  hand-placed flagship). Every one compiles, reverse-compiles and certifies. Ten of the eleven
-  release candidates ship an engineered design; the eleventh is the collection bundle, which
+- Catalogue: **19 engineered designs** — 14 generated from the motif library, the
+  hand-placed flagship, and four worked in the round (three basket sizes and a hexagon
+  coaster). Every one compiles, reverse-compiles and certifies. Ten of the eleven release
+  candidates ship an engineered design; the eleventh is the collection bundle, which
   correctly has no pattern of its own.
+- **Construction beyond flat rows now exists.** Pieces worked in the round are measured as a
+  surface of revolution, so a coaster, a tube, a cone and a basket get real finished sizes,
+  a closed shaped piece gets a circumference and an explicit refusal to state a height, and
+  fabric that must gather is named. Charts for round work are drawn as rounds. Two catalogue
+  products were named for shapes their patterns did not make and are rebuilt (see the
+  milestone below).
 - Storefront, listings, imagery and content: **drafted and held.** Production currently holds
   15 certified patterns, 16 listings, 94 listing images, 129 content pieces and 1 collection,
   none of it published. Nothing in this system can publish: there is no Etsy, Pinterest,
@@ -55,6 +62,48 @@ catalogue, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**Construction beyond flat rows (§2, §3), and the defect it exposed.**
+
+Two products in the catalogue were named for shapes their patterns did not make. "Market
+Basket Trio" was a single flat 24-row rectangle whose own designer note called it "the side
+panel, seamed into the basket" — with no seaming instruction anywhere in the document, so a
+buyer would have paid for three baskets and received one panel. "Hexagon Coaster Set" was a
+rectangle with a colourwork motif on it. Both were certified, both had listings drafted in
+production. Nothing was published, because nothing in this system can publish.
+
+What now exists:
+
+- `cir/geometry.py` measures a round-worked piece as a surface of revolution: each round is a
+  circle of fabric, and the row height splits between growing outward and rising upward. A
+  disc, a tube, a cone and an open vessel are measured exactly; a closed shaped piece is
+  *refused* a width and a height and reports its circumference instead, because the ball is
+  made by the stuffing and the maker's tension, which are not in the gauge.
+- The same model names fabric that has to gather — a round growing faster than its own height
+  is a frill, which is a legitimate design and not a diameter.
+- `geometry.corners` reads six stacked increase columns out of the stitch positions, so
+  "hexagon" is evidence rather than an assertion.
+- The twin no longer reports a flat width for anything worked in the round, and Asset Truth
+  refuses a size claim it cannot check rather than passing it for want of a comparison.
+- Product names are checked against the shape the pattern makes, narrowly: a
+  three-dimensional noun, or a shape word attached to the object. A star motif *on* a
+  rectangle is not a shape claim.
+- The finishing is in the CIR. Seams name their pieces, the compiler checks they exist, the
+  writer emits the steps, the reverse compiler reads them back, and a flat panel may be
+  called a basket once something joins it into one.
+- Written patterns name the yarn on every row of a multi-colour pattern — the whole catalogue
+  was previously workable only from the chart — and say once per component whether to join
+  the rounds or spiral. Both are checked by the reverse compiler.
+- Charts for round work are drawn as rounds from the centre out, replacing a ragged staircase
+  captioned with flat-fabric reading directions.
+- `market-basket-trio` is now a storage basket worked in one piece from the centre of the
+  base, in three sizes (15 / 20 / 25 cm across, measured), and `hexie-coaster-set` is a real
+  six-cornered hexagon, set of four, with the yarn estimate covering all four.
+- `CHAIN_VERSION` 5 and a new `DOC_VERSION` so the corrected documents reach products that
+  were already certified, and re-certification now *replaces* the stored certificate instead
+  of skipping it.
+- A product whose certificate is refused has its listing withdrawn.
+
+## Last completed milestone (previous)
 Master Plan v1.2's commercial departments, built on the proven infrastructure rather than
 alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and tests:
 
@@ -103,7 +152,7 @@ alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and t
   engineered design rather than the striped template; the eleventh is the bundle, which
   correctly has no pattern of its own.
 
-## Last completed milestone (previous)
+## Last completed milestone (earlier)
 The complete shadow release chain on a real product. One unattended `plan.cycle` now runs
 market scan → portfolio selection → engineered CIR → compile → digital twin → reverse compile
 → certificate → PDF and charts → pricing → listing and SEO → launch plan → refused publish,
@@ -181,6 +230,12 @@ See `DECISION_LOG.md` for reasoning. Summary:
   printed line for every row when the PDF no longer prints one.
 - `cir/rowcycle.py` — detects the longest repeated row block in the compiled rows, expands it
   back, and writes the maker-facing sentence. Derived, never declared.
+- `cir/geometry.py` — round-worked geometry as a surface of revolution: per-round
+  circumference, radius, axial rise, shape classification (disc / tube / cone / vessel /
+  dome / shaped / gathered), corner detection from stitch positions, and an explicit refusal
+  where the geometry cannot support a finished size.
+- `products/vessels.py` — the round-worked designs: three basket sizes derived from a wanted
+  diameter, and a hexagon coaster whose corners are real.
 - `cir/reverse.py` — independent parser of customer-facing text + structural diff against
   canonical CIR. Shares no parsing code with the writer by design.
 - `cir/twin.py` — digital twin: cell-level fabric model, chart/colour grids, finished
@@ -229,7 +284,11 @@ graduated, and nothing will without the owner.
 - *Why:* it was created by accident — a deploy call spawned a second service instead of
   deploying to `brambleloop-os`. Its build failed and it is not running, so it costs nothing
   measurable, but it is not part of the system and should not sit in the project pretending
-  to be. Deletion was declined when attempted from this session.
+  to be. Deletion was declined when attempted from this session, twice.
+- *Still outstanding as of 2026-09-17T18:25Z.* The owner reported this service deleted, but
+  `list-services` on project `brambleloop` still returns it, and it started and failed
+  another build on the push at 18:23Z. It fails within ~10 seconds, so the cost is build
+  minutes rather than runtime, but the record should not say "deleted" when it is not.
 - *Maximum cost:* CA$0. Leaving it costs nothing either; this is tidiness, not spend.
 - *Consequence of waiting:* none beyond confusion for whoever opens the project next.
 
@@ -281,14 +340,14 @@ Exact and verified. Nothing here is projected.
   flagged so it is decided deliberately, not by default.
 
 ## Next highest-value unblocked actions
-1. Construction beyond flat rows: worked-in-the-round shaping, seaming and assembly. Until the
-   CIR can model them, amigurumi, bags and garments cannot be engineered honestly, which is
-   why they are absent from the catalogue rather than approximated.
-2. Physical test coordination (section 3): the PHYSICAL_TESTS table exists and nothing writes
+0. Amigurumi and garment construction, which the geometry now makes honest to attempt but
+   which still needs closed-form assembly (stuffing, limb placement) and, for Class C, a
+   physical sample before anything is claimed.
+1. Physical test coordination (section 3): the PHYSICAL_TESTS table exists and nothing writes
    to it. Yardage stays uncalibrated and Class B/C products stay unshippable until a real
    person crochets a real sample. This is the next genuine owner-adjacent gate.
-3. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
-4. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
+2. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
+3. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
    and correctly refuse to act without observations that do not exist yet.
 
 ## Changelog
@@ -361,6 +420,20 @@ Exact and verified. Nothing here is projected.
   being true the moment the document collapses rows 49-120 into one sentence. The claim is now
   derived from the document. `CHAIN_VERSION` bumped to 4 so both reach products already
   certified.
-- Totals: 398 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- 2026-09-17: **Construction beyond flat rows.** Round-worked geometry as a surface of
+  revolution; honest finished sizes for discs, tubes, cones and vessels, and an explicit
+  refusal for closed shaped pieces; gathering named; corners derived from stitch positions;
+  round charts; the finishing in the CIR with seams checked both ways; row colours named in
+  written instructions; and the join-or-spiral instruction stated and verified.
+  It also exposed four real defects, two of them already in production as drafted listings:
+  "Market Basket Trio" was one flat rectangle with no seaming instruction and "Hexagon
+  Coaster Set" was a rectangle — both are now worked in the round and both are blocked by a
+  new name-versus-shape check if they ever regress; a size claim the twin could not check was
+  being passed rather than refused; and the entire catalogue's written instructions omitted
+  which yarn each row uses, so a two-colour mosaic was workable only from the chart.
+  `CHAIN_VERSION` 5 plus a new `DOC_VERSION`, and re-certification now replaces the stored
+  certificate rather than skipping it — the fourth appearance of "code changed, the deployed
+  database did not".
+- Totals: 436 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

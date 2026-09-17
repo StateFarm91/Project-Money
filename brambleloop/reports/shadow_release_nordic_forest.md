@@ -14,7 +14,7 @@ Nothing here is published. The store operator refused, by design, because the sy
 ## The product
 
 - Finished size: **90 x 122 cm** at the stated gauge
-- PDF: **7 pages**, sha256 `a41ac8105490b723…`
+- PDF: **7 pages**, sha256 `a4963b1ee4985fdd…`
 - Chart: sha256 `76384b17b752d249…`
 - Yarn (estimate, ±20%, uncalibrated):
   - cream: about 328–492 m
@@ -107,7 +107,7 @@ Seven frames in a deliberate order, every one rendered from the same digital twi
 | 2 | whats_included | INFOGRAPHIC | yes | `0939b30574f8…` |
 | 3 | size | INFOGRAPHIC | yes | `419b4b09feed…` |
 | 4 | materials | INFOGRAPHIC | yes | `c351c427bfd0…` |
-| 5 | pattern_preview | PATTERN_PREVIEW | yes | `accf9c1529f7…` |
+| 5 | pattern_preview | PATTERN_PREVIEW | yes | `3763339302f2…` |
 | 6 | chart | DIGITAL_TWIN_RENDER | yes | `dc68d11713df…` |
 | 7 | collection | INFOGRAPHIC | yes | `952ad25fc480…` |
 

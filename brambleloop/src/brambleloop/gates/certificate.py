@@ -21,11 +21,20 @@ from ..cir.model import CIR
 from ..cir.reverse import compare as reverse_compare
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
-from .asset_truth import Asset, check_assets
+from .asset_truth import Asset, check_assets, check_shape_claims
 from .confidence import assess
 from .policy import (
     POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
 )
+
+
+# The customer-facing document's own version. The CIR is the design; this is the rendering of
+# it, and the certificate covers both -- the release hash is taken over the CIR *and* the
+# written text. So when the writer's output changes (row colours named, a construction line
+# added, repeats collapsed), every certificate issued before that describes a document that no
+# longer exists. Bumping this makes certification re-run for products already certified, which
+# is the only way the stored certificate keeps matching the PDF a buyer would download.
+DOC_VERSION = "2"
 
 
 @dataclass
@@ -56,6 +65,7 @@ class ReleaseCertificate:
         return {
             "slug": self.slug,
             "version": self.version,
+            "doc_version": DOC_VERSION,
             "granted": self.granted,
             "release_hash": self.release_hash,
             "stages_run": self.stages_run,
@@ -109,6 +119,12 @@ def certify(
     # 2. Digital twin.
     twin: TwinModel = build_twin(cir, result)
     stages.append("twin")
+    if twin.geometry is not None:
+        # What the fabric does with the shaping: a round that has to gather, and therefore a
+        # shape no diameter describes. Warnings, not errors -- a frill is a legitimate design.
+        # The protection is that the twin refuses the dimensions, not that the release stops.
+        findings.extend(twin.geometry.findings)
+        stages.append("geometry")
 
     # 3. Written pattern, then an independent reverse compile of that exact text.
     pattern_text = write_pattern(cir, result, terminology)
@@ -120,6 +136,10 @@ def certify(
     # 3b. Originality and IP. Section 17 puts this in the release chain, before the product
     #     acquires assets and a listing and becomes expensive to withdraw.
     findings.extend(check_originality(cir.title, cleared_names=cleared_names))
+    # The product's own name is a claim about the shape of the object, checked against the
+    # twin before it acquires assets and a listing: a flat panel named "Market Basket" is a
+    # different product from the one the buyer would be paying for.
+    findings.extend(check_shape_claims(cir.title, cir, twin, "cir.title"))
     findings.extend(check_text(cir.designer_notes or "", "cir.designer_notes"))
     stages.append("originality")
 
@@ -133,6 +153,7 @@ def certify(
     # 5. Policy.
     if listing is not None:
         findings.extend(check_listing(listing, cir))
+        findings.extend(check_shape_claims(listing.title, cir, twin, "listing.title"))
         stages.append("policy")
 
     # 6. Physical testing. Class C (fitted garments, complex structures) does not ship on
@@ -168,6 +189,9 @@ def certify(
             "stitch_total": twin.stitch_total,
             "width_cm": twin.width_cm,
             "height_cm": twin.height_cm,
+            "shape": twin.shape,
+            "circumference_cm": twin.circumference_cm,
+            "size_refusal": twin.size_refusal,
             "colors": sorted(twin.colors_used),
             "stitches": sorted(twin.stitch_types_used),
             "yarn_metres": twin.yarn_metres_by_color,

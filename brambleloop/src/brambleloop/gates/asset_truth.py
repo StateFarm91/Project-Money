@@ -10,6 +10,7 @@ actually makes. Provenance is mandatory: an asset nobody can account for does no
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -123,7 +124,19 @@ def check_asset(
         ("width", cl.finished_width_cm, twin.width_cm),
         ("height", cl.finished_height_cm, twin.height_cm),
     ):
-        if claimed is None or actual is None:
+        if claimed is None:
+            continue
+        if actual is None:
+            # The twin has no number for this dimension, which for a piece worked in the
+            # round is a deliberate refusal rather than a gap: a closed shaped form takes
+            # its finished size from stuffing and tension. Letting the claim through
+            # unchecked because there is nothing to check it against is how an unverifiable
+            # measurement reaches a listing.
+            out.append(Finding(
+                ERROR, "CLAIM_SIZE_UNVERIFIABLE",
+                f"claims finished {label} of {claimed}cm, but the pattern supports no "
+                f"{label} at the stated gauge"
+                + (f": {twin.size_refusal}" if twin.size_refusal else ""), where))
             continue
         if actual <= 0:
             continue
@@ -194,6 +207,70 @@ def check_asset(
             ERROR, "ASSET_CLASS_MISMATCH",
             f"asset is labelled a physical product photo but its provenance source is "
             f"{asset.provenance.source!r}, not a camera", where))
+
+    return out
+
+
+# A product name is a claim about the shape of the object, and the least deniable kind. A
+# buyer reading "Market Basket" expects something that stands up and holds things; a buyer
+# reading "Hexagon Coaster Set" expects six sides. Both are checkable against the twin,
+# because the twin knows whether the fabric is worked in the round and whether its rows are
+# all the same width.
+#
+# Deliberately narrow. Mosaic and graphghan work legitimately *depicts* stars, hearts and
+# flowers on rectangular fabric, so a motif word on its own proves nothing: "Star Blanket" is
+# a blanket with stars, and fine. What is checked here are phrases that describe the object
+# itself -- a shape word attached to the object noun, or a noun that can only be a
+# three-dimensional thing.
+_THREE_D_NOUNS = (
+    "basket", "bag", "tote", "pouch", "purse", "backpack", "hat", "beanie", "bonnet",
+    "sock", "mitten", "glove", "slipper", "bootie", "bowl", "vase", "planter",
+    "amigurumi", "plushie", "plush", "doll", "bauble", "sphere", "cozy", "cosy",
+)
+# Stitch-pattern and motif names that merely contain a three-dimensional noun.
+_THREE_D_EXCEPTIONS = ("basket weave", "basketweave", "bobble", "popcorn")
+
+_OUTLINE_PATTERNS = (
+    r"\b(hexagon|hexie|hexagonal|octagon|octagonal|pentagon)\b",
+    r"\b(circle|circular)\b",
+    r"\bround\s+(coaster|placemat|mat|rug|doily|trivet|cushion|pillow|pouf)\b",
+    r"\b(star|heart|flower|leaf|oval)[-\s]shaped\b",
+)
+
+
+def check_shape_claims(text: str, cir: CIR, twin: TwinModel,
+                       where: str = "product.title") -> list[Finding]:
+    """Does the object the name describes match the object the pattern makes?"""
+    out: list[Finding] = []
+    low = " ".join(text.lower().split())
+    if not low:
+        return out
+
+    stripped = low
+    for exc in _THREE_D_EXCEPTIONS:
+        stripped = stripped.replace(exc, " ")
+
+    all_flat = all(c.construction == "flat_rows" for c in cir.components)
+    promised = [n for n in _THREE_D_NOUNS if re.search(rf"\b{n}s?\b", stripped)]
+    if promised and all_flat and not cir.makes_a_closed_form:
+        out.append(Finding(
+            ERROR, "CLAIM_CONSTRUCTION_UNSUPPORTED",
+            f"name promises a {promised[0]}, which is a three-dimensional object, but every "
+            f"component is worked in flat rows and the pattern contains nothing that joins "
+            f"them into one. A flat panel sold as a {promised[0]} is a different product "
+            f"from the one the buyer paid for", where))
+
+    if twin.outline == "rectangle":
+        for pattern in _OUTLINE_PATTERNS:
+            m = re.search(pattern, low)
+            if m:
+                out.append(Finding(
+                    ERROR, "CLAIM_SHAPE_UNSUPPORTED",
+                    f"name claims a {m.group(0)!r} outline, but every row of the piece has "
+                    f"the same stitch count, so the finished fabric is a rectangle. A motif "
+                    f"worked *on* a rectangle is not the same claim as a shaped piece",
+                    where))
+                break
 
     return out
 

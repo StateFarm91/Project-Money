@@ -243,7 +243,7 @@ def test_a_tampered_row_inside_the_repeated_block_is_caught_in_every_pass():
     # instruction string silently stops matching the day the design changes, and a tamper
     # that does not apply is a test that proves nothing.
     lines = text.splitlines()
-    victim = next(i for i, line in enumerate(lines) if line.startswith("Row 30:"))
+    victim = next(i for i, line in enumerate(lines) if re.match(r"^Row 30\b", line))
     run = re.search(r"in next (\d+) sts", lines[victim])
     assert run is not None, f"no stitch run to tamper with in {lines[victim]!r}"
     lines[victim] = (

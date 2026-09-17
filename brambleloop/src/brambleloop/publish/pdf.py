@@ -26,7 +26,10 @@ from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
-from .charts import ChartSpec, crop_grids, detect_repeat, render_chart, render_legend
+from .charts import (
+    ChartSpec, crop_grids, detect_repeat, is_round, render_chart, render_legend,
+    render_round_chart,
+)
 
 PAGE_W, PAGE_H = LETTER
 MARGIN = 18 * mm
@@ -282,17 +285,30 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # -- charts ------------------------------------------------------------
     doc.new_page(head)
     doc.heading("Chart")
-    grid, colour_grid = twin.chart_grid(), twin.color_grid()
-    full_cols = max((len(r) for r in grid), default=0)
-    full_rows = len(grid)
-    rep_cols, rep_rows = detect_repeat(grid, colour_grid)
-    across, up = (full_cols // rep_cols if rep_cols else 1,
-                  full_rows // rep_rows if rep_rows else 1)
+    if is_round(cir, twin):
+        # A ragged grid is not a chart of a disc, and "read odd rows right to left" is
+        # flat-fabric advice: every round is worked in the same direction.
+        doc.para("This piece is worked in the round, so the chart is drawn as rounds: round "
+                 "1 at the centre, each ring outward one round. Count the wedges in a ring "
+                 "and you get the stitch count in the written line for that round, because "
+                 "both come from the same verified data. V marks an increase and A a "
+                 "decrease.", size=9, color=MUTED)
+        doc.space(2 * mm)
+        doc.image(render_round_chart(cir, twin, ChartSpec(cell_px=22)), running_head=head)
+        rep_cols = rep_rows = 0
+        show_repeat = False
+    else:
+        grid, colour_grid = twin.chart_grid(), twin.color_grid()
+        full_cols = max((len(r) for r in grid), default=0)
+        full_rows = len(grid)
+        rep_cols, rep_rows = detect_repeat(grid, colour_grid)
+        across, up = (full_cols // rep_cols if rep_cols else 1,
+                      full_rows // rep_rows if rep_rows else 1)
 
-    # A whole-blanket chart on one page gives each stitch about a pixel. Where the fabric is
-    # genuinely built from a repeat, chart the repeat and say how to place it -- which is both
-    # readable and how mosaic patterns are actually published.
-    show_repeat = (across > 1 or up > 1) and full_cols > 48
+        # A whole-blanket chart on one page gives each stitch about a pixel. Where the
+        # fabric is genuinely built from a repeat, chart the repeat and say how to place it
+        # -- which is both readable and how mosaic patterns are actually published.
+        show_repeat = (across > 1 or up > 1) and full_cols > 48
     if show_repeat:
         doc.para(f"This chart shows one repeat: {rep_cols} stitches wide and {rep_rows} rows "
                  f"tall. Work it {across} times across and {up} times up for the finished "

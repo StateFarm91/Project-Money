@@ -256,10 +256,13 @@ def _pool() -> list[ConceptSeed]:
           "wall_decor", "B", 7.50, (3.0, 8.0), 10.0, 0.60,
           "Decor buyers pay for aesthetics rather than utility, which suits a brand that is "
           "competing on design rather than review count.", evergreen=True),
-        C("market-basket-trio", "Market Basket Trio",
+        C("market-basket-trio", "Crochet Storage Basket",
           "basket", "A", 6.50, (2.0, 6.0), 8.0, 0.56,
-          "Three sizes from one set of instructions; the sizing maths is exactly what our "
-          "compiler is for.", evergreen=True),
+          "Worked in the round from the centre of the base, in three sizes; the sizing "
+          "maths and the shaping geometry are exactly what our compiler is for. Scored "
+          "Class A as a concept but engineered as Class B, because how firmly it stands "
+          "up is not computable from gauge.",
+          evergreen=True),
         C("bobble-floor-pillow", "Bobble Floor Pillow",
           "pillow", "B", 7.00, (5.0, 12.0), 10.0, 0.52,
           "Texture-led, modest competition, photographs well in a styled room.",

@@ -16,8 +16,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from . import stitches
-from .compiler import CompileResult, ResolvedRow
-from .model import CIR
+from .compiler import CompileResult, Finding, ResolvedRow
+from .geometry import Revolution, measure
+from .model import CIR, Component
 
 # Yarn length consumed per stitch, expressed as a multiple of one gauge stitch-width.
 # Derived from the stitch's height: a dc eats far more yarn than a sc. These are starting
@@ -56,6 +57,15 @@ class TwinModel:
     yarn_metres_by_color: dict[str, float] = field(default_factory=dict)
     yardage_tolerance: float = YARDAGE_TOLERANCE
     calibrated: bool = False
+    # Round-worked pieces only. `shape` and `circumference_cm` are facts of stitch count and
+    # gauge; `size_refusal` is set when the geometry cannot support a width and a height, in
+    # which case both are None on purpose and no downstream claim may invent them.
+    shape: str | None = None
+    circumference_cm: float | None = None
+    size_refusal: str | None = None
+    geometry: Revolution | None = None
+    # Flat pieces only: "rectangle" or "shaped_flat", derived from the row widths.
+    outline: str | None = None
 
     @property
     def stitch_total(self) -> int:
@@ -87,7 +97,12 @@ class TwinModel:
         return out
 
 
-def _dimensions(rows: list[ResolvedRow], cir: CIR) -> tuple[float | None, float | None]:
+def _flat_dimensions(rows: list[ResolvedRow], cir: CIR) -> tuple[float | None, float | None]:
+    """Finished size of a piece worked in flat rows: stitches across, rows up.
+
+    Only ever correct for flat fabric. A piece worked in the round has a *circumference*
+    where this reads a width, and `geometry.measure` handles it instead.
+    """
     if not cir.gauge or not rows:
         return None, None
     g = cir.gauge
@@ -104,7 +119,14 @@ def _dimensions(rows: list[ResolvedRow], cir: CIR) -> tuple[float | None, float 
     return round(width_cm, 1), round(height_cm, 1)
 
 
-def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float) -> dict[str, float]:
+def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float,
+             make: int = 1) -> dict[str, float]:
+    """Yarn per colour for the whole pattern, which means all `make` copies of the piece.
+
+    A coaster set of four needs four coasters' worth of yarn. Reporting one piece's estimate
+    for a pattern that asks for four understates it by a factor of four, and a buyer who
+    orders one ball short of a set finds out at coaster three.
+    """
     if not cir.gauge:
         return {}
     stitch_width_cm = 10.0 / cir.gauge.stitches_per_10cm
@@ -118,7 +140,7 @@ def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float) -> dict[str,
         if r.turning_chain:
             cm += _YARN_FACTOR["ch"] * stitch_width_cm * r.turning_chain
         totals[color] = totals.get(color, 0.0) + cm
-    return {k: round(v / 100.0 * calibration, 1) for k, v in totals.items()}
+    return {k: round(v / 100.0 * calibration * make, 1) for k, v in totals.items()}
 
 
 def build_twin(
@@ -153,6 +175,24 @@ def build_twin(
                     pos += 1
         model.row_widths[r.index] = pos
 
-    model.width_cm, model.height_cm = _dimensions(rows, cir)
-    model.yarn_metres_by_color = _yardage(rows, cir, calibration)
+    comp = next(c for c in cir.components if c.name == name)
+    if comp.construction == "flat_rows":
+        model.width_cm, model.height_cm = _flat_dimensions(rows, cir)
+        # The outline is the piece's silhouette, derived from the row widths rather than
+        # declared. A flat piece whose every row has the same stitch count is a rectangle,
+        # whatever the listing calls it, and a hexagon coaster that is really a rectangle is
+        # a product sold as one shape and delivered as another.
+        widths = set(model.row_widths.values())
+        model.outline = "rectangle" if len(widths) <= 1 else "shaped_flat"
+    else:
+        # Worked in the round. Stitches around are a circumference, not a width, and the
+        # flat arithmetic would advertise a 5 cm bauble as a 15 cm one.
+        rev = measure(comp, result, cir)
+        model.geometry = rev
+        model.shape = rev.shape
+        model.circumference_cm = round(rev.max_circumference_cm, 1) or None
+        model.size_refusal = rev.refusal()
+        model.width_cm, model.height_cm = rev.footprint_cm()
+
+    model.yarn_metres_by_color = _yardage(rows, cir, calibration, comp.make)
     return model

@@ -199,6 +199,126 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     return img
 
 
+def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
+                       caption: str | None = None, plain: bool = False) -> Image.Image:
+    """Concentric chart for a piece worked in the round: round 1 at the centre, outward.
+
+    The grid chart is wrong here in two ways at once, and both of them mislead a maker rather
+    than merely looking odd. A disc worked from six stitches to sixty draws as a ragged
+    left-aligned staircase, which is not the shape of the thing; and the footer telling them
+    that odd rows read right to left is flat-fabric advice, when every round is worked in the
+    same direction.
+
+    So the rounds are drawn as rings of wedges, one wedge per stitch, in the colour that
+    round is worked in, with the increases and decreases marked where they fall. A maker can
+    count the wedges in a ring and compare them with the stitch count in the written line.
+    """
+    spec = spec or ChartSpec()
+    rows = sorted({c.row for c in twin.cells})
+    if not rows:
+        raise ValueError("cannot render a chart for a twin with no cells")
+
+    cells_by_round: dict[int, list] = {
+        r: sorted((c for c in twin.cells if c.row == r), key=lambda c: c.position)
+        for r in rows
+    }
+    ring_px = max(10, min(spec.cell_px, (spec.max_width_px // 2 - spec.margin_px)
+                          // max(1, len(rows) + 1)))
+    hub = ring_px                      # a small blank centre so round 1 reads as a ring
+    outer = hub + len(rows) * ring_px
+    size = int(outer * 2 + spec.margin_px * 2)
+
+    label_font = _font(max(10, int(ring_px * 0.6)))
+    glyph_font = _font(max(7, int(ring_px * 0.55)))
+
+    title = caption or f"{cir.title} - {twin.component}"
+    footer = ("Round 1 is the centre. Every round is worked in the same direction; "
+              "V marks an increase, A a decrease.")
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    text_w = max(probe.textlength(title, font=label_font),
+                 probe.textlength(footer, font=label_font))
+    width = int(max(size, text_w + spec.margin_px))
+    img = Image.new("RGB", (width, size + spec.margin_px), CREAM)
+    # The canvas is widened to fit the caption, so the drawing centre is not the canvas
+    # centre in both axes: the circle stays centred on the rings, not on the text.
+    cx, cy = width / 2.0, size / 2.0
+    d = ImageDraw.Draw(img)
+
+    # Outermost ring first. Each ring is drawn as a full pie and then has its centre filled
+    # back in, so a ring drawn later must be *inside* the one before it -- going inward-out
+    # would erase everything already drawn.
+    for depth, r_index in reversed(list(enumerate(rows))):
+        inner = hub + depth * ring_px
+        edge = inner + ring_px
+        cells = cells_by_round[r_index]
+        step = 360.0 / len(cells)
+        for position, cell in enumerate(cells):
+            start = -90.0 + position * step
+            bg = _hex_to_rgb(cir.colors.get(cell.color))
+            # A wedge is the ring band between two radii; drawing the outer pie and then the
+            # inner one in the background colour is the cheap, dependency-free way to get it.
+            d.pieslice([cx - edge, cy - edge, cx + edge, cy + edge],
+                       start=start, end=start + step, fill=bg, outline=LINE)
+        d.ellipse([cx - inner, cy - inner, cx + inner, cy + inner],
+                  fill=CREAM, outline=LINE)
+
+        # Mark the shaping where it falls, which is the only thing a round chart really has
+        # to show: six stacked marks are a hexagon, six that drift are a circle.
+        if ring_px >= 12 and not plain:
+            import math as _math
+            for position, cell in enumerate(cells):
+                if cell.stitch not in ("inc", "dec", "dc_inc", "dc_dec"):
+                    continue
+                angle = _math.radians(-90.0 + (position + 0.5) * step)
+                radius = inner + ring_px * 0.5
+                d.text((cx + radius * _math.cos(angle),
+                        cy + radius * _math.sin(angle)),
+                       GLYPHS.get(cell.stitch, "V"), font=glyph_font, fill=INK, anchor="mm")
+
+    if plain:
+        # `plain` is the fabric view: the object as the twin knows it, seen from above, with
+        # no chart furniture. Used for the hero, where a numbered chart would be a diagram of
+        # the product rather than a picture of it.
+        return img.crop((int(cx - outer), int(cy - outer), int(cx + outer), int(cy + outer)))
+
+    # Round numbers last, so a label is never painted over by a later ring, and only where
+    # there is room for one: a sixty-round basket cannot carry sixty legible numbers.
+    step_labels = 1 if ring_px >= 16 else 5
+    for depth, r_index in enumerate(rows):
+        if r_index % step_labels and r_index not in (rows[0], rows[-1]):
+            continue
+        y = cy - (hub + depth * ring_px + ring_px * 0.5)
+        label = str(r_index)
+        half = probe.textlength(label, font=label_font) / 2 + 2
+        d.rectangle([cx - half, y - ring_px * 0.4, cx + half, y + ring_px * 0.4],
+                    fill=CREAM)
+        d.text((cx, y), label, font=label_font, fill=MUTED, anchor="mm")
+
+    d.text((width / 2, spec.margin_px / 2), title, font=label_font, fill=PINE, anchor="mm")
+    d.text((width / 2, size + spec.margin_px / 2), footer, font=label_font, fill=MUTED,
+           anchor="mm")
+    return img
+
+
+def render_round_fabric(cir: CIR, twin: TwinModel,
+                        spec: ChartSpec | None = None) -> Image.Image:
+    """The round-worked piece seen from above, in its own colours. No chart furniture."""
+    return render_round_chart(cir, twin, spec, plain=True)
+
+
+def is_round(cir: CIR, twin: TwinModel) -> bool:
+    comp = next((c for c in cir.components if c.name == twin.component), None)
+    return comp is not None and comp.construction != "flat_rows"
+
+
+def render_any_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
+                     caption: str | None = None) -> Image.Image:
+    """The right chart for the construction, so no caller has to remember which."""
+    if is_round(cir, twin):
+        return render_round_chart(cir, twin, spec, caption)
+    return render_chart(cir, twin, spec, caption=caption)
+
+
 def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> Image.Image:
     """A legend covering exactly the stitches and colours the chart actually uses.
 

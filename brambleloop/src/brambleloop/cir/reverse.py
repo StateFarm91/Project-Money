@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from .compiler import ERROR, Finding
 from .model import CIR, Op, OpNode, Repeat
 
-_ROW_RE = re.compile(r"^(Row|Rnd)\s+(\d+):\s*(.+?)\s*$", re.I)
+_ROW_RE = re.compile(r"^(Row|Rnd)\s+(\d+)(?:\s*\(([^)]*)\))?:\s*(.+?)\s*$", re.I)
 _COUNT_RE = re.compile(r"\((\d+)\s*sts?\)\s*$", re.I)
 _TURN_RE = re.compile(r"^Ch\s+(\d+)(,\s*turn)?\.\s*", re.I)
 _NOTE_RE = re.compile(r"\s+--\s+.*$")
@@ -33,6 +33,7 @@ class ParsedRow:
     ops: list[OpNode]
     declared_count: int | None = None
     turning_chain: int = 0
+    color: str | None = None
 
 
 @dataclass
@@ -154,6 +155,70 @@ def parse_row_repeat(line: str) -> tuple[int, int, int] | None:
     return start, end, times
 
 
+_SPIRAL_RE = re.compile(r"\b(continuous\s+spiral|do\s+not\s+join)\b", re.I)
+_JOIN_RE = re.compile(r"\bjoin\s+each\s+round\b", re.I)
+
+
+def parse_construction(text: str) -> str | None:
+    """"spiral_rounds", "joined_rounds", or None when the text does not say.
+
+    Read from the customer text alone, like everything else here. Joining leaves a seam and
+    spiralling does not, so a document that tells a maker to do the opposite of what was
+    validated produces a different object from the one on the listing.
+    """
+    spiral = bool(_SPIRAL_RE.search(text))
+    joined = bool(_JOIN_RE.search(text))
+    if spiral and joined:
+        raise ParseProblem("the text says both to work in a continuous spiral and to join "
+                           "each round; a maker cannot do both")
+    if spiral:
+        return "spiral_rounds"
+    if joined:
+        return "joined_rounds"
+    return None
+
+
+# The finishing, read back out of the document. Its own grammar, its own vocabulary table:
+# the writer's map from method to verb is not imported here, because a round trip through
+# shared code proves nothing (B-005).
+_STEP_RE = re.compile(r"^Step\s+(\d+):\s*(.+?)\s*$", re.I)
+_SELF_SEAM_RE = re.compile(r"the two edges of the (.+?) together", re.I)
+_TWO_PIECE_RE = re.compile(r"the (.+?) to the (.+?)[.,]", re.I)
+_METHOD_WORDS = {
+    "whipstitch": "whipstitch",
+    "slip stitch": "slst",
+    "mattress stitch": "mattress",
+    "sew": "sew",
+}
+
+
+def parse_assembly(text: str) -> list[tuple[str, str, str]]:
+    """[(method, piece_a, piece_b)] in the order the document gives them."""
+    steps: list[tuple[str, str, str]] = []
+    for raw in text.splitlines():
+        m = _STEP_RE.match(raw.strip())
+        if not m:
+            continue
+        body = m.group(2)
+        method = None
+        for phrase, code in _METHOD_WORDS.items():
+            if body.lower().startswith(phrase):
+                method = code
+                break
+        if method is None:
+            raise ParseProblem(f"unrecognised finishing method in {body!r}")
+        self_seam = _SELF_SEAM_RE.search(body)
+        if self_seam:
+            piece = self_seam.group(1).strip()
+            steps.append((method, piece, piece))
+            continue
+        pair = _TWO_PIECE_RE.search(body)
+        if not pair:
+            raise ParseProblem(f"finishing step does not say which pieces it joins: {body!r}")
+        steps.append((method, pair.group(1).strip(), pair.group(2).strip()))
+    return steps
+
+
 def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
     """Parse customer-facing text with no knowledge of the source CIR.
 
@@ -162,6 +227,7 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
     ninety rows short, which is worse than not supporting it at all.
     """
     rows: list[ParsedRow] = []
+    carried_color: str | None = None
     for raw in text.splitlines():
         repeat = parse_row_repeat(raw)
         if repeat is not None:
@@ -175,7 +241,7 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
             for _ in range(times):
                 for r in block:
                     rows.append(ParsedRow(r.label, next_index, list(r.ops),
-                                          r.declared_count, r.turning_chain))
+                                          r.declared_count, r.turning_chain, r.color))
                     next_index += 1
             continue
 
@@ -183,7 +249,12 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
         m = _ROW_RE.match(line)
         if not m:
             continue
-        label, index, rest = m.group(1), int(m.group(2)), m.group(3)
+        label, index, stated_color, rest = (
+            m.group(1), int(m.group(2)), m.group(3), m.group(4))
+        # A colour is named when it changes and carried forward until it changes again,
+        # which is how patterns are written and how a maker reads them.
+        if stated_color:
+            carried_color = stated_color.strip() or None
 
         count = None
         cm = _COUNT_RE.search(rest)
@@ -203,7 +274,7 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
             e.line = raw
             raise
 
-        rows.append(ParsedRow(label, index, ops, count, tc))
+        rows.append(ParsedRow(label, index, ops, count, tc, carried_color))
     return rows
 
 
@@ -229,6 +300,41 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
         return [
             Finding(ERROR, "REVERSE_PARSE", f"customer text could not be parsed: {e}")
         ]
+
+    # How the rounds are worked is part of the pattern, not presentation. A round-worked CIR
+    # whose document says nothing is missing an instruction a maker needs; one whose document
+    # says the opposite is describing a different fabric.
+    round_components = [c for c in cir.components if c.construction != "flat_rows"]
+    if round_components:
+        try:
+            stated = parse_construction(text)
+        except ParseProblem as e:
+            return [Finding(ERROR, "REVERSE_PARSE",
+                            f"customer text could not be parsed: {e}")]
+        expected = {c.construction for c in round_components}
+        if stated is None:
+            findings.append(Finding(
+                ERROR, "REVERSE_CONSTRUCTION_MISSING",
+                "the pattern is worked in the round but the customer text never says whether "
+                "to join each round or work in a continuous spiral"))
+        elif stated not in expected:
+            findings.append(Finding(
+                ERROR, "REVERSE_CONSTRUCTION_MISMATCH",
+                f"customer text describes {stated} but the validated pattern is "
+                f"{'/'.join(sorted(expected))}; joining leaves a seam and spiralling does not"))
+
+    # The finishing is part of the pattern too. A document that has lost its assembly steps
+    # leaves a maker with pieces and no object.
+    try:
+        steps = parse_assembly(text)
+    except ParseProblem as e:
+        return [Finding(ERROR, "REVERSE_PARSE", f"customer text could not be parsed: {e}")]
+    expected_steps = [(s.method, s.piece_a, s.piece_b) for s in cir.assembly]
+    if steps != expected_steps:
+        findings.append(Finding(
+            ERROR, "REVERSE_ASSEMBLY",
+            f"finishing differs from the validated design: CIR has {expected_steps}, "
+            f"customer text has {steps}"))
 
     canonical = [(c, r) for c, r in cir.iter_rows()]
     by_index: dict[int, ParsedRow] = {}
@@ -284,6 +390,21 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
                         row.index,
                     )
                 )
+
+        # Colour is structure, not decoration: in overlay mosaic the colour *is* the motif,
+        # so a document that names the wrong yarn produces a different object. Only checked
+        # where the text states colours at all, so a single-colour pattern is unaffected.
+        if row.color and p.color and row.color != p.color:
+            findings.append(
+                Finding(
+                    ERROR,
+                    "REVERSE_COLOR",
+                    f"colour differs: CIR works this row in {row.color!r}, customer text "
+                    f"says {p.color!r}",
+                    comp.name,
+                    row.index,
+                )
+            )
 
         if row.turning_chain != p.turning_chain:
             findings.append(

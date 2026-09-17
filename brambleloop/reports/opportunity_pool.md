@@ -35,7 +35,7 @@ Ranking alone would not have satisfied those constraints. The selector made thes
 | 5 | **Cloudline Textured Baby Blanket** | baby | A | 8.50 | 0.6763 | evergreen: no window to miss |
 | 6 | **Harvest Table Runner** | runner | A | 6.50 | 0.6725 | Thanksgiving (CA): ready 2026-09-24, window open 2026-08-29..2026-10-01 |
 | 7 | **Spooky Bunting Garland** | seasonal_decor | A | 4.50 | 0.6457 | Halloween: ready 2026-09-24, window open 2026-09-22..2026-10-23 |
-| 8 | **Market Basket Trio** | basket | A | 6.50 | 0.6430 | evergreen: no window to miss |
+| 8 | **Crochet Storage Basket** | basket | A | 6.50 | 0.6430 | evergreen: no window to miss |
 | 9 | **Autumn Oak Overlay Mosaic Throw** | mosaic_blanket | A | 12.50 | 0.6355 | Thanksgiving (CA): ready 2026-09-24, window closed 2026-09-05 (missed) |
 | 10 | **Pressed Flower Motif Library (12)** | flower | A | 6.00 | 0.6327 | evergreen: no window to miss |
 | 11 | **Nordic Star Ornament Set (6)** | ornament | A | 5.50 | 0.6200 | Christmas: ready 2026-09-24, window opens 2026-11-17 (early) |
@@ -110,11 +110,11 @@ Small, fast, and Halloween is the nearest event with an open window.
 |---|---|---|---|---|---|---|
 | 0.80 | 0.30 | 1.00 | 0.63 | 0.32 | 0.48 | **0.6457** |
 
-### Market Basket Trio
+### Crochet Storage Basket
 
 `market-basket-trio` · basket · Class A · CA$6.50 · maker 2-6h · our build lead 7d
 
-Three sizes from one set of instructions; the sizing maths is exactly what our compiler is for.
+Worked in the round from the centre of the base, in three sizes; the sizing maths and the shaping geometry are exactly what our compiler is for. Scored Class A as a concept but engineered as Class B, because how firmly it stands up is not computable from gauge.
 
 | demand | competition headroom | verifiability | seasonal fit | margin | whitespace | **score** |
 |---|---|---|---|---|---|---|
@@ -161,7 +161,7 @@ Flat, countable, one evening to make, and it seeds the Nordic motif library that
 | 5 | Cloudline Textured Baby Blanket | baby | A | 0.6763 | 0.82 | 0.25 | 1.00 | 0.55 | 0.61 | 0.64 | yes |
 | 6 | Harvest Table Runner | runner | A | 0.6725 | 0.42 | 0.68 | 1.00 | 0.92 | 0.46 | 0.58 | yes |
 | 7 | Spooky Bunting Garland | seasonal_decor | A | 0.6457 | 0.80 | 0.30 | 1.00 | 0.63 | 0.32 | 0.48 | yes |
-| 8 | Market Basket Trio | basket | A | 0.6430 | 0.62 | 0.50 | 1.00 | 0.55 | 0.46 | 0.56 | yes |
+| 8 | Crochet Storage Basket | basket | A | 0.6430 | 0.62 | 0.50 | 1.00 | 0.55 | 0.46 | 0.56 | yes |
 | 9 | Autumn Oak Overlay Mosaic Throw | mosaic_blanket | A | 0.6355 | 0.92 | 0.12 | 1.00 | 0.05 | 0.89 | 0.60 | yes |
 | 10 | Pressed Flower Motif Library (12) | flower | A | 0.6327 | 0.56 | 0.50 | 1.00 | 0.55 | 0.43 | 0.66 | yes |
 | 11 | Pet Snuggle Mat | pet | A | 0.6263 | 0.52 | 0.60 | 1.00 | 0.55 | 0.36 | 0.60 |  |

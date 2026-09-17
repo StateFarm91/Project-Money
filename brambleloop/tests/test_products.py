@@ -150,8 +150,12 @@ def test_the_catalogue_covers_the_release_candidates():
     from brambleloop.radar.opportunity import select_portfolio
     from datetime import date
 
+    from brambleloop.runtime.pipeline import ENGINEERED
+
     selected = select_portfolio(today=date(2026, 9, 17)).selected
-    engineered = set(CATALOGUE) | {"nordic-forest-mosaic-throw"}
+    # Every slug that has a real design: generated from the motif library, or engineered in
+    # a module of its own (the flagship and the round-worked pieces).
+    engineered = set(CATALOGUE) | set(ENGINEERED)
     missing = [c.slug for c in selected
                if not c.seed.is_bundle and c.slug not in engineered]
     assert not missing, f"these candidates would ship the striped template: {missing}"
@@ -170,14 +174,16 @@ def test_the_flagship_certifies_end_to_end():
 
 
 def test_a_class_b_design_is_marked_class_b():
-    """A flat panel's arithmetic is verifiable; whether the basket stands up is not."""
-    cir = build(CATALOGUE["market-basket-trio"])
+    """The basket's arithmetic is verifiable; whether it stands up unaided is not."""
+    from brambleloop.products.vessels import build_basket
+
+    cir = build_basket("medium")
     assert cir.risk_class == "B"
     assert "physical sample" in (cir.designer_notes or "")
 
 
 def test_two_designs_sharing_a_motif_are_still_different_products():
-    a = build(CATALOGUE["market-basket-trio"])
+    a = build(CATALOGUE["cottage-wall-hanging"])
     b = build(CATALOGUE["pet-snuggle-mat"])
     assert a.slug != b.slug
     assert a.colors != b.colors or a.components[0].foundation != b.components[0].foundation

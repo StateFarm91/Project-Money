@@ -29,7 +29,7 @@ from ..core.models import PatternVersion, Product
 from ..gates.policy import ListingDraft, check_listing
 from ..core.models import ListingAsset
 from ..gates.asset_truth import check_assets
-from ..publish.charts import ChartSpec, render_chart, render_legend
+from ..publish.charts import ChartSpec, render_any_chart, render_legend
 from ..publish.listing_assets import build_frames, check_frame_plan
 from ..publish.pdf import build_pattern_pdf
 from ..radar.market import shopping_window
@@ -47,7 +47,7 @@ from .worker import JobContext, handlers
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "4"
+CHAIN_VERSION = "5"
 
 
 def chain_key(stage: str, slug: str, version: str) -> str:
@@ -110,7 +110,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
     import io
 
     chart_png = io.BytesIO()
-    render_chart(cir, twin, ChartSpec(cell_px=26)).save(chart_png, format="PNG")
+    render_any_chart(cir, twin, ChartSpec(cell_px=26)).save(chart_png, format="PNG")
     chart = store.put(f"{slug}/{version}/chart.png", chart_png.getvalue(), "image/png")
 
     legend_png = io.BytesIO()
