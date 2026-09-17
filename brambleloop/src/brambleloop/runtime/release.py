@@ -23,7 +23,10 @@ from ..commerce import seo as seo_mod
 from ..core.artifacts import ArtifactStore
 from ..core.models import PatternVersion, Product
 from ..gates.policy import ListingDraft, check_listing
+from ..core.models import ListingAsset
+from ..gates.asset_truth import check_assets
 from ..publish.charts import ChartSpec, render_chart, render_legend
+from ..publish.listing_assets import build_frames, check_frame_plan
 from ..publish.pdf import build_pattern_pdf
 from ..radar.market import shopping_window
 from ..radar.opportunity import POOL, _event
@@ -103,13 +106,45 @@ def handle_assets_build(ctx: JobContext) -> dict:
                       "container restart. Hashes are durable and assets re-render from the "
                       "certified CIR."})
 
+    # Listing imagery is part of the release, not an afterthought bolted on before publish.
+    # It is rendered from the same twin as the PDF, so no frame can assert something the
+    # pattern does not produce, and then checked by Asset Truth like any other asset.
+    from ..cir.writer import write_pattern
+
+    siblings = _collection_siblings(slug)
+    frames = build_frames(cir, twin, pattern_text=write_pattern(cir, result),
+                          difficulty=_difficulty(twin, cir), pages=doc.pages,
+                          siblings=siblings)
+    structural = check_frame_plan(frames)
+    truth = check_assets([f.to_asset(slug) for f in frames], cir, twin)
+    blocking = structural + [str(f) for f in truth if f.severity == "error"]
+
+    stored_frames = []
+    for frame in frames:
+        art = store.put(f"{slug}/{version}/frame-{frame.position}.png", frame.png(),
+                        "image/png")
+        stored_frames.append({"position": frame.position, "role": frame.role,
+                              "asset_class": frame.asset_class.value,
+                              "sha256": art.sha256})
+    _persist_frames(ctx, slug, version, frames, stored_frames, blocking)
+
+    ctx.audit("assets.listing_images_built" if not blocking else "assets.listing_images_blocked",
+              artifact=f"{slug}@{version}",
+              detail={"frames": len(frames), "blocking": blocking[:5]})
+    if blocking:
+        # A listing whose imagery misrepresents the pattern does not proceed to pricing. The
+        # chain stops here rather than producing a price for something that cannot ship.
+        return {"slug": slug, "version": version, "ok": False,
+                "blocking_image_problems": blocking}
+
     payload = {"slug": slug, "version": version, "pages": doc.pages,
                "size_label": doc.size_label(),
                "finished_size_cm": list(doc.finished_size_cm) if doc.finished_size_cm else None,
                "yardage": doc.yardage_by_color, "tolerance": doc.yardage_tolerance,
                "calibrated": doc.calibrated,
                "pdf_sha256": pdf.sha256, "chart_sha256": chart.sha256,
-               "legend_sha256": legend.sha256}
+               "legend_sha256": legend.sha256,
+               "frames": stored_frames}
     ctx.enqueue("pricing", "pricing.position", payload,
                 idempotency_key=f"price:{slug}:{version}")
     return payload
@@ -256,6 +291,40 @@ def handle_support_reply(ctx: JobContext) -> dict:
     ctx.audit("support.replied", artifact=f"{slug}@{version}",
               detail={"escalated": answer.escalated, "confident": answer.confident})
     return answer.to_dict()
+
+
+def _collection_siblings(slug: str) -> list[str]:
+    """Other products in this product's family, for the cross-sell frame."""
+    seed = _seed_for(slug)
+    if seed is None or not seed.family:
+        return []
+    return [m.title for m in POOL
+            if m.family == seed.family and m.slug != seed.slug and not m.is_bundle][:4]
+
+
+def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, blocking):
+    """Record the frame plan so a later session can see what a listing was going to show."""
+    from sqlalchemy import select
+
+    reasons = list(blocking)
+    with ctx.db.session() as s:
+        for frame, meta in zip(frames, stored):
+            row = s.scalar(select(ListingAsset).where(
+                ListingAsset.product_slug == slug, ListingAsset.version == version,
+                ListingAsset.position == frame.position))
+            if row is None:
+                row = ListingAsset(product_slug=slug, version=version,
+                                   position=frame.position)
+                s.add(row)
+            row.asset_class = frame.asset_class.value
+            row.role = frame.role
+            row.sha256 = meta["sha256"]
+            row.claims = {"width_cm": frame.claims.finished_width_cm,
+                          "height_cm": frame.claims.finished_height_cm,
+                          "difficulty": frame.claims.difficulty,
+                          "colors": list(frame.claims.colors)}
+            row.approved = not reasons
+            row.blocked_reasons = reasons[:10]
 
 
 def _motifs_for(slug: str) -> list[str]:

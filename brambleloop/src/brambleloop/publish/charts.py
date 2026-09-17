@@ -241,3 +241,91 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
                anchor="lm")
         y += row_h
     return img
+
+
+def render_fabric(cir: CIR, twin: TwinModel, *, cell_px: int = 18,
+                  grids: tuple[list[list[str]], list[list[str | None]]] | None = None,
+                  ) -> Image.Image:
+    """What the finished fabric looks like, with no chart furniture on it.
+
+    A chart is an instruction; this is a depiction. The hero image needs the second one --
+    row numbers, glyphs and a legend on the first listing image say "technical drawing" to a
+    shopper scrolling a grid, and the thing they are deciding about is whether the blanket is
+    beautiful.
+
+    The overlay-mosaic construction is modelled rather than ignored, and this matters more
+    than it sounds. Each row is worked in one colour, so colouring cells by their row's yarn
+    produces flat horizontal stripes and no motif at all -- the first version of this function
+    did exactly that and the fir trees vanished. In real overlay mosaic the pattern comes from
+    the *taller* stitches: a double crochet is worked over the top of the row below and hangs
+    down into it, so it reads as a mark in this row's colour against the previous row's
+    contrasting band. Drawing that overhang is what makes the motif appear, and it appears
+    only because the compiled pattern really does put those stitches there.
+
+    It remains a digital twin render and nothing else: it cannot depict a motif, colour or
+    proportion the pattern does not produce.
+    """
+    grid = grids[0] if grids else twin.chart_grid()
+    colors = grids[1] if grids else twin.color_grid()
+    rows = len(grid)
+    cols = max((len(r) for r in grid), default=0)
+    if rows == 0 or cols == 0:
+        raise ValueError("cannot render fabric for a twin with no cells")
+
+    from ..cir import stitches as taxonomy
+
+    def row_height_units(r_idx: int) -> float:
+        tallest = 1.0
+        for code in grid[r_idx]:
+            try:
+                tallest = max(tallest, taxonomy.get(code).row_height or 1.0)
+            except taxonomy.UnknownStitch:  # pragma: no cover - taxonomy is closed
+                pass
+        return tallest
+
+    # Row bands are sized by the row's shortest stitch: the tall ones overhang downward
+    # instead of inflating the band, which is how the fabric actually stacks.
+    band = max(3, int(cell_px * 0.62))
+    width, height = cols * cell_px, rows * band
+    img = Image.new("RGB", (width, height), CREAM)
+    d = ImageDraw.Draw(img)
+
+    def cell_color(r_idx: int, c_idx: int):
+        row_colors = colors[r_idx] if r_idx < len(colors) else []
+        name = row_colors[c_idx] if c_idx < len(row_colors) else None
+        return _hex_to_rgb(cir.colors.get(name))
+
+    # Base bands, bottom row first.
+    for r_idx in range(rows):
+        y = height - (r_idx + 1) * band
+        for c_idx in range(len(grid[r_idx])):
+            x = c_idx * cell_px
+            d.rectangle([x, y, x + cell_px, y + band], fill=cell_color(r_idx, c_idx))
+
+    # Tall stitches, drawn as overhangs into the rows beneath them.
+    for r_idx in range(rows):
+        y = height - (r_idx + 1) * band
+        for c_idx, code in enumerate(grid[r_idx]):
+            try:
+                extra = (taxonomy.get(code).row_height or 1.0) - 1.0
+            except taxonomy.UnknownStitch:  # pragma: no cover
+                extra = 0.0
+            if extra <= 0:
+                continue
+            x = c_idx * cell_px
+            drop = int(band * extra)
+            d.rectangle([x, y, x + cell_px, min(height, y + band + drop)],
+                        fill=cell_color(r_idx, c_idx))
+
+    # One lighter stroke per stitch reads as a loop at thumbnail size and stops a large flat
+    # field from looking like a printed colour block.
+    for r_idx in range(rows):
+        y = height - (r_idx + 1) * band
+        for c_idx in range(len(grid[r_idx])):
+            x = c_idx * cell_px
+            base = img.getpixel((min(width - 1, x + cell_px // 2),
+                                 min(height - 1, y + band // 2)))
+            hi = tuple(min(255, int(v * 1.14)) for v in base)
+            d.line([(x + cell_px * 0.28, y + band * 0.3),
+                    (x + cell_px * 0.72, y + band * 0.3)], fill=hi, width=1)
+    return img
