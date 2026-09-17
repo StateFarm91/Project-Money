@@ -605,6 +605,57 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
             "saving_pct": verdict.saving_pct, "name_problems": name_problems}
 
 
+@handlers.register("launch.readiness")
+def handle_launch_readiness(ctx: JobContext) -> dict:
+    """Assess what stands between this shop and a live customer, and queue what is owner-only.
+
+    The owner-action table has had the directive's columns -- action, reason, maximum cost,
+    minutes, consequence of delay -- since the first build, and nothing had ever written to
+    them. That was correct: until the catalogue, the imagery, the pricing and the copy
+    existed, every blocker was ours, and asking the owner for an Etsy account because it
+    would eventually be needed is exactly what the directive forbids. Now the remaining
+    blockers really are the owner's, so the system says so itself, on a cadence, instead of
+    waiting for someone to ask.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+    from ..gateway.model_gateway import available_providers
+    from ..launch.readiness import assess
+
+    try:
+        providers = available_providers()
+    except Exception:  # noqa: BLE001 - a gateway problem must not stop the assessment
+        providers = []
+
+    store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
+    readiness = assess(ctx.db, phase=ctx.phase.value, providers=providers,
+                       storage_durable=store.durable)
+
+    queued: list[str] = []
+    with ctx.db.session() as s:
+        existing = {a.action for a in s.scalars(
+            select(OwnerAction).where(OwnerAction.done == False))}  # noqa: E712
+        for request in readiness.owner_requests():
+            if request.action in existing:
+                continue
+            s.add(OwnerAction(action=request.action, reason=request.reason,
+                              max_cost_cad=request.max_cost_cad, minutes=request.minutes,
+                              consequence_of_delay=request.consequence_of_delay,
+                              blocks=request.blocks))
+            queued.append(request.action[:60])
+
+    ctx.audit("launch.assessed", detail={
+        "ready": readiness.ready,
+        "ours_to_do": [r.key for r in readiness.buildable],
+        "blocked_on_owner": [r.key for r in readiness.blocked_on("owner")],
+        "blocked_on_integration": [r.key for r in readiness.blocked_on("integration")],
+        "owner_actions_added": len(queued)})
+
+    return {"ready": readiness.ready, "owner_actions_added": len(queued),
+            "outstanding": [r.key for r in readiness.outstanding]}
+
+
 @handlers.register("chain.rebuild")
 def handle_chain_rebuild(ctx: JobContext) -> dict:
     """Re-drive the post-certification chain for releases the current chain never reached.

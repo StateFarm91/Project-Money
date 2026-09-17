@@ -265,6 +265,28 @@ def api_owner_actions() -> dict:
         ]}
 
 
+@app.get("/api/launch")
+def api_launch() -> dict:
+    """What stands between this shop and a live customer, computed on request.
+
+    Separated from the owner queue: the queue is what a person has to do, this is the whole
+    picture including the parts that are still ours.
+    """
+    from ..core.artifacts import ArtifactStore
+    from ..gateway.model_gateway import available_providers
+    from ..launch.readiness import assess, render
+
+    try:
+        providers = available_providers()
+    except Exception:  # noqa: BLE001
+        providers = []
+    readiness = assess(db, phase=os.environ.get("BRAMBLELOOP_PHASE", "shadow"),
+                       providers=providers, storage_durable=ArtifactStore().durable)
+    payload = readiness.to_dict()
+    payload["report_markdown"] = render(readiness)
+    return payload
+
+
 @app.get("/api/audit")
 def api_audit(limit: int = 100, action: str | None = None) -> dict:
     """Read-only audit trail. The dashboard shows fifteen rows; verification needs more."""
@@ -455,6 +477,23 @@ def dashboard() -> str:
         body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in items)
         return f"<table><tr>{head}</tr>{body}</table>"
 
+    # Launch readiness, because "is anything waiting on me" is the question an absent owner
+    # actually has, and a count of queued actions does not answer it.
+    try:
+        from ..core.artifacts import ArtifactStore
+        from ..launch.readiness import assess
+
+        readiness = assess(db, phase=os.environ.get("BRAMBLELOOP_PHASE", "shadow"),
+                           providers=st["model_providers"],
+                           storage_durable=ArtifactStore().durable)
+        launch_html = "<h2>Launch readiness</h2>" + rows(
+            [(r.description, "ready" if r.ready else "no", r.blocked_by or "-")
+             for r in readiness.requirements],
+            [["Requirement", "Ready", "Blocked on"]], "")
+    except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
+        launch_html = ('<h2>Launch readiness</h2><div class="empty">could not be assessed: '
+                       f'{type(e).__name__}</div>')
+
     owner_html = ""
     if owner:
         items = [(a.action, f"CA${a.max_cost_cad:.2f}", f"{a.minutes} min",
@@ -489,6 +528,7 @@ Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
 {('&middot; last error: ' + st['runner']['last_error']) if st['runner']['last_error'] else ''}
 </div>
 {owner_html}
+{launch_html}
 <h2>Recent jobs</h2>
 {rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,
         (j.last_error or "")[:70]) for j in jobs],

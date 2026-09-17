@@ -230,6 +230,70 @@ def test_runner_state_is_honest_about_a_worker_that_is_not_running():
     assert st.to_dict()["enabled"] is False
 
 
+
+def test_the_launch_endpoint_separates_what_is_ours_from_what_is_the_owners():
+    """The distinction is the point: a requirement blocked on build is never an owner action.
+
+    Asking the owner for an Etsy account because it will eventually be needed is exactly what
+    the Execution Directive forbids, so the report has to be able to tell the difference.
+    """
+    with _client() as c:
+        body = c.get("/api/launch").json()
+
+    assert body["ready"] is False, "shadow mode cannot be launch-ready"
+    keys = {r["key"]: r for r in body["requirements"]}
+    assert keys["etsy_shop"]["blocked_by"] == "owner"
+    assert keys["etsy_integration"]["blocked_by"] == "integration"
+    assert keys["phase"]["blocked_by"] == "owner"
+
+    # Every unmet requirement names who it is waiting on.
+    unattributed = [r["key"] for r in body["requirements"]
+                    if not r["ready"] and not r["blocked_by"]]
+    assert not unattributed, unattributed
+
+    # And nothing blocked on build reaches the owner queue.
+    build_blocked = {r["description"] for r in body["requirements"]
+                     if r["blocked_by"] == "build"}
+    owner_actions = {a["action"] for a in body["owner_actions"]}
+    assert not (build_blocked & owner_actions)
+
+    for action in body["owner_actions"]:
+        assert action["reason"] and action["consequence_of_delay"] and action["blocks"]
+        assert action["minutes"] > 0
+        assert action["max_cost_cad"] >= 0
+
+
+def test_the_owner_queue_is_written_by_the_system_not_by_hand():
+    from brambleloop.core.models import OwnerAction
+
+    with _client() as c:
+        c.post("/api/scheduler/tick")
+        JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
+                                      idempotency_key="test:launch-readiness")
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            with app_main.db.session() as s:
+                rows = list(s.scalars(select(OwnerAction)))
+            if rows:
+                break
+            time.sleep(0.5)
+
+    assert rows, "the readiness job queued no owner actions"
+    # Running it again must not duplicate them: an owner queue that grows by seven a day is
+    # a queue nobody reads.
+    before = len(rows)
+    JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
+                                 idempotency_key="test:launch-readiness-2")
+    with _client() as c:
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            with app_main.db.session() as s:
+                again = list(s.scalars(select(OwnerAction)))
+            if len(again) != before:
+                break
+            time.sleep(0.5)
+    assert len(again) == before, f"owner actions duplicated: {before} -> {len(again)}"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -103,6 +103,16 @@ What now exists:
   of skipping it.
 - A product whose certificate is refused has its listing withdrawn.
 
+**Launch readiness and the owner queue (§14, §26).** The system now computes, from the
+warehouse rather than from recollection, every requirement a live shop has, and attributes
+each unmet one to *build* (ours), *integration* (an account or service that does not exist)
+or *owner* (a person's identity, bank account or hands). Only the third kind reaches the
+owner-action queue, which the system writes itself on a daily cadence in the Execution
+Directive's format — action, reason, maximum cost, minutes, consequence of delay — and does
+not duplicate on re-assessment. Visible at `/api/launch` and on the dashboard. The queue
+table has had those columns since the first build and nothing had written to them, because
+until the catalogue, imagery, pricing and copy existed, every blocker was ours.
+
 ## Last completed milestone (previous)
 Master Plan v1.2's commercial departments, built on the proven infrastructure rather than
 alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and tests:
@@ -234,6 +244,10 @@ See `DECISION_LOG.md` for reasoning. Summary:
   circumference, radius, axial rise, shape classification (disc / tube / cone / vessel /
   dome / shaped / gathered), corner detection from stitch positions, and an explicit refusal
   where the geometry cannot support a finished size.
+- `launch/readiness.py` — every requirement a live shop has, checked against the warehouse,
+  with each unmet one attributed to build, integration or the owner. Writes the owner-only
+  ones into the owner-action queue in the Execution Directive's format, daily, without
+  duplicating what is already there. Exposed at `/api/launch` and on the dashboard.
 - `products/vessels.py` — the round-worked designs: three basket sizes derived from a wanted
   diameter, and a hexagon coaster whose corners are real.
 - `cir/reverse.py` — independent parser of customer-facing text + structural diff against
@@ -434,6 +448,12 @@ Exact and verified. Nothing here is projected.
   `CHAIN_VERSION` 5 plus a new `DOC_VERSION`, and re-certification now replaces the stored
   certificate rather than skipping it — the fourth appearance of "code changed, the deployed
   database did not".
+- 2026-09-17: **Launch readiness and the owner queue.** What stands between this shop and a
+  live customer, computed from the database and split by who can actually clear it. The
+  remaining blockers are now genuinely the owner's — an Etsy shop with identity
+  verification, a payout account, acceptance of Etsy's listing fees, one physical sample,
+  a decision on trademark clearance, object storage, and the phase itself — so for the first
+  time the system writes its own owner queue rather than a human writing one for it.
 - Totals: 436 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

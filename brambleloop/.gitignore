@@ -6,3 +6,5 @@ __pycache__/
 backups/
 reports/shadow_release/_store/
 artifacts/
+*.db-shm
+*.db-wal

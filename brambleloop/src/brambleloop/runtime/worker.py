@@ -199,6 +199,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Hourly on purpose: it is the thing that notices a certified product with no listing,
     # which is what a pipeline upgrade leaves behind.
     ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),
+    # Daily, because what blocks a launch changes as the company builds: a requirement that
+    # was ours yesterday can be the owner's today, and the owner queue should say so without
+    # anyone asking.
+    ("launch_readiness", "orchestrator", "launch.readiness", 24 * 60 * 60),
 ]
 
 
