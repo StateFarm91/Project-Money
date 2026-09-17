@@ -16,7 +16,7 @@ Capped, staged paid-social dropshipping store (Shopify + CJ + Meta), owner-autho
 - **Run tests:** none yet (no client code).
 
 ## pod — print-on-demand line (D-008, candidate detail in `research/candidates/CANDIDATES.md` C19)
-Personalized Canadian-gift products (mugs, prints, totes) via Printify, sold through the same Etsy shop as Track A.
+Personalized Canadian-gift products (mugs, prints, totes) via Printify, sold through the same Etsy shop as Track A. Design spec and architecture notes: `pod/DESIGN_SPEC.md`.
 - **Deploy target:** Etsy, via a Printify-connected shop (optional step in owner Block 1; needs `PRINTIFY_TOKEN`).
-- **Status:** Printify API v1 client written and unit-tested (shops, catalog/blueprints, print providers with a Canadian-provider filter, variants, image upload, product create/publish, orders). No live calls made — waiting on `PRINTIFY_TOKEN`. Designs (3-5 Canadian-gift concepts) not yet built.
-- **Run tests:** `.venv/bin/python products/pod/test_printify_api.py` (offline, no network).
+- **Status:** Printify API v1 client written and unit-tested (shops, catalog/blueprints, print providers with a Canadian-provider filter, variants, image upload, product create/publish, orders). No live calls made — waiting on `PRINTIFY_TOKEN`. 3 of 5 target designs built and rendered (`build_designs.py`: mug, art print, tote); personalization itself is handled by Printify's own Personalization Studio once configured (not done yet — needs the live connection). Pixel dimensions and listing copy still need the real blueprint spec.
+- **Run tests:** `.venv/bin/python products/pod/test_printify_api.py` and `test_build_designs.py` (both offline, no network).
