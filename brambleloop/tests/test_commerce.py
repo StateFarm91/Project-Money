@@ -229,6 +229,21 @@ def test_a_technique_the_pattern_does_not_use_is_never_tagged():
     assert any("mosaic" in t for t in mosaic)
 
 
+def test_a_title_never_stutters_its_own_category():
+    """"Pet Snuggle Mat | ... | Pet Pet | ..." shipped to production before this guard."""
+    from brambleloop.commerce.seo import build_title
+
+    title = build_title("Pet Snuggle Mat", "pet", ["pet"], None, 1)
+    assert "Pet Pet" not in title, title
+    for case in (("Market Basket Trio", "basket", ["market"]),
+                 ("Hexagon Coaster Set", "coaster", ["hexie"]),
+                 ("Heirloom Cable Throw", "blanket", ["heirloom"])):
+        t = build_title(case[0], case[1], case[2], None, 1)
+        words = [w.strip().lower() for w in t.split("|")]
+        assert len(words) == len(set(words)), f"duplicate segment in {t!r}"
+        assert "pattern" in t.lower()
+
+
 def test_attributes_come_from_pattern_data():
     attrs = search.listing_attributes(category="mosaic_blanket", difficulty="confident beginner",
                                       colors=["cream", "forest"], season="Christmas")

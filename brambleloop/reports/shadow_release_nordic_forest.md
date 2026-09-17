@@ -14,7 +14,7 @@ Nothing here is published. The store operator refused, by design, because the sy
 ## The product
 
 - Finished size: **90 x 122 cm** at the stated gauge
-- PDF: **8 pages**, sha256 `bbf627d9f04199ff…`
+- PDF: **8 pages**, sha256 `cacbb1c13f84f24e…`
 - Chart: sha256 `76384b17b752d249…`
 - Yarn (estimate, ±20%, uncalibrated):
   - cream: about 328–492 m

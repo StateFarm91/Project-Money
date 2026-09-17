@@ -108,7 +108,17 @@ def build_title(product_title: str, category: str, motifs: list[str],
     lead = product_title.strip()
     parts = [lead, "Crochet Pattern PDF"]
     if motifs:
-        parts.append(f"{motifs[0].title()} {category.replace('_', ' ').title()}")
+        # "Pet Snuggle Mat | ... | Pet Pet | ..." shipped to production before this guard. A
+        # motif word that is also the category word produces a stutter, and a stuttering title
+        # is the clearest possible signal that nobody read the listing before it went up.
+        motif = motifs[0].strip().lower()
+        cat_words = category.replace("_", " ").lower().split()
+        descriptor = " ".join(w for w in cat_words if w != motif) or cat_words[-1]
+        segment = (descriptor if motif in cat_words
+                   else f"{motif} {descriptor}")
+        segment = segment.title()
+        if segment.lower() not in lead.lower():
+            parts.append(segment)
     if sizes > 1:
         parts.append(f"{sizes} Sizes")
     parts.append("Written Instructions and Chart")

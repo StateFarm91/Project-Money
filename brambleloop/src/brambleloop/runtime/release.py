@@ -46,7 +46,7 @@ from .worker import JobContext, handlers
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "2"
+CHAIN_VERSION = "3"
 
 
 def chain_key(stage: str, slug: str, version: str) -> str:
