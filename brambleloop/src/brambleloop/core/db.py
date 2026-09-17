@@ -21,8 +21,43 @@ class Base(DeclarativeBase):
     pass
 
 
+class EphemeralStorageRefused(RuntimeError):
+    """A hosted deployment was about to run on storage that does not survive a restart."""
+
+
+def resolve_url(url: str | None = None) -> str:
+    """Pick the database URL, preferring an explicit one, then the platform's.
+
+    Railway (and most platforms) inject `DATABASE_URL`, and inject it in the historical
+    `postgres://` form that SQLAlchemy 2.x does not accept. Normalising it here rather than in
+    a dashboard variable means the deployment cannot be broken by someone copying the value
+    by hand.
+
+    The refusal below matters more than it looks. Without it, a container whose database
+    variable failed to bind falls back to a SQLite file on an ephemeral disk: every health
+    check passes, the dashboard renders, and every job, audit record and release certificate
+    is destroyed on the next restart. Failing to start is enormously preferable to running a
+    company whose memory silently resets.
+    """
+    url = (url or os.environ.get("BRAMBLELOOP_DATABASE_URL")
+           or os.environ.get("DATABASE_URL") or "").strip()
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg2://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+    if not url:
+        url = DEFAULT_URL
+    if url.startswith("sqlite") and os.environ.get("BRAMBLELOOP_REQUIRE_POSTGRES") == "1":
+        raise EphemeralStorageRefused(
+            "BRAMBLELOOP_REQUIRE_POSTGRES=1 but no Postgres URL is bound. Refusing to start "
+            "on ephemeral SQLite: the container would look healthy and lose every job, audit "
+            "record and release certificate on its next restart."
+        )
+    return url
+
+
 def make_engine(url: str | None = None, echo: bool = False) -> Engine:
-    url = url or os.environ.get("BRAMBLELOOP_DATABASE_URL", DEFAULT_URL)
+    url = resolve_url(url)
     kwargs: dict = {"echo": echo, "future": True}
     if url.startswith("sqlite"):
         # check_same_thread=False so a worker thread can share the engine; WAL so a reader

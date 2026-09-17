@@ -98,6 +98,35 @@ def test_scheduler_tick_endpoint_is_idempotent_within_a_window():
     assert second == [], f"a repeated tick re-enqueued {second} (first was {first})"
 
 
+def test_platform_database_url_is_normalised():
+    """Railway injects the historical postgres:// form that SQLAlchemy 2.x rejects."""
+    from brambleloop.core.db import resolve_url
+
+    assert resolve_url("postgres://u:p@h:5432/db") == "postgresql+psycopg2://u:p@h:5432/db"
+    assert resolve_url("postgresql://u:p@h/db") == "postgresql+psycopg2://u:p@h/db"
+    assert resolve_url("sqlite://") == "sqlite://"
+
+
+def test_a_hosted_container_refuses_to_run_on_ephemeral_storage():
+    """Silently falling back to SQLite on a container disk loses the entire company."""
+    from brambleloop.core.db import EphemeralStorageRefused, resolve_url
+
+    saved = dict(os.environ)
+    try:
+        os.environ.pop("BRAMBLELOOP_DATABASE_URL", None)
+        os.environ.pop("DATABASE_URL", None)
+        os.environ["BRAMBLELOOP_REQUIRE_POSTGRES"] = "1"
+        try:
+            resolve_url()
+        except EphemeralStorageRefused as e:
+            assert "ephemeral" in str(e).lower()
+        else:
+            raise AssertionError("a hosted container accepted ephemeral storage")
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+
+
 def test_runner_state_is_honest_about_a_worker_that_is_not_running():
     from brambleloop.app.runner import RunnerState
 
