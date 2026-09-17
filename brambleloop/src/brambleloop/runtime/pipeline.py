@@ -295,7 +295,8 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                   detail={"source": "engineered design", "rows": sum(
                       len(c.rows) for c in engineered.components)})
         ctx.enqueue("validator", "cir.compile", {"cir": engineered.to_dict()},
-                    idempotency_key=f"compile:{engineered.slug}:{engineered.version}")
+                    idempotency_key=(f"compile:{engineered.slug}:{engineered.version}"
+                                     f":{engineered.fingerprint}"))
         return {"artifact": f"{engineered.slug}@{engineered.version}",
                 "rows": len(engineered.components[0].rows), "engineered": True}
 
@@ -325,7 +326,8 @@ def handle_cir_compile(ctx: JobContext) -> dict:
         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
                 "errors": [str(f) for f in result.errors]}
     ctx.enqueue("quality_director", "gate.certify", {"cir": ctx.job.inputs["cir"]},
-                idempotency_key=f"certify:{cir.slug}:{cir.version}:d{DOC_VERSION}")
+                idempotency_key=(f"certify:{cir.slug}:{cir.version}:{cir.fingerprint}"
+                                 f":d{DOC_VERSION}"))
     return {"artifact": f"{cir.slug}@{cir.version}", "compiled": True,
             "counts": result.counts(cir.components[0].name)}
 

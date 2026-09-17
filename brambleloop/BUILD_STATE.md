@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **436 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **451 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
@@ -329,6 +329,11 @@ Exact and verified. Nothing here is projected.
 - **Schema.** `Database.create_all()` creates missing tables *and* adds missing columns and
   indexes to existing ones, then returns what it changed so startup can audit it. Additive
   only — it refuses a NOT NULL column with no default rather than guessing a backfill.
+- **Design fingerprints.** A slug and a version do not identify a design. Every key for
+  design-derived work (`compile`, `certify`, the rebuild's re-draft) carries `CIR.fingerprint`,
+  a content hash of the design, so the work re-runs exactly when the design changes. Without
+  it a re-engineered product could never enter the chain, which is how two corrected designs
+  sat in the repository while production kept serving the old ones.
 - **Chain version.** `runtime/release.CHAIN_VERSION` is stamped into every idempotency key
   after certification. Bump it whenever a stage that runs *after* `gate.certify` changes what
   it produces, or the upgrade will never reach products that already shipped. `chain.rebuild`
@@ -454,6 +459,12 @@ Exact and verified. Nothing here is projected.
   verification, a payout account, acceptance of Etsy's listing fees, one physical sample,
   a decision on trademark clearance, object storage, and the phase itself — so for the first
   time the system writes its own owner queue rather than a human writing one for it.
-- Totals: 436 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- 2026-09-17: **Design fingerprints in the idempotency keys.** Found by watching production
+  accept the round-worked rebuild and keep serving the old designs: `cir.draft` was keyed
+  once per slug, forever, so a re-engineered product could not re-enter the chain and the
+  `DOC_VERSION` bump could not reach the stage it existed for. Keys now carry the design's
+  content hash, and the hourly rebuild compares the stored design against the one the code
+  produces.
+- Totals: 451 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

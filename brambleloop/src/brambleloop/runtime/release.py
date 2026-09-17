@@ -676,6 +676,8 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     from sqlalchemy import select
 
     from ..core.models import Listing, PatternVersion, Product
+    from ..gates.certificate import DOC_VERSION
+    from .pipeline import _engineered_cir
 
     with ctx.db.session() as s:
         products = {p.id: p.slug for p in s.scalars(select(Product))}
@@ -698,6 +700,34 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         if job is not None:
             started.append(f"{slug}@{pv.version}")
 
+    # A stored design the code no longer produces, or a certificate issued against a
+    # document the writer no longer writes. Restarting at `listing.draft` cannot fix either,
+    # because both live *above* certification: the CIR in the database is the stale thing.
+    # This is the fifth face of "code changed, the deployed database did not", and the one
+    # that broke the previous four fixes' own delivery mechanism.
+    redrafted: list[str] = []
+    for pv in certified:
+        slug = products.get(pv.product_id)
+        if not slug:
+            continue
+        try:
+            fresh = _engineered_cir(slug, pv.version)
+        except Exception:  # noqa: BLE001 - a design that no longer builds is not a rebuild
+            continue
+        if fresh is None:
+            continue
+        stale_design = fresh.to_dict() != pv.cir_json
+        stale_document = (pv.certificate or {}).get("doc_version") != DOC_VERSION
+        if not (stale_design or stale_document):
+            continue
+        job = ctx.enqueue("crochet_engineer", "cir.draft", {"slug": slug},
+                          idempotency_key=(f"redraft:{slug}:{fresh.fingerprint}"
+                                           f":d{DOC_VERSION}"))
+        if job is not None:
+            redrafted.append(f"{slug}@{pv.version}"
+                             f"{' design' if stale_design else ''}"
+                             f"{' document' if stale_document else ''}")
+
     # Collections are listed under the pseudo-version "collection" rather than a
     # PatternVersion, so they need their own line here or a rebuild leaves the bundle behind.
     collections_started: list[str] = []
@@ -711,9 +741,13 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
             collections_started.append(seed.slug)
 
     ctx.audit("chain.rebuilt", detail={"chain_version": CHAIN_VERSION,
+                                       "doc_version": DOC_VERSION,
                                        "certified": len(certified),
                                        "restarted": started[:20],
                                        "restarted_count": len(started),
+                                       "redrafted": redrafted[:20],
+                                       "redrafted_count": len(redrafted),
                                        "collections_restarted": collections_started})
-    return {"chain_version": CHAIN_VERSION, "certified": len(certified),
-            "restarted": started, "collections_restarted": collections_started}
+    return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
+            "certified": len(certified), "restarted": started,
+            "redrafted": redrafted, "collections_restarted": collections_started}

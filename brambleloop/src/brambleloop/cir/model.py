@@ -7,6 +7,7 @@ generated text still says what the CIR says.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field, asdict
 from typing import Any, Iterator, Literal
@@ -216,6 +217,23 @@ class CIR:
         "basket" or "bag" has to be able to point at.
         """
         return bool(self.assembly)
+
+    @property
+    def fingerprint(self) -> str:
+        """A short content hash of the whole design.
+
+        Exists because a slug and a version are not enough to identify a design. The
+        pipeline keyed its work as `draft:{slug}` -- once per slug, forever -- so when a
+        product was re-engineered, the new design could never enter the chain: the draft job
+        was already done, the compile key was taken, and certification never re-ran. Two
+        products stayed in production under their old flat-panel designs and their old
+        titles while the repository held the corrected ones.
+
+        Putting the design's own hash in the key makes the work re-run exactly when the
+        design changes and not otherwise, which is what idempotency was supposed to mean.
+        """
+        payload = json.dumps(self.to_dict(), sort_keys=True, default=str)
+        return hashlib.sha256(payload.encode()).hexdigest()[:12]
 
     def iter_rows(self) -> Iterator[tuple[Component, Row]]:
         for comp in self.components:

@@ -539,6 +539,68 @@ def test_attack_a_corrupted_artifact_is_detected():
         raise AssertionError("a tampered artifact passed its integrity check")
 
 
+
+def test_a_redesigned_product_re_enters_the_chain():
+    """The defect that broke the previous four "code changed, database didn't" fixes.
+
+    `cir.draft` was keyed `draft:{slug}` -- once per slug, forever. So when two products were
+    re-engineered from flat rectangles into round-worked pieces, the new designs could never
+    enter the chain: the draft was done, the compile key was taken, certification never
+    re-ran, and production kept serving the old design under the old title while the
+    repository held the corrected one. The keys now carry the design's own fingerprint, and
+    the hourly rebuild compares the stored design against the one the code produces.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import PatternVersion, Product
+    from brambleloop.products.builder import CATALOGUE, build
+    from brambleloop.runtime.pipeline import _engineered_cir
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/redesign.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "redesign-worker")
+        for _ in range(400):
+            if not w.run_once():
+                break
+
+    slug = "mosaic-placemat-pair"
+    fresh = _engineered_cir(slug)
+
+    # Certify a *different* design under this slug, the way a product looks after it has been
+    # re-engineered: same slug, same version, different fabric.
+    stale = build(CATALOGUE["cottage-wall-hanging"])
+    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title})
+    assert stale.fingerprint != fresh.fingerprint
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
+    drain_all()
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        assert product is not None, "the stale design did not certify; the test proves nothing"
+        pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id))
+        stored_rows = len(pv.cir_json["components"][0]["rows"])
+        assert stored_rows == len(stale.components[0].rows)
+        assert stored_rows != len(fresh.components[0].rows), \
+            "the two designs are indistinguishable; pick a different pair"
+
+    # The hourly rebuild has to notice that the stored design is not the one the code makes.
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    drain_all()
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == fresh.version))
+        assert len(pv.cir_json["components"][0]["rows"]) == len(fresh.components[0].rows), \
+            "the redesigned product never reached the database"
+        assert pv.certificate.get("doc_version"), "no document version recorded"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
