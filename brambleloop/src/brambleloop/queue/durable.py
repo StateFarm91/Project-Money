@@ -216,6 +216,64 @@ class JobQueue:
                 s.expunge(j)
             return jobs
 
+    # Errors that mean "this was refused on purpose". Re-driving one is not recovery, it is
+    # an operator repeatedly asking a closed gate to open -- and on a publish job, repeatedly
+    # asking a system in shadow mode to go live.
+    REFUSAL_MARKERS = ("capability not enabled", "shadow", "permission denied:")
+
+    def requeue_dead(self, *, job_types: list[str] | None = None,
+                     ids: list[int] | None = None, reset_attempts: bool = True) -> dict:
+        """Re-drive dead-lettered jobs after the bug that killed them has been fixed.
+
+        A dead letter caused by a defect is work the company still owes. Once the defect is
+        fixed the job should run, not sit in a graveyard making the queue-health signal red
+        forever. This is the operational counterpart to fixing the code.
+
+        Deliberate refusals are never re-driven. Returns what it moved and what it declined,
+        because an operation that silently skips half its input is worse than one that fails.
+        """
+        moved: list[int] = []
+        skipped: list[dict] = []
+        with self.db.session() as s:
+            q = select(Job).where(Job.status == JobStatus.DEAD)
+            if job_types:
+                q = q.where(Job.job_type.in_(job_types))
+            if ids:
+                q = q.where(Job.id.in_(ids))
+            for job in s.scalars(q):
+                error = (job.last_error or "").lower()
+                if any(m in error for m in self.REFUSAL_MARKERS):
+                    skipped.append({"id": job.id, "job_type": job.job_type,
+                                    "reason": "refused on purpose, not a failure"})
+                    continue
+                job.status = JobStatus.PENDING
+                job.leased_by = None
+                job.lease_expires_at = None
+                job.run_after = utcnow()
+                job.last_error = None
+                job.finished_at = None
+                if reset_attempts:
+                    job.attempts = 0
+                moved.append(job.id)
+        return {"requeued": moved, "skipped": skipped}
+
+    def purge_dead(self, *, job_types: list[str], before: datetime | None = None) -> int:
+        """Delete dead letters of a given type. Used only for jobs that must never re-run.
+
+        Requires explicit job types: there is no "purge everything", because the one thing a
+        dead-letter queue must never do is lose a failure nobody looked at.
+        """
+        removed = 0
+        with self.db.session() as s:
+            q = select(Job).where(Job.status == JobStatus.DEAD,
+                                  Job.job_type.in_(job_types))
+            for job in s.scalars(q):
+                if before is not None and (job.finished_at or job.created_at) >= before:
+                    continue
+                s.delete(job)
+                removed += 1
+        return removed
+
     def get(self, job_id: int) -> Job | None:
         with self.db.session() as s:
             job = s.get(Job, job_id)

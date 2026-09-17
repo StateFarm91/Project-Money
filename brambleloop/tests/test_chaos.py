@@ -396,6 +396,60 @@ def test_replayed_pipeline_does_not_recertify_or_duplicate_versions():
             "a replay must not create a second release row for the same version"
 
 
+def test_a_dead_letter_can_be_re_driven_after_its_defect_is_fixed():
+    """A dead letter caused by a bug is work the company still owes."""
+    from brambleloop.core.models import JobStatus
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = boot(f"sqlite:///{tmp}/live.sqlite")
+        q = JobQueue(db, lease_seconds=30)
+        job = q.enqueue("market_radar", "radar.scan", {"n": 1}, max_attempts=1)
+        with db.session() as s:
+            j = s.get(Job, job.id)
+            j.status = JobStatus.DEAD
+            j.last_error = "AttributeError: a bug we have since fixed"
+
+        result = q.requeue_dead(job_types=["radar.scan"])
+        assert result["requeued"] == [job.id], result
+        assert result["skipped"] == []
+        back = q.get(job.id)
+        assert back.status == JobStatus.PENDING
+        assert back.attempts == 0 and back.last_error is None
+        assert q.claim("worker-1") is not None, "a re-driven job must be claimable"
+
+
+def test_a_deliberate_refusal_is_never_re_driven():
+    """Re-driving a shadow-mode refusal is an operator asking a closed gate to open."""
+    from brambleloop.core.models import JobStatus
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = boot(f"sqlite:///{tmp}/live.sqlite")
+        q = JobQueue(db)
+        job = q.enqueue("store_operator", "store.publish", {"slug": "x", "version": "1.0.0"})
+        with db.session() as s:
+            j = s.get(Job, job.id)
+            j.status = JobStatus.DEAD
+            j.last_error = ("capability not enabled: store.publish is a production "
+                            "capability; the system is in SHADOW mode")
+
+        result = q.requeue_dead()
+        assert result["requeued"] == []
+        assert result["skipped"] and result["skipped"][0]["id"] == job.id
+        assert q.get(job.id).status == JobStatus.DEAD
+
+
+def test_purge_refuses_to_operate_without_explicit_job_types():
+    """The one thing a dead-letter queue must never do is lose a failure nobody looked at."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db = boot(f"sqlite:///{tmp}/live.sqlite")
+        q = JobQueue(db)
+        try:
+            q.purge_dead(job_types=[])
+        except TypeError:
+            pass
+        assert q.purge_dead(job_types=["nothing.matches.this"]) == 0
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

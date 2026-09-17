@@ -232,6 +232,23 @@ def api_verify() -> JSONResponse:
                         status_code=200 if passed else 503)
 
 
+@app.post("/api/dead-letters/requeue")
+def api_requeue(job_types: str | None = None) -> dict:
+    """Re-drive dead letters after the defect that killed them is fixed.
+
+    GREEN under the authority matrix: reversible, no spend, and structurally incapable of
+    re-driving a deliberate refusal -- a publish blocked by shadow mode stays blocked no
+    matter how often this is called.
+    """
+    types = [t.strip() for t in job_types.split(",")] if job_types else None
+    result = JobQueue(db).requeue_dead(job_types=types)
+    Registry(db).audit("orchestrator", "ops.dead_letters_requeued",
+                       detail={"requeued": result["requeued"][:50],
+                               "skipped": result["skipped"][:50],
+                               "requested_types": types})
+    return result
+
+
 def _is_sqlite() -> bool:
     return db.engine.dialect.name == "sqlite"
 
