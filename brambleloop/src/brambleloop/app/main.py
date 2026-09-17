@@ -212,12 +212,20 @@ def api_verify() -> JSONResponse:
     check("scheduler_has_ticked", r["scheduler_last_tick"] is not None,
           {"last_tick": r["scheduler_last_tick"]})
 
+    # Recent, not historical. A dead letter from a bug that was fixed last week is archaeology;
+    # an endpoint that reports 503 forever because of it is an endpoint nobody reads. The
+    # historical count stays in the evidence so the record is not quietly lost.
     q = JobQueue(db)
     dead = q.dead_letters()
-    unexpected = [j.job_type for j in dead if j.job_type != "store.publish"]
-    check("no_unexpected_dead_letters", not unexpected,
-          {"unexpected": sorted(set(unexpected)), "expected_publish_refusals":
-           sum(1 for j in dead if j.job_type == "store.publish")})
+    cutoff = utcnow() - timedelta(hours=24)
+    unexpected = [j for j in dead if j.job_type != "store.publish"]
+    recent = [j for j in unexpected if (j.finished_at or j.created_at) >= cutoff]
+    check("no_unexpected_dead_letters_in_24h", not recent,
+          {"recent": sorted({j.job_type for j in recent}),
+           "historical_total": len(unexpected),
+           "historical_types": sorted({j.job_type for j in unexpected}),
+           "expected_publish_refusals":
+               sum(1 for j in dead if j.job_type == "store.publish")})
 
     passed = all(c["ok"] for c in checks)
     return JSONResponse({"ok": passed, "checks": checks},

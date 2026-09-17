@@ -121,7 +121,7 @@ def test_verify_endpoint_reports_the_standing_safety_assertions():
     for expected in ("phase_is_shadow", "nothing_published", "no_paid_advertising",
                      "no_revenue_claimed", "every_agent_has_a_cost_ceiling",
                      "state_is_in_a_durable_database", "worker_is_alive",
-                     "no_unexpected_dead_letters"):
+                     "no_unexpected_dead_letters_in_24h"):
         assert expected in names, expected
     by_name = {ch["check"]: ch for ch in body["checks"]}
     assert by_name["phase_is_shadow"]["ok"] is True
