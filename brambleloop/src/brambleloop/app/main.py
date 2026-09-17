@@ -23,7 +23,7 @@ from ..core.models import (
     PatternVersion, Product, SpendLimit, utcnow,
 )
 from ..gateway.model_gateway import available_providers
-from ..queue.durable import JobQueue
+from ..queue.durable import DuplicateJob, JobQueue
 from ..runtime import pipeline  # noqa: F401  -- registers job handlers
 from ..runtime.worker import Scheduler
 from . import runner
@@ -112,6 +112,28 @@ def api_status() -> dict:
 def api_tick() -> dict:
     """Cron target. Idempotent per cadence window, so calling it often is harmless."""
     return {"enqueued": Scheduler(db).tick()}
+
+
+@app.post("/api/plan-cycle")
+def api_plan_cycle(as_of: str | None = None) -> dict:
+    """Enqueue a planning cycle now instead of waiting for the daily cadence.
+
+    GREEN: it enqueues work the system already does on a schedule, spends nothing, and cannot
+    publish -- shadow mode refuses at the far end regardless of who started the run.
+
+    `as_of` sets the date the radar scores against, and also scopes the downstream idempotency
+    keys, so re-running a cycle for a date already processed collapses instead of duplicating.
+    Running it for a new date re-scores the pool against that calendar, which is the point:
+    the portfolio changes with the date, not with the catalogue.
+    """
+    payload = {"as_of": as_of} if as_of else {}
+    key = f"plan.cycle:{as_of}" if as_of else None
+    try:
+        job = JobQueue(db).enqueue("orchestrator", "plan.cycle", payload,
+                                   idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False, "reason": f"a cycle for {as_of} is already queued"}
+    return {"enqueued": True, "job_id": job.id, "as_of": as_of}
 
 
 @app.get("/api/jobs")

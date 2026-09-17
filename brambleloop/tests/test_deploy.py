@@ -113,6 +113,14 @@ def test_the_container_runs_the_company_by_itself():
     assert not published, "shadow mode published something"
 
 
+def test_a_planning_cycle_can_be_started_on_demand_and_is_idempotent_per_date():
+    with _client() as c:
+        first = c.post("/api/plan-cycle?as_of=2027-01-20").json()
+        second = c.post("/api/plan-cycle?as_of=2027-01-20").json()
+    assert first["enqueued"] is True and first["job_id"]
+    assert second["enqueued"] is False, "the same date enqueued twice"
+
+
 def test_verify_endpoint_reports_the_standing_safety_assertions():
     """"Railway says deployed" is not "the company is alive and behaving"."""
     with _client() as c:
