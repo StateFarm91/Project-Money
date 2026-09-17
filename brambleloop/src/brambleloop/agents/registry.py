@@ -96,11 +96,40 @@ class Registry:
     def __init__(self, db: Database):
         self.db = db
 
-    def seed_defaults(self) -> None:
+    # Fields DEFAULT_AGENTS owns outright. Everything else on an Agent row -- `enabled`, and
+    # any future runtime state -- belongs to the running system and is never overwritten.
+    DECLARED_FIELDS = ("description", "allowed_job_types", "authority", "phase",
+                       "daily_cost_ceiling_cad")
+
+    def seed_defaults(self) -> list[str]:
+        """Create missing agents and reconcile the declared fields of existing ones.
+
+        Insert-if-absent was not enough, and production proved it. The operational heartbeat
+        was scheduled against an agent with no permission for it; the fix added the permission
+        to DEFAULT_AGENTS, the fix deployed, and the heartbeat kept failing -- because the
+        agent row already existed and was never revisited. A permission that lives in code and
+        cannot reach the database is not a permission, it is a comment.
+
+        So permissions and ceilings are declarative: the code is the source of truth, a deploy
+        applies it, and changing an agent's authority means changing it where it can be
+        reviewed. Returns a description of what moved, which the caller logs.
+        """
+        changes: list[str] = []
         with self.db.session() as s:
             for spec in DEFAULT_AGENTS:
-                if not s.scalar(select(Agent).where(Agent.name == spec["name"])):
+                agent = s.scalar(select(Agent).where(Agent.name == spec["name"]))
+                if agent is None:
                     s.add(Agent(**spec))
+                    changes.append(f"created {spec['name']}")
+                    continue
+                for field in self.DECLARED_FIELDS:
+                    if field not in spec:
+                        continue
+                    current, declared = getattr(agent, field), spec[field]
+                    if current != declared:
+                        setattr(agent, field, declared)
+                        changes.append(f"{spec['name']}.{field}: {current!r} -> {declared!r}")
+        return changes
 
     def get(self, name: str) -> Agent:
         with self.db.session() as s:

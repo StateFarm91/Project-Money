@@ -37,7 +37,11 @@ app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 @app.on_event("startup")
 def _startup() -> None:
     db.create_all()
-    Registry(db).seed_defaults()
+    changes = Registry(db).seed_defaults()
+    if changes:
+        # A deploy that silently changes an agent's authority is a deploy nobody can audit.
+        Registry(db).audit("orchestrator", "agents.reconciled",
+                           detail={"changes": changes[:50]})
     runner.start(db)
 
 

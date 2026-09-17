@@ -17,7 +17,9 @@ from brambleloop.agents.registry import (  # noqa: E402
     BudgetExceeded, PermissionDenied, Registry, SpendGuard,
 )
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.core.models import Job, JobStatus, Phase, utcnow  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+
+from brambleloop.core.models import Agent, Job, JobStatus, Phase, utcnow  # noqa: E402
 from brambleloop.queue.durable import DuplicateJob, JobQueue  # noqa: E402
 
 
@@ -240,6 +242,52 @@ def test_backup_and_restore_drill_proves_the_backup_works():
         assert result.restored_counts["jobs"] == 5
         assert result.restored_counts["agents"] == len(reg.all())
         assert result.restored_counts["audit_log"] == 1
+
+
+def test_seeding_reconciles_permissions_that_changed_in_code():
+    """A permission that lives in code and cannot reach the database is a comment.
+
+    Production proved this one. The heartbeat's missing permission was fixed in
+    DEFAULT_AGENTS, the fix deployed, and the heartbeat kept failing, because the agent row
+    already existed and insert-if-absent never revisited it.
+    """
+    db = Database("sqlite://")
+    db.create_all()
+    reg = Registry(db)
+    reg.seed_defaults()
+
+    # Simulate the old row: an agent that predates a permission added later in code.
+    with db.session() as s:
+        a = s.scalar(select(Agent).where(Agent.name == "orchestrator"))
+        a.allowed_job_types = ["plan.cycle"]
+        a.daily_cost_ceiling_cad = 0.5
+
+    changes = reg.seed_defaults()
+    assert changes, "reconciliation reported nothing despite a drifted row"
+    reg.authorize("orchestrator", "ops.heartbeat")
+    assert reg.get("orchestrator").daily_cost_ceiling_cad == 3.0
+    assert any("allowed_job_types" in c for c in changes), changes
+
+
+def test_reconciliation_leaves_runtime_state_alone():
+    """Declared fields are the code's; whether an agent is switched off is the system's."""
+    db = Database("sqlite://")
+    db.create_all()
+    reg = Registry(db)
+    reg.seed_defaults()
+    with db.session() as s:
+        s.scalar(select(Agent).where(Agent.name == "ads")).enabled = False
+
+    reg.seed_defaults()
+    assert reg.get("ads").enabled is False, "a deploy silently re-enabled a disabled agent"
+
+
+def test_seeding_twice_with_no_drift_changes_nothing():
+    db = Database("sqlite://")
+    db.create_all()
+    reg = Registry(db)
+    reg.seed_defaults()
+    assert reg.seed_defaults() == []
 
 
 def test_every_scheduled_cadence_can_actually_run():
