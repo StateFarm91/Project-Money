@@ -4,8 +4,12 @@ _Updated 2026-09-17 by the Brambleloop build session. Maintained continuously so
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
 
 ## Current phase
-PHASE 1 — SHADOW MODE (pre-deployment). Nothing is connected to live customers, live
-listings or live spend, and nothing is deployed to the cloud yet.
+PHASE 1 — SHADOW MODE, **deployed and running 24/7**. Nothing is connected to live customers,
+live listings or live spend. The system runs unattended on Railway whether or not any Claude
+session is open.
+
+Live: https://brambleloop-os-production.up.railway.app — dashboard `/`, health `/health`,
+status `/api/status`, **verification `/api/verify`**.
 
 ## Canonical specification
 `brambleloop/spec/01_Brambleloop_Master_Plan_v1.2.pdf` (vendored copy of the owner's handoff).
@@ -24,11 +28,8 @@ Verified by `./run_tests.sh` — **188 tests passing, 0 failing**:
 - Persistence is **proven, not assumed**: a worker is SIGKILLed mid-job against a file-backed
   database and a fresh process recovers and completes the work, inputs intact, with no
   duplicate side effects.
-- Cloud deployment: **half provisioned.** A Railway project `brambleloop` exists in the
-  owner's personal workspace (`production` environment) with a **live Postgres 18 service and
-  a 5 GB volume**, created 2026-09-17. The **application service was not created**: the
-  request was refused by this session's permission policy as a production deploy. So the
-  database is up and nothing is running against it. See OWNER ACTION REQUIRED below.
+- Cloud deployment: **live and verified.** See "Deployment" below for the exact
+  configuration, the twelve production checks that pass, and the measured cost.
 - Model providers: **none configured.** The Model Gateway is built and tested, but no API
   key exists in this environment, so `available_providers()` returns an empty list and the
   dashboard says "none". Nothing in the pipeline currently calls a model: every load-bearing
@@ -142,37 +143,99 @@ See `DECISION_LOG.md` for reasoning. Summary:
 - **Gate F (Shadow Graduation): passing.** Full simulated product completes the chain without
   intervention. Model-provider failover is untested (no Model Gateway yet).
 
+## Deployment (verified 2026-09-17)
+
+| | |
+|---|---|
+| Railway project | `brambleloop` (`0d61d9ec-76ca-42e3-aa69-918728845b29`), workspace "Jacob McKenna's Projects" |
+| Environment | `production` (`d618b2fe-70ec-4541-852f-0b656c2eedaf`) |
+| App service | `brambleloop-os` (`c14774b3-0df2-409e-9721-fd7045099c53`) |
+| Source | `StateFarm91/Project-Money`, branch `claude/repository-setup-nc9x6o`, root `brambleloop` |
+| Build | Dockerfile (`brambleloop/Dockerfile`), region us-west2, 1 replica |
+| Domain | `brambleloop-os-production.up.railway.app` |
+| Health check | `/health`, 300 s timeout |
+| Database | `Postgres` service (`c40c71a5-…`), Postgres 18, 5 GB volume |
+| Variables | `BRAMBLELOOP_REQUIRE_POSTGRES=1`, `BRAMBLELOOP_PHASE=shadow`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `BRAMBLELOOP_EMBEDDED_WORKER=1`, `BRAMBLELOOP_SCHEDULER_INTERVAL=60`, `BRAMBLELOOP_RUNNER_START_DELAY=25`, `BRAMBLELOOP_ARTIFACT_DIR=/app/artifacts`, `PORT=8000` |
+
+### Measured cost, not guessed
+
+From 61 samples of Railway's own metrics over the first hour of operation:
+
+| | vCPU (avg) | RAM (avg) | Disk |
+|---|---|---|---|
+| `brambleloop-os` | 0.0053 | 0.074 GB | 0 |
+| `Postgres` | 0.0011 | 0.082 GB | 0.157 GB |
+
+At Railway's rates (~US$20/vCPU-month, ~US$10/GB-month RAM, US$0.15/GB-month volume) that is
+**about US$1.70 / CA$2.40 per month of usage**, inside the Hobby plan's included US$5 credit.
+Recurring infrastructure is therefore the **US$5 / ~CA$7 per month plan fee**, against the
+owner's CA$20 ceiling. This is an estimate from observed utilisation, not a bill; the first
+real invoice replaces it here.
+
+Workload is bursty and tiny — a full 11-SKU planning cycle is about 40 seconds of CPU — so
+this should hold. If it stops holding, splitting the worker into its own service is the first
+thing that would push it up, and is not being done.
+
+### What was actually verified in production
+
+`GET /api/verify` returns **all twelve checks passing**. Each carries its evidence:
+
+- `phase_is_shadow`, `nothing_published` (0 published / 15 refused),
+  `publication_was_actually_attempted_and_refused` — publication is blocked *and* the block
+  was exercised rather than merely configured.
+- `no_paid_advertising` (CA$0), `no_revenue_claimed` (CA$0, 0 ledger entries),
+  `every_agent_has_a_cost_ceiling` (15/15), `spend_limits_not_breached`.
+- `no_model_provider_configured` — no API key exists, and the system says so.
+- `state_is_in_a_durable_database` — engine `postgresql`, with certified releases and audit
+  records that could not have come from a container that started empty.
+- `worker_is_alive`, `scheduler_has_ticked`, `no_unexpected_dead_letters_in_24h`.
+
+Beyond the endpoint:
+
+- **Real unattended cycles ran in production.** `POST /api/plan-cycle` for several dates;
+  267 jobs, **zero non-publish failures**, 15 products and 15 certified releases. A cycle for
+  a different date correctly produced a *different* portfolio and added only the new products.
+- **Restart recovery, twice.** Container restarted with work queued; state identical
+  afterwards (same products, same certified releases, no duplicates), new process confirmed by
+  a changed worker start time. Six concurrent cycles (79 jobs) drained across a restart with
+  no failures and no duplicated products.
+- **Scheduler and heartbeat run in the deployed environment** — `ops.heartbeat` records real
+  queue state on its cadence.
+- **Honest gap:** no production job needed a second attempt, because every cycle drained
+  faster than a Railway restart takes effect. So in-flight *lease reclaim* is not proven on
+  Railway specifically. It is proven locally in `tests/test_persistence.py`, which SIGKILLs a
+  real worker subprocess mid-job — a harder case than Railway's graceful restart.
+
 ## Integrations connected
 - None. Railway account exists but no project is provisioned.
 
 ## Owner actions required
 
-**1. Create the Railway application service (blocking 24/7 operation).**
-- *Exact action:* in the Railway project `brambleloop` → `production`, add a service from
-  GitHub repo `StateFarm91/Project-Money`, branch `claude/repository-setup-nc9x6o`, root
-  directory `brambleloop`. Set variables `BRAMBLELOOP_REQUIRE_POSTGRES=1`,
-  `BRAMBLELOOP_PHASE=shadow`, and `DATABASE_URL=${{Postgres.DATABASE_URL}}`. Generate a
-  domain. Alternatively, approve this session's Railway `create-service` call and it will do
-  all of the above.
-- *Why required:* the deploy was refused by this session's permission policy as a production
-  deploy. Postgres is already live; nothing is running against it. Until a service exists,
-  the OS only runs while a session is open, which is the one thing the spec exists to fix.
-- *Maximum cost:* Railway bills by usage. One small always-on service plus the existing
-  Postgres is roughly **CA$8–14 per month**; the Hobby plan's included credit covers part of
-  it. Web, worker and scheduler deliberately run in **one** container to keep this to a
-  single service's usage rather than three.
-- *Minutes required:* about 5.
-- *Consequence of waiting:* the company stops when this session ends. Everything else is
-  built and tested; this is the only thing between "runs when invoked" and "runs unattended".
+**1. Delete the stray Railway service `Project-Money` (housekeeping, ~1 minute).**
+- *Exact action:* in the Railway project `brambleloop` → `production`, delete the service
+  named `Project-Money` (`4dff24df-2186-4278-b01f-c11ec39a766f`).
+- *Why:* it was created by accident — a deploy call spawned a second service instead of
+  deploying to `brambleloop-os`. Its build failed and it is not running, so it costs nothing
+  measurable, but it is not part of the system and should not sit in the project pretending
+  to be. Deletion was declined when attempted from this session.
+- *Maximum cost:* CA$0. Leaving it costs nothing either; this is tidiness, not spend.
+- *Consequence of waiting:* none beyond confusion for whoever opens the project next.
 
 Deferred until the system actually reaches them (Master Plan section 35), in order:
 object storage for artifact durability → brand/trademark clearance for "Brambleloop Studio"
 → Etsy account/KYC → banking. **Do not ask for these yet.**
 
 ## Financial state
-- Spend: CA$0 (verified — nothing provisioned, nothing purchased)
-- Revenue: CA$0
-- Customers: 0
+Exact and verified. Nothing here is projected.
+
+- **Recurring infrastructure:** Railway Hobby plan, US$5 / ~CA$7 per month, which includes
+  US$5 of usage. Measured usage is ~US$1.70/month, so no overage is expected. Owner ceiling
+  is CA$20/month; nothing may exceed it without the owner's approval.
+- **Spend to date:** CA$0 invoiced. No bill has been issued yet.
+- **Agent/model spend:** CA$0 — no model provider is configured and no model call has been
+  made.
+- **Advertising spend:** CA$0 — paid media is not enabled.
+- **Revenue:** CA$0. **Customers:** 0. **Orders:** 0. **Listings live:** 0.
 
 ## Current blockers
 - None blocking. All remaining work in the execution order is unblocked.
@@ -236,5 +299,17 @@ object storage for artifact durability → brand/trademark clearance for "Brambl
   standing constraints are now asserted rather than documented: no registered prompt may ask
   a model for pattern content, and `require_deterministic()` raises if a model verdict is
   offered where the compiler has one.
-- Totals: 188 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
+- 2026-09-17: **Deployed to Railway and verified in production.** Four real defects surfaced
+  only by watching the deployed service, none of which any local test could have caught:
+  the container hardcoded port 8000 so the health check probed nowhere; the embedded worker
+  started a full planning cycle the instant the app came up and starved the health endpoint
+  until the platform failed a working deployment; the operational heartbeat had been
+  dead-lettering every fifteen minutes since the first boot because it was scheduled against
+  an agent with no permission for it; and the fix for that never reached production, because
+  agent seeding was insert-if-absent and the row already existed. A fifth appeared when a
+  dated planning cycle ran two jobs instead of sixty: `plan.cycle` dropped `as_of`, so the
+  run scored against today and collapsed into the morning's idempotency keys.
+  Each fix carries a test: every cadence must be runnable by its agent, permissions reconcile
+  on deploy, and a cycle's date must reach the radar.
+- Totals: 200 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
   regression automation.
