@@ -275,9 +275,11 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     if seed is not None and seed.is_bundle:
         ctx.audit("cir.skipped_bundle", artifact=slug,
                   detail={"reason": "a bundle has no pattern of its own; it is its members"})
+        from .release import chain_key
+
         ctx.enqueue("listing", "collection.assemble",
                     {"slug": slug, "family": seed.family},
-                    idempotency_key=f"collection:{slug}")
+                    idempotency_key=chain_key("collection", slug, "collection"))
         return {"artifact": slug, "drafted": False, "is_bundle": True}
 
     engineered = _engineered_cir(slug)
@@ -360,9 +362,11 @@ def handle_certify(ctx: JobContext) -> dict:
 
     if cert.granted:
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
+        from .release import chain_key
+
         ctx.enqueue("listing", "listing.draft",
                     {"slug": cir.slug, "version": cir.version},
-                    idempotency_key=f"listing:{cir.slug}:{cir.version}")
+                    idempotency_key=chain_key("listing", cir.slug, cir.version))
 
     return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
             "release_hash": cert.release_hash,
@@ -412,8 +416,10 @@ def handle_listing_draft(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
     version = ctx.job.inputs["version"]
     ctx.audit("listing.drafted", artifact=slug)
+    from .release import chain_key
+
     ctx.enqueue("publishing", "assets.build", {"slug": slug, "version": version},
-                idempotency_key=f"assets:{slug}:{version}")
+                idempotency_key=chain_key("assets", slug, version))
     return {"artifact": slug, "drafted": True}
 
 

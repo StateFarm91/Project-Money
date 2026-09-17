@@ -329,6 +329,68 @@ def test_the_detected_repeat_is_the_real_one_not_a_convenient_one():
             assert colour_grid[i][j] == colour_grid[i % rows][j % cols]
 
 
+def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
+    """Found in production, not in a test.
+
+    Fifteen products were certified before listing imagery, search coverage and the content
+    ecosystem existed. The next cycle ran, reported success, and produced nothing: the
+    downstream idempotency keys were already taken, so every stage after certification
+    collapsed silently. Certification is correctly once-per-version; everything after it has
+    to be reachable again when the code that does it changes.
+    """
+    import tempfile as _tempfile
+
+    from sqlalchemy import select as _select
+
+    from brambleloop.agents.registry import Registry as _Registry
+    from brambleloop.core.db import Database as _Database
+    from brambleloop.core.models import Collection, ContentPiece, Listing, ListingAsset
+    from brambleloop.queue.durable import JobQueue as _JobQueue
+    from brambleloop.runtime.release import CHAIN_VERSION, chain_key
+    from brambleloop.runtime.worker import Worker as _Worker
+
+    assert chain_key("assets", "s", "1.0.0").endswith(f":c{CHAIN_VERSION}")
+
+    tmp = _tempfile.mkdtemp()
+    os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = f"{tmp}/art"
+    db = _Database(f"sqlite:///{tmp}/upgrade.sqlite")
+    db.create_all()
+    _Registry(db).seed_defaults()
+    q = _JobQueue(db)
+    q.enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
+    w = _Worker(db, "upgrade")
+    for _ in range(2500):
+        if not w.run_once():
+            break
+
+    # Reproduce "certified under an older chain": keep the certificates, remove everything the
+    # current chain produces, and strip the current chain's keys.
+    with db.session() as s:
+        for table in (Listing, ListingAsset, ContentPiece, Collection):
+            for row in list(s.scalars(_select(table))):
+                s.delete(row)
+        for job in s.scalars(_select(Job)):
+            if job.idempotency_key and f":c{CHAIN_VERSION}" in job.idempotency_key:
+                job.idempotency_key = job.idempotency_key.replace(f":c{CHAIN_VERSION}", "")
+
+    q.enqueue("listing", "chain.rebuild", {})
+    for _ in range(3000):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        listings = list(s.scalars(_select(Listing)))
+        images = list(s.scalars(_select(ListingAsset)))
+        content = list(s.scalars(_select(ContentPiece)))
+        collections = list(s.scalars(_select(Collection)))
+        broken = [(j.job_type, (j.last_error or "")[:80]) for j in s.scalars(_select(Job))
+                  if j.status in (JobStatus.DEAD, JobStatus.FAILED)
+                  and j.job_type != "store.publish"]
+    assert not broken, broken
+    assert len(listings) >= 10, f"the rebuild reached only {len(listings)} listings"
+    assert images and content and collections
+
+
 def test_attack_a_fake_was_price_is_refused():
     """The whole category runs a permanent fake sale. It is still not available to us."""
     try:

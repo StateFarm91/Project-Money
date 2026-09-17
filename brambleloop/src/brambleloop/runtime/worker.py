@@ -196,6 +196,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("portfolio_review", "orchestrator", "portfolio.review", 7 * 24 * 60 * 60),
     ("finance_reconcile", "cfo", "finance.reconcile", 24 * 60 * 60),
     ("strategy_review", "orchestrator", "plan.strategy", 30 * 24 * 60 * 60),
+    # Hourly on purpose: it is the thing that notices a certified product with no listing,
+    # which is what a pipeline upgrade leaves behind.
+    ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),
 ]
 
 

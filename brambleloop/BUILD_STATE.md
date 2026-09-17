@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **371 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **372 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
 Suites: CIR engine, platform, release gates, market radar, model gateway, brand and
@@ -239,6 +239,12 @@ Exact and verified. Nothing here is projected.
 ## Current blockers
 - None blocking. All remaining work in the execution order is unblocked.
 
+## Operating notes
+- **Chain version.** `runtime/release.CHAIN_VERSION` is stamped into every idempotency key
+  after certification. Bump it whenever a stage that runs *after* `gate.certify` changes what
+  it produces, or the upgrade will never reach products that already shipped. `chain.rebuild`
+  runs hourly and restarts certified releases that have no listing at the current version.
+
 ## Known refinements (tracked, not urgent)
 - The test suite now takes roughly twenty minutes, because several files each run the full
   eleven-product pipeline including 2000px image rendering. Slow and representative beats fast
@@ -329,6 +335,6 @@ Exact and verified. Nothing here is projected.
   spent six of thirteen slots on the word "mosaic"; and the pipeline had been certifying a
   "Collection Bundle" whose PDF was a twelve-row striped panel — a product sold as three
   patterns and delivered as one invented swatch.
-- Totals: 371 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 372 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

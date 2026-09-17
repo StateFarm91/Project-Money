@@ -35,6 +35,24 @@ from ..radar.market import shopping_window
 from ..radar.opportunity import POOL, _event
 from .worker import JobContext, handlers
 
+# The release chain's own version, stamped into every downstream idempotency key.
+#
+# Without it a pipeline upgrade cannot reach products that already shipped. Production proved
+# this: fifteen products were certified before listing imagery, search coverage and the
+# content ecosystem existed, and the next cycle silently collapsed every downstream job
+# against keys like "assets:slug:1.0.0" that were already taken. The cycle reported success
+# and produced nothing.
+#
+# "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
+# v1, so it gets a different key. Bump this whenever a stage after certification changes what
+# it produces.
+CHAIN_VERSION = "2"
+
+
+def chain_key(stage: str, slug: str, version: str) -> str:
+    return f"{stage}:{slug}:{version}:c{CHAIN_VERSION}"
+
+
 CATEGORY_BANDS_CAD: dict[str, tuple[float, float]] = {
     "mosaic_blanket": (8.50, 14.00),
     "blanket": (8.50, 14.00),
@@ -156,7 +174,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
                "legend_sha256": legend.sha256,
                "frames": stored_frames}
     ctx.enqueue("pricing", "pricing.position", payload,
-                idempotency_key=f"price:{slug}:{version}")
+                idempotency_key=chain_key("price", slug, version))
     return payload
 
 
@@ -191,7 +209,7 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     i.update({"price_cad": decision.price_cad, "net_cad": decision.net_cad,
               "pricing_reasons": decision.reasons, "pricing_warnings": decision.warnings,
               "category": category})
-    ctx.enqueue("listing", "listing.seo", i, idempotency_key=f"seo:{slug}:{i['version']}")
+    ctx.enqueue("listing", "listing.seo", i, idempotency_key=chain_key("seo", slug, i["version"]))
     return decision.to_dict()
 
 
@@ -266,7 +284,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     i.update({"listing": copy.to_dict(), "attributes": attributes,
               "search_coverage": coverage.to_dict()})
     _persist_listing(ctx, slug, version, copy, coverage.share)
-    ctx.enqueue("growth", "launch.plan", i, idempotency_key=f"launch:{slug}:{version}")
+    ctx.enqueue("growth", "launch.plan", i, idempotency_key=chain_key("launch", slug, version))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict()}
 
@@ -316,10 +334,10 @@ def handle_launch_plan(ctx: JobContext) -> dict:
 
     i["launch"] = plan.to_dict()
     ctx.enqueue("growth", "marketing.schedule", i,
-                idempotency_key=f"content:{slug}:{i['version']}")
+                idempotency_key=chain_key("content", slug, i["version"]))
     ctx.enqueue("store_operator", "store.publish",
                 {"slug": slug, "version": i["version"]},
-                idempotency_key=f"publish:{slug}:{i['version']}")
+                idempotency_key=chain_key("publish", slug, i["version"]))
     return plan.to_dict()
 
 
@@ -581,3 +599,62 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     return {"slug": slug, "members": [m[0] for m in certified],
             "price_cad": verdict.price_cad, "saving_cad": verdict.saving_cad,
             "saving_pct": verdict.saving_pct, "name_problems": name_problems}
+
+
+@handlers.register("chain.rebuild")
+def handle_chain_rebuild(ctx: JobContext) -> dict:
+    """Re-drive the post-certification chain for releases the current chain never reached.
+
+    Certification is keyed per slug and version, correctly: a pattern is certified once. But
+    everything *after* certification — assets, pricing, listing, launch, content — can change
+    when the code changes, and a product certified under an older chain would otherwise never
+    receive any of it.
+
+    Production proved the need. Fifteen products were certified before listing imagery, search
+    coverage and the content ecosystem existed. The next cycle ran, reported success, and
+    produced nothing, because `gate.certify` had already run for those versions and so the
+    downstream work was never enqueued.
+
+    This looks for certified releases with no listing at the current chain version and starts
+    them at `listing.draft`. It is idempotent: a release that already has one is left alone.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing, PatternVersion, Product
+
+    with ctx.db.session() as s:
+        products = {p.id: p.slug for p in s.scalars(select(Product))}
+        certified = [pv for pv in s.scalars(
+            select(PatternVersion).where(PatternVersion.certified == True))]  # noqa: E712
+        listed = {(l.product_slug, l.version) for l in s.scalars(select(Listing))}
+
+    started: list[str] = []
+    for pv in certified:
+        slug = products.get(pv.product_id)
+        if not slug or (slug, pv.version) in listed:
+            continue
+        job = ctx.enqueue("listing", "listing.draft",
+                          {"slug": slug, "version": pv.version},
+                          idempotency_key=chain_key("listing", slug, pv.version))
+        if job is not None:
+            started.append(f"{slug}@{pv.version}")
+
+    # Collections are listed under the pseudo-version "collection" rather than a
+    # PatternVersion, so they need their own line here or a rebuild leaves the bundle behind.
+    collections_started: list[str] = []
+    for seed in POOL:
+        if not seed.is_bundle or (seed.slug, "collection") in listed:
+            continue
+        job = ctx.enqueue("listing", "collection.assemble",
+                          {"slug": seed.slug, "family": seed.family},
+                          idempotency_key=chain_key("collection", seed.slug, "collection"))
+        if job is not None:
+            collections_started.append(seed.slug)
+
+    ctx.audit("chain.rebuilt", detail={"chain_version": CHAIN_VERSION,
+                                       "certified": len(certified),
+                                       "restarted": started[:20],
+                                       "restarted_count": len(started),
+                                       "collections_restarted": collections_started})
+    return {"chain_version": CHAIN_VERSION, "certified": len(certified),
+            "restarted": started, "collections_restarted": collections_started}
