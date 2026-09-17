@@ -48,6 +48,10 @@ catalogue, and the acceptance gates.
   15 certified patterns, 16 listings, 94 listing images, 129 content pieces and 1 collection,
   none of it published. Nothing in this system can publish: there is no Etsy, Pinterest,
   email, video or messaging integration at all.
+- Etsy publishing: **code written, never called.** The client exists, is unit-tested and
+  refuses on phase, on owner authority and on missing credentials, in that order. Nothing in
+  this environment can satisfy any of the three. "Written" is not "connected" and the
+  readiness report still reports the integration as absent.
 - Model providers: **none configured.** The Model Gateway is built and tested, but no API
   key exists in this environment, so `available_providers()` returns an empty list and the
   dashboard says "none". Nothing in the pipeline currently calls a model: every load-bearing
@@ -244,6 +248,12 @@ See `DECISION_LOG.md` for reasoning. Summary:
   circumference, radius, axial rise, shape classification (disc / tube / cone / vessel /
   dome / shaped / gathered), corner detection from stitch positions, and an explicit refusal
   where the geometry cannot support a finished size.
+- `integrations/etsy.py` — the publishing path: a v3 draft-listing client behind three
+  ordered refusals (phase, owner authority, credentials), a mapper that refuses rather than
+  truncates, and an honest outcome for "listing created, file not attached". **Written and
+  unit-tested against a fake transport; never called against Etsy.** No credentials exist in
+  this environment. The multipart file upload is the one part that cannot be verified
+  without a live call, and the interface says so rather than hiding it.
 - `quality/physical.py` — the only measured input: grams per colour and the ball band become
   metres, metres against the estimate become a calibration factor keyed on that yarn and
   stitch, and a finished size outside 12% of the claim raises a defect rather than becoming
