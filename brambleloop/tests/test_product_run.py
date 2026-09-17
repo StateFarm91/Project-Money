@@ -601,6 +601,59 @@ def test_a_redesigned_product_re_enters_the_chain():
         assert pv.certificate.get("doc_version"), "no document version recorded"
 
 
+
+def test_a_recertified_release_rebuilds_its_listing():
+    """The same collision one stage lower, found in production minutes after the first fix.
+
+    Certification re-ran and produced a new release hash, then found `listing:{slug}:{version}
+    :c{chain}` already taken by the previous rebuild -- so the corrected design certified and
+    the old listing stayed exactly where it was. The post-certification chain has to be keyed
+    on *what was certified*, not merely on which product.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Listing, PatternVersion, Product
+    from brambleloop.products.builder import CATALOGUE, build
+    from brambleloop.runtime.pipeline import _engineered_cir
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/relisting.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "relisting-worker")
+        for _ in range(600):
+            if not w.run_once():
+                break
+
+    slug = "mosaic-placemat-pair"
+    fresh = _engineered_cir(slug)
+    stale = build(CATALOGUE["cottage-wall-hanging"])
+    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title})
+
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
+    drain_all()
+    with db.session() as s:
+        first = s.scalar(select(Listing).where(Listing.product_slug == slug))
+        assert first is not None, "the stale design produced no listing"
+        stale_release = first.release_hash
+        assert stale_release, "the listing does not record which release produced it"
+
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    drain_all()
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == fresh.version))
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug))
+        assert listing.release_hash != stale_release, \
+            "the listing was never rebuilt for the new release"
+        assert listing.release_hash == pv.release_hash, \
+            "the listing and the certificate disagree about which release shipped"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

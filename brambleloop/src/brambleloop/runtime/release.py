@@ -50,8 +50,18 @@ from .worker import JobContext, handlers
 CHAIN_VERSION = "5"
 
 
-def chain_key(stage: str, slug: str, version: str) -> str:
-    return f"{stage}:{slug}:{version}:c{CHAIN_VERSION}"
+def chain_key(stage: str, slug: str, version: str, release: str = "") -> str:
+    """The idempotency key for one post-certification stage.
+
+    `release` is the certified release hash, and leaving it out is only right for work that
+    has no release of its own (a collection is its members). Without it the whole
+    post-certification chain is keyed on *which product* rather than *what was certified*,
+    so a re-engineered design re-certifies and then finds every downstream key already
+    taken -- which is exactly what happened when two products were rebuilt: production
+    issued new certificates and kept serving the old listings.
+    """
+    tail = f"{release[:12]}:" if release else ""
+    return f"{stage}:{slug}:{version}:{tail}c{CHAIN_VERSION}"
 
 
 CATEGORY_BANDS_CAD: dict[str, tuple[float, float]] = {
@@ -166,7 +176,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
         return {"slug": slug, "version": version, "ok": False,
                 "blocking_image_problems": blocking}
 
-    payload = {"slug": slug, "version": version, "pages": doc.pages,
+    release = ctx.job.inputs.get("release", "")
+    payload = {"slug": slug, "version": version, "release": release, "pages": doc.pages,
                "size_label": doc.size_label(),
                "finished_size_cm": list(doc.finished_size_cm) if doc.finished_size_cm else None,
                "yardage": doc.yardage_by_color, "tolerance": doc.yardage_tolerance,
@@ -175,7 +186,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
                "legend_sha256": legend.sha256,
                "frames": stored_frames}
     ctx.enqueue("pricing", "pricing.position", payload,
-                idempotency_key=chain_key("price", slug, version))
+                idempotency_key=chain_key("price", slug, version, release))
     return payload
 
 
@@ -210,7 +221,8 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     i.update({"price_cad": decision.price_cad, "net_cad": decision.net_cad,
               "pricing_reasons": decision.reasons, "pricing_warnings": decision.warnings,
               "category": category})
-    ctx.enqueue("listing", "listing.seo", i, idempotency_key=chain_key("seo", slug, i["version"]))
+    ctx.enqueue("listing", "listing.seo", i,
+                idempotency_key=chain_key("seo", slug, i["version"], i.get("release", "")))
     return decision.to_dict()
 
 
@@ -285,13 +297,15 @@ def handle_listing_seo(ctx: JobContext) -> dict:
 
     i.update({"listing": copy.to_dict(), "attributes": attributes,
               "search_coverage": coverage.to_dict()})
-    _persist_listing(ctx, slug, version, copy, coverage.share)
-    ctx.enqueue("growth", "launch.plan", i, idempotency_key=chain_key("launch", slug, version))
+    _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""))
+    ctx.enqueue("growth", "launch.plan", i,
+                idempotency_key=chain_key("launch", slug, version, i.get("release", "")))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict()}
 
 
-def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: float) -> None:
+def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: float,
+                     release: str = "") -> None:
     """Drafted, never published. Shadow mode holds the whole shop ready rather than open."""
     from sqlalchemy import select
 
@@ -310,6 +324,7 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
         row.seo_score = share
         row.state = "draft"
         row.chain_version = CHAIN_VERSION
+        row.release_hash = release or ""
 
 
 @handlers.register("launch.plan")
@@ -337,10 +352,12 @@ def handle_launch_plan(ctx: JobContext) -> dict:
 
     i["launch"] = plan.to_dict()
     ctx.enqueue("growth", "marketing.schedule", i,
-                idempotency_key=chain_key("content", slug, i["version"]))
+                idempotency_key=chain_key("content", slug, i["version"],
+                                          i.get("release", "")))
     ctx.enqueue("store_operator", "store.publish",
                 {"slug": slug, "version": i["version"]},
-                idempotency_key=chain_key("publish", slug, i["version"]))
+                idempotency_key=chain_key("publish", slug, i["version"],
+                                          i.get("release", "")))
     return plan.to_dict()
 
 
@@ -686,8 +703,20 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         # Current, not merely present. An earlier version of this looked only for *missing*
         # listings and so left every stale one exactly as it was: the fix reached nothing, and
         # a stuttering title stayed on every shipped product through two deploys.
-        current = {(l.product_slug, l.version) for l in s.scalars(select(Listing))
-                   if l.chain_version == CHAIN_VERSION}
+        # Current means built by this chain *from this release*. The chain version catches a
+        # code change; the release hash catches a design change, which keeps the same slug
+        # and the same version and so is invisible to the chain version alone.
+        releases = {(pv.product_id, pv.version): pv.release_hash for pv in certified}
+        by_slug = {slug: pid for pid, slug in products.items()}
+        current = set()
+        for l in s.scalars(select(Listing)):
+            if l.chain_version != CHAIN_VERSION:
+                continue
+            pid = by_slug.get(l.product_slug)
+            expected = releases.get((pid, l.version)) if pid else None
+            if expected and (l.release_hash or "") != expected:
+                continue
+            current.add((l.product_slug, l.version))
 
     started: list[str] = []
     for pv in certified:
@@ -696,7 +725,8 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
             continue
         job = ctx.enqueue("listing", "listing.draft",
                           {"slug": slug, "version": pv.version},
-                          idempotency_key=chain_key("listing", slug, pv.version))
+                          idempotency_key=chain_key("listing", slug, pv.version,
+                                                    pv.release_hash or ""))
         if job is not None:
             started.append(f"{slug}@{pv.version}")
 

@@ -374,8 +374,10 @@ def handle_certify(ctx: JobContext) -> dict:
         from .release import chain_key
 
         ctx.enqueue("listing", "listing.draft",
-                    {"slug": cir.slug, "version": cir.version},
-                    idempotency_key=chain_key("listing", cir.slug, cir.version))
+                    {"slug": cir.slug, "version": cir.version,
+                     "release": cert.release_hash},
+                    idempotency_key=chain_key("listing", cir.slug, cir.version,
+                                              cert.release_hash or ""))
     else:
         _withdraw_listing(ctx, cir)
 
@@ -467,8 +469,10 @@ def handle_listing_draft(ctx: JobContext) -> dict:
     ctx.audit("listing.drafted", artifact=slug)
     from .release import chain_key
 
-    ctx.enqueue("publishing", "assets.build", {"slug": slug, "version": version},
-                idempotency_key=chain_key("assets", slug, version))
+    release = ctx.job.inputs.get("release", "")
+    ctx.enqueue("publishing", "assets.build",
+                {"slug": slug, "version": version, "release": release},
+                idempotency_key=chain_key("assets", slug, version, release))
     return {"artifact": slug, "drafted": True}
 
 

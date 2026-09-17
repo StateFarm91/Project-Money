@@ -336,6 +336,10 @@ class Listing(Base):
     # Which release chain produced this listing. A rebuild that only looked for *missing*
     # listings left every stale one in place, so staleness has to be visible.
     chain_version: Mapped[str] = mapped_column(String(8), default="1", index=True)
+    # And which *certified release* produced it. The chain version catches a code change;
+    # this catches a design change, which the chain version cannot see: a re-engineered
+    # product keeps its slug and its version and gets a new release hash.
+    release_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (
