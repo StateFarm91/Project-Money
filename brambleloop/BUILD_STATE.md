@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **470 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **468 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
@@ -48,7 +48,10 @@ catalogue, and the acceptance gates.
   15 certified patterns, 16 listings, 94 listing images, 129 content pieces and 1 collection,
   none of it published. Nothing in this system can publish: there is no Etsy, Pinterest,
   email, video or messaging integration at all.
-- Etsy publishing: **code written, never called.** The client exists, is unit-tested and
+- Etsy publishing: **code written and wired, never called.** `store.publish` asks the client
+  past shadow mode, and the client's own three refusals stand in front of it, so the phase is
+  the first of four conditions rather than the only one. A listing records the Etsy listing
+  it became, so publishing twice cannot create two. The client exists, is unit-tested and
   refuses on phase, on owner authority and on missing credentials, in that order. Nothing in
   this environment can satisfy any of the three. "Written" is not "connected" and the
   readiness report still reports the integration as absent.
@@ -248,6 +251,8 @@ See `DECISION_LOG.md` for reasoning. Summary:
   circumference, radius, axial rise, shape classification (disc / tube / cone / vessel /
   dome / shaped / gathered), corner detection from stitch positions, and an explicit refusal
   where the geometry cannot support a finished size.
+- `integrations/http.py` — a urllib transport for that client. Standard library only, no
+  retries (that is the caller's policy), and never run against Etsy.
 - `integrations/etsy.py` — the publishing path: a v3 draft-listing client behind three
   ordered refusals (phase, owner authority, credentials), a mapper that refuses rather than
   truncates, and an honest outcome for "listing created, file not attached". **Written and
@@ -496,6 +501,6 @@ Exact and verified. Nothing here is projected.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 470 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 468 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

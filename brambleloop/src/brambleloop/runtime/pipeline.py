@@ -482,7 +482,13 @@ def handle_listing_draft(ctx: JobContext) -> dict:
 
 @handlers.register("store.publish")
 def handle_store_publish(ctx: JobContext) -> dict:
-    """In SHADOW this must refuse. Publishing is a production capability with its own gate."""
+    """In SHADOW this must refuse. Publishing is a production capability with its own gate.
+
+    Past shadow, this is where the Etsy client is asked -- and the client has its own three
+    refusals in front of it, so "the phase allows it" is the first of four conditions rather
+    than the only one. Nothing in this environment satisfies the others: there are no
+    credentials and no owner grant.
+    """
     if ctx.phase is Phase.SHADOW:
         ctx.audit("store.publish_refused", artifact=ctx.job.inputs.get("slug"),
                   detail={"reason": "shadow mode: no live publication"})
@@ -490,7 +496,95 @@ def handle_store_publish(ctx: JobContext) -> dict:
             "store.publish is a production capability; the system is in SHADOW mode and has "
             "no live Etsy connection. Draft retained for review."
         )
-    raise ShadowModeRefusal("live publishing is not yet enabled; no Etsy integration exists")
+
+    import os
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..integrations.etsy import Credentials, EtsyClient, build_payload
+    from ..integrations.http import UrllibTransport
+
+    slug = ctx.job.inputs["slug"]
+    version = ctx.job.inputs.get("version", "1.0.0")
+
+    client = EtsyClient(
+        UrllibTransport(),
+        credentials=Credentials.from_env(),
+        phase=ctx.phase.value,
+        # A separate fact from having a key: publishing is RED in the authority matrix.
+        owner_authorised=os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") == "1")
+
+    refusal = client.refusal()
+    if refusal is not None:
+        ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
+                  detail={"reason": refusal})
+        raise ShadowModeRefusal(refusal)
+
+    with ctx.db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == version))
+        if listing is None:
+            raise ValueError(f"no drafted listing for {slug}@{version}: publishing cannot "
+                             f"precede the listing the gates checked")
+        copy = dict(title=listing.title, description=listing.description,
+                    price_cad=listing.price_cad, tags=list(listing.tags))
+        already = listing.etsy_listing_id
+
+    if already:
+        # Publishing twice must not create a second listing. Updating an existing one is a
+        # different operation with a different risk profile, so it is refused here rather
+        # than guessed at.
+        ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
+                  detail={"reason": f"already on Etsy as listing {already}"})
+        return {"slug": slug, "version": version, "published": False,
+                "etsy_listing_id": already, "reason": "already published"}
+
+    cir = _load_cir(ctx, slug, version)
+    payload = build_payload(materials=[m.name for m in cir.materials], **copy)
+
+    # The bytes have to exist. Without durable storage they may not, and the client refuses
+    # an empty upload rather than creating a listing that delivers nothing.
+    from ..core.artifacts import ArtifactStore
+    from ..publish.pdf import build_pattern_pdf
+
+    result = compile_cir(cir)
+    twin = build_twin(cir, result)
+    doc = build_pattern_pdf(cir, twin=twin, terminology="US")
+    store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
+    stored = store.put(f"{slug}/{version}/pattern-us.pdf", doc.pdf_bytes, "application/pdf")
+
+    outcome = client.publish(payload=payload, filename=f"{slug}-pattern.pdf",
+                             data=doc.pdf_bytes)
+
+    if outcome.listing_id:
+        with ctx.db.session() as s:
+            row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == version))
+            if row is not None:
+                row.etsy_listing_id = outcome.listing_id
+                row.state = "published" if outcome.published else "incomplete_on_etsy"
+
+    ctx.audit("store.published" if outcome.published else "store.publish_incomplete",
+              artifact=f"{slug}@{version}",
+              detail={"etsy_listing_id": outcome.listing_id,
+                      "file_uploaded": outcome.file_uploaded,
+                      "pdf_sha256": stored.sha256,
+                      "problems": outcome.problems[:3]})
+
+    if outcome.needs_completion:
+        # A listing on Etsy with no file attached would take money and deliver nothing.
+        from ..gates.incidents import DefectReport, IncidentTracker
+
+        IncidentTracker(ctx.db).report(DefectReport(
+            product_slug=slug, pattern_version=version, component=None, row=None,
+            customer_ref=f"etsy:{outcome.listing_id}",
+            text=(f"Etsy listing {outcome.listing_id} exists with no digital file attached. "
+                  f"It must be completed or deleted before it can take an order.")))
+
+    return {"slug": slug, "version": version, "published": outcome.published,
+            "etsy_listing_id": outcome.listing_id,
+            "file_uploaded": outcome.file_uploaded, "problems": outcome.problems}
 
 
 @handlers.register("ops.heartbeat")

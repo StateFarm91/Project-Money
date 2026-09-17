@@ -340,6 +340,10 @@ class Listing(Base):
     # this catches a design change, which the chain version cannot see: a re-engineered
     # product keeps its slug and its version and gets a new release hash.
     release_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
+    # The Etsy listing this became, once it becomes one. Recorded so that publishing twice
+    # updates a listing rather than creating a second one, and so a listing that exists on
+    # Etsy with no file attached can be found again and completed.
+    etsy_listing_id: Mapped[str] = mapped_column(String(32), default="", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (

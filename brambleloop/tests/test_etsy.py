@@ -241,6 +241,73 @@ def test_a_success_with_no_listing_id_is_treated_as_a_rejection():
     raise AssertionError("a response with no listing_id was accepted")
 
 
+
+# ---- through the job -------------------------------------------------------
+
+
+def test_the_publish_job_refuses_in_shadow_and_says_the_draft_is_kept():
+    """The refusal production has recorded 45 times. Its wording is load-bearing: the
+    verification endpoint counts these, and a buyer-facing draft that is "retained for
+    review" is a different claim from one that was lost."""
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog, Phase
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401
+    from brambleloop.runtime.worker import Worker
+    from sqlalchemy import select
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/publish.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    JobQueue(db).enqueue("store_operator", "store.publish",
+                         {"slug": "market-basket-trio", "version": "1.0.0"})
+    w = Worker(db, "publish-worker", phase=Phase.SHADOW)
+    for _ in range(20):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        refusals = [r for r in s.scalars(select(AuditLog))
+                    if r.action == "store.publish_refused"]
+    assert refusals, "shadow mode did not record a refusal"
+    assert "shadow" in str(refusals[0].detail).lower()
+
+
+def test_past_shadow_the_client_still_refuses_for_want_of_credentials():
+    """The phase is the first of four conditions, not the only one. This environment has no
+    credentials and no owner grant, so a phase change alone cannot publish anything."""
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog, Phase
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401
+    from brambleloop.runtime.worker import Worker
+    from sqlalchemy import select
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/publish2.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    JobQueue(db).enqueue("store_operator", "store.publish",
+                         {"slug": "market-basket-trio", "version": "1.0.0"})
+    w = Worker(db, "publish-worker", phase=Phase.PRODUCTION)
+    for _ in range(20):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        refusals = [str(r.detail) for r in s.scalars(select(AuditLog))
+                    if r.action == "store.publish_refused"]
+    assert refusals, "publishing in production was not even attempted"
+    reason = refusals[-1]
+    assert "authority matrix" in reason or "credentials" in reason, reason
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
