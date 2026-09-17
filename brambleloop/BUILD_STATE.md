@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **468 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **483 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
@@ -493,6 +493,14 @@ Exact and verified. Nothing here is projected.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-17: **The Etsy publishing path, written before it can publish.** A v3
+  draft-listing client behind three ordered refusals — phase, then the owner's authority,
+  then credentials — with a mapper that refuses rather than truncates and an honest outcome
+  for "listing created, file not attached". `store.publish` asks it past shadow mode, so the
+  phase is now the first of four conditions rather than the only one. Unit-tested against a
+  fake transport that counts its calls; never called against Etsy, because nothing in this
+  environment can satisfy the other three conditions. The multipart file upload is the one
+  part that cannot be verified without a live call, and the interface says so.
 - 2026-09-17: **Physical test intake and calibration**, plus the third layer of the rebuild
   bug. A real sample now has somewhere to land: it calibrates the yardage for its own yarn
   and stitch, and a finished size that disagrees with the claim raises a defect instead of
@@ -501,6 +509,6 @@ Exact and verified. Nothing here is projected.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 468 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 483 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
