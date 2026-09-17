@@ -12,12 +12,14 @@ written. Nothing downstream is allowed to assert something nothing upstream comp
 """
 from __future__ import annotations
 
+import hashlib
 from datetime import date
 
 from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import build_twin
 from ..cir.writer import collapses_rows
+from ..quality.physical import calibration_from_db
 from ..commerce import launch as launch_mod
 from ..commerce import pricing as pricing_mod
 from ..commerce import pricing_intel as pricing_mod_intel
@@ -50,18 +52,30 @@ from .worker import JobContext, handlers
 CHAIN_VERSION = "5"
 
 
-def chain_key(stage: str, slug: str, version: str, release: str = "") -> str:
+def chain_key(stage: str, slug: str, version: str, release: str = "",
+              token: str = "") -> str:
     """The idempotency key for one post-certification stage.
 
-    `release` is the certified release hash, and leaving it out is only right for work that
-    has no release of its own (a collection is its members). Without it the whole
-    post-certification chain is keyed on *which product* rather than *what was certified*,
-    so a re-engineered design re-certifies and then finds every downstream key already
-    taken -- which is exactly what happened when two products were rebuilt: production
-    issued new certificates and kept serving the old listings.
+    Three things identify the work, and leaving any of them out has cost a delivery:
+
+    - `slug` and `version` say which product. Alone they meant a code change could never
+      reach a product that had already shipped, which is what CHAIN_VERSION fixed.
+    - `release` says *what was certified*. Without it a re-engineered design re-certifies
+      and then finds every downstream key taken, so production issued new certificates and
+      kept serving the old listings.
+    - `token` says which rebuild asked. A rebuild exists precisely for the case where the
+      work already ran and its result is no longer right, so the trigger has to be part of
+      the key or the rebuild cannot re-drive a single stage of the chain. It rides the whole
+      chain in the job inputs, so every stage re-runs once for that rebuild and not once per
+      cadence.
     """
-    tail = f"{release[:12]}:" if release else ""
-    return f"{stage}:{slug}:{version}:{tail}c{CHAIN_VERSION}"
+    parts = [stage, slug, version]
+    if release:
+        parts.append(release[:12])
+    if token:
+        parts.append(token[:12])
+    parts.append(f"c{CHAIN_VERSION}")
+    return ":".join(parts)
 
 
 CATEGORY_BANDS_CAD: dict[str, tuple[float, float]] = {
@@ -111,7 +125,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
     version = ctx.job.inputs["version"]
     cir = _load_cir(ctx, slug, version)
     result = compile_cir(cir)
-    twin = build_twin(cir, result)
+    twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
 
     doc = build_pattern_pdf(cir, twin=twin, terminology="US")
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
@@ -177,7 +191,9 @@ def handle_assets_build(ctx: JobContext) -> dict:
                 "blocking_image_problems": blocking}
 
     release = ctx.job.inputs.get("release", "")
-    payload = {"slug": slug, "version": version, "release": release, "pages": doc.pages,
+    token = ctx.job.inputs.get("rebuild", "")
+    payload = {"slug": slug, "version": version, "release": release, "rebuild": token,
+               "pages": doc.pages,
                "size_label": doc.size_label(),
                "finished_size_cm": list(doc.finished_size_cm) if doc.finished_size_cm else None,
                "yardage": doc.yardage_by_color, "tolerance": doc.yardage_tolerance,
@@ -186,7 +202,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
                "legend_sha256": legend.sha256,
                "frames": stored_frames}
     ctx.enqueue("pricing", "pricing.position", payload,
-                idempotency_key=chain_key("price", slug, version, release))
+                idempotency_key=chain_key("price", slug, version, release, token))
     return payload
 
 
@@ -222,7 +238,8 @@ def handle_pricing_position(ctx: JobContext) -> dict:
               "pricing_reasons": decision.reasons, "pricing_warnings": decision.warnings,
               "category": category})
     ctx.enqueue("listing", "listing.seo", i,
-                idempotency_key=chain_key("seo", slug, i["version"], i.get("release", "")))
+                idempotency_key=chain_key("seo", slug, i["version"], i.get("release", ""),
+                                          i.get("rebuild", "")))
     return decision.to_dict()
 
 
@@ -233,7 +250,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     slug, version = i["slug"], i["version"]
     cir = _load_cir(ctx, slug, version)
     result = compile_cir(cir)
-    twin = build_twin(cir, result)
+    twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
     seed = _seed_for(slug)
     category = i.get("category") or (seed.category if seed else "mosaic_blanket")
     season = seed.season if seed else None
@@ -299,7 +316,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
               "search_coverage": coverage.to_dict()})
     _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""))
     ctx.enqueue("growth", "launch.plan", i,
-                idempotency_key=chain_key("launch", slug, version, i.get("release", "")))
+                idempotency_key=chain_key("launch", slug, version, i.get("release", ""),
+                                          i.get("rebuild", "")))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict()}
 
@@ -353,11 +371,11 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     i["launch"] = plan.to_dict()
     ctx.enqueue("growth", "marketing.schedule", i,
                 idempotency_key=chain_key("content", slug, i["version"],
-                                          i.get("release", "")))
+                                          i.get("release", ""), i.get("rebuild", "")))
     ctx.enqueue("store_operator", "store.publish",
                 {"slug": slug, "version": i["version"]},
                 idempotency_key=chain_key("publish", slug, i["version"],
-                                          i.get("release", "")))
+                                          i.get("release", ""), i.get("rebuild", "")))
     return plan.to_dict()
 
 
@@ -379,7 +397,8 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     launch_on = date.fromisoformat(i["launch"]["launch_on"])
 
     cir = _load_cir(ctx, slug, version)
-    twin = build_twin(cir, compile_cir(cir))
+    twin = build_twin(cir, compile_cir(cir),
+                      calibration=calibration_from_db(ctx.db, cir))
     tol = twin.yardage_tolerance
     yardage_line = "; ".join(
         f"{name} about {m * (1 - tol):.0f}-{m * (1 + tol):.0f} m"
@@ -622,6 +641,80 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
             "saving_pct": verdict.saving_pct, "name_problems": name_problems}
 
 
+@handlers.register("physical.record")
+def handle_physical_record(ctx: JobContext) -> dict:
+    """Take one real crocheted sample and let it change what the company claims.
+
+    The only measured input in the system. It does two different things and the difference is
+    the point: the yarn figure is *calibrated* against it, and the finished size is
+    *falsified* by it. Folding a size disagreement into the calibration factor would turn the
+    one check that can catch a wrong geometry model into a number that quietly absorbs it.
+
+    A sample that disagrees about size raises a defect against the product, which halts its
+    publication. That is the correct outcome: the listing's size claim is wrong, and no
+    amount of yarn arithmetic fixes a basket that is not the size we said.
+    """
+    from ..gates.incidents import DefectReport, IncidentTracker
+    from ..quality.physical import BallBand, SampleReport, assess, calibration_from_db, record
+
+    i = ctx.job.inputs
+    slug, version = i["slug"], i.get("version", "1.0.0")
+    cir = _load_cir(ctx, slug, version)
+    result = compile_cir(cir)
+    twin = build_twin(cir, result)   # uncalibrated on purpose: this is what we predicted
+
+    report = SampleReport(
+        product_slug=slug, version=version, tester_ref=i.get("tester_ref", "owner"),
+        grams_by_color={str(k): float(v) for k, v in (i.get("grams_by_color") or {}).items()},
+        ball_band=BallBand(grams=float(i["ball_band_grams"]),
+                           metres=float(i["ball_band_metres"])),
+        hook_mm=i.get("hook_mm"),
+        measured_width_cm=i.get("measured_width_cm"),
+        measured_height_cm=i.get("measured_height_cm"),
+        measured_around_cm=i.get("measured_around_cm"),
+        hours=i.get("hours"),
+        notes=i.get("notes", ""),
+        instructions_followed=bool(i.get("instructions_followed", True)))
+
+    assessment = assess(report, twin, cir)
+    row_id = record(ctx.db, assessment)
+    ctx.audit("physical.recorded", artifact=f"{slug}@{version}",
+              detail={"row": row_id, **assessment.to_dict()})
+
+    if assessment.size_agrees is False:
+        tracker = IncidentTracker(ctx.db)
+        for finding in assessment.findings:
+            if finding.code != "SAMPLE_SIZE_DISAGREES":
+                continue
+            tracker.report(DefectReport(
+                product_slug=slug, pattern_version=version, component=None, row=None,
+                customer_ref=f"physical-test:{row_id}", text=finding.message))
+        ctx.audit("physical.size_disagreement", artifact=f"{slug}@{version}",
+                  detail={"measured": assessment.to_dict()["measured_metres"],
+                          "findings": [f.code for f in assessment.findings]})
+
+    # A usable sample changes every yardage figure for its yarn and stitch, which means the
+    # PDFs and listings built from the old estimate are now stale. Keyed on the factor, so
+    # the rebuild happens once per calibration rather than once per rebuild cadence.
+    factor = calibration_from_db(ctx.db, cir)
+    rebuilt: list[str] = []
+    if assessment.usable_for_calibration and factor != 1.0:
+        job = ctx.enqueue("publishing", "assets.build",
+                          {"slug": slug, "version": version,
+                           "release": i.get("release", "")},
+                          idempotency_key=chain_key("assets", slug, version,
+                                                    f"cal{factor}"))
+        if job is not None:
+            rebuilt.append(f"{slug}@{version}")
+
+    return {"slug": slug, "version": version, "physical_test_id": row_id,
+            "factor": assessment.factor, "calibration_now": factor,
+            "size_agrees": assessment.size_agrees,
+            "usable": assessment.usable_for_calibration,
+            "findings": [f.code for f in assessment.findings],
+            "rebuilt": rebuilt}
+
+
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:
     """Assess what stands between this shop and a live customer, and queue what is owner-only.
@@ -706,27 +799,38 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         # Current means built by this chain *from this release*. The chain version catches a
         # code change; the release hash catches a design change, which keeps the same slug
         # and the same version and so is invisible to the chain version alone.
-        releases = {(pv.product_id, pv.version): pv.release_hash for pv in certified}
-        by_slug = {slug: pid for pid, slug in products.items()}
-        current = set()
-        for l in s.scalars(select(Listing)):
-            if l.chain_version != CHAIN_VERSION:
-                continue
-            pid = by_slug.get(l.product_slug)
-            expected = releases.get((pid, l.version)) if pid else None
-            if expected and (l.release_hash or "") != expected:
-                continue
-            current.add((l.product_slug, l.version))
+        # What each existing listing was actually built from. Staleness is then a comparison
+        # rather than a guess, and the comparison is recorded: a rebuild that says "nothing
+        # to do" without showing its reasoning is unfalsifiable from outside the process,
+        # and this decision has now been wrong twice.
+        built_from = {
+            (l.product_slug, l.version): f"c{l.chain_version}:{l.release_hash or 'none'}"
+            for l in s.scalars(select(Listing))
+        }
 
     started: list[str] = []
+    reasons: dict[str, str] = {}
     for pv in certified:
         slug = products.get(pv.product_id)
-        if not slug or (slug, pv.version) in current:
+        if not slug:
             continue
+        wanted = f"c{CHAIN_VERSION}:{pv.release_hash or 'none'}"
+        actual = built_from.get((slug, pv.version), "missing")
+        if actual == wanted:
+            reasons[slug] = "current"
+            continue
+        reasons[slug] = f"{actual} -> {wanted}"
+        token = hashlib.sha256(f"{actual}->{wanted}".encode()).hexdigest()[:12]
+        # The key names the *transition*, not the destination. Keying it on the destination
+        # alone is what stopped the previous fix from delivering itself: the listing had
+        # already been built from this release once, so the key was taken, and a listing
+        # that went stale for any other reason could never be rebuilt. Keyed this way the
+        # job is enqueued once per stale state rather than once per cadence.
         job = ctx.enqueue("listing", "listing.draft",
-                          {"slug": slug, "version": pv.version},
+                          {"slug": slug, "version": pv.version,
+                           "release": pv.release_hash or "", "rebuild": token},
                           idempotency_key=chain_key("listing", slug, pv.version,
-                                                    pv.release_hash or ""))
+                                                    pv.release_hash or "", token))
         if job is not None:
             started.append(f"{slug}@{pv.version}")
 
@@ -762,7 +866,12 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     # PatternVersion, so they need their own line here or a rebuild leaves the bundle behind.
     collections_started: list[str] = []
     for seed in POOL:
-        if not seed.is_bundle or (seed.slug, "collection") in current:
+        if not seed.is_bundle:
+            continue
+        # A collection has no release of its own -- it is its members -- so "built by this
+        # chain" is the whole of the check.
+        if built_from.get((seed.slug, "collection"), "missing").startswith(
+                f"c{CHAIN_VERSION}:"):
             continue
         job = ctx.enqueue("listing", "collection.assemble",
                           {"slug": seed.slug, "family": seed.family},
@@ -777,7 +886,8 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
                                        "restarted_count": len(started),
                                        "redrafted": redrafted[:20],
                                        "redrafted_count": len(redrafted),
-                                       "collections_restarted": collections_started})
+                                       "collections_restarted": collections_started,
+                                       "listings": reasons})
     return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
             "certified": len(certified), "restarted": started,
             "redrafted": redrafted, "collections_restarted": collections_started}

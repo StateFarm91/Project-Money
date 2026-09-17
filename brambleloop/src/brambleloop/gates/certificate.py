@@ -104,6 +104,7 @@ def certify(
     physical_test_passed: bool = False,
     terminology: str = "US",
     cleared_names: set[str] | None = None,
+    calibration: float = 1.0,
 ) -> ReleaseCertificate:
     """Run the full release chain and issue -- or refuse -- a certificate."""
     findings: list[Finding] = []
@@ -117,7 +118,7 @@ def certify(
         return ReleaseCertificate(cir.slug, cir.version, False, None, findings, stages)
 
     # 2. Digital twin.
-    twin: TwinModel = build_twin(cir, result)
+    twin: TwinModel = build_twin(cir, result, calibration=calibration)
     stages.append("twin")
     if twin.geometry is not None:
         # What the fabric does with the shaping: a round that has to gather, and therefore a

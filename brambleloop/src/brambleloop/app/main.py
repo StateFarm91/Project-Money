@@ -147,6 +147,7 @@ def api_catalogue() -> dict:
              "price_cad": l.price_cad, "tags": len(l.tags), "state": l.state,
              "search_share": round(l.seo_score, 3),
              "chain_version": l.chain_version,
+             "release": (l.release_hash or "")[:12],
              "images": by_slug.get(l.product_slug, 0),
              "content_pieces": content_by_slug.get(l.product_slug, 0)}
             for l in sorted(listings, key=lambda x: -x.seo_score)
@@ -263,6 +264,29 @@ def api_owner_actions() -> dict:
              "consequence_of_delay": a.consequence_of_delay, "blocks": a.blocks}
             for a in rows
         ]}
+
+
+@app.post("/api/physical-test")
+def api_physical_test(payload: dict) -> dict:
+    """Record a real crocheted sample. The one place measured data enters the system.
+
+    Deliberately a queued job rather than an inline write: it changes published figures and
+    can raise a defect that halts a product, so it belongs in the audited queue with
+    everything else that can do that.
+    """
+    required = ("slug", "grams_by_color", "ball_band_grams", "ball_band_metres")
+    missing = [k for k in required if not payload.get(k)]
+    if missing:
+        return JSONResponse({"error": f"missing: {missing}",
+                             "note": ("grams per colour and the ball band (g and m) are "
+                                      "required; grams cannot become metres without the "
+                                      "band, and a sample in grams alone is unusable")},
+                            status_code=422)
+    try:
+        job = JobQueue(db).enqueue("quality_director", "physical.record", payload)
+    except DuplicateJob:
+        return {"enqueued": False, "reason": "an identical sample is already queued"}
+    return {"enqueued": True, "job_id": job.id if job else None}
 
 
 @app.get("/api/launch")

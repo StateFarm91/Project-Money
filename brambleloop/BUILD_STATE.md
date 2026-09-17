@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **452 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **470 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
@@ -244,6 +244,10 @@ See `DECISION_LOG.md` for reasoning. Summary:
   circumference, radius, axial rise, shape classification (disc / tube / cone / vessel /
   dome / shaped / gathered), corner detection from stitch positions, and an explicit refusal
   where the geometry cannot support a finished size.
+- `quality/physical.py` — the only measured input: grams per colour and the ball band become
+  metres, metres against the estimate become a calibration factor keyed on that yarn and
+  stitch, and a finished size outside 12% of the claim raises a defect rather than becoming
+  a factor. Intake at `POST /api/physical-test` and the `physical.record` job.
 - `launch/readiness.py` — every requirement a live shop has, checked against the warehouse,
   with each unmet one attributed to build, integration or the owner. Writes the owner-only
   ones into the owner-action queue in the Execution Directive's format, daily, without
@@ -474,6 +478,14 @@ Exact and verified. Nothing here is projected.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
-- Totals: 452 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- 2026-09-17: **Physical test intake and calibration**, plus the third layer of the rebuild
+  bug. A real sample now has somewhere to land: it calibrates the yardage for its own yarn
+  and stitch, and a finished size that disagrees with the claim raises a defect instead of
+  being absorbed into the factor. The rebuild also needed the trigger in its keys — keying
+  on the product, the code version and the certified release still left every downstream key
+  taken, so a rebuild could detect staleness and do nothing about it, which it did three
+  times while two products sat visibly wrong in production. It now records the comparison it
+  made for every listing.
+- Totals: 470 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

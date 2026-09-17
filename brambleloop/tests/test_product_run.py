@@ -654,6 +654,94 @@ def test_a_recertified_release_rebuilds_its_listing():
         assert listing.release_hash == pv.release_hash, \
             "the listing and the certificate disagree about which release shipped"
 
+
+def test_a_stale_listing_is_rebuilt_even_when_its_release_is_unchanged():
+    """Production's exact state, and the third layer of the same bug.
+
+    The listing existed, built by this chain, from a release that had since been superseded.
+    Both earlier fixes fired correctly -- the design was re-drafted, the certificate was
+    replaced -- and the listing still did not move, because `listing.draft` and then
+    `assets.build` had already run for that product and their keys were taken. A rebuild
+    exists for exactly the case where the work already ran and its result is no longer
+    right, so the trigger has to be part of the key and has to ride the whole chain.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog, Listing, PatternVersion
+    from brambleloop.products.builder import CATALOGUE, build
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/stale.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "stale-worker")
+        for _ in range(600):
+            if not w.run_once():
+                break
+
+    cir = build(CATALOGUE["mosaic-placemat-pair"])
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    drain_all()
+
+    with db.session() as s:
+        listing = s.scalar(select(Listing))
+        assert listing is not None
+        listing.release_hash = ""
+        listing.title = "OLD TITLE FROM A PREVIOUS DESIGN"
+
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    drain_all()
+
+    with db.session() as s:
+        listing = s.scalar(select(Listing))
+        pv = s.scalar(select(PatternVersion))
+        assert listing.title != "OLD TITLE FROM A PREVIOUS DESIGN", \
+            "the stale listing was never rebuilt"
+        assert (listing.release_hash or "") == pv.release_hash, \
+            "the listing and the certificate disagree about which release shipped"
+
+    # And it settles: a rebuild that finds nothing stale must enqueue nothing, or the hourly
+    # cadence becomes a rebuild loop.
+    JobQueue(db).enqueue("listing", "chain.rebuild", {"n": 2})
+    drain_all()
+    with db.session() as s:
+        detail = [r.detail for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == "chain.rebuilt"))][-1]
+    assert detail["restarted"] == [], detail
+    assert detail["redrafted"] == [], detail
+
+
+def test_the_rebuild_explains_its_decision():
+    """A rebuild that reports "nothing to do" without showing its reasoning is
+    unfalsifiable from outside the process, and this decision has been wrong three times."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog
+    from brambleloop.products.builder import CATALOGUE, build
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/explain.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    cir = build(CATALOGUE["hexie-coaster-set"]) if "hexie-coaster-set" in CATALOGUE \
+        else build(CATALOGUE["mosaic-placemat-pair"])
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    w = Worker(db, "explain-worker")
+    for _ in range(600):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        detail = [r.detail for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == "chain.rebuilt"))][-1]
+    assert "listings" in detail, detail
+    assert detail["listings"], "the rebuild recorded no reasoning at all"
+    for slug, reason in detail["listings"].items():
+        assert reason == "current" or "->" in reason, (slug, reason)
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

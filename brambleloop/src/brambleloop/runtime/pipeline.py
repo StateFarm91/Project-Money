@@ -363,7 +363,10 @@ def handle_certify(ctx: JobContext) -> dict:
         price_cad=11.99,
     )
 
-    cert = certify(cir, assets=[hero], listing=listing)
+    from ..quality.physical import calibration_from_db
+
+    cert = certify(cir, assets=[hero], listing=listing,
+                   calibration=calibration_from_db(ctx.db, cir))
     ctx.audit("gate.certified" if cert.granted else "gate.blocked",
               artifact=f"{cir.slug}@{cir.version}",
               policy_version=cert.policy_version,
@@ -470,9 +473,10 @@ def handle_listing_draft(ctx: JobContext) -> dict:
     from .release import chain_key
 
     release = ctx.job.inputs.get("release", "")
+    token = ctx.job.inputs.get("rebuild", "")
     ctx.enqueue("publishing", "assets.build",
-                {"slug": slug, "version": version, "release": release},
-                idempotency_key=chain_key("assets", slug, version, release))
+                {"slug": slug, "version": version, "release": release, "rebuild": token},
+                idempotency_key=chain_key("assets", slug, version, release, token))
     return {"artifact": slug, "drafted": True}
 
 
