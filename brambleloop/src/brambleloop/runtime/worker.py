@@ -195,6 +195,7 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("daily_review", "orchestrator", "plan.cycle", 24 * 60 * 60),
     ("portfolio_review", "orchestrator", "portfolio.review", 7 * 24 * 60 * 60),
     ("finance_reconcile", "cfo", "finance.reconcile", 24 * 60 * 60),
+    ("strategy_review", "orchestrator", "plan.strategy", 30 * 24 * 60 * 60),
 ]
 
 

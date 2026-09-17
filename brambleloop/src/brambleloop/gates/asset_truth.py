@@ -151,10 +151,30 @@ def check_asset(
                 f"claims material {m!r} which is not in the pattern's material list "
                 f"({sorted(declared_materials)})", where))
 
-    if cl.difficulty and cl.difficulty.lower() == "beginner" and cir.risk_class == "C":
-        out.append(Finding(
-            ERROR, "CLAIM_DIFFICULTY_UNSUPPORTED",
-            "claims beginner difficulty for a Class C (fitted/complex) pattern", where))
+    # Difficulty has to follow from what the pattern contains, in both directions. Claiming
+    # "beginner" for something complex sets a buyer up to fail forty hours in; claiming
+    # "advanced" for a two-stitch rectangle scares off the buyer it was made for and is just
+    # as unsupported. The rule was previously only the first case, which left the gate line
+    # "unsupported difficulty claims are blocked" half true.
+    if cl.difficulty:
+        stated = cl.difficulty.lower()
+        advanced_stitches = {"tr", "dc_inc", "dc_dec"} & set(twin.stitch_types_used)
+        colors_used = len([c for c in twin.colors_used if c])
+        if stated == "beginner" and cir.risk_class == "C":
+            out.append(Finding(
+                ERROR, "CLAIM_DIFFICULTY_UNSUPPORTED",
+                "claims beginner difficulty for a Class C (fitted/complex) pattern", where))
+        elif stated == "beginner" and (advanced_stitches or colors_used > 2):
+            out.append(Finding(
+                ERROR, "CLAIM_DIFFICULTY_UNSUPPORTED",
+                f"claims beginner difficulty, but the pattern uses "
+                f"{sorted(advanced_stitches) or f'{colors_used} colours'}", where))
+        elif stated in ("advanced", "expert") and not advanced_stitches and colors_used <= 2:
+            out.append(Finding(
+                ERROR, "CLAIM_DIFFICULTY_UNSUPPORTED",
+                f"claims {stated} difficulty, but the pattern is "
+                f"{sorted(twin.stitch_types_used)} in {colors_used} colour(s); overstating "
+                f"difficulty turns away the buyer it was designed for", where))
 
     # --- honesty about what the image is ---
     if asset.asset_class is AssetClass.AI_LIFESTYLE_CONCEPT:

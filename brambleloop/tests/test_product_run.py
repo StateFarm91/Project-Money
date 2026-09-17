@@ -198,7 +198,8 @@ def test_support_answers_from_the_released_version():
     out = q.get(job.id).outputs
     assert out["cited_version"] == f"{FLAGSHIP}@1.0.0"
     assert out["cited_rows"] == [12]
-    assert "144 stitches" in out["answer"], out["answer"]
+    assert "144 stitches" in out["body"], out["body"]
+    assert out["sent"] is False, "shadow mode drafted a reply and marked it sent"
 
 
 # ---- attacks --------------------------------------------------------------

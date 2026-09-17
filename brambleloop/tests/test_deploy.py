@@ -121,6 +121,33 @@ def test_a_planning_cycle_can_be_started_on_demand_and_is_idempotent_per_date():
     assert second["enqueued"] is False, "the same date enqueued twice"
 
 
+def test_the_catalogue_endpoint_is_explicit_that_nothing_is_published():
+    with _client() as c:
+        body = c.get("/api/catalogue").json()
+    assert body["published"] is False
+    assert "shadow" in body["why"]
+    assert "no Etsy" in body["why"]
+    for key in ("listings", "collections", "totals"):
+        assert key in body, key
+
+
+def test_the_finance_endpoint_reports_observed_figures_and_no_forecast():
+    with _client() as c:
+        body = c.get("/api/finance").json()
+    assert body["profit_and_loss"]["all_figures_observed"] is True
+    assert body["profit_and_loss"]["gross_sales_cad"] == 0.0
+    assert body["trajectory"]["is_forecast"] is False
+    assert body["unit_economics"]["cost_per_acquired_customer_cad"] is None
+    assert isinstance(body["cfo_challenges"], list)
+
+
+def test_the_support_endpoint_shows_that_nothing_was_sent():
+    with _client() as c:
+        body = c.get("/api/support").json()
+    assert body["nothing_sent"] is True
+    assert all(case["sent"] is False for case in body["cases"])
+
+
 def test_verify_endpoint_reports_the_standing_safety_assertions():
     """"Railway says deployed" is not "the company is alive and behaving"."""
     with _client() as c:

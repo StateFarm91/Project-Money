@@ -55,11 +55,13 @@ def run(today: date) -> dict:
            "dead": q.dead_letters()}
 
     # A support transcript, from the released version, on the real product.
+    question = "how many stitches should I have at the end of row 12?"
     support = JobQueue(db).enqueue("support", "support.reply", {
-        "slug": FLAGSHIP, "version": "1.0.0",
-        "question": "how many stitches should I have at the end of row 12?"})
+        "slug": FLAGSHIP, "version": "1.0.0", "customer_ref": "dossier",
+        "question": question})
     Worker(db, "support-worker").run_once()
-    out["support"] = JobQueue(db).get(support.id).outputs
+    out["support"] = dict(JobQueue(db).get(support.id).outputs or {})
+    out["support"]["question"] = question
     return out
 
 
@@ -174,12 +176,87 @@ def main() -> int:
     sup = r["support"]
     w(f"> **Customer:** {sup['question']}")
     w(">")
-    w(f"> **Brambleloop:** {sup['answer']}")
+    w(f"> **Brambleloop:** {sup['body']}")
     w("")
-    w(f"Cited version: `{sup['cited_version']}`, rows {sup['cited_rows']}. Support answers "
-      f"from the exact version the customer bought and has no method that can change it; a "
-      f"real defect becomes an incident and the pattern is fixed at source.")
+    w(f"Cited version: `{sup['cited_version']}`, rows {sup['cited_rows']}, desk "
+      f"`{sup['specialist']}`, **sent: {sup['sent']}**. Support answers from the exact version "
+      f"the customer bought, has no method that can change it, and in shadow mode the reply is "
+      f"drafted and held rather than sent. A real defect becomes an incident and the pattern "
+      f"is fixed at source.")
     w("")
+
+    # -- the rest of the departments ----------------------------------------
+    from sqlalchemy import select as _select
+
+    from brambleloop.core.models import ContentPiece, Listing, ListingAsset
+
+    with r["db"].session() as s:
+        frames = [a for a in s.scalars(_select(ListingAsset))
+                  if a.product_slug == FLAGSHIP]
+        content = [c for c in s.scalars(_select(ContentPiece))
+                   if c.product_slug == FLAGSHIP]
+        collection = [l for l in s.scalars(_select(Listing)) if l.version == "collection"]
+
+    w("## Listing imagery")
+    w("")
+    w("Seven frames in a deliberate order, every one rendered from the same digital twin as "
+      "the PDF and cleared by Asset Truth. The hero is judged at Etsy's real search-grid size, "
+      "not in the editor.")
+    w("")
+    w("| # | Role | Asset class | Approved | sha256 |")
+    w("|---|---|---|---|---|")
+    for a in sorted(frames, key=lambda x: x.position):
+        w(f"| {a.position} | {a.role} | {a.asset_class} | "
+          f"{'yes' if a.approved else '**no**'} | `{(a.sha256 or '')[:12]}…` |")
+    w("")
+
+    w("## Content ecosystem")
+    w("")
+    w("Drafted and held. There is no Pinterest, email, video or social integration in this "
+      "system, and nothing is scheduled to publish itself.")
+    w("")
+    w("| Scheduled | Channel | Piece |")
+    w("|---|---|---|")
+    for c in sorted(content, key=lambda x: (x.scheduled_for or "", x.channel)):
+        w(f"| {c.scheduled_for or '-'} | {c.channel} | {c.title[:70]} |")
+    w("")
+
+    if collection:
+        col = collection[0]
+        w("## Collection")
+        w("")
+        w(f"**{col.title}** — CA${col.price_cad:.2f}")
+        w("")
+        w("A bundle has no pattern of its own; it is assembled from members that actually "
+          "shipped, and waits when fewer than two have.")
+        w("")
+
+    cert = None
+    with r["db"].session() as s:
+        from brambleloop.core.models import PatternVersion, Product
+
+        product = s.scalar(_select(Product).where(Product.slug == FLAGSHIP))
+        if product is not None:
+            pv = s.scalar(_select(PatternVersion).where(
+                PatternVersion.product_id == product.id))
+            cert = (pv.certificate or {}) if pv else None
+    if cert and cert.get("confidence"):
+        w("## Confidence, tracked separately")
+        w("")
+        w("Section 3 asks for these to be tracked apart rather than averaged. Arithmetic "
+          "confidence is near-total because a compiler proved every row and an independent "
+          "reverse compiler agreed. Physical confidence is zero because nobody has crocheted "
+          "it, and no amount of computation changes that. An average would let a listing imply "
+          "the yarn figure is as solid as the stitch counts.")
+        w("")
+        w("| Dimension | Score | Claimable | What it means |")
+        w("|---|---|---|---|")
+        conf = cert["confidence"]
+        for dim, score in conf["scores"].items():
+            w(f"| {dim} | {score:.2f} | {'yes' if conf['claimable'][dim] else 'no'} | "
+              f"{conf['meanings'][dim]} |")
+        w("")
+
     (REPORTS / "shadow_release_nordic_forest.md").write_text("\n".join(L) + "\n")
     print(f"wrote reports/shadow_release_nordic_forest.md ({len(L)} lines)")
     return 0

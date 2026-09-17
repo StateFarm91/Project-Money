@@ -22,7 +22,10 @@ from ..cir.reverse import compare as reverse_compare
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
 from .asset_truth import Asset, check_assets
-from .policy import POLICY_VERSION, ListingDraft, check_listing
+from .confidence import assess
+from .policy import (
+    POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
+)
 
 
 @dataclass
@@ -33,6 +36,7 @@ class ReleaseCertificate:
     release_hash: str | None
     findings: list[Finding] = field(default_factory=list)
     stages_run: list[str] = field(default_factory=list)
+    confidence: dict | None = None
     pattern_text: str | None = None
     twin_summary: dict | None = None
     policy_version: str = POLICY_VERSION
@@ -55,6 +59,7 @@ class ReleaseCertificate:
             "granted": self.granted,
             "release_hash": self.release_hash,
             "stages_run": self.stages_run,
+            "confidence": self.confidence,
             "policy_version": self.policy_version,
             "issued_at": self.issued_at.isoformat(),
             "physical_test_required": self.physical_test_required,
@@ -88,6 +93,7 @@ def certify(
     listing: ListingDraft | None = None,
     physical_test_passed: bool = False,
     terminology: str = "US",
+    cleared_names: set[str] | None = None,
 ) -> ReleaseCertificate:
     """Run the full release chain and issue -- or refuse -- a certificate."""
     findings: list[Finding] = []
@@ -107,12 +113,21 @@ def certify(
     # 3. Written pattern, then an independent reverse compile of that exact text.
     pattern_text = write_pattern(cir, result, terminology)
     stages.append("write")
-    findings.extend(reverse_compare(cir, pattern_text, terminology))
+    reverse_findings = reverse_compare(cir, pattern_text, terminology)
+    findings.extend(reverse_findings)
     stages.append("reverse")
 
+    # 3b. Originality and IP. Section 17 puts this in the release chain, before the product
+    #     acquires assets and a listing and becomes expensive to withdraw.
+    findings.extend(check_originality(cir.title, cleared_names=cleared_names))
+    findings.extend(check_text(cir.designer_notes or "", "cir.designer_notes"))
+    stages.append("originality")
+
     # 4. Asset truth.
+    asset_findings: list[Finding] = []
     if assets:
-        findings.extend(check_assets(assets, cir, twin))
+        asset_findings = check_assets(assets, cir, twin)
+        findings.extend(asset_findings)
         stages.append("asset_truth")
 
     # 5. Policy.
@@ -130,6 +145,13 @@ def certify(
             "computation alone cannot confirm fit and drape"))
     stages.append("physical_test")
 
+    # 7. Confidence, tracked per dimension (section 3). Deliberately computed after every
+    #    other stage so it reflects what was actually established rather than what was hoped.
+    profile = assess(cir, result, twin, reverse_findings=reverse_findings,
+                     asset_findings=asset_findings,
+                     physical_passed=physical_test_passed if physical_required else None)
+    stages.append("confidence")
+
     granted = not any(f.severity == ERROR for f in findings)
     rhash = _release_hash(cir, pattern_text) if granted else None
 
@@ -141,6 +163,7 @@ def certify(
         findings=findings,
         stages_run=stages,
         pattern_text=pattern_text if granted else None,
+        confidence=profile.to_dict(),
         twin_summary={
             "stitch_total": twin.stitch_total,
             "width_cm": twin.width_cm,

@@ -18,6 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from sqlalchemy import func
+
 from ..cir.compiler import compile_cir
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
 from ..core.models import Phase, Product, PatternVersion
@@ -232,6 +234,14 @@ def handle_radar_score(ctx: JobContext) -> dict:
 # a striped panel, which proves the machinery and is not a product; where a real design exists
 # it wins. A slug absent from here is not a failure -- it means that concept has not been
 # through design yet, and the templated geometry stands in until it has.
+# Concepts whose pattern is engineered rather than templated. The generic builder below makes
+# a striped panel, which proves the machinery and is not a product. A slug absent from here is
+# not a failure -- it means that concept has not been through design yet, and the templated
+# geometry stands in until it has.
+#
+# `nordic_forest` stays a module of its own because it is the flagship and its motif was
+# hand-placed; everything else is generated from the motif library by `products.builder`,
+# which is how twelve exceptional products are achievable without twelve chances to slip.
 ENGINEERED: dict[str, str] = {
     "nordic-forest-mosaic-throw": "brambleloop.products.nordic_forest",
 }
@@ -239,20 +249,38 @@ ENGINEERED: dict[str, str] = {
 
 def _engineered_cir(slug: str, version: str = "1.0.0") -> CIR | None:
     module_path = ENGINEERED.get(slug)
-    if not module_path:
-        return None
-    import importlib
+    if module_path:
+        import importlib
 
-    module = importlib.import_module(module_path)
-    cir = module.build(version=version)
-    # Keep the concept's slug so the radar, the portfolio and the product row agree on the
-    # name; the size-specific slugs are for the variants, not the headline product.
-    return CIR.from_dict({**cir.to_dict(), "slug": slug})
+        module = importlib.import_module(module_path)
+        cir = module.build(version=version)
+        # Keep the concept's slug so the radar, the portfolio and the product row agree on the
+        # name; the size-specific slugs are for the variants, not the headline product.
+        return CIR.from_dict({**cir.to_dict(), "slug": slug})
+
+    from ..products.builder import for_slug
+
+    return for_slug(slug, version)
 
 
 @handlers.register("cir.draft")
 def handle_cir_draft(ctx: JobContext) -> dict:
-    engineered = _engineered_cir(ctx.job.inputs["slug"])
+    slug = ctx.job.inputs["slug"]
+
+    # A bundle is not a pattern. Drafting one produced a certified "Nordic Forest Collection
+    # Bundle" whose PDF was a twelve-row striped panel -- a product that would have been sold
+    # as three patterns and delivered as one invented swatch. Bundles route to collection
+    # assembly instead, which builds the listing out of its members' real releases.
+    seed = _seed_for(slug)
+    if seed is not None and seed.is_bundle:
+        ctx.audit("cir.skipped_bundle", artifact=slug,
+                  detail={"reason": "a bundle has no pattern of its own; it is its members"})
+        ctx.enqueue("listing", "collection.assemble",
+                    {"slug": slug, "family": seed.family},
+                    idempotency_key=f"collection:{slug}")
+        return {"artifact": slug, "drafted": False, "is_bundle": True}
+
+    engineered = _engineered_cir(slug)
     if engineered is not None:
         ctx.audit("cir.drafted", artifact=f"{engineered.slug}@{engineered.version}",
                   detail={"source": "engineered design", "rows": sum(
@@ -434,29 +462,53 @@ def handle_plan_cycle(ctx: JobContext) -> dict:
 
 @handlers.register("portfolio.review")
 def handle_portfolio_review(ctx: JobContext) -> dict:
-    """Re-run the portfolio decision against today's calendar and today's catalogue.
+    """Classify every SKU and say what to do next (section 12).
 
-    Section 12 classifies SKUs and retires persistent losers; section 33 says which products
-    should exist. Both change with the date rather than with the catalogue: a product that
-    was the right build in September is a dead listing in December, and a concept that scored
-    too early last month may be in its window now.
+    Two questions, answered separately. Which products *should* exist, which is the radar's
+    portfolio re-run against today's calendar; and how the products that *do* exist are
+    actually performing, which is section 12's classification.
 
-    This reports drift. It does not retire or launch anything by itself -- there is no live
-    performance data to classify against yet, and a review that acts on no evidence is not a
-    review. What it does guarantee is that the divergence is visible and dated rather than
-    discovered a season late.
+    The second question currently has no evidence behind it, and the classifier says so rather
+    than guessing. Every SKU has zero impressions, and a system that read that as
+    "underperforming" would retire a catalogue nobody has been shown.
     """
     from sqlalchemy import select
+
+    from ..core.models import Incident, PortfolioReview, SupportCase
+    from ..growth.portfolio import SkuMetrics, review_portfolio
 
     today = _scan_date(ctx)
     portfolio = select_portfolio(today=today)
     should_exist = {c.slug for c in portfolio.selected}
 
     with ctx.db.session() as s:
-        built = {p.slug for p in s.scalars(select(Product))}
+        products = list(s.scalars(select(Product)))
+        built = {p.slug for p in products}
+        cases: dict[str, int] = {}
+        for case in s.scalars(select(SupportCase)):
+            if case.product_slug:
+                cases[case.product_slug] = cases.get(case.product_slug, 0) + 1
+        p1: dict[str, int] = {}
+        for inc in s.scalars(select(Incident).where(Incident.resolved == False)):  # noqa: E712
+            if inc.product_slug and inc.severity in ("P0", "P1"):
+                p1[inc.product_slug] = p1.get(inc.product_slug, 0) + 1
 
-    missing = sorted(should_exist - built)      # earned a place, not built yet
-    off_portfolio = sorted(built - should_exist)  # built, no longer earns a place
+    # Impressions, clicks and orders are all zero and stay zero until something is published.
+    # They are read from the ledger rather than assumed, so that the day they are non-zero
+    # this code needs no change.
+    metrics = [SkuMetrics(slug=p.slug, support_cases=cases.get(p.slug, 0),
+                          open_p1_incidents=p1.get(p.slug, 0))
+               for p in products]
+    verdict = review_portfolio(metrics, today=today)
+
+    missing = sorted(should_exist - built)
+    off_portfolio = sorted(built - should_exist)
+
+    with ctx.db.session() as s:
+        s.add(PortfolioReview(as_of=today.isoformat(),
+                              classifications=verdict.summary(),
+                              actions=list(verdict.actions),
+                              evidence_available=verdict.evidence_available))
 
     ctx.audit("portfolio.reviewed", detail={
         "as_of": today.isoformat(),
@@ -465,6 +517,8 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
         "missing": missing[:20],
         "off_portfolio": off_portfolio[:20],
         "constraints_met": portfolio.constraints_met,
+        "classifications": verdict.summary(),
+        "evidence_available": verdict.evidence_available,
     })
     for slug in missing:
         ctx.enqueue("market_radar", "radar.score",
@@ -473,26 +527,96 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
 
     return {"as_of": today.isoformat(), "missing": missing,
             "off_portfolio": off_portfolio,
-            "constraints_met": portfolio.constraints_met}
+            "constraints_met": portfolio.constraints_met,
+            "classifications": verdict.summary(),
+            "evidence_available": verdict.evidence_available,
+            "actions": verdict.actions}
 
 
 @handlers.register("finance.reconcile")
 def handle_finance_reconcile(ctx: JobContext) -> dict:
+    """The books, section 15's full list, from observed entries only.
+
+    Reports zero revenue because revenue is zero. Building the accounting before there is
+    anything to flatter is the point: a P&L that first appears alongside the first sale is a
+    P&L nobody has checked.
+    """
     from sqlalchemy import select
 
-    from ..core.models import CostEntry, LedgerEntry
+    from ..core.models import Listing, PatternVersion
+    from ..finance.books import Books
+
+    books = Books(ctx.db)
+    pl = books.profit_and_loss()
 
     with ctx.db.session() as s:
-        revenue = sum(e.gross_cad for e in s.scalars(select(LedgerEntry)))
-        fees = sum(e.fees_cad for e in s.scalars(select(LedgerEntry)))
-        expense = sum(e.expense_cad for e in s.scalars(select(LedgerEntry)))
-        opex = sum(e.amount_cad for e in s.scalars(select(CostEntry)))
-    contribution = round(revenue - fees - expense - opex, 2)
-    ctx.audit("finance.reconciled",
-              detail={"revenue": revenue, "fees": fees, "expense": expense,
-                      "agent_opex": round(opex, 4), "contribution": contribution})
-    return {"revenue_cad": revenue, "agent_opex_cad": round(opex, 4),
-            "contribution_cad": contribution}
+        validated = s.scalar(select(func.count()).select_from(PatternVersion).where(
+            PatternVersion.certified == True)) or 0  # noqa: E712
+        listings = s.scalar(select(func.count()).select_from(Listing)) or 0
+
+    economics = books.unit_economics(products_validated=validated, listings_drafted=listings)
+    ctx.audit("finance.reconciled", detail={"pl": pl.to_dict(), "unit": economics})
+    ctx.enqueue("cfo", "finance.challenge", {}, idempotency_key=None)
+    return {"pl": pl.to_dict(), "unit_economics": economics}
+
+
+@handlers.register("finance.challenge")
+def handle_finance_challenge(ctx: JobContext) -> dict:
+    """The CFO/Skeptic (section 14), as a function rather than a personality.
+
+    It reports concerns even when everything is nominally fine, because a reviewer who only
+    speaks up during a crisis is a reviewer nobody has calibrated.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import SpendLimit
+    from ..finance.books import Books, cfo_challenge, trajectory
+
+    infra = float(ctx.job.inputs.get("infra_monthly_cad", 7.0))
+    ceiling = float(ctx.job.inputs.get("infra_ceiling_cad", 20.0))
+
+    books = Books(ctx.db)
+    pl = books.profit_and_loss()
+    with ctx.db.session() as s:
+        limits = list(s.scalars(select(SpendLimit)))
+
+    challenges = cfo_challenge(pl, limits=limits, infra_monthly_cad=infra,
+                               infra_ceiling_cad=ceiling)
+    blocks = [c for c in challenges if c.severity == "block"]
+    ctx.audit("finance.challenged", detail={
+        "challenges": [c.to_dict() for c in challenges],
+        "blocking": len(blocks)})
+    return {"challenges": [c.to_dict() for c in challenges],
+            "blocking": len(blocks),
+            "trajectory": trajectory(pl)}
+
+
+@handlers.register("plan.strategy")
+def handle_plan_strategy(ctx: JobContext) -> dict:
+    """Monthly strategy recalibration and CA$100K trajectory (section 13).
+
+    Deliberately produces a refusal today rather than a forecast: with no orders there is no
+    run rate, and the CA$100K figure is the one most likely to be quoted back as though it
+    were a projection.
+    """
+    from ..finance.books import Books, trajectory
+
+    today = _scan_date(ctx)
+    pl = Books(ctx.db).profit_and_loss()
+    traj = trajectory(pl, today=today)
+    portfolio = select_portfolio(today=today)
+
+    ctx.audit("plan.strategy_reviewed", detail={
+        "as_of": today.isoformat(),
+        "trajectory": traj,
+        "portfolio_size": len(portfolio.selected),
+        "constraints_met": portfolio.constraints_met})
+    ctx.enqueue("orchestrator", "portfolio.review", {"as_of": today.isoformat()},
+                idempotency_key=f"portfolio.review:{today.isoformat()}")
+    return {"as_of": today.isoformat(), "trajectory": traj,
+            "is_forecast": traj["is_forecast"]}
+
+
 
 
 # Importing the back half registers its handlers. Kept at the bottom because `release` imports

@@ -17,11 +17,14 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **188 tests passing, 0 failing**:
+Verified by `./run_tests.sh` — **371 tests passing, 0 failing**, including 23 that
+assert the owner's acceptance gates line by line.
 
-- CIR engine (27), platform layer (14), release gates (27), market radar (31), model gateway
-  (21), shadow pipeline (8), real-process persistence (5), chaos/resilience (21), deployment
-  surface (8), flagship product run and adversarial attacks (26).
+Suites: CIR engine, platform, release gates, market radar, model gateway, brand and
+storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
+portfolio), quality (confidence, regression), finance, shadow pipeline, real-process
+persistence, chaos, deployment surface, flagship run and adversarial attacks, generated
+catalogue, and the acceptance gates.
 - The full release chain runs end to end with no human in the loop, and correctly *refuses*
   to publish in shadow mode. A single `plan.cycle` now carries an entire 11-SKU portfolio
   from market scan to eleven release certificates without intervention.
@@ -30,6 +33,13 @@ Verified by `./run_tests.sh` — **188 tests passing, 0 failing**:
   duplicate side effects.
 - Cloud deployment: **live and verified.** See "Deployment" below for the exact
   configuration, the twelve production checks that pass, and the measured cost.
+- Catalogue: **17 engineered designs** (16 generated from the motif library plus the
+  hand-placed flagship). Every one compiles, reverse-compiles and certifies. Ten of the eleven
+  release candidates ship an engineered design; the eleventh is the collection bundle, which
+  correctly has no pattern of its own.
+- Storefront, listings, imagery and content: **drafted and held.** 11 listings, 70 listing
+  images, ~97 content pieces and a collection, none of it published. Nothing in this system
+  can publish: there is no Etsy, Pinterest, email, video or messaging integration at all.
 - Model providers: **none configured.** The Model Gateway is built and tested, but no API
   key exists in this environment, so `available_providers()` returns an empty list and the
   dashboard says "none". Nothing in the pipeline currently calls a model: every load-bearing
@@ -44,6 +54,48 @@ Verified by `./run_tests.sh` — **188 tests passing, 0 failing**:
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+Master Plan v1.2's commercial departments, built on the proven infrastructure rather than
+alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and tests:
+
+- **Brand system and Storefront Director (§6).** Palette, type, crop and lighting rules, a
+  two-word collection naming grammar, the brand model's character bible with three enforced
+  refusals, grid-coherence measurement, and the whole shop drafted — announcement, About, five
+  policies, sections, banner and icon briefs.
+- **Listing imagery (§7).** Seven ordered frames rendered from the twin, each declaring its
+  asset class and claims, checked by Asset Truth, with the hero judged at Etsy's real
+  search-grid size.
+- **Search Domination (§8).** A query model that distinguishes reachable phrases from head
+  terms a shop with no history cannot place for, thirteen tag slots spent under a word budget,
+  coverage scored against reachable demand, and structured attributes from pattern data.
+- **Pricing Intelligence (§9).** Market price scanner, contribution-per-visitor optimiser,
+  bundle economist with a breakeven attach rate, price experiments whose stopping rule is
+  fixed before they run, and promotion checks that refuse a permanent sale.
+- **AI Customer Experience (§10).** Triage across seven desks with escalation ordered first,
+  replies drafted and recorded as unsent, review solicitation refused, and repeated questions
+  about one row surfaced as candidate defects.
+- **Marketing (§11).** A full content ecosystem per product — article, four distinct pins,
+  tutorial outline, email with a CASL unsubscribe, validated free teaser, cross-sell and a
+  crochet-along where the make time warrants one — scheduled backwards from launch.
+- **Portfolio (§12).** Section 12's diagnostic table as code, with intervention ladders, and a
+  classifier that refuses to classify a SKU nobody has seen.
+- **Confidence (§3) and regression capture (Gate B).** Seven dimensions tracked separately with
+  no overall score, and confirmed defects frozen as permanent fixtures.
+- **Paid media guard rails (§11).** Every ceiling section 11 names, and every auto-pause
+  condition: tracking failure, unavailable listing, CAC breach, refund anomaly and the
+  test-loss cap. Built while no campaign exists and no money can be spent — `authorise_spend`
+  refuses on phase and on missing owner authority before it looks at any budget, because a cap
+  is not permission.
+- **Finance (§1, §15, §34).** The full P&L section 15 lists, read from observed entries only;
+  a tax reserve that is never counted as ours; cost-per-validated-pattern computable without
+  revenue; a CFO/Skeptic that reports concerns when everything is nominally fine and blocks on
+  infrastructure above the owner's ceiling or advertising with no attributable orders; and a
+  CA$100K trajectory that refuses to forecast from zero orders.
+- **The catalogue (§16).** A motif library and a builder; sixteen designs generated, every one
+  compiling and reverse-compiling clean. Ten of eleven release candidates now ship an
+  engineered design rather than the striped template; the eleventh is the bundle, which
+  correctly has no pattern of its own.
+
+## Last completed milestone (previous)
 The complete shadow release chain on a real product. One unattended `plan.cycle` now runs
 market scan → portfolio selection → engineered CIR → compile → digital twin → reverse compile
 → certificate → PDF and charts → pricing → listing and SEO → launch plan → refused publish,
@@ -122,89 +174,36 @@ See `DECISION_LOG.md` for reasoning. Summary:
   dimensions from gauge, per-colour yardage estimate with an explicit ±20% tolerance until a
   physical test calibrates it.
 
-## Acceptance gates passed
-- **Gate A (Infrastructure): passing.** Worker death does not strand jobs (lease reclaim);
-  duplicate publish/spend refused by DB-enforced idempotency keys; backoff then dead-letter;
-  backup + restore drill comparing row counts; audit log identifies actor/action/artifact.
-- **Gate B (Pattern Safety): passing except regression automation.** Known-good compiles;
-  broken stitch count, bad repeat, overrun, underrun, unknown colour rejected; text mutations
-  (repeat count, stitch substitution, run length, declared count, turning chain, dropped row,
-  unparseable text) caught by reverse compilation. Outstanding: "a corrected bug creates a
-  regression test" — the incident → regression-fixture automation is not built.
-- **Gate C (Asset Truth): passing.** Absent motif/colour/component rejected; unsupported
-  size, size-label, material and difficulty claims blocked; provenance mandatory; a render
-  cannot masquerade as a photograph; an undisclosed AI concept cannot be the hero.
-- **Gate D (Commercial Safety): passing.** Agent permissions and structural prohibitions;
-  per-agent daily cost ceilings; ad budget breach prevented *and* the scope auto-paused.
-  Outstanding: contribution accounting reconciles against real transactions (no real ones yet).
-- **Gate E (Customer Experience): passing.** Repeated defects correlate into one incident;
-  P1 halts the publication chain; support has no path to the canonical pattern.
-  Outstanding: answering from the correct pattern version needs the support agent.
-- **Gate F (Shadow Graduation): passing.** Full simulated product completes the chain without
-  intervention. Model-provider failover is untested (no Model Gateway yet).
+## Acceptance gates
 
-## Deployment (verified 2026-09-17)
+Every line of `spec/03_Acceptance_Tests_and_Autonomy_Gates.pdf` now has a named test in
+`tests/test_acceptance_gates.py`, so "Gate B passes" is a claim backed by a test rather than
+inferred from a scattering of others.
 
-| | |
-|---|---|
-| Railway project | `brambleloop` (`0d61d9ec-76ca-42e3-aa69-918728845b29`), workspace "Jacob McKenna's Projects" |
-| Environment | `production` (`d618b2fe-70ec-4541-852f-0b656c2eedaf`) |
-| App service | `brambleloop-os` (`c14774b3-0df2-409e-9721-fd7045099c53`) |
-| Source | `StateFarm91/Project-Money`, branch `claude/repository-setup-nc9x6o`, root `brambleloop` |
-| Build | Dockerfile (`brambleloop/Dockerfile`), region us-west2, 1 replica |
-| Domain | `brambleloop-os-production.up.railway.app` |
-| Health check | `/health`, 300 s timeout |
-| Database | `Postgres` service (`c40c71a5-…`), Postgres 18, 5 GB volume |
-| Variables | `BRAMBLELOOP_REQUIRE_POSTGRES=1`, `BRAMBLELOOP_PHASE=shadow`, `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `BRAMBLELOOP_EMBEDDED_WORKER=1`, `BRAMBLELOOP_SCHEDULER_INTERVAL=60`, `BRAMBLELOOP_RUNNER_START_DELAY=25`, `BRAMBLELOOP_ARTIFACT_DIR=/app/artifacts`, `PORT=8000` |
+- **Gate A (Infrastructure): passing.** Worker restart loses no durable jobs; a replayed cycle
+  duplicates no products; backup and a tested restore succeed; dead-letter and backoff work;
+  the audit log identifies actor, action and artifact.
+- **Gate B (Pattern Safety): passing — now complete.** Known-good compiles; a broken stitch
+  count fails; a bad repeat fails; a construction-changing mutation of the customer text is
+  caught by reverse compilation; **and a corrected bug creates a regression test**, which was
+  the one line that kept this gate open. The repository carries a regression corpus of
+  defective patterns that must keep failing.
+- **Gate C (Asset Truth): passing.** An absent motif is rejected; unsupported size, material
+  and difficulty claims are blocked; provenance is stored for every listing asset.
+- **Gate D (Commercial Safety): passing — now complete.** Price and promotion changes pass
+  policy; an ad budget breach is prevented and the scope auto-pauses with no refused spend
+  leaking through; **contribution accounting reconciles against test transactions**, which was
+  the outstanding line; per-agent cost ceilings hold.
+- **Gate E (Customer Experience): passing — now complete.** Routine support is answered from
+  the correct pattern version and recorded as unsent; repeated defect reports correlate into
+  one incident; support cannot patch a CIR by any path; a P1 halts the publication workflow.
+- **Gate F (Shadow Graduation): passing.** A full product completes Market Radar → Opportunity
+  → CIR → QA → PDF/assets → pricing → listing draft → launch plan → simulated support with no
+  intervention, and a second test asserts that **nothing graduated**: no publication, no
+  ledger entry, no message sent.
 
-### Measured cost, not guessed
-
-From 61 samples of Railway's own metrics over the first hour of operation:
-
-| | vCPU (avg) | RAM (avg) | Disk |
-|---|---|---|---|
-| `brambleloop-os` | 0.0053 | 0.074 GB | 0 |
-| `Postgres` | 0.0011 | 0.082 GB | 0.157 GB |
-
-At Railway's rates (~US$20/vCPU-month, ~US$10/GB-month RAM, US$0.15/GB-month volume) that is
-**about US$1.70 / CA$2.40 per month of usage**, inside the Hobby plan's included US$5 credit.
-Recurring infrastructure is therefore the **US$5 / ~CA$7 per month plan fee**, against the
-owner's CA$20 ceiling. This is an estimate from observed utilisation, not a bill; the first
-real invoice replaces it here.
-
-Workload is bursty and tiny — a full 11-SKU planning cycle is about 40 seconds of CPU — so
-this should hold. If it stops holding, splitting the worker into its own service is the first
-thing that would push it up, and is not being done.
-
-### What was actually verified in production
-
-`GET /api/verify` returns **all twelve checks passing**. Each carries its evidence:
-
-- `phase_is_shadow`, `nothing_published` (0 published / 15 refused),
-  `publication_was_actually_attempted_and_refused` — publication is blocked *and* the block
-  was exercised rather than merely configured.
-- `no_paid_advertising` (CA$0), `no_revenue_claimed` (CA$0, 0 ledger entries),
-  `every_agent_has_a_cost_ceiling` (15/15), `spend_limits_not_breached`.
-- `no_model_provider_configured` — no API key exists, and the system says so.
-- `state_is_in_a_durable_database` — engine `postgresql`, with certified releases and audit
-  records that could not have come from a container that started empty.
-- `worker_is_alive`, `scheduler_has_ticked`, `no_unexpected_dead_letters_in_24h`.
-
-Beyond the endpoint:
-
-- **Real unattended cycles ran in production.** `POST /api/plan-cycle` for several dates;
-  267 jobs, **zero non-publish failures**, 15 products and 15 certified releases. A cycle for
-  a different date correctly produced a *different* portfolio and added only the new products.
-- **Restart recovery, twice.** Container restarted with work queued; state identical
-  afterwards (same products, same certified releases, no duplicates), new process confirmed by
-  a changed worker start time. Six concurrent cycles (79 jobs) drained across a restart with
-  no failures and no duplicated products.
-- **Scheduler and heartbeat run in the deployed environment** — `ops.heartbeat` records real
-  queue state on its cadence.
-- **Honest gap:** no production job needed a second attempt, because every cycle drained
-  faster than a Railway restart takes effect. So in-flight *lease reclaim* is not proven on
-  Railway specifically. It is proven locally in `tests/test_persistence.py`, which SIGKILLs a
-  real worker subprocess mid-job — a harder case than Railway's graceful restart.
+Passing these is permission to graduate SHADOW → STAGING, not graduation. Nothing has
+graduated, and nothing will without the owner.
 
 ## Integrations connected
 - None. Railway account exists but no project is provisioned.
@@ -241,6 +240,10 @@ Exact and verified. Nothing here is projected.
 - None blocking. All remaining work in the execution order is unblocked.
 
 ## Known refinements (tracked, not urgent)
+- The test suite now takes roughly twenty minutes, because several files each run the full
+  eleven-product pipeline including 2000px image rendering. Slow and representative beats fast
+  and unrepresentative, but a lighter pipeline fixture for the tests that do not care about
+  image content would pay for itself.
 - Yardage constants are uncalibrated heuristics with a stated tolerance; physical tests
   replace them per yarn/hook. Never present an uncalibrated estimate as precise.
 - Reverse compiler handles the writer's grammar plus common variants; widen coverage as real
@@ -251,16 +254,19 @@ Exact and verified. Nothing here is projected.
   flagged so it is decided deliberately, not by default.
 
 ## Next highest-value unblocked actions
-1. Incident → regression-fixture automation to close Gate B.
-2. Storefront Director and the brand/model system (section 6): collection naming, crop and
-   lighting rules, visual QA, and the disclosure question around AI lifestyle imagery.
-3. Search Domination and Thumbnail Warfare (sections 10, 7): keyword coverage modelling and
-   listing-image variant scoring.
-4. Engineer the remaining ten release candidates rather than letting them ship the templated
-   striped panel. Only the flagship has a real design so far.
-5. Row-level repeats in the CIR ("repeat rows 2-25 four more times"). The flagship's written
-   instructions currently spell out all 120 rows where a real pattern would collapse them.
-6. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
+1. Row-level repeats in the CIR ("repeat rows 2-25 four more times"). Written instructions
+   currently spell out every row where a real pattern would collapse them. This is the largest
+   remaining *product-quality* gap and it is a CIR schema change, so it touches the compiler,
+   the writer, the reverse compiler and the twin together.
+2. Construction beyond flat rows: worked-in-the-round shaping, seaming and assembly. Until the
+   CIR can model them, amigurumi, bags and garments cannot be engineered honestly, which is
+   why they are absent from the catalogue rather than approximated.
+3. Physical test coordination (section 3): the PHYSICAL_TESTS table exists and nothing writes
+   to it. Yardage stays uncalibrated and Class B/C products stay unshippable until a real
+   person crochets a real sample. This is the next genuine owner-adjacent gate.
+4. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
+5. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
+   and correctly refuse to act without observations that do not exist yet.
 
 ## Changelog
 - 2026-09-17: Initial build. Competition retired. CIR engine complete (27 tests).
@@ -311,5 +317,18 @@ Exact and verified. Nothing here is projected.
   run scored against today and collapsed into the morning's idempotency keys.
   Each fix carries a test: every cadence must be runnable by its agent, permissions reconcile
   on deploy, and a cycle's date must reach the radar.
-- Totals: 200 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
+- 2026-09-17: **Master Plan v1.2's commercial departments** (sections 6-12, 15, 16, 34).
+  Brand system and Storefront Director; listing imagery as part of the release; Search
+  Domination; Pricing Intelligence; AI Customer Experience; the content ecosystem; portfolio
+  classification; separate confidence dimensions; regression capture closing Gate B; a motif
+  library and sixteen generated designs; and the full P&L with a CFO challenge.
+  Four real defects found while building: the thumbnail check counted non-background pixels,
+  so a two-colour crochet fabric — half cream against a cream background — scored 9% and
+  blocked six products for a problem none of them had; the fabric renderer coloured cells by
+  their row's yarn, which in overlay mosaic is flat stripes and no motif at all; tag selection
+  spent six of thirteen slots on the word "mosaic"; and the pipeline had been certifying a
+  "Collection Bundle" whose PDF was a twelve-row striped panel — a product sold as three
+  patterns and delivered as one invented swatch.
+- Totals: 371 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+  named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

@@ -19,7 +19,10 @@ from ..cir.model import CIR
 from ..cir.twin import build_twin
 from ..commerce import launch as launch_mod
 from ..commerce import pricing as pricing_mod
+from ..commerce import pricing_intel as pricing_mod_intel
+from ..commerce import search as search_mod
 from ..commerce import seo as seo_mod
+from ..commerce import thumbnail as thumb_mod
 from ..core.artifacts import ArtifactStore
 from ..core.models import PatternVersion, Product
 from ..gates.policy import ListingDraft, check_listing
@@ -117,7 +120,13 @@ def handle_assets_build(ctx: JobContext) -> dict:
                           siblings=siblings)
     structural = check_frame_plan(frames)
     truth = check_assets([f.to_asset(slug) for f in frames], cir, twin)
-    blocking = structural + [str(f) for f in truth if f.severity == "error"]
+    # A hero is judged at the size a shopper actually sees it, not in the editor.
+    aspect = ((twin.width_cm / twin.height_cm)
+              if twin.width_cm and twin.height_cm else None)
+    hero = thumb_mod.evaluate_thumbnail(frames[0].image, text_pt_on_canvas=0.056 * 2000,
+                                        canvas_px=2000, subject_aspect=aspect)
+    blocking = (structural + [str(f) for f in truth if f.severity == "error"]
+                + hero.problems)
 
     stored_frames = []
     for frame in frames:
@@ -130,7 +139,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
 
     ctx.audit("assets.listing_images_built" if not blocking else "assets.listing_images_blocked",
               artifact=f"{slug}@{version}",
-              detail={"frames": len(frames), "blocking": blocking[:5]})
+              detail={"frames": len(frames), "blocking": blocking[:5],
+                      "hero_thumbnail": hero.to_dict()})
     if blocking:
         # A listing whose imagery misrepresents the pattern does not proceed to pricing. The
         # chain stops here rather than producing a price for something that cannot ship.
@@ -210,10 +220,18 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     size_label = (f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm"
                   if twin.width_cm and twin.height_cm else None)
 
+    # Tags come from the query model rather than a fixed template: thirteen slots are
+    # scarce, and spending them on head terms a shop with no history cannot place for is the
+    # most common way a new listing is invisible.
+    techniques = ["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]
+    queries = search_mod.build_query_set(category, motifs, season, techniques)
+    title = seo_mod.build_title(cir.title, category, motifs, season,
+                                sizes=len(i.get("sizes") or []) or 1)
+    tags = search_mod.choose_tags(queries)
+
     copy = seo_mod.ListingCopy(
-        title=seo_mod.build_title(cir.title, category, motifs, season,
-                                  sizes=len(i.get("sizes") or []) or 1),
-        tags=seo_mod.build_tags(category, motifs, season),
+        title=title,
+        tags=tags,
         description=seo_mod.build_description(
             cir.title, size_label=size_label, yardage_lines=yardage_lines,
             tolerance_pct=tolerance_pct, difficulty=_difficulty(twin, cir),
@@ -225,7 +243,14 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         supported_claims=[c for c in (size_label, gauge_line) if c],
     )
 
-    structural = seo_mod.check_listing_limits(copy)
+    coverage = search_mod.score_coverage(queries, title=copy.title, tags=copy.tags,
+                                         description=copy.description)
+    attributes = search_mod.listing_attributes(
+        category=category, difficulty=_difficulty(twin, cir),
+        colors=sorted(c for c in twin.colors_used if c), season=season)
+
+    structural = (seo_mod.check_listing_limits(copy)
+                  + search_mod.check_attributes(attributes))
     policy = check_listing(ListingDraft(title=copy.title, description=copy.description,
                                         tags=copy.tags, price_cad=copy.price_cad))
     blocking = structural + [str(f) for f in policy if f.severity == "error"]
@@ -233,13 +258,37 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     ctx.audit("listing.seo_drafted" if not blocking else "listing.seo_blocked",
               artifact=f"{slug}@{version}",
               detail={"title_len": len(copy.title), "tags": len(copy.tags),
+                      "search_share": coverage.share, "gaps": coverage.gaps[:5],
                       "blocking": blocking[:5]})
     if blocking:
         return {"slug": slug, "version": version, "ok": False, "blocking": blocking}
 
-    i.update({"listing": copy.to_dict()})
+    i.update({"listing": copy.to_dict(), "attributes": attributes,
+              "search_coverage": coverage.to_dict()})
+    _persist_listing(ctx, slug, version, copy, coverage.share)
     ctx.enqueue("growth", "launch.plan", i, idempotency_key=f"launch:{slug}:{version}")
-    return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict()}
+    return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
+            "attributes": attributes, "search_coverage": coverage.to_dict()}
+
+
+def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: float) -> None:
+    """Drafted, never published. Shadow mode holds the whole shop ready rather than open."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with ctx.db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        if row is None:
+            row = Listing(product_slug=slug, version=version)
+            s.add(row)
+        row.title = copy.title
+        row.description = copy.description
+        row.tags = list(copy.tags)
+        row.price_cad = copy.price_cad
+        row.seo_score = share
+        row.state = "draft"
 
 
 @handlers.register("launch.plan")
@@ -266,31 +315,118 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         "warnings": plan.warnings[:3]})
 
     i["launch"] = plan.to_dict()
+    ctx.enqueue("growth", "marketing.schedule", i,
+                idempotency_key=f"content:{slug}:{i['version']}")
     ctx.enqueue("store_operator", "store.publish",
                 {"slug": slug, "version": i["version"]},
                 idempotency_key=f"publish:{slug}:{i['version']}")
     return plan.to_dict()
 
 
+@handlers.register("marketing.schedule")
+def handle_marketing_schedule(ctx: JobContext) -> dict:
+    """Draft the product's content ecosystem and hold it (section 11).
+
+    Nothing is scheduled to publish itself. There is no Pinterest, email, video or social
+    integration in this system, and shadow mode means the plan is built and reviewable before
+    any account exists rather than after.
+    """
+    from ..core.models import ContentPiece
+    from ..growth import content as content_mod
+
+    i = dict(ctx.job.inputs)
+    slug, version = i["slug"], i["version"]
+    seed = _seed_for(slug)
+    listing = i.get("listing") or {}
+    launch_on = date.fromisoformat(i["launch"]["launch_on"])
+
+    cir = _load_cir(ctx, slug, version)
+    twin = build_twin(cir, compile_cir(cir))
+    tol = twin.yardage_tolerance
+    yardage_line = "; ".join(
+        f"{name} about {m * (1 - tol):.0f}-{m * (1 + tol):.0f} m"
+        for name, m in sorted(twin.yarn_metres_by_color.items())) or "see the pattern"
+
+    facts = content_mod.ProductFacts(
+        slug=slug, title=cir.title,
+        category=seed.category if seed else "mosaic_blanket",
+        size_label=i.get("size_label"),
+        difficulty=_difficulty(twin, cir),
+        stitches=sorted(twin.stitch_types_used),
+        colors=sorted(c for c in twin.colors_used if c),
+        yardage_line=yardage_line,
+        maker_hours=seed.maker_hours if seed else (4.0, 12.0),
+        season=seed.season if seed else None,
+        price_cad=float(listing.get("price_cad") or i.get("price_cad") or 0.0),
+        siblings=_collection_siblings(slug))
+
+    pieces = content_mod.build_ecosystem(facts, launch_on=launch_on)
+    problems = content_mod.check_ecosystem(pieces, facts)
+
+    with ctx.db.session() as s:
+        from sqlalchemy import select
+
+        for piece in pieces:
+            existing = s.scalar(select(ContentPiece).where(
+                ContentPiece.product_slug == slug,
+                ContentPiece.channel == piece.channel,
+                ContentPiece.title == piece.title))
+            if existing is not None:
+                continue
+            s.add(ContentPiece(product_slug=slug, channel=piece.channel, title=piece.title,
+                               body=piece.body, scheduled_for=piece.scheduled_for,
+                               state="drafted", detail=piece.detail))
+
+    ctx.audit("marketing.scheduled" if not problems else "marketing.blocked",
+              artifact=f"{slug}@{version}",
+              detail={"pieces": len(pieces), "channels": sorted({p.channel for p in pieces}),
+                      "problems": problems[:5], "published": False})
+    return {"slug": slug, "version": version, "pieces": len(pieces),
+            "problems": problems, "published": False}
+
+
 @handlers.register("support.reply")
 def handle_support_reply(ctx: JobContext) -> dict:
-    """Answer a customer from the exact released version they bought.
+    """Triage a customer message and draft a reply from the exact released version.
 
     The version is an input, not a lookup of "the current one". A customer who bought 1.0.0
     must be answered from 1.0.0; answering from 1.1.0 because it happens to be newer is how a
     support system tells someone their correct work is wrong.
+
+    Nothing is sent. There is no messaging integration, and the case is recorded as unsent
+    rather than relying on that absence.
     """
-    from ..support.concierge import Concierge
+    from ..support.department import CustomerExperience
 
-    slug = ctx.job.inputs["slug"]
-    version = ctx.job.inputs["version"]
+    slug = ctx.job.inputs.get("slug")
+    version = ctx.job.inputs.get("version")
     question = ctx.job.inputs["question"]
-    cir = _load_cir(ctx, slug, version)
+    customer = ctx.job.inputs.get("customer_ref", "unknown")
 
-    answer = Concierge(cir).answer(question)
-    ctx.audit("support.replied", artifact=f"{slug}@{version}",
-              detail={"escalated": answer.escalated, "confident": answer.confident})
-    return answer.to_dict()
+    cir = _load_cir(ctx, slug, version) if slug and version else None
+    reply = CustomerExperience(ctx.db).handle(
+        customer_ref=customer, message=question, cir=cir,
+        product_slug=slug, version=version)
+
+    ctx.audit("support.replied", artifact=f"{slug}@{version}" if slug else None,
+              detail={"specialist": reply.specialist, "escalated": reply.escalated,
+                      "sent": reply.sent})
+    return reply.to_dict()
+
+
+@handlers.register("support.triage")
+def handle_support_triage(ctx: JobContext) -> dict:
+    """Mine real support cases for themes and candidate defects (section 10)."""
+    from ..support.department import CustomerExperience
+
+    out = CustomerExperience(ctx.db).mine_cases(ctx.job.inputs.get("slug"))
+    ctx.audit("support.mined", detail={"cases": out["cases"],
+                                       "hotspots": out["row_hotspots"][:5]})
+    for hotspot in out["row_hotspots"]:
+        if hotspot["mentions"] >= 3:
+            ctx.audit("support.defect_candidate", artifact=hotspot["product"],
+                      detail=hotspot)
+    return out
 
 
 def _collection_siblings(slug: str) -> list[str]:
@@ -342,3 +478,106 @@ def _difficulty(twin, cir) -> str:
     if colors_used > 1 or cir.construction != "flat_rows":
         return "confident beginner"
     return "beginner"
+
+
+@handlers.register("collection.assemble")
+def handle_collection_assemble(ctx: JobContext) -> dict:
+    """Build a collection listing out of its members' real, certified releases.
+
+    A bundle has no pattern of its own, so it has nothing to compile, nothing to reverse
+    compile and nothing to render a chart from. What it has is members — and it may only be
+    listed once every one of them has a certificate, because a bundle is a promise to deliver
+    each of those patterns.
+
+    When the members are not ready yet this raises a transient error rather than assembling a
+    partial collection. The queue's backoff then retries it, which is exactly right: the
+    bundle is not broken, it is early.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Collection, Listing, PatternVersion, Product
+    from ..core.resilience import TransientError
+    from ..brand import bible
+
+    slug = ctx.job.inputs["slug"]
+    family = ctx.job.inputs.get("family")
+    seed = _seed_for(slug)
+    members = [m for m in POOL if m.family == family and not m.is_bundle]
+    if not members:
+        raise ValueError(f"{slug}: a bundle with no members cannot be assembled")
+
+    with ctx.db.session() as s:
+        certified: list[tuple[str, str]] = []
+        for m in members:
+            product = s.scalar(select(Product).where(Product.slug == m.slug))
+            if product is None:
+                continue
+            pv = s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id,
+                PatternVersion.certified == True))  # noqa: E712
+            if pv is not None:
+                certified.append((m.slug, pv.version))
+
+    # The collection is the members that actually shipped, not every concept in the family.
+    # The pool holds more Nordic Forest concepts than the portfolio selected, and a bundle
+    # advertising a stocking nobody engineered would be a promise we cannot keep. Two is the
+    # floor: one pattern is not a collection.
+    ready = {c[0] for c in certified}
+    members = [m for m in members if m.slug in ready]
+    if len(members) < 2:
+        waiting = sorted(ready)
+        ctx.audit("collection.waiting", artifact=slug,
+                  detail={"certified_members": waiting})
+        raise TransientError(
+            f"{slug} cannot be listed yet: only {len(members)} of its patterns are certified. "
+            f"A bundle is a promise to deliver each of its patterns, so it waits for them.")
+
+    prices = [m.price_cad for m in members]
+    verdict = pricing_mod_intel.price_bundle(prices)
+
+    titles = [m.title for m in members]
+    collection_name = (seed.family or slug).replace("-", " ").title()
+    name_problems = bible.check_collection_name(collection_name)
+
+    description = (
+        f"{collection_name}: {len(members)} crochet patterns that share one motif library and "
+        f"one palette, sold together.\n\n"
+        + "\n".join(f"- {t}" for t in titles)
+        + f"\n\nBuying them together saves CA${verdict.saving_cad:.2f} "
+          f"({verdict.saving_pct:.0%}) against CA${verdict.member_total_cad:.2f} for the same "
+          f"patterns bought separately. That is a saving against the prices we actually "
+          f"charge, not against a reference price we invented.\n\n"
+          f"Every pattern in this collection was compiled and checked row by row before "
+          f"release, and each one's chart is generated from the same data as its written "
+          f"instructions.")
+
+    with ctx.db.session() as s:
+        row = s.scalar(select(Collection).where(Collection.slug == slug))
+        if row is None:
+            row = Collection(slug=slug, family=family or slug)
+            s.add(row)
+        row.title = collection_name
+        row.season = seed.season if seed else None
+        row.palette = dict(bible.PALETTE)
+        row.story = description
+
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == "collection"))
+        if listing is None:
+            listing = Listing(product_slug=slug, version="collection")
+            s.add(listing)
+        listing.title = f"{collection_name} Collection | {len(members)} Crochet Patterns | PDF"
+        listing.description = description
+        listing.tags = [f"{collection_name.split()[0].lower()} collection",
+                        "crochet pattern set", "pattern bundle pdf"]
+        listing.price_cad = verdict.price_cad
+        listing.state = "draft"
+        listing.seo_score = 0.0
+
+    ctx.audit("collection.assembled", artifact=slug, detail={
+        "members": [m[0] for m in certified], "price_cad": verdict.price_cad,
+        "saving_cad": verdict.saving_cad, "name_problems": name_problems,
+        "published": False})
+    return {"slug": slug, "members": [m[0] for m in certified],
+            "price_cad": verdict.price_cad, "saving_cad": verdict.saving_cad,
+            "saving_pct": verdict.saving_pct, "name_problems": name_problems}

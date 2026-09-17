@@ -19,8 +19,9 @@ from sqlalchemy import func, select
 from ..agents.registry import Registry
 from ..core.db import Database
 from ..core.models import (
-    Agent, AuditLog, CostEntry, Incident, Job, JobStatus, LedgerEntry, OwnerAction,
-    PatternVersion, Product, SpendLimit, utcnow,
+    Agent, AuditLog, Collection, ContentPiece, CostEntry, Incident, Job, JobStatus,
+    LedgerEntry, Listing, ListingAsset, OwnerAction, PatternVersion, Product, SpendLimit,
+    SupportCase, utcnow,
 )
 from ..gateway.model_gateway import available_providers
 from ..queue.durable import DuplicateJob, JobQueue
@@ -112,6 +113,83 @@ def api_status() -> dict:
 def api_tick() -> dict:
     """Cron target. Idempotent per cadence window, so calling it often is harmless."""
     return {"enqueued": Scheduler(db).tick()}
+
+
+@app.get("/api/catalogue")
+def api_catalogue() -> dict:
+    """What the shop would be, if it were open. Drafted, never published."""
+    with db.session() as s:
+        listings = list(s.scalars(select(Listing)))
+        assets = list(s.scalars(select(ListingAsset)))
+        content = list(s.scalars(select(ContentPiece)))
+        collections = list(s.scalars(select(Collection)))
+        products = {p.id: p for p in s.scalars(select(Product))}
+        certified = {pv.product_id: pv for pv in s.scalars(
+            select(PatternVersion).where(PatternVersion.certified == True))}  # noqa: E712
+
+    by_slug: dict[str, int] = {}
+    for a in assets:
+        by_slug[a.product_slug] = by_slug.get(a.product_slug, 0) + 1
+    content_by_slug: dict[str, int] = {}
+    for c in content:
+        content_by_slug[c.product_slug] = content_by_slug.get(c.product_slug, 0) + 1
+
+    return {
+        "published": False,
+        "why": ("BRAMBLELOOP_PHASE=shadow. There is no Etsy, Pinterest, email or messaging "
+                "integration in this system, so nothing here can reach a customer."),
+        "listings": [
+            {"slug": l.product_slug, "version": l.version, "title": l.title,
+             "price_cad": l.price_cad, "tags": len(l.tags), "state": l.state,
+             "search_share": round(l.seo_score, 3),
+             "images": by_slug.get(l.product_slug, 0),
+             "content_pieces": content_by_slug.get(l.product_slug, 0)}
+            for l in sorted(listings, key=lambda x: -x.seo_score)
+        ],
+        "collections": [{"slug": c.slug, "title": c.title, "family": c.family}
+                        for c in collections],
+        "totals": {"listings": len(listings), "listing_images": len(assets),
+                   "content_pieces": len(content), "collections": len(collections),
+                   "certified_patterns": len(certified), "products": len(products)},
+    }
+
+
+@app.get("/api/finance")
+def api_finance() -> dict:
+    """The books, the CFO's view and where CA$100K stands. Every figure observed."""
+    from ..finance.books import Books, cfo_challenge, trajectory
+
+    books = Books(db)
+    pl = books.profit_and_loss()
+    with db.session() as s:
+        limits = list(s.scalars(select(SpendLimit)))
+        validated = s.scalar(select(func.count()).select_from(PatternVersion).where(
+            PatternVersion.certified == True)) or 0  # noqa: E712
+        listings = s.scalar(select(func.count()).select_from(Listing)) or 0
+
+    return {
+        "profit_and_loss": pl.to_dict(),
+        "unit_economics": books.unit_economics(products_validated=validated,
+                                               listings_drafted=listings),
+        "cfo_challenges": [c.to_dict() for c in cfo_challenge(
+            pl, limits=limits, infra_monthly_cad=7.0, infra_ceiling_cad=20.0)],
+        "trajectory": trajectory(pl),
+    }
+
+
+@app.get("/api/support")
+def api_support(limit: int = 50) -> dict:
+    with db.session() as s:
+        cases = list(s.scalars(select(SupportCase).order_by(SupportCase.id.desc())
+                               .limit(min(limit, 500))))
+        return {
+            "cases": [{"id": c.id, "at": c.at.isoformat(), "desk": c.specialist,
+                       "product": c.product_slug, "version": c.version,
+                       "escalated": c.escalated, "sent": c.sent,
+                       "question": c.question[:160], "answer": c.answer[:400]}
+                      for c in cases],
+            "nothing_sent": all(not c.sent for c in cases),
+        }
 
 
 @app.post("/api/plan-cycle")
@@ -312,6 +390,16 @@ tr:last-child td{border-bottom:none}
 """
 
 
+def _counts() -> dict:
+    """Catalogue totals for the dashboard. Cheap counts, not a full listing dump."""
+    with db.session() as s:
+        return {
+            "listings": s.scalar(select(func.count()).select_from(Listing)) or 0,
+            "listing_images": s.scalar(select(func.count()).select_from(ListingAsset)) or 0,
+            "content_pieces": s.scalar(select(func.count()).select_from(ContentPiece)) or 0,
+        }
+
+
 def _pill(status: str) -> str:
     cls = {"done": "done", "dead": "dead", "running": "running",
            "failed": "failed"}.get(status, "pending")
@@ -364,6 +452,9 @@ def dashboard() -> str:
   <div class="card"><span>Revenue</span><b>CA${st['revenue_cad']:.2f}</b></div>
   <div class="card"><span>Worker</span><b>{'live' if st['runner']['worker_alive'] else ('off' if not st['runner']['enabled'] else 'stalled')}</b></div>
   <div class="card"><span>Model providers</span><b>{len(st['model_providers']) or 'none'}</b></div>
+  <div class="card"><span>Listings drafted</span><b>{_counts()['listings']}</b></div>
+  <div class="card"><span>Listing images</span><b>{_counts()['listing_images']}</b></div>
+  <div class="card"><span>Content pieces</span><b>{_counts()['content_pieces']}</b></div>
 </div>
 <div class="sub" style="color:var(--muted);font-size:12px;margin:-14px 0 18px">
 Runner: {st['runner']['worker'] or 'not started'} &middot; last tick

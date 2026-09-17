@@ -169,9 +169,12 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
                        min(cols * 4, max(len(r) for r in grid)),
                        min(rows * 3, len(grid)))
 
-    top = int(size * 0.215)
-    bottom = int(size * 0.865)
-    box_w, box_h = size - 2 * m, bottom - top
+    # The fabric gets most of the frame. Thumbnail Warfare measures subject coverage at
+    # search-grid size, and a hero that is mostly cream background loses the click to one
+    # that is not -- an earlier layout sat barely above the floor at 36%.
+    top = int(size * 0.175)
+    bottom = int(size * 0.885)
+    box_w, box_h = int(size * 0.96), bottom - top
     fabric = render_fabric(cir, twin, cell_px=24, grids=grids)
     scale = min(box_w / fabric.width, box_h / fabric.height)
     fabric = fabric.resize((max(1, int(fabric.width * scale)),
