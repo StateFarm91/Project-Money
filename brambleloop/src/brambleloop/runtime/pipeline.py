@@ -391,6 +391,50 @@ def handle_plan_cycle(ctx: JobContext) -> dict:
     return {"planned": True}
 
 
+@handlers.register("portfolio.review")
+def handle_portfolio_review(ctx: JobContext) -> dict:
+    """Re-run the portfolio decision against today's calendar and today's catalogue.
+
+    Section 12 classifies SKUs and retires persistent losers; section 33 says which products
+    should exist. Both change with the date rather than with the catalogue: a product that
+    was the right build in September is a dead listing in December, and a concept that scored
+    too early last month may be in its window now.
+
+    This reports drift. It does not retire or launch anything by itself -- there is no live
+    performance data to classify against yet, and a review that acts on no evidence is not a
+    review. What it does guarantee is that the divergence is visible and dated rather than
+    discovered a season late.
+    """
+    from sqlalchemy import select
+
+    today = _scan_date(ctx)
+    portfolio = select_portfolio(today=today)
+    should_exist = {c.slug for c in portfolio.selected}
+
+    with ctx.db.session() as s:
+        built = {p.slug for p in s.scalars(select(Product))}
+
+    missing = sorted(should_exist - built)      # earned a place, not built yet
+    off_portfolio = sorted(built - should_exist)  # built, no longer earns a place
+
+    ctx.audit("portfolio.reviewed", detail={
+        "as_of": today.isoformat(),
+        "in_portfolio": len(should_exist),
+        "built": len(built),
+        "missing": missing[:20],
+        "off_portfolio": off_portfolio[:20],
+        "constraints_met": portfolio.constraints_met,
+    })
+    for slug in missing:
+        ctx.enqueue("market_radar", "radar.score",
+                    next(c.to_dict() for c in portfolio.selected if c.slug == slug),
+                    idempotency_key=f"score:{slug}:{today.isoformat()}")
+
+    return {"as_of": today.isoformat(), "missing": missing,
+            "off_portfolio": off_portfolio,
+            "constraints_met": portfolio.constraints_met}
+
+
 @handlers.register("finance.reconcile")
 def handle_finance_reconcile(ctx: JobContext) -> dict:
     from sqlalchemy import select

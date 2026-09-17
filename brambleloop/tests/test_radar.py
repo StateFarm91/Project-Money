@@ -286,6 +286,41 @@ def test_every_selector_decision_is_explained():
                    ("to satisfy", "could not satisfy", "added ", "held ")), reason
 
 
+# ---- the review cadence ----------------------------------------------------
+
+
+def test_portfolio_review_reports_drift_without_acting_on_no_evidence():
+    """The weekly cadence must produce a dated divergence report, not a dead letter."""
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401
+    from brambleloop.runtime.worker import Worker
+    from sqlalchemy import select
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Database(f"sqlite:///{tmp}/r.sqlite")
+        db.create_all()
+        Registry(db).seed_defaults()
+        job = JobQueue(db).enqueue("orchestrator", "portfolio.review",
+                                   {"as_of": TODAY.isoformat()})
+        w = Worker(db, "reviewer")
+        assert w.run_once() is True
+
+        done = JobQueue(db).get(job.id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert done.outputs["as_of"] == TODAY.isoformat()
+        # Nothing is built yet, so the whole portfolio is missing -- and it must say so.
+        assert len(done.outputs["missing"]) >= 8
+        assert done.outputs["off_portfolio"] == []
+        with db.session() as s:
+            actions = {a.action for a in s.scalars(select(AuditLog))}
+        assert "portfolio.reviewed" in actions
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

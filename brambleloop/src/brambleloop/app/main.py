@@ -25,6 +25,7 @@ from ..core.models import (
 from ..queue.durable import JobQueue
 from ..runtime import pipeline  # noqa: F401  -- registers job handlers
 from ..runtime.worker import Scheduler
+from . import runner
 
 APP_VERSION = "0.1.0"
 
@@ -36,6 +37,12 @@ app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 def _startup() -> None:
     db.create_all()
     Registry(db).seed_defaults()
+    runner.start(db)
+
+
+@app.on_event("shutdown")
+def _shutdown() -> None:
+    runner.stop()
 
 
 # ---- health ---------------------------------------------------------------
@@ -53,7 +60,8 @@ def health() -> JSONResponse:
         healthy = False
         detail = f"{type(e).__name__}: {e}"
     return JSONResponse(
-        {"status": "ok" if healthy else "degraded", "version": APP_VERSION, "db": detail},
+        {"status": "ok" if healthy else "degraded", "version": APP_VERSION, "db": detail,
+         "runner": runner.STATE.to_dict()},
         status_code=200 if healthy else 503,
     )
 
@@ -87,6 +95,7 @@ def api_status() -> dict:
         "agent_opex_cad": round(float(opex), 4),
         "revenue_cad": round(float(revenue), 2),
         "owner_actions_open": owner_open,
+        "runner": runner.STATE.to_dict(),
     }
 
 
@@ -204,6 +213,13 @@ def dashboard() -> str:
   <div class="card"><span>Open incidents</span><b>{st['open_incidents']}</b></div>
   <div class="card"><span>Agent opex</span><b>CA${st['agent_opex_cad']:.2f}</b></div>
   <div class="card"><span>Revenue</span><b>CA${st['revenue_cad']:.2f}</b></div>
+  <div class="card"><span>Worker</span><b>{'live' if st['runner']['worker_alive'] else ('off' if not st['runner']['enabled'] else 'stalled')}</b></div>
+</div>
+<div class="sub" style="color:var(--muted);font-size:12px;margin:-14px 0 18px">
+Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
+{st['runner']['worker_last_tick'] or 'never'} &middot; restarts {st['runner']['worker_restarts']}
+&middot; scheduler {st['runner']['scheduler_last_tick'] or 'never'}
+{('&middot; last error: ' + st['runner']['last_error']) if st['runner']['last_error'] else ''}
 </div>
 {owner_html}
 <h2>Recent jobs</h2>
