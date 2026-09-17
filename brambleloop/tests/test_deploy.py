@@ -22,6 +22,7 @@ os.environ["BRAMBLELOOP_DATABASE_URL"] = f"sqlite:///{_TMP.name}/app.sqlite"
 os.environ.setdefault("BRAMBLELOOP_EMBEDDED_WORKER", "1")
 os.environ["BRAMBLELOOP_SCHEDULER_INTERVAL"] = "2"
 os.environ["BRAMBLELOOP_IDLE_SLEEP"] = "0.2"
+os.environ["BRAMBLELOOP_RUNNER_START_DELAY"] = "0"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import select  # noqa: E402

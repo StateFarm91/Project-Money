@@ -15,5 +15,7 @@ COPY tests ./tests
 COPY run_tests.sh ./
 
 # Default is the web/admin service; the worker and scheduler override the command.
+# Shell form on purpose: the platform injects PORT and a hardcoded port means the health
+# check probes somewhere nothing is listening. The default keeps `docker run` working locally.
 EXPOSE 8000
-CMD ["uvicorn", "brambleloop.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD uvicorn brambleloop.app.main:app --host 0.0.0.0 --port ${PORT:-8000}

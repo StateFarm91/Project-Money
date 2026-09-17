@@ -71,6 +71,13 @@ STATE = RunnerState()
 _IDLE_SLEEP = float(os.environ.get("BRAMBLELOOP_IDLE_SLEEP", "2.0"))
 _SCHEDULER_INTERVAL = float(os.environ.get("BRAMBLELOOP_SCHEDULER_INTERVAL", "60"))
 
+# Become healthy before taking on load. The first thing the scheduler enqueues is a full
+# planning cycle, and rendering eleven products' PDFs is CPU-bound work that holds the GIL --
+# enough, on a small instance, to starve the health endpoint until the platform gives up and
+# marks a perfectly good deployment failed. Serving first and working second is how a
+# container is supposed to start.
+_START_DELAY = float(os.environ.get("BRAMBLELOOP_RUNNER_START_DELAY", "25"))
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -85,6 +92,8 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event) -
     """
     STATE.worker_name = name
     STATE.worker_started_at = _now()
+    if _START_DELAY > 0 and stop.wait(_START_DELAY):
+        return
     while not stop.is_set():
         try:
             worker = Worker(db, name, phase=phase)
@@ -101,6 +110,8 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event) -
 
 
 def _scheduler_loop(db: Database, stop: threading.Event) -> None:
+    if _START_DELAY > 0 and stop.wait(_START_DELAY):
+        return
     while not stop.is_set():
         try:
             enqueued = Scheduler(db).tick()
