@@ -333,6 +333,9 @@ class Listing(Base):
     price_cad: Mapped[float] = mapped_column(Float, default=0.0)
     state: Mapped[str] = mapped_column(String(30), default="draft", index=True)
     seo_score: Mapped[float] = mapped_column(Float, default=0.0)
+    # Which release chain produced this listing. A rebuild that only looked for *missing*
+    # listings left every stale one in place, so staleness has to be visible.
+    chain_version: Mapped[str] = mapped_column(String(8), default="1", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (

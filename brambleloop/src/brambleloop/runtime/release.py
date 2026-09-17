@@ -307,6 +307,7 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
         row.price_cad = copy.price_cad
         row.seo_score = share
         row.state = "draft"
+        row.chain_version = CHAIN_VERSION
 
 
 @handlers.register("launch.plan")
@@ -591,6 +592,7 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
         listing.price_cad = verdict.price_cad
         listing.state = "draft"
         listing.seo_score = 0.0
+        listing.chain_version = CHAIN_VERSION
 
     ctx.audit("collection.assembled", artifact=slug, detail={
         "members": [m[0] for m in certified], "price_cad": verdict.price_cad,
@@ -626,12 +628,16 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         products = {p.id: p.slug for p in s.scalars(select(Product))}
         certified = [pv for pv in s.scalars(
             select(PatternVersion).where(PatternVersion.certified == True))]  # noqa: E712
-        listed = {(l.product_slug, l.version) for l in s.scalars(select(Listing))}
+        # Current, not merely present. An earlier version of this looked only for *missing*
+        # listings and so left every stale one exactly as it was: the fix reached nothing, and
+        # a stuttering title stayed on every shipped product through two deploys.
+        current = {(l.product_slug, l.version) for l in s.scalars(select(Listing))
+                   if l.chain_version == CHAIN_VERSION}
 
     started: list[str] = []
     for pv in certified:
         slug = products.get(pv.product_id)
-        if not slug or (slug, pv.version) in listed:
+        if not slug or (slug, pv.version) in current:
             continue
         job = ctx.enqueue("listing", "listing.draft",
                           {"slug": slug, "version": pv.version},
@@ -643,7 +649,7 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     # PatternVersion, so they need their own line here or a rebuild leaves the bundle behind.
     collections_started: list[str] = []
     for seed in POOL:
-        if not seed.is_bundle or (seed.slug, "collection") in listed:
+        if not seed.is_bundle or (seed.slug, "collection") in current:
             continue
         job = ctx.enqueue("listing", "collection.assemble",
                           {"slug": seed.slug, "family": seed.family},

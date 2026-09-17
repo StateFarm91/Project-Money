@@ -290,6 +290,67 @@ def test_seeding_twice_with_no_drift_changes_nothing():
     assert reg.seed_defaults() == []
 
 
+def test_a_column_added_in_code_reaches_a_database_that_already_exists():
+    """create_all does not touch a table that exists, so a new column never lands.
+
+    This is the third instance of one problem in this system: code changed, the deployed
+    database did not. The first was an agent permission, the second a pipeline upgrade that
+    could not reach shipped products. Naming it is the point.
+    """
+    import tempfile
+
+    from sqlalchemy import inspect, text
+
+    from brambleloop.core.migrate import apply, plan
+
+    with tempfile.TemporaryDirectory() as tmp:
+        url = f"sqlite:///{tmp}/schema.sqlite"
+        db = Database(url)
+        assert db.create_all() == [], "a fresh database needed a migration"
+
+        # Simulate a database created before the column existed.
+        with db.engine.begin() as conn:
+            conn.execute(text("DROP INDEX IF EXISTS ix_listings_chain_version"))
+            conn.execute(text("ALTER TABLE listings DROP COLUMN chain_version"))
+
+        again = Database(url)
+        assert plan(again.engine), "the missing column was not detected"
+        changes = again.create_all()
+        assert any("chain_version" in c for c in changes), changes
+
+        insp = inspect(again.engine)
+        cols = {c["name"] for c in insp.get_columns("listings")}
+        idx = {i["name"] for i in insp.get_indexes("listings")}
+        assert "chain_version" in cols
+        assert "ix_listings_chain_version" in idx, "the column came back without its index"
+        assert Database(url).create_all() == [], "the migration is not idempotent"
+
+
+def test_the_migration_refuses_a_change_it_cannot_make_safely():
+    """Additive only. A NOT NULL column with no default cannot be added to a table with rows."""
+    import tempfile
+
+    from sqlalchemy import Column, String, Table
+
+    from brambleloop.core.db import Base
+    from brambleloop.core.migrate import UnsafeMigration, plan
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Database(f"sqlite:///{tmp}/unsafe.sqlite")
+        db.create_all()
+        table: Table = Base.metadata.tables["listings"]
+        column = Column("mandatory_thing", String(10), nullable=False)
+        table.append_column(column)
+        try:
+            plan(db.engine)
+        except UnsafeMigration as e:
+            assert "write a real migration" in str(e)
+        else:
+            raise AssertionError("an unbackfillable NOT NULL column was accepted")
+        finally:
+            table._columns.remove(column)
+
+
 def test_every_scheduled_cadence_can_actually_run():
     """A cadence its agent may not run dead-letters forever, silently.
 

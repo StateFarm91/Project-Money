@@ -37,7 +37,11 @@ app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 
 @app.on_event("startup")
 def _startup() -> None:
-    db.create_all()
+    schema_changes = db.create_all()
+    if schema_changes:
+        # A schema change nobody can see is how a deploy breaks quietly.
+        Registry(db).audit("orchestrator", "schema.migrated",
+                           detail={"changes": schema_changes[:50]})
     changes = Registry(db).seed_defaults()
     if changes:
         # A deploy that silently changes an agent's authority is a deploy nobody can audit.
@@ -142,6 +146,7 @@ def api_catalogue() -> dict:
             {"slug": l.product_slug, "version": l.version, "title": l.title,
              "price_cad": l.price_cad, "tags": len(l.tags), "state": l.state,
              "search_share": round(l.seo_score, 3),
+             "chain_version": l.chain_version,
              "images": by_slug.get(l.product_slug, 0),
              "content_pieces": content_by_slug.get(l.product_slug, 0)}
             for l in sorted(listings, key=lambda x: -x.seo_score)

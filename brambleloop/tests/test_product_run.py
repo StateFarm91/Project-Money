@@ -389,6 +389,61 @@ def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
     assert not broken, broken
     assert len(listings) >= 10, f"the rebuild reached only {len(listings)} listings"
     assert images and content and collections
+    assert {l.chain_version for l in listings} == {CHAIN_VERSION}
+
+
+def test_a_stale_listing_is_rebuilt_not_only_a_missing_one():
+    """The first rebuild looked only for *missing* listings.
+
+    So a copy fix reached nothing: every shipped product kept its old listing through two
+    deploys, because a stale listing is present and the check only asked whether one existed.
+    """
+    import tempfile as _tempfile
+
+    from sqlalchemy import select as _select
+
+    from brambleloop.agents.registry import Registry as _Registry
+    from brambleloop.core.db import Database as _Database
+    from brambleloop.core.models import Listing
+    from brambleloop.queue.durable import JobQueue as _JobQueue
+    from brambleloop.runtime.release import CHAIN_VERSION
+    from brambleloop.runtime.worker import Worker as _Worker
+
+    tmp = _tempfile.mkdtemp()
+    os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = f"{tmp}/art"
+    db = _Database(f"sqlite:///{tmp}/stale.sqlite")
+    db.create_all()
+    _Registry(db).seed_defaults()
+    q = _JobQueue(db)
+    q.enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
+    w = _Worker(db, "stale")
+    for _ in range(2500):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        listings = list(s.scalars(_select(Listing)))
+        assert listings and all(l.chain_version == CHAIN_VERSION for l in listings)
+        # Age every listing, and free the keys the way a chain bump would.
+        for l in listings:
+            l.chain_version = "0"
+        for job in s.scalars(_select(Job)):
+            if job.idempotency_key and f":c{CHAIN_VERSION}" in job.idempotency_key:
+                job.idempotency_key = job.idempotency_key.replace(f":c{CHAIN_VERSION}", ":c0")
+
+    q.enqueue("listing", "chain.rebuild", {})
+    for _ in range(3000):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        after = list(s.scalars(_select(Listing)))
+        broken = [(j.job_type, (j.last_error or "")[:80]) for j in s.scalars(_select(Job))
+                  if j.status in (JobStatus.DEAD, JobStatus.FAILED)
+                  and j.job_type != "store.publish"]
+    assert not broken, broken
+    assert after and all(l.chain_version == CHAIN_VERSION for l in after), \
+        sorted({l.chain_version for l in after})
 
 
 def test_attack_a_fake_was_price_is_refused():

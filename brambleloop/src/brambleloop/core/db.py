@@ -87,10 +87,18 @@ class Database:
         self.engine = make_engine(url, echo)
         self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False, future=True)
 
-    def create_all(self) -> None:
+    def create_all(self) -> list[str]:
+        """Create missing tables, then add missing columns to the ones that exist.
+
+        `create_all` alone does not touch a table that already exists, so a column added in
+        code never reaches a deployed database. Returns what the additive migration changed,
+        which the caller logs -- a schema change nobody can see is how a deploy breaks quietly.
+        """
         from . import models  # noqa: F401  (import registers the mappings)
+        from .migrate import apply as apply_migrations
 
         Base.metadata.create_all(self.engine)
+        return apply_migrations(self.engine)
 
     def drop_all(self) -> None:
         Base.metadata.drop_all(self.engine)
