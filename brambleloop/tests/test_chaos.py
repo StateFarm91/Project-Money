@@ -438,6 +438,28 @@ def test_a_deliberate_refusal_is_never_re_driven():
         assert q.get(job.id).status == JobStatus.DEAD
 
 
+def test_a_permission_denial_is_re_driven_because_it_is_usually_a_misconfiguration():
+    """This exact case cost the production heartbeat every run since the first boot."""
+    from brambleloop.core.models import JobStatus
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = boot(f"sqlite:///{tmp}/live.sqlite")
+        q = JobQueue(db)
+        job = q.enqueue("orchestrator", "ops.heartbeat", {"cadence": "infra_heartbeat"})
+        with db.session() as s:
+            j = s.get(Job, job.id)
+            j.status = JobStatus.DEAD
+            j.last_error = ("permission denied: agent 'orchestrator' may not run "
+                            "'ops.heartbeat'")
+
+        result = q.requeue_dead()
+        assert result["requeued"] == [job.id], result
+        # Safe regardless: the worker re-authorises on dispatch, so a permission that is
+        # still missing fails again rather than sneaking through.
+        assert Worker(db, "w").run_once() is True
+        assert q.get(job.id).status == JobStatus.DONE
+
+
 def test_purge_refuses_to_operate_without_explicit_job_types():
     """The one thing a dead-letter queue must never do is lose a failure nobody looked at."""
     with tempfile.TemporaryDirectory() as tmp:

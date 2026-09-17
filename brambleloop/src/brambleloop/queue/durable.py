@@ -216,10 +216,16 @@ class JobQueue:
                 s.expunge(j)
             return jobs
 
-    # Errors that mean "this was refused on purpose". Re-driving one is not recovery, it is
-    # an operator repeatedly asking a closed gate to open -- and on a publish job, repeatedly
-    # asking a system in shadow mode to go live.
-    REFUSAL_MARKERS = ("capability not enabled", "shadow", "permission denied:")
+    # Errors that mean "a closed gate said no". Re-driving one is not recovery, it is an
+    # operator repeatedly asking a system in shadow mode to go live.
+    #
+    # A permission denial is deliberately NOT in this list. It reads like a refusal and is
+    # usually a misconfiguration: the operational heartbeat was scheduled against an agent
+    # that had no permission for it and dead-lettered every fifteen minutes from the first
+    # boot. Once the registry is corrected that work is owed, and re-driving it is safe
+    # regardless, because the worker re-authorises on every dispatch -- a job whose permission
+    # is still missing simply fails again rather than sneaking through.
+    REFUSAL_MARKERS = ("capability not enabled", "shadow mode")
 
     def requeue_dead(self, *, job_types: list[str] | None = None,
                      ids: list[int] | None = None, reset_attempts: bool = True) -> dict:
