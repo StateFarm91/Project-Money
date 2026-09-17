@@ -242,6 +242,34 @@ def test_backup_and_restore_drill_proves_the_backup_works():
         assert result.restored_counts["audit_log"] == 1
 
 
+def test_every_scheduled_cadence_can_actually_run():
+    """A cadence its agent may not run dead-letters forever, silently.
+
+    Found in production: the operational heartbeat was scheduled against the orchestrator,
+    which had no permission for it, so it failed every fifteen minutes from the first boot and
+    the queue-health signal never once fired. Nothing caught it because every other test
+    enqueued jobs directly instead of going through the schedule. This checks the two things
+    that must be true of every cadence: an agent allowed to run it, and a handler to run.
+    """
+    from brambleloop.runtime import pipeline  # noqa: F401  -- registers handlers
+    from brambleloop.runtime.worker import CADENCES, handlers
+
+    db = Database("sqlite://")
+    db.create_all()
+    reg = Registry(db)
+    reg.seed_defaults()
+
+    problems = []
+    for name, agent, job_type, _period in CADENCES:
+        try:
+            reg.authorize(agent, job_type)
+        except PermissionDenied as e:
+            problems.append(f"cadence {name!r}: {e}")
+        if handlers.get(job_type) is None:
+            problems.append(f"cadence {name!r}: no handler registered for {job_type!r}")
+    assert not problems, problems
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

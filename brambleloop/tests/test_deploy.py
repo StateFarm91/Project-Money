@@ -77,13 +77,20 @@ def test_the_container_runs_the_company_by_itself():
         assert runner.wait_for_tick(timeout=15), "embedded worker never ticked"
         assert c.get("/health").json()["runner"]["enabled"] is True
 
-        # The scheduler's own cadence enqueues the planning cycle; wait for it to land.
-        deadline = time.time() + 40
+        # The scheduler's own cadence enqueues the planning cycle; wait for the chain to
+        # reach the far end of itself, which is the publish refusal, not merely the first
+        # product. Waiting on the first product would declare victory a dozen steps early.
+        from brambleloop.core.models import AuditLog
+
+        deadline = time.time() + 180
         products: list[str] = []
+        refusals: list = []
         while time.time() < deadline:
             with app_main.db.session() as s:
                 products = [p.slug for p in s.scalars(select(Product))]
-            if products:
+                refusals = [a.id for a in s.scalars(select(AuditLog))
+                            if a.action == "store.publish_refused"]
+            if refusals:
                 break
             time.sleep(0.5)
 
@@ -91,8 +98,48 @@ def test_the_container_runs_the_company_by_itself():
         body = c.get("/api/status").json()
         assert body["runner"]["worker_alive"] is True
         assert body["certified_versions"] >= 1
-        # Shadow mode still refuses to publish, even running unattended in a container.
-        assert body["dead_letters"] >= 1
+
+    # Shadow mode still refuses to publish, even running unattended in a container. Asserted
+    # against the audit trail rather than the dead-letter count: a refusal is retried with
+    # backoff before it dead-letters, so a dead-letter count is a slow and ambiguous proxy --
+    # it was previously satisfied by an unrelated cadence failing, which is how this test
+    # passed for years-worth of the wrong reason.
+    with app_main.db.session() as s:
+        refusals = [a for a in s.scalars(select(AuditLog))
+                    if a.action == "store.publish_refused"]
+        published = [a for a in s.scalars(select(AuditLog))
+                     if a.action == "store.published"]
+    assert refusals, "nothing attempted to publish, so the refusal proved nothing"
+    assert not published, "shadow mode published something"
+
+
+def test_verify_endpoint_reports_the_standing_safety_assertions():
+    """"Railway says deployed" is not "the company is alive and behaving"."""
+    with _client() as c:
+        body = c.get("/api/verify").json()
+    names = {ch["check"] for ch in body["checks"]}
+    for expected in ("phase_is_shadow", "nothing_published", "no_paid_advertising",
+                     "no_revenue_claimed", "every_agent_has_a_cost_ceiling",
+                     "state_is_in_a_durable_database", "worker_is_alive",
+                     "no_unexpected_dead_letters"):
+        assert expected in names, expected
+    by_name = {ch["check"]: ch for ch in body["checks"]}
+    assert by_name["phase_is_shadow"]["ok"] is True
+    assert by_name["nothing_published"]["ok"] is True
+    assert by_name["no_revenue_claimed"]["ok"] is True
+    # Every check carries the evidence it used, so a green result can be argued with.
+    assert all(ch["evidence"] for ch in body["checks"])
+
+
+def test_verify_fails_loudly_rather_than_reporting_green_on_ephemeral_storage():
+    """A SQLite-backed container must not be able to report itself durably deployed."""
+    with _client() as c:
+        body = c.get("/api/verify").json()
+    durable = next(ch for ch in body["checks"]
+                   if ch["check"] == "state_is_in_a_durable_database")
+    assert durable["ok"] is False, "a SQLite test container claimed durable state"
+    assert durable["evidence"]["engine"] == "sqlite"
+    assert body["ok"] is False
 
 
 def test_scheduler_tick_endpoint_is_idempotent_within_a_window():

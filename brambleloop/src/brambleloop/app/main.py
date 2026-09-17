@@ -135,6 +135,99 @@ def api_owner_actions() -> dict:
         ]}
 
 
+@app.get("/api/audit")
+def api_audit(limit: int = 100, action: str | None = None) -> dict:
+    """Read-only audit trail. The dashboard shows fifteen rows; verification needs more."""
+    with db.session() as s:
+        q = select(AuditLog).order_by(AuditLog.id.desc()).limit(min(limit, 1000))
+        if action:
+            q = select(AuditLog).where(AuditLog.action == action).order_by(
+                AuditLog.id.desc()).limit(min(limit, 1000))
+        rows = list(s.scalars(q))
+        return {"audit": [
+            {"id": a.id, "at": a.at.isoformat(), "actor": a.actor, "action": a.action,
+             "artifact": a.artifact, "phase": a.phase.value if a.phase else None,
+             "detail": a.detail}
+            for a in rows
+        ]}
+
+
+@app.get("/api/verify")
+def api_verify() -> JSONResponse:
+    """Standing safety assertions, evaluated against live state.
+
+    "Railway says deployed" is not the same as "the company is alive and behaving". This
+    answers the questions that actually matter to an absent owner: is it running, is its
+    memory durable, has anything escaped shadow mode, and are the money guards still on. Each
+    check reports the evidence it used, so a green result can be argued with.
+    """
+    checks: list[dict] = []
+
+    def check(name: str, ok: bool, evidence) -> None:
+        checks.append({"check": name, "ok": bool(ok), "evidence": evidence})
+
+    phase = os.environ.get("BRAMBLELOOP_PHASE", "shadow")
+    check("phase_is_shadow", phase == "shadow", {"BRAMBLELOOP_PHASE": phase})
+
+    with db.session() as s:
+        published = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "store.published")) or 0
+        refused = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "store.publish_refused")) or 0
+        certified = s.scalar(select(func.count()).select_from(PatternVersion).where(
+            PatternVersion.certified)) or 0
+        audits = s.scalar(select(func.count()).select_from(AuditLog)) or 0
+        revenue = s.scalar(select(func.sum(LedgerEntry.gross_cad))) or 0.0
+        customers = s.scalar(select(func.count()).select_from(LedgerEntry)) or 0
+        limits = list(s.scalars(select(SpendLimit)))
+        agents = list(s.scalars(select(Agent)))
+        ad_spend = s.scalar(select(func.sum(CostEntry.amount_cad)).where(
+            CostEntry.kind == "ads")) or 0.0
+
+    check("nothing_published", published == 0,
+          {"store.published": published, "store.publish_refused": refused})
+    check("publication_was_actually_attempted_and_refused", refused > 0,
+          {"refusals": refused})
+    check("no_paid_advertising", ad_spend == 0, {"ad_spend_cad": float(ad_spend)})
+    check("no_revenue_claimed", float(revenue) == 0.0 and customers == 0,
+          {"revenue_cad": float(revenue), "ledger_entries": customers})
+    check("no_model_provider_configured", available_providers() == [],
+          {"providers": available_providers()})
+    check("every_agent_has_a_cost_ceiling",
+          bool(agents) and all(a.daily_cost_ceiling_cad > 0 for a in agents),
+          {"agents": len(agents),
+           "without_ceiling": [a.name for a in agents if a.daily_cost_ceiling_cad <= 0]})
+    check("spend_limits_not_breached", all(not l.paused for l in limits),
+          {"paused_scopes": [l.scope for l in limits if l.paused]})
+
+    # Durability: a state this rich cannot have come from a container that started empty.
+    durable = certified > 0 and audits > 0 and not _is_sqlite()
+    check("state_is_in_a_durable_database", durable,
+          {"engine": db.engine.dialect.name, "certified_versions": certified,
+           "audit_records": audits})
+
+    r = runner.STATE.to_dict()
+    check("worker_is_alive", bool(r["worker_alive"]),
+          {"last_tick": r["worker_last_tick"], "restarts": r["worker_restarts"]})
+    check("scheduler_has_ticked", r["scheduler_last_tick"] is not None,
+          {"last_tick": r["scheduler_last_tick"]})
+
+    q = JobQueue(db)
+    dead = q.dead_letters()
+    unexpected = [j.job_type for j in dead if j.job_type != "store.publish"]
+    check("no_unexpected_dead_letters", not unexpected,
+          {"unexpected": sorted(set(unexpected)), "expected_publish_refusals":
+           sum(1 for j in dead if j.job_type == "store.publish")})
+
+    passed = all(c["ok"] for c in checks)
+    return JSONResponse({"ok": passed, "checks": checks},
+                        status_code=200 if passed else 503)
+
+
+def _is_sqlite() -> bool:
+    return db.engine.dialect.name == "sqlite"
+
+
 # ---- dashboard ------------------------------------------------------------
 
 _CSS = """

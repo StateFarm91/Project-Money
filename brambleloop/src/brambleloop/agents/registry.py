@@ -31,7 +31,8 @@ class BudgetExceeded(Exception):
 # listed here, so widening authority is a visible, reviewable change.
 DEFAULT_AGENTS: list[dict] = [
     dict(name="orchestrator", description="CEO/Orchestrator: sets priorities, schedules work",
-         allowed_job_types=["plan.cycle", "portfolio.review"], authority=Authority.GREEN,
+         allowed_job_types=["plan.cycle", "portfolio.review", "ops.heartbeat",
+                            "ops.queue_check"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot"],
