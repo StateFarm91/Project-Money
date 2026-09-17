@@ -13,21 +13,32 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **76 tests passing, 0 failing**:
+Verified by `./run_tests.sh` — **132 tests passing, 0 failing**:
 
-- CIR engine (27), platform layer (14), release gates (27), shadow pipeline (8).
+- CIR engine (27), platform layer (14), release gates (27), market radar (30), shadow
+  pipeline (8), real-process persistence (5), chaos/resilience (21).
 - The full release chain runs end to end with no human in the loop, and correctly *refuses*
-  to publish in shadow mode.
-- Cloud deployment: **none.** No Railway project is provisioned. Nothing runs when this
-  session is off. The "persistent 24/7 company OS" is built but **not yet hosted** — this is
-  the single biggest gap between the spec and reality.
+  to publish in shadow mode. A single `plan.cycle` now carries an entire 11-SKU portfolio
+  from market scan to eleven release certificates without intervention.
+- Persistence is **proven, not assumed**: a worker is SIGKILLed mid-job against a file-backed
+  database and a fresh process recovers and completes the work, inputs intact, with no
+  duplicate side effects.
+- Cloud deployment: **none.** The deployable surface exists (FastAPI admin/API, Dockerfile,
+  worker and scheduler entrypoints, `railway.json`) but **no Railway project is provisioned**
+  and nothing runs when this session is off. This remains the single biggest gap between the
+  spec and reality, and it is the first genuine owner gate (paid infrastructure).
 - Etsy shop, listings, customers, revenue, ad spend: **none, CA$0, zero.**
-- Market Radar emits *seeded placeholder* concepts, not real market data. No competitor
-  scraping or trend integration exists yet.
+- Market Radar now runs on **real observed competitor intelligence** (five seeded shops,
+  dated 2026-09-17, with price bands, discount patterns, format signals and named gaps) and a
+  **34-concept opportunity pool across 23 categories**. No live scraping integration exists;
+  observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
-Shadow-mode pipeline: a product travels market brief -> opportunity score -> CIR -> compile ->
-certify -> listing draft -> refused publish, autonomously, with a full audit trail.
+Market Radar and the section 33 portfolio decision. A 34-concept pool is scored on six named
+components, and a constrained selector chooses eleven release candidates — refusing to
+concentrate the portfolio in one demand pattern, capping unverifiable Class C work, and
+holding back a bundle whose members were not themselves selected. The full ranking, every
+component score and every selector swap are written to `reports/opportunity_pool.md`.
 
 ## Architecture decisions
 See `DECISION_LOG.md` for reasoning. Summary:
@@ -54,7 +65,19 @@ See `DECISION_LOG.md` for reasoning. Summary:
 - `gates/certificate.py` — the full release chain and an immutable release hash.
 - `gates/incidents.py` — defect correlation, P1 escalation, publication halt.
 - `runtime/worker.py` — worker loop (authorize → dispatch → complete/fail) and scheduler.
-- `runtime/pipeline.py` — the shadow release pipeline and its job handlers.
+- `runtime/pipeline.py` — the shadow release pipeline and its job handlers. `radar.scan` now
+  scores the real pool and emits the selected portfolio; `radar.score` re-scores each
+  candidate at the moment it would consume engineering effort, because a job can sit in the
+  queue while a seasonal window closes underneath it.
+- `radar/market.py` — dated competitor profiles, category observations, and the SHOPPING DATE
+  vs MAKING DATE window arithmetic (section 5).
+- `radar/opportunity.py` — the 34-concept pool, the six-component score, and the section 33
+  portfolio constraints.
+- `radar/report.py` — renders the whole decision as reviewable markdown.
+- `core/resilience.py` — transient/permanent classification, Retry-After honouring, circuit
+  breaker, artifact hash integrity, strict model-output parsing.
+- `app/main.py`, `app/worker_entry.py`, `app/scheduler_entry.py`, `Dockerfile`,
+  `railway.json` — the deployable surface. Written and exercised locally; not provisioned.
 - `cir/stitches.py` — canonical stitch taxonomy (consumes/produces/height per stitch). US
   canonical, UK rendered downstream.
 - `cir/model.py` — CIR dataclasses, JSON round-trip, components/rows/repeats/gauge/materials.
@@ -117,15 +140,17 @@ See `DECISION_LOG.md` for reasoning. Summary:
   flagged so it is decided deliberately, not by default.
 
 ## Next highest-value unblocked actions
-1. **Deploy.** Build the FastAPI admin/API surface and a container, then provision Railway
-   (Postgres + worker + cron). This is what turns the OS from "runs when invoked" into "runs
-   when everyone is asleep". Paid infrastructure approval is the first real owner gate.
-2. Model Gateway (section 27): provider-agnostic routing, failover, pinned prompt versions,
+1. **Provision Railway** (Postgres + web + worker + cron). The container and entrypoints are
+   built; what is missing is the paid project. This is what turns the OS from "runs when
+   invoked" into "runs when everyone is asleep", and it is the first real owner gate.
+2. Take the top-ranked product (`nordic-forest-mosaic-throw`) through the *complete* chain:
+   premium PDF and charts from the twin, truthful listing assets, pricing, SEO draft, launch
+   plan and simulated support — then attack it deliberately and prove the gates reject.
+3. Model Gateway (section 27): provider-agnostic routing, failover, pinned prompt versions,
    cost logging, eval fixtures. Needed before any LLM call enters the pipeline.
-3. Real Market Radar: replace seeded placeholder concepts with actual demand signals from
-   `spec/05_Competitor_and_Market_Seeds.txt`. Research only — never copy protected expression.
-4. PDF/chart generation from the twin (reportlab/Pillow are installed and proven).
-5. Incident → regression-fixture automation to close Gate B.
+4. Incident → regression-fixture automation to close Gate B.
+5. Storefront Director, brand/model system, Pricing Intelligence, Search Domination,
+   Thumbnail Warfare, Growth/Marketing and AI Customer Experience departments.
 6. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
 
 ## Changelog
@@ -139,5 +164,16 @@ See `DECISION_LOG.md` for reasoning. Summary:
   permission was checked *after* handler lookup (so an agent reaching for forbidden work that
   had no handler was recorded as "no handler" instead of denied), and a shadow-mode refusal
   was being retried with backoff against a mode that cannot change between attempts.
-- Totals: 76 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
+- 2026-09-17: Deployable surface (FastAPI admin/API, container, entrypoints), real-process
+  persistence proof (5 tests) and the chaos suite (21 tests). Persistence testing exposed a
+  race in its own harness — a three-second lease could expire during subprocess spawn — fixed
+  by expiring leases deterministically in the database instead of sleeping on the wall clock.
+- 2026-09-17: Market Radar (30 tests). Replaced the placeholder concept stubs with dated
+  competitor intelligence and a 34-concept scored pool, and wired the section 33 portfolio
+  selector into `radar.scan`. Three real bugs found while building it: the buy-window buffer
+  was flat rather than proportional, so a 60-hour Christmas throw was scored as "too early"
+  in September against direct evidence to the contrary; the constraint-repair loop could
+  evict a quick low-price make to make room for a quick low-price make and spin forever; and
+  the bundle was outranking everything in the pool while its members went unbuilt.
+- Totals: 132 tests passing, 0 failing. Gates A, C, D, E, F passing; B passing except
   regression automation.

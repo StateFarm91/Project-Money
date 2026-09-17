@@ -16,6 +16,7 @@ reproducible. That is what section 2 means by "never ask an LLM to guess instruc
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from ..cir.compiler import compile_cir
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
@@ -24,7 +25,12 @@ from ..gates.asset_truth import Asset, AssetClass, Claims, Provenance
 from ..gates.certificate import certify
 from ..gates.incidents import IncidentTracker
 from ..gates.policy import ListingDraft
+from ..radar.opportunity import POOL, ConceptSeed, score_concept, select_portfolio
 from .worker import CapabilityNotEnabled, JobContext, handlers
+
+PROMOTION_THRESHOLD = 0.55
+"""Below this a concept is not worth engineering time. Set from the pool: roughly the top
+third clears it, which is the intake rate the release chain can actually absorb."""
 
 
 class ShadowModeRefusal(CapabilityNotEnabled):
@@ -49,6 +55,7 @@ class Concept:
     colors: dict[str, str]
     opportunity_score: float = 0.0
     season: str | None = None
+    risk_class: str = "A"
 
 
 def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
@@ -77,7 +84,7 @@ def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
         title=c.title,
         version=version,
         construction="flat_rows",
-        risk_class="A",
+        risk_class=c.risk_class,
         colors=dict(c.colors),
         gauge=Gauge(stitches_per_10cm=16, rows_per_10cm=14, stitch_type="sc", hook_mm=5.0),
         materials=[Material(name="worsted acrylic", yarn_weight="worsted", color_id=p)
@@ -88,49 +95,137 @@ def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
     )
 
 
+# Per-category geometry. Deliberately a lookup table rather than a model call: the stitch
+# structure of a product is an engineering decision that must be reproducible, and section 2
+# forbids asking a model to supply instructions. Every entry is a repeat whose unit divides
+# the stated width, so the compiler's divisibility check passes for a reason rather than by
+# luck.
+_GEOMETRY: dict[str, dict] = {
+    "mosaic_blanket": {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 160, "rows": 24},
+    "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 24},
+    "graphghan":      {"stitch_repeat": [["sc", 4]],            "width": 140, "rows": 24},
+    "baby":           {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 20},
+    "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},
+    "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 16},
+    "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 48,  "rows": 14},
+    "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
+    "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
+    "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 72,  "rows": 20},
+    "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 44,  "rows": 16},
+    "flower":         {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
+    "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 18},
+    "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 40,  "rows": 20},
+    "ornament":       {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
+}
+_DEFAULT_GEOMETRY = {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40, "rows": 12}
+
+_PALETTES: dict[str, dict[str, str]] = {
+    "nordic-forest": {"forest": "#244A3A", "cream": "#FAF6EB"},
+    "autumn-oak": {"wine": "#6E1F2A", "gold": "#C49545"},
+    "cloudline": {"cream": "#FAF6EB", "ink": "#1A2B3C"},
+}
+_DEFAULT_PALETTE = {"forest": "#244A3A", "cream": "#FAF6EB"}
+
+
+def concept_geometry(seed: ConceptSeed) -> dict:
+    """Turn a market concept into the numbers the CIR builder needs."""
+    g = _GEOMETRY.get(seed.category, _DEFAULT_GEOMETRY)
+    unit = sum(n for _, n in g["stitch_repeat"])
+    width = g["width"]
+    if width % unit:
+        # Round up to a multiple of the repeat rather than emitting a CIR we know will fail.
+        width += unit - (width % unit)
+    return {
+        "stitch_repeat": [list(x) for x in g["stitch_repeat"]],
+        "width_stitches": width,
+        "rows": g["rows"],
+        "colors": dict(_PALETTES.get(seed.family or "", _DEFAULT_PALETTE)),
+    }
+
+
+def _seed_for(slug: str) -> ConceptSeed | None:
+    return next((s for s in POOL if s.slug == slug), None)
+
+
 # ---- job handlers --------------------------------------------------------
 
 
 @handlers.register("radar.scan")
 def handle_radar_scan(ctx: JobContext) -> dict:
-    """Shadow-mode radar: emits concepts from seeded categories.
+    """Score the real opportunity pool and emit the release candidates.
 
-    Real market data lands here once the radar integrations exist; the shape of the output is
-    what the rest of the pipeline depends on.
+    Section 33: the pool is at least 30 concepts across several categories, scored before any
+    SKU is committed. `select_portfolio` applies the structural constraints -- flagship
+    seasonal, several fast low-price makes, a bundle-ready family, an evergreen search
+    product, Class C capped -- so a run cannot quietly become ten Christmas blankets.
     """
-    seeds = ctx.job.inputs.get("categories") or ["mosaic_blanket", "seasonal_decor"]
-    concepts = []
-    for cat in seeds:
-        concepts.append({
-            "slug": f"{cat}-concept",
-            "title": f"{cat.replace('_', ' ').title()} Pattern",
-            "category": cat,
-            "stitch_repeat": [["sc", 3], ["dc", 1]],
-            "width_stitches": 40,
-            "rows": 6,
-            "colors": {"forest": "#244A3A", "cream": "#FAF6EB"},
-        })
-    ctx.audit("radar.scanned", detail={"count": len(concepts)})
-    for c in concepts:
-        ctx.enqueue("market_radar", "radar.score", c,
-                    idempotency_key=f"score:{c['slug']}")
-    return {"concepts": len(concepts)}
+    today = _scan_date(ctx)
+    target = int(ctx.job.inputs.get("target", 10))
+    portfolio = select_portfolio(target=target, today=today)
+
+    ctx.audit("radar.scanned", detail={
+        "pool": len(portfolio.selected) + len(portfolio.rejected),
+        "selected": len(portfolio.selected),
+        "constraints_met": portfolio.constraints_met,
+        "as_of": today.isoformat(),
+    })
+    if not portfolio.ok:
+        # Never silently ship a portfolio that violates section 33; say which rule broke.
+        unmet = [k for k, v in portfolio.constraints_met.items() if not v]
+        ctx.audit("radar.portfolio_constraints_unmet", detail={"unmet": unmet,
+                                                              "reasons": portfolio.reasons})
+
+    for c in portfolio.selected:
+        ctx.enqueue("market_radar", "radar.score", c.to_dict(),
+                    idempotency_key=f"score:{c.slug}:{today.isoformat()}")
+
+    return {
+        "pool_size": len(portfolio.selected) + len(portfolio.rejected),
+        "selected": [c.slug for c in portfolio.selected],
+        "constraints_met": portfolio.constraints_met,
+        "swaps": portfolio.reasons,
+        "as_of": today.isoformat(),
+    }
+
+
+def _scan_date(ctx: JobContext) -> date:
+    raw = ctx.job.inputs.get("as_of")
+    return date.fromisoformat(raw) if raw else date.today()
 
 
 @handlers.register("radar.score")
 def handle_radar_score(ctx: JobContext) -> dict:
-    """Opportunity score. Deterministic and explainable, not a model's vibe."""
+    """Re-score the candidate on its own and promote it only if it still clears the bar.
+
+    Scoring happens twice on purpose. `radar.scan` scores to *rank* a pool; this re-scores a
+    single candidate at the moment it is about to consume engineering effort, because a job
+    can sit in the queue for days and a seasonal window can close underneath it.
+    """
     c = dict(ctx.job.inputs)
-    demand = {"mosaic_blanket": 0.8, "seasonal_decor": 0.7}.get(c.get("category", ""), 0.4)
-    competition_penalty = 0.2
-    machine_verifiable = 0.2  # Class A work the compiler can fully check
-    score = round(demand - competition_penalty + machine_verifiable, 3)
-    c["opportunity_score"] = score
-    ctx.audit("radar.scored", artifact=c["slug"], detail={"score": score})
-    if score >= 0.5:
-        ctx.enqueue("crochet_engineer", "cir.draft", c,
-                    idempotency_key=f"draft:{c['slug']}")
-    return {"slug": c["slug"], "score": score, "promoted": score >= 0.5}
+    seed = _seed_for(c["slug"])
+    if seed is None:
+        ctx.audit("radar.unknown_concept", artifact=c.get("slug"))
+        return {"slug": c.get("slug"), "promoted": False, "reason": "not in the pool"}
+
+    today = _scan_date(ctx)
+    rescored = score_concept(seed, today)
+    promote = rescored.score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+
+    ctx.audit("radar.scored", artifact=seed.slug, detail={
+        "score": rescored.score, "components": rescored.components,
+        "promoted": promote,
+    })
+    if promote:
+        payload = rescored.to_dict()
+        payload.update(concept_geometry(seed))
+        ctx.enqueue("crochet_engineer", "cir.draft", payload,
+                    idempotency_key=f"draft:{seed.slug}")
+    return {"slug": seed.slug, "score": rescored.score, "promoted": promote,
+            "components": rescored.components,
+            "reason": None if promote else (
+                "Class C requires physical testing that does not exist yet"
+                if seed.risk_class == "C" else
+                f"score {rescored.score} below promotion threshold {PROMOTION_THRESHOLD}")}
 
 
 @handlers.register("cir.draft")
@@ -140,7 +235,8 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         slug=i["slug"], title=i["title"], category=i["category"],
         stitch_repeat=[(s, n) for s, n in i["stitch_repeat"]],
         width_stitches=i["width_stitches"], rows=i["rows"], colors=i["colors"],
-        opportunity_score=i.get("opportunity_score", 0.0),
+        opportunity_score=i.get("score", i.get("opportunity_score", 0.0)),
+        season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
     cir = concept_to_cir(concept)
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}")
@@ -286,7 +382,12 @@ def handle_queue_check(ctx: JobContext) -> dict:
 
 @handlers.register("plan.cycle")
 def handle_plan_cycle(ctx: JobContext) -> dict:
-    ctx.enqueue("market_radar", "radar.scan", {"categories": ["mosaic_blanket"]})
+    """One planning cycle: re-run the radar over the whole pool and re-select the portfolio.
+
+    Re-running rather than freezing matters. The pool does not change often, but the date
+    does, and a concept that was three weeks early last month is in its window this month.
+    """
+    ctx.enqueue("market_radar", "radar.scan", {"target": 10})
     return {"planned": True}
 
 

@@ -341,24 +341,25 @@ def test_exhausted_ad_budget_pauses_the_scope_and_stays_paused():
 
 
 def test_restart_mid_pipeline_completes_without_duplicating_the_product():
-    """Restart between every step; the product is produced exactly once."""
+    """Restart between every step; each product in the portfolio is produced exactly once."""
     with tempfile.TemporaryDirectory() as tmp:
         url = f"sqlite:///{tmp}/live.sqlite"
         db = boot(url)
         JobQueue(db).enqueue("orchestrator", "plan.cycle", {})
 
         # Each iteration is a brand-new Database handle and Worker: a full cold restart.
-        for i in range(40):
+        for i in range(400):
             w = Worker(Database(url), f"worker-{i}")
             if not w.run_once():
                 break
 
         fresh = Database(url)
         with fresh.session() as s:
-            products = list(s.scalars(select(Product)))
-            versions = [p.slug for p in products]
-        assert len(products) == 1, f"expected exactly one product, got {versions}"
-        assert products[0].status == "certified"
+            slugs = [p.slug for p in s.scalars(select(Product))]
+            statuses = {p.slug: p.status for p in s.scalars(select(Product))}
+        assert slugs, "a full cold-restart run produced no products at all"
+        assert len(slugs) == len(set(slugs)), f"a restart duplicated a product: {slugs}"
+        assert set(statuses.values()) == {"certified"}, statuses
 
 
 def test_replayed_pipeline_does_not_recertify_or_duplicate_versions():
@@ -369,22 +370,30 @@ def test_replayed_pipeline_does_not_recertify_or_duplicate_versions():
         q = JobQueue(db)
         q.enqueue("orchestrator", "plan.cycle", {})
         w = Worker(db, "w")
-        for _ in range(40):
-            if not w.run_once():
-                break
-
-        # Same cycle again: idempotency keys should collapse the duplicate work.
-        q.enqueue("orchestrator", "plan.cycle", {})
-        for _ in range(40):
+        for _ in range(400):
             if not w.run_once():
                 break
 
         from brambleloop.core.models import PatternVersion
         with db.session() as s:
+            first_products = sorted(p.slug for p in s.scalars(select(Product)))
+            first_versions = len(list(s.scalars(select(PatternVersion))))
+
+        # Same cycle again: idempotency keys should collapse the duplicate work.
+        q.enqueue("orchestrator", "plan.cycle", {})
+        for _ in range(400):
+            if not w.run_once():
+                break
+
+        with db.session() as s:
             versions = list(s.scalars(select(PatternVersion)))
             products = list(s.scalars(select(Product)))
-        assert len(products) == 1, "a replay must not duplicate the product"
-        assert len(versions) == 1, "a replay must not create a second release row"
+        assert sorted(p.slug for p in products) == first_products, \
+            "a replay must not duplicate the products"
+        assert len(versions) == first_versions, \
+            "a replay must not create a second release of the same version"
+        assert len({(v.product_id, v.version) for v in versions}) == len(versions), \
+            "a replay must not create a second release row for the same version"
 
 
 if __name__ == "__main__":

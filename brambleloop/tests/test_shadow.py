@@ -35,7 +35,7 @@ def boot() -> Database:
     return db
 
 
-def drain(db: Database, phase: Phase = Phase.SHADOW, limit: int = 100) -> Worker:
+def drain(db: Database, phase: Phase = Phase.SHADOW, limit: int = 400) -> Worker:
     w = Worker(db, "shadow-worker", phase=phase)
     for _ in range(limit):
         if not w.run_once():
@@ -50,7 +50,7 @@ def test_full_product_runs_end_to_end_without_intervention():
 
     assert w.stats.completed >= 5, w.stats
     with db.session() as s:
-        product = s.scalar(select(Product).where(Product.slug == "mosaic_blanket-concept"))
+        product = s.scalar(select(Product).where(Product.slug == "nordic-forest-mosaic-throw"))
         assert product is not None, "pipeline did not produce a product"
         assert product.status == "certified"
         pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id))
@@ -94,16 +94,16 @@ def test_open_incident_halts_certification():
     db = boot()
     tracker = IncidentTracker(db)
     for i in range(3):
-        tracker.report(DefectReport("mosaic_blanket-concept", "1.0.0", "panel", 4,
+        tracker.report(DefectReport("nordic-forest-mosaic-throw", "1.0.0", "panel", 4,
                                     f"cust-{i}", "row 4 count is wrong"))
-    assert tracker.publication_halted("mosaic_blanket-concept")
+    assert tracker.publication_halted("nordic-forest-mosaic-throw")
 
     JobQueue(db).enqueue("orchestrator", "plan.cycle", {})
     drain(db)
 
     with db.session() as s:
         assert s.scalar(select(Product).where(
-            Product.slug == "mosaic_blanket-concept")) is None
+            Product.slug == "nordic-forest-mosaic-throw")) is None
         halted = list(s.scalars(select(AuditLog).where(AuditLog.action == "gate.halted")))
     assert halted, "certification should have been halted by the open incident"
 

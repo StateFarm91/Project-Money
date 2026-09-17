@@ -155,7 +155,7 @@ def test_pipeline_resumes_across_a_worker_restart_mid_flight():
 
         with db.session() as s:
             product = s.scalar(select(Product).where(
-                Product.slug == "mosaic_blanket-concept"))
+                Product.slug == "nordic-forest-mosaic-throw"))
             assert product is not None and product.status == "certified"
             actors = {a.actor for a in s.scalars(select(AuditLog))}
         assert actors, "the audit trail must survive the restart"
