@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` at commit `9aac8ab`: **532 tests passing, 0 failing** across
+Measured by `./run_tests.sh` at commit `cb19c5d`: **532 tests passing, 0 failing** across
 26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice.
 
@@ -85,7 +85,7 @@ Verified at 2026-09-18T05:45Z against production running commit `40f8176`:
 - `/api/launch` — every build-owned requirement satisfied; `blocked on build: NONE`. The
   eight unmet requirements are seven owner actions and one Etsy credential that only the
   shop can produce.
-- `./run_tests.sh` — 532 passing, 0 failing, 26 suites, measured at `9aac8ab`.
+- `./run_tests.sh` — 532 passing, 0 failing, 26 suites, measured at `cb19c5d`, in 344s.
 - Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 105 recorded
   publication refusals, CA$0 revenue, CA$0 advertising, CA$0 model spend, no provider
   configured, no spend scope paused, 0 customers, 0 orders.
@@ -546,10 +546,13 @@ Exact and verified. Nothing here is projected.
   right stitch count.
 
 ## Known refinements (tracked, not urgent)
-- The test suite now takes roughly twenty minutes, because several files each run the full
-  eleven-product pipeline including 2000px image rendering. Slow and representative beats fast
-  and unrepresentative, but a lighter pipeline fixture for the tests that do not care about
-  image content would pay for itself.
+- The suite is now **344 seconds** rather than twenty minutes, because `run_tests.sh` runs
+  its files concurrently and schedules the six expensive ones first. Nothing about what the
+  tests do changed: a lighter fixture for the tests that do not examine image content was
+  the obvious move and is the wrong one, because rendering at a smaller scale is exactly how
+  the blank hero passed locally while production was right to refuse it. The run is now
+  floor-limited by its longest single file (`test_product_run.py`, 342s), so further gains
+  have to come from that file rather than from the runner.
 - Yardage constants are uncalibrated heuristics with a stated tolerance; physical tests
   replace them per yarn/hook. Never present an uncalibrated estimate as precise.
 - Reverse compiler handles the writer's grammar plus common variants; widen coverage as real
@@ -676,6 +679,15 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **The suite is 344 seconds instead of nineteen minutes.** Measured before
+  changing anything: six of the twenty-six files were 97% of the 1133 seconds, each driving
+  the full eleven-product pipeline with 2000-pixel rendering. The files were already
+  independent processes with their own temporary databases and were simply queued one behind
+  another, so they now run concurrently, the expensive six first, and print back in the
+  canonical order -- an identical log, an identical 532 passing, and no test made cheaper or
+  less representative. The tempting alternative was a smaller render for tests that do not
+  examine the image, which is precisely how the blank hero passed locally while production
+  refused it.
 - 2026-09-18: **The migration path for the queue, and a way to run an assessment now.**
   Keying the queue on the requirement was only half the fix: pre-upgrade rows were matched
   on their full action text, which adopts every action whose wording is unchanged and fails
