@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` at commit `14224a0`: **529 tests passing, 0 failing** across
+Measured by `./run_tests.sh` at commit `9aac8ab`: **532 tests passing, 0 failing** across
 26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice.
 
@@ -48,9 +48,9 @@ catalogue, accessibility, and the acceptance gates.
   products were named for shapes their patterns did not make and are rebuilt (see the
   milestone below).
 - Storefront, listings, imagery and content: **drafted and held.** Production at
-  2026-09-18T04:35Z, after the chain-6 rebuild, holds 15 certified patterns, 16 listings all
+  2026-09-18T05:45Z, after the chain-6 rebuild, holds 15 certified patterns, 16 listings all
   built by the current chain, 94 listing images with **all 94 approved**, 134 content pieces
-  and 1 collection — none of it published, against 105 recorded publication refusals. 2375
+  and 1 collection — none of it published, against 105 recorded publication refusals. 2390
   audit records. Nothing in this system can publish: there is no Etsy, Pinterest, email,
   video or messaging integration at all.
 - **Nothing in the launch report is blocked on build.** `/api/launch` reports every
@@ -79,14 +79,13 @@ catalogue, accessibility, and the acceptance gates.
 ## Last completed milestone
 **Build 1 of Master Plan v1.2 is complete. Nothing in the launch report is blocked on build.**
 
-Verified at 2026-09-18T04:35Z against production, and re-verified at 05:0xZ
-against production running commit `14224a0`:
+Verified at 2026-09-18T05:45Z against production running commit `40f8176`:
 
 - `/api/verify` — 12 of 12 checks passing.
 - `/api/launch` — every build-owned requirement satisfied; `blocked on build: NONE`. The
   eight unmet requirements are seven owner actions and one Etsy credential that only the
   shop can produce.
-- `./run_tests.sh` — 529 passing, 0 failing, 26 suites, measured at `14224a0`.
+- `./run_tests.sh` — 532 passing, 0 failing, 26 suites, measured at `9aac8ab`.
 - Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 105 recorded
   publication refusals, CA$0 revenue, CA$0 advertising, CA$0 model spend, no provider
   configured, no spend scope paused, 0 customers, 0 orders.
@@ -785,6 +784,6 @@ timings, written there by the system rather than by hand.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 529 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 532 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
