@@ -3,6 +3,20 @@
 _Updated 2026-09-18 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
 
+## Build 1: COMPLETE
+**Accepted as complete by the owner on 2026-09-18**, and checkpointed as a recoverable
+baseline before any Build-2 scope begins.
+
+- Baseline commit `d5168c0cea93dde23f06592a36c5a253533b83e5`
+- Durable remote checkpoint: branch **`build-1-baseline`** on `origin` (confirmed present)
+- Recovery manifest, schema snapshot and production evidence: **`baseline/`**
+- 541 tests passing, 0 failing · `/api/verify` 12 of 12 · `/api/launch` blocked on build: NONE
+- Decisions B-001 … B-099
+
+None of the seven owner actions has been performed. Etsy is not connected, the phase has not
+changed, nothing has been published, no advertising has been bought and no customer activity
+exists. See `baseline/BUILD_1_BASELINE.md`, including what the baseline does **not** preserve.
+
 ## Current phase
 PHASE 1 — SHADOW MODE, **deployed and running 24/7**. Nothing is connected to live customers,
 live listings or live spend. The system runs unattended on Railway whether or not any Claude
@@ -689,6 +703,15 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **Build 1 accepted as complete and checkpointed.** Tagged locally as `build-1`
+  at `d5168c0` and pushed as the branch `build-1-baseline`, because this environment's git
+  transport rejects tag pushes while accepting branches — recorded rather than worked around
+  silently. `baseline/` holds the recovery manifest, the schema snapshot (21 tables, 201
+  columns, hashed) and a read-only capture of the production evidence. Recoverability is
+  proved rather than asserted: the suite was re-run from a clean worktree checked out at the
+  baseline commit. The manifest is explicit that the production database is **not** backed up
+  here and cannot be from this environment, and which of its contents are re-derivable from
+  code and which are not.
 - 2026-09-18 08:14Z heartbeat: production verified 12/12 before and after; radar re-asked
   for today and it still selects nothing unbuilt, so B-079 holds and no product work was
   invented to fill the time. Three defects closed instead — the section 6 disclosure rule,
