@@ -59,6 +59,8 @@ NON_REDERIVABLE = (
     "benchmark_listings",
     "benchmark_observations",
     "coverage_gaps",
+    "benchmark_products",
+    "teardown_findings",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

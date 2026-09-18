@@ -578,3 +578,53 @@ class CoverageGap(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (UniqueConstraint("benchmark_key", "arena", name="uq_benchmark_arena"),)
+
+
+# ---------------------------------------------------------------------------
+# Competitive product teardown laboratory (v1.4.3 sections 148-170).
+#
+# What these tables hold is the distinction the whole laboratory turns on: observations about
+# a purchased competitor product, and never the product. No row here stores pattern text, a
+# chart, an image or a transcription. The files themselves live outside the repository in a
+# quarantined directory, and `teardown/library.py` is the only thing that may look at them.
+
+
+class BenchmarkProduct(Base):
+    """One purchased competitor product, as a manifest entry (#150)."""
+
+    __tablename__ = "benchmark_products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    seller: Mapped[str] = mapped_column(String(120), index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(60), default="")
+    pod: Mapped[str] = mapped_column(String(40), default="", index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), default="")
+    purchased_on: Mapped[str] = mapped_column(String(10), default="")
+    paid_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
+    why_selected: Mapped[str] = mapped_column(Text, default="")
+    listing_promises: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Filenames, sizes and hashes only. The contents stay in the quarantined library.
+    files: Mapped[list] = mapped_column(JSON, default=list)
+    dimensions: Mapped[list] = mapped_column(JSON, default=list)
+    teardown_state: Mapped[str] = mapped_column(String(30), default="queued", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TeardownFinding(Base):
+    """One scored observation about a purchased benchmark (#153-#161)."""
+
+    __tablename__ = "teardown_findings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    benchmark_ref: Mapped[str] = mapped_column(String(80), index=True)
+    dimension: Mapped[str] = mapped_column(String(40), index=True)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    mechanism: Mapped[str] = mapped_column(Text, default="")
+    # What Brambleloop should do about it. A teardown that produces no action is a review.
+    improvement: Mapped[str] = mapped_column(Text, default="")
+    promoted: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 21 | satisfied, with a named test or artefact |
-| partial | 56 | something real exists and is short of the requirement |
-| missing | 184 | nobody has built it |
+| covered | 31 | satisfied, with a named test or artefact |
+| partial | 57 | something real exists and is short of the requirement |
+| missing | 173 | nobody has built it |
 | owner_gated | 47 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **240 requirements are executable by this session** (partial +
+as one nobody has written. **230 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **592 tests passing, 0 failing** across
-30 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **605 tests passing, 0 failing** across
+31 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -118,6 +118,56 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**The competitive product teardown laboratory (#148, #149, #150, #151, #161, #162, #163,
+#167, #169, #170) — built before the files arrive, because a boundary added afterwards was
+absent exactly when it mattered.**
+
+The owner will buy about ten representative competitor patterns so this company can study what
+a customer actually receives after paying. That is legitimate and ordinary, and it puts a
+folder of somebody else's copyrighted instructions on the same disk as a system that writes
+crochet patterns.
+
+- **The library is a quarantine, not a corpus.** It lives outside the repository tree, is in
+  `.gitignore`, and `retrieve()` is its only reader. It refuses every generation, listing,
+  support, marketing and publishing role *by name, with the reason*; refuses any role not
+  explicitly an analyst; and refuses a path that resolves outside the library root, because a
+  quarantine whose reader accepts `../../src` is a file-serving endpoint with a misleading
+  name.
+- **Nothing is ever stored as content.** The manifest holds filenames, roles, sizes and
+  hashes. `check_derived()` refuses a finding whose text reads as row instructions or a
+  transcription, and runs on both the mechanism and the improvement of every finding.
+- **Intake never opens a file.** `scan()` works out the seller, the file roles, the chart /
+  video / print / bonus presence and the hashes from filenames and the filesystem, then asks
+  the owner only what it genuinely cannot infer. A manifest that had to parse a competitor's
+  PDF would be reading the thing it exists to keep unread.
+- **The composite standard refuses to be one seller's product with extra steps (#162).** Each
+  dimension takes its target from whichever benchmark did it best, and **ties keep every
+  contributor** — resolving a tie by insertion order would bias the whole standard toward
+  whatever was torn down first, which is the single-source failure arriving by accident
+  instead of by choice.
+- **Parity is refused as a position (#163).** Every product class must name an advantage from
+  a closed list anchored in capabilities already built, because free text accepts "better
+  quality", which is a hope.
+- **A finding with no action cannot be recorded (#164).** A teardown that produces no change
+  is a review.
+
+Readable at `/api/teardown`, which leads with whether the standard is still single-source.
+
+## Business continuity is now proved in production, not only in tests
+
+`POST /api/continuity/verify` against the live Postgres database, 2026-09-18T14:52Z:
+
+- **4,304 rows across 25 tables** exported in portable JSON Lines
+- **4,027 of them non-rederivable** — audit log, jobs, owner queue, incidents, ledger,
+  benchmark observations
+- restored into a scratch database and re-exported; **content digests match**
+  (`c86bb1d4a49c…`)
+
+The gap Build 1 wrote into its own baseline is closed and demonstrated against real data. What
+remains is durable storage for the archive itself, which is an owner decision (below): the
+evidence is durable in the audit log; the bytes are on a container filesystem.
+
+## Previously in Build 2
 **A defect production found in the continuity job, three dead letters in.**
 
 `BRAMBLELOOP_REQUIRE_POSTGRES=1` refuses to let this company run on a SQLite file that a

@@ -393,6 +393,32 @@ def api_seasonal() -> dict:
 
     return catalogue_plans(db)
 
+
+@app.get("/api/teardown")
+def api_teardown() -> dict:
+    """The teardown laboratory: what has been purchased, scored, and made into a standard.
+
+    Reports the composite standard's own weakness first — whether it is still drawn from a
+    single seller — because a standard that is one shop's product with extra steps is worse
+    than no standard, and it is the failure that arrives quietly.
+    """
+    from ..teardown import scorecard
+    from ..teardown.library import ANALYST_ROLES, FORBIDDEN_ROLES
+
+    composite = scorecard.composite_standard(db)
+    return {
+        "composite_standard": composite,
+        "improvement_queue": scorecard.improvement_queue(db),
+        "dimensions": list(scorecard.DIMENSIONS),
+        "scale": scorecard.SCALE,
+        "library": {
+            "note": ("Purchased competitor files are held outside this repository and are "
+                     "never served, quoted or reachable by pattern generation."),
+            "readable_by": sorted(ANALYST_ROLES),
+            "refused_for": FORBIDDEN_ROLES,
+        },
+    }
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

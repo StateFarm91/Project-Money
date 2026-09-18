@@ -1328,8 +1328,8 @@
   "body": "Create a permanent laboratory for purchased competitor benchmark products. Its purpose is to study the post-purchase customer experience and raise Brambleloop's standards, not to reuse competitor pattern expression. Purchased files are external benchmark artifacts with restricted access and provenance.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "teardown laboratory, benchmark library separation, manifest -- OWNER SAID BUILD NOW, files arrive later"
+  "status": "covered",
+  "note": "teardown/ is the laboratory: library.py quarantines the purchased files, scorecard.py turns them into a standard. The boundary was built before any file arrived, because a boundary added afterwards was absent exactly when it mattered."
  },
  {
   "id": 149,
@@ -1337,8 +1337,8 @@
   "body": "Keep competitor PDFs, charts, videos and supplemental downloads in a separate BENCHMARK_LIBRARY from Brambleloop generation corpora, CIR primitives and product source data. The generation system must not retrieve competitor row-by-row instructions as reusable pattern content. Derived observations must be abstracted into features, metrics, defects and standards.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "teardown laboratory, benchmark library separation, manifest -- OWNER SAID BUILD NOW, files arrive later"
+  "status": "covered",
+  "note": "the library lives outside the repository tree, is in .gitignore, and retrieve() is its only reader -- refusing every generation, listing, support, marketing and publishing role by name with the reason, refusing any role not explicitly an analyst, and refusing a path that resolves outside the library root. Enforced by PermissionError, not by policy."
  },
  {
   "id": 150,
@@ -1346,8 +1346,8 @@
   "body": "Every purchased benchmark records seller/shop, product title, category, listing reference, purchase date, paid price, sale state, files received, why selected, visible listing promises, review/reputation context where relevant, and benchmark dimensions. Preserve original filenames and packaging structure.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "teardown laboratory, benchmark library separation, manifest -- OWNER SAID BUILD NOW, files arrive later"
+  "status": "covered",
+  "note": "BenchmarkProduct records seller, title, category, pod, listing reference, purchase date, price, sale state, files (name, role, size, sha256), why selected, visible listing promises and benchmark dimensions. Filenames and hashes only -- no row in this system has a column for a competitor's instructions."
  },
  {
   "id": 151,
@@ -1355,8 +1355,8 @@
   "body": "Compare what the Etsy listing promised with what the customer actually receives: file count, PDF depth, charts, photos, diagrams, video/tutorial links, sizing, materials, skill level, terminology, bonuses, support, printability and update/version information. Score expectation alignment and identify over/under-delivery.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+  "status": "covered",
+  "note": "promise_audit() compares the listing's promises against what the download actually contains, and judges only what the manifest can settle: promises about sizing depth or troubleshooting quality are reported as unverifiable from filenames rather than guessed, which is the blank-hero mistake this company has already made once."
  },
  {
   "id": 152,
@@ -1365,7 +1365,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 153,
@@ -1374,7 +1374,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 154,
@@ -1383,7 +1383,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 155,
@@ -1392,7 +1392,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 156,
@@ -1401,7 +1401,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 157,
@@ -1410,7 +1410,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 158,
@@ -1419,7 +1419,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "materials, delivery packaging, support/rights audits"
+  "note": "materials, delivery packaging, support/rights audits; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 159,
@@ -1428,7 +1428,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "materials, delivery packaging, support/rights audits"
+  "note": "materials, delivery packaging, support/rights audits; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 160,
@@ -1437,7 +1437,7 @@
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
   "status": "missing",
-  "note": "materials, delivery packaging, support/rights audits"
+  "note": "materials, delivery packaging, support/rights audits; the scorecard dimension exists and is scoreable today, but the analysis itself needs purchased files (owner gate #317)"
  },
  {
   "id": 161,
@@ -1445,8 +1445,8 @@
   "body": "Score each benchmark on Product Creativity, Pattern Correctness Evidence, Instruction Clarity, Chart Quality, Beginner Support, Premium Presentation, Video Support, Materials Clarity, Delivery Packaging, Support Experience, Listing Promise Alignment and Perceived Value. Preserve raw notes and confidence.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "benchmark scorecard, best-of-breed composite, unique value"
+  "status": "covered",
+  "note": "the twelve dimensions #161 names, scored 0-5 on a described scale rather than a feeling, with the unscored dimensions listed so a teardown that looked at two things cannot outrank one that looked at twelve."
  },
  {
   "id": 162,
@@ -1454,8 +1454,8 @@
   "body": "Do not copy one seller wholesale. Construct Brambleloop Premium Product Standard from the strongest mechanisms observed across the entire library: best chart practice from one benchmark, strongest navigation from another, best beginner support from another, etc., combined with Brambleloop's own engineering, version-aware support and brand system.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "benchmark scorecard, best-of-breed composite, unique value"
+  "status": "covered",
+  "note": "composite_standard() takes each dimension's target from whichever benchmark did it best and reports single_source until more than one contributes. Ties keep every contributor: resolving one by insertion order would bias the composite toward whatever was torn down first, which is the single-source failure arriving by accident."
  },
  {
   "id": 163,
@@ -1463,8 +1463,8 @@
   "body": "Benchmark parity is insufficient. For each product class, identify at least one meaningful Brambleloop advantage beyond what purchased competitors provide: stronger deterministic validation, clearer charts, better diagrams, version-aware AI help, superior print edition, colour planner, customization tool, better video, better troubleshooting or other genuine benefit.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "benchmark scorecard, best-of-breed composite, unique value"
+  "status": "covered",
+  "note": "check_unique_value() refuses a product class that claims no advantage beyond the composite, and the advantages are a closed list anchored in capabilities already built and checkable -- free text accepts 'better quality', which is a hope."
  },
  {
   "id": 164,
@@ -1472,8 +1472,8 @@
   "body": "Competitive Teardown findings flow into the Improvement Department as structured observations. Improvement cells form hypotheses, implement in sandbox, run regression/customer-experience tests, compare against the current Brambleloop standard and promote only measurable improvements.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "teardown-to-improvement pipeline"
+  "status": "partial",
+  "note": "every finding carries the improvement it implies and cannot be recorded without one, and improvement_queue() ranks unpromoted findings by what the competitor does best. Remaining: the Improvement Department itself (#90-93) does not exist, so nothing consumes the queue yet."
  },
  {
   "id": 165,
@@ -1499,8 +1499,8 @@
   "body": "Competitor pattern text, charts, images and videos remain source artifacts for analysis only. Do not expose them in Brambleloop products, customer support, marketing or generated pattern content. Store derived abstractions with provenance so the company can explain what was learned without reproducing protected expression.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "restricted competitive content handling"
+  "status": "covered",
+  "note": "check_derived() refuses an observation that reads as a competitor's row instructions, round instructions or a transcription, and it runs on both the mechanism and the improvement text of every finding. Mechanical rather than remembered, because the moment somebody is mid-teardown with a useful paragraph in front of them is when the rule loses the argument."
  },
  {
   "id": 168,
@@ -1517,8 +1517,8 @@
   "body": "Add an internal question to every teardown and Brambleloop QA: 'After paying, does this feel better than expected?' Measure the mechanisms that create delight: clarity, bonus utility, navigation, polish, support, customization and confidence. Brambleloop should engineer positive surprise without bloating products with useless filler.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "post-purchase delight metric"
+  "status": "covered",
+  "note": "delight_question() answers 'after paying, does this feel better than expected?' from the six dimensions that actually produce that feeling and names the weakest, rather than from the mean -- a product can be average everywhere and delightful nowhere. Unscored is unanswerable, not neutral."
  },
  {
   "id": 170,
@@ -1526,8 +1526,8 @@
   "body": "When the owner supplies purchased files, automatically generate BENCHMARK_MANIFEST.md plus a structured database import, teardown queue and gap report. Do not require the owner to manually explain every file if listing references and filenames provide enough context; ask only for genuinely missing identification. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.9 - 24/7 Cloud Autonomy, Agent Swarms & Continuous Learning This upgrade converts the owner's requirements into operational architecture: no artificial cap on specialist agents, every agent continuously improves under controlled testing, stale artifacts cannot survive upstream changes, and Brambleloop must operate autonomously in the cloud with all owner computers turned off.",
   "version": "v1.3.8",
   "section": "Competitive product teardown laboratory",
-  "status": "missing",
-  "note": "benchmark library manifest deliverable"
+  "status": "covered",
+  "note": "library.scan() infers seller, file roles, counts, chart/video/print/bonus presence, sizes and hashes from filenames alone -- never opening a file -- and asks the owner only for what it genuinely cannot infer. manifest_markdown() generates BENCHMARK_MANIFEST.md, led by the sentence about what these files may never be used for."
  },
  {
   "id": 171,
