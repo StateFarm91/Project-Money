@@ -44,6 +44,36 @@ GLYPHS: dict[str, str] = {
 # `check_frame_plan` instead.
 FONT_FALLBACK_IN_USE = False
 
+# Set when a multi-colour chart had to be drawn without a hue-independent colour cue.
+#
+# Master Plan section 31 asks for "colour-independent cues where practical", and in overlay
+# mosaic the colour *is* the motif: a chart that distinguishes cream from pine by hue alone
+# is unreadable to a maker with a colour vision deficiency, and they are the customer least
+# able to recover from it -- they cannot ask the fabric which yarn a square meant. So every
+# cell of a multi-colour chart carries its colour's letter, matching the legend, and if the
+# cells are too small to carry one that is recorded here rather than shipped silently. Same
+# discipline as the font fallback above, for the same reason: a silent degradation is the
+# kind that survives a deploy.
+COLOR_CUE_MISSING = False
+
+
+def reset_render_flags() -> None:
+    """Clear the render-degradation flags. Called before a render whose result is checked."""
+    global FONT_FALLBACK_IN_USE, COLOR_CUE_MISSING
+    FONT_FALLBACK_IN_USE = False
+    COLOR_CUE_MISSING = False
+
+
+# A, B, C... in the CIR's own colour order, which is the order the legend and the written
+# instructions already use. An index, not a rename: the colour keeps its name everywhere.
+_CUE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def color_letters(cir: CIR) -> dict[str, str]:
+    """Stable, hue-independent label per colour. Derived from the CIR, never declared."""
+    return {name: _CUE_LETTERS[i % len(_CUE_LETTERS)]
+            for i, name in enumerate(cir.colors)}
+
 
 def _font(size: int) -> ImageFont.ImageFont:
     """Load a real TrueType face when one exists, else fall back without crashing."""
@@ -142,6 +172,11 @@ def _cell_size(twin: TwinModel, spec: ChartSpec) -> int:
     return max(6, min(spec.cell_px, usable // max(1, widest)))
 
 
+# Below this a cell cannot carry a legible letter as well as a stitch glyph, which is the
+# point at which the colour cue stops being available rather than merely small.
+CUE_MIN_CELL_PX = 13
+
+
 def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                  grids: tuple[list[list[str]], list[list[str | None]]] | None = None,
                  caption: str | None = None) -> Image.Image:
@@ -159,6 +194,14 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
 
     grid = grids[0] if grids else twin.chart_grid()
     colors = grids[1] if grids else twin.color_grid()
+    # The colour cue only exists where colour carries information. A single-colour chart
+    # marked "A" in every square would be noise presented as accessibility.
+    multicolour = len({c for row in colors for c in row if c}) > 1
+    cues = color_letters(cir) if multicolour else {}
+    cue_font = _font(max(6, int(cell * 0.46)))
+    if cues and cell < CUE_MIN_CELL_PX:
+        global COLOR_CUE_MISSING
+        COLOR_CUE_MISSING = True
     rows = len(grid)
     cols = max((len(r) for r in grid), default=0)
     if rows == 0 or cols == 0:
@@ -188,14 +231,26 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
         row_colors = colors[r_idx] if r_idx < len(colors) else []
         for c_idx in range(len(row_cells)):
             x = left + c_idx * cell
-            hexval = cir.colors.get(row_colors[c_idx]) if c_idx < len(row_colors) else None
-            bg = _hex_to_rgb(hexval)
+            color_id = row_colors[c_idx] if c_idx < len(row_colors) else None
+            bg = _hex_to_rgb(cir.colors.get(color_id) if color_id else None)
             d.rectangle([x, y, x + cell, y + cell], fill=bg, outline=LINE)
+            ink = _readable_on(bg)
+            cue = cues.get(color_id or "")
             if spec.show_glyphs and cell >= 10:
                 code = row_cells[c_idx]
                 g = GLYPHS.get(code, code[:1])
-                d.text((x + cell / 2, y + cell / 2), g, font=glyph_font,
-                       fill=_readable_on(bg), anchor="mm")
+                d.text((x + cell / 2, y + cell / 2), g, font=glyph_font, fill=ink,
+                       anchor="mm")
+                # The letter sits in the corner so it never hides the stitch, which is the
+                # other thing the square has to say.
+                if cue and cell >= CUE_MIN_CELL_PX:
+                    d.text((x + cell * 0.19, y + cell * 0.21), cue, font=cue_font,
+                           fill=ink, anchor="mm")
+            elif cue and cell >= CUE_MIN_CELL_PX:
+                # No room for both, and the glyphs are already suppressed at this size, so
+                # the colour is the only thing left to say and it says it in the middle.
+                d.text((x + cell / 2, y + cell / 2), cue, font=cue_font, fill=ink,
+                       anchor="mm")
 
         # Number every row on the side it is worked from; on a tiny cell, every fifth.
         if cell >= 10 or row_number % 5 == 0 or row_number == rows:
@@ -244,10 +299,30 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
 
     label_font = _font(max(10, int(ring_px * 0.6)))
     glyph_font = _font(max(7, int(ring_px * 0.55)))
+    # Every round in this catalogue is worked in one colour, so the cue belongs on the
+    # round's number rather than in every wedge: repeating it sixty times around a ring says
+    # nothing more than once beside the ring does, and a round chart has no spare room.
+    #
+    # The CIR permits a round worked in two colours, though, and one letter beside such a
+    # ring would be a wrong label rather than a missing one -- so that case reports no cue
+    # instead of an inaccurate one. `plain` is exempt because it is the fabric view: the
+    # hero image carries no labels at all by design, and the chart page beside it is where
+    # a maker reads the colours.
+    per_round = {r: {c.color for c in cells_by_round[r] if c.color} for r in rows}
+    round_colors = {r: (next(iter(cs)) if len(cs) == 1 else None)
+                    for r, cs in per_round.items()}
+    multicolour = len({c for cs in per_round.values() for c in cs}) > 1
+    mixed_round = any(len(cs) > 1 for cs in per_round.values())
+    cues = color_letters(cir) if multicolour else {}
+    if cues and not plain and (ring_px < CUE_MIN_CELL_PX or mixed_round):
+        global COLOR_CUE_MISSING
+        COLOR_CUE_MISSING = True
 
     title = caption or f"{cir.title} - {twin.component}"
     footer = ("Round 1 is the centre. Every round is worked in the same direction; "
               "V marks an increase, A a decrease.")
+    if multicolour:
+        footer += " The letter after a round number is its yarn, as in the colour key."
     probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     text_w = max(probe.textlength(title, font=label_font),
                  probe.textlength(footer, font=label_font))
@@ -302,7 +377,8 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
         if r_index % step_labels and r_index not in (rows[0], rows[-1]):
             continue
         y = cy - (hub + depth * ring_px + ring_px * 0.5)
-        label = str(r_index)
+        cue = cues.get(round_colors.get(r_index) or "")
+        label = f"{r_index}{cue}" if cue and ring_px >= CUE_MIN_CELL_PX else str(r_index)
         half = probe.textlength(label, font=label_font) / 2 + 2
         d.rectangle([cx - half, y - ring_px * 0.4, cx + half, y + ring_px * 0.4],
                     fill=CREAM)
@@ -368,12 +444,24 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
     y += 8
     d.text((24, y), "COLOUR KEY", font=head, fill=PINE)
     y += row_h
+    # The letter is what makes the key usable without colour vision: a swatch identified
+    # only by its hue tells a colour-blind maker nothing, and in mosaic work the colour is
+    # the motif rather than a decoration they can ignore.
+    cues = color_letters(cir) if len(used_colors) > 1 else {}
     for name in used_colors:
         bg = _hex_to_rgb(cir.colors.get(name))
         d.rectangle([24, y, 24 + 24, y + 24], fill=bg, outline=LINE)
-        d.text((64, y + 12), f"{name}   {cir.colors.get(name, '')}", font=body, fill=INK,
+        cue = cues.get(name)
+        if cue:
+            d.text((36, y + 12), cue, font=body, fill=_readable_on(bg), anchor="mm")
+        label = f"{cue}   {name}" if cue else name
+        d.text((64, y + 12), f"{label}   {cir.colors.get(name, '')}", font=body, fill=INK,
                anchor="lm")
         y += row_h
+    if cues:
+        d.text((24, y + 6), "Each square on the chart carries its yarn's letter, so the "
+                            "chart can be read without relying on colour.",
+               font=body, fill=MUTED)
     return img
 
 

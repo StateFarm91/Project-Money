@@ -743,6 +743,95 @@ def test_the_rebuild_explains_its_decision():
         assert reason == "current" or "->" in reason, (slug, reason)
 
 
+def test_a_rebuild_that_has_already_been_refused_says_so_instead_of_looking_untried():
+    """Found in production, and the reason it took a cross-reference to find.
+
+    The cable throw's listing was stale, the rebuild detected it correctly, enqueued
+    `listing.draft`, and `assets.build` refused the release because the imagery was blocked
+    -- which is the system working. But the listing then stayed stale, the transition string
+    stayed the same, so the token and therefore the idempotency key stayed the same, and
+    every later rebuild reported the identical "stale" line while enqueueing nothing. From
+    the audit record alone, a product whose rebuild had already run twice and been refused
+    downstream was indistinguishable from one nobody had tried.
+
+    The reason now says which of the two it is. That does not make the rebuild able to fix
+    it -- only a code change can, arriving as a CHAIN_VERSION bump -- but it makes the
+    difference visible from outside the process, which is the whole point of B-073.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog, Listing
+    from brambleloop.products.builder import CATALOGUE, build
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/refused.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "refused-worker")
+        for _ in range(600):
+            if not w.run_once():
+                break
+
+    cir = build(CATALOGUE["mosaic-placemat-pair"])
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    drain_all()
+
+    # Age the listing so the rebuild sees a transition to make. The first rebuild enqueues
+    # the work and says so.
+    with db.session() as s:
+        s.scalar(select(Listing)).release_hash = "a-release-that-no-longer-exists"
+    JobQueue(db).enqueue("listing", "chain.rebuild", {"n": 1})
+    drain_all()
+
+    # Now put it back into exactly the production state: still stale, same transition, so
+    # the key from that first rebuild is taken. Nothing more can be enqueued for it.
+    with db.session() as s:
+        s.scalar(select(Listing)).release_hash = "a-release-that-no-longer-exists"
+    JobQueue(db).enqueue("listing", "chain.rebuild", {"n": 2})
+    drain_all()
+
+    with db.session() as s:
+        rebuilds = [r.detail for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == "chain.rebuilt"))]
+
+    last = rebuilds[-1]
+    stale = {slug: why for slug, why in last["listings"].items() if why != "current"}
+    assert stale, "the rebuild stopped seeing a listing that is still stale"
+    assert last["restarted"] == [], \
+        "the key should be taken by the first rebuild's attempt"
+    for slug, why in stale.items():
+        assert "already attempted" in why, (slug, why)
+
+    # And the first rebuild -- the one that did enqueue the work -- must not say that.
+    first_stale = [why for slug, why in rebuilds[0]["listings"].items() if why != "current"]
+    assert first_stale, "the first rebuild saw nothing to do"
+    for why in first_stale:
+        assert "already attempted" not in why, why
+        assert "restarted" in why, why
+
+
+def test_a_chain_bump_is_what_unblocks_a_refused_rebuild():
+    """The bump is the mechanism, so it has to actually change the key.
+
+    A rebuild cannot deliver a transition a downstream stage refuses; only changed code can,
+    and changed code reaches shipped products by bumping the chain version. If the bump did
+    not change the transition string it would not change the token or the key either, and
+    the refused product would stay unreachable through every future deploy.
+    """
+    from brambleloop.runtime import release as rel
+
+    before = rel.chain_key("listing", "s", "1.0.0", "rel", "tok")
+    original = rel.CHAIN_VERSION
+    try:
+        rel.CHAIN_VERSION = "999"
+        after = rel.chain_key("listing", "s", "1.0.0", "rel", "tok")
+    finally:
+        rel.CHAIN_VERSION = original
+    assert before != after, "a chain bump does not change the key it is meant to free"
+
+
 def test_the_same_certified_pattern_renders_the_same_file_every_time():
     """Found in production: two renders of one release, minutes apart, audited under two
     different hashes.

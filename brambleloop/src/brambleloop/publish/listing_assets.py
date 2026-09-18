@@ -393,6 +393,15 @@ def build_frames(cir: CIR, twin: TwinModel, *, pattern_text: str,
     buyer hesitates -- what am I getting, how big is it, what will it cost me in yarn and
     hours; frames five and six prove the thing is real; frame seven sells the next one.
     """
+    # The render-degradation flags describe *this* product's imagery, so they are cleared
+    # first. Leaving them sticky would make one chart that could not carry a colour cue
+    # block every product rendered after it in the same worker process, which is a false
+    # accusation -- and the opposite mistake, never clearing them, is how a check becomes
+    # noise that gets ignored.
+    from . import charts as charts_mod
+
+    charts_mod.reset_render_flags()
+
     frames = [
         _hero(cir, twin),
         _whats_included(cir, twin, pages, collapses_rows(cir)),
@@ -415,13 +424,23 @@ def check_frame_plan(frames: list[Frame]) -> list[str]:
     # file. On a 2000px listing image that is invisible, so the images looked right on a
     # machine with DejaVu installed and shipped from a container without it with no legible
     # text at all. Silence is what let that happen, so it is a blocking problem now.
-    from .charts import FONT_FALLBACK_IN_USE
+    from . import charts as charts_mod
 
-    if FONT_FALLBACK_IN_USE:
+    if charts_mod.FONT_FALLBACK_IN_USE:
         problems.append(
             "LISTING_NO_FONT: no TrueType face was available, so every label on these "
             "images is a few pixels tall. The container needs fonts installed; rendering "
             "illegible imagery is worse than rendering none")
+
+    # Master Plan section 31: colour-independent cues where practical. In overlay mosaic the
+    # colour *is* the motif, so a chart that separates two yarns by hue alone is unreadable
+    # to a maker with a colour vision deficiency -- and unlike a sighted maker they cannot
+    # recover it by looking harder.
+    if charts_mod.COLOR_CUE_MISSING:
+        problems.append(
+            "LISTING_CHART_COLOR_ONLY: this chart distinguishes its yarns by colour alone, "
+            "because the cells are too small to carry the colour's letter. Publish the "
+            "repeat rather than the whole fabric, or raise the cell size")
 
     for f in frames:
         if f.is_hero and f.fabric_is_flat:
@@ -432,7 +451,11 @@ def check_frame_plan(frames: list[Frame]) -> list[str]:
                 "look at")
 
     if not frames:
-        return ["LISTING_NO_IMAGES: a listing with no imagery cannot be published"]
+        # Appended rather than returned alone: a render that failed *and* produced no frames
+        # should report both reasons, and an early return here would throw away whatever the
+        # renderer had already recorded about why the images are unusable.
+        problems.append("LISTING_NO_IMAGES: a listing with no imagery cannot be published")
+        return problems
     heroes = [f for f in frames if f.is_hero]
     if len(heroes) != 1:
         problems.append(f"LISTING_HERO_COUNT: expected exactly one hero, got {len(heroes)}")

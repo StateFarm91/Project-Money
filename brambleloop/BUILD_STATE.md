@@ -17,14 +17,17 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **514 tests passing, 0 failing**, including 23 that
-assert the owner's acceptance gates line by line.
+Last full measured run of `./run_tests.sh`: **514 tests passing, 0 failing** at commit
+`6be44eb`, including 23 that assert the owner's acceptance gates line by line. Ten tests
+have been added since (two on the chain rebuild, eight on accessibility); each new suite
+passes on its own and the measured full-run total replaces this line rather than a predicted
+one, because writing a predicted total here has been wrong twice.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
 storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
 portfolio), quality (confidence, regression), finance, shadow pipeline, real-process
 persistence, chaos, deployment surface, flagship run and adversarial attacks, generated
-catalogue, and the acceptance gates.
+catalogue, accessibility, and the acceptance gates.
 - The full release chain runs end to end with no human in the loop, and correctly *refuses*
   to publish in shadow mode. A single `plan.cycle` now carries an entire 11-SKU portfolio
   from market scan to eleven release certificates without intervention.
@@ -33,20 +36,23 @@ catalogue, and the acceptance gates.
   duplicate side effects.
 - Cloud deployment: **live and verified.** See "Deployment" below for the exact
   configuration, the twelve production checks that pass, and the measured cost.
-- Catalogue: **20 engineered designs** — 14 generated from the motif library, the
-  hand-placed flagship, and four worked in the round (three basket sizes and a hexagon
-  coaster). Every one compiles, reverse-compiles and certifies. Ten of the eleven release
-  candidates ship an engineered design; the eleventh is the collection bundle, which
-  correctly has no pattern of its own.
+- Catalogue: **19 engineered designs** — 11 generated from the motif library
+  (`products/builder.py`) and 8 hand-built: the flagship mosaic throw, the basket in three
+  measured sizes, the hexagon coaster, the cable throw, the bobble pillow and the ribbed
+  scarf. The last six are the products whose names made claims their fabric did not honour,
+  rebuilt rather than renamed (B-061, B-082). Every one compiles, reverse-compiles and
+  certifies. Ten of the eleven release candidates ship an engineered design; the eleventh is
+  the collection bundle, which correctly has no pattern of its own.
 - **Construction beyond flat rows now exists.** Pieces worked in the round are measured as a
   surface of revolution, so a coaster, a tube, a cone and a basket get real finished sizes,
   a closed shaped piece gets a circumference and an explicit refusal to state a height, and
   fabric that must gather is named. Charts for round work are drawn as rounds. Two catalogue
   products were named for shapes their patterns did not make and are rebuilt (see the
   milestone below).
-- Storefront, listings, imagery and content: **drafted and held.** Production currently holds
-  15 certified patterns, 16 listings, 94 listing images, 129 content pieces and 1 collection,
-  none of it published. Nothing in this system can publish: there is no Etsy, Pinterest,
+- Storefront, listings, imagery and content: **drafted and held.** Production at
+  2026-09-18T04:05Z holds 15 certified patterns, 16 listings, 94 listing images (88 of them
+  approved), 134 content pieces and 1 collection, none of it published, and 90 recorded
+  publication refusals. Nothing in this system can publish: there is no Etsy, Pinterest,
   email, video or messaging integration at all.
 - Etsy publishing: **code written and wired, never called.** `store.publish` asks the client
   past shadow mode, and the client's own three refusals stand in front of it, so the phase is
@@ -234,7 +240,21 @@ See `DECISION_LOG.md` for reasoning. Summary:
 - `core/resilience.py` — transient/permanent classification, Retry-After honouring, circuit
   breaker, artifact hash integrity, strict model-output parsing.
 - `app/main.py`, `app/worker_entry.py`, `app/scheduler_entry.py`, `Dockerfile`,
-  `railway.json` — the deployable surface. Written and exercised locally; not provisioned.
+  `railway.json` — the deployable surface. **Provisioned and running**: see "Integrations
+  connected". The image installs `fonts-dejavu-core`, because without it Pillow fell back
+  silently to a bitmap face a few pixels tall and every listing image rendered in production
+  was unreadable at thumbnail size.
+- `core/build.py` — which commit the running image was built from, surfaced on `/api/status`
+  and `/health`. Reports `unknown` when the build environment does not say, and an unknown
+  build never matches a commit, so "I cannot tell" is never reported as "the deploy landed".
+- `publish/charts.py` — stitch and colour charts, flat and round, rendered from the twin.
+  Cells are shaded by their stitch's relief as well as their colour, so single-colour
+  textured fabric is visible, and every square of a multi-colour chart carries its yarn's
+  letter so the chart can be read without relying on colour (section 31).
+- `publish/listing_assets.py` — the six-frame listing plan (hero, chart, size, detail, format,
+  siblings), rendered from the same twin as the PDF so no frame can assert something the
+  pattern does not produce. Blocks on a missing font, on a hero whose fabric has no internal
+  contrast, and on any frame Asset Truth rejects.
 - `cir/stitches.py` — canonical stitch taxonomy (consumes/produces/height per stitch). US
   canonical, UK rendered downstream.
 - `cir/model.py` — CIR dataclasses, JSON round-trip, components/rows/repeats/gauge/materials.
@@ -279,6 +299,49 @@ See `DECISION_LOG.md` for reasoning. Summary:
   dimensions from gauge, per-colour yardage estimate with an explicit ±20% tolerance until a
   physical test calibrates it.
 
+## Master Plan v1.2 coverage, section by section
+
+The honest answer to "is anything left that Claude can build?". Every section of
+`spec/01_Brambleloop_Master_Plan_v1.2.pdf` is listed -- the plan numbers 1-17 and 25-36,
+with no 18-24 -- against what exists and what it is waiting on. "Owner" means the item in
+the owner queue above; "observations" means live marketplace or sales data that cannot exist
+before the shop does.
+
+| § | Section | State | Waiting on |
+|---|---|---|---|
+| 1 | Business Thesis and CA$100K Target | Machinery built: pricing, contribution P&L, portfolio selection, cost-to-create. Revenue CA$0 and cannot be otherwise in shadow. | Owner 2-4, 7 |
+| 2 | Pattern Engineering (non-negotiable) | Complete. CIR, deterministic compiler, stitch taxonomy including post stitches, bobbles and crossings, round geometry, seams with placement. | — |
+| 3 | Digital Twin, Reverse Compiler, Physical Testing | Twin and independent reverse compiler complete. Physical intake, calibration and falsification built and tested. | Owner 5 (the measurement) |
+| 4 | Market Radar and Competitor Digital Twins | Built on dated, sourced observations with a 34-concept scored pool. No live scraping integration. | Observations |
+| 5 | Seasonality, Launch Events, Winner Amplification | Shopping-vs-making window arithmetic and launch calendar built. Amplification needs winners. | Observations |
+| 6 | Brand System, Storefront, Consistent Model | Built: brand tokens, announcement, About, five policies, all checked. Brand-model imagery deliberately not generated (disclosure question, tracked). | — |
+| 7 | Listing Conversion and Asset Truth | Complete. Six-frame plan rendered from the twin, Asset Truth over every frame, thumbnail check at shopper scale. | — |
+| 8 | Search Domination and Page Growth | Tag and title selection, coverage scoring, content ecosystem built. Ranking feedback needs a live shop. | Observations |
+| 9 | Pricing Intelligence and Promotions | Fee-aware pricing, bundle arithmetic, refusal of deceptive discounts. Elasticity needs sales. | Observations |
+| 10 | AI Customer Experience | Built: answers from the exact released version, cannot amend a CIR, refuses to guess, every reply recorded unsent. | Owner 7 |
+| 11 | Marketing and Paid Media | Built with hard caps enforced in code; disabled, CA$0 spent. | Owner (paid-media authority) |
+| 12 | Portfolio, Reviews, Product Mortality | Classification and mortality rules built. Needs reviews and sales. | Observations |
+| 13 | 24/7 Cloud Architecture | Complete and running. Durable queue, leases, scheduler, twelve production checks, and the running commit now reported. | — |
+| 14 | Agent Governance, Policy, Owner Approval | Complete. Per-agent permissions and cost ceilings, structurally forbidden combinations, RED actions, owner queue. | — |
+| 15 | Intelligence Warehouse, Finance, Failure Recovery | Complete. Postgres warehouse, full P&L with a CFO challenge, backup with a tested restore, dead letters, circuit breakers. | — |
+| 16 | Initial Catalogue and Agent Organization | 19 engineered designs, 15 agents, every design compiling and certifying. | — |
+| 17 | Final Release Chain | Complete and exercised in production end to end. | — |
+| 25 | Search Reality Corrections | Built: the corrections are in tag selection and coverage scoring. | — |
+| 26 | Shadow Mode and Safe Autonomy | Complete and enforced in code. Verified continuously: 12/12 checks, 90 recorded publication refusals, nothing published. | Owner 7 |
+| 27 | Model Gateway and Reproducibility | Gateway built with pinned, content-hashed prompts and deterministic override. No provider configured. PDFs render byte-identically. | — |
+| 28 | Security, Privacy, Disaster Recovery | Backup and restore drill, no secrets in the repository, resilience classification, artifact hash integrity. | — |
+| 29 | Originality, Trademark, Brand Clearance | Originality gate built and run in the chain. | Owner 6 |
+| 30 | Owned Audience and Channel Resilience | Content ecosystem with a commercial job per piece, and channel attribution modelled. No email, Pinterest or site integration exists. | Owner 2-3, credentials |
+| 31 | Localization and Accessibility | Complete as far as it can be. Terminology rendered at write time from one canonical CIR; charts carry hue-independent colour cues, explained legends, print-friendly contrast. Translation itself needs terminology review before sale. | Owner (translation review) |
+| 32 | Pre-Launch Acceptance Tests | Complete. All six gates pass, every line with its own named test. | — |
+| 33 | Initial Launch Portfolio Test | Complete. The portfolio selector runs under the section's constraints and an 11-SKU cycle completes unattended. | — |
+| 34 | Cost-to-Create and Throughput Metrics | Built and reported. | — |
+| 35 | What Must Happen Before Sending Claude Live | This is the owner queue, written by the system. Seven items. | Owner 1-7 |
+| 36 | v1.2 Final Release Chain | Complete. | — |
+
+**Nothing in this table is waiting on Claude.** Every remaining item needs either an owner
+action from the queue above, or marketplace data that cannot exist until the shop is open.
+
 ## Acceptance gates
 
 Every line of `spec/03_Acceptance_Tests_and_Autonomy_Gates.pdf` now has a named test in
@@ -311,27 +374,65 @@ Passing these is permission to graduate SHADOW → STAGING, not graduation. Noth
 graduated, and nothing will without the owner.
 
 ## Integrations connected
-- None. Railway account exists but no project is provisioned.
+- **Railway** — connected and load-bearing. Project `brambleloop`, environment `production`,
+  services `brambleloop-os` (the app) and `Postgres` (the durable state). Deploys on push to
+  `claude/repository-setup-nc9x6o`. `/api/status` reports the commit the running image was
+  built from, so "the deploy landed" is now checkable rather than inferred.
+- **Etsy** — *not* connected. The client is written and unit-tested against a fake transport
+  and has never been called against Etsy. It refuses on phase, on owner authority and on
+  missing credentials, and nothing in this environment satisfies any of the three.
+- **Model providers** — none. `/api/status` reports `model_providers: []`, which is the
+  truthful answer, and no model call has ever been made.
+- **Object storage** — none. Artifact bytes live on the container filesystem and do not
+  survive a restart; hashes are durable and everything re-renders from the certified CIR.
+  This is owner action 1.
 
 ## Owner actions required
 
-**1. Delete the stray Railway service `Project-Money` (housekeeping, ~1 minute).**
+**Seven of these are written by the system, not by hand.** `launch.readiness` assesses every
+requirement, decides who each unmet one waits on, and queues only the owner's — with the
+five columns the Execution Directive asks for. Read them live at `/api/owner-actions`, or as
+the report at `/api/launch`. As of 2026-09-18 there are seven, in dependency order:
+
+1. **Object storage for generated PDFs and images** — max CA$5/month (within the CA$20
+   ceiling), 10 minutes. Unlocks reliable delivery of purchased files.
+2. **Open the Etsy shop and complete Etsy's identity verification** — CA$0, 25 minutes.
+   Unlocks publishing anything at all. Must be done by the person who is the seller.
+3. **Add the payout bank account and tax details** — CA$0, 15 minutes. Unlocks publishing and
+   any revenue at all.
+4. **Accept Etsy's listing and transaction fees for the opening catalogue** — about
+   US$1.80 (CA$2.50) for nine listings plus 6.5% per sale; max CA$5, 2 minutes. The first
+   spend that leaves the account, so it needs approval by the directive.
+5. **Crochet one sample (the 20 cm basket), weigh the yarn, measure the piece** — max CA$25,
+   about 7 hours. Unlocks calibrated yardage instead of a ±20% tolerance, and is the gate
+   Class C products cannot pass at all. Cannot be automated: it needs hands, yarn and a hook.
+6. **Decide on trademark clearance for "Brambleloop Studio"** — knock-out search free, filing
+   CA$458.05; max CA$460, 20 minutes. Blocks nothing yet; the risk rises with every sale.
+7. **Move `BRAMBLELOOP_PHASE` to staging, then limited production** — CA$0, 5 minutes.
+   Unlocks the entire commercial phase. Only the owner moves the phase; the system cannot
+   promote itself.
+
+Plus one piece of housekeeping that predates the queue:
+
+**8. Delete the stray Railway service `Project-Money` (housekeeping, ~1 minute).**
 - *Exact action:* in the Railway project `brambleloop` → `production`, delete the service
   named `Project-Money` (`4dff24df-2186-4278-b01f-c11ec39a766f`).
 - *Why:* it was created by accident — a deploy call spawned a second service instead of
   deploying to `brambleloop-os`. Its build failed and it is not running, so it costs nothing
   measurable, but it is not part of the system and should not sit in the project pretending
-  to be. Deletion was declined when attempted from this session, twice.
-- *Still outstanding as of 2026-09-17T18:25Z.* The owner reported this service deleted, but
-  `list-services` on project `brambleloop` still returns it, and it started and failed
-  another build on the push at 18:23Z. It fails within ~10 seconds, so the cost is build
-  minutes rather than runtime, but the record should not say "deleted" when it is not.
+  to be.
+- *Still outstanding as of 2026-09-18T04:05Z.* `list-services` on project `brambleloop`
+  still returns it. Deletion has now been attempted from this session three times and
+  declined each time, which is the correct default for an irreversible action — so it stays
+  here as a request rather than being retried.
 - *Maximum cost:* CA$0. Leaving it costs nothing either; this is tidiness, not spend.
 - *Consequence of waiting:* none beyond confusion for whoever opens the project next.
 
-Deferred until the system actually reaches them (Master Plan section 35), in order:
-object storage for artifact durability → brand/trademark clearance for "Brambleloop Studio"
-→ Etsy account/KYC → banking. **Do not ask for these yet.**
+Nothing on this list was asked for speculatively. Every item is a requirement the system has
+actually reached and cannot meet itself, and the directive's prohibition on requesting
+Etsy/KYC/banking "merely because they will eventually be needed" is enforced by the
+readiness assessment: a requirement blocked on build never reaches the owner queue, and a
+test asserts both directions.
 
 ## Financial state
 Exact and verified. Nothing here is projected.
@@ -506,6 +607,29 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **Charts that can be read without colour vision** (section 31). Twelve of
+  the nineteen designs are two-colour work where the colour *is* the motif, the chart
+  separated the yarns by hue alone, and the legend identified each yarn by a coloured square
+  and nothing else -- so for a maker with a colour vision deficiency there was nothing in
+  the file that said which yarn a square meant, and unlike a sighted maker they cannot
+  recover it by looking harder. Every square of a multi-colour chart now carries its yarn's
+  letter, in the corner so the stitch glyph still reads; the round chart puts it on the
+  round number; the legend prints it inside the swatch and explains it; and a chart drawn
+  too small to carry one blocks the frame plan instead of shipping. The letter indexes the
+  CIR's own colour order, so the chart, the legend and the written instructions cannot
+  disagree. `tests/test_accessibility.py` holds it to a property rather than an appearance:
+  two yarns are given the *same* hex, and the squares must still differ.
+- 2026-09-18: **Chain version 6, and the reason a refused rebuild looked untried.** The
+  imagery fix changed what `assets.build` produces, which is exactly what `CHAIN_VERSION`
+  exists for -- shipping it without the bump left every asset rendered by the old code in
+  place and the blocked product unreachable. Diagnosing that needed the jobs list *and* the
+  audit detail cross-referenced, because the rebuild had detected the cable throw as stale,
+  enqueued the work, watched `assets.build` refuse it for blocked imagery (correctly), and
+  then reported the same stale line on every later run while enqueueing nothing: the listing
+  stayed stale, so the transition, the token and the key stayed the same. The record now
+  says which of the two it is looking at. The rebuild still cannot fix it -- only changed
+  code can, arriving as the bump -- but the difference is visible from outside the process,
+  which is what B-073 was for.
 - 2026-09-18: **Production says which commit it is running.** `/api/status` and `/health` now
   report the build's commit sha, branch, and whether it knows them at all. `version` is
   hand-maintained and proves nothing about a deploy, so until now the only way to tell

@@ -49,7 +49,7 @@ from .worker import JobContext, handlers
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "5"
+CHAIN_VERSION = "6"
 
 
 def chain_key(stage: str, slug: str, version: str, release: str = "",
@@ -819,7 +819,6 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         if actual == wanted:
             reasons[slug] = "current"
             continue
-        reasons[slug] = f"{actual} -> {wanted}"
         token = hashlib.sha256(f"{actual}->{wanted}".encode()).hexdigest()[:12]
         # The key names the *transition*, not the destination. Keying it on the destination
         # alone is what stopped the previous fix from delivering itself: the listing had
@@ -833,6 +832,22 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
                                                     pv.release_hash or "", token))
         if job is not None:
             started.append(f"{slug}@{pv.version}")
+            reasons[slug] = f"{actual} -> {wanted}: restarted"
+        else:
+            # Stale, and this exact transition has already been attempted: the key is taken
+            # by a job that ran and did not deliver the transition. That is a different
+            # situation from a stale listing nobody has tried yet, and reporting them
+            # identically is what made this invisible -- the rebuild said "stale" for a
+            # product whose rebuild had already run twice and been refused downstream, and
+            # from the audit record alone the two were indistinguishable.
+            #
+            # It is not an error. `assets.build` stopping on blocked imagery is the system
+            # working: a listing whose pictures misrepresent the pattern must not proceed.
+            # But it means this rebuild cannot fix it, and the thing that can is a code
+            # change -- which arrives as a CHAIN_VERSION bump, changing `wanted`, the
+            # transition and therefore the key.
+            reasons[slug] = (f"{actual} -> {wanted}: already attempted under this chain "
+                             f"version and not delivered; a downstream stage refused it")
 
     # A stored design the code no longer produces, or a certificate issued against a
     # document the writer no longer writes. Restarting at `listing.draft` cannot fix either,
