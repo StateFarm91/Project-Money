@@ -32,7 +32,7 @@ SUITES=(
   tests/test_etsy.py tests/test_brand.py tests/test_commerce.py tests/test_departments.py
   tests/test_quality.py tests/test_physical.py tests/test_finance.py tests/test_launch.py
   tests/test_shadow.py
-  tests/test_persistence.py tests/test_chaos.py tests/test_deploy.py
+  tests/test_persistence.py tests/test_continuity.py tests/test_chaos.py tests/test_deploy.py
   tests/test_product_run.py tests/test_products.py tests/test_texture.py
   tests/test_accessibility.py tests/test_build2.py tests/test_acceptance_gates.py
 )

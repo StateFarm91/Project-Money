@@ -719,6 +719,70 @@ def handle_physical_record(ctx: JobContext) -> dict:
             "rebuilt": rebuilt}
 
 
+
+@handlers.register("ops.continuity")
+def handle_continuity(ctx: JobContext) -> dict:
+    """Export the database portably and prove the export can be restored.
+
+    Requirement 51, and the gap Build 1 wrote into its own baseline: production state was not
+    backed up from the application environment. The proof is the point -- a backup nobody has
+    restored is a hope, and the previous drill was honest that it had never verified a
+    Postgres restore because it needed a scratch database to do it.
+
+    This runs against whatever database it is pointed at, including production, because the
+    export format is engine-independent and the scratch target is a local SQLite file. It
+    reads; it never writes to the source.
+
+    GREEN by the authority matrix: no publication, no spend, no customer contact. The
+    connection string is redacted before anything is recorded.
+    """
+    import tempfile
+
+    from ..core import continuity
+
+    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="continuity-")
+    proof = continuity.prove_restore(ctx.db, work)
+    detail = proof.to_dict()
+    detail["source"] = proof.export.source          # already redacted
+    detail["bytes"] = proof.export.bytes_written
+    detail["work_dir_is_durable"] = False
+
+    ctx.audit("continuity.verified" if proof.ok else "continuity.failed", detail=detail)
+
+    if not proof.ok:
+        # A continuity failure is not a log line to scroll past: it means the company's
+        # unrecoverable history is not actually recoverable. Raised as a correlated incident
+        # so it re-uses the existing P1 machinery -- one incident that counts repeats rather
+        # than a new row every scheduled run.
+        from sqlalchemy import select
+
+        from ..core.models import Incident
+
+        signature = "continuity.restore_unproven"
+        with ctx.db.session() as s:
+            existing = s.scalar(select(Incident).where(
+                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
+            if existing is None:
+                s.add(Incident(
+                    severity="P1", signature=signature,
+                    summary="the continuity export could not be restored, so the "
+                            "company's non-rederivable history is not recoverable",
+                    detail=detail, halts_publication=False))
+            else:
+                existing.report_count += 1
+                existing.detail = detail
+
+    # Recorded every run, because the export currently lands on a container filesystem that
+    # does not survive a restart. The evidence is durable; the bytes are not, and the owner
+    # queue carries the storage decision that fixes it.
+    ctx.audit("continuity.storage_not_durable", detail={
+        "reason": "the export is written to ephemeral container storage. Hashes, row counts "
+                  "and the restore proof are durable in the audit log; the archive itself "
+                  "must be pulled through /api/continuity/export or written to object "
+                  "storage once provisioned.",
+    })
+    return detail
+
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:
     """Assess what stands between this shop and a live customer, and queue what is owner-only.

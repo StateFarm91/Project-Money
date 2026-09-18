@@ -17,6 +17,28 @@ None of the seven owner actions has been performed. Etsy is not connected, the p
 changed, nothing has been published, no advertising has been bought and no customer activity
 exists. See `baseline/BUILD_1_BASELINE.md`, including what the baseline does **not** preserve.
 
+## Build 2: IN PROGRESS — Master Upgrades v1.4.3
+The owner's v1.4.3 master is the canonical Build-2 specification
+(`spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf`). All 320 numbered requirements are
+audited against the system that actually exists and carried in `build2/requirements.json`,
+readable live at `/api/build2`.
+
+| status | count | meaning |
+|---|---|---|
+| covered | 7 | Build 1 already satisfies it, with a named test or artefact |
+| partial | 50 | something real exists and is short of the requirement |
+| missing | 204 | nobody has built it |
+| owner_gated | 47 | waits on an owner decision, credential or legal acceptance |
+| data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
+
+Five values rather than two on purpose: "done / not done" is what makes a large build
+dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
+as one nobody has written. **254 requirements are executable by this session** (partial +
+missing); the counts above move as work lands and are regenerated from the registry, never
+typed.
+
+Build 1 remains recoverable throughout: baseline commit `d5168c0`, branch `build-1-baseline`.
+
 ## Current phase
 PHASE 1 — SHADOW MODE, **deployed and running 24/7**. Nothing is connected to live customers,
 live listings or live spend. The system runs unattended on Railway whether or not any Claude
@@ -95,6 +117,51 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**Business continuity: the export, the restore, and the proof that the restore works
+(requirement 51 — the gap Build 1 wrote into its own baseline, and the one the owner flagged
+to close early in Build 2).**
+
+`src/brambleloop/core/continuity.py`:
+
+- **Portable, not engine-native.** Every table exports as JSON Lines with a per-table sha256
+  and a declared row count. A `pg_dump` restores into Postgres and nowhere else, which is the
+  dependency #51 exists to remove; this restores into any SQLAlchemy engine, and a
+  Postgres-shaped export restoring into a scratch SQLite file is exactly what makes the proof
+  below runnable from the application container at all.
+- **The proof is a hash comparison, not a row count.** `prove_restore()` restores the export
+  into an empty database, re-exports it and compares digests table by table. A restore that
+  dropped every timestamp, mangled a JSON column or coerced a Decimal would pass a headcount
+  unchanged.
+- **Truncation and unknown formats are refused.** Each table declares its own row count and
+  the reader checks it, so a half-written archive fails at the point it stopped rather than
+  restoring silently as if it were complete.
+- **No credential ever reaches the export, its manifest or the audit log.** The export names
+  which database it came from — continuity evidence that cannot say that is not evidence —
+  with the credentials redacted before anything is written.
+- **Scheduled daily** as the `continuity_proof` cadence, and a failed proof raises a
+  correlated P1 incident rather than a log line.
+
+`src/brambleloop/core/opsauth.py` and `GET /api/continuity/export`: the one endpoint that can
+return database contents authenticates with an operator token held only in the hosting
+environment, compared in constant time, never echoed — and **closed to everyone when unset**
+rather than open. The opposite default serves the company to the internet in the window
+between deploying the endpoint and remembering to set the variable, which is exactly the
+window in which nobody is looking. `/api/continuity` reports whether backups are being proved
+without exposing anything a stranger could use.
+
+Still open, and batched for the owner rather than hidden: the archive is written to ephemeral
+container storage. The **evidence** is durable — digests, row counts and the restore proof
+live in the audit log — but the bytes are not, and that needs durable object storage. Rendered
+PDFs and charts are deliberately not archived: they are re-derivable from the CIR and the
+code, which is what "patterns are software releases" buys.
+
+Found by the test that exists for it: the new daily cadence was scheduled against an agent
+with no permission to run it — the same defect production hit with the heartbeat in Build 1.
+`test_every_scheduled_cadence_can_actually_run` caught it before it ever ran.
+
+556 tests passing, 0 failing, 27 suites.
+
+## Previously completed milestone
 **Build 1 of Master Plan v1.2 is complete. Nothing in the launch report is blocked on build.**
 
 Verified at 2026-09-18T08:40Z against production running commit `d5168c0`:

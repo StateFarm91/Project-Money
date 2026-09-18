@@ -203,6 +203,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # was ours yesterday can be the owner's today, and the owner queue should say so without
     # anyone asking.
     ("launch_readiness", "orchestrator", "launch.readiness", 24 * 60 * 60),
+    # Requirement 51. Daily, and it proves the restore rather than only writing the export --
+    # a backup nobody has restored is a hope, not a continuity plan.
+    ("continuity_proof", "orchestrator", "ops.continuity", 24 * 60 * 60),
 ]
 
 

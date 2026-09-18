@@ -12,12 +12,13 @@ from __future__ import annotations
 import os
 from datetime import timedelta
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Header
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import func, select
 
 from ..agents.registry import Registry
 from ..core.build import identity as build_identity
+from ..core import opsauth
 from ..core.db import Database
 from ..core.models import (
     Agent, AuditLog, Collection, ContentPiece, CostEntry, Incident, Job, JobStatus,
@@ -271,6 +272,94 @@ def api_launch_readiness() -> dict:
                           "so the queued one does the same work"}
     return {"enqueued": True, "job_id": job.id}
 
+
+
+@app.get("/api/continuity")
+def api_continuity() -> dict:
+    """Continuity status. Deliberately says nothing a stranger could use.
+
+    Reports whether backups are being proved and whether the archive can be retrieved at
+    all, without exposing the database, its contents or its address.
+    """
+    from sqlalchemy import desc
+
+    with db.session() as s:
+        recent = list(s.scalars(
+            select(AuditLog).where(AuditLog.action.in_(
+                ("continuity.verified", "continuity.failed")))
+            .order_by(desc(AuditLog.id)).limit(1)))
+    last = recent[0] if recent else None
+    return {
+        "last_proof_at": last.at.isoformat() if last else None,
+        "last_proof_ok": (last.action == "continuity.verified") if last else None,
+        "last_proof": (last.detail or {}) if last else {},
+        "archive_retrievable": opsauth.configured(),
+        "credential": opsauth.token_health(),
+        "note": ("The archive is downloaded through GET /api/continuity/export with the "
+                 "operator credential. Without that credential the endpoint is closed to "
+                 "everyone, including the owner."),
+    }
+
+
+@app.post("/api/continuity/verify")
+def api_continuity_verify() -> dict:
+    """Run the export-and-restore proof now rather than at the next scheduled window."""
+    key = f"ops.continuity:{utcnow():%Y%m%dT%H%M}"
+    try:
+        job = JobQueue(db).enqueue("orchestrator", "ops.continuity", {},
+                                   idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False,
+                "reason": "a continuity proof was already queued this minute"}
+    return {"enqueued": True, "job_id": job.id}
+
+
+@app.get("/api/continuity/export")
+def api_continuity_export(authorization: str = Header(default="")) -> Response:
+    """Download the portable export. Authenticated, and closed when unconfigured.
+
+    This is the one endpoint that returns database contents, so it is the one that must not
+    be reachable without the operator credential. `opsauth` refuses everybody when the token
+    is unset, which is the safe direction: the opposite default would serve the company to
+    the internet in the window between deploying this and remembering to set the variable.
+    """
+    import tempfile
+
+    from ..core import continuity
+
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        # 503, not 401: nothing the caller can present would work.
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    work = tempfile.mkdtemp(prefix="continuity-download-")
+    result = continuity.export(db, f"{work}/brambleloop-export.jsonl")
+    Registry(db).audit("orchestrator", "continuity.exported",
+                       detail={"digest": result.digest, "rows": result.total_rows,
+                               "bytes": result.bytes_written, "source": result.source})
+    return FileResponse(
+        str(result.path), media_type="application/x-ndjson",
+        filename=f"brambleloop-export-{result.created_at:%Y%m%dT%H%M%SZ}.jsonl",
+        headers={"X-Brambleloop-Export-Digest": result.digest,
+                 "X-Brambleloop-Export-Rows": str(result.total_rows)},
+    )
+
+
+@app.get("/api/build2")
+def api_build2() -> dict:
+    """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
+    from ..build2 import requirements as reqs
+
+    return {
+        "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
+        "coverage": reqs.coverage(),
+        "sections": reqs.sections(),
+        "executable_remaining": [r.to_dict() for r in reqs.executable()[:40]],
+        "blocked_on_owner": [r.to_dict() for r in reqs.by_status(reqs.OWNER_GATED)],
+    }
 
 @app.get("/api/jobs")
 def api_jobs(limit: int = 50) -> dict:
