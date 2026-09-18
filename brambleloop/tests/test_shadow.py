@@ -15,12 +15,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (  # noqa: E402
-    AuditLog, JobStatus, PatternVersion, Phase, Product,
+    AuditLog, Job, JobStatus, PatternVersion, Phase, Product,
 )
 from brambleloop.gates.incidents import DefectReport, IncidentTracker  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
@@ -43,10 +43,93 @@ def drain(db: Database, phase: Phase = Phase.SHADOW, limit: int = 400) -> Worker
     return w
 
 
+# One eleven-product cycle, shared by the tests below that only *read* its outcome.
+#
+# Measured 2026-09-18: this file was 245 seconds for nine tests, and four of them were 60
+# seconds each because each ran its own full cycle. Three of those four assert different
+# things about the same run -- that a product came out certified, that publication was
+# refused, that the audit trail covers every stage -- so running the cycle three times was
+# not three pieces of evidence. It was one piece of evidence, paid for three times.
+#
+# The fourth, `test_open_incident_halts_certification`, injects defects *before* the cycle
+# and so genuinely needs its own, and keeps it.
+#
+# A shared fixture is how a test suite rots, so this one does not rely on a comment asking
+# consumers to behave. It fingerprints the warehouse after building and checks the
+# fingerprint before every later use, so a test that mutates the cycle fails the next
+# consumer loudly and by name instead of quietly changing what it was reading.
+_CYCLE: tuple[Database, Worker] | None = None
+_CYCLE_FINGERPRINT: tuple[int, ...] | None = None
+
+
+def _fingerprint(db: Database) -> tuple[int, ...]:
+    with db.session() as s:
+        return tuple(
+            s.scalar(select(func.count()).select_from(model)) or 0
+            for model in (Product, PatternVersion, AuditLog, Job)
+        )
+
+
+def one_shadow_cycle() -> tuple[Database, Worker]:
+    """The cycle, built once. Read it; do not write to it."""
+    global _CYCLE, _CYCLE_FINGERPRINT
+    if _CYCLE is None:
+        db = boot()
+        JobQueue(db).enqueue("orchestrator", "plan.cycle", {})
+        worker = drain(db)
+        _CYCLE = (db, worker)
+        _CYCLE_FINGERPRINT = _fingerprint(db)
+        return _CYCLE
+
+    db, _ = _CYCLE
+    current = _fingerprint(db)
+    assert current == _CYCLE_FINGERPRINT, (
+        "the shared cycle has been modified, so this test is no longer reading the outcome "
+        f"the pipeline produced: {_CYCLE_FINGERPRINT} -> {current}. Give the test that "
+        "writes its own cycle with boot()")
+    return _CYCLE
+
+
+
+def test_a_modified_shared_cycle_is_refused_rather_than_silently_read():
+    """The guard on the shared cycle, proved rather than asserted in a comment.
+
+    Three tests read one cycle instead of paying for three, which is only safe while none of
+    them writes to it. `one_shadow_cycle` fingerprints the warehouse and re-checks it before
+    every later use -- and a guard nobody has seen fire is the same mistake as a thumbnail
+    check that passes a blank image, so this fires it.
+
+    Runs against a throwaway cycle of its own and restores the module state, so it cannot
+    disturb the real one.
+    """
+    global _CYCLE, _CYCLE_FINGERPRINT
+
+    saved = (_CYCLE, _CYCLE_FINGERPRINT)
+    try:
+        db = boot()
+        _CYCLE = (db, Worker(db, "guard-worker", phase=Phase.SHADOW))
+        _CYCLE_FINGERPRINT = _fingerprint(db)
+
+        # Untouched, so it is handed over.
+        assert one_shadow_cycle()[0] is db
+
+        with db.session() as session:
+            session.add(Product(slug="guard-probe", title="Guard Probe", status="draft"))
+
+        try:
+            one_shadow_cycle()
+        except AssertionError as e:
+            assert "has been modified" in str(e), e
+        else:
+            raise AssertionError(
+                "the guard did not fire: a test could modify the shared cycle and every "
+                "test after it would quietly read something the pipeline never produced")
+    finally:
+        _CYCLE, _CYCLE_FINGERPRINT = saved
+
+
 def test_full_product_runs_end_to_end_without_intervention():
-    db = boot()
-    JobQueue(db).enqueue("orchestrator", "plan.cycle", {})
-    w = drain(db)
+    db, w = one_shadow_cycle()
 
     assert w.stats.completed >= 5, w.stats
     with db.session() as s:
@@ -62,9 +145,7 @@ def test_full_product_runs_end_to_end_without_intervention():
 
 def test_shadow_mode_refuses_to_publish():
     """Section 26: a new autonomous system is not connected to live listings on day one."""
-    db = boot()
-    JobQueue(db).enqueue("orchestrator", "plan.cycle", {})
-    drain(db)
+    db, _ = one_shadow_cycle()
 
     q = JobQueue(db)
     publishes = [j for j in q.dead_letters() if j.job_type == "store.publish"]
@@ -79,9 +160,7 @@ def test_shadow_mode_refuses_to_publish():
 
 
 def test_audit_trail_covers_the_whole_chain():
-    db = boot()
-    JobQueue(db).enqueue("orchestrator", "plan.cycle", {})
-    drain(db)
+    db, _ = one_shadow_cycle()
     with db.session() as s:
         actions = {a.action for a in s.scalars(select(AuditLog))}
     for expected in ("radar.scanned", "radar.scored", "cir.drafted", "cir.compiled",
