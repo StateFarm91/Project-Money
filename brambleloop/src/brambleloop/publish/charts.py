@@ -58,9 +58,20 @@ COLOR_CUE_MISSING = False
 
 
 def reset_render_flags() -> None:
-    """Clear the render-degradation flags. Called before a render whose result is checked."""
-    global FONT_FALLBACK_IN_USE, COLOR_CUE_MISSING
-    FONT_FALLBACK_IN_USE = False
+    """Clear the per-render degradation flags before rendering a product's imagery.
+
+    `COLOR_CUE_MISSING` is a property of one chart, so it has to be cleared or a single
+    chart that could not carry a cue would block every product rendered after it in the
+    same worker process -- a false accusation, which is how a real check becomes noise that
+    gets ignored.
+
+    `FONT_FALLBACK_IN_USE` is deliberately *not* cleared. It is a fact about the container,
+    not about a product: either a TrueType face exists on this machine or it does not, and
+    `_font` re-sets it on the next render anyway. Clearing it would throw away an
+    environment truth in order to re-derive it, and it would make a test that simulates a
+    missing font pass on a machine that has one.
+    """
+    global COLOR_CUE_MISSING
     COLOR_CUE_MISSING = False
 
 
@@ -87,6 +98,29 @@ def _font(size: int) -> ImageFont.ImageFont:
             continue
     FONT_FALLBACK_IN_USE = True
     return ImageFont.load_default()
+
+
+def _wrap(draw: "ImageDraw.ImageDraw", text: str, font, max_px: int) -> list[str]:
+    """Break a caption into lines that fit, measuring with the font that will draw it.
+
+    Greedy by word, and a single word wider than the whole line is left on its own rather
+    than dropped: an over-long line is ugly, a missing one is a lie about what the image
+    says.
+    """
+    words = text.split()
+    if not words:
+        return [""]
+    lines: list[str] = []
+    line = words[0]
+    for word in words[1:]:
+        candidate = f"{line} {word}"
+        if draw.textlength(candidate, font=font) <= max_px:
+            line = candidate
+        else:
+            lines.append(line)
+            line = word
+    lines.append(line)
+    return lines
 
 
 def _hex_to_rgb(value: str | None, fallback: tuple[int, int, int] = CREAM):
@@ -324,13 +358,26 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     if multicolour:
         footer += " The letter after a round number is its yarn, as in the colour key."
     probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
-    text_w = max(probe.textlength(title, font=label_font),
-                 probe.textlength(footer, font=label_font))
-    width = int(max(size, text_w + spec.margin_px))
-    img = Image.new("RGB", (width, size + spec.margin_px), CREAM)
-    # The canvas is widened to fit the caption, so the drawing centre is not the canvas
-    # centre in both axes: the circle stays centred on the rings, not on the text.
-    cx, cy = width / 2.0, size / 2.0
+
+    # The footer wraps rather than stretching the canvas. Widening it to fit one long line
+    # is what a longer footer used to do, and it turns a disc chart into a 2:1 rectangle
+    # that is mostly empty cream with a small circle in the middle -- which is exactly the
+    # shape the round renderer exists to stop producing. Height is cheap; aspect is not.
+    text_px = max(size - spec.margin_px, 200)
+    footer_lines = _wrap(probe, footer, label_font, text_px)
+    title_lines = _wrap(probe, title, label_font, text_px)
+    line_h = int(getattr(label_font, "size", 14) * 1.35)
+    head = spec.margin_px + max(0, len(title_lines) - 1) * line_h
+    foot = max(0, len(footer_lines) - 1) * line_h
+    # The title is a product title -- up to 140 characters -- so it wraps for the same
+    # reason the footer does. Sized to the widest line that survived wrapping, which is at
+    # most the disc's own width, so the canvas stays disc-shaped.
+    width = int(max(size, max(probe.textlength(t, font=label_font) for t in title_lines)
+                    + spec.margin_px))
+    img = Image.new("RGB", (width, head + size + foot), CREAM)
+    # The canvas can still be a little wider than the disc, so the drawing centre is not
+    # the canvas centre in both axes: the circle stays centred on the rings, not the text.
+    cx, cy = width / 2.0, head + size / 2.0 - spec.margin_px / 2.0
     d = ImageDraw.Draw(img)
 
     # Outermost ring first. Each ring is drawn as a full pie and then has its centre filled
@@ -384,9 +431,12 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                     fill=CREAM)
         d.text((cx, y), label, font=label_font, fill=MUTED, anchor="mm")
 
-    d.text((width / 2, spec.margin_px / 2), title, font=label_font, fill=PINE, anchor="mm")
-    d.text((width / 2, size + spec.margin_px / 2), footer, font=label_font, fill=MUTED,
-           anchor="mm")
+    for i, line in enumerate(title_lines):
+        d.text((width / 2, spec.margin_px / 2 + i * line_h), line, font=label_font,
+               fill=PINE, anchor="mm")
+    for i, line in enumerate(footer_lines):
+        d.text((width / 2, head + size - spec.margin_px / 2 + i * line_h), line,
+               font=label_font, fill=MUTED, anchor="mm")
     return img
 
 

@@ -290,6 +290,49 @@ def test_a_round_chart_labels_its_rounds_and_refuses_to_label_a_mixed_one():
         "a round worked in two colours was given a single letter, which is a wrong label"
 
 
+def test_a_caption_wraps_rather_than_stretching_a_round_chart_into_a_rectangle():
+    """A defect this session caused, so it gets a fixture (Gate B).
+
+    Adding one sentence to the round chart's footer -- the sentence explaining the colour
+    letters -- widened the canvas to fit it on one line and turned a disc chart into a 2:1
+    rectangle that was mostly empty cream with a small circle in it. That is the exact shape
+    the round renderer exists to stop producing, and `test_a_round_piece_gets_a_round_chart`
+    caught it. The footer wraps now; height is cheap and aspect is not.
+
+    Pinned against a deliberately absurd caption rather than against today's wording, so it
+    keeps holding whatever anyone writes in the footer next.
+    """
+    from brambleloop.products.vessels import build_hexagon_coaster
+    from brambleloop.publish.charts import ChartSpec, _wrap, render_round_chart
+    from PIL import Image, ImageDraw
+
+    cir = build_hexagon_coaster()
+    _, twin = _twin(cir)
+    chart = render_round_chart(cir, twin, ChartSpec(cell_px=20))
+    assert 0.6 < chart.width / chart.height < 1.7, chart.size
+
+    very_long = "word " * 120
+    stretched = render_round_chart(cir, twin, ChartSpec(cell_px=20), caption=very_long.strip())
+    assert stretched.width / stretched.height < 3.0, (
+        "a long caption is still stretching the canvas instead of wrapping", stretched.size)
+
+    # And the wrapper keeps every word: an over-long line is ugly, a missing one is a lie
+    # about what the image says.
+    draw = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    font = None
+    from brambleloop.publish.charts import _font
+
+    font = _font(15)
+    text = "Round 1 is the centre and the letter after a round number is its yarn"
+    lines = _wrap(draw, text, font, 120)
+    assert len(lines) > 1, lines
+    assert " ".join(lines).split() == text.split(), lines
+
+    assert _wrap(draw, "", font, 100) == [""]
+    assert _wrap(draw, "unbreakablesinglewordfarwiderthantheline", font, 10) == [
+        "unbreakablesinglewordfarwiderthantheline"]
+
+
 def test_the_written_pattern_names_the_yarn_so_a_translation_has_something_to_carry():
     """Section 31's other half: another language must not fork the canonical CIR.
 
