@@ -414,10 +414,16 @@ def api_verify() -> JSONResponse:
            "audit_records": audits})
 
     r = runner.STATE.to_dict()
-    check("worker_is_alive", bool(r["worker_alive"]),
-          {"last_tick": r["worker_last_tick"], "restarts": r["worker_restarts"]})
-    check("scheduler_has_ticked", r["scheduler_last_tick"] is not None,
-          {"last_tick": r["scheduler_last_tick"]})
+    # A container that started ninety seconds ago has no tick to report yet, and saying it
+    # is dead means every deploy opens a window where this endpoint reports failure. The
+    # grace is bounded by the runner's own timings and expires; a worker that started long
+    # ago and never ticked still fails, which is the case this check exists for.
+    starting = bool(r.get("worker_starting"))
+    check("worker_is_alive", bool(r["worker_alive"]) or starting,
+          {"last_tick": r["worker_last_tick"], "restarts": r["worker_restarts"],
+           "starting": starting, "started_at": r["worker_started_at"]})
+    check("scheduler_has_ticked", r["scheduler_last_tick"] is not None or starting,
+          {"last_tick": r["scheduler_last_tick"], "starting": starting})
 
     # Recent, not historical. A dead letter from a bug that was fixed last week is archaeology;
     # an endpoint that reports 503 forever because of it is an endpoint nobody reads. The

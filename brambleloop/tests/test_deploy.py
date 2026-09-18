@@ -420,6 +420,84 @@ def test_a_readiness_assessment_can_be_started_on_demand_and_is_idempotent_per_m
     assert second["enqueued"] is False, second
     assert "idempotent" in second["reason"], second
 
+
+def test_a_just_started_runner_reads_as_starting_and_a_silent_one_still_reads_as_dead():
+    """Observed in production: /api/verify failed for ninety seconds after a deploy.
+
+    The worker waits 25s before its first pass and the scheduler ticks every 60s, so a
+    freshly deployed container genuinely has no tick to report for the first minute and a
+    half. Reporting that as a dead worker means every deploy opens a window where the
+    verification endpoint says the system is broken -- and the operator loop tells whoever
+    sees it that a failing check is the highest-value thing to work on, so the cost is a
+    session chasing a phantom or "fixing" something that is fine.
+
+    The grace is bounded and derived from the runner's own knobs. The cases that must still
+    fail are the point of the test: a worker that started long ago and never ticked, and one
+    that ticked and then went quiet.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.app.runner import RunnerState, startup_grace_seconds
+
+    grace = startup_grace_seconds()
+    assert grace > 0
+    now = datetime.now(timezone.utc)
+
+    just_started = RunnerState(enabled=True, worker_started_at=now - timedelta(seconds=5))
+    assert just_started.starting is True
+    assert just_started.to_dict()["worker_starting"] is True
+
+    # Bounded: the moment the grace expires, a worker with no tick is dead again.
+    long_silent = RunnerState(enabled=True,
+                              worker_started_at=now - timedelta(seconds=grace + 60))
+    assert long_silent.starting is False, "the grace does not expire, so it hides a dead worker"
+    assert long_silent.to_dict()["worker_alive"] is False
+
+    # Ticking is not starting, and a worker that stopped ticking is neither.
+    ticking = RunnerState(enabled=True, worker_started_at=now - timedelta(seconds=5),
+                          worker_last_tick=now)
+    assert ticking.starting is False
+    assert ticking.to_dict()["worker_alive"] is True
+
+    went_quiet = RunnerState(enabled=True,
+                             worker_started_at=now - timedelta(seconds=900),
+                             worker_last_tick=now - timedelta(seconds=600))
+    assert went_quiet.starting is False
+    assert went_quiet.to_dict()["worker_alive"] is False
+
+    # A runner that never started at all is not "starting".
+    never = RunnerState(enabled=True)
+    assert never.starting is False
+
+
+def test_verify_reports_whether_the_runner_is_starting_rather_than_deciding_silently():
+    """A check that passes has to say why, or nobody can tell a pass from a pardon.
+
+    Deliberately not stubbed: this suite runs a live embedded worker, and setting
+    `runner.STATE` by hand races the thread that is ticking it -- the first attempt at this
+    test failed because the worker ticked microseconds after the assignment, which is the
+    worker being healthy rather than the check being wrong. So this asserts the two things
+    that cannot race: the endpoint surfaces the flag, and it agrees with the runner at the
+    moment it answered. `RunnerState.starting` itself is covered exhaustively by the test
+    above, including the cases that must still read as dead.
+    """
+    from brambleloop.app import runner as runner_mod
+
+    with _client() as c:
+        body = c.get("/api/verify").json()
+
+    checks = {x["check"]: x for x in body["checks"]}
+    for name in ("worker_is_alive", "scheduler_has_ticked"):
+        assert "starting" in checks[name]["evidence"], checks[name]["evidence"]
+        assert isinstance(checks[name]["evidence"]["starting"], bool)
+
+    # A live worker in this suite is either ticking or within its grace; either way the
+    # check must pass, and it must not pass for both reasons at once.
+    state = runner_mod.STATE.to_dict()
+    assert checks["worker_is_alive"]["ok"] is True, checks["worker_is_alive"]
+    assert not (state["worker_alive"] and state["worker_starting"]), state
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

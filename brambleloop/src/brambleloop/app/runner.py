@@ -57,6 +57,7 @@ class RunnerState:
             "enabled": self.enabled,
             "worker": self.worker_name,
             "worker_alive": alive,
+            "worker_starting": self.starting,
             "worker_started_at": iso(self.worker_started_at),
             "worker_last_tick": iso(self.worker_last_tick),
             "worker_restarts": self.worker_restarts,
@@ -64,6 +65,36 @@ class RunnerState:
             "scheduler_last_enqueued": list(self.scheduler_last_enqueued),
             "last_error": self.last_error,
         }
+
+    @property
+    def starting(self) -> bool:
+        """Started, not yet ticked, and not yet late. Distinct from dead.
+
+        The worker waits `_START_DELAY` before its first pass and the scheduler ticks every
+        `_SCHEDULER_INTERVAL`, so a freshly deployed container genuinely has no tick to
+        report for the first minute and a half. Reporting that as a dead worker means every
+        deploy produces a window where `/api/verify` fails, and the operator loop says a
+        failing check is the highest-value thing to work on -- so the cost of the false
+        alarm is a session chasing a phantom, or worse, "fixing" something that is fine.
+
+        Deliberately bounded, and false the moment the grace expires: a worker that started
+        five minutes ago and has still never ticked is dead, and must read as dead. This
+        narrows a window; it does not soften the check.
+        """
+        if self.worker_last_tick is not None or self.worker_started_at is None:
+            return False
+        age = (datetime.now(timezone.utc) - self.worker_started_at).total_seconds()
+        return age < startup_grace_seconds()
+
+
+def startup_grace_seconds() -> float:
+    """How long a just-started runner may legitimately have no tick to report.
+
+    Derived from the runner's own knobs rather than hardcoded, so changing the interval
+    cannot silently make the grace wrong in either direction. The margin covers the first
+    pass's own work.
+    """
+    return _START_DELAY + _SCHEDULER_INTERVAL + 30.0
 
 
 STATE = RunnerState()

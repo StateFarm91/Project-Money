@@ -685,6 +685,15 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **Every deploy opened a 90-second window where `/api/verify` lied.** Caught
+  by the heartbeat itself: verify reported the worker dead and the scheduler silent, and the
+  worker was fine — it had started 85 seconds earlier, and the first tick lands at 25s of
+  start delay plus a 60s scheduler interval. A runner that has started and not yet ticked now
+  reads as *starting*, for a grace derived from those two knobs rather than hardcoded, and
+  the check's evidence says `starting: true` so it is never silently passing. The grace
+  expires: a worker ten minutes silent still reads as dead, and so does one that ticked and
+  stopped. That matters because the operator loop treats a failing check as the highest-value
+  work, so a recurring false alarm costs a whole session.
 - 2026-09-18: **A gate that could not block, found by writing a different test.** The
   section 6 disclosure question was open, so it was closed (B-097). Writing its tests turned
   up something worse: `ERROR` is the string `"ERROR"`, and three places filtered findings
