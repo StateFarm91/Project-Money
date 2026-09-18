@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` at commit `cb19c5d`: **532 tests passing, 0 failing** across
+Measured by `./run_tests.sh` at commit `77f0b08`: **533 tests passing, 0 failing** across
 26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice.
 
@@ -85,7 +85,7 @@ Verified at 2026-09-18T05:45Z against production running commit `40f8176`:
 - `/api/launch` — every build-owned requirement satisfied; `blocked on build: NONE`. The
   eight unmet requirements are seven owner actions and one Etsy credential that only the
   shop can produce.
-- `./run_tests.sh` — 532 passing, 0 failing, 26 suites, measured at `cb19c5d`, in 344s.
+- `./run_tests.sh` — 533 passing, 0 failing, 26 suites, measured at `77f0b08`, in 348s.
 - Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 105 recorded
   publication refusals, CA$0 revenue, CA$0 advertising, CA$0 model spend, no provider
   configured, no spend scope paused, 0 customers, 0 orders.
@@ -546,13 +546,18 @@ Exact and verified. Nothing here is projected.
   right stitch count.
 
 ## Known refinements (tracked, not urgent)
-- The suite is now **344 seconds** rather than twenty minutes, because `run_tests.sh` runs
-  its files concurrently and schedules the six expensive ones first. Nothing about what the
-  tests do changed: a lighter fixture for the tests that do not examine image content was
-  the obvious move and is the wrong one, because rendering at a smaller scale is exactly how
-  the blank hero passed locally while production was right to refuse it. The run is now
-  floor-limited by its longest single file (`test_product_run.py`, 342s), so further gains
-  have to come from that file rather than from the runner.
+- The suite is **~345 seconds** rather than twenty minutes, because `run_tests.sh` runs its
+  files concurrently and schedules the six expensive ones first. Nothing about what the tests
+  do changed: a lighter fixture for the tests that do not examine image content was the
+  obvious move and is the wrong one, because rendering at a smaller scale is exactly how the
+  blank hero passed locally while production was right to refuse it.
+- **The suite is floor-limited by `test_product_run.py` (342s), and nothing else is worth
+  optimising until that changes.** Measured, including a negative result worth keeping:
+  sharing one cycle across the three read-only tests in `test_shadow.py` cut that file from
+  245s to 121s and moved the whole suite's wall clock not at all (344s to 348s, noise),
+  because the runner already overlapped the two files. Three of that file's tests drive the
+  full eleven-product cycle; consolidating them or splitting the file would be the next
+  lever, and it buys at most ninety seconds.
 - Yardage constants are uncalibrated heuristics with a stated tolerance; physical tests
   replace them per yarn/hook. Never present an uncalibrated estimate as precise.
 - Reverse compiler handles the writer's grammar plus common variants; widen coverage as real
@@ -679,7 +684,16 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
-- 2026-09-18: **The suite is 344 seconds instead of nineteen minutes.** Measured before
+- 2026-09-18: **One shadow cycle instead of four, and an honest negative result.** Four of
+  the nine tests in `test_shadow.py` were 60 seconds each, three of them asserting different
+  things about an identical eleven-product run, so the file paid three times for one piece of
+  evidence. It now builds the cycle once: 245s to 121s, all ten tests passing. It did *not*
+  make the suite faster -- 344s to 348s, noise -- because the runner already overlapped that
+  file with the longer one. Kept anyway, because it frees a core for two minutes and because
+  the file now says what it actually proves; recorded as a negative result so the next
+  session does not repeat the experiment. The shared cycle is fingerprinted and re-checked
+  before every use, and a test fires that guard rather than trusting a comment.
+- 2026-09-18: **The suite is ~345 seconds instead of nineteen minutes.** Measured before
   changing anything: six of the twenty-six files were 97% of the 1133 seconds, each driving
   the full eleven-product pipeline with 2000-pixel rendering. The files were already
   independent processes with their own temporary databases and were simply queued one behind
@@ -796,6 +810,6 @@ timings, written there by the system rather than by hand.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 532 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 533 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
