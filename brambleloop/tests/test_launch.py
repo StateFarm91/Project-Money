@@ -298,6 +298,75 @@ def test_the_adoption_prefixes_are_distinct_and_survive_a_changing_figure():
     assert (queued_before_the_fix[:ADOPT_PREFIX]
             == rd.listing_fees_request(16).action[:ADOPT_PREFIX])
 
+
+def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplicated():
+    """The upgrade path, against the exact shape production was in.
+
+    Production held seven owner actions queued before `requirement_key` existed, one of
+    which -- the fee approval -- had since changed its wording because the figure now comes
+    from the catalogue. Matching on full text adopts the six unchanged rows and adds an
+    eighth beside the one that moved, which is the duplicate this whole fix exists to
+    prevent.
+
+    Driven by its own worker against its own database rather than the shared deployment
+    surface: the readiness job is what is under test, so the test should not also be testing
+    whether somebody else's worker is free.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
+    from brambleloop.runtime.worker import Worker
+
+    stale_fee = (
+        "Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per "
+        "listing for 4 months, so about US$1.80 (CA$2.50) for nine listings, plus 6.5% "
+        "transaction fee and payment processing on each sale.")
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/adopt.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    _stock(db)
+
+    def run_readiness(key: str) -> None:
+        JobQueue(db).enqueue("orchestrator", "launch.readiness", {}, idempotency_key=key)
+        worker = Worker(db, "adopt-worker")
+        for _ in range(200):
+            if not worker.run_once():
+                break
+
+    run_readiness("adopt-1")
+    with db.session() as s:
+        rows = list(s.scalars(select(OwnerAction)))
+        assert rows, "the readiness job queued nothing"
+        assert all(r.requirement_key for r in rows), \
+            [r.action[:50] for r in rows if not r.requirement_key]
+        # Put the queue back into the pre-upgrade shape: no identities, and the fee row
+        # carrying the wording it had before the figure was derived.
+        ids = sorted(r.id for r in rows)
+        for row in rows:
+            if row.requirement_key == "listing_fees":
+                row.action = stale_fee
+            row.requirement_key = ""
+
+    run_readiness("adopt-2")
+    with db.session() as s:
+        after = list(s.scalars(select(OwnerAction)))
+
+    assert sorted(a.id for a in after) == ids, (
+        "owner actions were duplicated or replaced across the upgrade instead of adopted",
+        len(ids), len(after))
+    assert all(a.requirement_key for a in after), \
+        [a.action[:50] for a in after if not a.requirement_key]
+    fee = [a for a in after if a.requirement_key == "listing_fees"]
+    assert len(fee) == 1, [f.action[:60] for f in fee]
+    assert fee[0].action != stale_fee, "the adopted row kept its stale figure"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
