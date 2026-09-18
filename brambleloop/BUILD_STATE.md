@@ -17,11 +17,9 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Last full measured run of `./run_tests.sh`: **514 tests passing, 0 failing** at commit
-`6be44eb`, including 23 that assert the owner's acceptance gates line by line. Ten tests
-have been added since (two on the chain rebuild, eight on accessibility); each new suite
-passes on its own and the measured full-run total replaces this line rather than a predicted
-one, because writing a predicted total here has been wrong twice.
+Measured by `./run_tests.sh` at commit `4dcff21`: **525 tests passing, 0 failing** across
+26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+predicted — writing a predicted total on this line has been wrong twice.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
 storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
@@ -50,10 +48,14 @@ catalogue, accessibility, and the acceptance gates.
   products were named for shapes their patterns did not make and are rebuilt (see the
   milestone below).
 - Storefront, listings, imagery and content: **drafted and held.** Production at
-  2026-09-18T04:05Z holds 15 certified patterns, 16 listings, 94 listing images (88 of them
-  approved), 134 content pieces and 1 collection, none of it published, and 90 recorded
-  publication refusals. Nothing in this system can publish: there is no Etsy, Pinterest,
-  email, video or messaging integration at all.
+  2026-09-18T04:35Z, after the chain-6 rebuild, holds 15 certified patterns, 16 listings all
+  built by the current chain, 94 listing images with **all 94 approved**, 134 content pieces
+  and 1 collection — none of it published, against 105 recorded publication refusals. 2375
+  audit records. Nothing in this system can publish: there is no Etsy, Pinterest, email,
+  video or messaging integration at all.
+- **Nothing in the launch report is blocked on build.** `/api/launch` reports every
+  build-owned requirement satisfied; the eight unmet ones wait on the owner (seven) or on an
+  Etsy credential that only the shop can produce.
 - Etsy publishing: **code written and wired, never called.** `store.publish` asks the client
   past shadow mode, and the client's own three refusals stand in front of it, so the phase is
   the first of four conditions rather than the only one. A listing records the Etsy listing
@@ -75,6 +77,52 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**Build 1 of Master Plan v1.2 is complete. Nothing in the launch report is blocked on build.**
+
+Verified at 2026-09-18T04:35Z against production running commit `4dcff21`:
+
+- `/api/verify` — 12 of 12 checks passing.
+- `/api/launch` — every build-owned requirement satisfied; `blocked on build: NONE`. The
+  eight unmet requirements are seven owner actions and one Etsy credential that only the
+  shop can produce.
+- `./run_tests.sh` — 525 passing, 0 failing, 26 suites, measured.
+- Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 105 recorded
+  publication refusals, CA$0 revenue, CA$0 advertising, CA$0 model spend, no provider
+  configured, no spend scope paused, 0 customers, 0 orders.
+- The per-section coverage map below records what exists for each of the plan's 29 sections
+  and what each unmet item waits on.
+
+The last four defects closed to get here were all found by looking at what production had
+actually produced rather than at what the code said it would:
+
+1. **Every listing image in production was unreadable.** Three independent causes, each of
+   which alone would have shipped an unsellable listing: no fonts in the container, so
+   Pillow fell back silently to a bitmap face a few pixels tall; a fabric renderer that
+   coloured cells only by colourway, so a deliberately single-colour textured design had
+   nothing to show; and my own frame-level thumbnail check passing a blank hero at 78%
+   coverage because it was measuring the title text while production blocked the same
+   product at 11%.
+2. **Production could not say which code it was running.** `version` is hand-maintained, so
+   until now "the deploy landed" was inferred from effects — which is how each of the three
+   idempotency layers cost a diagnosis round. `/api/status` now reports the build commit and
+   says `unknown` rather than guessing.
+3. **The fourth layer of the rebuild bug**, found with that new field. The rebuild had
+   detected the cable throw as stale, enqueued the work, watched `assets.build` refuse it
+   for blocked imagery — correctly — and then reported the same stale line on every later
+   run while enqueueing nothing, because the listing stayed stale and so the transition, the
+   token and the key never changed. `CHAIN_VERSION` 6 is the mechanism that frees it, and
+   the audit record now distinguishes "stale and untried" from "stale, attempted, refused".
+4. **The charts could not be read without colour vision** (§31). Twelve of the nineteen
+   designs are two-colour work where the colour *is* the motif, the chart separated the
+   yarns by hue alone, and the legend's only identifier per yarn was a coloured square.
+   Every square now carries its yarn's letter, and a chart too small to carry one blocks
+   rather than ships.
+
+Writing the regression fixture for (4) then caught two defects I had just introduced — a
+footer that stretched the disc chart to 2:1, and a flag reset that discarded a fact about
+the container — which is what the fixtures are for.
+
+## Previous milestone
 **Construction beyond flat rows (§2, §3), and the defect it exposed.**
 
 Two products in the catalogue were named for shapes their patterns did not make. "Market
@@ -126,7 +174,7 @@ not duplicate on re-assessment. Visible at `/api/launch` and on the dashboard. T
 table has had those columns since the first build and nothing had written to them, because
 until the catalogue, imagery, pricing and copy existed, every blocker was ours.
 
-## Last completed milestone (previous)
+## Earlier milestone
 Master Plan v1.2's commercial departments, built on the proven infrastructure rather than
 alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and tests:
 
@@ -175,7 +223,7 @@ alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and t
   engineered design rather than the striped template; the eleventh is the bundle, which
   correctly has no pattern of its own.
 
-## Last completed milestone (earlier)
+## Earlier milestone (before that)
 The complete shadow release chain on a real product. One unattended `plan.cycle` now runs
 market scan → portfolio selection → engineered CIR → compile → digital twin → reverse compile
 → certificate → PDF and charts → pricing → listing and SEO → launch plan → refused publish,
@@ -447,7 +495,13 @@ Exact and verified. Nothing here is projected.
 - **Revenue:** CA$0. **Customers:** 0. **Orders:** 0. **Listings live:** 0.
 
 ## Current blockers
-- None blocking. All remaining work in the execution order is unblocked.
+- **Nothing is blocked on build.** Build 1 of v1.2 is complete and production-verified; see
+  the coverage map and `/api/launch`. Every remaining item waits on an owner action from the
+  queue above, or on marketplace data that cannot exist before the shop is open.
+- A future session resuming here should **not** invent new scope. The owner has a v1.3
+  commercial upgrade package queued for after Build 1; do not ask for it and do not guess
+  its contents. If the owner has not yet acted on the queue, the honest next move is the
+  deferred work in "Next highest-value unblocked actions" below, not a new department.
 
 ## Operating notes
 - **Reproducible artifacts.** The customer PDF renders byte-identically from the same
@@ -469,7 +523,16 @@ Exact and verified. Nothing here is projected.
 - **Chain version.** `runtime/release.CHAIN_VERSION` is stamped into every idempotency key
   after certification. Bump it whenever a stage that runs *after* `gate.certify` changes what
   it produces, or the upgrade will never reach products that already shipped. `chain.rebuild`
-  runs hourly and restarts certified releases that have no listing at the current version.
+  runs hourly and restarts certified releases whose listing was not built by the current
+  chain from the current release. Currently 6. It records *why* it judged each listing
+  current or stale, and distinguishes a stale listing nobody has tried from one whose
+  rebuild already ran and was refused downstream — because a rebuild cannot deliver a
+  transition that a later stage refuses, and reporting the two identically is what hid a
+  blocked product through three rebuilds.
+- **Build identity.** `/api/status` and `/health` report the commit the running image was
+  built from. It is the only field that can tell whether a fix reached production: `version`
+  is hand-maintained and proves nothing. An absent build variable reports `unknown` and
+  never matches a commit, so "I cannot tell" is never reported as "the deploy landed".
 
 - **Collapsed patterns and support.** The PDF may not print a line for row 97, but the
   compiled rows still contain it, and the concierge answers row questions from the compile
@@ -687,6 +750,6 @@ timings, written there by the system rather than by hand.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 514 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 525 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
