@@ -335,6 +335,71 @@ def test_an_unknown_build_never_matches_a_commit():
     assert not build.serves("deadbee", {"RAILWAY_GIT_COMMIT_SHA": "2006c37abcdef0123456"})
     assert build.identity({})["known"] is False
 
+
+def test_a_reworded_owner_action_is_restated_in_place_not_queued_twice():
+    """The owner reads a queue, so one decision must appear once, with the live figure.
+
+    The fee approval derives its figure from the catalogue. When the catalogue grows the
+    sentence changes, and a queue that compares sentences shows the owner two entries asking
+    approval for two different amounts for the same decision. The row is restated instead.
+    """
+    import time
+
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Listing, OwnerAction
+
+    def fee_rows() -> list:
+        with app_main.db.session() as s:
+            return [(a.id, a.action) for a in s.scalars(select(OwnerAction))
+                    if a.requirement_key == "listing_fees"]
+
+    def assessments() -> int:
+        """How many times the readiness job has actually run.
+
+        Waiting for "a fee row exists" is not enough after the first run: it is already
+        true, so the wait returns before the second assessment has touched anything and the
+        test then reports a restate that never had a chance to happen.
+        """
+        from brambleloop.core.models import AuditLog
+
+        with app_main.db.session() as s:
+            return len([r for r in s.scalars(select(AuditLog))
+                        if r.action == "launch.assessed"])
+
+    def run_readiness(key: str) -> None:
+        before = assessments()
+        JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
+                                     idempotency_key=key)
+        with _client() as c:
+            deadline = time.time() + 40
+            while time.time() < deadline:
+                if assessments() > before:
+                    return
+                time.sleep(0.5)
+        raise AssertionError("the readiness job never ran")
+
+    run_readiness("test:restate-1")
+    first = fee_rows()
+    assert len(first) == 1, first
+    row_id, before = first[0]
+
+    # Grow the catalogue, which is what changes the figure. Built from scratch rather than
+    # cloned, because this suite's warehouse may hold no listings at all when this runs and
+    # the fee approval is queued regardless of the count.
+    with app_main.db.session() as s:
+        for i in range(6):
+            s.add(Listing(product_slug=f"restate-extra-{i}", version="1.0.0",
+                          title=f"Restate Extra {i}", description="a drafted listing",
+                          price_cad=9.5, tags=["crochet"], state="draft"))
+
+    run_readiness("test:restate-2")
+    after = fee_rows()
+    assert len(after) == 1, [a for _, a in after]
+    assert after[0][0] == row_id, "the action was replaced instead of restated"
+    assert after[0][1] != before, \
+        "the figure did not follow the catalogue, so the restate path never ran"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

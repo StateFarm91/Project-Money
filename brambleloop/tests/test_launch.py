@@ -237,6 +237,36 @@ def test_the_fee_request_and_its_evidence_agree():
     assert fees.owner_request.action == listing_fees_request(
         fees.evidence["listings"]).action
 
+
+def test_every_owner_request_has_a_stable_identity_distinct_from_its_wording():
+    """The queue de-duplicates on the requirement, not on the prose.
+
+    Comparing action text worked only while every action was a frozen string. The moment one
+    of them derived its figure from the catalogue, a changed number read as a new request --
+    and `test_the_owner_queue_is_written_by_the_system_not_by_hand` caught it immediately,
+    queueing eight actions where seven existed. An owner queue that lists the same decision
+    twice with two different numbers is worse than one that merely grows.
+    """
+    db = _db()
+    _stock(db)
+    report = assess(db, phase="shadow")
+    requests = report.owner_requests()
+    assert requests, "no owner requests at all"
+
+    keys = [r.key for r in requests]
+    assert all(keys), f"an owner request has no identity: {keys}"
+    assert len(keys) == len(set(keys)), f"two owner requests share an identity: {keys}"
+
+    requirement_keys = {r.key for r in report.requirements}
+    for request in requests:
+        assert request.key in requirement_keys, request.key
+
+    # The identity must not be derived from the wording, or it would move with it.
+    from brambleloop.launch.readiness import listing_fees_request
+
+    assert listing_fees_request(9).key == listing_fees_request(400).key
+    assert listing_fees_request(9).action != listing_fees_request(400).action
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

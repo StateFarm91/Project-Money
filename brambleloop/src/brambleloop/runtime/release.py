@@ -743,24 +743,55 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                        storage_durable=store.durable)
 
     queued: list[str] = []
+    restated: list[str] = []
     with ctx.db.session() as s:
-        existing = {a.action for a in s.scalars(
+        # Keyed on the requirement, not on the action's wording. Comparing text worked only
+        # while every action was a frozen string: as soon as one derived its figure from the
+        # catalogue, a changed number read as a new request and the owner got two entries
+        # for one decision. An owner queue that grows by seven a day is a queue nobody reads,
+        # and one that lists the same decision twice with different numbers is worse.
+        open_actions = {
+            a.requirement_key: a for a in s.scalars(
+                select(OwnerAction).where(OwnerAction.done == False))  # noqa: E712
+            if a.requirement_key
+        }
+        # Actions queued before this column existed are matched on their text, so an upgrade
+        # does not re-queue everything the owner is already looking at.
+        legacy = {a.action for a in s.scalars(
             select(OwnerAction).where(OwnerAction.done == False))}  # noqa: E712
+
         for request in readiness.owner_requests():
-            if request.action in existing:
+            existing = open_actions.get(request.key)
+            if existing is None and request.action in legacy:
                 continue
-            s.add(OwnerAction(action=request.action, reason=request.reason,
+            if existing is not None:
+                # Same decision, possibly a different figure. Restate it in place: the owner
+                # should see the number they would actually be charged, not two of them.
+                if (existing.action != request.action
+                        or existing.max_cost_cad != request.max_cost_cad):
+                    existing.action = request.action
+                    existing.reason = request.reason
+                    existing.max_cost_cad = request.max_cost_cad
+                    existing.minutes = request.minutes
+                    existing.consequence_of_delay = request.consequence_of_delay
+                    existing.blocks = request.blocks
+                    restated.append(request.key)
+                continue
+            s.add(OwnerAction(requirement_key=request.key, action=request.action,
+                              reason=request.reason,
                               max_cost_cad=request.max_cost_cad, minutes=request.minutes,
                               consequence_of_delay=request.consequence_of_delay,
                               blocks=request.blocks))
-            queued.append(request.action[:60])
+            queued.append(request.key)
 
     ctx.audit("launch.assessed", detail={
         "ready": readiness.ready,
         "ours_to_do": [r.key for r in readiness.buildable],
         "blocked_on_owner": [r.key for r in readiness.blocked_on("owner")],
         "blocked_on_integration": [r.key for r in readiness.blocked_on("integration")],
-        "owner_actions_added": len(queued)})
+        "owner_actions_added": len(queued),
+        "owner_actions_queued": queued,
+        "owner_actions_restated": restated})
 
     return {"ready": readiness.ready, "owner_actions_added": len(queued),
             "outstanding": [r.key for r in readiness.outstanding]}

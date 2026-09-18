@@ -242,6 +242,11 @@ class OwnerAction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Which requirement this action belongs to, and therefore the action's identity. The
+    # queue de-duplicates on this rather than on the action's wording: an action that
+    # derives a figure from the catalogue changes its text when the catalogue changes, and
+    # comparing text gave the owner two entries for one decision.
+    requirement_key: Mapped[str] = mapped_column(Text, default="")
     action: Mapped[str] = mapped_column(Text)
     reason: Mapped[str] = mapped_column(Text, default="")
     max_cost_cad: Mapped[float] = mapped_column(Float, default=0.0)

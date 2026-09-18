@@ -40,8 +40,17 @@ MIN_APPROVED_ASSETS = 6
 
 @dataclass(frozen=True)
 class OwnerRequest:
-    """One owner-only action, in the format the Execution Directive requires."""
+    """One owner-only action, in the format the Execution Directive requires.
 
+    `key` is the request's identity and it is what the owner queue de-duplicates on. The
+    queue used to compare the action *text*, which worked only while every action was a
+    frozen string: the moment one of them started deriving its figure from the catalogue,
+    a changed number read as a new request and the owner got two entries for one decision.
+    An action's wording is a rendering of the request; the requirement it belongs to is the
+    request.
+    """
+
+    key: str
     action: str
     reason: str
     max_cost_cad: float
@@ -107,6 +116,7 @@ class Readiness:
 # engineering makes a physical crochet sample appear.
 
 ETSY_ACCOUNT = OwnerRequest(
+    key="etsy_shop",
     action=("Open the Etsy shop for Brambleloop Studio and complete Etsy's identity "
             "verification (name, address, government ID as Etsy requests it), then add the "
             "shop name, currency CAD and Canada as the shop location."),
@@ -122,6 +132,7 @@ ETSY_ACCOUNT = OwnerRequest(
 )
 
 ETSY_PAYOUT = OwnerRequest(
+    key="payout",
     action=("Add the payout bank account and tax details to the Etsy shop (Canadian "
             "chequing account; GST/HST number if you have one, otherwise the small-supplier "
             "declaration)."),
@@ -155,6 +166,7 @@ def listing_fees_request(listings: int) -> OwnerRequest:
     # up to the dollar, so approving it does not have to be re-asked for every new product.
     ceiling = float(max(5, int(cad) + 2))
     return OwnerRequest(
+        key="listing_fees",
         action=(f"Confirm you accept Etsy's listing fees for the opening catalogue: "
                 f"US${LISTING_FEE_USD:.2f} per listing for 4 months, so about "
                 f"US${usd:.2f} (about CA${cad:.2f}) for the {listings} listings currently "
@@ -169,6 +181,7 @@ def listing_fees_request(listings: int) -> OwnerRequest:
     )
 
 PHYSICAL_SAMPLE = OwnerRequest(
+    key="physical_calibration",
     action=("Crochet one sample -- the 20 cm storage basket is the best candidate, about "
             "6-8 hours -- weigh the yarn used, and measure the finished piece across and "
             "tall. Report: grams per colour, finished measurements, hook used, and anything "
@@ -185,6 +198,7 @@ PHYSICAL_SAMPLE = OwnerRequest(
 )
 
 TRADEMARK_SCREEN = OwnerRequest(
+    key="brand_clearance",
     action=("Decide whether to run a trademark clearance search on \"Brambleloop Studio\" "
             "before launch, and whether to file. A knock-out search on the Canadian "
             "register is free; a filing is CA$458.05 for the first class."),
@@ -199,6 +213,7 @@ TRADEMARK_SCREEN = OwnerRequest(
 )
 
 OBJECT_STORAGE = OwnerRequest(
+    key="artifact_storage",
     action=("Approve object storage for generated PDFs and images (Railway volume or an S3-"
             "compatible bucket), about CA$1-5 per month, within the existing CA$20 ceiling."),
     reason=("Artifact bytes are written to a container filesystem and do not survive a "
@@ -213,6 +228,7 @@ OBJECT_STORAGE = OwnerRequest(
 )
 
 GRADUATION = OwnerRequest(
+    key="phase",
     action=("After the checks above, set BRAMBLELOOP_PHASE to staging (then limited "
             "production) to graduate out of shadow mode, one step at a time."),
     reason=("Shadow mode is enforced in code and refuses to publish, message customers or "
