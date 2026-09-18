@@ -117,6 +117,45 @@ catalogue, accessibility, and the acceptance gates.
   **34-concept opportunity pool across 23 categories**. No live scraping integration exists;
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
+## Heartbeat 2026-09-18T16:14Z — both fixed cadences proved in production
+
+`/api/verify` reads **11 of 12**. The failing check is
+`no_unexpected_dead_letters_in_24h`, and it is **correct to be red**: it is counting two dead
+letters from this morning, both from defects that are now fixed and deployed. The check is not
+being softened — a dead letter that has been fixed is still a dead letter that happened, and
+the window clears itself by 2026-09-19T15:00Z.
+
+Both fixes are proved against production rather than asserted:
+
+| cadence | proof |
+|---|---|
+| `ops.continuity` | ran at 14:52Z against live Postgres — **4,304 rows, 25 tables, 4,027 non-rederivable**, restored and digests matched |
+| `seasonal.sentinel` | ran at 16:2xZ on commit `f07e4bf` — **done, 1 attempt**, 15 products scheduled, and it raised the P2 it was supposed to |
+
+`POST /api/seasonal/recompute` was added to make that provable now rather than at midnight,
+with an optional `as_of` for asking what the room looked like on a given day.
+
+### What the war room actually says about this company
+
+Measured against the 15 certified patterns in production, not a fixture:
+
+- **Christmas: all 15 on track.** The four blankets have preferred launch dates of
+  **27 September – 3 October** — nine to fifteen days away — and last viable dates of
+  21–27 October.
+- **Canadian Thanksgiving (12 Oct): missed for all 15.** Recommendations are `hold_for_next_cycle`
+  for the blankets and `pivot_to_evergreen` for the quick makes.
+- **Halloween: nine products at risk, and the runway is days.** `market-basket-trio` is at
+  **zero days**; `spooky-garland` — a product whose entire premise is Halloween — has its last
+  viable launch date on **2026-09-25, seven days away**.
+
+None of it can be acted on, because nothing can be published without a shop. That does not
+change the owner-action list; it puts dates on it. Every figure above is labelled `assumed`:
+no completed physical test has reported hours, so the stitch rate the make-times divide by is
+still a guess.
+
+631 tests passing, 0 failing, 33 suites. Shadow Mode intact, CA$0 revenue, CA$0 model spend,
+1 open incident (the Halloween P2, correctly raised).
+
 ## Last completed milestone
 **A second cadence died on its first production run, and the guard that would have caught
 both.**
