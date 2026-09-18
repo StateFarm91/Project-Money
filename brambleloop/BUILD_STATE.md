@@ -382,15 +382,20 @@ Exact and verified. Nothing here is projected.
   flagged so it is decided deliberately, not by default.
 
 ## Next highest-value unblocked actions
-0. Amigurumi and garment construction, which the geometry now makes honest to attempt but
-   which still needs closed-form assembly (stuffing, limb placement) and, for Class C, a
-   physical sample before anything is claimed.
-1. Physical test coordination (section 3): the PHYSICAL_TESTS table exists and nothing writes
-   to it. Yardage stays uncalibrated and Class B/C products stay unshippable until a real
-   person crochets a real sample. This is the next genuine owner-adjacent gate.
-2. Brand/trademark clearance screening for "Brambleloop Studio" before any commercial launch.
+1. An engineered amigurumi, when the radar selects one. The construction is now complete —
+   geometry, seams, placement, stuffing and the size refusal — but on 2026-09-18 every one
+   of the top fourteen concepts is Class A and the best amigurumi is Class B with a
+   Christmas window that has not opened. Building one before the demand model asks is the
+   same mistake as building to a hunch.
+2. Stitch vocabulary beyond the eight canonical codes: post stitches, clusters, shells and
+   crossed stitches. The current catalogue does not need them; a textured one would.
 3. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
    and correctly refuse to act without observations that do not exist yet.
+
+Waiting on the owner rather than on us: a physical sample (the intake and calibration now
+exist and are tested; the measurement does not), object storage, trademark clearance, and
+the Etsy shop with its payout details. All seven are in the owner queue with costs and
+timings, written there by the system rather than by hand.
 
 ## Changelog
 - 2026-09-17: Initial build. Competition retired. CIR engine complete (27 tests).
@@ -493,6 +498,14 @@ Exact and verified. Nothing here is projected.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **Placement in the finishing.** A seam now says where on the piece it
+  happens — which rounds, how far either side of centre, and whether the second one mirrors
+  — because knowing that the ear attaches to the head does not make a toy. It is validated
+  against the piece it attaches to (a join at round 40 of a seven-round head, or two ears
+  that would overlap, are errors every other check would pass), written into the document
+  and read back independently. A multi-piece join with no placement is reported rather than
+  allowed through: an unspecified assembly step is the "beauty image, guess the
+  instructions" failure arriving through the back door.
 - 2026-09-17: **The Etsy publishing path, written before it can publish.** A v3
   draft-listing client behind three ordered refusals — phase, then the owner's authority,
   then credentials — with a mapper that refuses rather than truncates and an honest outcome

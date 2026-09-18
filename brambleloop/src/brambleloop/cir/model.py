@@ -179,10 +179,25 @@ class Seam:
     piece_b: str
     note: str | None = None
     stuff_before_closing: bool = False
+    # Where on `piece_b` the join happens. A stuffed toy is not made by knowing that the ear
+    # attaches to the head; it is made by knowing the ear attaches across rounds 4 to 6,
+    # six stitches either side of the centre. Without that a multi-piece pattern is a set of
+    # correct pieces and a photograph the maker has to reverse-engineer -- which is the
+    # "beauty image and guess the instructions" failure the Execution Directive forbids,
+    # arriving through the back door of an unspecified assembly step.
+    at_round: int | None = None
+    spans_rounds: int = 1
+    stitches_from_centre: int | None = None
+    mirrored: bool = False
 
     @property
     def is_self_seam(self) -> bool:
         return self.piece_a == self.piece_b
+
+    @property
+    def is_placed(self) -> bool:
+        """True when this seam says where on the piece it happens."""
+        return self.at_round is not None
 
 
 @dataclass

@@ -539,6 +539,112 @@ def test_the_round_worked_basket_needs_no_seam_at_all():
     assert len(cir.components) == 1
 
 
+
+# ---- placement: where the pieces go ---------------------------------------
+
+
+def _two_piece():
+    """A body and an ear: the smallest thing that has somewhere to put something."""
+    import copy
+
+    from brambleloop.cir.model import Seam
+
+    cir = good_sphere()
+    ear = copy.deepcopy(cir.components[0])
+    ear.name = "ear"
+    cir.components.append(ear)
+    return cir, Seam
+
+
+def test_a_join_that_does_not_say_where_is_a_bag_of_pieces():
+    """Every piece correct, and no way to arrive at the object.
+
+    This is the "beauty image, guess the instructions" failure arriving through the back
+    door of an unspecified assembly step, so it is reported rather than allowed through.
+    """
+    cir, Seam = _two_piece()
+    cir.assembly = [Seam("sew", "ear", "body")]
+    codes = [f.code for f in compile_cir(cir).findings]
+    assert "ASSEMBLY_UNPLACED" in codes, codes
+
+
+def test_a_placement_off_the_end_of_the_piece_is_an_error():
+    """"Attach at round 40" on a seven-round head survives every other check, because the
+    pieces themselves are all correct."""
+    cir, Seam = _two_piece()
+    cir.assembly = [Seam("sew", "ear", "body", at_round=40, spans_rounds=2,
+                         stitches_from_centre=4)]
+    codes = [f.code for f in compile_cir(cir).findings]
+    assert "ASSEMBLY_PLACEMENT_OFF_PIECE" in codes, codes
+
+
+def test_two_placements_that_would_overlap_are_refused():
+    cir, Seam = _two_piece()
+    cir.assembly = [Seam("sew", "ear", "body", at_round=5, spans_rounds=1,
+                         stitches_from_centre=40)]
+    codes = [f.code for f in compile_cir(cir).findings]
+    assert "ASSEMBLY_PLACEMENT_TOO_WIDE" in codes, codes
+
+
+def test_a_placed_join_compiles_clean_and_reads_back():
+    from brambleloop.cir.reverse import compare, parse_assembly
+    from brambleloop.cir.writer import write_pattern
+
+    cir, Seam = _two_piece()
+    cir.assembly = [Seam("sew", "ear", "body", at_round=5, spans_rounds=2,
+                         stitches_from_centre=5, mirrored=True,
+                         note="stuff the body firmly first")]
+    result = compile_cir(cir)
+    assert not [f for f in result.findings if f.severity == "ERROR"], \
+        [str(f) for f in result.findings]
+
+    text = write_pattern(cir, result)
+    step = next(l for l in text.splitlines() if l.startswith("Step 1:"))
+    assert "across rounds 5-6" in step
+    assert "5 sts either side of centre" in step
+    assert "mirrored" in step
+    assert parse_assembly(text) == [("sew", "ear", "body", 5, 2, 5, True)]
+    assert not compare(cir, text)
+
+
+def test_moving_the_placement_in_the_document_is_caught():
+    """A tampered placement is a different object, and the pieces would still be perfect."""
+    from brambleloop.cir.reverse import compare
+    from brambleloop.cir.writer import write_pattern
+
+    cir, Seam = _two_piece()
+    cir.assembly = [Seam("sew", "ear", "body", at_round=5, spans_rounds=2,
+                         stitches_from_centre=5)]
+    text = write_pattern(cir, compile_cir(cir))
+    for before, after in (("across rounds 5-6", "across rounds 3-4"),
+                          ("5 sts either side", "9 sts either side")):
+        moved = text.replace(before, after)
+        assert moved != text, f"the tamper {before!r} did not apply"
+        assert "REVERSE_ASSEMBLY" in [f.code for f in compare(cir, moved)], after
+
+
+def test_a_single_round_placement_reads_as_one_round():
+    from brambleloop.cir.reverse import parse_assembly
+    from brambleloop.cir.writer import write_pattern
+
+    cir, Seam = _two_piece()
+    cir.assembly = [Seam("slst", "ear", "body", at_round=4)]
+    text = write_pattern(cir, compile_cir(cir))
+    assert "across round 4," in text or "across round 4." in text
+    assert parse_assembly(text)[0][3:6] == (4, 1, None)
+
+
+def test_a_self_seam_needs_no_placement():
+    """Joining a panel's own two edges is fully specified by naming the panel."""
+    from fixtures import good_mosaic_panel
+
+    from brambleloop.cir.model import Seam
+
+    cir = good_mosaic_panel()
+    cir.assembly = [Seam("mattress", "body", "body", note="seam into a tube")]
+    codes = [f.code for f in compile_cir(cir).findings]
+    assert "ASSEMBLY_UNPLACED" not in codes
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

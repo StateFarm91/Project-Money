@@ -159,6 +159,13 @@ _SPIRAL_RE = re.compile(r"\b(continuous\s+spiral|do\s+not\s+join)\b", re.I)
 _JOIN_RE = re.compile(r"\bjoin\s+each\s+round\b", re.I)
 
 
+class ProblemInPlacement(ParseProblem):
+    """A placement clause that cannot describe a real join."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
 def parse_construction(text: str) -> str | None:
     """"spiral_rounds", "joined_rounds", or None when the text does not say.
 
@@ -183,7 +190,12 @@ def parse_construction(text: str) -> str | None:
 # shared code proves nothing (B-005).
 _STEP_RE = re.compile(r"^Step\s+(\d+):\s*(.+?)\s*$", re.I)
 _SELF_SEAM_RE = re.compile(r"the two edges of the (.+?) together", re.I)
-_TWO_PIECE_RE = re.compile(r"the (.+?) to the (.+?)[.,]", re.I)
+_TWO_PIECE_RE = re.compile(r"the (.+?) to the (.+?)(?:\s+across|[.,])", re.I)
+# Placement, read back out of the sentence. Its own patterns, not the writer's: a round trip
+# through shared code proves nothing (B-005).
+_SPAN_RE = re.compile(r"across rounds?\s+(\d+)(?:\s*[-\u2013]\s*(\d+))?", re.I)
+_CENTRE_RE = re.compile(r"(\d+)\s+sts\s+either\s+side\s+of\s+centre", re.I)
+_MIRRORED_RE = re.compile(r"\bmirrored\b", re.I)
 _METHOD_WORDS = {
     "whipstitch": "whipstitch",
     "slip stitch": "slst",
@@ -192,9 +204,13 @@ _METHOD_WORDS = {
 }
 
 
-def parse_assembly(text: str) -> list[tuple[str, str, str]]:
-    """[(method, piece_a, piece_b)] in the order the document gives them."""
-    steps: list[tuple[str, str, str]] = []
+def parse_assembly(text: str) -> list[tuple]:
+    """Finishing steps in the order the document gives them.
+
+    Each step is (method, piece_a, piece_b, at_round, spans_rounds, stitches_from_centre,
+    mirrored), with the placement fields None or defaulted when the sentence does not say.
+    """
+    steps: list[tuple] = []
     for raw in text.splitlines():
         m = _STEP_RE.match(raw.strip())
         if not m:
@@ -207,15 +223,29 @@ def parse_assembly(text: str) -> list[tuple[str, str, str]]:
                 break
         if method is None:
             raise ParseProblem(f"unrecognised finishing method in {body!r}")
+        span = _SPAN_RE.search(body)
+        at_round = int(span.group(1)) if span else None
+        spans = 1
+        if span and span.group(2):
+            spans = int(span.group(2)) - int(span.group(1)) + 1
+            if spans < 1:
+                raise ProblemInPlacement(
+                    f"finishing step spans rounds {span.group(1)} to {span.group(2)}, "
+                    f"which is backwards")
+        centre = _CENTRE_RE.search(body)
+        from_centre = int(centre.group(1)) if centre else None
+        mirrored = bool(_MIRRORED_RE.search(body))
+
         self_seam = _SELF_SEAM_RE.search(body)
         if self_seam:
             piece = self_seam.group(1).strip()
-            steps.append((method, piece, piece))
+            steps.append((method, piece, piece, at_round, spans, from_centre, mirrored))
             continue
         pair = _TWO_PIECE_RE.search(body)
         if not pair:
             raise ParseProblem(f"finishing step does not say which pieces it joins: {body!r}")
-        steps.append((method, pair.group(1).strip(), pair.group(2).strip()))
+        steps.append((method, pair.group(1).strip(), pair.group(2).strip(),
+                      at_round, spans, from_centre, mirrored))
     return steps
 
 
@@ -329,7 +359,8 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
         steps = parse_assembly(text)
     except ParseProblem as e:
         return [Finding(ERROR, "REVERSE_PARSE", f"customer text could not be parsed: {e}")]
-    expected_steps = [(s.method, s.piece_a, s.piece_b) for s in cir.assembly]
+    expected_steps = [(s.method, s.piece_a, s.piece_b, s.at_round, s.spans_rounds,
+                       s.stitches_from_centre, s.mirrored) for s in cir.assembly]
     if steps != expected_steps:
         findings.append(Finding(
             ERROR, "REVERSE_ASSEMBLY",

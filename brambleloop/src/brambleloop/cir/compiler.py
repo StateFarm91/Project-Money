@@ -316,7 +316,8 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
 def check_assembly(cir: CIR, findings: list[Finding]) -> None:
     """Validate the finishing: a seam that names a piece the pattern does not contain is a
     maker standing there with two rectangles and an instruction about a third."""
-    names = {c.name for c in cir.components}
+    by_name = {c.name: c for c in cir.components}
+    names = set(by_name)
     stuffing = any("stuff" in m.name.lower() or "fibre" in m.name.lower()
                    or "fiber" in m.name.lower() for m in cir.materials)
     for position, seam in enumerate(cir.assembly, start=1):
@@ -331,6 +332,46 @@ def check_assembly(cir: CIR, findings: list[Finding]) -> None:
                 WARNING, "ASSEMBLY_NO_STUFFING_DECLARED",
                 f"assembly step {position} says to stuff before closing, but no stuffing is "
                 f"in the materials list, so the buyer will not have bought any"))
+
+        # Placement has to point at fabric that exists. "Attach at round 40" on a
+        # twenty-round head is an instruction a maker stops at, and it is the kind of
+        # mistake that survives every other check in this system because the pieces
+        # themselves are all correct.
+        host = by_name.get(seam.piece_b)
+        if seam.is_placed and host is not None:
+            rounds = [r.index for r in host.rows]
+            last = max(rounds, default=0)
+            first = min(rounds, default=0)
+            end = seam.at_round + seam.spans_rounds - 1
+            if seam.at_round < first or end > last:
+                findings.append(Finding(
+                    ERROR, "ASSEMBLY_PLACEMENT_OFF_PIECE",
+                    f"assembly step {position} attaches across rounds {seam.at_round}-{end} "
+                    f"of {seam.piece_b!r}, which has rounds {first}-{last}"))
+            elif seam.stitches_from_centre is not None:
+                width = next((r.declared_count for r in host.rows
+                              if r.index == seam.at_round), None)
+                if width is not None and seam.stitches_from_centre * 2 > width:
+                    findings.append(Finding(
+                        ERROR, "ASSEMBLY_PLACEMENT_TOO_WIDE",
+                        f"assembly step {position} places the join "
+                        f"{seam.stitches_from_centre} stitches either side of centre on a "
+                        f"round of {width} stitches; the two would overlap"))
+        if seam.spans_rounds < 1:
+            findings.append(Finding(
+                ERROR, "ASSEMBLY_PLACEMENT_EMPTY",
+                f"assembly step {position} spans {seam.spans_rounds} rounds"))
+
+    # A multi-piece pattern whose joins do not say where they go is the bag-of-pieces
+    # failure with extra steps: every piece correct, and no way to arrive at the object.
+    unplaced = [i for i, seam in enumerate(cir.assembly, start=1)
+                if not seam.is_self_seam and not seam.is_placed]
+    if unplaced and len(names) > 1:
+        findings.append(Finding(
+            WARNING, "ASSEMBLY_UNPLACED",
+            f"assembly steps {unplaced} join two different pieces without saying where on "
+            f"the second piece the join happens. A maker can follow every round and still "
+            f"not know where the ears go"))
 
 
 def compile_cir(cir: CIR) -> CompileResult:

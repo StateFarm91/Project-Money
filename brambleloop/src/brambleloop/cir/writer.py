@@ -124,12 +124,27 @@ _SEAM_WORDS = {
 
 
 def write_seam(seam, position: int) -> str:
-    """One finishing step, in the same regular grammar as a row so it can be read back."""
+    """One finishing step, in the same regular grammar as a row so it can be read back.
+
+    The placement clause is what turns a set of correct pieces into an object. A maker who
+    is told only that the ear attaches to the head has to work out where from a photograph,
+    which is the "beauty image, guess the instructions" failure arriving through the back
+    door of an unspecified assembly step.
+    """
     verb = _SEAM_WORDS.get(seam.method, "Join")
     if seam.is_self_seam:
         where = f"the two edges of the {seam.piece_a} together"
     else:
         where = f"the {seam.piece_a} to the {seam.piece_b}"
+    if seam.is_placed:
+        last = seam.at_round + seam.spans_rounds - 1
+        span = (f"round {seam.at_round}" if seam.spans_rounds == 1
+                else f"rounds {seam.at_round}-{last}")
+        where += f" across {span}"
+        if seam.stitches_from_centre is not None:
+            where += f", {seam.stitches_from_centre} sts either side of centre"
+        if seam.mirrored:
+            where += ", and the second one mirrored on the far side"
     line = f"Step {position}: {verb} {where}."
     if seam.stuff_before_closing:
         line += " Stuff firmly before closing."
