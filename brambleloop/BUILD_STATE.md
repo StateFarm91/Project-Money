@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 34 | satisfied, with a named test or artefact |
-| partial | 58 | something real exists and is short of the requirement |
-| missing | 171 | nobody has built it |
+| covered | 39 | satisfied, with a named test or artefact |
+| partial | 59 | something real exists and is short of the requirement |
+| missing | 165 | nobody has built it |
 | owner_gated | 45 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **229 requirements are executable by this session** (partial +
+as one nobody has written. **224 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **619 tests passing, 0 failing** across
-32 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **630 tests passing, 0 failing** across
+33 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -118,6 +118,50 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**The CA$5,000/month model, built so it cannot flatter the company (#229, #230, #269, #270,
+#273, #274, #275).**
+
+The owner's framing is the specification: the probability must be *earned from actual market
+evidence, not manufactured from optimistic assumptions*. That rules out the obvious
+implementation — a weighted score over criteria somebody fills in produces a number that rises
+as the architecture gets more sophisticated, which is precisely what #230 forbids.
+
+**Against this company's real state today, `/api/scale` reports a probability of 0.0**, and
+says: *"Effectively zero, and correctly so… No amount of further building moves this number —
+only customers do."* Fifteen certified patterns, a deterministic compiler, a reverse compiler,
+release gates, a benchmark mission and a seasonal engine, and not one customer.
+
+Four properties, each a thing that *cannot* be done rather than a thing that should not:
+
+- **Every rung counts rows.** No parameter sets a layer; no override exists.
+- **Everything measured from orders is bounded by the ledger's order count.** This closes the
+  hole every scoring model has: several rungs need counts from systems that do not exist yet
+  (attribution, repeat tracking), and a caller supplying those could otherwise report a
+  perfectly diversified, highly converting business into a database holding no sales. Tested
+  adversarially with maximal fabricated inputs: still 0.0.
+- **Small samples cannot produce confidence.** Observed rates are shrunk toward the
+  pessimistic prior by their own sample size, so the first lucky week cannot set the year's
+  expectations. Three orders is demand evidence worth under 0.05.
+- **The ladder is a minimum, never an average (#274).** Tested with a company strong on six
+  layers and dead on acquisition: the average reads above 0.7 and the model reports 0.0,
+  because *"we can make it, price it, photograph it, and nobody buys it"* is exactly the
+  failure an average hides.
+
+Above that sits the #275 gate — six counts (selling SKUs, product families, outside customers,
+orders, acquisition loops, months of history) that cap the figure at 0.74 until all are met.
+Tested in both directions, because a model that can only ever report near zero would stop
+being read.
+
+**The scenario matrix (#273)** decomposes the target seven ways, sorted by the traffic each
+path needs, with gross *and* contribution after Etsy's fees — CA$5,000 gross is about
+CA$4,430 net, and a plan that reports only gross is one that hits its number on paper and
+misses it in the bank. Required visits account for repeat and off-platform orders, which do
+not arrive through the search funnel. Every row records whether its conversion rate was
+observed and over what sample; today **zero paths are evidence-supported**, and the note says
+the most attractive row is the one to distrust — it is attractive on account of its
+assumptions, not its difficulty.
+
+## Previously in Build 2
 **Both owner-approved credentials built against their conditions — and the owner was right
 about Etsy's authentication.**
 

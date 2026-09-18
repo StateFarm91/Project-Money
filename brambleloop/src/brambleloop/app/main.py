@@ -435,6 +435,22 @@ def api_models() -> dict:
         "benchmark_read_credential": etsy_public.capability_report(),
     }
 
+
+@app.get("/api/scale")
+def api_scale() -> dict:
+    """CA$5,000 a month: the paths to it, and how likely it currently is.
+
+    The probability is computed from rows in this database and cannot be set, weighted or
+    argued upward. A sophisticated architecture with no customers reports near zero, which is
+    the answer #230 exists to insist on.
+    """
+    from ..scale import confidence, target
+
+    return {
+        "probability": confidence.probability(db),
+        "scenarios": target.matrix(),
+    }
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

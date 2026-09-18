@@ -2057,8 +2057,8 @@
   "body": "After launch validation, the commercial operating target is a sustainable CA$5,000/month gross-revenue run rate with positive contribution economics. The system must decompose this into multiple feasible combinations of qualified visits, conversion, AOV, repeat purchase and external/direct sales, then identify the binding constraint weekly.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "CA$5K as the primary target with funnel decomposition"
+  "status": "covered",
+  "note": "scale/target.py holds the target as arithmetic rather than a slogan: seven scenarios decomposing CA$5,000 into orders, AOV, required qualified visits, repeat share and off-platform share, each carrying gross AND contribution after Etsy's transaction fee, payment processing, listing fee and refunds. binding_constraint() ranks the five numbers by share of what the balanced scenario needs, because a 400-visit gap and a 0.4-point conversion gap are not comparable as differences."
  },
  {
   "id": 230,
@@ -2066,8 +2066,8 @@
   "body": "Do not claim >=75% modeled confidence of reaching/sustaining CA$5,000/month merely because the architecture is sophisticated. Require multiple independent selling SKUs, positive contribution, stable quality/refund/support metrics, repeatable qualified traffic, observed conversion over meaningful samples, at least two viable acquisition loops or one exceptionally strong loop with backup, and downside scenario analysis. Display assumptions and sensitivity.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "75% confidence evidence gate"
+  "status": "covered",
+  "note": "scale/confidence.py cannot report >=75% on architecture. Every rung counts rows; observed rates are shrunk toward the pessimistic prior by sample size; everything measured from orders is bounded by the ledger's order count, so a caller cannot argue the model upward with counts from systems that do not exist yet; and the #275 gate caps the figure at 0.74 until six evidence counts are met. Today, against 15 certified patterns and zero customers, it reports 0.0 and says no amount of further building moves it."
  },
  {
   "id": 231,
@@ -2418,7 +2418,7 @@
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
   "status": "partial",
-  "note": "finance/books.py works in CAD with Etsy fees; no cross-border lens or multi-currency normalization"
+  "note": "scale/target.py normalises Etsy's USD listing fee into CAD at a stated assumed rate and computes contribution after transaction fee, payment processing and refunds. Remaining: preserving transaction currency per order and ad fees, which need real orders."
  },
  {
   "id": 270,
@@ -2426,8 +2426,8 @@
   "body": "Model loss of the top SKU, top seasonal event or top traffic channel. If CA$5K collapses under one plausible failure, create a diversification plan. Breakout exploitation remains aggressive, but resilience becomes part of the confidence score.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "revenue concentration stress test"
+  "status": "partial",
+  "note": "portfolio resilience is a critical rung computed from selling SKUs, product families and top-SKU revenue share, and an empty portfolio scores zero rather than dividing by nothing. Remaining: the explicit stress test of losing the top SKU, top seasonal event or top channel, and the diversification plan it should trigger."
  },
  {
   "id": 271,
@@ -2453,8 +2453,8 @@
   "body": "Maintain multiple transparent scenarios, e.g. 250 orders x CA$20 AOV, 200 x CA$25, 167 x CA$30, plus mixed Etsy/direct/repeat compositions. Derive required visits from observed conversion and include fees/refunds/ads for contribution. The CEO chooses the most evidence-supported path, not the prettiest spreadsheet.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "CA$5K scenario matrix, confidence ladder, evidence standard"
+  "status": "covered",
+  "note": "the scenario matrix is computed, sorted by the traffic each path needs, and every row records whether its conversion rate was observed and over what sample. Evidence-supported paths are counted separately and today the count is zero -- with the note saying the most attractive row is the one to distrust, because it is attractive on account of its assumptions rather than its difficulty."
  },
  {
   "id": 274,
@@ -2462,8 +2462,8 @@
   "body": "Track: product-quality confidence -> demand confidence -> conversion confidence -> acquisition confidence -> AOV confidence -> repeat confidence -> portfolio resilience. The modeled probability cannot exceed the weakest critical layer without explicit justification.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "CA$5K scenario matrix, confidence ladder, evidence standard"
+  "status": "covered",
+  "note": "the ladder is a minimum over the critical layers, never an average: an average lets six strong rungs hide one fatal one, and 'we can make it, price it and nobody buys it' is exactly that shape. Tested with a company strong everywhere except acquisition -- the average reads above 0.7 and the model reports 0.0."
  },
  {
   "id": 275,
@@ -2471,8 +2471,8 @@
   "body": "A >=75% internal modeled probability for sustainable CA$5K/month requires at minimum: several independently selling products across more than one product family; a meaningful sample of real outside customers; stable low defect/refund/support severity; positive contribution after known fees; repeatable qualified acquisition; observed bundle/AOV behavior; some repeat purchase evidence or a robust substitute; seasonal/evergreen balance; and downside scenarios that remain near the target. Thresholds adapt to actual data rather than being gamed.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "CA$5K scenario matrix, confidence ladder, evidence standard"
+  "status": "covered",
+  "note": "the evidence standard is six counts (selling SKUs, product families, outside customers, orders, acquisition loops, months of history) and the modelled figure is capped at 0.74 until all six are met. Tested both ways: unmet caps a maximal ladder, and met allows a genuinely high number, because a model that can only ever report near zero would stop being read."
  },
  {
   "id": 276,
