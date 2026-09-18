@@ -267,6 +267,37 @@ def test_every_owner_request_has_a_stable_identity_distinct_from_its_wording():
     assert listing_fees_request(9).key == listing_fees_request(400).key
     assert listing_fees_request(9).action != listing_fees_request(400).action
 
+
+def test_the_adoption_prefixes_are_distinct_and_survive_a_changing_figure():
+    """The migration path for owner actions queued before they carried an identity.
+
+    A keyless row is adopted by matching the opening clause of its action, so two things
+    have to hold: no two requests share that opening clause, or a row would be adopted into
+    the wrong decision; and no derived figure reaches into it, or the row that made this fix
+    necessary would fail to match its own replacement.
+    """
+    from brambleloop.launch import readiness as rd
+    from brambleloop.runtime.release import ADOPT_PREFIX
+
+    requests = [rd.ETSY_ACCOUNT, rd.ETSY_PAYOUT, rd.listing_fees_request(16),
+                rd.PHYSICAL_SAMPLE, rd.TRADEMARK_SCREEN, rd.OBJECT_STORAGE, rd.GRADUATION]
+    prefixes = [r.action[:ADOPT_PREFIX] for r in requests]
+    assert len(set(prefixes)) == len(prefixes), prefixes
+    assert all(len(p) == ADOPT_PREFIX for p in prefixes), prefixes
+
+    # The one request whose wording moves must keep its opening clause fixed.
+    assert (rd.listing_fees_request(1).action[:ADOPT_PREFIX]
+            == rd.listing_fees_request(4000).action[:ADOPT_PREFIX])
+
+    # And the exact row production was holding when this was written must be adopted, not
+    # duplicated: that row is the reason a full-text match was not enough.
+    queued_before_the_fix = (
+        "Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per "
+        "listing for 4 months, so about US$1.80 (CA$2.50) for nine listings, plus 6.5% "
+        "transaction fee and payment processing on each sale.")
+    assert (queued_before_the_fix[:ADOPT_PREFIX]
+            == rd.listing_fees_request(16).action[:ADOPT_PREFIX])
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

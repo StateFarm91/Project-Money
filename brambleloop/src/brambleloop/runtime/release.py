@@ -51,6 +51,11 @@ from .worker import JobContext, handlers
 # it produces.
 CHAIN_VERSION = "6"
 
+# How much of an owner action's opening clause identifies it, for adopting rows queued
+# before `OwnerAction.requirement_key` existed. Long enough to be unambiguous, short enough
+# that no action's derived figure reaches it. A test asserts the prefixes are distinct.
+ADOPT_PREFIX = 40
+
 
 def chain_key(stage: str, slug: str, version: str, release: str = "",
               token: str = "") -> str:
@@ -755,15 +760,29 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                 select(OwnerAction).where(OwnerAction.done == False))  # noqa: E712
             if a.requirement_key
         }
-        # Actions queued before this column existed are matched on their text, so an upgrade
-        # does not re-queue everything the owner is already looking at.
-        legacy = {a.action for a in s.scalars(
-            select(OwnerAction).where(OwnerAction.done == False))}  # noqa: E712
+        # Actions queued before this column existed are adopted rather than duplicated. The
+        # first version of this matched them on their full text, which protects every action
+        # whose wording is unchanged and fails for the one that made this fix necessary: the
+        # fee request's text moved with the catalogue, so it would have matched nothing and
+        # been added beside the row it replaces. Production held exactly that row.
+        #
+        # So a keyless row is matched on a prefix that no derived figure reaches. The
+        # prefixes are asserted distinct by a test, because a prefix match that hit two
+        # requests would adopt one row into the wrong decision.
+        keyless = [a for a in s.scalars(
+            select(OwnerAction).where(OwnerAction.done == False))  # noqa: E712
+            if not a.requirement_key]
+        for request in readiness.owner_requests():
+            if request.key in open_actions:
+                continue
+            for row in keyless:
+                if row.action[:ADOPT_PREFIX] == request.action[:ADOPT_PREFIX]:
+                    row.requirement_key = request.key
+                    open_actions[request.key] = row
+                    break
 
         for request in readiness.owner_requests():
             existing = open_actions.get(request.key)
-            if existing is None and request.action in legacy:
-                continue
             if existing is not None:
                 # Same decision, possibly a different figure. Restate it in place: the owner
                 # should see the number they would actually be charged, not two of them.
