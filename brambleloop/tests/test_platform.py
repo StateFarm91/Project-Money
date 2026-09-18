@@ -410,6 +410,56 @@ def test_every_scheduled_cadence_can_actually_run():
     assert not problems, problems
 
 
+def test_every_scheduled_cadence_survives_actually_being_run():
+    """The stronger form of the test above, and it exists because that one was not enough.
+
+    Checking that a handler is registered and the agent may run it proves the wiring. It does
+    not prove the handler works, and this session watched two cadences die on their first real
+    run in production for reasons no wiring check could see: one built a scratch database the
+    ephemeral-storage guard refused, and one constructed an `Incident` with a keyword that
+    model does not have. Both were three dead letters and a red verification endpoint.
+
+    So each cadence is enqueued and run against a seeded database. A handler that needs data
+    this database does not have should return a quiet nothing, not raise -- an empty company is
+    the state every one of these runs in on its first boot.
+    """
+    import tempfile
+
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401  -- registers handlers
+    from brambleloop.runtime.worker import CADENCES, Worker
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/cadences.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    queue = JobQueue(db)
+    for name, agent, job_type, _period in CADENCES:
+        queue.enqueue(agent, job_type, {}, idempotency_key=f"cadence-smoke:{name}")
+
+    worker = Worker(db, "cadence-smoke")
+    for _ in range(400):
+        if not worker.run_once():
+            break
+
+    with db.session() as s:
+        dead = list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
+
+    # One kind of dead letter is the system working. `plan.cycle` drives the whole chain, and
+    # the chain ends at `store.publish`, which shadow mode refuses -- that refusal is the
+    # thing Gate F asserts, and production carries 120 of them on purpose. Everything else in
+    # this list is a handler that cannot survive its own first run.
+    expected = [j for j in dead
+                if "capability not enabled" in (j.last_error or "")]
+    unexpected = [j for j in dead if j not in expected]
+
+    assert expected, "the shadow-mode publication refusal did not happen, which is worse"
+    assert not unexpected, [f"{j.job_type}: {(j.last_error or '')[:200]}"
+                            for j in unexpected]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

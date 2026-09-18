@@ -796,9 +796,15 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
     GREEN by the authority matrix: it computes dates and writes audit records. It publishes
     nothing, spends nothing and contacts nobody.
     """
+    from datetime import date as _date
+
     from ..seasonal.leadtime import catalogue_plans
 
-    room = catalogue_plans(ctx.db)
+    # `as_of` lets an operator ask what the room looked like, or will look like, on a given
+    # day -- and lets a test drive the at-risk branch deterministically instead of waiting for
+    # the calendar to produce one. Absent, it is today.
+    as_of = ctx.job.inputs.get("as_of")
+    room = catalogue_plans(ctx.db, today=_date.fromisoformat(as_of) if as_of else None)
     counts = room["counts"]
     at_risk = [r for r in room["at_risk_or_missed"] if r["status"] == "at_risk"]
     missed = [r for r in room["at_risk_or_missed"] if r["status"] == "missed"]
@@ -831,12 +837,17 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
             if existing is None:
                 s.add(Incident(
                     severity="P2", signature=signature,
-                    title=(f"{soonest['slug']} has {soonest['days_to_latest']} days of "
-                           f"runway left for {soonest['event']}"),
-                    detail=("Past its preferred launch date and inside the last window where "
-                            "reallocating effort still changes whether a customer can finish "
-                            "the object in time. After the latest effective date the only "
-                            "honest options are pivot, simplify or hold (#297)."),
+                    product_slug=soonest["slug"],
+                    summary=(f"{soonest['slug']} has {soonest['days_to_latest']} days of "
+                             f"runway left for {soonest['event']}: past its preferred launch "
+                             f"date and inside the last window where reallocating effort "
+                             f"still changes whether a customer can finish the object in "
+                             f"time. After the latest effective date the only honest options "
+                             f"are pivot, simplify or hold (#297)."),
+                    halts_publication=False,
+                    detail={"slug": soonest["slug"], "event": soonest["event"],
+                            "days_to_latest": soonest["days_to_latest"],
+                            "latest_effective_launch": soonest["latest_effective_launch"]},
                 ))
 
     return {"products_scheduled": room["products_scheduled"], "counts": counts,

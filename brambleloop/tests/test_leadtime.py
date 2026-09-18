@@ -286,7 +286,9 @@ def test_the_sentinel_runs_on_a_cadence_and_raises_only_what_can_still_be_acted_
 
     from brambleloop.agents.registry import Registry
     from brambleloop.core.db import Database
-    from brambleloop.core.models import AuditLog, Incident, PatternVersion, Product
+    from brambleloop.core.models import (
+        AuditLog, Incident, Job, JobStatus, PatternVersion, Product,
+    )
     from brambleloop.products.builder import CATALOGUE, build
     from brambleloop.queue.durable import JobQueue
     from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
@@ -310,7 +312,17 @@ def test_the_sentinel_runs_on_a_cadence_and_raises_only_what_can_still_be_acted_
                                  cir_json=cir.to_dict(), release_hash="0" * 64,
                                  certified=True, certificate={"granted": True}))
 
-    JobQueue(db).enqueue("orchestrator", "seasonal.sentinel", {},
+    # Pick a day that is deliberately inside one product's at-risk window, rather than
+    # hoping the calendar produces one. An earlier version of this test asserted over an
+    # empty incident list and passed while the handler raised in production on every run.
+    from brambleloop.seasonal.leadtime import catalogue_plans
+
+    preview = catalogue_plans(db)
+    soonest = min(preview["plans"], key=lambda r: r["latest_effective_launch"])
+    as_of = (date.fromisoformat(soonest["latest_effective_launch"])
+             - timedelta(days=5)).isoformat()
+
+    JobQueue(db).enqueue("orchestrator", "seasonal.sentinel", {"as_of": as_of},
                          idempotency_key="seasonal-test-1")
     worker = Worker(db, "seasonal-worker")
     for _ in range(50):
@@ -321,7 +333,9 @@ def test_the_sentinel_runs_on_a_cadence_and_raises_only_what_can_still_be_acted_
         assessed = list(s.scalars(select(AuditLog).where(
             AuditLog.action == "seasonal.assessed")))
         incidents = list(s.scalars(select(Incident)))
+        jobs_dead = list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
 
+    assert not jobs_dead, [(j.job_type, (j.last_error or '')[:200]) for j in jobs_dead]
     assert assessed, "the sentinel ran and recorded nothing"
     detail = assessed[-1].detail
     assert detail["products_scheduled"] == 3
@@ -333,8 +347,16 @@ def test_the_sentinel_runs_on_a_cadence_and_raises_only_what_can_still_be_acted_
     # never read as one built from measurement.
     assert detail["calibration"]["samples_usable"] == 0
 
-    assert all(i.signature.startswith("seasonal.at_risk:") for i in incidents), \
-        [i.signature for i in incidents]
+    # Non-vacuous: the chosen day guarantees an at-risk window, so exactly one P2 is raised
+    # for the soonest, carrying the slug and the runway rather than a generic message.
+    assert len(incidents) == 1, [i.signature for i in incidents]
+    raised = incidents[0]
+    assert raised.signature.startswith("seasonal.at_risk:")
+    assert raised.severity == "P2"
+    assert raised.product_slug and raised.product_slug in raised.summary
+    assert "runway" in raised.summary
+    assert raised.halts_publication is False, "a timing risk must not halt publication"
+    assert raised.detail["days_to_latest"] <= 21
 
 
 if __name__ == "__main__":

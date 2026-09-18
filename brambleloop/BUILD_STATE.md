@@ -53,7 +53,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **630 tests passing, 0 failing** across
+Measured by `./run_tests.sh` on the current head: **631 tests passing, 0 failing** across
 33 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -118,6 +118,30 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**A second cadence died on its first production run, and the guard that would have caught
+both.**
+
+`seasonal.sentinel` dead-lettered three times: it constructed an `Incident` with a `title`
+keyword that model does not have. The test I had written for it passed — **vacuously**. It
+asserted over an empty incident list, because on the day it ran nothing in the fixture
+happened to be at risk, so the branch that raises was never entered.
+
+Two fixes, and the second matters more:
+
+1. The handler builds the `Incident` correctly, with `summary`, `product_slug` and
+   `halts_publication=False` — a timing risk must never halt publication.
+2. The test now picks a date five days inside a real product's at-risk window and asserts
+   **exactly one** incident with the slug, the runway and the severity. The handler takes an
+   `as_of` input, which also lets an operator ask what the war room looked like on any day.
+
+And the general guard: `test_every_scheduled_cadence_survives_actually_being_run` enqueues
+every cadence against a seeded database and asserts none dead-letters. The existing test
+proved each cadence had an agent and a handler — wiring — and both of this session's
+production defects were handlers that could not survive their own first run, which no wiring
+check can see. It excludes exactly one kind of dead letter: the shadow-mode publication
+refusal, which is Gate F working, and which it asserts *must* be present.
+
+## Previously in Build 2
 **The CA$5,000/month model, built so it cannot flatter the company (#229, #230, #269, #270,
 #273, #274, #275).**
 
