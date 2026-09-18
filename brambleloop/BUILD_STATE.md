@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 7 | Build 1 already satisfies it, with a named test or artefact |
-| partial | 50 | something real exists and is short of the requirement |
-| missing | 204 | nobody has built it |
+| covered | 8 | Build 1 already satisfies it, with a named test or artefact |
+| partial | 51 | something real exists and is short of the requirement |
+| missing | 202 | nobody has built it |
 | owner_gated | 47 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **254 requirements are executable by this session** (partial +
+as one nobody has written. **253 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -117,6 +117,43 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**The access approval protocol, and the rule that stops a missing capability being faked
+(#223, #224).**
+
+The owner said they would approve reasonable access for the mandatory benchmark observation
+and for 24/7 autonomy, and put the limit in the same sentence: not blanket authorization for
+unbounded spending or credentials. `src/brambleloop/launch/access.py` is both halves.
+
+- **Every request is bounded by construction.** A recurring cost with no monthly ceiling
+  cannot be instantiated — the guard is in the type, not in a review, because a rule that
+  lives in a docstring is one a future session writes around. Each request carries the exact
+  action, purpose, capability unlocked, security scope, maximum cost, monthly ceiling,
+  minutes, consequence of declining, and what continues regardless.
+- **One queue, not two.** The capability requests go into the same consolidated owner queue
+  through `launch.readiness`, keyed on the requirement so a re-run restates rather than
+  duplicates — the same identity rule that stopped the fee approval appearing twice. Section
+  14 says one queue and the reason is arithmetic: two means the owner reads whichever they
+  remember.
+- **Willingness is not approval.** `available()` asks the environment and nothing else, so no
+  amount of stated intent turns a capability on.
+- **A degraded substitute is never evidence (#224).** `accept_evidence()` grades every piece
+  of benchmark evidence: a search snippet, a manual screenshot, a seeded fixture or a stale
+  cache is *supporting* — real, keepable, and unable to close a requirement that asks for
+  continuous cloud observation. Evidence labelled `browser_traversal` while the capability was
+  never granted is downgraded, because the label must not be able to grade itself. A copied
+  competitor photograph is refused outright rather than graded.
+
+The engineering finding worth the owner's attention: **the first step of the benchmark mandate
+appears to be free.** Etsy's Open API v3 issues a read-only keystring for public shop and
+listing data — no shop, no KYC, no payout account, no cost — which is the platform's own
+sanctioned route and covers resolving the shop, enumerating the catalogue and reading listing
+text, price, tags and gallery image URLs. A paid cloud browser is worth approving only if that
+proves insufficient. Nothing here claims it has been called: it is the documented path, and it
+stays unverified until a key exists.
+
+Readable at `/api/access`, which reports the unmet capability first and the request second.
+
+## Previously completed milestone
 **Business continuity: the export, the restore, and the proof that the restore works
 (requirement 51 — the gap Build 1 wrote into its own baseline, and the one the owner flagged
 to close early in Build 2).**
@@ -159,9 +196,9 @@ Found by the test that exists for it: the new daily cadence was scheduled agains
 with no permission to run it — the same defect production hit with the heartbeat in Build 1.
 `test_every_scheduled_cadence_can_actually_run` caught it before it ever ran.
 
-556 tests passing, 0 failing, 27 suites.
+564 tests passing, 0 failing, 28 suites.
 
-## Previously completed milestone
+## Build-1 closing milestone
 **Build 1 of Master Plan v1.2 is complete. Nothing in the launch report is blocked on build.**
 
 Verified at 2026-09-18T08:40Z against production running commit `d5168c0`:

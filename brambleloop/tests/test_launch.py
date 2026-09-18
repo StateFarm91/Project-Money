@@ -276,11 +276,15 @@ def test_the_adoption_prefixes_are_distinct_and_survive_a_changing_figure():
     the wrong decision; and no derived figure reaches into it, or the row that made this fix
     necessary would fail to match its own replacement.
     """
-    from brambleloop.launch import readiness as rd
+    from brambleloop.launch import access, readiness as rd
     from brambleloop.runtime.release import ADOPT_PREFIX
 
-    requests = [rd.ETSY_ACCOUNT, rd.ETSY_PAYOUT, rd.listing_fees_request(16),
-                rd.PHYSICAL_SAMPLE, rd.TRADEMARK_SCREEN, rd.OBJECT_STORAGE, rd.GRADUATION]
+    # Discovered rather than listed. Build 2 adds capability requests to this set, and a
+    # hand-written list is a guard that stops guarding the moment somebody adds the eighth
+    # request and does not think of this test.
+    statics = [v for v in vars(rd).values() if isinstance(v, rd.OwnerRequest)]
+    requests = statics + [rd.listing_fees_request(16)] + access.owner_requests({})
+    assert len(requests) >= 9, [r.key for r in requests]
     prefixes = [r.action[:ADOPT_PREFIX] for r in requests]
     assert len(set(prefixes)) == len(prefixes), prefixes
     assert all(len(p) == ADOPT_PREFIX for p in prefixes), prefixes

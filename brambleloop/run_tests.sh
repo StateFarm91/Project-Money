@@ -30,7 +30,8 @@ SUITES=(
   tests/test_geometry.py tests/test_twin.py
   tests/test_platform.py tests/test_gates.py tests/test_radar.py tests/test_gateway.py
   tests/test_etsy.py tests/test_brand.py tests/test_commerce.py tests/test_departments.py
-  tests/test_quality.py tests/test_physical.py tests/test_finance.py tests/test_launch.py
+  tests/test_quality.py tests/test_physical.py tests/test_finance.py
+  tests/test_launch.py tests/test_access.py
   tests/test_shadow.py
   tests/test_persistence.py tests/test_continuity.py tests/test_chaos.py tests/test_deploy.py
   tests/test_product_run.py tests/test_products.py tests/test_texture.py

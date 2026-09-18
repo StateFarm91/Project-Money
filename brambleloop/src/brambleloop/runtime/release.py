@@ -810,6 +810,14 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     readiness = assess(ctx.db, phase=ctx.phase.value, providers=providers,
                        storage_durable=store.durable)
 
+    # Build-2 access gates join the same queue rather than starting a second one beside it.
+    # Section 14 is explicit that there is one owner queue, and the reason is arithmetic: two
+    # queues means the owner reads whichever they remember. These are capability requests
+    # (#223), not launch requirements, so they are queued but do not move `readiness.ready`.
+    from ..launch import access
+
+    requests = list(readiness.owner_requests()) + access.owner_requests()
+
     queued: list[str] = []
     restated: list[str] = []
     with ctx.db.session() as s:
@@ -835,7 +843,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         keyless = [a for a in s.scalars(
             select(OwnerAction).where(OwnerAction.done == False))  # noqa: E712
             if not a.requirement_key]
-        for request in readiness.owner_requests():
+        for request in requests:
             if request.key in open_actions:
                 continue
             for row in keyless:
@@ -844,7 +852,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                     open_actions[request.key] = row
                     break
 
-        for request in readiness.owner_requests():
+        for request in requests:
             existing = open_actions.get(request.key)
             if existing is not None:
                 # Same decision, possibly a different figure. Restate it in place: the owner
@@ -873,7 +881,8 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         "blocked_on_integration": [r.key for r in readiness.blocked_on("integration")],
         "owner_actions_added": len(queued),
         "owner_actions_queued": queued,
-        "owner_actions_restated": restated})
+        "owner_actions_restated": restated,
+        "capabilities_unavailable": access.unmet_report()["unmet_capabilities"]})
 
     return {"ready": readiness.ready, "owner_actions_added": len(queued),
             "outstanding": [r.key for r in readiness.outstanding]}

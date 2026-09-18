@@ -348,6 +348,20 @@ def api_continuity_export(authorization: str = Header(default="")) -> Response:
     )
 
 
+
+@app.get("/api/access")
+def api_access() -> dict:
+    """What this system cannot do, what would unlock it, and what it costs (#223, #224).
+
+    Deliberately reports the unmet capability first and the request second. A page that led
+    with the request would read as a sales pitch; this one reads as a status.
+    """
+    from ..launch import access
+
+    report = access.unmet_report()
+    report["requests"] = [r.to_dict() for r in access.pending_requests()]
+    return report
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

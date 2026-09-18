@@ -1986,7 +1986,7 @@
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
   "status": "owner_gated",
-  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate"
+  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate; formally requested through launch/access.py with costed options -- the free Etsy Open API keystring first, a managed cloud browser only if that proves insufficient"
  },
  {
   "id": 222,
@@ -1995,7 +1995,7 @@
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
   "status": "owner_gated",
-  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate"
+  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate; formally requested through launch/access.py with costed options -- the free Etsy Open API keystring first, a managed cloud browser only if that proves insufficient"
  },
  {
   "id": 223,
@@ -2003,8 +2003,8 @@
   "body": "The owner has stated willingness to approve reasonable access required to implement mandatory benchmark browser/vision observation and 24/7 autonomy. Claude must present any required connection, service, credential, paid infrastructure or permission as a concise approval request with exact purpose, capability unlocked, expected/max cost, security scope and consequence of declining. Never interpret willingness as blanket authorization for unbounded spend or credentials.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "access approval protocol -- buildable now, and needed to ask for 221"
+  "status": "covered",
+  "note": "launch/access.py states every required credential or service as a structured AccessRequest carrying exact action, purpose, capability unlocked, security scope, max cost, a monthly ceiling, minutes, consequence of declining and what continues regardless. A recurring cost without a ceiling cannot be constructed, which is the blank cheque this requirement forbids. The requests join the one consolidated owner queue through launch.readiness, keyed so a re-run restates rather than duplicates. tests/test_access.py."
  },
  {
   "id": 224,
@@ -2012,8 +2012,8 @@
   "body": "If Etsy access, anti-bot controls, authentication, tooling limitations or other constraints prevent the mandated depth of observation, report the exact limitation and preserve the requirement as unmet. Do not claim 'continuous MJs scanning' based on search snippets or stale cached evidence.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "no silent downgrade rule"
+  "status": "partial",
+  "note": "the rule is enforced: access.accept_evidence() grades every piece of benchmark evidence and refuses to let a search snippet, screenshot, seeded fixture or stale cache satisfy a mandate, and downgrades evidence labelled as mandated observation when the capability was never granted. unmet_report() names the unmet capabilities and the requirement ids they block, and asserts nothing was substituted. Remaining: the limitation-reporting path from a real anti-bot or auth failure cannot exist until observation does (#221)."
  },
  {
   "id": 225,
