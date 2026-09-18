@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import func, select
 
 from ..agents.registry import Registry
+from ..core.build import identity as build_identity
 from ..core.db import Database
 from ..core.models import (
     Agent, AuditLog, Collection, ContentPiece, CostEntry, Incident, Job, JobStatus,
@@ -71,7 +72,7 @@ def health() -> JSONResponse:
         detail = f"{type(e).__name__}: {e}"
     return JSONResponse(
         {"status": "ok" if healthy else "degraded", "version": APP_VERSION, "db": detail,
-         "runner": runner.STATE.to_dict()},
+         "build": build_identity(), "runner": runner.STATE.to_dict()},
         status_code=200 if healthy else 503,
     )
 
@@ -97,6 +98,10 @@ def api_status() -> dict:
         ) or 0
     return {
         "version": APP_VERSION,
+        # Which commit this image was built from. The app version is hand-maintained and
+        # therefore proves nothing about a deploy; this is the only field that says whether
+        # a fix has actually reached production, and it says `unknown` when it cannot tell.
+        "build": build_identity(),
         "queue": q.counts(),
         "dead_letters": len(q.dead_letters()),
         "products": products,

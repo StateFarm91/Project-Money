@@ -55,6 +55,9 @@ class Frame:
     claims: Claims = field(default_factory=Claims)
     depicts_stitches: list[str] = field(default_factory=list)
     depicts_colors: list[str] = field(default_factory=list)
+    # Hero only: the fabric render had no internal contrast, so the image is blank whatever
+    # the typography drawn over it might suggest to a check that measures the whole frame.
+    fabric_is_flat: bool = False
 
     @property
     def is_hero(self) -> bool:
@@ -172,6 +175,7 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
     bottom = int(size * 0.885)
     box_w, box_h = int(size * 0.96), bottom - top
     round_worked = is_round(cir, twin)
+    hero_fabric_flat = False
     if round_worked:
         # A round piece has no rectangle of fabric to show. The twin knows it as rounds, so
         # the hero is the object from above -- which is honest, and says so on the image.
@@ -183,6 +187,18 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
                            min(cols * 4, max(len(r) for r in grid)),
                            min(rows * 3, len(grid)))
         fabric = render_fabric(cir, twin, cell_px=24, grids=grids)
+    # Is there anything to look at? A single-colour textured fabric is *all* relief, and
+    # rendering it by row colour produced a blank cream rectangle -- the rebuilt cable
+    # throw's hero was literally empty. The frame-level thumbnail check could not catch it,
+    # because the title text is non-background too and counted as the subject. So the fabric
+    # is judged on its own, before any typography is drawn over it.
+    shades = fabric.convert("RGB").getcolors(maxcolors=100_000) or []
+    span = 0
+    if shades:
+        lums = [0.299 * r + 0.587 * g + 0.114 * b for _, (r, g, b) in shades]
+        span = max(lums) - min(lums)
+    hero_fabric_flat = len(shades) < 3 or span < 12.0
+
     scale = min(box_w / fabric.width, box_h / fabric.height)
     fabric = fabric.resize((max(1, int(fabric.width * scale)),
                             max(1, int(fabric.height * scale))), Image.LANCZOS)
@@ -202,6 +218,7 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
            fill=MUTED)
     return Frame(position=1, role="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
                  caption="clean finished-result hero", image=img,
+                 fabric_is_flat=hero_fabric_flat,
                  depicts_stitches=sorted(twin.stitch_types_used),
                  depicts_colors=sorted(c for c in twin.colors_used if c),
                  claims=Claims(colors=sorted(c for c in twin.colors_used if c)))
@@ -393,6 +410,27 @@ def build_frames(cir: CIR, twin: TwinModel, *, pattern_text: str,
 def check_frame_plan(frames: list[Frame]) -> list[str]:
     """Structural rules a listing's imagery must satisfy before Asset Truth even runs."""
     problems: list[str] = []
+
+    # Pillow falls back to a bitmap face a few pixels tall when it cannot find a TrueType
+    # file. On a 2000px listing image that is invisible, so the images looked right on a
+    # machine with DejaVu installed and shipped from a container without it with no legible
+    # text at all. Silence is what let that happen, so it is a blocking problem now.
+    from .charts import FONT_FALLBACK_IN_USE
+
+    if FONT_FALLBACK_IN_USE:
+        problems.append(
+            "LISTING_NO_FONT: no TrueType face was available, so every label on these "
+            "images is a few pixels tall. The container needs fonts installed; rendering "
+            "illegible imagery is worse than rendering none")
+
+    for f in frames:
+        if f.is_hero and f.fabric_is_flat:
+            problems.append(
+                "LISTING_HERO_FABRIC_FLAT: the hero's fabric render has almost no internal "
+                "contrast, so the image is effectively blank. A single-colour textured "
+                "pattern is all relief, and relief has to be drawn or there is nothing to "
+                "look at")
+
     if not frames:
         return ["LISTING_NO_IMAGES: a listing with no imagery cannot be published"]
     heroes = [f for f in frames if f.is_hero]

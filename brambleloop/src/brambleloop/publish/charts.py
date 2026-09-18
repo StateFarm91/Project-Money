@@ -37,14 +37,25 @@ GLYPHS: dict[str, str] = {
 }
 
 
+# Set when a TrueType face could not be loaded. Pillow's fallback is a bitmap font a few
+# pixels tall, which on a 2000px listing image is invisible -- so the images looked right on
+# a machine with DejaVu installed and shipped with no legible text from a container without
+# it. A silent fallback is how that went unnoticed, so it is recorded and surfaced by
+# `check_frame_plan` instead.
+FONT_FALLBACK_IN_USE = False
+
+
 def _font(size: int) -> ImageFont.ImageFont:
     """Load a real TrueType face when one exists, else fall back without crashing."""
+    global FONT_FALLBACK_IN_USE
     for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                 "/usr/share/fonts/truetype/DejaVuSansMono.ttf"):
         try:
             return ImageFont.truetype(path, size)
         except OSError:
             continue
+    FONT_FALLBACK_IN_USE = True
     return ImageFont.load_default()
 
 
@@ -418,12 +429,43 @@ def render_fabric(cir: CIR, twin: TwinModel, *, cell_px: int = 18,
         name = row_colors[c_idx] if c_idx < len(row_colors) else None
         return _hex_to_rgb(cir.colors.get(name))
 
-    # Base bands, bottom row first.
+    def relief(code: str) -> float:
+        """How much lighter or darker this stitch sits than the plain ground.
+
+        Colourwork is not the only way fabric has a pattern. A cabled throw in one cream
+        yarn is *all* relief -- the design is light and shadow off the stitch geometry -- and
+        colouring cells by their row's yarn rendered it as a blank cream rectangle. The hero
+        for the rebuilt cable throw was literally empty, and the thumbnail check caught it in
+        production while passing locally, because the only visible thing in the frame was
+        the title text.
+        """
+        return {
+            "bob": -0.30,        # a raised dot catches light on top and shades beneath
+            "cable2x2": -0.20,   # a crossing sits proud of the ground
+            "cable1x1": -0.17,
+            "fpdc": -0.13,       # a front post stitch stands forward
+            "bpdc": 0.10,        # a back post stitch recedes
+            "dc": -0.04,
+            "tr": -0.07,
+            "slst": 0.08,
+        }.get(code, 0.0)
+
+    def shaded(base, code: str):
+        amount = relief(code)
+        if not amount:
+            return base
+        if amount < 0:
+            return tuple(max(0, int(v * (1.0 + amount))) for v in base)
+        return tuple(min(255, int(v + (255 - v) * amount)) for v in base)
+
+    # Base bands, bottom row first, each cell shaded by the relief of its own stitch.
     for r_idx in range(rows):
         y = height - (r_idx + 1) * band
         for c_idx in range(len(grid[r_idx])):
             x = c_idx * cell_px
-            d.rectangle([x, y, x + cell_px, y + band], fill=cell_color(r_idx, c_idx))
+            code = grid[r_idx][c_idx]
+            d.rectangle([x, y, x + cell_px, y + band],
+                        fill=shaded(cell_color(r_idx, c_idx), code))
 
     # Tall stitches, drawn as overhangs into the rows beneath them.
     for r_idx in range(rows):
@@ -437,8 +479,11 @@ def render_fabric(cir: CIR, twin: TwinModel, *, cell_px: int = 18,
                 continue
             x = c_idx * cell_px
             drop = int(band * extra)
+            # Shaded, like the base band. Painting the overhang in the flat row colour
+            # erased the relief underneath it, which is why a single-colour cabled fabric
+            # still rendered as a blank rectangle after the shading was added.
             d.rectangle([x, y, x + cell_px, min(height, y + band + drop)],
-                        fill=cell_color(r_idx, c_idx))
+                        fill=shaded(cell_color(r_idx, c_idx), code))
 
     # One lighter stroke per stitch reads as a loop at thumbnail size and stops a large flat
     # field from looking like a printed colour block.

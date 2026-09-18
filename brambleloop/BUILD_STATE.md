@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Verified by `./run_tests.sh` — **507 tests passing, 0 failing**, including 23 that
+Verified by `./run_tests.sh` — **514 tests passing, 0 failing**, including 23 that
 assert the owner's acceptance gates line by line.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
@@ -506,6 +506,26 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **Production says which commit it is running.** `/api/status` and `/health` now
+  report the build's commit sha, branch, and whether it knows them at all. `version` is
+  hand-maintained and proves nothing about a deploy, so until now the only way to tell
+  whether a fix had landed was to look for its effects and hope no other change explained
+  them -- which is how each of the three idempotency layers cost a diagnosis round to "the
+  code is fixed and production disagrees". An absent build variable reports `unknown` and
+  never matches a commit, because a check that treats "I cannot tell" as "yes" is worse than
+  no check.
+- 2026-09-18: **Three imagery defects, found by looking at what production actually
+  rendered.** The cable throw's hero was a blank cream rectangle. Three separate causes, each
+  of which alone would have shipped an unsellable listing: the container had no fonts, so
+  Pillow fell back silently to a bitmap face a few pixels tall on every image the system has
+  ever rendered in production; the fabric renderer coloured cells only by colourway, so a
+  deliberately single-colour textured design had nothing to show; and my own frame-level
+  thumbnail check passed the blank hero at 78% coverage because it was measuring the title
+  text, while production blocked the same product at 11%. Fixed in all three places — the
+  Dockerfile installs the fonts, cells are shaded by their stitch's relief (on the overhang
+  pass too, which was erasing it), and a hero whose fabric has no internal contrast is
+  refused. A check that can pass an empty image is worse than no check, because it is
+  evidence.
 - 2026-09-18: **Reproducible PDFs.** Two renders of one certified release, three minutes
   apart in production, were audited under two different hashes: reportlab stamps the time and
   a random id into every render. Since artifact bytes are not durable, a purchased file is
@@ -543,6 +563,6 @@ timings, written there by the system rather than by hand.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 507 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 514 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

@@ -204,6 +204,96 @@ def test_the_certificate_runs_the_technique_check():
     assert "CLAIM_TECHNIQUE_UNSUPPORTED" in [f.code for f in cert.errors]
 
 
+
+# ---- the hero has to show the fabric ---------------------------------------
+
+
+def test_a_single_colour_textured_fabric_is_visible():
+    """Found in production: the rebuilt cable throw's hero was a blank cream rectangle.
+
+    Colourwork is not the only way fabric has a pattern. A cabled throw in one cream yarn is
+    *all* relief -- the design is light and shadow off the stitch geometry -- and colouring
+    cells by their row's yarn rendered nothing at all.
+    """
+    from brambleloop.publish.charts import render_fabric
+
+    for build in DESIGNS:
+        cir = build()
+        result, twin = _twin(cir)
+        assert len([c for c in twin.colors_used if c]) == 1, \
+            f"{cir.slug} is single-colour by design; this test would prove nothing otherwise"
+        fabric = render_fabric(cir, twin, cell_px=18).convert("RGB")
+        shades = fabric.getcolors(maxcolors=100_000) or []
+        lums = [0.299 * r + 0.587 * g + 0.114 * b for _, (r, g, b) in shades]
+        assert len(shades) >= 3, (cir.slug, len(shades))
+        assert max(lums) - min(lums) > 12.0, (cir.slug, max(lums) - min(lums))
+
+
+def test_a_blank_hero_is_refused_even_though_its_text_is_not_blank():
+    """The hole this closes: the frame-level thumbnail check measured the *title text* as the
+    subject, so a hero with no fabric in it scored 78% coverage and passed locally while
+    production rejected the same product at 11%."""
+    from brambleloop.publish.listing_assets import Frame, check_frame_plan
+    from brambleloop.gates.asset_truth import AssetClass
+
+    frames = [
+        Frame(position=1, role="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
+              caption="hero", image=None, fabric_is_flat=True),
+        Frame(position=2, role="whats_included", asset_class=AssetClass.INFOGRAPHIC,
+              caption="what you get"),
+        Frame(position=3, role="size", asset_class=AssetClass.INFOGRAPHIC, caption="size"),
+        Frame(position=4, role="materials", asset_class=AssetClass.INFOGRAPHIC,
+              caption="materials"),
+    ]
+    problems = check_frame_plan(frames)
+    assert any("LISTING_HERO_FABRIC_FLAT" in p for p in problems), problems
+
+
+def test_the_real_heroes_are_not_flat():
+    from brambleloop.cir.writer import write_pattern
+    from brambleloop.publish.listing_assets import build_frames, check_frame_plan
+
+    for build in DESIGNS:
+        cir = build()
+        result, twin = _twin(cir)
+        frames = build_frames(cir, twin, pattern_text=write_pattern(cir, result),
+                              difficulty="confident beginner", pages=7)
+        assert frames[0].fabric_is_flat is False, cir.slug
+        assert check_frame_plan(frames) == [], (cir.slug, check_frame_plan(frames))
+
+
+def test_a_missing_font_is_a_blocking_problem_rather_than_ugly_output():
+    """Pillow falls back to a face a few pixels tall. On a 2000px image that is invisible, so
+    the imagery looked right on a machine with DejaVu installed and shipped from a container
+    without it carrying no legible text at all. Silence is what let that happen."""
+    from brambleloop.publish import charts
+    from brambleloop.publish.listing_assets import check_frame_plan
+
+    before = charts.FONT_FALLBACK_IN_USE
+    try:
+        charts.FONT_FALLBACK_IN_USE = True
+        problems = check_frame_plan([])
+        # An empty plan has its own complaint; the font one must appear for a real plan too.
+        cir = build_bobble_pillow()
+        result, twin = _twin(cir)
+        from brambleloop.cir.writer import write_pattern
+        from brambleloop.publish.listing_assets import build_frames
+
+        frames = build_frames(cir, twin, pattern_text=write_pattern(cir, result),
+                              difficulty="confident beginner", pages=7)
+        problems = check_frame_plan(frames)
+        assert any("LISTING_NO_FONT" in p for p in problems), problems
+    finally:
+        charts.FONT_FALLBACK_IN_USE = before
+
+
+def test_the_container_installs_the_fonts_the_renderer_needs():
+    """The defect itself: nothing in the image had fonts, and no local test could see it."""
+    dockerfile = (ROOT / "Dockerfile").read_text()
+    assert "fonts-dejavu" in dockerfile, \
+        "the container renders every listing image; without a TrueType face the text is a " \
+        "few pixels tall"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

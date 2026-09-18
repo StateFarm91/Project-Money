@@ -294,6 +294,47 @@ def test_the_owner_queue_is_written_by_the_system_not_by_hand():
             time.sleep(0.5)
     assert len(again) == before, f"owner actions duplicated: {before} -> {len(again)}"
 
+
+def test_the_status_endpoint_says_which_commit_is_running():
+    """The only field that can tell whether a fix reached production.
+
+    `version` is hand-maintained, so it proves nothing: three separate idempotency bugs each
+    cost a diagnosis round to "the code is fixed and production disagrees", because the
+    question had no answer.
+    """
+    from brambleloop.core import build
+
+    with _client() as c:
+        body = c.get("/api/status").json()
+    assert "build" in body, "status does not report which code it is running"
+    assert set(body["build"]) == {"commit", "commit_short", "branch", "known"}
+    # In a test environment there is usually no build commit, and `unknown` is the honest
+    # answer -- but it must never be reported as a known one.
+    if not body["build"]["known"]:
+        assert body["build"]["commit"] == build.UNKNOWN
+
+    with _client() as c:
+        health = c.get("/health").json()
+    assert health["build"]["commit"] == body["build"]["commit"]
+
+
+def test_an_unknown_build_never_matches_a_commit():
+    """"I cannot tell" must not be reported as "yes".
+
+    A deploy check that treated a missing environment variable as a match would report
+    success for every commit ever asked about, which is exactly the false confidence this
+    field exists to remove.
+    """
+    from brambleloop.core import build
+
+    assert build.serves("2006c37", {"RAILWAY_GIT_COMMIT_SHA": "2006c37abcdef0123456"})
+    assert build.serves("2006c37abcdef0123456", {"RAILWAY_GIT_COMMIT_SHA": "2006c37"})
+    assert not build.serves("2006c37", {})
+    assert not build.serves("2006c37", {"RAILWAY_GIT_COMMIT_SHA": ""})
+    assert not build.serves("", {"RAILWAY_GIT_COMMIT_SHA": "2006c37abcdef0123456"})
+    assert not build.serves("deadbee", {"RAILWAY_GIT_COMMIT_SHA": "2006c37abcdef0123456"})
+    assert build.identity({})["known"] is False
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
