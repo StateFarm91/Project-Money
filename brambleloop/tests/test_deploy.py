@@ -409,6 +409,9 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
     from the catalogue. Matching on full text would have adopted the six unchanged rows and
     added an eighth beside the one that moved, which is the duplicate this whole fix exists
     to prevent.
+
+    Both assessments run inside one client, because the embedded worker stops when a client
+    context exits and a later test cannot assume an earlier one left it running.
     """
     import time
 
@@ -416,41 +419,42 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
 
     from brambleloop.core.models import AuditLog, OwnerAction
 
+    stale_fee = (
+        "Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per "
+        "listing for 4 months, so about US$1.80 (CA$2.50) for nine listings, plus 6.5% "
+        "transaction fee and payment processing on each sale.")
+
     def assessments() -> int:
         with app_main.db.session() as s:
             return len([r for r in s.scalars(select(AuditLog))
                         if r.action == "launch.assessed"])
 
-    def run_readiness(key: str) -> None:
-        before = assessments()
-        JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
-                                     idempotency_key=key)
-        with _client() as c:
-            deadline = time.time() + 40
+    with _client() as c:
+        def run_readiness(key: str) -> None:
+            before = assessments()
+            JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
+                                         idempotency_key=key)
+            deadline = time.time() + 60
             while time.time() < deadline:
                 if assessments() > before:
                     return
                 time.sleep(0.5)
-        raise AssertionError("the readiness job never ran")
+            raise AssertionError(f"the readiness job never ran for {key}")
 
-    run_readiness("test:adopt-1")
+        run_readiness("test:adopt-1")
 
-    # Put the queue back into the pre-upgrade shape: no identities, and the fee row carrying
-    # the wording it had before the figure was derived.
-    stale_fee = (
-        "Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per "
-        "listing for 4 months, so about US$1.80 (CA$2.50) for nine listings, plus 6.5% "
-        "transaction fee and payment processing on each sale.")
-    with app_main.db.session() as s:
-        rows = list(s.scalars(select(OwnerAction)))
-        assert rows, "the readiness job queued nothing"
-        for row in rows:
-            if row.requirement_key == "listing_fees":
-                row.action = stale_fee
-            row.requirement_key = ""
-        count_before = len(rows)
+        # Put the queue back into the pre-upgrade shape: no identities, and the fee row
+        # carrying the wording it had before the figure was derived.
+        with app_main.db.session() as s:
+            rows = list(s.scalars(select(OwnerAction)))
+            assert rows, "the readiness job queued nothing"
+            for row in rows:
+                if row.requirement_key == "listing_fees":
+                    row.action = stale_fee
+                row.requirement_key = ""
+            count_before = len(rows)
 
-    run_readiness("test:adopt-2")
+        run_readiness("test:adopt-2")
 
     with app_main.db.session() as s:
         after = list(s.scalars(select(OwnerAction)))
@@ -461,6 +465,7 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
     fee = [a for a in after if a.requirement_key == "listing_fees"]
     assert len(fee) == 1, [f.action[:60] for f in fee]
     assert fee[0].action != stale_fee, "the adopted row kept its stale figure"
+
 
 if __name__ == "__main__":
     fails = 0
