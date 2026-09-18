@@ -158,12 +158,22 @@ def test_shadow_mode_can_never_be_launch_ready():
     assert phase.blocked_by == BLOCKED_OWNER, "only the owner graduates the phase"
 
 
-def test_etsy_is_reported_as_absent_rather_than_disabled():
-    """There is no Etsy client in this system. "Disabled" would overstate what exists."""
+def test_etsy_is_reported_as_written_but_never_called():
+    """The evidence has to track the system, not the system as it used to be.
+
+    This line read "there is no Etsy client in this system at all" and stopped being true the
+    moment one was written. A readiness report that describes a previous version of the
+    system is worse than no report, because it is trusted -- so the assertion is now that
+    "written" is distinguished from "connected", which is the distinction that matters.
+    """
     readiness = assess(_db(), phase="shadow")
     etsy = next(r for r in readiness.requirements if r.key == "etsy_integration")
     assert etsy.blocked_by == BLOCKED_INTEGRATION
-    assert "no Etsy client" in etsy.evidence["note"]
+    assert etsy.ready is False
+    assert etsy.evidence["client_written"] is True
+    assert etsy.evidence["ever_called"] is False
+    assert etsy.evidence["credentials_present"] is False, \
+        "this environment must not carry Etsy credentials"
 
 
 def test_the_report_states_the_owner_actions_in_the_required_format():

@@ -304,13 +304,23 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         {"paused_scopes": paused}))
 
     # -- what needs an account, a key or a service --------------------------
+    # This line said "there is no Etsy client in this system at all" and stopped being true
+    # the moment one was written. A readiness report that describes the system as it used to
+    # be is worse than no report, because it is trusted.
+    from ..integrations.etsy import Credentials
+
+    etsy_creds = Credentials.from_env() is not None
     out.append(Requirement(
         key="etsy_integration",
-        description="an Etsy API integration exists and is authorised",
+        description="an Etsy integration exists, is credentialled and has been exercised",
         ready=False,
         blocked_by=BLOCKED_INTEGRATION,
-        evidence={"note": "there is no Etsy client in this system at all; publishing is not "
-                          "merely disabled, it is absent"}))
+        evidence={"client_written": True, "credentials_present": etsy_creds,
+                  "ever_called": False,
+                  "note": "the client exists and is unit-tested against a fake transport, "
+                          "and has never been called against Etsy. Written is not "
+                          "connected: it refuses on phase, on owner authority and on "
+                          "missing credentials, and nothing here satisfies any of them"}))
 
     out.append(Requirement(
         key="artifact_storage",
