@@ -134,18 +134,39 @@ ETSY_PAYOUT = OwnerRequest(
     blocks="publishing, and any revenue at all",
 )
 
-LISTING_FEES = OwnerRequest(
-    action=("Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per "
-            "listing for 4 months, so about US$1.80 (CA$2.50) for nine listings, plus 6.5% "
-            "transaction fee and payment processing on each sale."),
-    reason=("This is the first spend that leaves the account, and the directive is explicit "
-            "that no consequential spend happens without approval. It is small, but it is "
-            "not zero and it is not reversible."),
-    max_cost_cad=5.0,
-    minutes=2,
-    consequence_of_delay="Publishing stays blocked on a two-minute decision.",
-    blocks="publishing",
-)
+# Etsy's published listing fee, and the CAD figure the estimate is built from.
+LISTING_FEE_USD = 0.20
+LISTING_FEE_CAD = 0.28
+
+
+def listing_fees_request(listings: int) -> OwnerRequest:
+    """The fee approval, costed from the catalogue that actually exists.
+
+    This used to be a module constant whose text said "about US$1.80 (CA$2.50) for nine
+    listings" -- true when it was written, and still being shown to the owner after the
+    catalogue reached sixteen, next to an evidence field that computed CA$4.48 from the real
+    count. An owner action asking for approval of a number is the last place a stale number
+    belongs: the approval is for a figure, so the figure has to be the one they would
+    actually be charged.
+    """
+    usd = listings * LISTING_FEE_USD
+    cad = listings * LISTING_FEE_CAD
+    # The ceiling is the figure plus headroom for a few more listings before launch, rounded
+    # up to the dollar, so approving it does not have to be re-asked for every new product.
+    ceiling = float(max(5, int(cad) + 2))
+    return OwnerRequest(
+        action=(f"Confirm you accept Etsy's listing fees for the opening catalogue: "
+                f"US${LISTING_FEE_USD:.2f} per listing for 4 months, so about "
+                f"US${usd:.2f} (about CA${cad:.2f}) for the {listings} listings currently "
+                f"drafted, plus 6.5% transaction fee and payment processing on each sale."),
+        reason=("This is the first spend that leaves the account, and the directive is "
+                "explicit that no consequential spend happens without approval. It is "
+                "small, but it is not zero and it is not reversible."),
+        max_cost_cad=ceiling,
+        minutes=2,
+        consequence_of_delay="Publishing stays blocked on a two-minute decision.",
+        blocks="publishing",
+    )
 
 PHYSICAL_SAMPLE = OwnerRequest(
     action=("Crochet one sample -- the 20 cm storage basket is the best candidate, about "
@@ -349,8 +370,9 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         key="listing_fees",
         description="the owner has approved Etsy's listing and transaction fees",
         ready=False, blocked_by=BLOCKED_OWNER,
-        evidence={"estimate_cad": round(len(listings) * 0.28, 2) if listings else 0.0},
-        owner_request=LISTING_FEES))
+        evidence={"listings": len(listings),
+                  "estimate_cad": round(len(listings) * LISTING_FEE_CAD, 2)},
+        owner_request=listing_fees_request(len(listings))))
 
     out.append(Requirement(
         key="physical_calibration",

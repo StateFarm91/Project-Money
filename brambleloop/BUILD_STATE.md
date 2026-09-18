@@ -19,7 +19,9 @@ scatter canonical strategy across chat.
 ## Honest status — what actually exists
 Measured by `./run_tests.sh` at commit `4dcff21`: **525 tests passing, 0 failing** across
 26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
-predicted — writing a predicted total on this line has been wrong twice.
+predicted — writing a predicted total on this line has been wrong twice. Two tests were
+added after that run (the listing-fee costing); `tests/test_launch.py` passes 14 of 14, and
+the next full run replaces this line with its own measured figure.
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
 storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
@@ -670,6 +672,13 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **The one number the system asked for was hardcoded.** The owner action
+  approving Etsy's listing fees read "about US$1.80 (CA$2.50) for nine listings" -- true
+  when written, still shown after the catalogue reached sixteen, and sitting directly beside
+  an evidence field that computed CA$4.48 from the real count. Everywhere else a claim is
+  derived and checked; the place a figure is *asked for* is the last place a stale one
+  belongs, because the approval is the figure. Derived now, with a test that the sentence
+  and the evidence agree to the cent and another that refuses the old wording if it returns.
 - 2026-09-18: **Charts that can be read without colour vision** (section 31). Twelve of
   the nineteen designs are two-colour work where the colour *is* the motif, the chart
   separated the yarns by hue alone, and the legend identified each yarn by a coloured square

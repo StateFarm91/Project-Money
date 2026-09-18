@@ -187,6 +187,56 @@ def test_the_report_states_the_owner_actions_in_the_required_format():
     assert "Nothing. Every remaining requirement needs a person or an account." in text
 
 
+
+def test_the_fee_approval_is_costed_from_the_catalogue_that_actually_exists():
+    """An owner action asking approval for a number must name the real number.
+
+    The fee request was a module constant reading "about US$1.80 (CA$2.50) for nine
+    listings" -- true when it was written, and still shown to the owner after the catalogue
+    reached sixteen, directly beside an evidence field that computed CA$4.48 from the real
+    count. The approval *is* the figure, so a stale figure is not cosmetic: it asks consent
+    for one amount against a charge of another.
+    """
+    from brambleloop.launch.readiness import LISTING_FEE_CAD, listing_fees_request
+
+    nine = listing_fees_request(9)
+    sixteen = listing_fees_request(16)
+    assert "9 listings" in nine.action, nine.action
+    assert "16 listings" in sixteen.action, sixteen.action
+    assert nine.action != sixteen.action, "the request did not move with the catalogue"
+
+    for count in (1, 9, 16, 40):
+        request = listing_fees_request(count)
+        expected = f"CA${round(count * LISTING_FEE_CAD, 2):.2f}"
+        assert expected in request.action, (count, expected, request.action)
+        # The ceiling never sits below what it is approving.
+        assert request.max_cost_cad >= count * LISTING_FEE_CAD, count
+
+    source = (Path(__file__).resolve().parents[1]
+              / "src" / "brambleloop" / "launch" / "readiness.py").read_text()
+    assert "for nine listings" not in source, \
+        "the fee request has been hardcoded to a catalogue size again"
+
+
+def test_the_fee_request_and_its_evidence_agree():
+    """They sit next to each other in the report, so they must not disagree.
+
+    This is the pairing that caught the defect: the owner reads the sentence, and anyone
+    checking reads the evidence. One derived and one hardcoded is how they drifted.
+    """
+    from brambleloop.launch.readiness import listing_fees_request
+
+    db = _db()
+    _stock(db)
+    report = assess(db, phase="shadow")
+    fees = next(r for r in report.requirements if r.key == "listing_fees")
+    assert fees.owner_request is not None
+    assert fees.evidence["listings"] == MIN_LISTINGS_TO_OPEN
+    assert f"CA${fees.evidence['estimate_cad']:.2f}" in fees.owner_request.action, (
+        fees.evidence, fees.owner_request.action)
+    assert fees.owner_request.action == listing_fees_request(
+        fees.evidence["listings"]).action
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
