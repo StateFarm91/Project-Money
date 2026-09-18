@@ -49,7 +49,7 @@ from .worker import JobContext, handlers
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "6"
+CHAIN_VERSION = "7"
 
 # How much of an owner action's opening clause identifies it, for adopting rows queued
 # before `OwnerAction.requirement_key` existed. Long enough to be unambiguous, short enough
@@ -173,8 +173,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
               if twin.width_cm and twin.height_cm else None)
     hero = thumb_mod.evaluate_thumbnail(frames[0].image, text_pt_on_canvas=0.056 * 2000,
                                         canvas_px=2000, subject_aspect=aspect)
-    blocking = (structural + [str(f) for f in truth if f.severity == "error"]
-                + hero.problems)
+    blocking = structural + [str(f) for f in truth if f.is_error] + hero.problems
 
     stored_frames = []
     for frame in frames:
@@ -307,7 +306,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                   + search_mod.check_attributes(attributes))
     policy = check_listing(ListingDraft(title=copy.title, description=copy.description,
                                         tags=copy.tags, price_cad=copy.price_cad))
-    blocking = structural + [str(f) for f in policy if f.severity == "error"]
+    blocking = structural + [str(f) for f in policy if f.is_error]
 
     ctx.audit("listing.seo_drafted" if not blocking else "listing.seo_blocked",
               artifact=f"{slug}@{version}",

@@ -562,10 +562,11 @@ Exact and verified. Nothing here is projected.
   replace them per yarn/hook. Never present an uncalibrated estimate as precise.
 - Reverse compiler handles the writer's grammar plus common variants; widen coverage as real
   pattern styles appear.
-- Brand model imagery (Master Plan section 6) raises a disclosure question — AI-generated
-  lifestyle imagery of a fictional model wearing an item that has not been physically made
-  must not imply a photograph of a real finished object. Asset Truth + Policy Gate own this;
-  flagged so it is decided deliberately, not by default.
+- ~~Brand model imagery (section 6) raises a disclosure question.~~ **Decided 2026-09-18
+  (B-097)**: a generated lifestyle image must be disclosed as an illustration wherever it
+  appears, and may never be the hero. Set at full strength while nothing in the system
+  generates one, and a test asserts the frame builder still produces none, so whoever changes
+  that has to read the reasoning first.
 
 ## Next highest-value unblocked actions
 1. An engineered amigurumi, when the radar selects one. The construction is now complete —
@@ -684,6 +685,17 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **A gate that could not block, found by writing a different test.** The
+  section 6 disclosure question was open, so it was closed (B-097). Writing its tests turned
+  up something worse: `ERROR` is the string `"ERROR"`, and three places filtered findings
+  with `f.severity == "error"` — lowercase, false by construction. Asset Truth could not stop
+  a listing image, the policy gate could not stop listing copy, and the confidence profile
+  counted zero asset errors however many there were. All three gates ran, produced entirely
+  correct findings, and had them dropped on the floor. Callers now ask `finding.is_error`.
+  Checked across all seventeen designs before claiming anything: the defect was **latent** —
+  nothing in the catalogue had tripped the gate, so it disarmed a guard rather than shipping
+  untruthful imagery — and the chain is bumped to 7 so production re-derives that under the
+  fixed gate instead of it being taken on trust.
 - 2026-09-18: **One shadow cycle instead of four, and an honest negative result.** Four of
   the nine tests in `test_shadow.py` were 60 seconds each, three of them asserting different
   things about an identical eleven-product run, so the file paid three times for one piece of

@@ -214,7 +214,7 @@ def test_every_frame_survives_asset_truth():
     p = _product()
     findings = check_assets([f.to_asset("nordic-forest-mosaic-throw") for f in p["frames"]],
                             p["cir"], p["twin"])
-    errors = [f for f in findings if f.severity == "error"]
+    errors = [f for f in findings if f.is_error]
     assert not errors, [str(f) for f in errors]
 
 

@@ -280,6 +280,150 @@ def test_support_cannot_patch_canonical_patterns():
         assert "file an incident" in str(e)
 
 
+
+def _lifestyle(disclosed: bool, is_hero: bool) -> Asset:
+    """A generated lifestyle image of the flagship, as section 6's brand model would make."""
+    return Asset(
+        asset_id="lifestyle-1",
+        asset_class=AssetClass.AI_LIFESTYLE_CONCEPT,
+        provenance=Provenance(source="model", created_by="brand_model", tool="section6@1"),
+        depicts_stitches=["sc"],
+        is_hero=is_hero,
+        disclosed_as_illustration=disclosed,
+    )
+
+
+def test_a_generated_lifestyle_image_must_be_disclosed_wherever_it_appears():
+    """The section 6 disclosure question, decided rather than left to default.
+
+    An undisclosed generated lifestyle image asserts that somebody photographed a finished
+    object. For every product here that assertion is false in the strongest way available:
+    no physical sample of anything in this catalogue exists, so there is nothing for such a
+    photograph to be of.
+
+    It used to be an error only as the hero and a warning anywhere else, which meant a
+    listing could ship one in frame four and pass. A buyer scrolling a gallery does not grade
+    images by position, so the harm does not change with the frame.
+    """
+    cir = fixtures.good_mosaic_panel()
+    twin = _twin_for(cir)
+
+    errors = {f.code for f in check_assets([_lifestyle(False, False)], cir, twin)
+              if f.is_error}
+    assert "ASSET_UNDISCLOSED_CONCEPT" in errors, errors
+
+    # Disclosed and not the hero: allowed. The rule is about the claim, not the technique.
+    errors = {f.code for f in check_assets([_lifestyle(True, False)], cir, twin)
+              if f.is_error}
+    assert "ASSET_UNDISCLOSED_CONCEPT" not in errors, errors
+    assert "ASSET_CONCEPT_AS_HERO" not in errors, errors
+
+
+def test_a_generated_lifestyle_image_may_never_be_the_hero_even_when_disclosed():
+    """Disclosure is not a licence for the image that wins the click.
+
+    The hero has to be the thing the pattern actually makes, so the two failures are separate
+    findings rather than one rule standing in for both.
+    """
+    cir = fixtures.good_mosaic_panel()
+    twin = _twin_for(cir)
+
+    errors = {f.code for f in check_assets([_lifestyle(True, True)], cir, twin)
+              if f.is_error}
+    assert "ASSET_CONCEPT_AS_HERO" in errors, errors
+
+    errors = {f.code for f in check_assets([_lifestyle(False, True)], cir, twin)
+              if f.is_error}
+    assert {"ASSET_UNDISCLOSED_CONCEPT", "ASSET_CONCEPT_AS_HERO"} <= errors, errors
+
+
+def test_nothing_in_the_catalogue_builds_a_generated_lifestyle_frame():
+    """The rule above is prophylactic, and that is why it could be set at full strength.
+
+    A rule written after the first generated image exists is a rule argued against a sunk
+    cost. This asserts the premise is still true -- the frame builder produces none -- so
+    whoever changes that has to come past this test and read the reasoning.
+    """
+    from brambleloop.cir.writer import write_pattern
+    from brambleloop.publish.listing_assets import build_frames
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    cir = fixtures.good_mosaic_panel()
+    result = compile_cir(cir)
+    twin = build_twin(cir, result)
+    doc = build_pattern_pdf(cir, twin=twin, terminology="US")
+    frames = build_frames(cir, twin, pattern_text=write_pattern(cir, result),
+                          difficulty="intermediate", pages=doc.pages, siblings=[])
+
+    classes = {f.asset_class for f in frames}
+    assert AssetClass.AI_LIFESTYLE_CONCEPT not in classes, sorted(c.value for c in classes)
+
+
+def test_a_blocking_finding_answers_is_error_rather_than_a_spelled_out_severity():
+    """Found while writing a different test, and the worst kind of defect: a check that runs.
+
+    `ERROR` is the string "ERROR". Three separate places in the release chain filtered
+    findings with `f.severity == "error"` -- lowercase -- so the comparison was false by
+    construction and the findings could not block anything. Asset Truth could not stop a
+    listing image, the policy gate could not stop listing copy, and the confidence profile
+    counted zero asset errors however many there were. Every one of those gates produced
+    entirely correct findings that were then dropped on the floor.
+
+    So callers now ask the finding, and the finding knows.
+    """
+    from brambleloop.cir.compiler import ERROR, WARNING, Finding
+
+    assert Finding(ERROR, "X", "m").is_error is True
+    assert Finding(WARNING, "X", "m").is_error is False
+    # The trap itself: the constant is not spelled the way the old comparison assumed.
+    assert ERROR != "error", "the comparison that caused this would now silently work again"
+
+
+def test_no_source_file_compares_a_finding_severity_to_a_lowercase_string():
+    """The fixture that stops it coming back.
+
+    A defect becomes a permanent regression test (Gate B). This one cannot be pinned by
+    exercising behaviour alone, because the bug *was* invisible behaviour -- the gates ran
+    and their findings were filtered away -- so it is pinned where it can be seen.
+
+    Scoped to the `Finding` vocabulary on purpose. The CFO challenge has its own severities,
+    `note | concern | block`, which are genuinely lowercase and genuinely correct; a guard
+    that flagged those too would be noise, and noise is how a guard gets deleted.
+    """
+    import re
+
+    root = Path(__file__).resolve().parents[1]
+    trap = re.compile(r"""severity\s*==\s*['"](error|warning|info)['"]""", re.I)
+    offenders = []
+    for path in sorted((root / "src").rglob("*.py")):
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            match = trap.search(line)
+            # ERROR, WARNING and INFO are the constants; anything else is the trap.
+            if match and match.group(1) != match.group(1).upper():
+                offenders.append(f"{path.relative_to(root)}:{number}: {line.strip()}")
+    assert not offenders, (
+        "a Finding severity is being compared to a lowercase string again, which is false by "
+        "construction because the constant is upper case. Ask `finding.is_error`: "
+        + "; ".join(offenders))
+
+
+def test_an_asset_truth_error_actually_blocks_the_release_chain():
+    """The behavioural half: the gate has to stop something, not merely report.
+
+    The unit tests for Asset Truth always passed, because they call `check_assets` directly
+    and read the findings. The chain is where the findings were being discarded, so this
+    asserts the chain's own filter keeps them.
+    """
+    from brambleloop.cir.compiler import ERROR, WARNING, Finding
+
+    findings = [
+        Finding(WARNING, "ASSET_SOFT", "a warning must not block"),
+        Finding(ERROR, "ASSET_MOTIF_ABSENT", "depicts a stitch the pattern never works"),
+    ]
+    blocking = [str(f) for f in findings if f.is_error]
+    assert len(blocking) == 1, blocking
+    assert "ASSET_MOTIF_ABSENT" in blocking[0]
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

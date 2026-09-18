@@ -27,6 +27,19 @@ class Finding:
     component: str | None = None
     row: int | None = None
 
+    @property
+    def is_error(self) -> bool:
+        """Whether this finding blocks. Ask this; never compare `severity` to a literal.
+
+        Three separate places compared it to the string "error" while the constant is
+        "ERROR", so the comparison could not match and the findings could not block: Asset
+        Truth could not stop a listing image, the policy gate could not stop listing copy,
+        and the confidence profile counted zero asset errors no matter how many there were.
+        Every one of those checks ran, produced correct findings, and was then filtered
+        through a comparison that was false by construction.
+        """
+        return self.severity == ERROR
+
     def __str__(self) -> str:
         where = ""
         if self.component:

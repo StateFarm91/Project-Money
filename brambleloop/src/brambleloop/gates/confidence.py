@@ -152,7 +152,7 @@ def assess(cir: CIR, result: CompileResult, twin: TwinModel | None, *,
             f"with yarn, hook and tension and no sample has been worked")
 
     # Visual: rendered from the twin and checked, but still a render.
-    errors = [f for f in (asset_findings or []) if getattr(f, "severity", "") == "error"]
+    errors = [f for f in (asset_findings or []) if getattr(f, "is_error", False)]
     if twin is None:
         p.scores[Dimension.VISUAL] = 0.0
         p.notes[Dimension.VISUAL] = "no twin: nothing can be rendered from this pattern"

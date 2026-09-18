@@ -190,17 +190,37 @@ def check_asset(
                 f"difficulty turns away the buyer it was designed for", where))
 
     # --- honesty about what the image is ---
+    #
+    # Master Plan section 6 wants a consistent brand model; sections 7 and 27 want every
+    # asset to be what it says it is. Those meet at a generated lifestyle image of a crochet
+    # item, and the question -- flagged in BUILD_STATE to be decided deliberately rather than
+    # by default -- is what such an image is allowed to imply.
+    #
+    # It is decided here, before anything in this system can produce one, because a rule set
+    # after the first image exists is a rule argued against a sunk cost. An undisclosed
+    # generated lifestyle image asserts that somebody photographed a finished object. For
+    # every product in this catalogue that assertion is false in the strongest possible way:
+    # zero physical samples exist, so there is no finished object anywhere in the world for a
+    # photograph to be of. That is the same failure as a size claim the twin cannot support,
+    # and it is not lessened by the image sitting in frame four instead of frame one -- a
+    # buyer scrolling the gallery does not grade images by position.
+    #
+    # So it is an error wherever it appears, and being the hero is a second, separate error,
+    # because the hero is the image that wins the click.
     if asset.asset_class is AssetClass.AI_LIFESTYLE_CONCEPT:
-        if asset.is_hero and not asset.disclosed_as_illustration:
+        if not asset.disclosed_as_illustration:
             out.append(Finding(
                 ERROR, "ASSET_UNDISCLOSED_CONCEPT",
-                "an AI lifestyle concept is being used as the hero image without being "
-                "disclosed as an illustration; the hero reads as a photograph of a finished "
-                "object that does not exist", where))
-        elif not asset.disclosed_as_illustration:
+                "a generated lifestyle image is not disclosed as an illustration, so it "
+                "asserts that someone photographed a finished object. No physical sample of "
+                "this pattern exists, so there is nothing for such a photograph to be of",
+                where))
+        if asset.is_hero:
             out.append(Finding(
-                WARNING, "ASSET_CONCEPT_UNDISCLOSED",
-                "AI lifestyle concept is not marked as an illustration", where))
+                ERROR, "ASSET_CONCEPT_AS_HERO",
+                "a generated lifestyle image may not be the hero. The hero is the image that "
+                "wins the click, and it has to be the thing the pattern actually makes",
+                where))
 
     if asset.asset_class is AssetClass.PHYSICAL_PRODUCT_PHOTO and asset.provenance.source != "camera":
         out.append(Finding(
