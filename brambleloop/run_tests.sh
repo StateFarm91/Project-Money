@@ -34,7 +34,7 @@ SUITES=(
   tests/test_shadow.py
   tests/test_persistence.py tests/test_chaos.py tests/test_deploy.py
   tests/test_product_run.py tests/test_products.py tests/test_texture.py
-  tests/test_accessibility.py tests/test_acceptance_gates.py
+  tests/test_accessibility.py tests/test_build2.py tests/test_acceptance_gates.py
 )
 
 # Scheduling order is not the printing order. These six are the ones that take minutes, and

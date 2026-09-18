@@ -1,0 +1,2882 @@
+[
+ {
+  "id": 1,
+  "title": "Etsy Marketplace Insights as First-Party Demand Oracle",
+  "body": "Once the Etsy shop exists, use Etsy Marketplace Insights as a primary research input where accessible: real Etsy search terms, recent search volume, related terms/trends and listing competition. Use limited free research capacity efficiently; if a paid Etsy tier would materially improve research, present exact cost and expected value for owner approval.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "owner_gated",
+  "note": "Etsy Marketplace Insights needs the shop (owner action 2)"
+ },
+ {
+  "id": 2,
+  "title": "Search-Arbitrage and Competitive-Weakness Scoring",
+  "body": "Score each micro-market using demand, competition/listing density, quality of current offers, pricing/AOV, season timing, Brambleloop differentiation, machine verifiability, support burden and expected contribution. Explicitly hunt meaningful demand where competitors have weak thumbnails, poor PDFs, no video, confusing instructions, weak branding/bundles, stale aesthetics, limited sizes or recurring complaints.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "radar/opportunity.py scores demand/competition; no competitive-weakness dimensions (weak thumbnails, poor PDFs, no video, complaints)"
+ },
+ {
+  "id": 3,
+  "title": "Product Selection Tournament",
+  "body": "Do not fully engineer the first ideas. Generate roughly 75-100 inexpensive concepts -> research about 40 -> develop stronger commercial/visual propositions for about 20 -> prototype/digital-twin about 10-15 -> fully release only the strongest 5-10. Every stage has a kill gate. Concentrate engineering cost only after commercial evidence improves.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "radar selects an 11-SKU portfolio from a 34-concept pool; no staged 75-100 -> 40 -> 20 -> 10-15 -> 5-10 tournament with per-stage kill gates"
+ },
+ {
+  "id": 4,
+  "title": "Pre-Production Demand Validation",
+  "body": "Where platform rules permit, test truthful concepts/aesthetics on Pinterest, social and owned channels before expensive engineering. Clearly identify concepts and do not imply an unavailable item is a finished purchasable product. Never use fake Etsy listings, fake purchases or fabricated engagement.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "pre-production demand validation on owned channels"
+ },
+ {
+  "id": 5,
+  "title": "Fast Lane and Flagship Lane",
+  "body": "Operate two production queues after core QA stabilizes. FAST LANE: lower-complexity Class A/B products such as ornaments, coasters, mug rugs, selected hats, simple decor and suitable simple amigurumi for rapid learning/search coverage. FLAGSHIP LANE: premium blankets, major collections, selected garments and sophisticated seasonal products for authority, content depth and AOV. Both retain all applicable quality gates.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "fast lane / flagship lane as separate production queues"
+ },
+ {
+  "id": 6,
+  "title": "Christmas 2026 Strike Team",
+  "body": "As soon as real Market Radar is available, score Christmas micro-markets immediately: ornaments, stockings, tree skirts, blankets, pillows, runners, gift bags, hats, amigurumi, quick gifts and bundles. Select from current evidence. Do not allow infrastructure perfectionism to consume the seasonal making window.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "superseded by 33; radar has shopping-window arithmetic and Christmas concepts, but no seasonal engine"
+ },
+ {
+  "id": 7,
+  "title": "Premium Value Stack",
+  "body": "Flagships compete as complete project systems: polished PDF, written instructions, charts, progress visuals, print version, video/tutorial where useful, yarn substitution/colour guidance and version-aware AI pattern support. Price the customer outcome rather than page count.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "PDF, written instructions, charts exist; no video, yarn substitution guidance or version-aware AI support"
+ },
+ {
+  "id": 8,
+  "title": "Proof Stack",
+  "body": "Every flagship should accumulate progressively stronger proof: deterministic validation -> independent reverse compilation -> physical tester examples -> real customer projects/reviews -> repeat purchases. Marketing must distinguish proof levels honestly. Use tester/customer photos only with appropriate permission.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "quality/confidence.py separates arithmetic from physical confidence; no customer/review proof tiers"
+ },
+ {
+  "id": 9,
+  "title": "Creator and Tester Distribution",
+  "body": "Build a legitimate creator/tester seeding database with specialty, audience fit, reliability, engagement and permissions. Use it for independent physical proof, finished photos, colour variations, crochet-alongs, disclosed affiliate partnerships and real audience exposure. Never require or purchase dishonest reviews.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "creator/tester seeding database"
+ },
+ {
+  "id": 10,
+  "title": "Free-to-Paid Acquisition Engine",
+  "body": "Build owned SEO/Pinterest funnels around useful free motifs, mini patterns, tutorials and tools that demonstrate Brambleloop quality and lead naturally to premium singles/collections. Track visitor -> consented email -> first purchase -> repeat purchase -> collection purchase. Free content must have a commercial job.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "free-to-paid acquisition funnel"
+ },
+ {
+  "id": 11,
+  "title": "First 100 Customers Program",
+  "body": "Treat the first 100 legitimate buyers as a deliberate validation cohort. Track acquisition source, search term where available, product, price, conversion context, support issue, refund, review, repeat purchase and cross-sell. The goal is to discover what real Brambleloop buyers value and which acquisition loops repeat.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "data_gated",
+  "note": "needs real customers; schema and cohort machinery buildable now"
+ },
+ {
+  "id": 12,
+  "title": "Customer LTV and Cohorts",
+  "body": "Track first product, subsequent purchases, category affinity, time to repeat, AOV and lifetime contribution where platform/data rules permit. Segment owned audiences by demonstrated interest. Optimize customer lifetime contribution, not only single-listing revenue.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "data_gated",
+  "note": "needs real customers; schema and cohort machinery buildable now"
+ },
+ {
+  "id": 13,
+  "title": "Offer Engineering",
+  "body": "Test offers as well as designs: single pattern, pattern+video, mini bundle, complete collection, beginner-support package and seasonal bundle. Measure contribution per visitor and revenue per buyer. A winning design with a weak offer should be fixed before being discarded.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "offer engineering (bundle/video/support variants as testable offers)"
+ },
+ {
+  "id": 14,
+  "title": "Conversion Benchmark Engine",
+  "body": "Build internal baselines by category, traffic source, price band and shop maturity for impressions-to-click, favourites, conversion, refunds/support and contribution per visitor. Do not compare a CA$6 ornament and CA$15 blanket as if they share the same funnel.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "conversion benchmark engine by category/source/price band"
+ },
+ {
+  "id": 15,
+  "title": "First-Page SERP Laboratory",
+  "body": "For target Etsy queries, periodically capture legitimately observable search-result sets and score thumbnail composition, price/sale presentation, social-proof signals, pattern+video positioning, category diversity and Brambleloop differentiation. Treat observed rank as directional/contextual rather than absolute.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "owner_gated",
+  "note": "SERP capture needs the browser/vision capability (same gate as MJs)"
+ },
+ {
+  "id": 16,
+  "title": "Listing Experiment Discipline",
+  "body": "Record hypothesis, pre-period, treatment, exposure, outcome and confounders. Change one primary variable at a time where practical. Maintain experiment memory so disproven ideas are not repeatedly tested.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "listing experiment discipline + experiment memory"
+ },
+ {
+  "id": 17,
+  "title": "New-Shop Trust Accelerator",
+  "body": "Before scaling ads, complete the shop: premium icon/banner, About, policies, sections, coherent thumbnails, clear digital-download expectations, truthful product information and rapid support. Accumulate legitimate tester/customer proof. Never manufacture reviews.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "brand/storefront exists and passes its checks; no trust-accelerator sequencing before scaling"
+ },
+ {
+  "id": 18,
+  "title": "Customer-Service Conversion Advantage",
+  "body": "Target response in minutes when automation can safely answer from canonical data. Pattern Help must know the exact purchased version. Measure whether fast support reduces refunds and improves genuine reviews/repeat purchase. Escalate uncertainty instead of hallucinating.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "support/concierge.py answers from the exact released version; no response-time targets or refund-impact measurement"
+ },
+ {
+  "id": 19,
+  "title": "Promotional Science",
+  "body": "Use genuine time-bounded sales/coupons/order minimums only when policy-compliant. Measure incremental conversion, AOV and contribution, not merely revenue lift. Avoid conditioning the catalogue to require permanent discounts.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "commerce/pricing.py refuses deceptive discounts; no promotional science"
+ },
+ {
+  "id": 20,
+  "title": "Owned-Audience Compounding",
+  "body": "Every flagship should have an owned acquisition counterpart: SEO article/tutorial, Pinterest cluster, video where useful and consented email path. Track assisted conversions. Reduce long-term dependence on Etsy for every visit.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "content ecosystem exists per product; no owned-audience compounding"
+ },
+ {
+  "id": 21,
+  "title": "Creator Micro-Seeding",
+  "body": "Start with small legitimate collaborations and disclosed affiliate arrangements where appropriate. Measure attributable traffic, conversion, usable proof assets and support impact before scaling creator spend.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "creator micro-seeding"
+ },
+ {
+  "id": 22,
+  "title": "Bestseller Replication Protocol",
+  "body": "When a SKU becomes a statistically credible winner, temporarily reallocate substantial research/creative capacity to understanding WHY: theme, category, technique, low-sew/no-sew, aesthetic, season, price, thumbnail, video, buyer intent and bundle opportunity. Run adjacent controlled experiments without cloning the same product.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "bestseller replication protocol"
+ },
+ {
+  "id": 23,
+  "title": "Numeric Scale/Kill Framework",
+  "body": "Learn baselines for CTR, conversion, contribution per visitor, refund/support rate and paid CAC. Weak CTR -> thumbnail/title intervention. Strong CTR/weak conversion -> offer/trust/price. Strong conversion/low traffic -> distribution investment. High sales/high support -> QA before scaling. Learn thresholds from real data.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "data_gated",
+  "note": "numeric scale/kill framework; thresholds need real baselines"
+ },
+ {
+  "id": 24,
+  "title": "Revenue and Contribution per Visitor",
+  "body": "Make Revenue per Visitor and Contribution per Visitor first-class metrics. A higher-priced product with slightly lower conversion may be commercially superior to a cheap product. Pricing, SEO and paid-media agents optimize contribution economics rather than conversion rate alone.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "revenue and contribution per visitor as first-class metrics"
+ },
+ {
+  "id": 25,
+  "title": "$3K Run-Rate Decomposition",
+  "body": "Express CA$3,000/month as solvable funnel math: e.g. 200 orders x CA$15 AOV, 150 x CA$20, or 120 x CA$25. Then derive required qualified visits from observed conversion. Every weekly review identifies the largest constraint: traffic, CTR, conversion, AOV, repeat rate, product coverage or margin.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "run-rate decomposition and Monte Carlo trajectory simulator"
+ },
+ {
+  "id": 26,
+  "title": "CA$3K Trajectory / Monte Carlo Simulator",
+  "body": "Once enough real data exists, run nightly scenario analysis using listing count, qualified traffic, CTR, conversion, AOV, repeat rate, organic growth, paid CAC, product velocity, winner rate and retirement rate. Show assumptions/sensitivity and identify the primary constraint. Do not present modeled probabilities as objective truth.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "run-rate decomposition and Monte Carlo trajectory simulator"
+ },
+ {
+  "id": 27,
+  "title": "75-90% Confidence Gate",
+  "body": "Brambleloop may only report 75-90% modeled confidence of reaching/sustaining CA$3,000/month when evidence includes multiple independently selling SKUs rather than one viral outlier; positive contribution margin; stable pattern-quality/support metrics; repeatable qualified traffic; observed conversion over meaningful samples; at least one repeatable acquisition channel; improving legitimate review/trust base; no platform-policy warnings; and a scenario model whose conservative assumptions still approach the target.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "confidence gate (superseded for CA$5K by 230/275)"
+ },
+ {
+  "id": 28,
+  "title": "Conditional Scale Rules",
+  "body": "Strong conversion + low traffic -> increase distribution. High traffic + weak CTR -> thumbnail/title. Strong CTR + weak conversion -> offer/trust/price. Sustainable paid CAC below allowable CAC -> scale gradually. Rising support/refund defects -> stop scaling and investigate.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "conditional scale rules"
+ },
+ {
+  "id": 29,
+  "title": "Anti-Fragility Rule",
+  "body": "Do not allow one SKU, one holiday, one traffic source, one AI provider or one marketplace to become an existential dependency. Diversify after a channel/product is understood, without spreading resources so thin that nothing gets enough focus.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "radar portfolio constraints prevent single-season concentration; no explicit anti-fragility dependency rule"
+ },
+ {
+  "id": 30,
+  "title": "Growth Resource Allocation",
+  "body": "After core engineering stabilizes, prevent endless technical polishing from starving distribution. Mature-state conceptual allocation: roughly 30% product/QA, 30% market intelligence/product selection, 30% distribution/growth and 10% infrastructure/operations, dynamically adjusted to the current bottleneck.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "missing",
+  "note": "growth resource allocation model"
+ },
+ {
+  "id": 31,
+  "title": "Cost-to-Create and Profitable Throughput",
+  "body": "Track agent/API minutes and dollar cost per concept, validated pattern, PDF, listing, video asset, support case and acquired customer. Optimize validated products per operating dollar and contribution profit per operating dollar. A six-figure store that burns more than it earns is failure.",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "partial",
+  "note": "finance/books.py tracks cost; no cost-per-artifact throughput metrics"
+ },
+ {
+  "id": 32,
+  "title": "Merge Instruction for Claude",
+  "body": "After the current Claude build reaches a coherent checkpoint, send this newest upgrade file and say: Audit these upgrades against what you actually built. Merge every compatible improvement into the canonical architecture and Master Plan as v1.3. Do not rebuild working systems unnecessarily. Implement the highest-leverage missing pieces, add acceptance tests, update BUILD_STATE, and continue autonomous execution. The commercial priority is maximizing the probability of a sustainable CA$3,000/month while preserving pattern quality, platform safety and positive contribution economics. Do not stop for routine decisions. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.1 \u2014 365-Day Seasonal Revenue Engine",
+  "version": "v1.3",
+  "section": "Core commercial upgrades",
+  "status": "covered",
+  "note": "merge instruction; this audit is its execution"
+ },
+ {
+  "id": 33,
+  "title": "Replace the narrow Christmas Strike Team with a permanent 365-Day",
+  "body": "Seasonal Revenue Engine Christmas remains the immediate campaign because the current September 2026 making window is open, but Brambleloop is not a Christmas business. The system must continuously operate an evergreen base plus rolling seasonal waves plus trend opportunities plus breakout amplification. Three simultaneous planning horizons: NOW / MONETIZE \u2014 products customers are actively searching for; NEXT / BUILD \u2014 events whose shopping/making windows open soon; LATER / RESEARCH \u2014 events that need product engineering, indexing and audience-building months in advance. Seasonal universe: Christmas and winter; Valentine's Day; Easter; Mother's Day; Father's Day; weddings; baby showers; births/nursery; graduation; teacher gifts; spring/garden; summer/cottage; Canada Day; July 4 where commercially relevant; back-to-school; fall/autumn; Halloween; Canadian Thanksgiving; U.S. Thanksgiving; birthdays; housewarming; and other evidence-backed occasions. Opportunity allocation: do not give every event equal resources. Score expected demand \u00d7 achievable visibility \u00d7 contribution potential \u00d7 time remaining \u00d7 product fit \u00d7 competitive weakness \u00d7 production feasibility. Allocate creative, engineering and growth capacity dynamically from those scores. Making-date intelligence: each event stores design deadline, engineering deadline, physical-test deadline where required, publication/indexing date, expected search-growth window, peak purchase period and practical last-making date. The system should never discover Valentine's demand on February 1 or Christmas demand in December and call that timely. Dynamic seasonal squads: the Seasonal Revenue Director may spin up temporary Christmas, Halloween, Valentine's, Easter, Mother's Day, Fall/Thanksgiving, Summer/Patriotic, Wedding/Baby and other squads when forecasted opportunity warrants them. Squads deactivate when their marginal opportunity falls below alternatives; they are not permanent token-burning agents. Evergreen floor: seasonal campaigns may receive aggressive temporary allocation, but evergreen production never drops to zero. Maintain products in durable categories such as baby, animals/amigurumi, blankets, accessories, garments, bags, gifts and home decor to smooth revenue between peaks. Cross-season reuse without cloning: validated construction primitives, production tooling and commercial lessons may be reused across seasons, but creative expression must remain original. A successful Halloween product may teach Brambleloop that low-sew mini amigurumi converts; that insight can inform Christmas or Valentine's concepts without simply recolouring the same protected design. Seasonal portfolio dashboard: show each event's days to making-window open/close, active SKU count, candidate concepts, qualified traffic, conversion, revenue, contribution, inventory of release-ready products, content readiness and current capacity allocation. Breakout Product Emergency Mode: if a seasonal or evergreen SKU materially exceeds its category/shop velocity baseline, temporarily override normal production allocation. CEO, Growth, Pricing, Content and Collection agents investigate why it is breaking out, expand legitimate distribution, create high-confidence adjacent experiments and bundles, and protect quality. QA gates remain non-bypassable. Exit emergency mode when marginal opportunity normalizes. Immediate 2026 application: Christmas should receive urgent attention now because the making window is active, while the NEXT and LATER horizons simultaneously prepare winter/Valentine's and subsequent spring/Easter/Mother's Day opportunities. The exact allocation must come from current market evidence, not a fixed percentage. Merge instruction: when this queued upgrade package is given to Claude, replace any architecture that treats 'Christmas Strike Team' as the permanent seasonal strategy with this 365-Day Seasonal Revenue Engine. Preserve Christmas as the current campaign, not the company identity. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.2 \u2014 Adversarial Commercial + Policy Audit These upgrades extend v1.3.1. They were added after another adversarial audit focused on Etsy policy freshness, evidence quality, autonomous-agent thrashing, customer lifecycle, financial discipline and business continuity.",
+  "version": "v1.3.1",
+  "section": "365-Day Seasonal Revenue Engine",
+  "status": "partial",
+  "note": "radar/market.py has shopping-vs-making window arithmetic and dated events; no 365-day engine, horizons, squads or seasonal dashboard"
+ },
+ {
+  "id": 34,
+  "title": "Stagnation / Thrash Detection",
+  "body": "Any agent that observes three materially identical states without progress must stop polling and re-plan. Repeated identical tool call + identical result triggers a circuit breaker. Polling backs off exponentially. Deployment retries require a changed hypothesis/root-cause fix. Track progress-per-dollar and progress-per-iteration; suspend loops consuming budget without state change.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "stagnation/thrash detection and circuit breaker"
+ },
+ {
+  "id": 35,
+  "title": "Etsy Creativity / AI Disclosure Gate",
+  "body": "Before every Etsy release, classify the product under current Etsy Creativity Standards and generate required disclosures. Etsy permits seller-designed digital downloads and seller-prompted AI creations, but AI use must be disclosed where required. Policy Agent must re-fetch current policy before enabling new asset/product classes. Never assume an AI-generated lifestyle image satisfies Etsy's listing-image requirements.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "Etsy creativity/AI disclosure gate"
+ },
+ {
+  "id": 36,
+  "title": "Evidence-Backed Listing Imagery Policy",
+  "body": "Separate product proof from promotional concept imagery. For patterns, prioritize real tester/customer finished-project photography as soon as available. Store provenance, consent/license, pattern version, yarn/colour and whether image is physical, simulated or AI-assisted. If current Etsy policy requires seller-owned photos/video or restricts renderings for the relevant listing class, the Policy Gate blocks incompatible assets.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "gates/asset_truth.py has provenance and the B-097 disclosure rule; no consent/licence/physical-vs-simulated policy routing"
+ },
+ {
+  "id": 37,
+  "title": "Marketplace Insights Query Budgeter",
+  "body": "Marketplace Insights becomes a scarce first-party research resource. Allocate keyword queries using expected information gain: validate the highest-uncertainty/highest-value micro-markets first. Store every query/result snapshot so the same keyword is not wastefully re-queried. Etsy Plus/unlimited access is an owner-approved upgrade only when expected value exceeds cost.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "owner_gated",
+  "note": "Marketplace Insights query budgeter; needs the shop"
+ },
+ {
+  "id": 38,
+  "title": "Trend Data Provenance and Geography",
+  "body": "Every trend/search datum stores source, date range, geography/population and freshness. Etsy trend reports can be based on specific populations/time windows, so agents may not present U.S.-only or historical trend data as current Canadian/global demand. Opportunity scores discount stale or mismatched evidence.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "radar observations carry observation dates; no geography/population or freshness discounting in the score"
+ },
+ {
+  "id": 39,
+  "title": "Policy Freshness Watch",
+  "body": "Policy Agent performs scheduled checks of Etsy Seller Policy, Creativity Standards, listing-image rules, advertising rules and shilling/review rules. Material policy changes create a blocking incident for affected workflows until reviewed/tested. Store policy version/date with each release certificate.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "policy freshness watch"
+ },
+ {
+  "id": 40,
+  "title": "Product Rights / Commercial-Use Terms",
+  "body": "Each Brambleloop pattern must carry explicit customer-use terms chosen deliberately: what the buyer may do with the PDF, whether finished physical items may be sold, redistribution prohibition, and support/version policy. The terms must be consistent across PDF, listing and FAQ and should be legally reviewed before relying on them as enforceable.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "product rights / commercial-use terms"
+ },
+ {
+  "id": 41,
+  "title": "Refund / Chargeback / Case Prevention",
+  "body": "Design digital-product messaging to prevent mistaken purchases: prominent 'DIGITAL CROCHET PATTERN \u2014 NOT A FINISHED ITEM', skill level, required materials, terminology and download/support instructions. Track confusion-driven contacts/refunds as a conversion-quality defect. Customer Experience prioritizes resolution before Etsy's case window where applicable.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "listing copy says digital pattern; no refund/chargeback prevention programme or confusion-defect tracking"
+ },
+ {
+  "id": 42,
+  "title": "Pattern Version Delivery System",
+  "body": "Every sold product maps order -> pattern_id -> purchased version -> current safe version. When a material correction occurs, identify affected buyers and prepare policy-compliant update communication. Support always answers against the buyer's version and can explain migration to the corrected version.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "support answers against the purchased version; no order->version map or affected-buyer identification"
+ },
+ {
+  "id": 43,
+  "title": "Tester Capacity Marketplace",
+  "body": "Treat physical testing as a schedulable constrained resource. Forecast upcoming Class B/C testing demand, maintain tester reliability/specialty scores, avoid one tester becoming a bottleneck, and schedule seasonal products early enough that physical QA does not miss the making window.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "quality/physical.py records samples; no tester capacity marketplace"
+ },
+ {
+  "id": 44,
+  "title": "Brand Moat Beyond the Model",
+  "body": "The recurring fictional model is one brand asset, not the brand itself. Build recognizable Brambleloop signatures: editorial layout, naming architecture, photography language, chart style, tutorial voice, collection families, customer-support experience and distinctive original design grammar. The shop must remain recognizable even on product-first listings without the model.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "brand system exists; no explicit moat inventory beyond the model"
+ },
+ {
+  "id": 45,
+  "title": "Product Cannibalization / Bundle Attribution",
+  "body": "When adding adjacent products and bundles, measure whether they create incremental revenue or merely move buyers from a higher-contribution SKU. Attribute bundle uplift, attach rate and cannibalization before declaring Winner Amplification successful.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "cannibalization / bundle attribution"
+ },
+ {
+  "id": 46,
+  "title": "Price Elasticity Memory",
+  "body": "Pricing experiments build a category-specific elasticity history. Record price, sale state, traffic source, season, conversion, AOV and contribution. Avoid interpreting seasonal traffic changes as price effects. Use genuine regular prices and truthful temporary promotions.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "price elasticity memory"
+ },
+ {
+  "id": 47,
+  "title": "Zero-Sale Diagnostic Ladder",
+  "body": "For new products with no sales, diagnose sequentially: insufficient impressions -> query/distribution; impressions/no clicks -> thumbnail/title; clicks/no favourites/cart -> product appeal; favourites/cart/no purchase -> price/trust/offer; purchases/refunds/support -> product quality. Do not retire a product before enough exposure exists to identify the stage failing.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "zero-sale diagnostic ladder"
+ },
+ {
+  "id": 48,
+  "title": "Launch Cohort Holdout",
+  "body": "Where practical, maintain small organic/control cohorts before scaling paid promotion so the system can distinguish genuine listing/product improvement from traffic purchased by ads. Record assisted versus direct outcomes.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "launch cohort holdout"
+ },
+ {
+  "id": 49,
+  "title": "Cash-to-Growth Reinvestment Policy",
+  "body": "Revenue does not automatically become ad budget. Define a cash reserve, tax reserve, operating reserve and reinvestment envelope. CFO can recommend reinvestment based on marginal contribution and confidence, but consequential increases remain owner-gated.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "cash-to-growth reinvestment policy"
+ },
+ {
+  "id": 50,
+  "title": "Single-Point Dependency Map",
+  "body": "Continuously map dependencies: Etsy account, Railway, Postgres, model providers, GitHub, domain/email, payment rails, tester network and key traffic channels. Each critical dependency gets backup/export/recovery strategy proportional to business impact.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "BUILD_1_BASELINE.md maps dependencies by hand; not a live map"
+ },
+ {
+  "id": 51,
+  "title": "Business Continuity Export",
+  "body": "Nightly or scheduled exports preserve CIRs, PDFs, charts, listing copy/assets metadata, customer-support knowledge, competitor snapshots, experiments and financial ledger in portable formats. The company must be reconstructable if a SaaS provider disappears.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "business continuity export -- OWNER FLAGGED TO CLOSE EARLY"
+ },
+ {
+  "id": 52,
+  "title": "Quality-Adjusted Release Velocity",
+  "body": "CEO dashboard tracks releases/week only alongside defect rate, support burden, conversion and contribution. Never reward agents for shipping more SKUs if quality or economics deteriorate.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "quality-adjusted release velocity"
+ },
+ {
+  "id": 53,
+  "title": "Stop-Doing Queue",
+  "body": "Every weekly strategy review produces not only new work but a STOP list: experiments to end, agents/cadences to reduce, products to stop polishing, queries not worth monitoring and infrastructure work with insufficient commercial value. This prevents autonomous bureaucracy.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "stop-doing queue"
+ },
+ {
+  "id": 54,
+  "title": "Pre-Etsy Launch Readiness Gate",
+  "body": "Before asking owner to open/connect live Etsy operations, require: brand/name clearance checkpoint; storefront asset pack; at least several release-ready products with truthful proof status; policies/FAQ; digital-item disclosure language; customer-support knowledge; pricing/promotion plan; launch calendar; analytics baseline; exact owner setup checklist; and rollback plan.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "partial",
+  "note": "launch/readiness.py is exactly this gate; needs the v1.4 additions (brand clearance checkpoint, rollback plan, analytics baseline)"
+ },
+ {
+  "id": 55,
+  "title": "$3K Confidence Evidence Ladder",
+  "body": "Track confidence in stages rather than jumping from zero to 75-90%. Architecture confidence -> product-quality confidence -> demand confidence -> conversion confidence -> acquisition confidence -> repeatability confidence. The 75-90% modeled band requires evidence across all layers, not merely a Monte Carlo output.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "missing",
+  "note": "confidence evidence ladder (superseded for CA$5K by 274)"
+ },
+ {
+  "id": 56,
+  "title": "Upgrade Merge Priority",
+  "body": "When Claude receives this package, merge in priority order: (1) policy/asset compliance and stagnation safeguards; (2) first-party market intelligence/provenance; (3) product tournament + seasonal engine; (4) conversion/offers/pricing; (5) acquisition/LTV/winner amplification; (6) resilience/continuity. Do not destabilize already-proven compiler/runtime foundations. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.3 \u2014 Visual Asset Production Audit Added from the first real Build-1 listing-asset outputs. These are architecture-level lessons, not instructions to interrupt the active v1.2 build.",
+  "version": "v1.3.2",
+  "section": "Adversarial commercial + policy audit",
+  "status": "covered",
+  "note": "merge priority; this audit orders the work by it"
+ },
+ {
+  "id": 57,
+  "title": "Separate Evidence Assets from Conversion Assets",
+  "body": "The deterministic twin/chart layer produces truthful EVIDENCE ASSETS, not automatically customer-facing sales creative. Create explicit classes: ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION, CONVERSION_CREATIVE and PHYSICAL_PROOF. A technically correct chart cannot be promoted to hero/listing creative merely because it rendered successfully.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "AssetClass exists with 5 classes; needs ENGINEERING_EVIDENCE / CUSTOMER_INFORMATION / CONVERSION_CREATIVE / PHYSICAL_PROOF semantics"
+ },
+ {
+  "id": 58,
+  "title": "Listing Asset Promotion Gates",
+  "body": "Every asset passes four independent gates before customer use: DATA_TRUTH (values match CIR/gauge/version), LAYOUT_QA (no clipping, overflow, overlap, illegible type or contradictory dimensions), COMMERCIAL_QA (the frame has a defined conversion job and is competitive at mobile/search-grid scale), and POLICY_PROVENANCE (asset type/disclosure/rights satisfy current marketplace rules). Failure at any gate prevents listing export.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "check_frame_plan + check_assets cover DATA_TRUTH and some LAYOUT_QA; no COMMERCIAL_QA or POLICY_PROVENANCE gate"
+ },
+ {
+  "id": 59,
+  "title": "Automated Visual Layout QA",
+  "body": "Add deterministic bounding-box and safe-area tests for title truncation, chart/text collision, footer overlap, edge clipping, minimum font size, mobile crop, aspect ratio and whitespace. Render every listing frame at target Etsy dimensions and at a small mobile preview. Text or charts crossing reserved regions is a test failure, not an aesthetic opinion.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "LISTING_NO_FONT, LISTING_HERO_FABRIC_FLAT and the thumbnail check exist; no bounding-box/safe-area/mobile-crop suite"
+ },
+ {
+  "id": 60,
+  "title": "Dimensional Consistency Auditor",
+  "body": "Every displayed measurement must trace to one canonical measurement object. Detect contradictory or contextless dimensions such as a finished-size card showing 90\u00d7122 cm alongside an unexplained 180 cm marker. Labels must identify width, length, circumference, component, blocked state and size variant where relevant.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "geometry.py is the canonical measurement object and refuses what it cannot measure; no cross-frame dimensional consistency auditor"
+ },
+ {
+  "id": 61,
+  "title": "Visual Semantic QA",
+  "body": "The system must test whether an image communicates what its caption/title claims. A finished-result frame cannot be only abstract horizontal rows. A chart preview must look like a chart preview. A size card must communicate scale clearly. Use independent visual review plus deterministic metadata assertions; do not rely on the generator grading itself.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "missing",
+  "note": "visual semantic QA -- does the image communicate its caption's claim"
+ },
+ {
+  "id": 62,
+  "title": "Hero Image Standard",
+  "body": "The hero's job is desire and instant comprehension, not documentation. It should communicate the expected finished project at search-grid/mobile scale while remaining truthful and policy-compliant. Technical charts, stitch maps and size cards belong later in the listing sequence unless market evidence proves otherwise.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "hero rules exist (not a concept, fabric not flat); no finished-project comprehension standard"
+ },
+ {
+  "id": 63,
+  "title": "Evidence-to-Creative Pipeline",
+  "body": "Required flow: CIR -> compiled/twin truth -> engineering evidence -> creative brief constrained by truth -> conversion creative -> independent Asset Truth comparison -> layout/commercial/policy gates -> listing export. Creative systems may improve presentation but may never invent motifs, dimensions, texture, construction or included deliverables.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "the CIR->twin->evidence half is built; no creative brief or conversion creative stage"
+ },
+ {
+  "id": 64,
+  "title": "Physical Proof Upgrade Path",
+  "body": "For products initially marketed with permitted non-physical representations, create an automatic upgrade task when tester/customer physical photography becomes available. Replace or supplement weaker conceptual assets with genuine finished-project proof where rights permit, then measure CTR/conversion impact.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "missing",
+  "note": "physical proof upgrade path"
+ },
+ {
+  "id": 65,
+  "title": "Listing Frame Job Map",
+  "body": "Every frame has exactly one primary commercial job: DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PATTERN_PREVIEW, PROOF or CROSS_SELL. Frames without a buyer-relevant job are removed. Prevent five technically different images from communicating essentially the same thing.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "six frames have roles; not a one-primary-job map with filler removal"
+ },
+ {
+  "id": 66,
+  "title": "Mobile-First Creative QA",
+  "body": "Evaluate every listing set as a shopper actually sees it: search thumbnail, phone gallery, first 3 frames, then full gallery. Store screenshots/renders of these contexts during QA. Optimize title-safe area and visual hierarchy for small screens rather than desktop-only output.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "thumbnail evaluated at 2000px search scale; no phone gallery or first-3-frames context renders"
+ },
+ {
+  "id": 67,
+  "title": "Competitive Creative Benchmark",
+  "body": "Before release, compare the listing set against a current sample of strong products in the same micro-market on measurable dimensions: finished-result clarity, thumbnail stop-power, proof, information density, consistency, video/support proposition and visual polish. Do not copy competitor creative; use the benchmark to reject obviously substandard presentation.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "owner_gated",
+  "note": "competitive creative benchmark needs browser/vision"
+ },
+ {
+  "id": 68,
+  "title": "Creative Defect Feedback Loop",
+  "body": "Track clipping, confusing dimensions, misleading visualization, weak hero, unreadable chart and redundant frames as named defect classes. Every production-discovered visual defect gets a regression fixture, just like compiler defects. Asset-system quality should improve monotonically rather than rediscovering the same layout failures.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "B-084/085/086 became regression fixtures; no named visual defect classes"
+ },
+ {
+  "id": 69,
+  "title": "Technical Asset Honesty Label",
+  "body": "Internal and customer-facing labeling must distinguish a digital pattern render/chart from a photograph of a physically completed object whenever that distinction is material. Do not use a disclaimer as permission to make a misleading hero; honesty labels complement, not replace, truthful presentation.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "partial",
+  "note": "B-097 labels generated lifestyle imagery; not generalised"
+ },
+ {
+  "id": 70,
+  "title": "Listing Set Release Certificate",
+  "body": "Create a listing-set certificate tied to product/version that records the exact approved asset hashes, frame order, measurement sources, provenance, disclosures, QA results and policy version. Any product revision that changes geometry/claims invalidates affected listing assets until re-certified. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.4 - Creative Parity + Model Hard Gate Release-blocking standard: Brambleloop will not accept listing presentation below strong category-matched Etsy benchmarks, and the approved fictional Brambleloop model is mandatory where human modeling is commercially appropriate.",
+  "version": "v1.3.3",
+  "section": "Visual asset production audit",
+  "status": "missing",
+  "note": "listing set release certificate"
+ },
+ {
+  "id": 71,
+  "title": "Creative Parity Is a Release-Blocking Gate",
+  "body": "Brambleloop does not ship customer-facing listing creative that is materially weaker than the strongest current listings in the same Etsy micro-market. Technical correctness, completed rendering, or internal approval does not satisfy this gate. If a blind side-by-side review would make Brambleloop look amateur, synthetic, confusing or obviously inferior, the listing remains blocked.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "owner_gated",
+  "note": "creative parity gate needs current benchmark evidence (browser)"
+ },
+ {
+  "id": 72,
+  "title": "Mandatory Brambleloop Model for Applicable Products",
+  "body": "For appropriate wearables and model-led accessories, the approved fictional Brambleloop adult model is mandatory in the customer-facing gallery unless Policy Gate or product context specifically rules it out. Maintain one recognizable identity across listings: stable facial structure, light eyes, dark brunette hair, approximate age, proportions and editorial character. Wardrobe, pose, season and environment may vary. Material identity drift is a QA failure.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "owner_gated",
+  "note": "Brambleloop model: needs an image generation capability and owner identity selection (199/200)"
+ },
+ {
+  "id": 73,
+  "title": "Model Continuity Reference Pack",
+  "body": "Maintain a versioned approved reference pack and character bible containing canonical face views, hair/eye descriptors, proportions, makeup range, expression range, wardrobe rules, lighting language and rejected drift examples. Every new model asset is compared against this pack before approval. Updating the canonical identity is an explicit brand-version event, not accidental generation drift.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "owner_gated",
+  "note": "Brambleloop model: needs an image generation capability and owner identity selection (199/200)"
+ },
+ {
+  "id": 74,
+  "title": "Product-First Exceptions",
+  "body": "Do not force the model into products where she reduces clarity. Blankets, amigurumi, baskets, runners, pillows, ornaments, nursery decor and similar categories should normally lead with the finished project in an aspirational truthful environment. The Model Gate applies only where human modeling materially helps the buyer understand or desire the product.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "owner_gated",
+  "note": "Brambleloop model: needs an image generation capability and owner identity selection (199/200)"
+ },
+ {
+  "id": 75,
+  "title": "Eight-Part Creative Parity Gate",
+  "body": "Before listing export, independently pass: (1) IDENTITY - correct Brambleloop model where applicable; (2) PRODUCT TRUTH - crochet shown matches certified design; (3) HERO - immediate finished-result comprehension; (4) MOBILE GRID - strong at Etsy search-thumbnail scale; (5) LIFESTYLE QUALITY - premium lighting/composition/material realism; (6) GALLERY - complete purposeful sequence without filler; (7) BRAND - recognizably Brambleloop; (8) COMPETITIVE BLIND REVIEW - not materially inferior beside current benchmark listings. Any failure blocks release.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "owner_gated",
+  "note": "Brambleloop model: needs an image generation capability and owner identity selection (199/200)"
+ },
+ {
+  "id": 76,
+  "title": "Benchmark Set Must Be Current and Category-Matched",
+  "body": "Creative Director maintains a dated benchmark set from strong legitimate listings in each target micro-market. Wearables compare with wearables; mosaic blankets with comparable blankets; amigurumi with comparable amigurumi. Benchmark dimensions include thumbnail clarity, realism, styling, crop, lighting, product prominence, gallery storytelling, information cards, video/support proposition and brand consistency. Learn standards, never copy protected expression.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "owner_gated",
+  "note": "benchmark set must be current; needs browser/vision"
+ },
+ {
+  "id": 77,
+  "title": "No AI Quality Discount",
+  "body": "The autonomous system may not lower the visual standard because an asset was AI-assisted. If the available generator cannot achieve benchmark quality and product truth simultaneously, route to a stronger permitted model/tool, change the composition, use deterministic/physical proof, or block the asset. 'Best the current model could do' is not a release criterion.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "missing",
+  "note": "no-AI-quality-discount rule"
+ },
+ {
+  "id": 78,
+  "title": "Hero Dream / Evidence Proof Principle",
+  "body": "The gallery must first create desire and comprehension, then substantiate the purchase. Hero/lifestyle frames sell the truthful finished outcome; later evidence frames prove dimensions, chart quality, materials, included files and support. Never use technical evidence as a substitute for aspirational merchandising, and never use aspirational imagery to override evidence.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "missing",
+  "note": "hero dream / evidence proof principle"
+ },
+ {
+  "id": 79,
+  "title": "Physical Realism and Crochet Plausibility Review",
+  "body": "Independent visual QA checks stitch-scale plausibility, yarn continuity, edge construction, drape, joins, hands/fingers where present, garment fit, shadows, repeated textures, impossible seams and other synthetic artifacts. Product Truth validates structure; realism QA validates that the customer-facing depiction does not look fake or physically impossible.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "missing",
+  "note": "physical realism and crochet plausibility review"
+ },
+ {
+  "id": 80,
+  "title": "Gallery Minimum Quality, Not Minimum Count",
+  "body": "Do not fill a gallery to reach an arbitrary image count. Every frame must pass its commercial job and quality gate. A shorter excellent gallery is preferable to a longer gallery containing weak filler; expand only when additional frames answer a buyer question, add proof or increase desire.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "partial",
+  "note": "gallery is 6-7 frames by construction; no minimum-quality-not-count rule"
+ },
+ {
+  "id": 81,
+  "title": "Creative Failure Escalation Ladder",
+  "body": "When Creative Parity fails: regenerate with constrained brief -> change composition/environment -> change permitted image model/tool -> use stronger deterministic representation -> acquire tester/physical proof -> hold listing. Never solve a failed parity gate by relaxing the threshold.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "missing",
+  "note": "creative failure escalation ladder"
+ },
+ {
+  "id": 82,
+  "title": "Creative Performance Learning",
+  "body": "After launch, measure search-grid CTR, first-frame engagement where available, listing conversion and creative experiment outcomes by asset style. High-performing creative patterns become brand knowledge, but performance never overrides Product Truth, policy or identity continuity. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.5 - Creativity Engine + Autonomous Continuous Improvement Added after comparing early generated concepts with current market creative. This upgrade makes product desirability a pre-engineering gate and establishes a permanent, controlled self-improvement organization so Brambleloop compounds knowledge and capability instead of remaining static.",
+  "version": "v1.3.4",
+  "section": "Creative parity + model hard gate",
+  "status": "data_gated",
+  "note": "creative performance learning; needs launch data"
+ },
+ {
+  "id": 83,
+  "title": "Design Desirability Is a Pre-Engineering Hard Gate",
+  "body": "A technically feasible concept does not deserve CIR engineering merely because it fills a keyword/category slot. Before expensive engineering, independently score visual hook, emotional hook, functional hook, distinctiveness, giftability/occasion fit, thumbnail concept, collection potential, physical plausibility and competitive novelty. Concepts below threshold are killed or returned for ideation.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "design desirability as a pre-engineering hard gate"
+ },
+ {
+  "id": 84,
+  "title": "Creative Concept Tournament",
+  "body": "For each commercially promising opportunity, generate a diverse field of materially different concepts before selecting one. Target approximately 12-25 concepts when economics justify it. Do not accept superficial colour/name variants as diversity. The tournament should include different forms, transformations, storage/presentation ideas, motif systems, emotional tones, construction approaches and bundle/collection possibilities.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "creative concept tournament (12-25 materially different concepts)"
+ },
+ {
+  "id": 85,
+  "title": "Creativity Director + Adversarial Creative Jury",
+  "body": "Create a Creativity Director responsible for concept quality, plus independent critic agents that attack sameness, genericness, weak emotional appeal, derivative thinking, poor thumbnail potential and unnecessary complexity. The proposing agent may not be the sole judge of its own concept. Jury feedback becomes structured training memory for future ideation.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "Creativity Director + adversarial creative jury"
+ },
+ {
+  "id": 86,
+  "title": "Creativity Benchmark Memory",
+  "body": "Continuously study legitimate current market examples across categories to learn abstract commercial attributes: clever transformation, strong silhouette, recognisable motif, cute characterisation, premium minimalism, gift narrative, modularity, low-sew appeal, surprising function and collection logic. Store attributes and outcomes, not copied protected expression.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "owner_gated",
+  "note": "creativity benchmark memory; needs market observation"
+ },
+ {
+  "id": 87,
+  "title": "Novelty Distance / Anti-Clone Gate",
+  "body": "Before engineering, compare a candidate against observed competitor concepts and Brambleloop's own catalogue. Reject near-clones, trivial recolours and ideas whose primary appeal depends on reproducing another seller's distinctive expression. Require a defensible Brambleloop creative contribution.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "novelty distance / anti-clone gate"
+ },
+ {
+  "id": 88,
+  "title": "Idea-to-Thumbnail Test",
+  "body": "Every finalist must have a one-sentence visual premise and a thumbnail storyboard before CIR work. Ask: if seller name, reviews, badges and price vanished, would the product idea itself still create curiosity or desire at mobile-grid size? If not, return to ideation.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "idea-to-thumbnail test"
+ },
+ {
+  "id": 89,
+  "title": "Creativity Outcome Learning",
+  "body": "After launch, connect concept attributes to real outcomes: impressions, CTR, favourites, conversion, reviews, repeat purchase, support burden and contribution. Learn which kinds of originality create demand for Brambleloop. Do not equate novelty with success; optimize useful/desirable originality.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "data_gated",
+  "note": "creativity outcome learning; needs launch data"
+ },
+ {
+  "id": 90,
+  "title": "Continuous Improvement Department",
+  "body": "Create a permanent autonomous Improvement Department whose only mission is to make Brambleloop and every department measurably better over time. It observes incidents, experiments, customer feedback, market changes, agent performance, cost, latency, product quality, creative quality and commercial outcomes; proposes bounded improvements; tests them; and promotes only evidence-backed upgrades.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "Improvement Department, cells, sandbox loop, rollback"
+ },
+ {
+  "id": 91,
+  "title": "Department Improvement Cells",
+  "body": "Each major department receives an improvement cell: Product Creativity, Pattern Engineering, QA, Market Radar, Pricing, Creative Assets, SEO/Search, Growth/Ads, Customer Experience, Portfolio, Finance and Runtime. Cells maintain their own defect/opportunity backlog, experiments, baselines and improvement history while a central Improvement Director prevents conflicting local optimizations.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "Improvement Department, cells, sandbox loop, rollback"
+ },
+ {
+  "id": 92,
+  "title": "Learn -> Hypothesize -> Sandbox -> Test -> Promote Loop",
+  "body": "Self-improvement follows a controlled loop: observe evidence -> identify constraint -> form explicit hypothesis -> implement in sandbox/branch -> run regression/adversarial tests -> compare against baseline -> promote if better -> monitor -> rollback if worse -> record lesson. Production code/prompts/rules may not self-modify blindly.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "Improvement Department, cells, sandbox loop, rollback"
+ },
+ {
+  "id": 93,
+  "title": "Immutable Baselines and Automatic Rollback",
+  "body": "Every promoted improvement stores previous version, test evidence, expected metric effect and rollback path. If post-promotion quality, cost, reliability, policy compliance or commercial KPI materially degrades, automatically revert within defined authority. Safety/policy/financial gates cannot be weakened by the learning system.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "Improvement Department, cells, sandbox loop, rollback"
+ },
+ {
+  "id": 94,
+  "title": "Creativity Capability Scorecard",
+  "body": "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "creativity capability scorecard"
+ },
+ {
+  "id": 95,
+  "title": "Agent Performance League",
+  "body": "Score agents and prompt/model configurations on domain-specific outcomes, cost and reliability. Run challenger configurations against incumbents on controlled tasks. Promote challengers only when they beat the incumbent without violating truth/policy gates. Retire persistently weak configurations.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "partial",
+  "note": "gateway/evals.py blocks a bad prompt version; no agent league or challenger promotion"
+ },
+ {
+  "id": 96,
+  "title": "Prompt / Model / Tool Evolution Registry",
+  "body": "Version every material prompt, model, tool and decision policy. Record why it changed, tests, cost, measured outcome and affected departments. Improvement agents may recommend switching providers/tools when evidence supports it, subject to existing owner spend/credential gates.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "partial",
+  "note": "gateway/prompts.py versions and content-hashes prompts; no evolution registry recording why/tests/cost/outcome"
+ },
+ {
+  "id": 97,
+  "title": "Cross-Department Lesson Bus",
+  "body": "A lesson discovered in one department must be routable to others. Example: customers strongly prefer low-sew construction -> Market Radar scores low-sew opportunities higher, Creativity explores low-sew concepts, Pattern Engineering prioritizes suitable primitives, Listings surface the benefit, and Support tracks whether it reduces confusion.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "cross-department lesson bus"
+ },
+ {
+  "id": 98,
+  "title": "External Learning Radar",
+  "body": "Continuously monitor permitted sources for new crochet techniques, aesthetics, seasonal behaviour, marketplace tooling/policy, search changes, image/video capabilities, competitor positioning and customer pain points. Every observation stores source/date/freshness and is separated from verified internal causal evidence.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "external learning radar"
+ },
+ {
+  "id": 99,
+  "title": "Improvement Budget and ROI",
+  "body": "Continuous learning is not permission to burn unlimited tokens or rebuild working systems. Track improvement cost and expected/realized benefit. Prioritize changes with high expected impact on product desirability, quality, conversion, acquisition, margin or reliability. Apply stagnation/thrash rules to the Improvement Department itself.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "improvement budget and ROI"
+ },
+ {
+  "id": 100,
+  "title": "Weekly Autonomous Business Retrospective",
+  "body": "On a scheduled cadence, the Improvement Director produces an internal machine-readable retrospective: what improved, what regressed, what was learned, current bottleneck, experiments completed, experiments killed, department health, top next upgrades and STOP-doing list. It should execute approved low-risk improvements rather than merely write reports.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "weekly autonomous business retrospective"
+ },
+ {
+  "id": 101,
+  "title": "Compounding Knowledge Requirement",
+  "body": "Brambleloop must not repeatedly start from generic model intelligence. Persist structured lessons from every product, competitor scan, experiment, incident, support case and sale. New designs should demonstrably use accumulated Brambleloop knowledge while remaining original. The expected creative bar rises as the evidence base grows.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "compounding knowledge requirement"
+ },
+ {
+  "id": 102,
+  "title": "Self-Improvement Governance Boundary",
+  "body": "The system may autonomously improve code, prompts, scoring, workflows and agent configuration within tested, reversible and spend-authorized bounds. It may never autonomously weaken policy gates, fabricate evidence/reviews, bypass owner-only legal/KYC/spend gates, erase audit history, or promote an untested change directly to production.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "partial",
+  "note": "agents/registry.py enforces authority and forbidden combinations; no self-improvement governance boundary"
+ },
+ {
+  "id": 103,
+  "title": "Geometry Truth / Visual Shape Gate",
+  "body": "Claims such as circle, oval, square, hexagon, tapered, fitted, spherical, conical or panel geometry must be computationally derivable from certified construction data where applicable. Customer text, charts, twin geometry and CIR must agree. A metadata label alone is not evidence that the pattern produces the claimed shape.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "covered",
+  "note": "cir/geometry.py + gates/asset_truth.check_shape_claims; B-059/061/103 is exactly this gate, derived from certified construction"
+ },
+ {
+  "id": 104,
+  "title": "Creative Growth North Star",
+  "body": "The long-term creative objective is explicit: later Brambleloop concepts should be more desirable, distinctive and commercially informed than earlier ones. Improvement is measured against historical Brambleloop cohorts and current category benchmarks. If creative capability plateaus, the Improvement Department treats that as a top-level business defect. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.6 - Deep Seasonal Creativity Audit This audit was derived from the supplied Etsy benchmark screenshots. The observed standard is not merely attractive photography: strong products repeatedly combine recognizable silhouettes, dimensional motifs, functional transformations, gift narratives, character systems, seasonal storytelling and cohesive model-led merchandising. Brambleloop must treat that level as a floor and seek original concepts beyond it.",
+  "version": "v1.3.5",
+  "section": "Creativity engine + continuous improvement",
+  "status": "missing",
+  "note": "creative growth north star"
+ },
+ {
+  "id": 105,
+  "title": "Seasonal Creative Universe",
+  "body": "Replace narrow holiday keyword generation with a permanent Seasonal Creative Universe. Every holiday, season and gift occasion maintains an evolving taxonomy of product forms, motifs, emotions, recipients, rooms/use contexts, skill levels, make-times, price bands and gifting narratives. Christmas alone must span stockings, ornaments, wreaths, tree skirts, garlands, advent pieces, tableware, kitchen decor, blankets, pillows, baskets, gift bags, amigurumi, wearables, nursery, pet, door decor and original hybrids.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "seasonal creative universe, cross-category invention matrix, form transformation engine"
+ },
+ {
+  "id": 106,
+  "title": "Cross-Category Invention Matrix",
+  "body": "For every seasonal opportunity, deliberately combine two or more dimensions that do not normally appear together: motif x function, holiday x storage, character x household utility, wearable x personalization, amigurumi x organization, decor x interaction, nursery x keepsake, tableware x character, modularity x gifting. The purpose is to create new product premises rather than another recoloured commodity.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "seasonal creative universe, cross-category invention matrix, form transformation engine"
+ },
+ {
+  "id": 107,
+  "title": "Form Transformation Engine",
+  "body": "Study the strongest market examples for transformation logic: a pumpkin that becomes/coexists with coasters, a flower that becomes a functional table object, a stocking built from modular squares, a plant pot turned into a holiday character scene, cutlery holders turned into Santa/reindeer/tree characters. Learn the abstract transformation pattern, never the seller's protected expression, then invent original transformations.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "seasonal creative universe, cross-category invention matrix, form transformation engine"
+ },
+ {
+  "id": 108,
+  "title": "Product Silhouette Gate",
+  "body": "At mobile-grid scale, the product should have a recognisable silhouette or visual structure whenever the category permits. Generic circles, rectangles and tubes require an exceptional texture, motif, transformation or use-case to survive. A concept that needs its title to explain why it is interesting is weak.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "product silhouette gate"
+ },
+ {
+  "id": 109,
+  "title": "Emotional Design Vocabulary",
+  "body": "Creative generation must explicitly choose and execute an emotional promise: magical, nostalgic, whimsical, cozy, elegant, funny, adorable, heirloom, rustic, modern, playful, premium, surprising or gift-worthy. The emotional promise must be visible in the object itself, not merely added as listing copy.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "emotional design vocabulary, seasonal motif grammar"
+ },
+ {
+  "id": 110,
+  "title": "Seasonal Motif Grammar",
+  "body": "Maintain a broad motif grammar per season without collapsing into cliches. Christmas includes trees, stockings, bows, candy, gingerbread, snow, woodland, stars, ornaments, Santa, reindeer, wreaths and more; fall includes leaves, mushrooms, acorns, pumpkins, woodland and harvest; Halloween includes ghosts, bats, monsters, witches and haunted architecture; spring/Easter includes florals, chicks, rabbits, eggs and garden life. Agents must recombine, stylize and abstract motifs into original Brambleloop design language.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "emotional design vocabulary, seasonal motif grammar"
+ },
+ {
+  "id": 111,
+  "title": "Multi-Product Family Test",
+  "body": "Before engineering a strong seasonal concept, ask whether it can seed a coherent family: hero product, quick-make companion, bundle, giftable mini, decor variant, wearable/accessory or adjacent room/use case. Prefer ideas that can become collections without forcing low-quality derivatives.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "partial",
+  "note": "collections exist; no multi-product family test before engineering"
+ },
+ {
+  "id": 112,
+  "title": "Make-Time / Shopping-Window Creative Fit",
+  "body": "Creative scoring must account for how long the buyer needs to make the item. Large blankets and complex garments must enter the market much earlier than ornaments/coasters/quick gifts. Seasonal Radar should shift late-window capacity toward fast makes instead of continuing to design products customers no longer have time to complete.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "partial",
+  "note": "radar has make-time in the buy-window arithmetic; not a creative-fit scoring input"
+ },
+ {
+  "id": 113,
+  "title": "Recipient and Context Matrix",
+  "body": "Generate seasonal concepts against explicit recipient/context cells: adult self-use, host gift, child, baby/nursery, teacher, coworker, pet owner, family tradition, stocking stuffer, table setting, fireplace, tree, front door, kitchen, bedroom, office, cottage and party. This expands demand discovery beyond generic 'Christmas crochet pattern'.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "recipient/context matrix, skill-level portfolio"
+ },
+ {
+  "id": 114,
+  "title": "Skill-Level Portfolio",
+  "body": "Each major seasonal wave should contain intentional beginner/quick-win, intermediate and advanced/heirloom opportunities. Do not let the portfolio become entirely complex flagship work or entirely trivial quick makes. Skill level is part of market segmentation and gifting/make-time strategy.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "recipient/context matrix, skill-level portfolio"
+ },
+ {
+  "id": 115,
+  "title": "Wow-Factor Requirement",
+  "body": "Every flagship concept must contain at least one explicit WOW mechanism: surprising transformation, exceptional motif composition, dimensional construction, unusual but useful function, strong character system, modular reveal, personalization architecture, striking texture, premium silhouette or collection-scale storytelling. 'Clean and correct' is not enough.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "wow-factor requirement"
+ },
+ {
+  "id": 116,
+  "title": "Creative Reference Decomposition",
+  "body": "When studying high-performing products, decompose why they work into non-copying primitives: silhouette, motif density, dimensionality, palette role, prop/context, function, emotional tone, construction novelty, personalization, bundle logic and thumbnail readability. Store the decomposition, not a replica prompt.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "owner_gated",
+  "note": "creative reference decomposition; needs benchmark observation"
+ },
+ {
+  "id": 117,
+  "title": "Creative Saturation Detector",
+  "body": "Detect when a concept archetype is overcrowded. If dozens of nearly interchangeable pumpkin coasters, granny stockings or basic wreaths dominate results, Brambleloop must either find a meaningful unmet angle or move to a less saturated creative territory. Popularity alone does not justify imitation.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "creative saturation detector, white-space discovery agent"
+ },
+ {
+  "id": 118,
+  "title": "White-Space Discovery Agent",
+  "body": "Create an agent dedicated to asking what buyers plausibly want that current search results do not satisfy. It mines review complaints, missing variants, awkward construction, poor styling, weak personalization, excessive sewing, bad sizing, low giftability and absent combinations. White-space hypotheses feed the Concept Tournament.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "creative saturation detector, white-space discovery agent"
+ },
+ {
+  "id": 119,
+  "title": "Creative Diversity Quotas",
+  "body": "A concept tournament cannot be dominated by one construction or motif. Enforce diversity across product form, function, emotional tone, construction method, motif family, recipient and make-time. The objective is exploration breadth before exploitation.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "creative diversity quotas"
+ },
+ {
+  "id": 120,
+  "title": "Holiday-to-Holiday Learning Transfer",
+  "body": "Seasonal learning must transfer abstractly. If modular character pockets convert at Halloween, Christmas/Easter agents may explore the mechanism with original themes. If quick low-sew minis outperform late in a season, future seasonal allocation learns that timing rule. Transfer mechanisms, not designs.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "holiday-to-holiday learning transfer"
+ },
+ {
+  "id": 121,
+  "title": "Four-Season Engine",
+  "body": "Maintain Spring, Summer, Fall and Winter creative programs independent of named holidays. Examples include garden/floral, cottage/beach, harvest/woodland, cozy/winter-neutral, home refresh, outdoor entertaining and seasonal wardrobe opportunities. Revenue should not collapse between major holidays.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "four-season engine, non-holiday occasion engine"
+ },
+ {
+  "id": 122,
+  "title": "Non-Holiday Occasion Engine",
+  "body": "Continuously explore birthdays, baby showers, nursery, weddings, housewarming, teacher gifts, graduation, pet gifts, hostess gifts and family keepsakes. These provide evergreen/event demand that complements the holiday calendar.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "four-season engine, non-holiday occasion engine"
+ },
+ {
+  "id": 123,
+  "title": "Seasonal Collection Calendar",
+  "body": "For each occasion, maintain research start, concept freeze, engineering start, physical-test deadline, creative-production deadline, listing/indexing date, promotional ramp, peak window, last practical make date and clearance/evergreen transition. Missed dates are portfolio failures and feed retrospective learning.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "seasonal collection calendar"
+ },
+ {
+  "id": 124,
+  "title": "Creativity Floor Rises Over Time",
+  "body": "Set a moving minimum creative threshold based on Brambleloop's trailing cohorts and current category benchmarks. A concept that would have passed six months ago can fail today if the company has learned enough to demand better. Continuous improvement must literally raise the release bar.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "rising creativity floor, top-decile aspiration"
+ },
+ {
+  "id": 125,
+  "title": "Top-Decile Aspiration, Not Average Parity",
+  "body": "Competitive parity is the floor. Flagship creative should target the top decile of current category presentation and concept strength, and experiments should attempt to exceed it. The system should ask 'what would make this the most memorable result on the page?' while preserving originality, truth and feasibility.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "rising creativity floor, top-decile aspiration"
+ },
+ {
+  "id": 126,
+  "title": "Search-Grid Blind Tournament",
+  "body": "Before CIR engineering for expensive concepts and again before release, render concept boards/thumbnails into a simulated Etsy-style grid beside a current category-matched benchmark set with seller/review signals hidden. Independent judges rank attention, comprehension, desire and distinctiveness. Brambleloop must clear the defined threshold without brand favoritism.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "owner_gated",
+  "note": "search-grid blind tournament; needs benchmark evidence"
+ },
+ {
+  "id": 127,
+  "title": "Creative Failure Autopsy",
+  "body": "Every rejected or underperforming concept receives a structured autopsy: generic form, weak silhouette, no emotional hook, over-saturated motif, poor function, too complex, wrong timing, weak thumbnail, derivative distance, or merchandising mismatch. These autopsies directly update future ideation constraints.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "creative failure autopsy"
+ },
+ {
+  "id": 128,
+  "title": "Seasonal Breakout Mining",
+  "body": "When a seasonal product breaks out, decompose the winning mechanism and immediately explore adjacent ORIGINAL opportunities across format, recipient, complexity and bundle position while the window remains open. Do not merely recolour or clone the winner.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "data_gated",
+  "note": "seasonal breakout mining; needs sales"
+ },
+ {
+  "id": 129,
+  "title": "Human-Quality Creative Standard",
+  "body": "Creative output should be judged as if produced by an elite independent crochet designer and merchandiser, not as 'good for AI'. Agents must be able to reject technically valid ideas as boring, obvious or commercially forgettable. The creativity department is rewarded for hit quality and learning, not concept volume.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "human-quality creative standard"
+ },
+ {
+  "id": 130,
+  "title": "Model-Led Brand Storytelling",
+  "body": "For model-appropriate products, use the canonical fictional Brambleloop model as a recurring editorial character across seasons, with coherent environments and styling while preserving identity. She may present stockings, wear garments, hold decor or demonstrate scale when commercially useful; she must not obscure product-first clarity.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "owner_gated",
+  "note": "model-led brand storytelling; same model gate"
+ },
+ {
+  "id": 131,
+  "title": "Seasonal Storefront Takeovers",
+  "body": "Storefront banners, featured collections, thumbnails, bundles and content should transition ahead of each seasonal buying window. Maintain Brambleloop brand continuity while making the shop feel timely and alive. Seasonal takeovers are scheduled from the Collection Calendar, not improvised after demand peaks.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "seasonal storefront takeovers"
+ },
+ {
+  "id": 132,
+  "title": "Creative Department North-Star Metrics",
+  "body": "Track concept-to-engineering survival, concept-to-launch survival, blind-grid score, novelty distance, CTR, favourite rate, conversion, bestseller incidence, contribution, collection attach rate and creative defect rate by cohort. Improvement Department must show whether creativity is actually getting better. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.7 - Culture & Nostalgia Opportunity Engine This upgrade expands Brambleloop beyond marketplace-following. The company continuously watches cultural demand and translates strong signals into original, commercially useful crochet opportunities, with a separate clearance lane for direct references when rights permit.",
+  "version": "v1.3.6",
+  "section": "Deep seasonal creativity audit",
+  "status": "missing",
+  "note": "creative department north-star metrics"
+ },
+ {
+  "id": 133,
+  "title": "Culture & Nostalgia Radar",
+  "body": "Create a permanent radar that scans current and recurring cultural demand around movies, television, memes, nostalgia eras, seasonal traditions, viral aesthetics, music, sports culture, celebrity-driven aesthetics and internet moments. The purpose is early demand discovery: identify what people are emotionally engaging with before Etsy competition fully reflects it.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "culture & nostalgia radar, culture-to-product translation"
+ },
+ {
+  "id": 134,
+  "title": "Culture-to-Product Translation Engine",
+  "body": "For every strong signal, decompose the demand into non-protected commercial primitives: emotion, setting, era, humour type, colour language, object category, ritual, character archetype, visual motif class and gifting context. Feed those primitives into Brambleloop's Concept Tournament to invent original crochet products rather than simply reproducing source material.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "culture & nostalgia radar, culture-to-product translation"
+ },
+ {
+  "id": 135,
+  "title": "Direct-Reference Clearance Lane",
+  "body": "Maintain a separate lane for public-domain, licensed, permissioned or otherwise cleared material. Direct names, characters, dialogue, logos or distinctive protected expression may enter production only when the rights/policy gate records the basis for use. Unclear rights route to the original-concept lane rather than silently blocking the entire cultural opportunity.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "direct-reference clearance lane"
+ },
+ {
+  "id": 136,
+  "title": "Cultural Moment Opportunity Score",
+  "body": "Score cultural signals on search momentum, recurrence, nostalgia durability, seasonal fit, crochet translatability, giftability, visual recognisability, product-family potential, competition density, make-time window and rights feasibility. This prevents chasing every meme while still reacting quickly to unusually strong opportunities.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "cultural moment opportunity score"
+ },
+ {
+  "id": 137,
+  "title": "Nostalgia Era Engine",
+  "body": "Treat eras as reusable demand territories independent of franchises: retro suburban Christmas, 1980s holiday maximalism, 1990s family Christmas, vintage ski lodge, mid-century holiday, classic storybook winter, retro Halloween, cottage summer and similar aesthetics. Combine era signals with original Brambleloop forms, functions and motifs.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "nostalgia era engine, cultural white-space tournament"
+ },
+ {
+  "id": 138,
+  "title": "Cultural White-Space Tournament",
+  "body": "When a cultural signal is strong, generate a broad set of original translations across blankets, stockings, ornaments, coasters, wreaths, garlands, tableware, amigurumi, wearables, bags, pillows, nursery, pet, kitchen and interactive/transforming products. Require materially different premises and run the same desirability/novelty/grid gates as other concepts.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "nostalgia era engine, cultural white-space tournament"
+ },
+ {
+  "id": 139,
+  "title": "Quote / Catchphrase Risk Router",
+  "body": "Treat famous dialogue, lyrics, slogans and catchphrases as a distinct rights-sensitive asset class. The radar may record them as evidence of the underlying humour or cultural moment, but customer-facing direct use requires clearance. Otherwise generate original language and product concepts expressing the same broad emotional territory without copying the phrase.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "quote/catchphrase risk router"
+ },
+ {
+  "id": 140,
+  "title": "Cultural Demand Lead-Lag Model",
+  "body": "Measure how Google/social/search interest precedes or follows Etsy demand by topic and season. Learn which cultural signals are useful leading indicators for crochet products so Brambleloop can enter before saturation rather than after competitors dominate.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "cultural demand lead-lag model"
+ },
+ {
+  "id": 141,
+  "title": "Rapid Response Creative Cell",
+  "body": "Create a small autonomous cell for time-sensitive cultural opportunities. It may accelerate research, concept tournament, feasibility and creative prototyping, but it cannot bypass CIR, Product Truth, Creative Parity, policy, spend or release gates. Speed comes from prioritization and parallelism, not lower standards.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "rapid response creative cell"
+ },
+ {
+  "id": 142,
+  "title": "Recurring Franchise-Free Occasion Themes",
+  "body": "Build durable original territories around recurring cultural emotions: chaotic family holiday, over-the-top decorating, awkward relatives, winter road trip, office holiday party, cozy movie night, magical childhood Christmas, retro toy-shop winter, spooky-cute Halloween, romantic-comedy Valentine mood and similar themes. These become reusable Brambleloop IP rather than dependence on external franchises.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "franchise-free occasion themes, culture-informed collections"
+ },
+ {
+  "id": 143,
+  "title": "Culture-Informed Collection Architecture",
+  "body": "A strong cultural territory should spawn a coherent original collection when justified: flagship, quick-make, giftable mini, decor, wearable/accessory and bundle. Maintain consistent Brambleloop visual language while varying form and price point.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "franchise-free occasion themes, culture-informed collections"
+ },
+ {
+  "id": 144,
+  "title": "Cultural Trend Memory",
+  "body": "Persist every observed signal, source/date, concept translations, rejected ideas, launch outcomes and decay curve. Future agents should know which cultural territories recur annually, which were one-week fads, which translated well into crochet, and which produced poor economics.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "cultural trend memory, saturation & timing exit"
+ },
+ {
+  "id": 145,
+  "title": "Cultural Saturation & Timing Exit",
+  "body": "Do not keep producing into a cultural trend after the window closes. Detect declining search momentum, rising copycat density, poor CTR/conversion or insufficient remaining make-time. Shift capacity to the next seasonal/cultural wave and record the exit lesson.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "cultural trend memory, saturation & timing exit"
+ },
+ {
+  "id": 146,
+  "title": "Original Brambleloop Cultural IP",
+  "body": "Use cultural observation as raw material to build Brambleloop-owned recurring characters, motifs, jokes, traditions and collection worlds. The long-term goal is not permanent dependence on external pop culture; it is to develop recognizable original seasonal IP that customers return for.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "original Brambleloop cultural IP, culture radar feeds improvement"
+ },
+ {
+  "id": 147,
+  "title": "Culture Radar Feeds Continuous Improvement",
+  "body": "Culture & Nostalgia Radar findings flow into Market Radar, Creativity, SEO, Content, Seasonal Planning and Improvement Department. Post-launch outcomes update cultural scoring weights so the system becomes better at distinguishing commercially useful cultural signals from noise. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.8 - Competitive Product Teardown Laboratory This upgrade adds a controlled post-purchase benchmark laboratory. Purchased competitor files remain a separate benchmark library; Brambleloop learns abstract customer-experience mechanisms and raises its standards without treating competitor patterns as generation source material.",
+  "version": "v1.3.7",
+  "section": "Culture & nostalgia opportunity engine",
+  "status": "missing",
+  "note": "original Brambleloop cultural IP, culture radar feeds improvement"
+ },
+ {
+  "id": 148,
+  "title": "Competitive Product Teardown Laboratory",
+  "body": "Create a permanent laboratory for purchased competitor benchmark products. Its purpose is to study the post-purchase customer experience and raise Brambleloop's standards, not to reuse competitor pattern expression. Purchased files are external benchmark artifacts with restricted access and provenance.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown laboratory, benchmark library separation, manifest -- OWNER SAID BUILD NOW, files arrive later"
+ },
+ {
+  "id": 149,
+  "title": "Benchmark Library Separation",
+  "body": "Keep competitor PDFs, charts, videos and supplemental downloads in a separate BENCHMARK_LIBRARY from Brambleloop generation corpora, CIR primitives and product source data. The generation system must not retrieve competitor row-by-row instructions as reusable pattern content. Derived observations must be abstracted into features, metrics, defects and standards.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown laboratory, benchmark library separation, manifest -- OWNER SAID BUILD NOW, files arrive later"
+ },
+ {
+  "id": 150,
+  "title": "Benchmark Manifest",
+  "body": "Every purchased benchmark records seller/shop, product title, category, listing reference, purchase date, paid price, sale state, files received, why selected, visible listing promises, review/reputation context where relevant, and benchmark dimensions. Preserve original filenames and packaging structure.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown laboratory, benchmark library separation, manifest -- OWNER SAID BUILD NOW, files arrive later"
+ },
+ {
+  "id": 151,
+  "title": "Promise-to-Delivery Audit",
+  "body": "Compare what the Etsy listing promised with what the customer actually receives: file count, PDF depth, charts, photos, diagrams, video/tutorial links, sizing, materials, skill level, terminology, bonuses, support, printability and update/version information. Score expectation alignment and identify over/under-delivery.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+ },
+ {
+  "id": 152,
+  "title": "PDF Information Architecture Teardown",
+  "body": "Analyze cover, table of contents, quick-start, materials, gauge, sizing, abbreviations, technique explanations, construction overview, row/round instructions, charts, assembly, finishing, blocking, troubleshooting, credits, rights/use terms, support and cross-sell. Record information architecture rather than copying prose.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+ },
+ {
+  "id": 153,
+  "title": "Instruction Clarity Benchmark",
+  "body": "Score scanability, repeat notation, row grouping, stitch-count visibility, terminology consistency, size grading, colour-change clarity, assembly clarity and cognitive load. Identify mechanisms that make instructions easier or harder to follow. Convert winning mechanisms into Brambleloop publishing requirements.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+ },
+ {
+  "id": 154,
+  "title": "Chart and Diagram Benchmark",
+  "body": "Evaluate chart legibility, symbols, legends, colour independence, pagination, row numbering, motif boundaries, print quality, scale, schematics, assembly diagrams and correspondence with written instructions. Brambleloop should target clearer charts and stronger written/chart cross-validation than the best benchmark.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+ },
+ {
+  "id": 155,
+  "title": "Beginner Experience Benchmark",
+  "body": "Audit assumptions about prior knowledge, technique links, photo/video support, error recovery, terminology variants, tips, progress checkpoints and confidence-building. Determine what an anxious or inexperienced buyer would struggle with. Feed findings into Pattern Help and PDF generation.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+ },
+ {
+  "id": 156,
+  "title": "Premium Experience Benchmark",
+  "body": "Score typography, spacing, hierarchy, photography, brand consistency, editorial polish, file naming, cover quality, navigation, hyperlinks, print-friendly options, bonus content and overall perceived value. Brambleloop's Premium Product Standard should be benchmarked against the best purchased experience, not the average.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+ },
+ {
+  "id": 157,
+  "title": "Video / Tutorial Teardown",
+  "body": "Where purchased products include video/tutorial support, record structure, chaptering, technique coverage, pacing, correspondence to pattern sections, accessibility and whether video materially reduces ambiguity. Do not copy footage/scripts. Translate useful mechanisms into Brambleloop video requirements.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown audits: promise-to-delivery, PDF IA, instruction clarity, charts, beginner, premium, video"
+ },
+ {
+  "id": 158,
+  "title": "Materials / Yardage / Substitution Audit",
+  "body": "Compare how competitors specify yarn, fibre, colour quantities, hooks, notions, gauge, substitutions and expected finished dimensions. Use observations to improve Brambleloop explanation and validation, not to import their design's material constants into unrelated patterns.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "materials, delivery packaging, support/rights audits"
+ },
+ {
+  "id": 159,
+  "title": "Digital Delivery Packaging Audit",
+  "body": "Record number of files, filenames, versions, print versus screen editions, charts, bonus files, language variants, file sizes and organization. Design Brambleloop's delivery bundle to be easier to understand immediately after purchase.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "materials, delivery packaging, support/rights audits"
+ },
+ {
+  "id": 160,
+  "title": "Support and Rights Experience Audit",
+  "body": "Inspect support instructions, FAQ, update policy, errata/version handling, finished-item permissions, redistribution language and contact path. Convert inconsistencies across benchmarks into a clearer Brambleloop customer experience. Legal enforceability remains subject to appropriate review.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "materials, delivery packaging, support/rights audits"
+ },
+ {
+  "id": 161,
+  "title": "Benchmark Scorecard",
+  "body": "Score each benchmark on Product Creativity, Pattern Correctness Evidence, Instruction Clarity, Chart Quality, Beginner Support, Premium Presentation, Video Support, Materials Clarity, Delivery Packaging, Support Experience, Listing Promise Alignment and Perceived Value. Preserve raw notes and confidence.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "benchmark scorecard, best-of-breed composite, unique value"
+ },
+ {
+  "id": 162,
+  "title": "Best-of-Breed Composite Standard",
+  "body": "Do not copy one seller wholesale. Construct Brambleloop Premium Product Standard from the strongest mechanisms observed across the entire library: best chart practice from one benchmark, strongest navigation from another, best beginner support from another, etc., combined with Brambleloop's own engineering, version-aware support and brand system.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "benchmark scorecard, best-of-breed composite, unique value"
+ },
+ {
+  "id": 163,
+  "title": "Brambleloop Must Add Unique Value",
+  "body": "Benchmark parity is insufficient. For each product class, identify at least one meaningful Brambleloop advantage beyond what purchased competitors provide: stronger deterministic validation, clearer charts, better diagrams, version-aware AI help, superior print edition, colour planner, customization tool, better video, better troubleshooting or other genuine benefit.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "benchmark scorecard, best-of-breed composite, unique value"
+ },
+ {
+  "id": 164,
+  "title": "Teardown-to-Improvement Pipeline",
+  "body": "Competitive Teardown findings flow into the Improvement Department as structured observations. Improvement cells form hypotheses, implement in sandbox, run regression/customer-experience tests, compare against the current Brambleloop standard and promote only measurable improvements.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "teardown-to-improvement pipeline"
+ },
+ {
+  "id": 165,
+  "title": "Benchmark Refresh Cadence",
+  "body": "The library is not frozen at launch. Periodically acquire a small number of strategically selected benchmarks when a new category, unusually strong competitor, new product format or major market shift warrants it. Avoid indiscriminate spending and duplicate information.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "owner_gated",
+  "note": "benchmark refresh cadence and purchase budget; owner buys"
+ },
+ {
+  "id": 166,
+  "title": "Benchmark Purchase Budget Governance",
+  "body": "Benchmark purchases are research spend. Maintain per-purchase cost, cumulative spend, research question and expected information value. Owner approval remains required above authorized spend limits. Prefer benchmarks that answer a distinct unknown rather than buying many similar products.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "owner_gated",
+  "note": "benchmark refresh cadence and purchase budget; owner buys"
+ },
+ {
+  "id": 167,
+  "title": "Restricted Competitive Content Handling",
+  "body": "Competitor pattern text, charts, images and videos remain source artifacts for analysis only. Do not expose them in Brambleloop products, customer support, marketing or generated pattern content. Store derived abstractions with provenance so the company can explain what was learned without reproducing protected expression.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "restricted competitive content handling"
+ },
+ {
+  "id": 168,
+  "title": "Pre-Launch Benchmark Challenge",
+  "body": "Before live Etsy launch, select representative Brambleloop products and compare the full purchase experience against category-matched purchased benchmarks: listing promise, download packaging, PDF, charts, instructions, visual polish, support and perceived value. If Brambleloop is materially inferior on a critical dimension without a deliberate tradeoff, release is blocked for remediation.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "pre-launch benchmark challenge"
+ },
+ {
+  "id": 169,
+  "title": "Post-Purchase Delight Metric",
+  "body": "Add an internal question to every teardown and Brambleloop QA: 'After paying, does this feel better than expected?' Measure the mechanisms that create delight: clarity, bonus utility, navigation, polish, support, customization and confidence. Brambleloop should engineer positive surprise without bloating products with useless filler.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "post-purchase delight metric"
+ },
+ {
+  "id": 170,
+  "title": "Benchmark Library Manifest Deliverable",
+  "body": "When the owner supplies purchased files, automatically generate BENCHMARK_MANIFEST.md plus a structured database import, teardown queue and gap report. Do not require the owner to manually explain every file if listing references and filenames provide enough context; ask only for genuinely missing identification. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.9 - 24/7 Cloud Autonomy, Agent Swarms & Continuous Learning This upgrade converts the owner's requirements into operational architecture: no artificial cap on specialist agents, every agent continuously improves under controlled testing, stale artifacts cannot survive upstream changes, and Brambleloop must operate autonomously in the cloud with all owner computers turned off.",
+  "version": "v1.3.8",
+  "section": "Competitive product teardown laboratory",
+  "status": "missing",
+  "note": "benchmark library manifest deliverable"
+ },
+ {
+  "id": 171,
+  "title": "Content-Addressed Dependency Invalidation",
+  "body": "Every derived artifact must be tied to immutable fingerprints of the upstream evidence that created it. A CIR/design change automatically invalidates all dependent twins, geometry proofs, reverse-compiler results, certificates, PDFs, charts, visual-truth packages, listing copy, SEO, pricing assumptions, support knowledge, marketing assets and release bundles. A stable slug must never make stale output appear current.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "CIR.fingerprint + release_hash + CHAIN_VERSION + rebuild token cover the chain (B-070/071/072); not a general content-addressed graph over every artifact class"
+ },
+ {
+  "id": 172,
+  "title": "Dependency DAG + Rebuild Propagation",
+  "body": "Maintain an explicit dependency graph for every product. When any node changes, compute the exact downstream rebuild set, enqueue it idempotently, and block publication until every required descendant is rebuilt and re-certified. Store old/new fingerprints, reason, timestamp and completion evidence.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "explicit dependency DAG with computed downstream rebuild sets"
+ },
+ {
+  "id": 173,
+  "title": "Stale-Artifact Sentinel",
+  "body": "Run a permanent sentinel that compares production artifacts against current upstream fingerprints. Any mismatch creates an incident, blocks affected publication/marketing, and triggers deterministic rebuild. Test this through deliberate stale-data injection and production restart scenarios.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "chain.rebuild compares stored vs current and records why (B-073); not a permanent sentinel raising incidents on mismatch"
+ },
+ {
+  "id": 174,
+  "title": "Agent Abundance, Not Artificial Scarcity",
+  "body": "Do not impose an arbitrary small-agent architecture. The system may use dozens or hundreds of logical specialist agents/cells when parallel specialization improves quality, coverage or speed. Agent count is not a success metric: each agent must have a defined responsibility, inputs, outputs, authority, budget, quality metric and retirement condition.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "15 agents with permissions and ceilings; no elastic swarm or orchestrator fan-out"
+ },
+ {
+  "id": 175,
+  "title": "Elastic Agent Swarms",
+  "body": "Use an orchestrator to create or activate specialist workers based on queue depth, category, season, opportunity value and bottleneck. A large catalogue scan may fan out across many workers; quiet periods scale down. Prefer elastic logical agents over 500 permanently running paid processes when identical coverage can be achieved more reliably and cheaply.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "15 agents with permissions and ceilings; no elastic swarm or orchestrator fan-out"
+ },
+ {
+  "id": 176,
+  "title": "No Unowned Work",
+  "body": "Every material task, defect, opportunity, benchmark, listing, experiment, customer issue and improvement must have an accountable agent/cell and an explicit state. The orchestrator detects orphaned work and reassigns it. 'Everyone has a job' is enforced through ownership records, not assumed.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "every job has an agent and the worker denies unauthorised work; no orphaned-work detection"
+ },
+ {
+  "id": 177,
+  "title": "Every Agent Has a Learning Loop",
+  "body": "Each agent/cell maintains a versioned capability profile: objective, baseline metrics, mistakes, lessons, successful tactics, rejected tactics, current prompt/policy/tool versions and challenger experiments. Agents regularly review their own outcomes and propose evidence-backed improvements.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "per-agent learning loops, controlled promotion by risk tier"
+ },
+ {
+  "id": 178,
+  "title": "High-Frequency Learning Without Blind Self-Modification",
+  "body": "Learning may occur continuously as evidence arrives; promotion of changes follows controlled cadence and risk tier. Low-risk scoring/prompt improvements may be tested frequently. Code, release logic, spend, policy and truth gates require regression/adversarial testing and rollback. Never equate 'constant learning' with uncontrolled production mutation.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "per-agent learning loops, controlled promotion by risk tier"
+ },
+ {
+  "id": 179,
+  "title": "Improvement Swarm",
+  "body": "Create dedicated meta-agents whose sole job is to improve other agents and departments. Include evaluator, failure-miner, experiment designer, prompt/tool challenger, cost optimizer, reliability engineer, creative critic and cross-department lesson router. Their work is measured by verified uplift, not number of changes.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "improvement swarm, agent challenger league"
+ },
+ {
+  "id": 180,
+  "title": "Agent Challenger League",
+  "body": "For important functions, maintain incumbent and challenger configurations. Replay representative historical tasks plus fresh holdouts, compare quality/cost/latency/reliability, and promote only statistically/operationally meaningful improvements. Preserve rollback and prevent test-set overfitting.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "improvement swarm, agent challenger league"
+ },
+ {
+  "id": 181,
+  "title": "24/7 Cloud Runtime Is Mandatory",
+  "body": "Brambleloop's core OS, scheduler, queues, workers, database, monitors and required autonomous agents must run on cloud infrastructure independent of the owner's phone, Chromebook or PC. Closing Claude, turning off the owner's computer, losing a home internet connection or sleeping overnight must not stop normal operations.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "covered",
+  "note": "Railway app + embedded worker + scheduler run 24/7 independent of any owner device; verified continuously by /api/verify"
+ },
+ {
+  "id": 182,
+  "title": "Local Computer Is Not Production Infrastructure",
+  "body": "Do not require an always-on owner PC for normal production. A local machine may be used for optional development, heavy one-off rendering, manual review or emergency recovery, but the production control plane and durable state must remain cloud-hosted. If a capability cannot yet run in cloud, surface it as an explicit integration gap rather than silently depending on the owner's computer.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "covered",
+  "note": "no owner machine is production infrastructure"
+ },
+ {
+  "id": 183,
+  "title": "Website Is Optional; Operations Console Is Required",
+  "body": "A public website is not required merely to keep agents alive. The runtime needs a secure owner operations console/dashboard accessible from phone/desktop showing health, queues, products, agent activity, spend, incidents, approvals, experiments, deployment version and learning changes. This may live in the existing cloud app; do not build a public marketing site unless it has a separate business case.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "dashboard + /api/* is the console; no approvals or learning-change view"
+ },
+ {
+  "id": 184,
+  "title": "Durable Scheduler + Queue Guarantees",
+  "body": "All recurring work uses durable cloud scheduling and leased/idempotent queues. Restarts, deploys and transient failures must not lose jobs or duplicate commercial actions. Test kill/restart/reclaim, clock drift, overlapping schedules, dead-letter recovery and exactly-once-effect behavior for sensitive actions.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "covered",
+  "note": "queue/durable.py leases with idempotency keys and dead letters; test_persistence.py SIGKILLs a worker and proves recovery"
+ },
+ {
+  "id": 185,
+  "title": "24/7 Health and Self-Healing",
+  "body": "Continuously monitor worker heartbeat, scheduler freshness, queue age, DB health, external integrations, browser/vision workers, model gateways, certificate freshness and spend. Automatically restart/requeue within authority, escalate persistent incidents, and preserve evidence. 'Online' means useful work is progressing, not merely that HTTP returns 200.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "/api/verify checks worker, scheduler, queue, DB, spend; no self-healing restart/requeue or escalation"
+ },
+ {
+  "id": 186,
+  "title": "Work-Conserving Autonomy",
+  "body": "When no urgent queue exists, agents should not sit idle merely to satisfy a 24/7 slogan. They should consume a prioritized backlog: market research, competitor change detection, creative tournaments, benchmark analysis, catalogue QA, SEO experiments, learning replays, documentation, cost optimization and improvement experiments. Avoid pointless token-burning loops.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "work-conserving autonomy backlog"
+ },
+ {
+  "id": 187,
+  "title": "Priority Scheduler",
+  "body": "Allocate autonomous capacity by expected business value and deadlines: customer incidents and truth defects first; imminent seasonal windows next; proven high-value product opportunities; listing/creative bottlenecks; experiments; background research. Prevent 500 low-value agents from starving one critical release.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "scheduler runs fixed cadences; no priority scheduler by business value"
+ },
+ {
+  "id": 188,
+  "title": "Global Spend / Compute Governor",
+  "body": "Large swarms require centralized budget control. Track cost per agent, task, product, department and experiment; enforce daily/monthly ceilings, anomaly detection and marginal-value thresholds. Scale parallelism up when it materially improves throughput/quality and down when it only duplicates work.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "per-agent daily ceilings and SpendGuard exist; no global governor with anomaly detection or marginal-value thresholds"
+ },
+ {
+  "id": 189,
+  "title": "Cloud Browser/Vision Worker Pool",
+  "body": "Competitor and market intelligence that requires traversing listings, galleries and visual assets should run from cloud-capable browser/vision workers so monitoring continues with owner devices off. Workers cache unchanged evidence, deep-audit new/changed material, respect access constraints, and preserve dated provenance.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "owner_gated",
+  "note": "cloud browser/vision worker pool -- the MJs mission gate"
+ },
+ {
+  "id": 190,
+  "title": "Autonomous Upgrade Pipeline",
+  "body": "Improvement agents may open bounded upgrade proposals/branches, run tests, simulations and shadow deployments, and prepare promotion evidence 24/7. Low-risk pre-authorized changes may auto-promote only within defined governance; higher-risk changes queue a concise owner approval with exact impact, cost and rollback.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "autonomous upgrade pipeline"
+ },
+ {
+  "id": 191,
+  "title": "Learning Freshness SLA",
+  "body": "Every department defines how often evidence should be reconsidered based on how fast its world changes. Fast-moving market/creative signals can update frequently; stable compiler mathematics need not churn hourly. The orchestrator flags stale learning, stale benchmarks and departments whose capability has not measurably improved over defined periods.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "learning freshness SLA"
+ },
+ {
+  "id": 192,
+  "title": "Agent Retirement / Merge Rule",
+  "body": "More agents are allowed, but redundant or consistently weak agents are merged, retrained or retired. Preserve useful specialist knowledge before retirement. This prevents organizational bloat while keeping the owner's 'never too many specialists' principle focused on actual performance.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "agent retirement / merge rule"
+ },
+ {
+  "id": 193,
+  "title": "Nightly Autonomous Improvement Window",
+  "body": "At least once per day, run a broad improvement cycle across departments: ingest new evidence, mine failures, update candidate lessons, run challenger evaluations, identify bottlenecks, queue safe improvements and produce a machine-readable delta. Critical learning can happen sooner; nightly is the minimum comprehensive sweep.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "nightly improvement window, weekly deep evolution cycle"
+ },
+ {
+  "id": 194,
+  "title": "Weekly Deep Evolution Cycle",
+  "body": "Run a deeper weekly audit across product creativity, pattern correctness, competitor intelligence, conversion, ads, support, infrastructure and cost. Re-evaluate department architecture itself: add specialist agents where gaps exist, merge redundant ones, revise metrics, and update the improvement roadmap.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "nightly improvement window, weekly deep evolution cycle"
+ },
+ {
+  "id": 195,
+  "title": "Proof of Off-Device Autonomy",
+  "body": "Before launch, prove the owner can turn off all personal computers for at least 24 hours while cloud Brambleloop continues scheduled cycles, queue processing, monitoring, learning tasks and state persistence. Record timestamps, jobs completed, incidents, costs and restart/recovery evidence. This is a launch-blocking acceptance test.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "missing",
+  "note": "proof of off-device autonomy (24h test) -- release blocking"
+ },
+ {
+  "id": 196,
+  "title": "Owner Approval Inbox",
+  "body": "Any task that genuinely requires owner authorization must collapse into a mobile-friendly approval card: what is requested, why, exact capability unlocked, maximum spend, risk, rollback and consequence of waiting. Batch non-urgent approvals. Everything else continues autonomously. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.0 - Voice Session Reconciliation This is the canonical reconciliation of the critical requirements discussed in the voice session: the permanent fictional Brambleloop model, owner-directed aesthetic, identity lock, MJsOffTheHookDesigns as a permanent live benchmark, specialist intelligence pods, full-catalogue browser/vision observation, adaptive change monitoring, benchmark challenge gates and owner access approvals.",
+  "version": "v1.3.9",
+  "section": "24/7 cloud autonomy, agent swarms, continuous learning",
+  "status": "partial",
+  "note": "OwnerAction queue carries the directive's five columns and is written by the system; not a mobile approval card with rollback"
+ },
+ {
+  "id": 197,
+  "title": "Voice-Conversation Reconciliation Is Canonical",
+  "body": "This section restores the owner's requirements from the voice design session into the physical master. Where an earlier requirement overlaps, this section strengthens rather than weakens it. Future references to the living master mean this actual generated artifact, not a verbally claimed version.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "covered",
+  "note": "this reconciliation is canonical; recorded in the registry"
+ },
+ {
+  "id": 198,
+  "title": "Canonical Fictional Brambleloop Model - Owner Aesthetic Direction",
+  "body": "Owner requirement: develop an ORIGINAL fictional adult Brambleloop model with a highly polished, striking dark-brunette, light-eyed, high-contrast editorial beauty aesthetic, pushed strongly toward the visual qualities the owner associates with Megan Fox while remaining a distinct fictional identity rather than a duplicate of a real person's face. The system must not quietly dilute the requested aesthetic direction into a generic model.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "canonical model: needs an image-generation capability and owner identity selection"
+ },
+ {
+  "id": 199,
+  "title": "Canonical Model Candidate Tournament",
+  "body": "Before identity lock, generate a controlled candidate set meeting the owner aesthetic: adult, long very dark brunette hair, striking light blue/green eyes, strong dark brows, high-contrast facial features, defined cheekbones, sculpted feminine jawline, full lips and premium editorial presence. Evaluate photorealism, warmth, commercial versatility, product focus, facial consistency and ability to work across seasons/categories. Owner selects the final identity.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "canonical model: needs an image-generation capability and owner identity selection"
+ },
+ {
+  "id": 200,
+  "title": "Permanent Identity Lock",
+  "body": "After owner selection, freeze the exact fictional model as Brambleloop's canonical recurring model. Maintain a versioned identity reference pack with approved facial geometry, hair, eye characteristics, age band, complexion characteristics and representative angles/expressions. The company may improve image quality, posing, environments, wardrobe and merchandising, but may not redesign her identity without explicit owner approval.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "canonical model: needs an image-generation capability and owner identity selection"
+ },
+ {
+  "id": 201,
+  "title": "Model Anti-Drift Release Gate",
+  "body": "Every model-led asset must pass identity-consistency checks against the canonical reference pack. A beautiful image of the wrong woman fails. Detect gradual face drift, hair/eye drift, age drift and stylization drift across batches and over time. Failed assets regenerate before release.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "canonical model: needs an image-generation capability and owner identity selection"
+ },
+ {
+  "id": 202,
+  "title": "Appropriate Product-First Styling",
+  "body": "The canonical model is attractive and premium but appropriately dressed for the product, season and Etsy shopping context. Garments must remain the commercial subject. Styling should resemble high-end crochet/lifestyle editorial photography, not glamour imagery that distracts from fit, texture, construction or product details.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "canonical model: needs an image-generation capability and owner identity selection"
+ },
+ {
+  "id": 203,
+  "title": "Model Merchandising Shot System",
+  "body": "For model-appropriate products, generate a coherent shot plan: primary product-first hero, full/three-quarter fit, front/back/side as relevant, texture/detail, sleeve/neckline/closure/construction detail, scale/context and optional lifestyle shot. The model must increase trust, aspiration and brand recognition while preserving truthful product representation.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "canonical model: needs an image-generation capability and owner identity selection"
+ },
+ {
+  "id": 204,
+  "title": "Model Identity Across the Store",
+  "body": "Use the same canonical fictional model across appropriate clothing, accessories, seasonal holding/presentation shots and brand/editorial content so customers develop recognition. Do not force her into product categories where a clean product-only hero is commercially stronger. Product truth and category fit outrank compulsory model presence.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "canonical model: needs an image-generation capability and owner identity selection"
+ },
+ {
+  "id": 205,
+  "title": "Permanent Elite Benchmark Registry",
+  "body": "Maintain a canonical registry of elite crochet-market benchmarks rather than relying on vague memory. Each benchmark records canonical URL, shop identity, categories, reason for inclusion, scan health, last baseline, last change, evidence freshness and specialist cells responsible. MJsOffTheHookDesigns is a mandatory anchor benchmark because the owner selected it as the primary quality/commercial reference.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "elite benchmark registry"
+ },
+ {
+  "id": 206,
+  "title": "Mandatory MJsOffTheHookDesigns Source",
+  "body": "Canonical benchmark URL: https://www.etsy.com/ca/shop/MJsOffTheHookDesigns . Store this literal reference in configuration and documentation. Validate URL health and resolution; if Etsy changes routing, resolve the shop's current canonical location without silently substituting a different seller.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "mandatory MJs source stored in configuration -- buildable now"
+ },
+ {
+  "id": 207,
+  "title": "MJs Full-Catalogue Baseline",
+  "body": "On first successful browser/vision integration, enumerate the complete discoverable MJsOffTheHookDesigns catalogue rather than sampling only top listings. Record listing identity, category, visible pricing/sale state, merchandising format, media count/types, product family and dated evidence. Coverage gaps must be explicit.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "MJs catalogue baseline, listing deep audit, vision gallery analysis -- needs browser/vision"
+ },
+ {
+  "id": 208,
+  "title": "Listing-by-Listing Deep Audit",
+  "body": "Every discoverable benchmark listing selected for baseline/deep audit is individually opened. Capture and analyze all accessible listing gallery assets, video where accessible, title, visible description, price/sale presentation, options/variants, badges, product claims, digital-delivery positioning, cross-sell cues and other commercially relevant listing structure. Do not claim an audit occurred if only search-result thumbnails were seen.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "MJs catalogue baseline, listing deep audit, vision gallery analysis -- needs browser/vision"
+ },
+ {
+  "id": 209,
+  "title": "Vision-Level Gallery Analysis",
+  "body": "Browser agents must inspect the actual gallery, not merely scrape text. For every accessible image, derive non-copying commercial observations: shot type, composition, product visibility, model/product relationship, setting, scale communication, detail coverage, infographic use, typography, palette role, thumbnail readability and emotional merchandising. Preserve dated evidence/provenance.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "MJs catalogue baseline, listing deep audit, vision gallery analysis -- needs browser/vision"
+ },
+ {
+  "id": 210,
+  "title": "MJs Specialist Intelligence Pods",
+  "body": "Create independent specialist cells for the major product departments observed in the benchmark catalogue: garments/clothing, blankets/throws, stockings, ornaments/tree decor, home/decor, bags/accessories, hats/wearables, seasonal/gift products and additional categories as discovered. Each cell owns category-specific history, quality rubric, opportunity map and competitive lessons.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "MJs specialist pods, competitive intelligence director -- the pod architecture is buildable before browser access"
+ },
+ {
+  "id": 211,
+  "title": "Central Competitive Intelligence Director",
+  "body": "A central director coordinates specialist pods, deduplicates observations, identifies cross-category mechanisms, routes new benchmark releases to the correct cells, and prevents siloed learning. It maintains a company-level view of where Brambleloop is ahead, at parity or materially behind on concrete dimensions without using that as permission to copy protected expression.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "MJs specialist pods, competitive intelligence director -- the pod architecture is buildable before browser access"
+ },
+ {
+  "id": 212,
+  "title": "Baseline Then Change Detection",
+  "body": "Do not wastefully re-download/reason over an unchanged full catalogue every 30 minutes. First establish complete baseline coverage. Thereafter run lightweight change detection frequently and trigger immediate deep audits for newly discovered listings or materially changed listings/assets. Periodically re-baseline to detect missed changes.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "baseline-then-change detection, adaptive cadence"
+ },
+ {
+  "id": 213,
+  "title": "Adaptive Monitoring Cadence",
+  "body": "Monitoring frequency adapts to observed posting/change behaviour, seasonal urgency and evidence freshness. During active release periods or major seasonal ramps, checks may be frequent; during quiet periods they back off. The objective is near-immediate discovery of commercially meaningful changes without pointless compute burn.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "baseline-then-change detection, adaptive cadence"
+ },
+ {
+  "id": 214,
+  "title": "New-Listing Event Pipeline",
+  "body": "A new MJs listing becomes a structured market event. Archive dated observations, classify category, notify relevant specialist pods, decompose the commercial mechanisms, update category benchmark standards, run opportunity analysis and decide whether it justifies an original Brambleloop concept tournament.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "new-listing event pipeline"
+ },
+ {
+  "id": 215,
+  "title": "Same-Arena Response Lane",
+  "body": "Brambleloop is allowed to enter the same broad/generic product arena when market evidence supports it - e.g., cardigan, stocking, blanket, hat, ornament or coaster. Agents should identify what makes the benchmark compelling and design a substantively original Brambleloop alternative with stronger product engineering, styling, usability, fit, construction, creativity or customer experience. Do not restrict Brambleloop merely because an elite competitor also sells that generic product type.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "same-arena response lane, breakthrough response lane"
+ },
+ {
+  "id": 216,
+  "title": "Breakthrough Response Lane",
+  "body": "In parallel, benchmark releases should trigger a more divergent tournament asking what the competitor has NOT made: adjacent functions, new recipients, transformations, silhouettes, construction systems, bundles, seasonal stories and collection families. Maintain both incremental market participation and breakthrough exploration.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "same-arena response lane, breakthrough response lane"
+ },
+ {
+  "id": 217,
+  "title": "Benchmark Mechanism Decomposition",
+  "body": "Store reusable lessons only at the mechanism level: silhouette strength, fit strategy, styling, colour architecture, photography coverage, product family logic, beginner support, seasonal timing, thumbnail clarity, merchandising, bundle logic and customer promise. Do not turn competitor protected pattern text/images into Brambleloop source designs.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "benchmark mechanism decomposition"
+ },
+ {
+  "id": 218,
+  "title": "MJs Challenge Gate",
+  "body": "For relevant categories, place Brambleloop candidates beside current category-matched MJs benchmark evidence in a blinded comparison. Evaluate concept desirability, distinctiveness, product clarity, thumbnail strength, styling, apparent craftsmanship, giftability and purchase confidence. If Brambleloop looks obviously generic/amateur by comparison, return it to creative development rather than shipping.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "MJs challenge gate; needs MJs evidence"
+ },
+ {
+  "id": 219,
+  "title": "Elite Panel Beyond One Seller",
+  "body": "MJs is the anchor, not the only teacher. Maintain a changing elite panel including other category leaders and purchased Benchmark Library products. A category specialist should learn from the best available examples across sellers so Brambleloop can combine best-of-breed mechanisms and avoid overfitting to one shop's aesthetic.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "elite panel beyond one seller"
+ },
+ {
+  "id": 220,
+  "title": "Benchmark Quality Bar Moves",
+  "body": "When MJs or another elite benchmark materially improves presentation, product format or customer experience, relevant Brambleloop standards are re-evaluated. The competitive bar is dynamic. Improvement Department records which standards changed and why.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "benchmark quality bar moves"
+ },
+ {
+  "id": 221,
+  "title": "Mandatory Cloud Browser + Vision Capability",
+  "body": "The MJs/elite benchmark observation layer requires production-capable browser traversal plus image/gallery understanding that operates in cloud infrastructure with owner devices off. Build 2 must not silently replace this with static seeded data, occasional manual screenshots or text-only search. Missing capability is an explicit owner/integration gate.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate"
+ },
+ {
+  "id": 222,
+  "title": "Browser/Vision Acceptance Test",
+  "body": "Prove end-to-end capability against the canonical benchmark: resolve shop URL; enumerate catalogue; open multiple listings; traverse gallery assets; capture visible listing text/commerce metadata; produce image-level observations; classify into specialist pods; persist evidence; detect a simulated/new change; and trigger a re-audit. Evidence must show each step actually occurred.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "owner_gated",
+  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate"
+ },
+ {
+  "id": 223,
+  "title": "Access Approval Protocol",
+  "body": "The owner has stated willingness to approve reasonable access required to implement mandatory benchmark browser/vision observation and 24/7 autonomy. Claude must present any required connection, service, credential, paid infrastructure or permission as a concise approval request with exact purpose, capability unlocked, expected/max cost, security scope and consequence of declining. Never interpret willingness as blanket authorization for unbounded spend or credentials.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "access approval protocol -- buildable now, and needed to ask for 221"
+ },
+ {
+  "id": 224,
+  "title": "No Silent Downgrade",
+  "body": "If Etsy access, anti-bot controls, authentication, tooling limitations or other constraints prevent the mandated depth of observation, report the exact limitation and preserve the requirement as unmet. Do not claim 'continuous MJs scanning' based on search snippets or stale cached evidence.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "no silent downgrade rule"
+ },
+ {
+  "id": 225,
+  "title": "Competitor Evidence Cache",
+  "body": "Cache content fingerprints and analysis so unchanged listings are not repeatedly paid for in model/browser compute. New images, changed descriptions, pricing/sale shifts, new video or new listing identity invalidate only the necessary analysis nodes and propagate lessons through the dependency graph.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "competitor evidence cache"
+ },
+ {
+  "id": 226,
+  "title": "Specialist Pod Continuous Learning",
+  "body": "Every MJs/category pod participates in the continuous-learning architecture from #177-194: maintain category mistakes, new mechanisms, successful Brambleloop responses, failed responses, current benchmarks and challenger strategies. The pod should become measurably more discerning and creative over time.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "specialist pod continuous learning"
+ },
+ {
+  "id": 227,
+  "title": "Competitive Learning Is Input, Not Creative Ceiling",
+  "body": "No agent may treat 'match MJs' as the final creative objective. The benchmark establishes a commercial quality floor and a source of market evidence. Brambleloop's Creative Department must still search for original white space, new product forms and stronger customer value beyond what the benchmark currently offers.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "competitive learning is input, not creative ceiling"
+ },
+ {
+  "id": 228,
+  "title": "Owner Quality Veto",
+  "body": "Until automated creative evaluation has demonstrated reliable alignment with the owner's standards, the owner retains veto over canonical model identity and flagship creative quality. Repeated veto reasons become structured training/evaluation evidence for the Improvement Department rather than disappearing as chat feedback. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.1 - CA$5K/Month Scale Architecture Primary commercial objective: materially increase the probability of reaching a sustainable CA$5,000/month run rate. This upgrade expands Brambleloop from product/search excellence into a diversified acquisition, offer, retention and portfolio-growth machine. A 75%+ confidence claim remains evidence-gated, not promised by architecture alone.",
+  "version": "v1.4.0",
+  "section": "Voice session reconciliation (model + MJs)",
+  "status": "missing",
+  "note": "owner quality veto with structured veto memory"
+ },
+ {
+  "id": 229,
+  "title": "CA$5K/Month Becomes the Primary Commercial Scale Target",
+  "body": "After launch validation, the commercial operating target is a sustainable CA$5,000/month gross-revenue run rate with positive contribution economics. The system must decompose this into multiple feasible combinations of qualified visits, conversion, AOV, repeat purchase and external/direct sales, then identify the binding constraint weekly.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "CA$5K as the primary target with funnel decomposition"
+ },
+ {
+  "id": 230,
+  "title": "75% Confidence Is an Evidence Gate",
+  "body": "Do not claim >=75% modeled confidence of reaching/sustaining CA$5,000/month merely because the architecture is sophisticated. Require multiple independent selling SKUs, positive contribution, stable quality/refund/support metrics, repeatable qualified traffic, observed conversion over meaningful samples, at least two viable acquisition loops or one exceptionally strong loop with backup, and downside scenario analysis. Display assumptions and sensitivity.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "75% confidence evidence gate"
+ },
+ {
+  "id": 231,
+  "title": "Revenue Portfolio Architecture",
+  "body": "Design the catalogue so CA$5K does not require one viral hit. Maintain a base of evergreen earners, seasonal earners, flagships, quick-makes, bundles and experimental shots. Track concentration: revenue share of top 1/top 5 SKUs, seasonal concentration and channel concentration. High concentration triggers diversification while preserving winner exploitation.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "revenue portfolio architecture, SKU portfolio roles"
+ },
+ {
+  "id": 232,
+  "title": "Hero / Core / Long-Tail SKU Roles",
+  "body": "Assign each SKU a portfolio role: HERO traffic/revenue driver, CORE reliable evergreen/seasonal earner, ENTRY low-friction acquisition product, BUNDLE/AOV builder, CROSS-SELL attachment product, EXPERIMENT learning vehicle or RETIRE candidate. Product creation is guided by portfolio gaps rather than raw listing count.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "revenue portfolio architecture, SKU portfolio roles"
+ },
+ {
+  "id": 233,
+  "title": "Revenue Ladder Offers",
+  "body": "Engineer an intentional value ladder: free/low-friction content -> entry pattern -> premium single -> mini bundle -> flagship collection -> repeat seasonal/collection purchase. Measure movement between tiers, attach rate, contribution and customer lifetime value. Avoid discounts that train customers to ignore regular pricing.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "revenue ladder offers, bundle attach-rate engine"
+ },
+ {
+  "id": 234,
+  "title": "Bundle Attach-Rate Engine",
+  "body": "Continuously identify natural product combinations and test bundles/collection offers. Track bundle attach rate, incremental AOV, cannibalization and contribution. Etsy currently supports discounted bundles and targeted offers; use available mechanisms only when policy-compliant and profitable.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "revenue ladder offers, bundle attach-rate engine"
+ },
+ {
+  "id": 235,
+  "title": "Etsy Targeted-Offer Optimizer",
+  "body": "Where Etsy supports and the buyer is eligible/opted-in, test abandoned-cart, favorited-item, interested-shopper and thank-you offers. Measure incremental conversion, margin and repeat purchase versus baseline; do not assume every discount is accretive. Preserve truthful regular prices and promotion rules.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "owner_gated",
+  "note": "Etsy targeted offers; needs the shop"
+ },
+ {
+  "id": 236,
+  "title": "Marketplace Insights Portfolio Allocator",
+  "body": "Use Etsy Marketplace Insights as first-party demand/competition evidence once accessible. Allocate limited free queries by expected information gain; consider Etsy Plus only through owner approval if unlimited research has positive expected value. Store search count, listing count, related terms, trend direction, date and geography/context.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "owner_gated",
+  "note": "Marketplace Insights allocator; needs the shop"
+ },
+ {
+  "id": 237,
+  "title": "Search-Term-to-P&L; Attribution",
+  "body": "Connect Etsy Stats search terms and traffic sources to listing visits, orders, revenue, contribution, support/refund and repeat purchase where data permits. Keyword strategy should optimize profitable customers, not impressions alone.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "data_gated",
+  "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats"
+ },
+ {
+  "id": 238,
+  "title": "Conversion Cohort Benchmarks",
+  "body": "Maintain conversion baselines by category, price band, traffic source, season, shop maturity and listing age. Diagnose listings against comparable cohorts. Etsy itself defines conversion as orders divided by visits and notes photos, price, reviews, titles/descriptions and policies can affect it; Brambleloop tests those factors systematically.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "data_gated",
+  "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats"
+ },
+ {
+  "id": 239,
+  "title": "Search Share-of-Opportunity Dashboard",
+  "body": "For each target micro-market, estimate available buyer demand from first-party/observed evidence, Brambleloop qualified impressions/visits, conversion and resulting revenue. Rank opportunities by expected incremental contribution from improving visibility, CTR, conversion or offer rather than by vanity rank.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "data_gated",
+  "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats"
+ },
+ {
+  "id": 240,
+  "title": "Query Portfolio Diversification",
+  "body": "Do not make all products compete for 'crochet pattern'. Build clusters around specific intent, recipient, season, technique, object, aesthetic, skill level and use case. Etsy query matching uses titles/tags/descriptions/categories/attributes; maximize relevant coverage without keyword stuffing.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "partial",
+  "note": "commerce/search.py scores tag coverage and gaps; no query portfolio diversification across intent/recipient/season clusters"
+ },
+ {
+  "id": 241,
+  "title": "Listing Launch Experiment Pack",
+  "body": "Every important launch ships with a pre-registered experiment plan: hero variants, price hypothesis, title/tag strategy, bundle/cross-sell, content/Pinterest support and success/failure thresholds. Avoid changing many variables simultaneously without recording confounders.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "listing launch experiment pack"
+ },
+ {
+  "id": 242,
+  "title": "Organic-First Proof Before Heavy Ads",
+  "body": "Where practical, obtain enough organic/owned traffic to estimate listing appeal before meaningful paid scaling. Ads can be used as bounded discovery, but a weak listing should not be hidden behind paid traffic. Etsy recommends allowing adequate time for Ads performance data; paid scaling decisions must respect attribution lag.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "owner_gated",
+  "note": "paid acquisition economics; needs the shop and owner-approved ad spend"
+ },
+ {
+  "id": 243,
+  "title": "Paid Acquisition Allowable CAC",
+  "body": "Calculate allowable CAC from price, fees, expected refunds, discounts, repeat contribution and margin. Ads may scale only below a risk-adjusted CAC threshold with enough data. Maintain separate new-customer CAC, blended CAC and contribution after advertising.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "owner_gated",
+  "note": "paid acquisition economics; needs the shop and owner-approved ad spend"
+ },
+ {
+  "id": 244,
+  "title": "Offsite Ads Economics Guard",
+  "body": "Track orders attributed to Etsy Offsite Ads separately because fee structure can materially change contribution. Use current Etsy fee/attribution rules rather than hardcoded assumptions, and incorporate any mandatory participation threshold into forecasting.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "owner_gated",
+  "note": "paid acquisition economics; needs the shop and owner-approved ad spend"
+ },
+ {
+  "id": 245,
+  "title": "Share-and-Save / Direct-Link Economics",
+  "body": "Where Etsy's current Share & Save or successor program is available, compare economics of qualified traffic sent through eligible trackable links versus ordinary marketplace acquisition. Use only official program rules and measure net contribution after any fee benefit.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "owner_gated",
+  "note": "paid acquisition economics; needs the shop and owner-approved ad spend"
+ },
+ {
+  "id": 246,
+  "title": "Pinterest Search Factory",
+  "body": "Create an autonomous Pinterest production system around each validated product/collection: multiple genuinely distinct pins, keyword/board mapping, seasonal lead-time scheduling, landing destination, creative testing and attribution. Avoid spammy duplicate pins. Winner pins trigger more original variants and supporting content.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "Pinterest factory, SEO cluster engine, video flywheel"
+ },
+ {
+  "id": 247,
+  "title": "Google / SEO Topic Cluster Engine",
+  "body": "Build owned search clusters around buyer/maker questions connected to Brambleloop categories. Each cluster maps informational intent -> useful free content/tool -> relevant paid product/collection. Measure organic qualified visits, assisted conversion, email capture where permitted and revenue contribution.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "Pinterest factory, SEO cluster engine, video flywheel"
+ },
+ {
+  "id": 248,
+  "title": "Video Distribution Flywheel",
+  "body": "Flagships and technique-heavy products generate reusable video modules: product reveal, technique explanation, progress checkpoints, troubleshooting and finished-result clips. Repurpose appropriately across YouTube/Shorts/Pinterest/social while keeping a canonical tutorial. Track assisted conversion and support reduction.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "Pinterest factory, SEO cluster engine, video flywheel"
+ },
+ {
+  "id": 249,
+  "title": "Creator Affiliate Portfolio",
+  "body": "Treat creators as a portfolio, not one-off outreach. Track audience/category fit, attributable traffic, conversion, content quality, proof assets, cost/commission and repeat performance. Scale high-contribution relationships and stop weak ones. Require appropriate disclosure.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "creator affiliate portfolio, tester-to-ambassador path"
+ },
+ {
+  "id": 250,
+  "title": "Tester-to-Ambassador Path",
+  "body": "High-performing physical testers may graduate into ambassadors/creators when appropriate and consensual. Their real finished projects can provide trustworthy proof, colourways and educational content. Separate testing compensation/feedback from public review incentives.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "creator affiliate portfolio, tester-to-ambassador path"
+ },
+ {
+  "id": 251,
+  "title": "Email / Owned Audience Lifecycle",
+  "body": "Where Brambleloop lawfully collects consented email subscribers, operate lifecycle flows: welcome/value, category interest, launch, post-purchase support, cross-sell and seasonal reactivation. Segment by demonstrated interest and frequency-cap communications. Track incremental contribution, not open rate vanity.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "email/owned audience lifecycle (CASL applies)"
+ },
+ {
+  "id": 252,
+  "title": "Repeat Purchase Engine",
+  "body": "Measure 30/60/90/180-day repeat rate by first product/category/season. Recommend relevant next projects, matching collections and future-season products. Customer lifetime contribution becomes a first-class growth metric.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "data_gated",
+  "note": "repeat purchase engine; needs customers"
+ },
+ {
+  "id": 253,
+  "title": "Collection Subscription / Club Research Lane",
+  "body": "Research whether a recurring pattern club, seasonal collection pass or membership would create genuine customer value and predictable revenue. Do not launch by assumption. Validate demand, support burden, delivery cadence and platform/channel feasibility first.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "club research lane, personalization layer, free tool layer"
+ },
+ {
+  "id": 254,
+  "title": "Personalization / Customization Layer",
+  "body": "Where technically feasible and commercially valuable, explore controlled customization: colour planners, size selection, initials/names, motif arrangements or printable project variants. Keep canonical pattern truth intact and price/value-test personalization rather than giving away expensive complexity.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "club research lane, personalization layer, free tool layer"
+ },
+ {
+  "id": 255,
+  "title": "Free Tool Acquisition Layer",
+  "body": "Build useful free utilities that attract high-intent makers: yarn/yardage helpers, colour planners, size calculators, project-time estimators, seasonal make-time planners or motif preview tools. Each tool must have a useful standalone purpose and a measured path to relevant Brambleloop products.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "club research lane, personalization layer, free tool layer"
+ },
+ {
+  "id": 256,
+  "title": "Product-Led Referral Research",
+  "body": "Test legitimate referral/share mechanics that encourage customers to show finished projects or share useful products without manipulating reviews. Track attributable new customers and contribution. Never condition support or discounts on positive reviews.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "referral research, review-to-conversion learning, customer project gallery"
+ },
+ {
+  "id": 257,
+  "title": "Review-to-Conversion Learning",
+  "body": "Analyze legitimate review themes and star distribution against listing conversion and repeat behavior. Identify what buyers praise, misunderstand or wish existed. Feed findings into product design, PDFs, listing claims and support. Never fabricate, purchase or gate reviews.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "referral research, review-to-conversion learning, customer project gallery"
+ },
+ {
+  "id": 258,
+  "title": "Customer Project Gallery",
+  "body": "With explicit permission, build a gallery of real customer/tester finished projects linked to exact pattern versions and yarn/colour notes. Use as trust/proof, inspiration and support material. Measure whether proof improves conversion.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "referral research, review-to-conversion learning, customer project gallery"
+ },
+ {
+  "id": 259,
+  "title": "New-Shop Trust Sprint",
+  "body": "During the first 100 customers, prioritize flawless downloads, rapid support, truthful expectations, defect prevention and post-purchase clarity. Do not sacrifice contribution irrationally, but treat early trust as a compounding asset.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "trust sprint, first-100 interviews, purchase-friction audit"
+ },
+ {
+  "id": 260,
+  "title": "First-100-Customer Interview Sampling",
+  "body": "Invite a small voluntary sample of legitimate buyers/testers to provide structured feedback on why they clicked, why they bought, what nearly stopped them, pattern clarity and what they want next. No reward is contingent on positive sentiment. Convert responses into hypotheses.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "trust sprint, first-100 interviews, purchase-friction audit"
+ },
+ {
+  "id": 261,
+  "title": "Checkout / Purchase-Friction Audit",
+  "body": "Regularly audit the buyer journey from Etsy search/listing through digital download and support. Identify confusion around 'pattern vs finished item', file access, terminology, skill, sizing and included deliverables. Fix recurring friction in listing and product packaging.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "trust sprint, first-100 interviews, purchase-friction audit"
+ },
+ {
+  "id": 262,
+  "title": "Revenue Forecast Calibration",
+  "body": "Compare forecast versus actual weekly/monthly revenue by channel/category. Decompose error into traffic, CTR, conversion, AOV, repeat, launch timing and winner rate. Continuously recalibrate the CA$5K trajectory model; optimistic model error reduces confidence automatically.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "revenue forecast calibration, leading indicator dashboard"
+ },
+ {
+  "id": 263,
+  "title": "Leading Indicator Dashboard",
+  "body": "Track leading indicators before revenue arrives: qualified impressions, CTR, favourites/cart signals where available, conversion, bundle attach, email/content traffic, creator traffic, search trend direction, support defects and release velocity. Avoid declaring success from leading indicators without orders.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "revenue forecast calibration, leading indicator dashboard"
+ },
+ {
+  "id": 264,
+  "title": "Weekly Growth Constraint Solver",
+  "body": "Each week, identify ONE primary commercial constraint and a small number of secondary constraints. Reallocate experiments/agents toward the constraint with highest expected marginal contribution. Examples: insufficient qualified traffic, weak thumbnail CTR, weak conversion, low AOV, low repeat or product gap.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "weekly constraint solver, experiment portfolio, incrementality"
+ },
+ {
+  "id": 265,
+  "title": "Growth Experiment Portfolio",
+  "body": "Maintain a diversified experiment portfolio with expected value, cost, duration, sample requirement, owner, stop rule and result. Balance quick low-cost tests with strategic longer tests. Kill experiments that cannot change a decision.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "weekly constraint solver, experiment portfolio, incrementality"
+ },
+ {
+  "id": 266,
+  "title": "Incrementality Discipline",
+  "body": "Whenever possible, distinguish incremental revenue from revenue that would have occurred anyway. Use holdouts, staggered rollouts, pre/post controls or channel attribution. Do not credit a discount, ad or creator with all observed sales merely because it was active.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "weekly constraint solver, experiment portfolio, incrementality"
+ },
+ {
+  "id": 267,
+  "title": "Seasonal Capacity Arbitrage",
+  "body": "Shift product and marketing capacity based on time-to-event and make-time. Early season favors complex flagships; late season favors quick makes, giftables and digital last-minute projects. Roll capacity forward before demand collapses.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "seasonal capacity arbitrage"
+ },
+ {
+  "id": 268,
+  "title": "Cross-Border Demand Lens",
+  "body": "Where Etsy data and policy permit, distinguish Canada, U.S. and other meaningful buyer markets for terminology, holidays, timing and pricing/currency effects. Do not assume Canadian search behavior represents Etsy globally.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "partial",
+  "note": "finance/books.py works in CAD with Etsy fees; no cross-border lens or multi-currency normalization"
+ },
+ {
+  "id": 269,
+  "title": "Currency / Fee Margin Normalization",
+  "body": "Normalize product economics into a canonical reporting currency while preserving transaction currency, platform/payment fees, regulatory/currency conversion fees and ad fees. Pricing decisions use net contribution, not sticker price.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "partial",
+  "note": "finance/books.py works in CAD with Etsy fees; no cross-border lens or multi-currency normalization"
+ },
+ {
+  "id": 270,
+  "title": "Revenue Concentration Stress Test",
+  "body": "Model loss of the top SKU, top seasonal event or top traffic channel. If CA$5K collapses under one plausible failure, create a diversification plan. Breakout exploitation remains aggressive, but resilience becomes part of the confidence score.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "revenue concentration stress test"
+ },
+ {
+  "id": 271,
+  "title": "Inventory of Proven Growth Loops",
+  "body": "Maintain a registry of growth loops with evidence strength: Etsy organic, Pinterest, Google/SEO, creators, email/repeat, paid ads, bundles/cross-sells, free tools/content. Record cost, latency, scalability, contribution and confidence. CA$5K confidence rises as independent loops become proven.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "inventory of proven growth loops"
+ },
+ {
+  "id": 272,
+  "title": "Scale Readiness Gate",
+  "body": "Before aggressively scaling a product/channel, require product quality stable, support/refunds acceptable, truthful creative certified, contribution positive or intentionally bounded, attribution working and capacity to handle resulting customer support. Growth cannot outrun product truth.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "scale readiness gate"
+ },
+ {
+  "id": 273,
+  "title": "$5K Scenario Matrix",
+  "body": "Maintain multiple transparent scenarios, e.g. 250 orders x CA$20 AOV, 200 x CA$25, 167 x CA$30, plus mixed Etsy/direct/repeat compositions. Derive required visits from observed conversion and include fees/refunds/ads for contribution. The CEO chooses the most evidence-supported path, not the prettiest spreadsheet.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "CA$5K scenario matrix, confidence ladder, evidence standard"
+ },
+ {
+  "id": 274,
+  "title": "$5K Confidence Ladder",
+  "body": "Track: product-quality confidence -> demand confidence -> conversion confidence -> acquisition confidence -> AOV confidence -> repeat confidence -> portfolio resilience. The modeled probability cannot exceed the weakest critical layer without explicit justification.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "CA$5K scenario matrix, confidence ladder, evidence standard"
+ },
+ {
+  "id": 275,
+  "title": "75%+ $5K Evidence Standard",
+  "body": "A >=75% internal modeled probability for sustainable CA$5K/month requires at minimum: several independently selling products across more than one product family; a meaningful sample of real outside customers; stable low defect/refund/support severity; positive contribution after known fees; repeatable qualified acquisition; observed bundle/AOV behavior; some repeat purchase evidence or a robust substitute; seasonal/evergreen balance; and downside scenarios that remain near the target. Thresholds adapt to actual data rather than being gamed.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "missing",
+  "note": "CA$5K scenario matrix, confidence ladder, evidence standard"
+ },
+ {
+  "id": 276,
+  "title": "$5K War Room",
+  "body": "Once real sales exist, create a permanent CEO/CFO/Growth/Product war-room view showing current monthly run rate, 30-day forecast, gap to CA$5K, primary constraint, top five actions by expected incremental contribution, experiments in flight, winner alerts, risk concentration and owner approvals. Agents execute from this board continuously. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.2 - Proven-Trend Seasonal Capture & Lead-Time Engine NON-NEGOTIABLE owner requirement: aggressively learn from proven benchmark product markets and visual merchandising, transform those opportunities for upcoming seasons/holidays, and release early enough that customers can buy AND physically make the project before the intended event. Brambleloop independently engineers its patterns and creates its own listing assets.",
+  "version": "v1.4.1",
+  "section": "CA$5K/month scale architecture",
+  "status": "data_gated",
+  "note": "CA$5K war room; needs real sales"
+ },
+ {
+  "id": 277,
+  "title": "NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
+  "body": "Brambleloop must continuously observe MJsOffTheHookDesigns and the elite benchmark panel for commercially successful product concepts, silhouettes, product families, merchandising mechanisms, palette directions and seasonal movement. Proven demand is an instruction to compete, not a reason to avoid the category. The system should enter the same broad/generic product market aggressively while engineering Brambleloop's own pattern and producing its own visual assets.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "owner_gated",
+  "note": "proven-trend capture depends on MJs observation"
+ },
+ {
+  "id": 278,
+  "title": "Visual Listing Intelligence Is a Product Input",
+  "body": "Accessible competitor listing photography is first-class market evidence. Browser/vision pods extract silhouette, proportions, neckline, sleeve treatment, stripe/blocking logic, colour architecture, styling, setting, product scale, shot sequence, seasonal cues and apparent customer promise. These observations feed concept generation. Do not copy the competitor's actual photograph or reproduce protected pattern instructions.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "owner_gated",
+  "note": "visual listing intelligence; needs browser/vision"
+ },
+ {
+  "id": 279,
+  "title": "Seasonal Transformation Engine",
+  "body": "For every proven evergreen or current benchmark concept, automatically evaluate season/holiday transformations. Examples include changing palette, styling, motif vocabulary, trim, gift context, collection story and supporting accessories for Christmas, Halloween, Easter, Valentine's, Mother's/Father's Day where relevant, fall, winter, spring, summer and other evidence-supported events. Transformations must remain technically coherent and commercially desirable.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "seasonal transformation engine, colour-forecast layer"
+ },
+ {
+  "id": 280,
+  "title": "Colour-Forecast Layer",
+  "body": "Maintain dated seasonal palette intelligence from current marketplace evidence, fashion/home signals and Brambleloop performance. Each product concept can receive multiple seasonally appropriate colourways. Colour changes are treated as merchandising/product variants only when the underlying pattern truth supports them; imagery and listing claims must match the actual colourway.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "seasonal transformation engine, colour-forecast layer"
+ },
+ {
+  "id": 281,
+  "title": "MJs-to-Brambleloop Seasonal Response Pipeline",
+  "body": "When an MJs/elite listing demonstrates a strong generic market concept, route it to the relevant specialist pod. Decompose why the product appears commercially strong, generate Brambleloop responses for the current and upcoming seasonal windows, run Creative Supremacy/benchmark gates, engineer the selected original pattern through CIR, generate Brambleloop-owned assets, then launch/advertise according to evidence.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "owner_gated",
+  "note": "MJs-to-Brambleloop response pipeline; needs MJs evidence"
+ },
+ {
+  "id": 282,
+  "title": "Example Transformation - Striped Cardigan",
+  "body": "A proven broad concept such as a cropped V-neck button-front striped crochet cardigan may trigger Brambleloop variants for upcoming demand: Christmas palettes (e.g. forest/cranberry/cream/gold), winter palettes, spring palettes, fall palettes and other evidence-supported themes. Preserve commercially useful generic characteristics while Brambleloop independently engineers construction, grading and instructions and creates its own model-led photography.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "worked transformation example (striped cardigan)"
+ },
+ {
+  "id": 283,
+  "title": "Maker Lead-Time Is Mandatory",
+  "body": "Seasonal demand planning must work backward from when the CUSTOMER needs the finished object, not merely the holiday date. Estimate project make-time distribution by product/skill level, buyer planning/shopping lead time, tester/QA time, Etsy indexing/learning time, creative production time and advertising ramp. Complex products must launch substantially earlier than quick makes.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "maker lead-time, launch-date compiler, complexity lanes -- OWNER FLAGGED NON-NEGOTIABLE, buildable now"
+ },
+ {
+  "id": 284,
+  "title": "Seasonal Launch-Date Compiler",
+  "body": "For every event, compute: EVENT DATE minus customer completion buffer minus estimated make time minus purchase/planning buffer minus marketplace discovery/ramp buffer = target latest effective launch date. Also calculate preferred launch date with additional learning/optimization time. Recompute as observed buyer behavior improves estimates.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "maker lead-time, launch-date compiler, complexity lanes -- OWNER FLAGGED NON-NEGOTIABLE, buildable now"
+ },
+ {
+  "id": 285,
+  "title": "Complexity-Based Seasonal Lanes",
+  "body": "Classify products by customer make-time: QUICK (hours/1-2 days), SHORT (several days), MEDIUM (roughly 1-2 weeks), LONG (multi-week), FLAGSHIP (potentially many weeks). Seasonal scheduling gives LONG/FLAGSHIP products the earliest runway and can continue QUICK products much closer to the event.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "maker lead-time, launch-date compiler, complexity lanes -- OWNER FLAGGED NON-NEGOTIABLE, buildable now"
+ },
+ {
+  "id": 286,
+  "title": "Rolling 365-Day Opportunity Calendar",
+  "body": "Maintain a continuously rolling calendar rather than separate one-off 'Christmas strike teams.' Every day, look 30/60/90/120/180/365 days ahead for holidays, seasons, gifting moments and cultural/market events relevant to crochet. Each event has research, concept, engineering, test, asset, launch, optimization and late-season quick-make phases.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "rolling 365-day calendar, strike teams, holiday depth"
+ },
+ {
+  "id": 287,
+  "title": "Seasonal Strike Teams by Event",
+  "body": "Create persistent or on-demand specialist strike teams for major commercially relevant events. Christmas, Halloween, Easter and major seasons receive deep dedicated coverage; additional events are created when demand evidence supports them. Teams own opportunity maps, product gaps, colour/motif language, deadlines, benchmark changes and revenue targets.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "rolling 365-day calendar, strike teams, holiday depth"
+ },
+ {
+  "id": 288,
+  "title": "Holiday Portfolio Depth",
+  "body": "Do not reduce an event to one blanket. For each major event, explore the full maker/gift ecosystem: garments, stockings, ornaments, tree/table decor, wreaths, coasters, baskets, pillows, throws, bags, hats, accessories, amigurumi, quick gifts, bundles and other technically/market appropriate categories. Portfolio selection remains evidence-driven.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "rolling 365-day calendar, strike teams, holiday depth"
+ },
+ {
+  "id": 289,
+  "title": "Seasonal Collection Architecture",
+  "body": "Products should form coherent collections where useful. A winning seasonal visual language can extend across multiple original products and price points, enabling cross-sell and bundle behavior. Collections share palette/story but each product must stand on its own commercially.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "seasonal collection architecture"
+ },
+ {
+  "id": 290,
+  "title": "Trend Half-Life Classification",
+  "body": "Every observed trend receives an estimated half-life: flash/meme, short seasonal, recurring seasonal, multi-season fashion, or evergreen. Development effort and launch urgency depend on half-life. Do not spend flagship engineering time on a trend likely to expire before customers can finish the project.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "trend half-life classification, fast response lane"
+ },
+ {
+  "id": 291,
+  "title": "Fast Response Lane",
+  "body": "When a high-confidence trend is time-sensitive and technically simple, use a fast lane with bounded scope, deterministic validation and rapid asset production. Fast does not bypass pattern truth, IP/policy, visual truth or customer safety/quality gates.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "trend half-life classification, fast response lane"
+ },
+ {
+  "id": 292,
+  "title": "Evergreen-to-Seasonal Multiplier",
+  "body": "Periodically inspect proven Brambleloop evergreen products for legitimate seasonal re-merchandising opportunities: new colourways, styled photography, bundles, compatible add-ons and seasonal search positioning. Avoid unnecessary new pattern SKUs when the pattern itself is unchanged; preserve clean version/product accounting.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "evergreen-to-seasonal multiplier"
+ },
+ {
+  "id": 293,
+  "title": "Seasonal Search Intent Mapping",
+  "body": "Before launch, map each seasonal product to real buyer language from Etsy/market evidence: object + technique + recipient/use + aesthetic + season/event + skill/feature where relevant. Search strategy must reflect what buyers are already seeking while remaining accurate to the product.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "seasonal search intent mapping"
+ },
+ {
+  "id": 294,
+  "title": "Pre-Season Ad Learning Window",
+  "body": "Paid acquisition for important seasonal products begins early enough to gather CTR/conversion/CAC evidence and improve creative before peak demand. Do not wait until the event is imminent to discover the thumbnail or offer is weak. Scaling follows the evidence-based CAC/ROAS controls in #242-244.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "owner_gated",
+  "note": "pre-season ad learning, winner scaling; needs ad authority"
+ },
+ {
+  "id": 295,
+  "title": "Aggressive Winner Scaling",
+  "body": "If a seasonal product clears quality gates and demonstrates profitable/reasonable acquisition economics, automatically increase creative testing, supporting pins/content, cross-sells, bundles and paid budget within approved scaling bands. Escalate larger spend increases to the owner's mobile approval inbox with exact economics.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "owner_gated",
+  "note": "pre-season ad learning, winner scaling; needs ad authority"
+ },
+ {
+  "id": 296,
+  "title": "Seasonal Revenue War Room",
+  "body": "For each major upcoming event, show days to preferred/latest launch, products by stage, benchmark gaps, search opportunities, projected customer make time, ad learning status, current seasonal revenue/run rate, winner alerts and bottlenecks. The orchestrator reallocates agents toward deadlines and expected contribution.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "seasonal revenue war room"
+ },
+ {
+  "id": 297,
+  "title": "Missed-Window Kill / Pivot Rule",
+  "body": "If a product cannot realistically be discovered, purchased and completed before its intended event, do not launch it under a misleading seasonal premise merely because engineering is finished. Pivot it to evergreen/next-season positioning, simplify into a legitimate quick-make derivative, or hold it for the next cycle.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "missed-window kill / pivot rule"
+ },
+ {
+  "id": 298,
+  "title": "Post-Season Learning Harvest",
+  "body": "After every major event, analyze which concepts, palettes, categories, thumbnails, search terms, prices, bundles and channels actually worked. Feed evidence into next year's calendar immediately, including when demand began/peaked/decayed and actual customer make-time/support signals.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "data_gated",
+  "note": "post-season learning harvest; needs a season of data"
+ },
+ {
+  "id": 299,
+  "title": "Seasonal Benchmark Coverage Matrix",
+  "body": "For each major event and department, maintain a matrix of elite-benchmark product markets versus Brambleloop coverage: benchmark concept/category, observed merchandising mechanisms, upcoming seasonal adaptation opportunities, our competing products, quality-gate result, launch date, traffic, conversion and revenue. Use it to expose unserved proven markets.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "seasonal benchmark coverage matrix"
+ },
+ {
+  "id": 300,
+  "title": "Seasonal System Acceptance Test",
+  "body": "Build 2 must demonstrate an end-to-end simulated seasonal cycle: observe a benchmark market signal, classify generic product characteristics, choose an upcoming event, compute customer lead-time and launch date, generate multiple original seasonal responses, select/engineer one, certify it, create Brambleloop-owned assets, prepare search/ads, and show that the scheduler launched early enough for a customer to make it before the event. This is release-blocking. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.3 - MJsOffTheHookDesigns Priority Mission HUGE MANDATORY FLAG / NON-NEGOTIABLE OWNER PRIORITY: MJsOffTheHookDesigns is the specifically named anchor benchmark. Brambleloop must maintain dedicated cloud browser/vision intelligence around this shop, learn its commercially successful product markets and visual merchandising, aggressively evaluate those same markets for upcoming seasonal/holiday adaptations, and release early enough for customers to buy and make the project. Brambleloop independently engineers its patterns and creates its own publishable visual assets.",
+  "version": "v1.4.2",
+  "section": "Proven-trend seasonal capture & lead-time engine",
+  "status": "missing",
+  "note": "seasonal system acceptance test -- release blocking, simulated cycle is buildable without live MJs data"
+ },
+ {
+  "id": 301,
+  "title": "OWNER MANDATE - MJsOffTheHookDesigns Is the Named Priority Benchmark",
+  "body": "NON-NEGOTIABLE / TOP PRIORITY. Do not generalize this requirement into 'watch proven sellers.' The specifically named anchor is MJsOffTheHookDesigns. Canonical owner-supplied shop URL: https://www.etsy.com/ca/shop/MJsOffTheHookDesigns?ref=shop_profile&listing;_id=1825269747 . The shorter canonical shop route may also be stored, but the owner-supplied URL must remain in the benchmark registry and acceptance evidence.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "MJs named as the priority benchmark in configuration -- buildable now"
+ },
+ {
+  "id": 302,
+  "title": "MJs Mission Has Dedicated Capacity",
+  "body": "Maintain dedicated MJs intelligence capacity independent of generic market research. Agent count is elastic and uncapped by an arbitrary small number: the orchestrator may fan out into very large logical specialist swarms when needed for complete catalogue coverage, image analysis, category decomposition, seasonal response and QA. Scale is justified by coverage/quality/latency and remains under global spend controls.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "dedicated MJs capacity"
+ },
+ {
+  "id": 303,
+  "title": "MJs Catalogue Is a Living Market Map",
+  "body": "Establish and maintain full discoverable MJs catalogue coverage. Every listing is assigned to specialist category pods and represented in the MJs Coverage Matrix. Track newly discovered/changed listings, product family, generic product type, silhouette/form, palette, seasonal positioning, visual merchandising mechanisms, visible pricing/promotion, gallery structure and dated evidence.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "owner_gated",
+  "note": "MJs catalogue as a living market map; needs browser"
+ },
+ {
+  "id": 304,
+  "title": "MJs Listing Photos Must Be Visually Studied",
+  "body": "For every accessible MJs listing selected for baseline or change audit, browser/vision workers traverse the accessible gallery and analyze each image as competitive evidence. Extract product form, proportions, generic construction cues visible from the finished item, colour/stripe/blocking logic, styling, model/product presentation, detail coverage, setting, thumbnail strategy and seasonal signals. This is not satisfied by text scraping or search-result thumbnails.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "owner_gated",
+  "note": "MJs listing photos visually studied; needs browser/vision"
+ },
+ {
+  "id": 305,
+  "title": "Do Not Reproduce MJs Photo Assets",
+  "body": "MJs photography may be used as visual market/merchandising evidence, but Brambleloop must create its own listing photographs/renders with its own canonical model, scenes and composition assets. Do not download/recolour/edit an MJs photograph and publish it as Brambleloop creative.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "do-not-reproduce-MJs-assets rule -- buildable now as a gate"
+ },
+ {
+  "id": 306,
+  "title": "Same Proven Product Arena Is Mandatory to Consider",
+  "body": "When MJs demonstrates demand in a broad/generic product arena - cardigan, sweater, stocking, blanket, ornament, bag, hat, coaster, decor or another category - the relevant Brambleloop pod MUST consider entering that same arena. It may preserve commercially useful generic characteristics visible from the finished product (e.g. cropped V-neck button cardigan, striped/color-blocked look, relaxed fit) while independently engineering the Brambleloop pattern.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "same-arena mandate, seasonalize MJs concepts, cardigan example"
+ },
+ {
+  "id": 307,
+  "title": "Seasonalize MJs-Proven Concepts",
+  "body": "Every commercially meaningful MJs concept is evaluated against the rolling seasonal calendar. Ask how the broad product concept can speak to the NEXT season/holiday through colour palette, styling, trim, motif vocabulary, gift context, supporting accessories, bundles and merchandising. Christmas, Halloween, Easter and fall/winter/spring/summer are mandatory recurring lenses; other events are evidence-driven.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "same-arena mandate, seasonalize MJs concepts, cardigan example"
+ },
+ {
+  "id": 308,
+  "title": "Owner Example - Christmas Cardigan Response",
+  "body": "If MJs has a strong cropped striped cardigan listing, Brambleloop may deliberately compete with a cropped striped cardigan for the same broad buyer/search market and develop Christmas colourways such as forest/cranberry/cream/gold or other current seasonal palettes. Brambleloop independently engineers stitch counts, construction, grading and written instructions and generates Brambleloop-owned listing imagery.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "same-arena mandate, seasonalize MJs concepts, cardigan example"
+ },
+ {
+  "id": 309,
+  "title": "MJs Trend-to-Season Mission Pipeline",
+  "body": "MJs listing/new-change event -> specialist pod -> visual/text market decomposition -> demand/season fit -> seasonal colour/theme tournament -> customer make-time estimate -> preferred/latest launch date -> original CIR/pattern engineering -> truth/certification -> Brambleloop-owned premium assets -> benchmark challenge -> SEO/ads/content -> launch -> performance measurement -> winner scaling -> lessons back to MJs specialist memory.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "MJs trend-to-season mission pipeline"
+ },
+ {
+  "id": 310,
+  "title": "Release Ahead of the Customer's Making Window",
+  "body": "MJs-inspired competitive responses must not arrive when the holiday starts. Work backward from the date customers want the FINISHED object. Include crochet make time, customer planning/purchase time, testing/QA, marketplace discovery/indexing, creative iteration and paid-ad learning. Complex garments/blankets receive materially more runway than quick ornaments/coasters.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "release ahead of making window, MJs seasonal deadline sentinel"
+ },
+ {
+  "id": 311,
+  "title": "MJs Seasonal Deadline Sentinel",
+  "body": "Continuously calculate days remaining to preferred and latest viable launch for every MJs-derived seasonal opportunity. Escalate at-risk opportunities, reallocate agents, simplify only when product truth permits, or defer to next season when the customer can no longer reasonably finish the project in time.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "release ahead of making window, MJs seasonal deadline sentinel"
+ },
+ {
+  "id": 312,
+  "title": "MJs Category Pods Are Permanent",
+  "body": "At minimum maintain MJs-aware specialist capability for garments/clothing, blankets/throws, stockings, ornaments/tree decor, home/decor, bags/accessories, hats/wearables and seasonal/gift products, adding new pods as catalogue evidence requires. Each pod owns benchmark history, seasonal opportunity map, quality rubric, Brambleloop coverage and improvement experiments.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "MJs category pods are permanent"
+ },
+ {
+  "id": 313,
+  "title": "MJs Change Detection Is High Priority",
+  "body": "After full baseline, perform frequent lightweight checks for catalogue/listing changes and immediately deep-audit new or materially changed listings. Adapt cadence to MJs observed release behavior and seasonal urgency. The goal is fast awareness without repeatedly paying to reprocess identical content.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "owner_gated",
+  "note": "MJs change detection; needs browser"
+ },
+ {
+  "id": 314,
+  "title": "MJs Coverage Gap Queue",
+  "body": "Every meaningful MJs product arena lacking a competitive Brambleloop response enters a prioritized gap queue scored by apparent demand, seasonal timing, search opportunity, make-time, expected contribution, creative potential and portfolio fit. The queue must distinguish 'uncovered', 'concepting', 'engineering', 'certified', 'launched', 'validated winner' and 'not pursuing + reason'.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "MJs coverage gap queue"
+ },
+ {
+  "id": 315,
+  "title": "MJs Quality Challenge Is Release-Blocking",
+  "body": "For relevant products, compare Brambleloop's finished offer against category-matched current MJs evidence on product desirability, visual appeal, thumbnail strength, fit/proportion where applicable, seasonal relevance, pattern deliverables, clarity, value, trust and merchandising. If Brambleloop is visibly generic/amateur or materially weaker, return it to development.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "owner_gated",
+  "note": "MJs quality challenge; needs MJs evidence"
+ },
+ {
+  "id": 316,
+  "title": "MJs Mission Feeds Continuous Improvement",
+  "body": "All observations, Brambleloop launches, failures, owner vetoes, conversion data and customer outcomes update the MJs specialist pods' versioned learning memory. Challenger agents should repeatedly test better ways to interpret MJs market signals, generate stronger seasonal responses and improve commercial execution.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "MJs mission feeds continuous improvement"
+ },
+ {
+  "id": 317,
+  "title": "Ten-Pattern Benchmark Laboratory",
+  "body": "When the owner purchases approximately ten representative MJs patterns, treat them as a controlled customer-experience benchmark set: analyze organization, navigation, terminology, sizing presentation, charting, video/support integration, materials, troubleshooting and overall deliverable quality. Use lessons to improve Brambleloop's own independently created products. Do not reproduce protected pattern text/charts/instructions.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "owner_gated",
+  "note": "ten-pattern benchmark laboratory; owner purchases the patterns"
+ },
+ {
+  "id": 318,
+  "title": "MJs Mission Dashboard",
+  "body": "Owner command centre must expose MJs mission status: last successful scan, catalogue coverage, listings changed/new, gallery audit coverage, specialist pod assignments, top uncovered opportunities, upcoming seasonal adaptations, launch deadlines, Brambleloop comparison results, products launched, conversion/revenue and mission incidents.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "MJs mission dashboard"
+ },
+ {
+  "id": 319,
+  "title": "No Generic Substitution",
+  "body": "A system report that says only 'competitor scan complete' fails this mandate. Evidence must specifically identify MJsOffTheHookDesigns, timestamp, catalogue/listing coverage, what changed, which images/listings were inspected, which specialist pods received the evidence and what actions resulted.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "missing",
+  "note": "no generic substitution rule"
+ },
+ {
+  "id": 320,
+  "title": "MJs Mission End-to-End Acceptance Test",
+  "body": "Build 2 is blocked until a production-capable demonstration uses the stored MJs URL, resolves the named shop, discovers listings, opens representative individual listings, traverses accessible gallery images and visible listing information, routes evidence to category pods, identifies an upcoming seasonal adaptation, computes maker-aware launch timing, produces multiple Brambleloop concept responses, and records the resulting action in the MJs Coverage Matrix. Browser/access limitations must be reported honestly rather than silently downgraded.",
+  "version": "v1.4.3",
+  "section": "MJsOffTheHookDesigns priority mission",
+  "status": "owner_gated",
+  "note": "MJs end-to-end acceptance test -- blocked on browser/vision"
+ }
+]
