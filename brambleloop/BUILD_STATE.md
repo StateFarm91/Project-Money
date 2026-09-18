@@ -530,6 +530,12 @@ Exact and verified. Nothing here is projected.
   rebuild already ran and was refused downstream — because a rebuild cannot deliver a
   transition that a later stage refuses, and reporting the two identically is what hid a
   blocked product through three rebuilds.
+- **Owner queue identity.** Each `OwnerRequest` carries the requirement key it belongs to,
+  and `OwnerAction.requirement_key` stores it. The queue de-duplicates on that, not on the
+  action's wording, because an action that derives a figure from the catalogue changes its
+  text when the catalogue changes. A request whose figure moved is restated in the same row.
+  `POST /api/launch-readiness` forces an assessment when waiting for the daily one would
+  leave the owner reading a stale figure.
 - **Build identity.** `/api/status` and `/health` report the commit the running image was
   built from. It is the only field that can tell whether a fix reached production: `version`
   is hand-maintained and proves nothing. An absent build variable reports `unknown` and
@@ -671,6 +677,18 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **The migration path for the queue, and a way to run an assessment now.**
+  Keying the queue on the requirement was only half the fix: pre-upgrade rows were matched
+  on their full action text, which adopts every action whose wording is unchanged and fails
+  for the only one that had changed. Production was holding exactly that row, so the fee
+  approval would have been left keyless with a second row added beside it. A keyless row is
+  adopted by its opening clause instead, which no derived figure reaches, and two tests
+  assert the clauses are distinct and stable. Verified in production: seven actions before,
+  seven after, `owner_actions_added: 0`, `owner_actions_restated: ["listing_fees"]`, and the
+  queue now reads US$3.20 / CA$4.48 for the 16 listings that exist. Delivering it also
+  needed `POST /api/launch-readiness`, because the assessment runs daily and the corrected
+  figure would otherwise have sat undeliverable until midnight — the same argument as
+  `/api/chain-rebuild`, and GREEN for the same reasons.
 - 2026-09-18: **The owner queue keyed on prose.** Deriving the fee figure from the
   catalogue broke `test_deploy` on the next run: the queue de-duplicated open owner actions
   by comparing their text, which worked only while every action was a frozen string, so a
