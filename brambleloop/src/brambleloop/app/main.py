@@ -246,6 +246,32 @@ def api_chain_rebuild() -> dict:
     return {"enqueued": True, "job_id": job.id}
 
 
+@app.post("/api/launch-readiness")
+def api_launch_readiness() -> dict:
+    """Re-assess launch readiness now, rather than at the next daily cadence.
+
+    The same argument as `/api/chain-rebuild`, for the same reason. A daily assessment is
+    right for an unattended system and too slow the moment a deploy changes what the owner
+    queue should say: the owner's queue then holds yesterday's wording until midnight, and
+    the one time that mattered it was holding a fee figure costed for nine listings against
+    a catalogue of sixteen.
+
+    GREEN: it enqueues work the system already does on a schedule, spends nothing, publishes
+    nothing, and only ever writes to the owner-action queue.
+    """
+    # Keyed to the minute, like the rebuild: a burst of clicks collapses into one
+    # assessment, and the assessment is idempotent anyway.
+    key = f"launch.readiness:{utcnow():%Y%m%dT%H%M}"
+    try:
+        job = JobQueue(db).enqueue("orchestrator", "launch.readiness", {},
+                                   idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False,
+                "reason": "an assessment was already queued this minute; it is idempotent, "
+                          "so the queued one does the same work"}
+    return {"enqueued": True, "job_id": job.id}
+
+
 @app.get("/api/jobs")
 def api_jobs(limit: int = 50) -> dict:
     with db.session() as s:

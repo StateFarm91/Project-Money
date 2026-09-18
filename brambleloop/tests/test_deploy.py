@@ -401,6 +401,25 @@ def test_a_reworded_owner_action_is_restated_in_place_not_queued_twice():
         "the figure did not follow the catalogue, so the restate path never ran"
 
 
+
+def test_a_readiness_assessment_can_be_started_on_demand_and_is_idempotent_per_minute():
+    """A daily cadence is right unattended and too slow after a deploy.
+
+    The owner queue's wording comes from the assessment, so when a deploy changes what an
+    action should say, the queue holds the old wording until midnight. The one time that
+    mattered it was holding a fee figure costed for nine listings against a catalogue of
+    sixteen, and there was no way to ask for a fresh assessment without waiting.
+
+    Keyed to the minute like the chain rebuild, so a burst of clicks collapses into one.
+    """
+    with _client() as c:
+        first = c.post("/api/launch-readiness").json()
+        second = c.post("/api/launch-readiness").json()
+
+    assert first["enqueued"] is True, first
+    assert second["enqueued"] is False, second
+    assert "idempotent" in second["reason"], second
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
