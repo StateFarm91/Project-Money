@@ -451,6 +451,29 @@ def api_scale() -> dict:
         "scenarios": target.matrix(),
     }
 
+
+@app.post("/api/seasonal/recompute")
+def api_seasonal_recompute(as_of: str = "") -> dict:
+    """Recompute the seasonal war room now, rather than at the next daily cadence.
+
+    Same argument as `/api/launch-readiness` and `/api/chain-rebuild`: a daily cadence is
+    right for an unattended system and too slow the moment a catalogue change alters what the
+    launch dates should say. `as_of` asks what the room looked like, or will look like, on a
+    given day — which is how a deadline is checked against a plan rather than against today.
+
+    GREEN: it enqueues work already on a schedule, computes dates, spends nothing and
+    publishes nothing.
+    """
+    key = f"seasonal.sentinel:{utcnow():%Y%m%dT%H%M}"
+    inputs = {"as_of": as_of} if as_of else {}
+    try:
+        job = JobQueue(db).enqueue("orchestrator", "seasonal.sentinel", inputs,
+                                   idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False,
+                "reason": "a seasonal assessment was already queued this minute"}
+    return {"enqueued": True, "job_id": job.id}
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
