@@ -27,6 +27,9 @@ def main() -> int:
     db = Database()
     db.create_all()
     Registry(db).seed_defaults()
+    from ..intel.benchmarks import seed as seed_benchmarks
+
+    seed_benchmarks(db)
 
     phase = Phase(os.environ.get("BRAMBLELOOP_PHASE", "shadow"))
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"worker-{os.getpid()}"

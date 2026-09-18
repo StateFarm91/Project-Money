@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 8 | Build 1 already satisfies it, with a named test or artefact |
-| partial | 51 | something real exists and is short of the requirement |
-| missing | 202 | nobody has built it |
+| covered | 16 | satisfied, with a named test or artefact |
+| partial | 54 | something real exists and is short of the requirement |
+| missing | 191 | nobody has built it |
 | owner_gated | 47 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **253 requirements are executable by this session** (partial +
+as one nobody has written. **245 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,9 +53,10 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` at commit `d5168c0`: **541 tests passing, 0 failing** across
-26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
-predicted — writing a predicted total on this line has been wrong twice.
+Measured by `./run_tests.sh` on the current head: **581 tests passing, 0 failing** across
+29 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
+541 across 26 suites, at commit `d5168c0`.)
 
 Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
 storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
@@ -117,6 +118,51 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**The benchmark spine for the owner's named-shop mandate (#205, #206, #210, #211, #217, #301,
+#305, #312, #314, #318, #319) — everything the MJs mission needs that does not require the
+browser capability nobody has granted yet.**
+
+The mandate is unusually emphatic: one specific shop, by name, explicitly not generalisable
+into "watch proven sellers". Most of the ways it goes wrong are ways of *appearing* to satisfy
+it, so each one has a refusal and a test:
+
+- **A redirect to a different seller is refused, not followed.** `intel/benchmarks.py`
+  classifies resolution as healthy / moved / unreachable / **wrong_shop** / unverified. A 404
+  and a redirect that lands somewhere plausible look identical to a naive follower, and the
+  second silently re-points the entire mission at a stranger. A move updates where we look; a
+  wrong shop never does. With no capability configured the state is `unverified`, never
+  `healthy`, because the dashboard is believed.
+- **The owner's own URL is stored verbatim**, query string and all, and surfaces unchanged on
+  `/api/mjs` — #301 requires it in the registry and in acceptance evidence, and tidying it into
+  the short canonical route is the obvious, helpful, wrong thing.
+- **Eight permanent specialist pods** with ordered routing, so a Christmas stocking reaches
+  the stocking specialist rather than the seasonal one, and each pod owns a quality rubric. A
+  listing nobody can classify goes to a visible `unclassified` queue rather than the nearest
+  pod, because a map whose gaps are invisible reports full coverage of whatever it understood.
+- **A dimension with no evidence is `unknown`, never `parity`.** Parity is a finding.
+  Defaulting to it lets a company that has never looked at its benchmark report itself level
+  with it, which is the most comfortable wrong answer available.
+- **Lessons are stored only at the mechanism level**, against a closed vocabulary, and a note
+  carrying a competitor's row-by-row instructions or chart is refused at the point of writing.
+- **The gap queue has all seven states #314 names**, a transition table that refuses a state
+  the work never passed through, and a mandatory reason for `not_pursuing` — a queue whose
+  items can be closed silently shrinks by forgetting and then reports good coverage. Scores
+  record the share of the weighting actually answered, so a 0.8 computed from one component
+  out of seven cannot pass for a considered one.
+- **#319, almost verbatim:** a report that says only "competitor scan complete" is refused.
+  So is one that names a different shop, one with no date, and one whose catalogue coverage
+  cannot say how many listings are known versus inspected.
+- **#305 is enforced at provenance**, the only place a file's origin is stated: a source
+  outside camera / twin / generator / designer blocks, and provenance describing a downloaded,
+  scraped or recoloured competitor image blocks. By the time an image is in a gallery it looks
+  like any other image, and "we would never do that" is not a control.
+
+Four new tables (`benchmarks`, `benchmark_listings`, `benchmark_observations`,
+`coverage_gaps`), three of them added to the continuity export's non-rederivable set. The
+mission dashboard at `/api/mjs` leads with whether the mission can observe anything at all,
+and says plainly that nothing in it is filled in from snippets, screenshots or fixtures.
+
+## Previously completed milestone
 **The access approval protocol, and the rule that stops a missing capability being faked
 (#223, #224).**
 
@@ -153,7 +199,7 @@ stays unverified until a key exists.
 
 Readable at `/api/access`, which reports the unmet capability first and the request second.
 
-## Previously completed milestone
+## Earlier in Build 2
 **Business continuity: the export, the restore, and the proof that the restore works
 (requirement 51 — the gap Build 1 wrote into its own baseline, and the one the owner flagged
 to close early in Build 2).**
@@ -195,8 +241,6 @@ code, which is what "patterns are software releases" buys.
 Found by the test that exists for it: the new daily cadence was scheduled against an agent
 with no permission to run it — the same defect production hit with the heartbeat in Build 1.
 `test_every_scheduled_cadence_can_actually_run` caught it before it ever ran.
-
-564 tests passing, 0 failing, 28 suites.
 
 ## Build-1 closing milestone
 **Build 1 of Master Plan v1.2 is complete. Nothing in the launch report is blocked on build.**

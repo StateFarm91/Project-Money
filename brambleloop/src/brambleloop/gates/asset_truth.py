@@ -82,6 +82,19 @@ SIZE_LABELS_CM: dict[str, tuple[float, float]] = {
 }
 
 
+# The only origins an asset may have. A source outside this set cannot be shown to be the
+# company's own work, and #305 makes that a publication question rather than a filing one.
+PERMITTED_SOURCES: tuple[str, ...] = ("camera", "twin", "generator", "designer")
+
+# Phrases that describe taking somebody else's file rather than making one. Matched against
+# the provenance text, which is where the origin is actually stated.
+_APPROPRIATED: tuple[str, ...] = (
+    "downloaded from", "saved from", "scraped", "screenshot of", "recoloured from",
+    "recolored from", "edit of a competitor", "competitor photograph", "benchmark photograph",
+    "reused from etsy", "taken from etsy",
+)
+
+
 def check_asset(
     asset: Asset, cir: CIR, twin: TwinModel, *, findings: list[Finding] | None = None
 ) -> list[Finding]:
@@ -92,6 +105,28 @@ def check_asset(
     if not asset.provenance.is_complete():
         out.append(Finding(ERROR, "ASSET_PROVENANCE",
                            "asset has incomplete provenance; it cannot be published", where))
+
+    # #305: benchmark photography is evidence to study, never creative to publish. The rule
+    # is enforced at provenance because that is the only place the file's origin is stated --
+    # by the time an image is in the gallery it looks like any other image, and "we would
+    # never do that" is not a control.
+    source = (asset.provenance.source or "").strip().lower()
+    if source and source not in PERMITTED_SOURCES:
+        out.append(Finding(
+            ERROR, "ASSET_SOURCE_UNRECOGNISED",
+            f"provenance source {asset.provenance.source!r} is not one of "
+            f"{sorted(PERMITTED_SOURCES)}; an asset whose origin is not one of these cannot "
+            f"be shown to be Brambleloop's own work", where))
+    origin_text = " ".join(filter(None, (asset.provenance.source, asset.provenance.tool,
+                                         asset.provenance.notes))).lower()
+    for marker in _APPROPRIATED:
+        if marker in origin_text:
+            out.append(Finding(
+                ERROR, "ASSET_COMPETITOR_SOURCE",
+                f"provenance says this asset was {marker!r}: a competitor's photograph may be "
+                f"studied as market evidence and may never be published as Brambleloop "
+                f"creative, recoloured or edited (#305)", where))
+            break
 
     # --- depicted content must exist in the pattern ---
     real_stitches = twin.stitch_types_used

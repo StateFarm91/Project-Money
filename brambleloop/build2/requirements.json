@@ -1841,8 +1841,8 @@
   "body": "Maintain a canonical registry of elite crochet-market benchmarks rather than relying on vague memory. Each benchmark records canonical URL, shop identity, categories, reason for inclusion, scan health, last baseline, last change, evidence freshness and specialist cells responsible. MJsOffTheHookDesigns is a mandatory anchor benchmark because the owner selected it as the primary quality/commercial reference.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "elite benchmark registry"
+  "status": "covered",
+  "note": "intel/benchmarks.py declares the registry and core/models.Benchmark stores its observed state -- canonical URL, owner-supplied URL, mandate, categories, responsible pods, scan health and the three freshness timestamps. Seeded at boot and reconciled like the agent registry: code owns identity, the running system owns observed state. The panel is deliberately narrow (see #219): entries join it from evidence, never pre-populated."
  },
  {
   "id": 206,
@@ -1850,8 +1850,8 @@
   "body": "Canonical benchmark URL: https://www.etsy.com/ca/shop/MJsOffTheHookDesigns . Store this literal reference in configuration and documentation. Validate URL health and resolution; if Etsy changes routing, resolve the shop's current canonical location without silently substituting a different seller.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "mandatory MJs source stored in configuration -- buildable now"
+  "status": "covered",
+  "note": "the canonical URL is a literal in intel/benchmarks.py and in the registry table. resolve() validates health through an injected fetcher and classifies the result healthy / moved / unreachable / wrong_shop / unverified. A redirect that lands on a different seller, or on a search page, is refused and never re-points the registry -- record_resolution() follows a move and ignores a wrong_shop. No capability configured reports unverified, never healthy."
  },
  {
   "id": 207,
@@ -1886,8 +1886,8 @@
   "body": "Create independent specialist cells for the major product departments observed in the benchmark catalogue: garments/clothing, blankets/throws, stockings, ornaments/tree decor, home/decor, bags/accessories, hats/wearables, seasonal/gift products and additional categories as discovered. Each cell owns category-specific history, quality rubric, opportunity map and competitive lessons.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "MJs specialist pods, competitive intelligence director -- the pod architecture is buildable before browser access"
+  "status": "partial",
+  "note": "intel/pods.py defines the eight mandated specialist cells with ordered routing and a per-pod quality rubric, and BenchmarkObservation carries per-pod evidence. Remaining: each pod's opportunity map and category history are structurally present but empty until observation exists, and pod-level learning memory is #226/#177-194 work."
  },
  {
   "id": 211,
@@ -1895,8 +1895,8 @@
   "body": "A central director coordinates specialist pods, deduplicates observations, identifies cross-category mechanisms, routes new benchmark releases to the correct cells, and prevents siloed learning. It maintains a company-level view of where Brambleloop is ahead, at parity or materially behind on concrete dimensions without using that as permission to copy protected expression.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "MJs specialist pods, competitive intelligence director -- the pod architecture is buildable before browser access"
+  "status": "partial",
+  "note": "intel/pods.Director deduplicates on content fingerprint, routes listings to the answering pod, finds mechanisms appearing across two or more pods, and computes ahead/parity/behind per concrete dimension -- with unknown, never parity, when either side has no evidence. Remaining: the company-level view is computed on demand rather than maintained, and has no evidence to compute from yet."
  },
  {
   "id": 212,
@@ -1949,8 +1949,8 @@
   "body": "Store reusable lessons only at the mechanism level: silhouette strength, fit strategy, styling, colour architecture, photography coverage, product family logic, beginner support, seasonal timing, thumbnail clarity, merchandising, bundle logic and customer promise. Do not turn competitor protected pattern text/images into Brambleloop source designs.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "benchmark mechanism decomposition"
+  "status": "covered",
+  "note": "lessons are stored only against a closed mechanism vocabulary, and pods.lesson() refuses a note carrying a competitor's row-by-row instructions, chart or pattern text. The refusal is at the point of writing rather than at a review nobody schedules."
  },
  {
   "id": 218,
@@ -2705,8 +2705,8 @@
   "body": "NON-NEGOTIABLE / TOP PRIORITY. Do not generalize this requirement into 'watch proven sellers.' The specifically named anchor is MJsOffTheHookDesigns. Canonical owner-supplied shop URL: https://www.etsy.com/ca/shop/MJsOffTheHookDesigns?ref=shop_profile&listing;_id=1825269747 . The shorter canonical shop route may also be stored, but the owner-supplied URL must remain in the benchmark registry and acceptance evidence.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "MJs named as the priority benchmark in configuration -- buildable now"
+  "status": "covered",
+  "note": "the owner-supplied URL is stored verbatim, including its query string, and surfaces unchanged on /api/mjs where acceptance evidence is read from. mission.check_report() refuses a report naming any other shop, which is the mechanical form of 'do not generalize this into watch proven sellers'."
  },
  {
   "id": 302,
@@ -2741,8 +2741,8 @@
   "body": "MJs photography may be used as visual market/merchandising evidence, but Brambleloop must create its own listing photographs/renders with its own canonical model, scenes and composition assets. Do not download/recolour/edit an MJs photograph and publish it as Brambleloop creative.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "do-not-reproduce-MJs-assets rule -- buildable now as a gate"
+  "status": "covered",
+  "note": "enforced at asset provenance in gates/asset_truth.py, which is the only place a file's origin is stated: a source outside camera/twin/generator/designer is ASSET_SOURCE_UNRECOGNISED, and provenance describing a downloaded, scraped, screenshotted or recoloured competitor image is ASSET_COMPETITOR_SOURCE. Both block publication."
  },
  {
   "id": 306,
@@ -2804,8 +2804,8 @@
   "body": "At minimum maintain MJs-aware specialist capability for garments/clothing, blankets/throws, stockings, ornaments/tree decor, home/decor, bags/accessories, hats/wearables and seasonal/gift products, adding new pods as catalogue evidence requires. Each pod owns benchmark history, seasonal opportunity map, quality rubric, Brambleloop coverage and improvement experiments.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "MJs category pods are permanent"
+  "status": "covered",
+  "note": "the eight named pods are permanent constants with rubrics: garments, blankets, stockings, ornaments, home_decor, bags, hats, seasonal_gift, plus a visible 'unclassified' queue so an unrecognised listing is never nudged into the nearest pod. New pods are added; none is pruned for a quiet quarter."
  },
  {
   "id": 313,
@@ -2822,8 +2822,8 @@
   "body": "Every meaningful MJs product arena lacking a competitive Brambleloop response enters a prioritized gap queue scored by apparent demand, seasonal timing, search opportunity, make-time, expected contribution, creative potential and portfolio fit. The queue must distinguish 'uncovered', 'concepting', 'engineering', 'certified', 'launched', 'validated winner' and 'not pursuing + reason'.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "MJs coverage gap queue"
+  "status": "covered",
+  "note": "intel/coverage.py holds the gap queue with all seven states the requirement names, a transition table that refuses a state the work did not pass through, and a mandatory reason for not_pursuing. Scored on the seven named components, each stored beside the score with the share of the weighting actually answered, so a confident number computed from one component cannot pass for a considered one."
  },
  {
   "id": 315,
@@ -2858,8 +2858,8 @@
   "body": "Owner command centre must expose MJs mission status: last successful scan, catalogue coverage, listings changed/new, gallery audit coverage, specialist pod assignments, top uncovered opportunities, upcoming seasonal adaptations, launch deadlines, Brambleloop comparison results, products launched, conversion/revenue and mission incidents.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "MJs mission dashboard"
+  "status": "partial",
+  "note": "/api/mjs reports the mandate, capability state, registry including the owner URL, catalogue coverage by pod, recent graded observations, pod roster and the gap queue summary, leading with whether the mission can observe anything at all. Remaining: conversion/revenue and mission incidents, which need live commerce and observation respectively."
  },
  {
   "id": 319,
@@ -2867,8 +2867,8 @@
   "body": "A system report that says only 'competitor scan complete' fails this mandate. Evidence must specifically identify MJsOffTheHookDesigns, timestamp, catalogue/listing coverage, what changed, which images/listings were inspected, which specialist pods received the evidence and what actions resulted.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "no generic substitution rule"
+  "status": "covered",
+  "note": "mission.check_report() refuses a report that cannot name the shop, the timestamp, catalogue coverage, what changed, listings and images inspected, pods notified and resulting actions -- and refuses a summary that says only that the job ran. mission.record() is the only way into the observations table, so every stored observation carries its grade and whether it satisfies the mandate."
  },
  {
   "id": 320,

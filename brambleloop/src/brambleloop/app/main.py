@@ -49,6 +49,13 @@ def _startup() -> None:
         # A deploy that silently changes an agent's authority is a deploy nobody can audit.
         Registry(db).audit("orchestrator", "agents.reconciled",
                            detail={"changes": changes[:50]})
+
+    from ..intel.benchmarks import seed as seed_benchmarks
+
+    benchmark_changes = seed_benchmarks(db)
+    if benchmark_changes:
+        Registry(db).audit("orchestrator", "benchmarks.reconciled",
+                           detail={"changes": benchmark_changes[:50]})
     runner.start(db)
 
 
@@ -361,6 +368,18 @@ def api_access() -> dict:
     report = access.unmet_report()
     report["requests"] = [r.to_dict() for r in access.pending_requests()]
     return report
+
+
+@app.get("/api/mjs")
+def api_mjs() -> dict:
+    """The MJs mission command centre (#318).
+
+    Leads with whether the mission can observe anything at all, because a dashboard that led
+    with coverage computed from an empty table would read as a healthy mission.
+    """
+    from ..intel.mission import mission_report
+
+    return mission_report(db)
 
 @app.get("/api/build2")
 def api_build2() -> dict:

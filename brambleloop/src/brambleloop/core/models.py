@@ -470,3 +470,111 @@ class PhysicalTest(Base):
     passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     measured: Mapped[dict] = mapped_column(JSON, default=dict)
     notes: Mapped[str] = mapped_column(Text, default="")
+
+
+# ---------------------------------------------------------------------------
+# Benchmark intelligence (v1.4.3 sections 205-220 and 300-320).
+#
+# The owner named one shop and forbade generalising it into "watch proven sellers", so the
+# registry is a table rather than a constant: a benchmark has scan health, freshness and an
+# owner-supplied URL that has to survive Etsy changing its routing. What the tables below
+# deliberately do *not* hold is any competitor's protected expression -- no pattern text, no
+# chart, no downloaded image. They hold observations about merchandising, and the mechanism
+# lessons drawn from them.
+
+
+class Benchmark(Base):
+    """One elite benchmark shop, with the evidence to say how fresh its coverage is (#205)."""
+
+    __tablename__ = "benchmarks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    shop_name: Mapped[str] = mapped_column(String(120))
+    platform: Mapped[str] = mapped_column(String(30), default="etsy")
+    canonical_url: Mapped[str] = mapped_column(Text)
+    # Kept alongside the short route because #301 requires the owner-supplied URL to remain
+    # in the registry and in acceptance evidence, verbatim.
+    owner_supplied_url: Mapped[str] = mapped_column(Text, default="")
+    mandatory: Mapped[bool] = mapped_column(Boolean, default=False)
+    reason_for_inclusion: Mapped[str] = mapped_column(Text, default="")
+    categories: Mapped[list] = mapped_column(JSON, default=list)
+    responsible_pods: Mapped[list] = mapped_column(JSON, default=list)
+    scan_health: Mapped[dict] = mapped_column(JSON, default=dict)
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    last_baseline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                              nullable=True)
+    last_change_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                            nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class BenchmarkListing(Base):
+    """A listing observed in a benchmark catalogue: the living market map (#303)."""
+
+    __tablename__ = "benchmark_listings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    url: Mapped[str] = mapped_column(Text, default="")
+    pod: Mapped[str] = mapped_column(String(40), default="", index=True)
+    product_type: Mapped[str] = mapped_column(String(60), default="")
+    # The fingerprint is what makes change detection cheap (#212): unchanged content is not
+    # paid for twice.
+    fingerprint: Mapped[str] = mapped_column(String(64), default="", index=True)
+    price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
+    media_count: Mapped[int] = mapped_column(Integer, default=0)
+    seasonal: Mapped[str] = mapped_column(String(40), default="")
+    audit_state: Mapped[str] = mapped_column(String(30), default="discovered", index=True)
+    evidence_grade: Mapped[str] = mapped_column(String(20), default="supporting")
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("benchmark_key", "listing_ref",
+                                       name="uq_benchmark_listing"),)
+
+
+class BenchmarkObservation(Base):
+    """One dated piece of benchmark evidence, with what it was allowed to do (#209, #319)."""
+
+    __tablename__ = "benchmark_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), default="", index=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    grade: Mapped[str] = mapped_column(String(20), default="supporting", index=True)
+    satisfies_mandate: Mapped[bool] = mapped_column(Boolean, default=False)
+    pods_notified: Mapped[list] = mapped_column(JSON, default=list)
+    mechanisms: Mapped[list] = mapped_column(JSON, default=list)
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CoverageGap(Base):
+    """A benchmark arena with no competitive Brambleloop answer yet (#314)."""
+
+    __tablename__ = "coverage_gaps"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    arena: Mapped[str] = mapped_column(String(80), index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    state: Mapped[str] = mapped_column(String(30), default="uncovered", index=True)
+    # A queue that lets an item leave without saying why is a queue that shrinks by
+    # forgetting. "not_pursuing" requires this field (#314).
+    reason: Mapped[str] = mapped_column(Text, default="")
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    components: Mapped[dict] = mapped_column(JSON, default=dict)
+    product_slug: Mapped[str] = mapped_column(String(80), default="")
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("benchmark_key", "arena", name="uq_benchmark_arena"),)
