@@ -2543,8 +2543,8 @@
   "body": "Seasonal demand planning must work backward from when the CUSTOMER needs the finished object, not merely the holiday date. Estimate project make-time distribution by product/skill level, buyer planning/shopping lead time, tester/QA time, Etsy indexing/learning time, creative production time and advertising ramp. Complex products must launch substantially earlier than quick makes.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "maker lead-time, launch-date compiler, complexity lanes -- OWNER FLAGGED NON-NEGOTIABLE, buildable now"
+  "status": "covered",
+  "note": "seasonal/leadtime.py estimates customer make-time from the digital twin -- stitch count, colour changes counted in working order, and per-piece finishing -- never from a typed figure, and scales it by the skill level the pattern is written for. The backward chain carries buyer planning, marketplace indexing ramp, creative iteration, ad learning and tester/QA as named terms. calibrate_from_samples() converts tester-reported hours into a measured stitch rate; with no samples it says so rather than returning a number that looks measured."
  },
  {
   "id": 284,
@@ -2552,8 +2552,8 @@
   "body": "For every event, compute: EVENT DATE minus customer completion buffer minus estimated make time minus purchase/planning buffer minus marketplace discovery/ramp buffer = target latest effective launch date. Also calculate preferred launch date with additional learning/optimization time. Recompute as observed buyer behavior improves estimates.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "maker lead-time, launch-date compiler, complexity lanes -- OWNER FLAGGED NON-NEGOTIABLE, buildable now"
+  "status": "covered",
+  "note": "compile_launch() computes latest effective launch = event - completion buffer - make days - planning buffer - marketplace ramp, and preferred launch = latest - creative iteration - ad learning. Assumptions.measured() is the only route from assumed to measured, so recomputing as buyer behaviour is observed cannot quietly relabel a guess. /api/seasonal runs it across every certified pattern."
  },
  {
   "id": 285,
@@ -2561,8 +2561,8 @@
   "body": "Classify products by customer make-time: QUICK (hours/1-2 days), SHORT (several days), MEDIUM (roughly 1-2 weeks), LONG (multi-week), FLAGSHIP (potentially many weeks). Seasonal scheduling gives LONG/FLAGSHIP products the earliest runway and can continue QUICK products much closer to the event.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "maker lead-time, launch-date compiler, complexity lanes -- OWNER FLAGGED NON-NEGOTIABLE, buildable now"
+  "status": "covered",
+  "note": "the five lanes with make-hour bands, and the runway ordering falls out of the arithmetic rather than being imposed: a flagship's make time pushes its latest launch earlier by construction."
  },
  {
   "id": 286,
@@ -2660,8 +2660,8 @@
   "body": "For each major upcoming event, show days to preferred/latest launch, products by stage, benchmark gaps, search opportunities, projected customer make time, ad learning status, current seasonal revenue/run rate, winner alerts and bottlenecks. The orchestrator reallocates agents toward deadlines and expected contribution.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "seasonal revenue war room"
+  "status": "partial",
+  "note": "/api/seasonal is the war room: days to preferred and latest launch per product per event, products by lane, calibration state and what is at risk or missed, led by the rows that can still be acted on. Remaining: seasonal revenue and run rate, ad learning status and benchmark gaps, which need live commerce and the observation capability."
  },
  {
   "id": 297,
@@ -2669,8 +2669,8 @@
   "body": "If a product cannot realistically be discovered, purchased and completed before its intended event, do not launch it under a misleading seasonal premise merely because engineering is finished. Pivot it to evergreen/next-season positioning, simplify into a legitimate quick-make derivative, or hold it for the next cycle.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "missed-window kill / pivot rule"
+  "status": "covered",
+  "note": "LaunchPlan.recommendation() refuses to return 'launch' once the window has closed, and returns pivot-to-evergreen, simplify-to-a-quick-make or hold-for-next-cycle with the reason. Finished engineering is not an argument: the customer cannot finish in time, and the conversion data that comes back would teach the shop the wrong lesson about the category."
  },
  {
   "id": 298,
@@ -2786,8 +2786,8 @@
   "body": "MJs-inspired competitive responses must not arrive when the holiday starts. Work backward from the date customers want the FINISHED object. Include crochet make time, customer planning/purchase time, testing/QA, marketplace discovery/indexing, creative iteration and paid-ad learning. Complex garments/blankets receive materially more runway than quick ornaments/coasters.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "release ahead of making window, MJs seasonal deadline sentinel"
+  "status": "covered",
+  "note": "the whole backward chain exists for this: complex garments and blankets receive materially more runway than ornaments because make time is a term in the subtraction. Measured against the generated catalogue on 2026-09-18: Canadian Thanksgiving is already missed for all eleven, and the largest piece's preferred Christmas launch is 2026-09-27."
  },
  {
   "id": 311,
@@ -2795,8 +2795,8 @@
   "body": "Continuously calculate days remaining to preferred and latest viable launch for every MJs-derived seasonal opportunity. Escalate at-risk opportunities, reallocate agents, simplify only when product truth permits, or defer to next season when the customer can no longer reasonably finish the project in time.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "release ahead of making window, MJs seasonal deadline sentinel"
+  "status": "partial",
+  "note": "sentinel() reports days to preferred and latest launch for every plan and separates 'past preferred' from 'at risk' -- the last window in which reallocating effort changes the outcome -- with a recommendation per row. Remaining: the orchestrator does not yet reallocate agents in response, and simplification is proposed rather than executed."
  },
  {
   "id": 312,

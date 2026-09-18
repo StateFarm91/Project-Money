@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 16 | satisfied, with a named test or artefact |
-| partial | 54 | something real exists and is short of the requirement |
-| missing | 191 | nobody has built it |
+| covered | 21 | satisfied, with a named test or artefact |
+| partial | 56 | something real exists and is short of the requirement |
+| missing | 184 | nobody has built it |
 | owner_gated | 47 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **245 requirements are executable by this session** (partial +
+as one nobody has written. **240 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **581 tests passing, 0 failing** across
-29 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **592 tests passing, 0 failing** across
+30 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -118,6 +118,53 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**The maker lead-time engine and the seasonal launch-date compiler (#283, #284, #285, #296,
+#297, #310, #311) — the requirement the owner flagged non-negotiable, and the first piece of
+Build 2 that produced a finding about this company rather than about its code.**
+
+A crochet pattern is not the product the customer wants. The product they want is a finished
+cardigan, on a person, on Christmas morning — and between the listing and that morning sit the
+marketplace's indexing lag, the buyer's own planning, and forty hours of somebody's hands. A
+shop that launches its Christmas blanket on December 1st has launched a blanket nobody can
+finish, at the exact moment the search term peaks, and its own conversion data will report that
+Christmas blankets do not sell.
+
+    latest effective launch = event − completion buffer − make time
+                                    − planning buffer − marketplace ramp
+    preferred launch        = latest − creative iteration − ad learning window
+
+- **Make time is derived from the twin, never typed.** Stitch count, colour changes counted in
+  the order a person actually crochets, and per-piece finishing — the term every optimistic
+  estimate drops. This company already refuses a typed finished size; make time decides
+  whether a customer holds a finished object on the day, so it gets the same treatment.
+- **Every figure says whether it is measured or assumed.** A launch date derived from six
+  guesses and one derived from six months of sales data are different objects, and a dashboard
+  that renders them identically ruins both. `Assumptions.measured()` is the only route from
+  assumed to measured, so nothing graduates by being overwritten.
+- **`calibrate_from_samples()` turns tester-reported hours into a real stitch rate** — the
+  physical test intake has asked testers for hours since Build 1 and nobody had ever divided.
+  With no completed samples it reports that, rather than returning a plausible number wearing
+  a `measured` label.
+- **A missed window is never launched on its seasonal premise (#297).** Finished engineering
+  is not an argument. The recommendation is pivot-to-evergreen, simplify-to-a-quick-make or
+  hold-for-next-cycle, with the reason.
+- **`at_risk` is distinguished from merely past-preferred (#311)**, because they are different
+  situations: one has runway to spend, the other is the last window in which reallocating
+  effort changes the outcome.
+
+**The finding, measured against the eleven generated designs on 2026-09-18** — `/api/seasonal`:
+
+| | |
+|---|---|
+| Canadian Thanksgiving (12 Oct) | **missed for all eleven.** Even the 0.9-hour ornament needed to be live by 4 September |
+| Halloween (31 Oct) | at risk for the larger pieces |
+| Christmas (25 Dec) | all eleven still on track — but the largest, the 26.7-hour autumn oak throw, has a **preferred launch of 2026-09-27**, nine days away, and a last viable date of 21 October |
+
+That is the first time this system has said something about the business that nobody had
+asked it. It is also the argument for the owner actions below: a listing cannot go live
+without a shop.
+
+## Previously in Build 2
 **The benchmark spine for the owner's named-shop mandate (#205, #206, #210, #211, #217, #301,
 #305, #312, #314, #318, #319) — everything the MJs mission needs that does not require the
 browser capability nobody has granted yet.**

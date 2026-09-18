@@ -381,6 +381,18 @@ def api_mjs() -> dict:
 
     return mission_report(db)
 
+
+@app.get("/api/seasonal")
+def api_seasonal() -> dict:
+    """The seasonal war room: when every certified pattern must be live, and what is at risk.
+
+    Leads with what is late rather than with what is fine, because a dashboard is read in the
+    order it is written and the at-risk rows are the only ones anybody can still act on.
+    """
+    from ..seasonal.leadtime import catalogue_plans
+
+    return catalogue_plans(db)
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
