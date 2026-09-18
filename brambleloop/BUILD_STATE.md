@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` at commit `77f0b08`: **533 tests passing, 0 failing** across
+Measured by `./run_tests.sh` at commit `9d17512`: **539 tests passing, 0 failing** across
 26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice.
 
@@ -85,7 +85,7 @@ Verified at 2026-09-18T05:45Z against production running commit `40f8176`:
 - `/api/launch` — every build-owned requirement satisfied; `blocked on build: NONE`. The
   eight unmet requirements are seven owner actions and one Etsy credential that only the
   shop can produce.
-- `./run_tests.sh` — 533 passing, 0 failing, 26 suites, measured at `77f0b08`, in 348s.
+- `./run_tests.sh` — 539 passing, 0 failing, 26 suites, measured at `9d17512`.
 - Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 105 recorded
   publication refusals, CA$0 revenue, CA$0 advertising, CA$0 model spend, no provider
   configured, no spend scope paused, 0 customers, 0 orders.
@@ -822,6 +822,6 @@ timings, written there by the system rather than by hand.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 533 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 539 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
