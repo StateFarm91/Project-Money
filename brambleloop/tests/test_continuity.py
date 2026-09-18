@@ -210,6 +210,44 @@ def test_token_health_never_reveals_the_token():
     assert "z" * 8 not in blob
 
 
+def test_the_restore_proof_runs_where_ephemeral_sqlite_is_refused():
+    """The regression for a defect production found, three dead letters in.
+
+    `BRAMBLELOOP_REQUIRE_POSTGRES=1` refuses to let the company run on a SQLite file that a
+    restart destroys, and it is right to. But the restore proof *needs* a throwaway SQLite
+    file -- that is the whole reason an engine-independent export makes the proof possible at
+    all -- and the guard killed the one job whose purpose is showing the real database can be
+    recovered. The exemption is a parameter at the call site rather than an environment
+    variable, so it cannot be switched on for the whole process.
+    """
+    import os
+
+    from brambleloop.core.db import EphemeralStorageRefused
+
+    previous = os.environ.get("BRAMBLELOOP_REQUIRE_POSTGRES")
+    os.environ["BRAMBLELOOP_REQUIRE_POSTGRES"] = "1"
+    try:
+        tmp = tempfile.mkdtemp()
+        # The application path must still refuse, or this test would be proving the guard away.
+        try:
+            Database(f"sqlite:///{tmp}/application.sqlite")
+        except EphemeralStorageRefused:
+            pass
+        else:
+            raise AssertionError("the ephemeral-storage guard stopped refusing")
+
+        source = Database(f"sqlite:///{tmp}/source.sqlite", scratch=True)
+        source.create_all()
+        Registry(source).seed_defaults()
+        proof = continuity.prove_restore(source, tmp)
+        assert proof.ok, (proof.problems, proof.mismatches)
+    finally:
+        if previous is None:
+            os.environ.pop("BRAMBLELOOP_REQUIRE_POSTGRES", None)
+        else:
+            os.environ["BRAMBLELOOP_REQUIRE_POSTGRES"] = previous
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

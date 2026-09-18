@@ -25,7 +25,7 @@ class EphemeralStorageRefused(RuntimeError):
     """A hosted deployment was about to run on storage that does not survive a restart."""
 
 
-def resolve_url(url: str | None = None) -> str:
+def resolve_url(url: str | None = None, *, scratch: bool = False) -> str:
     """Pick the database URL, preferring an explicit one, then the platform's.
 
     Railway (and most platforms) inject `DATABASE_URL`, and inject it in the historical
@@ -38,6 +38,13 @@ def resolve_url(url: str | None = None) -> str:
     check passes, the dashboard renders, and every job, audit record and release certificate
     is destroyed on the next restart. Failing to start is enormously preferable to running a
     company whose memory silently resets.
+
+    `scratch=True` is the one exemption, and it is a parameter rather than an environment
+    variable on purpose: the caller has to say at the call site that this database is a
+    throwaway, so the exemption is greppable and cannot be turned on for the whole process by
+    a dashboard setting. Production found the need for it -- the continuity restore proof
+    builds a local SQLite file to restore into, and the guard, correctly refusing ephemeral
+    SQLite, killed the job that proves the real database can be recovered.
     """
     url = (url or os.environ.get("BRAMBLELOOP_DATABASE_URL")
            or os.environ.get("DATABASE_URL") or "").strip()
@@ -47,7 +54,8 @@ def resolve_url(url: str | None = None) -> str:
         url = "postgresql+psycopg2://" + url[len("postgresql://"):]
     if not url:
         url = DEFAULT_URL
-    if url.startswith("sqlite") and os.environ.get("BRAMBLELOOP_REQUIRE_POSTGRES") == "1":
+    if (url.startswith("sqlite") and not scratch
+            and os.environ.get("BRAMBLELOOP_REQUIRE_POSTGRES") == "1"):
         raise EphemeralStorageRefused(
             "BRAMBLELOOP_REQUIRE_POSTGRES=1 but no Postgres URL is bound. Refusing to start "
             "on ephemeral SQLite: the container would look healthy and lose every job, audit "
@@ -56,8 +64,9 @@ def resolve_url(url: str | None = None) -> str:
     return url
 
 
-def make_engine(url: str | None = None, echo: bool = False) -> Engine:
-    url = resolve_url(url)
+def make_engine(url: str | None = None, echo: bool = False, *,
+                scratch: bool = False) -> Engine:
+    url = resolve_url(url, scratch=scratch)
     kwargs: dict = {"echo": echo, "future": True}
     if url.startswith("sqlite"):
         # check_same_thread=False so a worker thread can share the engine; WAL so a reader
@@ -83,8 +92,10 @@ def is_postgres(engine: Engine) -> bool:
 
 
 class Database:
-    def __init__(self, url: str | None = None, echo: bool = False):
-        self.engine = make_engine(url, echo)
+    def __init__(self, url: str | None = None, echo: bool = False, *,
+                 scratch: bool = False):
+        """`scratch=True` marks a deliberate throwaway database (see `resolve_url`)."""
+        self.engine = make_engine(url, echo, scratch=scratch)
         self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False, future=True)
 
     def create_all(self) -> list[str]:

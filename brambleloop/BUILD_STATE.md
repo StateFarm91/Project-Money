@@ -118,6 +118,20 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**A defect production found in the continuity job, three dead letters in.**
+
+`BRAMBLELOOP_REQUIRE_POSTGRES=1` refuses to let this company run on a SQLite file that a
+restart destroys — and the restore proof deliberately builds exactly such a file to restore
+into. The guard was right; the call site was wrong. `/api/verify` went to 11 of 12 on
+`no_unexpected_dead_letters_in_24h`, which is the check doing its job.
+
+The exemption is `Database(..., scratch=True)` — a parameter, not an environment variable, so
+it cannot be switched on for the whole process including the application's own database.
+Verified with the production flag set: the application path still refuses, the proof runs.
+Regression test in `test_continuity.py` asserts both halves, because an exemption that
+accidentally disarms the guard would be a worse defect than the one it fixed.
+
+## Previously in Build 2
 **The maker lead-time engine and the seasonal launch-date compiler (#283, #284, #285, #296,
 #297, #310, #311) — the requirement the owner flagged non-negotiable, and the first piece of
 Build 2 that produced a finding about this company rather than about its code.**

@@ -353,7 +353,11 @@ def prove_restore(db: Database, work_dir: str | Path) -> RestoreProof:
     scratch_path = work / "continuity-restore-check.sqlite"
     if scratch_path.exists():
         scratch_path.unlink()
-    scratch = Database(f"sqlite:///{scratch_path}")
+    # `scratch=True` is required in production: BRAMBLELOOP_REQUIRE_POSTGRES refuses ephemeral
+    # SQLite, and rightly, but this file is a deliberate throwaway target for the restore --
+    # not the company's memory. Production dead-lettered this job three times before the
+    # exemption existed, which is the guard working and the call site being wrong.
+    scratch = Database(f"sqlite:///{scratch_path}", scratch=True)
 
     problems: list[str] = []
     try:
