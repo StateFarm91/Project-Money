@@ -742,6 +742,30 @@ def test_the_rebuild_explains_its_decision():
     for slug, reason in detail["listings"].items():
         assert reason == "current" or "->" in reason, (slug, reason)
 
+
+def test_the_same_certified_pattern_renders_the_same_file_every_time():
+    """Found in production: two renders of one release, minutes apart, audited under two
+    different hashes.
+
+    Reportlab stamps the current time and a random document id into every render unless told
+    not to. That matters because artifact bytes are not durable until object storage exists,
+    so a purchased file is re-rendered on demand -- and if every render differs, the stored
+    hash proves only that *a* render happened, not that the file a customer downloads is the
+    one that passed the gates. Which is precisely what `assets.build` claims it proves.
+    """
+    import hashlib
+
+    from brambleloop.products import nordic_forest as nf
+    from brambleloop.products.texture import build_cable_throw
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for cir in (nf.build("throw"), build_cable_throw()):
+        result = compile_cir(cir)
+        twin = build_twin(cir, result)
+        hashes = {hashlib.sha256(build_pattern_pdf(cir, twin=twin).pdf_bytes).hexdigest()
+                  for _ in range(3)}
+        assert len(hashes) == 1, f"{cir.slug} rendered {len(hashes)} different files"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -63,9 +63,23 @@ class PatternDocument:
 
 
 class _Doc:
+    """One customer PDF, rendered reproducibly.
+
+    `invariant` is load-bearing rather than tidiness. Without it reportlab stamps the current
+    time and a random document id into every render, so the same certified CIR produced a
+    different file every time -- which was quietly visible in production, where two renders
+    of one release minutes apart were audited under two different hashes.
+
+    That matters because of what the hash is for. Artifact bytes are not durable until object
+    storage exists, so a purchased file is re-rendered on demand; if each render differs, the
+    stored hash proves only that *a* render happened, not that the file a customer downloads
+    is the one that passed the gates. With the render fixed, the hash means what
+    `assets.build` says it means.
+    """
+
     def __init__(self, title: str):
         self.buf = io.BytesIO()
-        self.c = rl_canvas.Canvas(self.buf, pagesize=LETTER)
+        self.c = rl_canvas.Canvas(self.buf, pagesize=LETTER, invariant=1)
         self.c.setTitle(title)
         self.pages = 0
         self.y = PAGE_H - MARGIN

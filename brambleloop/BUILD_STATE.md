@@ -349,6 +349,10 @@ Exact and verified. Nothing here is projected.
 - None blocking. All remaining work in the execution order is unblocked.
 
 ## Operating notes
+- **Reproducible artifacts.** The customer PDF renders byte-identically from the same
+  certified CIR. Without that the stored hash proved only that a render happened, which is
+  not what `assets.build` claims and not enough to stand behind a purchased file that is
+  re-rendered on demand.
 - **Schema.** `Database.create_all()` creates missing tables *and* adds missing columns and
   indexes to existing ones, then returns what it changed so startup can audit it. Additive
   only — it refuses a NOT NULL column with no default rather than guessing a backfill.
@@ -502,6 +506,10 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **Reproducible PDFs.** Two renders of one certified release, three minutes
+  apart in production, were audited under two different hashes: reportlab stamps the time and
+  a random id into every render. Since artifact bytes are not durable, a purchased file is
+  re-rendered on demand, so the hash has to identify the file rather than the occasion.
 - 2026-09-18: **Texture, and the third face of the naming defect.** Three products were
   named for techniques their patterns could not contain — a cable throw with no crossing, a
   bobble pillow with no bobble, a ribbed scarf with no rib — all plain sc/dc colourwork, one
