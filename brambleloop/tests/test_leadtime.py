@@ -268,6 +268,75 @@ def test_calibration_says_it_has_no_samples_rather_than_inventing_a_rate():
     assert "remains an assumption" in report["note"]
 
 
+def test_the_sentinel_runs_on_a_cadence_and_raises_only_what_can_still_be_acted_on():
+    """The owner's instruction after this engine's first finding.
+
+    "Use this lead-time engine continuously rather than rediscovering seasonal timing
+    manually." Timing is not established once: a date that was comfortable in September is
+    missed in October without anything changing except the date.
+
+    What it raises matters as much as that it runs. An at-risk window is the last one where
+    reallocating effort changes the outcome, so it becomes an incident. A missed window does
+    not: #297 already decided what happens to those, and an incident per missed product per
+    day trains everyone to ignore the channel.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog, Incident, PatternVersion, Product
+    from brambleloop.products.builder import CATALOGUE, build
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
+    from brambleloop.runtime.worker import CADENCES, Worker
+
+    assert any(c[2] == "seasonal.sentinel" for c in CADENCES), \
+        "seasonal timing is not on a cadence, so somebody has to remember to look"
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/seasonal.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    with db.session() as s:
+        for slug, design in list(CATALOGUE.items())[:3]:
+            cir = build(design)
+            product = Product(slug=slug, title=cir.title, status="certified")
+            s.add(product)
+            s.flush()
+            s.add(PatternVersion(product_id=product.id, version="1.0.0",
+                                 cir_json=cir.to_dict(), release_hash="0" * 64,
+                                 certified=True, certificate={"granted": True}))
+
+    JobQueue(db).enqueue("orchestrator", "seasonal.sentinel", {},
+                         idempotency_key="seasonal-test-1")
+    worker = Worker(db, "seasonal-worker")
+    for _ in range(50):
+        if not worker.run_once():
+            break
+
+    with db.session() as s:
+        assessed = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "seasonal.assessed")))
+        incidents = list(s.scalars(select(Incident)))
+
+    assert assessed, "the sentinel ran and recorded nothing"
+    detail = assessed[-1].detail
+    assert detail["products_scheduled"] == 3
+    assert set(detail["counts"]) == {"on_track", "past_preferred", "at_risk", "missed"}
+    # Named rows, not just a count: a count is not something anybody can act on.
+    for row in detail["at_risk"]:
+        assert row["slug"] and row["event"] and "days_to_latest" in row
+    # Calibration state travels with the assessment, so a date built from assumptions is
+    # never read as one built from measurement.
+    assert detail["calibration"]["samples_usable"] == 0
+
+    assert all(i.signature.startswith("seasonal.at_risk:") for i in incidents), \
+        [i.signature for i in incidents]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

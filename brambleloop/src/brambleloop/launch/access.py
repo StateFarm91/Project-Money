@@ -208,10 +208,12 @@ class Capability:
 BENCHMARK_OBSERVATION = AccessRequest(
     key="benchmark_observation",
     capability="mandatory MJsOffTheHookDesigns benchmark observation (#221, #222)",
-    action=("Register a free Etsy developer application and set ETSY_API_KEY in the Railway "
-            "environment — this is the read-only keystring for public shop and listing data, "
-            "not a shop and not a payout account. One-off, no cost. Then decide whether to "
-            "approve a managed cloud browser for what the API does not expose."),
+    action=("Register a free Etsy developer app, then set TWO Railway variables on the "
+            "brambleloop-os service: ETSY_API_KEY = the app's keystring, and "
+            "ETSY_SHARED_SECRET = the app's shared secret. Etsy v3 sends them joined as "
+            "'keystring:shared_secret' in one header, which the code does — paste each value "
+            "whole, do not join them by hand. Read-only public data: not a shop, not a payout "
+            "account, no OAuth. One-off, no cost."),
     purpose=("The v1.4.3 master makes observation of MJsOffTheHookDesigns a non-negotiable "
              "top priority, from cloud infrastructure, with your devices off."),
     unlocks=("Resolving the canonical shop, enumerating the catalogue, reading listing text, "
@@ -233,12 +235,14 @@ BENCHMARK_OBSERVATION = AccessRequest(
                        "itself is blocked."),
     requirement_ids=(206, 221, 222, 301, 319),
     options=(
-        "Etsy Open API v3 keystring — free, read-only, the platform's own sanctioned route "
-        "for public listing data. This is the documented path and is unverified until a key "
-        "exists; nothing here claims it has been called.",
-        "A managed cloud browser service (Browserbase, Steel, ScrapingBee and similar) — "
-        "roughly CA$40-70 per month — for gallery traversal and anything the API omits. Only "
-        "worth approving if the API route proves insufficient.",
+        "Etsy Open API v3 — free, read-only, the platform's own sanctioned route. Verified "
+        "against Etsy's published OpenAPI specification: the nine endpoints this mission "
+        "uses are all served by the API key alone, with no OAuth scope. Nothing here claims "
+        "a call has been made; the credential does not exist yet.",
+        "A managed cloud browser (roughly CA$40-70 per month) for the rendered page only — "
+        "badges, sale banners as presented, thumbnail crop in search. NOT currently "
+        "requested: the API covers the mandate's substance, and this is presentation detail "
+        "recorded as an unmet fraction rather than claimed.",
         "Neither, and the requirement is reported unmet. This is a real option and the "
         "system will not degrade into search snippets to avoid it (#224).",
     ),
@@ -248,9 +252,10 @@ MODEL_CREDENTIAL = AccessRequest(
     key="model_provider",
     capability="language and vision model access for the agent swarm (#221 image "
                "understanding, #177-194 continuous learning)",
-    action=("Set one model provider API key in the Railway environment (ANTHROPIC_API_KEY or "
-            "OPENAI_API_KEY) and confirm a hard monthly ceiling of CA$25, which is enforced "
-            "in code by the existing SpendLimit and not by anybody's judgement."),
+    action=("Set ONE Railway variable on the brambleloop-os service: ANTHROPIC_API_KEY = an "
+            "Anthropic API key. The CA$25 monthly ceiling is already enforced in code — "
+            "gateway/routing.py refuses a call before making it once the month's ledgered "
+            "spend would cross it, and there is no override."),
     purpose=("No provider is configured today, so every agent runs on deterministic code and "
              "templates. That is why the catalogue is engineered rather than written, and why "
              "no image can be described."),
@@ -274,7 +279,8 @@ MODEL_CREDENTIAL = AccessRequest(
 CAPABILITIES: tuple[Capability, ...] = (
     Capability(key="benchmark_observation",
                name="MJs benchmark observation (read-only marketplace data)",
-               env_vars=("ETSY_API_KEY",), request=BENCHMARK_OBSERVATION,
+               env_vars=("ETSY_API_KEY", "ETSY_SHARED_SECRET"),
+               request=BENCHMARK_OBSERVATION,
                requirement_ids=(206, 221, 222, 301, 319)),
     Capability(key="model_provider", name="language and vision model access",
                env_vars=("BRAMBLELOOP_MODEL_KEY_PRESENT",), request=MODEL_CREDENTIAL,

@@ -39,10 +39,15 @@ def test_a_capability_nobody_granted_is_unavailable_and_says_the_word():
         assert "unavailable" in status["state"]
         assert status["request"] is not None
 
-    # And a credential that is actually present turns exactly one of them on.
-    with_key = {"ETSY_API_KEY": "a-read-only-keystring"}
-    assert access.available("benchmark_observation", with_key) is True
-    assert access.available("model_provider", with_key) is False
+    # And a credential that is actually present turns exactly one of them on. Etsy v3 needs
+    # both halves -- keystring and shared secret -- so half a credential is not a capability:
+    # it produces a 401 on the first real call, which is a worse state than being closed.
+    half = {"ETSY_API_KEY": "a-read-only-keystring"}
+    assert access.available("benchmark_observation", half) is False
+
+    whole = {**half, "ETSY_SHARED_SECRET": "the-other-half"}
+    assert access.available("benchmark_observation", whole) is True
+    assert access.available("model_provider", whole) is False
 
     # Any of the provider variables satisfies the model capability; requiring all of them
     # would mean the company needed two vendors before it could describe one photograph.
@@ -161,7 +166,7 @@ def test_the_unmet_report_never_claims_a_substitute_was_used():
     assert 222 in report["requirements_unmet_for_want_of_access"]
     assert "No mandated observation has been performed" in report["statement"]
 
-    everything = {"ETSY_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}
+    everything = {"ETSY_API_KEY": "k", "ETSY_SHARED_SECRET": "s", "ANTHROPIC_API_KEY": "k"}
     granted = access.unmet_report(everything)
     assert granted["unmet_capabilities"] == []
     assert granted["requirements_unmet_for_want_of_access"] == []

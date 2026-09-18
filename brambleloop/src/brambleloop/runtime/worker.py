@@ -206,6 +206,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirement 51. Daily, and it proves the restore rather than only writing the export --
     # a backup nobody has restored is a hope, not a continuity plan.
     ("continuity_proof", "orchestrator", "ops.continuity", 24 * 60 * 60),
+    # Daily, because a launch date that was comfortable in September is missed in October
+    # without anything changing except the date. The first run of this engine found that the
+    # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand
+    # once a quarter is how a company misses Christmas too.
+    ("seasonal_sentinel", "orchestrator", "seasonal.sentinel", 24 * 60 * 60),
 ]
 
 

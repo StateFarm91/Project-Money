@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 31 | satisfied, with a named test or artefact |
-| partial | 57 | something real exists and is short of the requirement |
-| missing | 173 | nobody has built it |
-| owner_gated | 47 | waits on an owner decision, credential or legal acceptance |
+| covered | 34 | satisfied, with a named test or artefact |
+| partial | 58 | something real exists and is short of the requirement |
+| missing | 171 | nobody has built it |
+| owner_gated | 45 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **230 requirements are executable by this session** (partial +
+as one nobody has written. **229 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **605 tests passing, 0 failing** across
-31 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **619 tests passing, 0 failing** across
+32 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -118,6 +118,66 @@ catalogue, accessibility, and the acceptance gates.
   observations are point-in-time and carry their observation date so they cannot silently rot.
 
 ## Last completed milestone
+**Both owner-approved credentials built against their conditions — and the owner was right
+about Etsy's authentication.**
+
+### The correction, verified rather than accepted
+
+The owner said Etsy v3 requires `x-api-key` containing *keystring and shared secret separated
+by a colon*, not the keystring alone. Checked against Etsy's own documentation, which says
+exactly that. **This codebase had it wrong** — `integrations/etsy.py` had been sending the
+keystring alone since Build 1. It is the kind of wrong that costs a diagnosis round rather
+than failing loudly: the header is accepted as a header and refused as a credential, so the
+first real call returns 401 and every explanation for a 401 is plausible.
+
+### What the sanctioned API actually covers
+
+Fetched Etsy's published OpenAPI specification and analysed it rather than guessing. **32
+endpoints are served by the API key alone, with no OAuth scope** — and nine of them carry the
+MJs mandate:
+
+| mandate element | covered? | how |
+|---|---|---|
+| resolve the canonical shop (#206) | yes | `findShops`, exact name match only |
+| enumerate the full catalogue (#207) | yes | `findAllActiveListingsByShop`, paginated to the shop's own count |
+| listing text and commerce metadata (#208) | yes | title, description, price, tags, materials, style, favourites, timestamps |
+| gallery asset inventory (#209) | yes | every image URL at four sizes — **plus Etsy's own per-image hex, hue, saturation, brightness and black-and-white flag**, which answers palette and colour-architecture questions with no vision model at all |
+| merchandising structure (#303) | yes | `getShopSections` — the shop's own categorisation, better evidence than our inference |
+| change detection (#212) | yes | `last_modified_timestamp` plus a content fingerprint |
+| image-level visual judgement (#209) | **no** | needs the approved model provider reading the public image URL — no browser, no scraping |
+| rendered page presentation (#208) | **no** | badges, sale banners as presented, thumbnail crop in search. Recorded as an unmet fraction (#224). **A cloud browser is not being requested**: the API covers the mandate's substance |
+
+Minimum scope is enforced rather than intended: an endpoint allowlist that raises before a
+request is built, and no code path that could send an OAuth token. The credential never
+appears in a log, an error, the call trail, `__repr__` or benchmark evidence.
+
+### Model routing inside CA$25
+
+Three tiers, and the tier is a property of the task, not the caller's mood:
+
+| task | model | ~CA$/call | inside the ceiling |
+|---|---|---|---|
+| classification, extraction, routing | `claude-haiku-4-5` | 0.0030 | ~8,200 calls |
+| gallery observation, listing copy | `claude-sonnet-5` | 0.0252 | ~990 calls |
+| creative evaluation, benchmark challenge | `claude-opus-5` | 0.1294 | ~190 calls |
+
+The ceiling is checked **before** each call — a ceiling checked afterwards is a report about
+an overspend — against this calendar month's ledgered `llm` cost, with no override parameter.
+Unchanged evidence is never paid for twice: the cache key is the content fingerprint *plus the
+routed model*, so a downgrade cannot silently keep serving the better model's answers. And
+`PATTERN_TASKS_REFUSED` means a model can never be asked for stitch counts, dimensions,
+yardage or instructions, whatever the budget — the compiler owns those.
+
+### The lead-time engine now runs itself
+
+`seasonal.sentinel` is a daily cadence (#311). It names the at-risk rows rather than counting
+them and raises a P2 only for windows where reallocating effort still changes the outcome — a
+missed window is not an incident, because #297 already decided what happens to those, and an
+incident per missed product per day trains everyone to ignore the channel. The finding stands
+as planning evidence: Canadian Thanksgiving is missed for the generated catalogue, Christmas
+remains actionable, and the 26.7-hour autumn oak throw's preferred launch is 2026-09-27.
+
+## Previously in Build 2
 **The competitive product teardown laboratory (#148, #149, #150, #151, #161, #162, #163,
 #167, #169, #170) — built before the files arrive, because a boundary added afterwards was
 absent exactly when it mattered.**

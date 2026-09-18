@@ -783,6 +783,65 @@ def handle_continuity(ctx: JobContext) -> dict:
     })
     return detail
 
+
+@handlers.register("seasonal.sentinel")
+def handle_seasonal_sentinel(ctx: JobContext) -> dict:
+    """Recompute every certified pattern's launch dates and escalate what is at risk.
+
+    Requirements 283, 296, 310, 311, and the owner's instruction after the first run of this
+    engine found something: use it continuously rather than rediscovering seasonal timing
+    manually. Timing is not a fact anybody establishes once -- a date that was comfortable in
+    September is missed in October without anything changing except the date.
+
+    GREEN by the authority matrix: it computes dates and writes audit records. It publishes
+    nothing, spends nothing and contacts nobody.
+    """
+    from ..seasonal.leadtime import catalogue_plans
+
+    room = catalogue_plans(ctx.db)
+    counts = room["counts"]
+    at_risk = [r for r in room["at_risk_or_missed"] if r["status"] == "at_risk"]
+    missed = [r for r in room["at_risk_or_missed"] if r["status"] == "missed"]
+
+    ctx.audit("seasonal.assessed", detail={
+        "products_scheduled": room["products_scheduled"],
+        "counts": counts,
+        "calibration": room["calibration"],
+        # The rows somebody can still act on, named. A count is not an action.
+        "at_risk": [{"slug": r["slug"], "event": r["event"],
+                     "days_to_latest": r["days_to_latest"]} for r in at_risk[:20]],
+        "missed": [{"slug": r["slug"], "event": r["event"],
+                    "recommendation": r["recommendation"]} for r in missed[:20]],
+    })
+
+    # An at-risk window is the last one in which reallocating effort changes the outcome, so
+    # it is raised rather than logged. Missed windows are not incidents: #297 already decided
+    # what happens to them, and an incident per missed product every day is noise that trains
+    # everyone to ignore the channel.
+    if at_risk:
+        from ..core.models import Incident
+
+        soonest = min(at_risk, key=lambda r: r["days_to_latest"])
+        signature = f"seasonal.at_risk:{soonest['slug']}:{soonest['event']}"
+        with ctx.db.session() as s:
+            from sqlalchemy import select
+
+            existing = s.scalar(select(Incident).where(
+                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
+            if existing is None:
+                s.add(Incident(
+                    severity="P2", signature=signature,
+                    title=(f"{soonest['slug']} has {soonest['days_to_latest']} days of "
+                           f"runway left for {soonest['event']}"),
+                    detail=("Past its preferred launch date and inside the last window where "
+                            "reallocating effort still changes whether a customer can finish "
+                            "the object in time. After the latest effective date the only "
+                            "honest options are pivot, simplify or hold (#297)."),
+                ))
+
+    return {"products_scheduled": room["products_scheduled"], "counts": counts,
+            "at_risk": len(at_risk), "missed": len(missed)}
+
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:
     """Assess what stands between this shop and a live customer, and queue what is owner-only.

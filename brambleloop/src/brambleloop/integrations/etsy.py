@@ -71,6 +71,7 @@ class Credentials:
     api_key: str
     access_token: str
     shop_id: str
+    shared_secret: str = ""
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> "Credentials | None":
@@ -78,17 +79,36 @@ class Credentials:
         key = e.get("ETSY_API_KEY", "").strip()
         token = e.get("ETSY_ACCESS_TOKEN", "").strip()
         shop = e.get("ETSY_SHOP_ID", "").strip()
+        secret = e.get("ETSY_SHARED_SECRET", "").strip()
         if not (key and token and shop):
             return None
-        return Credentials(api_key=key, access_token=token, shop_id=shop)
+        return Credentials(api_key=key, access_token=token, shop_id=shop,
+                           shared_secret=secret)
+
+    def api_key_header(self) -> str:
+        """Etsy v3 wants keystring and shared secret joined by a colon, not the keystring.
+
+        This was wrong here until the owner caught it, and it is the kind of wrong that costs
+        a diagnosis round rather than failing loudly: a keystring-only header is accepted as a
+        header and refused as a credential, so the first real call returns 401 and every
+        explanation for a 401 is plausible. Etsy's own words:
+
+            "Every request to a v3 endpoint must include an `x-api-key` header containing
+             your keystring and shared secret separated by a colon"
+
+        A credential with no secret is still sent, because a placeholder here would hide a
+        misconfiguration behind a value that looks deliberate. Etsy refuses it and says so.
+        """
+        return f"{self.api_key}:{self.shared_secret}" if self.shared_secret else self.api_key
 
     def headers(self) -> dict[str, str]:
-        return {"x-api-key": self.api_key,
+        return {"x-api-key": self.api_key_header(),
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json"}
 
     def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of logs and tracebacks
-        return f"Credentials(shop_id={self.shop_id!r}, api_key=***, access_token=***)"
+        return (f"Credentials(shop_id={self.shop_id!r}, api_key=***, shared_secret=***, "
+                f"access_token=***)")
 
 
 @dataclass

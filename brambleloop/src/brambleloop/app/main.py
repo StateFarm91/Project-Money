@@ -419,6 +419,22 @@ def api_teardown() -> dict:
         },
     }
 
+
+@app.get("/api/models")
+def api_models() -> dict:
+    """Model routing, what it costs, and how much of the approved month is left.
+
+    The ceiling is checked before every call rather than reported after, so this page is a
+    status rather than a reconciliation.
+    """
+    from ..gateway import routing
+    from ..intel import etsy_public
+
+    return {
+        "model_routing": routing.plan(db),
+        "benchmark_read_credential": etsy_public.capability_report(),
+    }
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

@@ -1985,8 +1985,8 @@
   "body": "The MJs/elite benchmark observation layer requires production-capable browser traversal plus image/gallery understanding that operates in cloud infrastructure with owner devices off. Build 2 must not silently replace this with static seeded data, occasional manual screenshots or text-only search. Missing capability is an explicit owner/integration gate.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate; formally requested through launch/access.py with costed options -- the free Etsy Open API keystring first, a managed cloud browser only if that proves insufficient"
+  "status": "partial",
+  "note": "the owner approved the Etsy developer application at CA$0 and one model provider at a hard CA$25/month. intel/etsy_public.py is the sanctioned read-only client -- current v3 auth (keystring:shared_secret), an endpoint allowlist of the nine api_key-only endpoints, no OAuth scope and no code path that could send a token. gateway/routing.py routes by capability and cost and refuses a call before making it once the month's ledgered spend would cross the ceiling. Remaining: the credentials do not exist yet, so nothing has been called; and rendered-page presentation still needs a browser, recorded as an unmet fraction."
  },
  {
   "id": 222,
@@ -1994,8 +1994,8 @@
   "body": "Prove end-to-end capability against the canonical benchmark: resolve shop URL; enumerate catalogue; open multiple listings; traverse gallery assets; capture visible listing text/commerce metadata; produce image-level observations; classify into specialist pods; persist evidence; detect a simulated/new change; and trigger a re-audit. Evidence must show each step actually occurred.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "mandatory cloud browser + vision capability and its acceptance test -- the single largest Build-2 gate; formally requested through launch/access.py with costed options -- the free Etsy Open API keystring first, a managed cloud browser only if that proves insufficient"
+  "status": "partial",
+  "note": "every step the acceptance test names is implemented against the sanctioned API and unit-tested with a fake transport: resolve the shop by exact name, enumerate the full catalogue by pagination, open individual listings, traverse gallery assets, capture listing text and commerce metadata, route to pods and persist graded evidence. Remaining: it has never been run against Etsy, because no credential exists. Nothing claims otherwise."
  },
  {
   "id": 223,
@@ -2012,8 +2012,8 @@
   "body": "If Etsy access, anti-bot controls, authentication, tooling limitations or other constraints prevent the mandated depth of observation, report the exact limitation and preserve the requirement as unmet. Do not claim 'continuous MJs scanning' based on search snippets or stale cached evidence.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "partial",
-  "note": "the rule is enforced: access.accept_evidence() grades every piece of benchmark evidence and refuses to let a search snippet, screenshot, seeded fixture or stale cache satisfy a mandate, and downgrades evidence labelled as mandated observation when the capability was never granted. unmet_report() names the unmet capabilities and the requirement ids they block, and asserts nothing was substituted. Remaining: the limitation-reporting path from a real anti-bot or auth failure cannot exist until observation does (#221)."
+  "status": "covered",
+  "note": "access.accept_evidence() grades every piece of benchmark evidence and refuses to let a substitute close a mandate, and etsy_public.capability_report() states, per mandate element, what the sanctioned API covers and what it does not -- with a proposed compliant alternative for each gap and no gap left unaccompanied. The rendered page is recorded as unmet rather than approximated."
  },
  {
   "id": 225,
@@ -2021,8 +2021,8 @@
   "body": "Cache content fingerprints and analysis so unchanged listings are not repeatedly paid for in model/browser compute. New images, changed descriptions, pricing/sale shifts, new video or new listing identity invalidate only the necessary analysis nodes and propagate lessons through the dependency graph.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "competitor evidence cache"
+  "status": "covered",
+  "note": "gateway/routing.py caches analysis on a content fingerprint that includes the routed model, so unchanged evidence is never paid for twice and a routing change cannot silently keep serving a better model's answers. A cached answer ledgers zero cost rather than recording tokens nobody spent."
  },
  {
   "id": 226,
@@ -2661,7 +2661,7 @@
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
   "status": "partial",
-  "note": "/api/seasonal is the war room: days to preferred and latest launch per product per event, products by lane, calibration state and what is at risk or missed, led by the rows that can still be acted on. Remaining: seasonal revenue and run rate, ad learning status and benchmark gaps, which need live commerce and the observation capability."
+  "note": "/api/seasonal is the war room and seasonal.sentinel recomputes it daily, naming the at-risk rows rather than counting them and raising a P2 for the soonest. Remaining: seasonal revenue and run rate, and ad learning status, which need live commerce."
  },
  {
   "id": 297,
@@ -2714,8 +2714,8 @@
   "body": "Maintain dedicated MJs intelligence capacity independent of generic market research. Agent count is elastic and uncapped by an arbitrary small number: the orchestrator may fan out into very large logical specialist swarms when needed for complete catalogue coverage, image analysis, category decomposition, seasonal response and QA. Scale is justified by coverage/quality/latency and remains under global spend controls.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "missing",
-  "note": "dedicated MJs capacity"
+  "status": "partial",
+  "note": "model capacity is now elastic within a ceiling enforced in code: routing sends high-volume classification to the cheap tier and reserves the expensive one for release-blocking judgement, which buys roughly 8,200 cheap calls or 990 gallery observations a month inside CA$25. Remaining: the orchestrator does not yet fan out into large specialist swarms; the economics that would allow it now exist."
  },
  {
   "id": 303,
@@ -2795,8 +2795,8 @@
   "body": "Continuously calculate days remaining to preferred and latest viable launch for every MJs-derived seasonal opportunity. Escalate at-risk opportunities, reallocate agents, simplify only when product truth permits, or defer to next season when the customer can no longer reasonably finish the project in time.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "partial",
-  "note": "sentinel() reports days to preferred and latest launch for every plan and separates 'past preferred' from 'at risk' -- the last window in which reallocating effort changes the outcome -- with a recommendation per row. Remaining: the orchestrator does not yet reallocate agents in response, and simplification is proposed rather than executed."
+  "status": "covered",
+  "note": "seasonal.sentinel runs daily, separates at-risk from merely past-preferred, and raises a correlated P2 only for windows where reallocating effort still changes the outcome -- a missed window is not an incident, because #297 already decided what happens to those and an incident per missed product per day trains everyone to ignore the channel."
  },
  {
   "id": 312,

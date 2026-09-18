@@ -381,7 +381,7 @@ def test_evidence_recorded_without_the_capability_cannot_satisfy_the_mandate():
 
     granted = mission.record(db, benchmark_key=benchmarks.MJS_KEY,
                              kind="gallery_image_observation", detail={"images": 9},
-                             pods_notified=("garments",), env={"ETSY_API_KEY": "k"})
+                             pods_notified=("garments",), env={"ETSY_API_KEY": "k", "ETSY_SHARED_SECRET": "s"})
     assert granted.satisfies_mandate is True
 
     # Evidence routed to a pod that does not exist is a routing bug, not a silent no-op.
