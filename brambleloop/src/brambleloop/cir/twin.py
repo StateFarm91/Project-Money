@@ -32,6 +32,14 @@ from .model import CIR, Component
 _YARN_FACTOR = {
     "ch": 2.2, "slst": 2.6, "sc": 6.2, "hdc": 8.2, "dc": 10.5, "tr": 13.1,
     "inc": 12.4, "dec": 9.5, "dc_inc": 21.0, "dc_dec": 17.6, "sk": 0.0,
+    # Texture stitches. A post stitch is a dc worked around the post: the same yarn plus a
+    # little, because the hook travels further. A bobble is five incomplete dc closed
+    # together, so it is five dc of yarn in one stitch's width -- falling back to the
+    # default of 3.0 would understate a bobble pillow by more than a third, which is the
+    # kind of error that sends a buyer back to the shop for another ball.
+    "fpdc": 11.5, "bpdc": 11.5, "bob": 48.0,
+    # A crossing is four dc that travel around each other.
+    "cable2x2": 46.0, "cable1x1": 23.0,
 }
 YARDAGE_TOLERANCE = 0.20  # +/- 20% until calibrated by a physical test
 

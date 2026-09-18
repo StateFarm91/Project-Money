@@ -35,8 +35,11 @@ def write_op(op: Op, terminology: str = "US") -> str:
         return f"ch {n}" if n > 1 else "ch 1"
     if op.stitch == "sk":
         return f"sk next {n} sts" if n > 1 else "sk next st"
-    if st.consumes == 2:  # decreases
-        base = f"{code} over next 2 sts"
+    if st.consumes > 1:
+        # Decreases consume two; a 2-over-2 cable crossing consumes four. Both are "over
+        # next N sts", and hardcoding the two meant the first stitch that consumed more
+        # would have been written as though it consumed one.
+        base = f"{code} over next {st.consumes} sts"
         return f"{base} x {n}" if n > 1 else base
     return f"{code} in next {n} sts" if n > 1 else f"{code} in next st"
 

@@ -275,6 +275,60 @@ def check_shape_claims(text: str, cir: CIR, twin: TwinModel,
     return out
 
 
+# A technique in the name is a claim about what the fabric *does*, and it is the least
+# deniable kind after shape. "Heirloom Cable Throw" was worked entirely in single and double
+# crochet: no crossing anywhere in it. So were "Bobble Floor Pillow" and "Chunky Ribbed
+# Scarf". All three were certified, and none of the existing checks could see it, because the
+# shape check looks at silhouettes and the asset check looks at what an image depicts.
+#
+# Each entry is a phrase and the stitches that would have to appear for it to be true.
+# Deliberately short: only techniques this taxonomy can actually express, because a check
+# that fires on a word the system has no stitch for would be unfixable by construction.
+_TECHNIQUE_CLAIMS: tuple[tuple[str, frozenset[str], str], ...] = (
+    (r"\bcable[ds]?\b|\bcabled\b", frozenset({"cable2x2", "cable1x1"}),
+     "a cable is a crossing: stitches worked out of order around each other"),
+    (r"\bbobble[sd]?\b|\bpopcorn\b", frozenset({"bob"}),
+     "a bobble is several incomplete stitches closed together in one stitch"),
+    (r"\brib(?:bed|bing)\b|\bwaffle\b", frozenset({"fpdc", "bpdc"}),
+     "ribbing and waffle texture come from post stitches worked around the stitch below"),
+)
+
+# Mosaic is a colour technique rather than a stitch one, so it is checked differently: one
+# colour cannot make a mosaic whatever stitches are used.
+_MOSAIC_RE = r"\bmosaic\b"
+
+
+def check_technique_claims(text: str, cir: CIR, twin: TwinModel,
+                           where: str = "product.title") -> list[Finding]:
+    """Does the fabric do what the name says it does?"""
+    out: list[Finding] = []
+    low = " ".join(text.lower().split())
+    if not low:
+        return out
+
+    worked = set(twin.stitch_types_used)
+    for pattern, required, explanation in _TECHNIQUE_CLAIMS:
+        if not re.search(pattern, low):
+            continue
+        if worked & required:
+            continue
+        out.append(Finding(
+            ERROR, "CLAIM_TECHNIQUE_UNSUPPORTED",
+            f"name claims a technique the pattern does not work: {explanation}, and this "
+            f"pattern works only {sorted(worked)}. Either the design changes or the name "
+            f"does", where))
+
+    if re.search(_MOSAIC_RE, low):
+        colours = len([c for c in twin.colors_used if c])
+        if colours < 2:
+            out.append(Finding(
+                ERROR, "CLAIM_TECHNIQUE_UNSUPPORTED",
+                f"name claims mosaic colourwork but the pattern uses {colours} colour(s)",
+                where))
+
+    return out
+
+
 def check_assets(assets: list[Asset], cir: CIR, twin: TwinModel) -> list[Finding]:
     out: list[Finding] = []
     for a in assets:

@@ -31,6 +31,9 @@ MUTED = (107, 114, 128)
 GLYPHS: dict[str, str] = {
     "ch": "o", "slst": ".", "sc": "x", "hdc": "T", "dc": "F", "tr": "H",
     "inc": "V", "dec": "A", "dc_inc": "W", "dc_dec": "M", "sk": "-",
+    # Texture. A stitch with no glyph falls back to the first character of its code, which
+    # would have drawn both post stitches and the bobble as "b".
+    "fpdc": "]", "bpdc": "[", "bob": "O", "cable2x2": "X", "cable1x1": "x",
 }
 
 

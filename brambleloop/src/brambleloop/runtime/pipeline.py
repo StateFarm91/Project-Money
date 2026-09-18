@@ -250,6 +250,12 @@ ENGINEERED: dict[str, str] = {
     # count on every row. They are worked in the round now (B-059).
     "market-basket-trio": "brambleloop.products.vessels:build",
     "hexie-coaster-set": "brambleloop.products.vessels:build_hexagon_coaster",
+    # And three more named for techniques their patterns could not contain: a cable throw
+    # with no crossing, a bobble pillow with no bobble, a ribbed scarf with no rib. All three
+    # were plain sc/dc colourwork (B-080).
+    "heirloom-cable-blanket": "brambleloop.products.texture:build_cable_throw",
+    "bobble-floor-pillow": "brambleloop.products.texture:build_bobble_pillow",
+    "chunky-ribbed-scarf": "brambleloop.products.texture:build_ribbed_scarf",
 }
 
 

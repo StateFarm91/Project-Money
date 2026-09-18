@@ -267,6 +267,10 @@ See `DECISION_LOG.md` for reasoning. Summary:
   with each unmet one attributed to build, integration or the owner. Writes the owner-only
   ones into the owner-action queue in the Execution Directive's format, daily, without
   duplicating what is already there. Exposed at `/api/launch` and on the dashboard.
+- `products/texture.py` — the designs whose names were claims the fabric did not honour: a
+  cable throw that crosses, a bobble pillow that bobbles, a ribbed scarf that ribs. Post
+  stitches, closed clusters and crossings now exist in the taxonomy, and
+  `check_technique_claims` blocks any product whose name says otherwise.
 - `products/vessels.py` — the round-worked designs: three basket sizes derived from a wanted
   diameter, and a hexagon coaster whose corners are real.
 - `cir/reverse.py` — independent parser of customer-facing text + structural diff against
@@ -387,8 +391,8 @@ Exact and verified. Nothing here is projected.
    of the top fourteen concepts is Class A and the best amigurumi is Class B with a
    Christmas window that has not opened. Building one before the demand model asks is the
    same mistake as building to a hunch.
-2. Stitch vocabulary beyond the eight canonical codes: post stitches, clusters, shells and
-   crossed stitches. The current catalogue does not need them; a textured one would.
+2. Shells, fans and granny clusters — stitches that work several times into one stitch.
+   The catalogue does not need them today; a lace or granny-style product would.
 3. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
    and correctly refuse to act without observations that do not exist yet.
 
@@ -498,6 +502,15 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18: **Texture, and the third face of the naming defect.** Three products were
+  named for techniques their patterns could not contain — a cable throw with no crossing, a
+  bobble pillow with no bobble, a ribbed scarf with no rib — all plain sc/dc colourwork, one
+  of them fourth in the selected portfolio with a certificate and a drafted listing in
+  production. Nothing could see it: the shape check looks at silhouettes and Asset Truth at
+  what images depict, and those patterns were internally perfect. Post stitches, bobbles and
+  cable crossings are now in the taxonomy with real yarn costs and chart glyphs, the three
+  products are rebuilt to do what they say, and a name claiming a technique the fabric does
+  not work is refused at certification.
 - 2026-09-18: **Placement in the finishing.** A seam now says where on the piece it
   happens — which rounds, how far either side of centre, and whether the second one mirrors
   — because knowing that the ear attaches to the head does not make a toy. It is validated

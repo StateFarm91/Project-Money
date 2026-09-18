@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from . import stitches
 from .compiler import ERROR, Finding
 from .model import CIR, Op, OpNode, Repeat
 
@@ -65,16 +66,30 @@ def _parse_op(text: str, terminology: str) -> Op:
     if re.fullmatch(r"(?:sk|miss)\s+next\s+st", t, re.I):
         return Op("sk", 1)
 
-    # decreases: "dec over next 2 sts" optionally "x N"
-    m = re.fullmatch(r"([a-z_ ]+?)\s+over\s+next\s+2\s+sts(?:\s*x\s*(\d+))?", t, re.I)
+    # Anything that consumes more than one stitch: "dec over next 2 sts", "cable2x2 over
+    # next 4 sts", optionally "x N". The consumed count is checked against the stitch's own
+    # definition rather than trusted, because a document claiming a crossing over three
+    # stitches describes a manoeuvre that does not exist.
+    m = re.fullmatch(r"([a-z_0-9 ]+?)\s+over\s+next\s+(\d+)\s+sts(?:\s*x\s*(\d+))?",
+                     t, re.I)
     if m:
-        return Op(_norm_code(m.group(1), terminology), int(m.group(2) or 1))
+        code = _norm_code(m.group(1), terminology)
+        stated = int(m.group(2))
+        try:
+            declared = stitches.get(code).consumes
+        except KeyError:
+            raise ParseProblem(f"unknown stitch {code!r} in {t!r}") from None
+        if stated != declared:
+            raise ParseProblem(
+                f"the text works {code} over {stated} stitches, but a {code} consumes "
+                f"{declared}")
+        return Op(code, int(m.group(3) or 1))
 
-    m = re.fullmatch(r"([a-z_ ]+?)\s+in\s+next\s+(\d+)\s+sts", t, re.I)
+    m = re.fullmatch(r"([a-z_0-9 ]+?)\s+in\s+next\s+(\d+)\s+sts", t, re.I)
     if m:
         return Op(_norm_code(m.group(1), terminology), int(m.group(2)))
 
-    m = re.fullmatch(r"([a-z_ ]+?)\s+in\s+next\s+st", t, re.I)
+    m = re.fullmatch(r"([a-z_0-9 ]+?)\s+in\s+next\s+st", t, re.I)
     if m:
         return Op(_norm_code(m.group(1), terminology), 1)
 

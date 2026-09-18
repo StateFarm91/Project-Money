@@ -134,10 +134,6 @@ CATALOGUE: dict[str, Design] = {
         slug="winter-village-graphghan", title="Winter Village Graphghan",
         motif="snowfall", palette="nordic", width_stitches=144, motif_repeats=8,
         note="Sparse flakes so the field reads at blanket scale rather than as noise."),
-    "heirloom-cable-blanket": Design(
-        slug="heirloom-cable-blanket", title="Heirloom Cable Throw",
-        motif="cable-twist", palette="hearth", width_stitches=144, motif_repeats=12,
-        note="Texture rather than colourwork; a different buyer from the mosaic audience."),
     "cloudline-baby-blanket": Design(
         slug="cloudline-baby-blanket", title="Cloudline Textured Baby Blanket",
         motif="diamond-lattice", palette="cloudline", width_stitches=126, motif_repeats=11,
@@ -172,12 +168,6 @@ CATALOGUE: dict[str, Design] = {
     "cottage-wall-hanging": Design(
         slug="cottage-wall-hanging", title="Cottage Botanical Wall Hanging",
         motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6),
-    "bobble-floor-pillow": Design(
-        slug="bobble-floor-pillow", title="Bobble Floor Pillow",
-        motif="basketweave", palette="hearth", width_stitches=72, motif_repeats=9),
-    "chunky-ribbed-scarf": Design(
-        slug="chunky-ribbed-scarf", title="Chunky Ribbed Scarf",
-        motif="cable-twist", palette="nordic", width_stitches=45, motif_repeats=12),
 }
 
 

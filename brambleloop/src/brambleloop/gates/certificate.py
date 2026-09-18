@@ -21,7 +21,9 @@ from ..cir.model import CIR
 from ..cir.reverse import compare as reverse_compare
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
-from .asset_truth import Asset, check_assets, check_shape_claims
+from .asset_truth import (
+    Asset, check_assets, check_shape_claims, check_technique_claims,
+)
 from .confidence import assess
 from .policy import (
     POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
@@ -141,6 +143,7 @@ def certify(
     # twin before it acquires assets and a listing: a flat panel named "Market Basket" is a
     # different product from the one the buyer would be paying for.
     findings.extend(check_shape_claims(cir.title, cir, twin, "cir.title"))
+    findings.extend(check_technique_claims(cir.title, cir, twin, "cir.title"))
     findings.extend(check_text(cir.designer_notes or "", "cir.designer_notes"))
     stages.append("originality")
 
@@ -155,6 +158,7 @@ def certify(
     if listing is not None:
         findings.extend(check_listing(listing, cir))
         findings.extend(check_shape_claims(listing.title, cir, twin, "listing.title"))
+        findings.extend(check_technique_claims(listing.title, cir, twin, "listing.title"))
         stages.append("policy")
 
     # 6. Physical testing. Class C (fitted garments, complex structures) does not ship on

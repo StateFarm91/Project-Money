@@ -64,6 +64,41 @@ DC_DEC = _register(Stitch("dc_dec", "double crochet decrease", "treble crochet d
 # ch-spaces, mesh and shell stitches open the fabric up.
 SK = _register(Stitch("sk", "skip", "miss", consumes=1, produces=0, height=0.0, row_height=0.0))
 
+# ---- texture ---------------------------------------------------------------
+#
+# Added because three products in the catalogue were named for techniques their patterns
+# could not contain: a "Heirloom Cable Throw", a "Bobble Floor Pillow" and a "Chunky Ribbed
+# Scarf", all worked in plain sc and dc colourwork. That is the same defect as the flat panel
+# called a basket, in a different dimension -- a name claiming something the fabric does not
+# do -- and the fix is the same: make the claim true, or stop making it.
+#
+# Post stitches are worked around the post of the stitch below rather than into its top. The
+# count arithmetic is identical to a dc, which is why they cost the compiler nothing; what
+# they buy is ribbing and cables, which cannot be faked with colour.
+FPDC = _register(Stitch("fpdc", "front post double crochet", "front post treble crochet",
+                        consumes=1, produces=1, height=3.0, row_height=1.9))
+BPDC = _register(Stitch("bpdc", "back post double crochet", "back post treble crochet",
+                        consumes=1, produces=1, height=3.0, row_height=1.9))
+
+# A bobble is several incomplete double crochets worked into one stitch and closed together.
+# It consumes one stitch and produces one, so the arithmetic is unremarkable; what is *not*
+# unremarkable is the yarn, which is why `twin._YARN_FACTOR` carries an entry for it rather
+# than falling back to a default that would understate a bobble blanket by a third.
+BOBBLE = _register(Stitch("bob", "bobble", "bobble", consumes=1, produces=1,
+                          height=3.0, row_height=2.0))
+
+# A cable crossing works stitches out of order: two are skipped, two are worked, and the
+# skipped two are then worked in front of or behind them. That re-ordering is deliberately
+# *not* modelled as a sequence of ops, because the CIR consumes stitches strictly in order
+# and a model that pretended otherwise would be lying about the one thing it guarantees.
+# Instead a crossing is one composite stitch: it consumes four and produces four, the
+# arithmetic the compiler checks stays exact, and which two cross in front is a property of
+# the stitch rather than prose nobody validated.
+CABLE_2X2 = _register(Stitch("cable2x2", "2-over-2 cable crossing", "2-over-2 cable crossing",
+                             consumes=4, produces=4, height=3.0, row_height=2.0))
+CABLE_1X1 = _register(Stitch("cable1x1", "1-over-1 cable crossing", "1-over-1 cable crossing",
+                             consumes=2, produces=2, height=3.0, row_height=2.0))
+
 
 def get(code: str) -> Stitch:
     try:
