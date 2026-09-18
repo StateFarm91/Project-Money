@@ -17,7 +17,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` at commit `9d17512`: **539 tests passing, 0 failing** across
+Measured by `./run_tests.sh` at commit `d5168c0`: **541 tests passing, 0 failing** across
 26 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice.
 
@@ -48,11 +48,15 @@ catalogue, accessibility, and the acceptance gates.
   products were named for shapes their patterns did not make and are rebuilt (see the
   milestone below).
 - Storefront, listings, imagery and content: **drafted and held.** Production at
-  2026-09-18T05:45Z, after the chain-6 rebuild, holds 15 certified patterns, 16 listings all
+  2026-09-18T08:40Z, after the chain-7 rebuild, holds 15 certified patterns, 16 listings all
   built by the current chain, 94 listing images with **all 94 approved**, 134 content pieces
-  and 1 collection — none of it published, against 105 recorded publication refusals. 2390
-  audit records. Nothing in this system can publish: there is no Etsy, Pinterest, email,
-  video or messaging integration at all.
+  and 1 collection — none of it published, against 120 recorded publication refusals.
+  Nothing in this system can publish: there is no Etsy, Pinterest, email, video or messaging
+  integration at all.
+- The chain-7 rebuild re-derived every product's imagery under the **armed** Asset Truth
+  gate (B-098), which until this morning could not block anything: 15 restarted, 15 images
+  built, **0 blocked**. That is the evidence that the defect was latent rather than a claim
+  that it was.
 - **Nothing in the launch report is blocked on build.** `/api/launch` reports every
   build-owned requirement satisfied; the eight unmet ones wait on the owner (seven) or on an
   Etsy credential that only the shop can produce.
@@ -79,14 +83,14 @@ catalogue, accessibility, and the acceptance gates.
 ## Last completed milestone
 **Build 1 of Master Plan v1.2 is complete. Nothing in the launch report is blocked on build.**
 
-Verified at 2026-09-18T05:45Z against production running commit `40f8176`:
+Verified at 2026-09-18T08:40Z against production running commit `d5168c0`:
 
 - `/api/verify` — 12 of 12 checks passing.
 - `/api/launch` — every build-owned requirement satisfied; `blocked on build: NONE`. The
   eight unmet requirements are seven owner actions and one Etsy credential that only the
   shop can produce.
-- `./run_tests.sh` — 539 passing, 0 failing, 26 suites, measured at `9d17512`.
-- Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 105 recorded
+- `./run_tests.sh` — 541 passing, 0 failing, 26 suites, measured at `d5168c0`.
+- Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 120 recorded
   publication refusals, CA$0 revenue, CA$0 advertising, CA$0 model spend, no provider
   configured, no spend scope paused, 0 customers, 0 orders.
 - The per-section coverage map below records what exists for each of the plan's 29 sections
@@ -685,6 +689,11 @@ timings, written there by the system rather than by hand.
   produced a new release hash and then found every downstream key already taken, so two
   corrected designs certified while their old listings stayed exactly as they were. Listings
   now record the release that produced them.
+- 2026-09-18 08:14Z heartbeat: production verified 12/12 before and after; radar re-asked
+  for today and it still selects nothing unbuilt, so B-079 holds and no product work was
+  invented to fill the time. Three defects closed instead — the section 6 disclosure rule,
+  the severity comparison that disarmed three gates, and the verify window that called a
+  starting worker dead. Chain 7, 541 passing, 0 failing.
 - 2026-09-18: **Every deploy opened a 90-second window where `/api/verify` lied.** Caught
   by the heartbeat itself: verify reported the worker dead and the scheduler silent, and the
   worker was fine — it had started 85 seconds earlier, and the first tick lands at 25s of
@@ -831,6 +840,6 @@ timings, written there by the system rather than by hand.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
-- Totals: 539 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+- Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
