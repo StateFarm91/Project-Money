@@ -689,3 +689,21 @@ class CapabilityPoint(Base):
     value: Mapped[float] = mapped_column(Float)
     sample: Mapped[int] = mapped_column(Integer, default=0)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class GrowthLoop(Base):
+    """One acquisition mechanism and the traffic it has actually produced (#271)."""
+
+    __tablename__ = "growth_loops"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    strength: Mapped[str] = mapped_column(String(20), default="untested", index=True)
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    orders: Mapped[int] = mapped_column(Integer, default=0)
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    latency_days: Mapped[int] = mapped_column(Integer, default=0)
+    scalable: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

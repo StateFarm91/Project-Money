@@ -196,6 +196,16 @@ def test_the_gate_opening_is_what_finally_allows_a_high_number():
     for month in range(4):
         _sell(db, 220, aov=26.0, months_back=month)
 
+    # Acquisition is read from the growth loop registry, not from the caller, so the gate can
+    # only open once two loops have actually produced attributable traffic. Asking for them
+    # is not enough — the rows have to exist.
+    from brambleloop.growth import loops
+
+    loops.seed(db)
+    for key in ("pinterest", "etsy_organic"):
+        loops.observe(db, key, visits=400, orders=9)
+        loops.observe(db, key, visits=400, orders=9)
+
     result = confidence.probability(
         db, observed_conversion=0.024, conversion_sample=60_000,
         selling_skus=9, product_families=3, acquisition_loops=2,
@@ -313,6 +323,36 @@ def test_the_binding_constraint_is_ranked_by_share_rather_than_by_gap():
 
     # An empty company is bound by whichever number is zero, not by an error.
     assert target.binding_constraint({})["gaps"][0]["share_of_needed"] == 0.0
+
+
+def test_the_acquisition_rung_is_read_from_traffic_rather_than_claimed():
+    """A registry that counted listed channels would raise the model by writing down ambitions.
+
+    Every loop this business could plausibly run is listed, and all of them start `untested`.
+    A caller asking for nine loops gets whatever the rows support, which today is none.
+    """
+    from brambleloop.growth import loops
+
+    db = _db()
+    _certify(db, 19, physical=5)
+    _sell(db, 300)
+    loops.seed(db)
+
+    claimed = confidence.probability(db, acquisition_loops=9)
+    rung = [r for r in claimed["ladder"] if r["layer"] == "acquisition"][0]
+    assert rung["confidence"] == 0.0
+    assert rung["evidence"]["registry_loops_with_evidence"] == 0
+
+    # Traffic below the sample floor is `attempted`, which does not count.
+    loops.observe(db, "pinterest", visits=12, orders=1)
+    assert confidence.probability(db)["ladder"][3]["confidence"] == 0.0
+
+    # Enough traffic, twice, is what earns it.
+    loops.observe(db, "pinterest", visits=400, orders=8)
+    loops.observe(db, "pinterest", visits=400, orders=8)
+    earned = [r for r in confidence.probability(db)["ladder"]
+              if r["layer"] == "acquisition"][0]
+    assert earned["confidence"] == 0.5, "one measured loop is half of what the rung needs"
 
 
 if __name__ == "__main__":

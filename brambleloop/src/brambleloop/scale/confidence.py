@@ -178,10 +178,21 @@ def ladder(db, *, observed_conversion: float = 0.0, conversion_sample: int = 0,
         "A rate measured over three visits is noise wearing a decimal point"))
 
     # -- acquisition: can qualified traffic be produced again on purpose? --
+    #
+    # Read from the growth loop registry rather than taken from the caller. A loop only
+    # counts at `measured` or `repeatable`, which both require attributable traffic over a
+    # real sample -- so this rung cannot be raised by listing channels somebody intends to
+    # try. A caller may still pass a higher number, and the registry caps it.
+    from ..growth.loops import evidence_summary, from_db
+
+    registry_loops = evidence_summary(from_db(db))["with_evidence"]
+    acquisition_loops = min(acquisition_loops, registry_loops) \
+        if acquisition_loops else registry_loops
     acquisition = min(1.0, acquisition_loops / 2.0)
     rungs.append(Rung(
         "acquisition", round(acquisition, 3), True,
-        {"loops_with_attributable_traffic": acquisition_loops, "loops_needed": 2},
+        {"loops_with_attributable_traffic": acquisition_loops, "loops_needed": 2,
+         "registry_loops_with_evidence": registry_loops},
         "two acquisition loops with attributable traffic, or one exceptionally strong loop "
         "with a backup. One loop nobody controls is a hope with a dashboard"))
 

@@ -50,9 +50,10 @@ def _startup() -> None:
         Registry(db).audit("orchestrator", "agents.reconciled",
                            detail={"changes": changes[:50]})
 
+    from ..growth.loops import seed as seed_loops
     from ..intel.benchmarks import seed as seed_benchmarks
 
-    benchmark_changes = seed_benchmarks(db)
+    benchmark_changes = seed_benchmarks(db) + seed_loops(db)
     if benchmark_changes:
         Registry(db).audit("orchestrator", "benchmarks.reconciled",
                            detail={"changes": benchmark_changes[:50]})
@@ -538,6 +539,19 @@ def api_calendar() -> dict:
     from ..seasonal.calendar import coverage_matrix, rolling
 
     return {"calendar": rolling(), "coverage": coverage_matrix()}
+
+
+@app.get("/api/growth")
+def api_growth() -> dict:
+    """The growth architecture: portfolio shape, loop evidence and this week's constraint."""
+    from ..growth.loops import constraint, evidence_summary, from_db
+    from ..growth.portfolio import report
+
+    return {
+        "portfolio": report(db),
+        "loops": evidence_summary(from_db(db)),
+        "constraint": constraint({}),
+    }
 
 @app.get("/api/build2")
 def api_build2() -> dict:

@@ -64,6 +64,7 @@ NON_REDERIVABLE = (
     "improvements",
     "lessons",
     "capability_history",
+    "growth_loops",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

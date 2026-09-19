@@ -2075,8 +2075,8 @@
   "body": "Design the catalogue so CA$5K does not require one viral hit. Maintain a base of evergreen earners, seasonal earners, flagships, quick-makes, bundles and experimental shots. Track concentration: revenue share of top 1/top 5 SKUs, seasonal concentration and channel concentration. High concentration triggers diversification while preserving winner exploitation.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "revenue portfolio architecture, SKU portfolio roles"
+  "status": "covered",
+  "note": "growth/portfolio.py measures role mix against a healthy range and names the roles absent entirely, and concentration reports the SKU the company depends on. An empty portfolio has undefined concentration rather than perfect diversity -- a divide-by-nothing reports perfect health for a shop with no products."
  },
  {
   "id": 232,
@@ -2084,8 +2084,8 @@
   "body": "Assign each SKU a portfolio role: HERO traffic/revenue driver, CORE reliable evergreen/seasonal earner, ENTRY low-friction acquisition product, BUNDLE/AOV builder, CROSS-SELL attachment product, EXPERIMENT learning vehicle or RETIRE candidate. Product creation is guided by portfolio gaps rather than raw listing count.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "revenue portfolio architecture, SKU portfolio roles"
+  "status": "covered",
+  "note": "seven declared roles, and an invented one is refused. Roles are declared so a gap is something the system can see, which is what lets product creation follow portfolio gaps rather than listing count."
  },
  {
   "id": 233,
@@ -2165,8 +2165,8 @@
   "body": "Every important launch ships with a pre-registered experiment plan: hero variants, price hypothesis, title/tag strategy, bundle/cross-sell, content/Pinterest support and success/failure thresholds. Avoid changing many variables simultaneously without recording confounders.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "listing launch experiment pack"
+  "status": "covered",
+  "note": "every launch ships four pre-registered experiments with hypothesis, metric, design, success and failure lines, minimum sample and stop date. An experiment with no sample floor is refused because it concludes on its first data point, and a concluded one cannot be fed more data until it says something nicer."
  },
  {
   "id": 242,
@@ -2363,8 +2363,8 @@
   "body": "Track leading indicators before revenue arrives: qualified impressions, CTR, favourites/cart signals where available, conversion, bundle attach, email/content traffic, creator traffic, search trend direction, support defects and release velocity. Avoid declaring success from leading indicators without orders.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "revenue forecast calibration, leading indicator dashboard"
+  "status": "partial",
+  "note": "the constraint solver and loop registry expose the leading indicators that exist. Remaining: impressions, CTR and favourites, which need the shop."
  },
  {
   "id": 264,
@@ -2372,8 +2372,8 @@
   "body": "Each week, identify ONE primary commercial constraint and a small number of secondary constraints. Reallocate experiments/agents toward the constraint with highest expected marginal contribution. Examples: insufficient qualified traffic, weak thumbnail CTR, weak conversion, low AOV, low repeat or product gap.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "weekly constraint solver, experiment portfolio, incrementality"
+  "status": "covered",
+  "note": "the weekly constraint solver ranks the four terms by expected monthly contribution per week of effort rather than by distance from target, because the biggest gap is often the slowest to close. With every term at zero it says so plainly: the product of zeros cannot be moved by one term."
  },
  {
   "id": 265,
@@ -2381,8 +2381,8 @@
   "body": "Maintain a diversified experiment portfolio with expected value, cost, duration, sample requirement, owner, stop rule and result. Balance quick low-cost tests with strategic longer tests. Kill experiments that cannot change a decision.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "weekly constraint solver, experiment portfolio, incrementality"
+  "status": "covered",
+  "note": "experiments carry expected cost, duration, sample requirement and stop rule, and undersampled results are unclaimable rather than provisional."
  },
  {
   "id": 266,
@@ -2390,8 +2390,8 @@
   "body": "Whenever possible, distinguish incremental revenue from revenue that would have occurred anyway. Use holdouts, staggered rollouts, pre/post controls or channel attribution. Do not credit a discount, ad or creator with all observed sales merely because it was active.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "weekly constraint solver, experiment portfolio, incrementality"
+  "status": "covered",
+  "note": "the design decides what may be claimed: holdout and staggered rollout support a causal claim, pre/post does not -- it cannot separate the change from the week it happened in, and seasonality is the largest effect in this business. Recorded as association, in the record rather than in a caveat."
  },
  {
   "id": 267,
@@ -2426,8 +2426,8 @@
   "body": "Model loss of the top SKU, top seasonal event or top traffic channel. If CA$5K collapses under one plausible failure, create a diversification plan. Breakout exploitation remains aggressive, but resilience becomes part of the confidence score.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "partial",
-  "note": "portfolio resilience is a critical rung computed from selling SKUs, product families and top-SKU revenue share, and an empty portfolio scores zero rather than dividing by nothing. Remaining: the explicit stress test of losing the top SKU, top seasonal event or top channel, and the diversification plan it should trigger."
+  "status": "covered",
+  "note": "three plausible single failures -- top SKU, top family, top three -- each with the shortfall it would leave against the target. Exploiting a winner stays aggressive; this measures what losing it would cost, so resilience is part of the confidence rather than an afterthought."
  },
  {
   "id": 271,
@@ -2435,8 +2435,8 @@
   "body": "Maintain a registry of growth loops with evidence strength: Etsy organic, Pinterest, Google/SEO, creators, email/repeat, paid ads, bundles/cross-sells, free tools/content. Record cost, latency, scalability, contribution and confidence. CA$5K confidence rises as independent loops become proven.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "inventory of proven growth loops"
+  "status": "covered",
+  "note": "growth/loops.py registers seven loops with derived strength: untested, attempted, measured, repeatable. Strength is earned from recorded traffic rather than assigned, only measured and repeatable count as evidence, and a strength claimed on twelve visits is refused. The CA$5K acquisition rung now reads this registry rather than taking a caller's number."
  },
  {
   "id": 272,
@@ -2444,8 +2444,8 @@
   "body": "Before aggressively scaling a product/channel, require product quality stable, support/refunds acceptable, truthful creative certified, contribution positive or intentionally bounded, attribution working and capacity to handle resulting customer support. Growth cannot outrun product truth.",
   "version": "v1.4.1",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
-  "note": "scale readiness gate"
+  "status": "covered",
+  "note": "six scale conditions, all required. A product that converts well and generates support tickets is ready to be fixed, not scaled -- scaling multiplies whatever is already true."
  },
  {
   "id": 273,
