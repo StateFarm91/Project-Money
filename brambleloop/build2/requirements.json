@@ -689,8 +689,8 @@
   "body": "The autonomous system may not lower the visual standard because an asset was AI-assisted. If the available generator cannot achieve benchmark quality and product truth simultaneously, route to a stronger permitted model/tool, change the composition, use deterministic/physical proof, or block the asset. 'Best the current model could do' is not a release criterion.",
   "version": "v1.3.4",
   "section": "Creative parity + model hard gate",
-  "status": "missing",
-  "note": "no-AI-quality-discount rule"
+  "status": "covered",
+  "note": "enforced by the ladder having no rung that accepts a weaker image, and by the exhausted-ladder outcome being 'hold the listing'."
  },
  {
   "id": 78,
@@ -698,8 +698,8 @@
   "body": "The gallery must first create desire and comprehension, then substantiate the purchase. Hero/lifestyle frames sell the truthful finished outcome; later evidence frames prove dimensions, chart quality, materials, included files and support. Never use technical evidence as a substitute for aspirational merchandising, and never use aspirational imagery to override evidence.",
   "version": "v1.3.4",
   "section": "Creative parity + model hard gate",
-  "status": "missing",
-  "note": "hero dream / evidence proof principle"
+  "status": "covered",
+  "note": "frames carry a declared job and are judged by it: conversion creative on grid readability and physical realism, engineering evidence on agreement with the twin. A gallery of only evidence is a specification sheet nobody clicks; only creative is a listing that converts and then refunds; and an evidence frame in first position is refused."
  },
  {
   "id": 79,
@@ -707,8 +707,8 @@
   "body": "Independent visual QA checks stitch-scale plausibility, yarn continuity, edge construction, drape, joins, hands/fingers where present, garment fit, shadows, repeated textures, impossible seams and other synthetic artifacts. Product Truth validates structure; realism QA validates that the customer-facing depiction does not look fake or physically impossible.",
   "version": "v1.3.4",
   "section": "Creative parity + model hard gate",
-  "status": "missing",
-  "note": "physical realism and crochet plausibility review"
+  "status": "partial",
+  "note": "ten physical-realism checks, and unmade checks on a generated frame are unjudged rather than assumed fine. Remaining: making them, which needs the vision capability."
  },
  {
   "id": 80,
@@ -716,8 +716,8 @@
   "body": "Do not fill a gallery to reach an arbitrary image count. Every frame must pass its commercial job and quality gate. A shorter excellent gallery is preferable to a longer gallery containing weak filler; expand only when additional frames answer a buyer question, add proof or increase desire.",
   "version": "v1.3.4",
   "section": "Creative parity + model hard gate",
-  "status": "partial",
-  "note": "gallery is 6-7 frames by construction; no minimum-quality-not-count rule"
+  "status": "covered",
+  "note": "every frame must carry a commercial job or it is refused as filler; a frame with no declared job cannot be constructed."
  },
  {
   "id": 81,
@@ -725,8 +725,8 @@
   "body": "When Creative Parity fails: regenerate with constrained brief -> change composition/environment -> change permitted image model/tool -> use stronger deterministic representation -> acquire tester/physical proof -> hold listing. Never solve a failed parity gate by relaxing the threshold.",
   "version": "v1.3.4",
   "section": "Creative parity + model hard gate",
-  "status": "missing",
-  "note": "creative failure escalation ladder"
+  "status": "covered",
+  "note": "six-rung escalation ladder in cost order, ending at hold_listing. Lowering the standard is not a rung, and the exhausted case says so explicitly: #77 is that the bar does not drop because an asset was AI-assisted, so the remaining option is not to publish."
  },
  {
   "id": 82,
@@ -1796,8 +1796,8 @@
   "body": "After owner selection, freeze the exact fictional model as Brambleloop's canonical recurring model. Maintain a versioned identity reference pack with approved facial geometry, hair, eye characteristics, age band, complexion characteristics and representative angles/expressions. The company may improve image quality, posing, environments, wardrobe and merchandising, but may not redesign her identity without explicit owner approval.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "canonical model: needs an image-generation capability and owner identity selection"
+  "status": "partial",
+  "note": "visual/identity.py holds candidates and exactly one canonical slot, and nothing moves between them without the owner. select() refuses without approval, refuses an incomplete reference pack, and refuses to replace an existing canonical identity -- approving a selection is not approving a redesign. Remaining: no candidate has been generated, because that needs the image capability."
  },
  {
   "id": 201,
@@ -1805,8 +1805,8 @@
   "body": "Every model-led asset must pass identity-consistency checks against the canonical reference pack. A beautiful image of the wrong woman fails. Detect gradual face drift, hair/eye drift, age drift and stylization drift across batches and over time. Failed assets regenerate before release.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "canonical model: needs an image-generation capability and owner identity selection"
+  "status": "partial",
+  "note": "drift_check compares against the reference pack across face, hair, eyes, age and stylisation, and an unmeasured dimension counts as maximum drift rather than being skipped. With no pack the verdict is 'unavailable' and blocks release -- never 'pass'. A check that passed for want of a reference would be believed. Remaining: the pack itself."
  },
  {
   "id": 202,
@@ -1823,8 +1823,8 @@
   "body": "For model-appropriate products, generate a coherent shot plan: primary product-first hero, full/three-quarter fit, front/back/side as relevant, texture/detail, sleeve/neckline/closure/construction detail, scale/context and optional lifestyle shot. The model must increase trust, aspiration and brand recognition while preserving truthful product representation.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "canonical model: needs an image-generation capability and owner identity selection"
+  "status": "covered",
+  "note": "shot_plan() produces a job per frame -- hero, fit, detail, scale, construction, evidence -- rather than a target count, because #80 asks for minimum quality and a count produces filler."
  },
  {
   "id": 204,
@@ -1832,8 +1832,8 @@
   "body": "Use the same canonical fictional model across appropriate clothing, accessories, seasonal holding/presentation shots and brand/editorial content so customers develop recognition. Do not force her into product categories where a clean product-only hero is commercially stronger. Product truth and category fit outrank compulsory model presence.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "canonical model: needs an image-generation capability and owner identity selection"
+  "status": "covered",
+  "note": "twelve product forms are product-first, and the model is not forced into them: a clean product-only hero is commercially stronger for a blanket, and product truth outranks compulsory brand recognition."
  },
  {
   "id": 205,

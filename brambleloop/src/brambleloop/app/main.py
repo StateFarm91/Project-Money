@@ -571,6 +571,22 @@ def api_swarm() -> dict:
         "next_when_idle": next_work([]),
     }
 
+
+@app.get("/api/visual")
+def api_visual() -> dict:
+    """The canonical model system and the gallery standard."""
+    from ..visual.gallery import ESCALATION, JOBS, REALISM_CHECKS
+    from ..visual.identity import shot_plan, status
+
+    return {
+        "identity": status(),
+        "shot_plans": {form: shot_plan(product_form=form)
+                       for form in ("blanket", "fitted_garment", "stocking")},
+        "frame_jobs": JOBS,
+        "realism_checks": list(REALISM_CHECKS),
+        "escalation_ladder": [{"action": a, "why": w} for a, w in ESCALATION],
+    }
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
