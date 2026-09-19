@@ -210,13 +210,39 @@ class Slot:
                 "needs_engineering": list(self.needs_engineering)}
 
 
-def _lane_for(form: str, days_away: int) -> str:
-    """The lane a form of this size realistically occupies."""
-    from .family import FORM_SIZE
+# The fastest lane a form can honestly be made in. This is a *floor*, not a bracket: a beanie
+# can be a QUICK make and a throw cannot, however short the runway is.
+#
+# Deriving it from physical size alone -- which is what the first version did -- filed a hat
+# as SHORT and then dropped Halloween/hats for want of runway at 42 days, when a beanie is
+# exactly the product the compression doctrine says to reach for as an occasion closes. Size
+# and make time are correlated and not the same thing: a lace shawl is light and slow, a
+# bulky stocking is bigger and fast.
+FORM_MIN_LANE: dict[str, str] = {
+    "coaster": "QUICK", "ornament": "QUICK", "toy": "QUICK", "pouch": "QUICK",
+    "garland": "QUICK", "wreath": "QUICK", "sphere": "QUICK", "cone": "QUICK",
+    "hat": "QUICK", "stocking": "QUICK", "tube": "QUICK", "round_disc": "QUICK",
+    "basket": "SHORT", "bag": "SHORT", "pillow": "SHORT", "flat_panel": "SHORT",
+    "scarf": "SHORT", "runner": "SHORT", "wall_hanging": "SHORT",
+    "rectangle_throw": "MEDIUM", "draped_garment": "MEDIUM", "fitted_garment": "MEDIUM",
+}
 
-    size = FORM_SIZE.get(form, "medium")
-    return {"tiny": "QUICK", "small": "SHORT", "medium": "MEDIUM",
-            "large": "LONG"}.get(size, "MEDIUM")
+LANE_SPEED: tuple[str, ...] = ("QUICK", "SHORT", "MEDIUM", "LONG", "FLAGSHIP")
+
+
+def _lane_for(form: str, viable_lanes: tuple[str, ...]) -> str | None:
+    """The fastest viable lane this form can be made in, or None if none is.
+
+    Fastest rather than natural, because the compression doctrine is that a shrinking runway
+    changes the product mix rather than cancelling the occasion. A slower lane cannot rescue
+    a form whose floor is already infeasible: lanes close in order, so if the floor is shut
+    everything above it is too.
+    """
+    floor = FORM_MIN_LANE.get(form, "MEDIUM")
+    for lane in LANE_SPEED[LANE_SPEED.index(floor):]:
+        if lane in viable_lanes:
+            return lane
+    return None
 
 
 def slots(arena: Arena, *, catalogue: list[Concept] | None = None,
@@ -249,10 +275,12 @@ def slots(arena: Arena, *, catalogue: list[Concept] | None = None,
                             "detail": ("another one of these is not discovery, whatever its "
                                        "motif")})
             continue
-        lane = _lane_for(form, arena.days_away)
-        if lane not in viable_lanes:
-            dropped.append({"form": form, "why": "no runway", "lane": lane,
-                            "detail": (f"a {lane} make cannot reach {arena.event} in "
+        lane = _lane_for(form, tuple(viable_lanes))
+        if lane is None:
+            floor = FORM_MIN_LANE.get(form, "MEDIUM")
+            dropped.append({"form": form, "why": "no runway", "lane": floor,
+                            "detail": (f"the fastest honest {form} is a {floor} make and "
+                                       f"that lane cannot reach {arena.event} in "
                                        f"{arena.days_away} days")})
             continue
         constructions = tuple(sorted(FORM_CONSTRUCTIONS.get(form, frozenset())))

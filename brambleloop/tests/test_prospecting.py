@@ -146,11 +146,33 @@ def test_a_form_the_engine_cannot_build_is_reported_and_not_dropped():
     assert plan["engineering_required"] == ["bottom_up", "top_down_yoke"]
 
 
-def test_a_lane_with_no_runway_is_dropped_with_the_lane_named():
-    plan = P.slots(_arena(forms={"hat": 20}), viable_lanes=("QUICK",))
+def test_a_form_takes_the_fastest_lane_it_can_honestly_be_made_in():
+    """A closing occasion changes the product mix; it does not cancel the occasion.
+
+    Deriving the lane from physical size filed a beanie as SHORT and then dropped
+    Halloween/hats for want of runway at 42 days -- exactly the product the compression
+    doctrine says to reach for as an occasion closes.
+    """
+    plan = P.slots(_arena(forms={"hat": 20, "scarf": 4}), viable_lanes=("QUICK",))
+    kept = {s["form"]: s["make_lane"] for s in plan["slots"]}
+    assert kept == {"hat": "QUICK"}, kept
+    dropped = {d["form"]: d for d in plan["dropped"]}
+    assert dropped["scarf"]["why"] == "no runway"
+    assert dropped["scarf"]["lane"] == "SHORT"
+
+
+def test_a_form_whose_floor_is_shut_is_dropped_and_not_promoted_to_a_slower_lane():
+    """Lanes close in order, so a slower lane cannot rescue an already-infeasible floor."""
+    plan = P.slots(_arena(forms={"rectangle_throw": 60}), viable_lanes=("QUICK", "SHORT"))
     assert plan["slots"] == []
-    assert plan["dropped"][0]["why"] == "no runway"
-    assert plan["dropped"][0]["lane"] == "SHORT"
+    assert plan["dropped"][0]["lane"] == "MEDIUM"
+
+
+def test_every_form_has_a_lane_floor():
+    """A form defaulting to MEDIUM silently is how a quick giftable loses its own runway."""
+    missing = [f for f in FORMS if f not in P.FORM_MIN_LANE]
+    assert missing == [], missing
+    assert set(P.FORM_MIN_LANE.values()) <= set(P.LANE_SPEED)
 
 
 def test_an_event_the_vocabulary_cannot_express_is_refused_not_defaulted():
