@@ -533,6 +533,13 @@ def tally(judgements: list[Judgement], *, min_pairs: int = MIN_PAIRS) -> dict:
 # on an invoice.
 TASK = "benchmark_challenge"
 
+# The method this result was produced by. Version 1 matched on pod alone and scored 11-1 for
+# this catalogue by comparing throws to coasters; version 2 matches on pod *and* form and
+# refuses to spend below the sample floor. A stored run from an older method is not a data
+# point about creative capability -- it is a data point about the older method, and
+# `last_run()` says so rather than letting the dashboard carry a number nobody would defend.
+METHOD_VERSION = 2
+
 # A judged pair costs a DEEP-tier call. The cap is here rather than at the call site because
 # a run with no cap is one loop away from the whole month's ceiling.
 DEFAULT_MAX_PAIRS = 24
@@ -623,6 +630,7 @@ def run(db, concepts: list[Concept], *, gateway=None, agent: str = "creative_dir
 
     result = tally(judgements)
     result.update({
+        "method_version": METHOD_VERSION,
         "pairs_built": len(pairs),
         "pairs_judged": len(judgements),
         "stopped_on_ceiling": stopped_on_ceiling,
@@ -649,4 +657,17 @@ def last_run(db) -> dict | None:
     with db.session() as s:
         rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "creative.blinded")
                               .order_by(desc(AuditLog.id)).limit(1)))
-    return dict(rows[0].detail or {}) if rows else None
+    if not rows:
+        return None
+    run = dict(rows[0].detail or {})
+    version = int(run.get("method_version") or 1)
+    if version < METHOD_VERSION:
+        run["superseded"] = True
+        run["valid"] = False
+        run["superseded_reason"] = (
+            f"produced by method version {version}; the current method is {METHOD_VERSION}. "
+            f"Version 1 matched opponents on pod alone, so it compared rectangle throws "
+            f"against coasters and pillows and scored 11-1 for this catalogue on object size "
+            f"rather than on the idea. The verdict below is kept for the record and is not a "
+            f"measurement of creative capability")
+    return run

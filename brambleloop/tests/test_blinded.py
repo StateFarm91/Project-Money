@@ -514,6 +514,35 @@ def test_the_existing_catalogue_measures_as_badly_as_the_owner_says():
     assert novelty(concepts)["mean_distance"] < 0.5
 
 
+def test_a_run_from_an_older_method_is_reported_as_superseded():
+    """Production is holding an 11-1 `ahead` verdict that the method no longer stands behind.
+
+    Deleting it would be tidier and worse: the record of a measurement that was wrong is the
+    thing that stops the same mistake being made confidently a second time.
+    """
+    from brambleloop.core.models import AuditLog
+
+    db = _db()
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action="creative.blinded",
+                       detail={"verdict": "ahead", "valid": True, "win_rate": 0.9167}))
+    run = B.last_run(db)
+    assert run["superseded"] and run["valid"] is False
+    assert run["verdict"] == "ahead"          # kept for the record
+    assert "object size" in run["superseded_reason"]
+
+
+def test_a_current_run_is_not_marked_superseded():
+    from brambleloop.core.models import AuditLog
+
+    db = _db()
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action="creative.blinded",
+                       detail={"verdict": "parity", "valid": True,
+                               "method_version": B.METHOD_VERSION}))
+    assert "superseded" not in B.last_run(db)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
