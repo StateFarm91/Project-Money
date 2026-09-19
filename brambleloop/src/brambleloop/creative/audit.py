@@ -120,7 +120,7 @@ def audit_catalogue() -> dict:
         verdicts.append(judge(concept, Context(catalogue=others, techniques=1)))
 
     rejected = [v for v in verdicts if not v.survives]
-    from .tournament import Result
+    from .tournament import Result, novelty, theme_fatigue
 
     result = Result(opportunity="existing generated catalogue",
                     at="", field_size=len(concepts), spread=field.spread(),
@@ -138,6 +138,10 @@ def audit_catalogue() -> dict:
         "rejected": len(rejected),
         "structurally_identical_pairs": identical,
         "autopsy": autopsy(result),
+        # The two measures #94 names that nothing computed until now. Both read awkwardly
+        # against this catalogue, which is the point of measuring rather than asserting.
+        "theme_fatigue": theme_fatigue(concepts),
+        "novelty": novelty(concepts),
         "root_cause": (
             "A `Design` in products/builder.py is a motif, a palette, a width and a repeat "
             "count. It has no field for recipient, occasion, function or construction, so "

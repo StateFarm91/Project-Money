@@ -384,6 +384,90 @@ def test_the_ceiling_reads_one_kind_and_every_writer_uses_it():
     assert routing.COST_KIND == "llm"
 
 
+# ---- the two measures #94 names that nothing computed ----------------------
+
+
+def test_a_field_with_one_value_is_reported_as_a_missing_field():
+    """"The catalogue is repetitive" is not actionable; naming the field is."""
+    from brambleloop.creative.tournament import theme_fatigue
+
+    report = theme_fatigue([_concept(f"bl-{i}") for i in range(10)])
+    worst = report["worst"]
+    assert worst["share"] == 1.0
+    assert report["by_field"]["feeling"]["distinct"] == 1
+    assert "nowhere to record" in report["note"]
+
+
+def test_a_varied_catalogue_reports_no_fatigue():
+    """A measurement that fires on everything says nothing about anything."""
+    from brambleloop.creative.concept import FEELINGS, OCCASIONS
+    from brambleloop.creative.tournament import theme_fatigue
+
+    concepts = []
+    for i in range(12):
+        c = _concept(f"bl-{i}")
+        concepts.append(Concept(
+            key=c.key, title=c.title, premise=c.premise,
+            pod=("blankets", "hats", "bags", "ornaments")[i % 4],
+            form=("rectangle_throw", "hat", "bag", "ornament")[i % 4],
+            construction=c.construction, motif=f"motif-{i}",
+            palette_story=c.palette_story,
+            recipient=("self", "child", "host", "teen")[i % 4],
+            occasion=OCCASIONS[i % len(OCCASIONS)],
+            feeling=FEELINGS[i % len(FEELINGS)],
+            function=c.function, make_lane=("QUICK", "SHORT", "MEDIUM")[i % 3]))
+    report = theme_fatigue(concepts)
+    assert report["fatigued"] == [], report["fatigued"]
+
+
+def test_theme_fatigue_on_an_empty_catalogue_is_not_a_clean_bill_of_health():
+    from brambleloop.creative.tournament import theme_fatigue
+
+    report = theme_fatigue([])
+    assert report["concepts"] == 0 and report["fatigued"] == []
+    assert "nothing can be repetitive yet" in report["note"]
+
+
+def test_novelty_reports_the_minimum_beside_the_mean():
+    """A catalogue can average a comfortable distance and contain one product twice."""
+    from brambleloop.creative.tournament import novelty
+
+    twins = [_concept("bl-a"), _concept("bl-b")]
+    far = Concept(key="bl-c", title="c", premise=twins[0].premise, pod="hats", form="hat",
+                  construction="in_the_round", motif="stripe", palette_story="x",
+                  recipient="teen", occasion="birthday", feeling="playful",
+                  function="worn", make_lane="QUICK")
+    report = novelty(twins + [far])
+    assert report["min_distance"] < report["mean_distance"]
+    assert set(report["closest_pair"].values()) & {"bl-a", "bl-b"}
+
+
+def test_one_concept_cannot_have_a_novelty_distance():
+    """Unmeasurable is not novel."""
+    from brambleloop.creative.tournament import novelty
+
+    report = novelty([_concept("bl-1")])
+    assert not report["measurable"]
+    assert "not novel" in report["reason"]
+
+
+def test_the_existing_catalogue_measures_as_badly_as_the_owner_says():
+    """The owner's defect report, as a number rather than an agreement.
+
+    Three fields hold exactly one value across all eleven products, because the generator has
+    nowhere to record a second. If this test ever fails because the numbers improved, it
+    should be updated to the new floor, not deleted.
+    """
+    from brambleloop.creative.audit import catalogue_concepts
+    from brambleloop.creative.tournament import novelty, theme_fatigue
+
+    concepts = catalogue_concepts()
+    fatigue = theme_fatigue(concepts)
+    single_valued = [f for f, row in fatigue["by_field"].items() if row["distinct"] == 1]
+    assert set(single_valued) >= {"pod", "feeling", "make_lane"}, single_valued
+    assert novelty(concepts)["mean_distance"] < 0.5
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

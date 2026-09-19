@@ -188,7 +188,101 @@ def scorecard(results: list[Result]) -> dict:
                        "creative/blinded.py runs same-pod blinded head-to-heads against the "
                        "observed human catalogue, and reports `unmeasured` rather than a "
                        "win rate until enough pairs are judged without position bias."),
+        "not_measured_here": ("market CTR, conversion and winner rate need live traffic and "
+                              "a sale. Theme fatigue and novelty distance are measured, by "
+                              "`theme_fatigue()` and `novelty()`, over a concept set rather "
+                              "than over tournament results"),
         "blinded_comparison": ("creative.blinded.run -- the agent side of #94's human/agent "
                                "comparison. Not run from here: it costs model calls against "
                                "the monthly ceiling, so it is invoked deliberately"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The two measures #94 names that nothing computed
+#
+# `scorecard()` covers field spread, survival rate, death causes and their trends.
+# `blinded.py` covers desirability. Market CTR, conversion and winner rate need live traffic
+# and a sale, and no amount of engineering supplies either. That left two, both computable
+# from the catalogue as it stands, and both of them awkward reading.
+
+# A theme held by more than this share of the catalogue is not a house style, it is a rut.
+# Set from what a browsing customer notices: one product in three sharing a mood reads as a
+# collection, two in three reads as a shop that only makes one thing.
+FATIGUE_SHARE = 0.34
+
+# The dimensions a customer would notice repeating. Construction is not among them -- a
+# customer does not see that every product is worked in flat rows, they see that every
+# product is a rectangle.
+FATIGUE_FIELDS: tuple[str, ...] = ("pod", "form", "motif", "occasion", "recipient",
+                                   "feeling", "make_lane")
+
+
+def theme_fatigue(concepts: list) -> dict:
+    """Which themes repeat past the point of being a house style (#94).
+
+    Reported per field rather than as one number, because "the catalogue is repetitive" is
+    not actionable and "every product in this catalogue is `cosy`, because the generator has
+    no field in which to be anything else" is.
+    """
+    if not concepts:
+        return {"concepts": 0, "fatigued": [],
+                "note": "no concept exists, so nothing can be repetitive yet"}
+
+    fatigued, spread = [], {}
+    for field_name in FATIGUE_FIELDS:
+        counts: dict[str, int] = {}
+        for concept in concepts:
+            value = str(getattr(concept, field_name, "") or "unstated")
+            counts[value] = counts.get(value, 0) + 1
+        top, n = max(counts.items(), key=lambda kv: kv[1])
+        share = round(n / len(concepts), 4)
+        spread[field_name] = {"distinct": len(counts), "dominant": top, "share": share}
+        if share > FATIGUE_SHARE:
+            fatigued.append({"field": field_name, "value": top, "share": share,
+                             "concepts": n, "distinct_values": len(counts)})
+
+    fatigued.sort(key=lambda row: -row["share"])
+    return {
+        "concepts": len(concepts),
+        "threshold": FATIGUE_SHARE,
+        "by_field": spread,
+        "fatigued": fatigued,
+        "worst": fatigued[0] if fatigued else None,
+        "note": ("A field with one distinct value is not a preference, it is a missing "
+                 "field: the generator cannot vary what it has nowhere to record."),
+    }
+
+
+def novelty(concepts: list) -> dict:
+    """How far each idea sits from the nearest other one (#94).
+
+    The mean is the reassuring number and the minimum is the true one. A catalogue can
+    average a comfortable distance while containing two products that are the same product
+    in different colours, and it is the pair a customer notices.
+    """
+    from .concept import nearest
+
+    if len(concepts) < 2:
+        return {"concepts": len(concepts), "measurable": False,
+                "reason": ("novelty distance is a distance between two ideas, and fewer than "
+                           "two exist. Unmeasurable is not novel")}
+
+    rows = []
+    for concept in concepts:
+        other, gap = nearest(concept, concepts)
+        rows.append({"concept": concept.key, "nearest": other.key if other else None,
+                     "distance": gap})
+    gaps = [r["distance"] for r in rows]
+    closest = min(rows, key=lambda r: r["distance"])
+    return {
+        "concepts": len(concepts),
+        "measurable": True,
+        "mean_distance": round(sum(gaps) / len(gaps), 4),
+        "min_distance": round(min(gaps), 4),
+        "closest_pair": closest,
+        "rows": sorted(rows, key=lambda r: r["distance"])[:20],
+        "note": ("The mean is the reassuring number and the minimum is the true one. A "
+                 "catalogue can average a comfortable distance and still contain one product "
+                 "twice, and that pair is the one a customer notices."),
     }
