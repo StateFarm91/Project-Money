@@ -205,6 +205,62 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The blinded human/agent comparison, and what it refuses to tell you (#94, #104).**
+
+Everything #94 asks for that code can compute has been in `tournament.scorecard()` since
+Build 1. The half that needed a judge became possible on 2026-09-19: the model gate opened
+from a recorded successful call, and the benchmark scan returned 438 real listings. The
+human side is a catalogue a person designed and a market has already paid for.
+
+This is the owner's product-quality concern turned into a number. The creative gate has been
+reporting 0 of 11 survivors with emotional appeal as the dominant failure, and *"are ours as
+appealing as theirs"* has been an opinion.
+
+Three guards, because this measurement returns a confident number whether or not it measured
+anything:
+
+- **Blinding is mechanical.** `blind()` refuses a card carrying a tell and refuses one with
+  an empty field, because a card is identifiable by its holes. The harder problem was
+  register: a Concept carries evocative free text in motif, premise, palette_story and
+  function; a benchmark listing carries none of it, and our prose against their keywords
+  would let a judge separate the sides without reading either. So the free-text fields are
+  **not on the card at all** — the comparison is over the structural promise both sides
+  genuinely state, rendered from the same enumerations.
+- **A judge that prefers the first option is measuring order.** Presentation order is
+  randomised per pair and recorded before judging. Past a 70% position share the run is
+  reported **invalid and discarded rather than corrected**: a correction applied to a judge
+  that was not really reading puts error bars around nothing.
+- **A win rate from four pairs is not a capability.** Below twelve judged pairs there is no
+  rate, only `unmeasured` — which is not parity and not losing.
+
+What it deliberately does not compare is **the photograph**, which is most of why a listing
+sells. That half needs browser/vision and says so in its own output.
+
+Live readiness: 438 benchmark listings, **220 usable as opponents (50%)**, CA$0.1294 per
+pair, 193 affordable, CA$0.0001 spent of CA$25 this month. The 218 that cannot be opponents
+are named by reason — 143 state no feeling, 42 state no product form, 29 are bundles, 4 are
+guidebooks or unclassified. Refusing to describe an unreadable listing creates a selection
+bias toward richly-titled ones, and `readability()` reports it, because an unstated bias is a
+wrong number rather than a limitation.
+
+It runs on a **monthly** cadence and there is no endpoint that runs it: a request that spends
+the model budget should not be one URL away. Monthly is a spending decision — twelve pairs is
+6% of the ceiling, weekly would be 27% for a number that cannot move that fast, and a
+measurement that expensive is one somebody eventually switches off.
+
+Our side is the existing catalogue through `audit.concept_from_design`, and that is the
+point: all eleven products are `home_decor` and all eleven are `cosy`, because the generator
+has no field in which to be anything else.
+
+**#303 is parked on browser_vision** — its API half is complete and live (438 listings, 2
+unclassified, stored drift 0, palette closing on the gallery backfill), and the two columns
+left are judgements about a photograph. **#94 and #104 were re-audited from owner_gated to
+partial**: both were parked on model_provider, that gate opened, and their status strings had
+not caught up.
+
+Suite **1297 passing, 0 failing**. Production 12/12 verify, queue depth 0, watchdog moving.
+
+## Previously — last completed milestone
 **The 58 unrouted benchmark listings, and the six routing defects reading them exposed
 (#303, #207, #210, #312).**
 
