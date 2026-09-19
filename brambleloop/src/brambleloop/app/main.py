@@ -877,6 +877,28 @@ def api_learning() -> dict:
     }
 
 
+@app.get("/api/search/intent")
+def api_search_intent(object: str = "stocking", season_event: str = "christmas",
+                      recipient_or_use: str = "teacher gift",
+                      technique: str = "", aesthetic: str = "",
+                      skill_feature: str = "") -> dict:
+    """The six-facet buyer-language map for one product, assumed and observed kept apart.
+
+    A first listing built on assumed language is a reasonable thing to publish. It is not
+    research, and blending the two loses the distinction by the time anybody acts on it.
+    """
+    from ..commerce import intent
+
+    supplied = {"object": object, "season_event": season_event,
+                "recipient_or_use": recipient_or_use, "technique": technique,
+                "aesthetic": aesthetic, "skill_feature": skill_feature}
+    try:
+        facet_map = intent.map_product(**{k: v for k, v in supplied.items() if v})
+    except intent.IntentRefused as exc:
+        return {"error": str(exc), "facets": [f.key for f in intent.FACETS]}
+    return intent.strategy(db, facet_map=facet_map)
+
+
 @app.post("/api/model/probe")
 def api_model_probe() -> dict:
     """Ask the provider now rather than waiting for the six-hourly cadence.

@@ -160,7 +160,17 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     q = E.queue(db)
 
     assert q["parked_total"] > 0, "nothing is parked, so this proves nothing"
-    assert q["ready_total"] > 100, "the queue stopped because something was parked"
+
+    # Stated as the property rather than as a threshold. "More than a hundred ready" was a
+    # count of today's backlog: it passes for the wrong reason while the build is young and
+    # fails for a good one -- work getting done -- which is a test that has to be edited
+    # every time it is right. What must hold at every size of backlog is that parking costs
+    # the queue exactly the requirements that are parked and not one more.
+    reconciled = E.reconciliation(db)
+    assert reconciled["balances"] is True, reconciled
+    assert reconciled["ready"] == reconciled["executable"] - len(
+        reconciled["executable_parked"]), reconciled
+    assert reconciled["ready"] > 0, "the queue stopped because something was parked"
     # Parked, ready and blocked are reported together: a queue showing only ready work looks
     # identical whether fourteen requirements are parked on a browser or none are.
     assert "browser_vision" in q["parked_by_capability"]

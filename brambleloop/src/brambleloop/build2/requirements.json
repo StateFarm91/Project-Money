@@ -2630,9 +2630,9 @@
  {
   "body": "Before launch, map each seasonal product to real buyer language from Etsy/market evidence: object + technique + recipient/use + aesthetic + season/event + skill/feature where relevant. Search strategy must reflect what buyers are already seeking while remaining accurate to the product.",
   "id": 293,
-  "note": "seasonal search intent mapping",
+  "note": "commerce/intent.py maps a product across the six facets the requirement names -- object, technique, recipient/use, aesthetic, season/event, skill/feature -- and refuses the two ways the map becomes a description of ourselves: a facet carrying our own vocabulary (heirloom, quietly luxurious, curated), which produces phrases that look like research, and a facet made only of words that describe nothing. Object, recipient/use and season/event are required, because a query with no object is a category browse and that is where a new shop is invisible. The search-empty word list is deliberately not the creative one: 'easy' and 'gift' describe nothing in a premise and are most of what a shopper types. Every phrase is labelled assumed or observed, promoted only by a recorded Keyword or BenchmarkListing row, and the two are never blended into one ranked list. Remaining: with no benchmark credential every phrase is assumed, which the strategy states on each row. /api/search/intent.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
+  "status": "partial",
   "title": "Seasonal Search Intent Mapping",
   "version": "v1.4.2"
  },
