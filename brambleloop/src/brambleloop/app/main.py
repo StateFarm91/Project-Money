@@ -930,6 +930,19 @@ def api_arbitrage() -> dict:
     return arbitrage.state(db)
 
 
+@app.get("/api/seasonal/fastlane")
+def api_seasonal_fastlane() -> dict:
+    """What "fast" is allowed to mean here: bounded scope, and the same gates as everything.
+
+    The lane shortens the queue and never the gate list, and the list is the release chain's
+    own -- imported rather than retyped, because a second copy is how that guarantee would
+    quietly stop being true.
+    """
+    from ..seasonal import fastlane
+
+    return fastlane.state()
+
+
 @app.get("/api/seasonal/teams")
 def api_seasonal_teams() -> dict:
     """Which events hold dedicated capacity today, and what each holds.

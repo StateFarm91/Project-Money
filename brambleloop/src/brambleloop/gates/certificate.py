@@ -104,6 +104,19 @@ def _release_hash(cir: CIR, pattern_text: str) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+# Every stage the release chain can run, in the order it runs them. Three are conditional on
+# the product -- geometry on a closed form, asset_truth and policy on a listing existing --
+# and the rest always run. Named here so another module can state what the full chain is
+# without reimplementing it: the fast lane (#291) shortens the queue and never this list, and
+# a copy of the list somewhere else is how that guarantee would quietly stop being true.
+CANONICAL_STAGES: tuple[str, ...] = (
+    "compile", "twin", "geometry", "write", "reverse", "originality", "asset_truth",
+    "policy", "physical_test", "confidence",
+)
+
+CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
+
+
 def certify(
     cir: CIR,
     *,

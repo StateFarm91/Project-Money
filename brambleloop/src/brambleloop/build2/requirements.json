@@ -2612,9 +2612,9 @@
  {
   "body": "When a high-confidence trend is time-sensitive and technically simple, use a fast lane with bounded scope, deterministic validation and rapid asset production. Fast does not bypass pattern truth, IP/policy, visual truth or customer safety/quality gates.",
   "id": 291,
-  "note": "trend half-life classification, fast response lane",
+  "note": "seasonal/fastlane.py admits a candidate only when the evidence is confident, the trend's half-life can repay the work (the calendar's own rule, reused rather than restated), the make lane is SHORT or faster, the risk class is one the compiler verifies completely, and the product is one component, at most three colours and no technique the catalogue has never used -- because a new technique needs a physical sample and a sample is the one part of this company nobody can hurry. What the lane buys is scope, never checking. The gates it runs are the release chain's own CANONICAL_STAGES, imported rather than retyped, because a second copy of that list is exactly how the guarantee quietly stops being true; a test also scans certificate.py and asserts the constant matches the stages the chain actually appends. Product-conditional stages stay conditional on the product and never on the lane, and a release missing any owed gate is refused by name. /api/seasonal/fastlane.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
+  "status": "covered",
   "title": "Fast Response Lane",
   "version": "v1.4.2"
  },
