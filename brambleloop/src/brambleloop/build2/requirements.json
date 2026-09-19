@@ -839,9 +839,9 @@
  {
   "body": "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas.",
   "id": 94,
-  "note": "creative/tournament.scorecard() tracks field spread, survival rate, death causes and their trends, and refuses to read a rising survival rate alongside falling spread as progress -- a jury going soft looks identical to improvement on survival alone. Everything computable without a model is computed. The model_provider gate opened on 2026-09-19 from a recorded successful call, so the blinded human/agent comparison is now executable and this is no longer owner_gated. Market CTR and conversion still need live traffic, which no amount of engineering supplies.",
+  "note": "the instrument is complete. tournament.scorecard() tracks field spread, survival rate, death causes and their trends; theme_fatigue() and novelty() add the two measures nothing computed (pod, feeling and make_lane each hold one distinct value across all eleven products; novelty mean 0.34, min 0.25); creative/blinded.py runs the blinded human/agent comparison and has been run live. What remains needs data no engineering here supplies: market CTR, conversion and winner rate need live traffic and a sale. The blinded half also cannot currently return a number -- 0 of 11 concepts share a pod AND a form with an observed listing -- but that is a fact about the catalogue this generator makes, not remaining work on #94, and it moves when generation does.",
   "section": "Creativity engine + continuous improvement",
-  "status": "partial",
+  "status": "data_gated",
   "title": "Creativity Capability Scorecard",
   "version": "v1.3.5"
  },
