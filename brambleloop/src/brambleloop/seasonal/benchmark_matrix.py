@@ -20,17 +20,26 @@ from __future__ import annotations
 
 from datetime import date
 
-from .calendar import EVENT_DEPARTMENTS, coverage_matrix
+from ..intel import benchmarks
+from .calendar import coverage_matrix
 
 OBSERVED, UNOBSERVED = "observed", "unobserved"
 
 
-def benchmark_depth(db, *, benchmark_key: str = "mjs") -> dict:
-    """How many observed listings the benchmark has in each department."""
+def benchmark_depth(db, *, benchmark_key: str | None = None) -> dict:
+    """How many observed listings the benchmark has in each department.
+
+    The key defaults to the constant the scanner writes, never to a short string that looks
+    like it. The first version of this defaulted to "mjs" while the scanner wrote
+    "mjs_off_the_hook_designs", so it read zero listings from a database holding 438 and
+    reported that as "nothing has been observed" -- which is exactly the sentence this module
+    exists to stop anybody saying wrongly.
+    """
     from sqlalchemy import select
 
     from ..core.models import BenchmarkListing
 
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
     with db.session() as s:
         rows = [r.pod for r in s.scalars(select(BenchmarkListing).where(
             BenchmarkListing.benchmark_key == benchmark_key))]
@@ -45,13 +54,14 @@ def benchmark_depth(db, *, benchmark_key: str = "mjs") -> dict:
 
 def matrix(db, *, today: date | None = None,
            covered: dict[str, tuple[str, ...]] | None = None,
-           benchmark_key: str = "mjs") -> dict:
+           benchmark_key: str | None = None) -> dict:
     """The full matrix: what the occasion spans, what we answer, what they were seen to sell.
 
     A department where the benchmark has listings and this catalogue has none is the row the
     requirement exists to surface: a proven market with no Brambleloop answer. A department
     where neither has anything is *not* that row, and saying so is the whole discipline here.
     """
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
     ours = coverage_matrix(today, covered=covered)
     theirs = benchmark_depth(db, benchmark_key=benchmark_key)
     observed = theirs["basis"] == OBSERVED

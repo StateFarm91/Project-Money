@@ -35,11 +35,14 @@ def _db() -> Database:
 
 
 def _observe(db, pod: str, n: int) -> None:
+    """Write listings exactly as the scanner writes them, under the scanner's own key."""
     from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks
 
     with db.session() as s:
         for i in range(n):
-            s.add(BenchmarkListing(benchmark_key="mjs", listing_ref=f"{pod}-{i}",
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY,
+                                   listing_ref=f"{pod}-{i}",
                                    pod=pod, product_type=pod, title=f"{pod} {i}"))
 
 
@@ -140,6 +143,33 @@ def test_the_observed_count_is_reported_so_the_matrix_can_be_argued_with():
     _observe(db, "hats", 5)
 
     assert M.matrix(db, today=TODAY)["benchmark_observed_listings"] == 5
+
+
+def test_the_reader_defaults_to_the_key_the_scanner_actually_writes():
+    """Found in production: the matrix reported zero observed listings against a database
+    holding 438, because it defaulted to "mjs" while the scanner wrote
+    "mjs_off_the_hook_designs". A wrong key does not fail -- it returns an empty result
+    indistinguishable from the truth, and this module's entire job is to tell those apart.
+
+    The same defect was in the living market map, which had been reporting "no benchmark
+    listing has been observed" since the scan succeeded.
+    """
+    import inspect
+
+    from brambleloop.intel import benchmarks, market_map
+
+    db = _db()
+    _observe(db, "hats", 3)
+
+    assert M.benchmark_depth(db)["observed"] == 3
+    assert M.matrix(db, today=TODAY)["benchmark_observed_listings"] == 3
+    assert market_map.build(db)["mapped"] is True
+
+    # And no reader may carry a literal key of its own: the constant is the contract.
+    for module in (M, market_map):
+        source = inspect.getsource(module)
+        assert 'benchmark_key: str = "mjs"' not in source, module.__name__
+    assert benchmarks.MJS_KEY != "mjs"
 
 
 def _run() -> int:

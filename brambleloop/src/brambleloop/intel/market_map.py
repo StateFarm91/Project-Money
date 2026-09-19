@@ -146,7 +146,7 @@ def describe_listing(listing: dict, *, vision_available: bool = False,
                change_state=change_state)
 
 
-def build(db, *, benchmark_key: str = "mjs", vision_available: bool = False,
+def build(db, *, benchmark_key: str | None = None, vision_available: bool = False,
           now: datetime | None = None) -> dict:
     """The whole map from what has been observed, with its own staleness reported.
 
@@ -156,6 +156,14 @@ def build(db, *, benchmark_key: str = "mjs", vision_available: bool = False,
     from sqlalchemy import select
 
     from ..core.models import BenchmarkListing
+    from . import benchmarks
+
+    # Defaulted from the constant the scanner writes rather than from a short string that
+    # looks like it. They disagreed -- the scanner wrote "mjs_off_the_hook_designs" and this
+    # read "mjs" -- so the query matched nothing and the map reported "no benchmark listing
+    # has been observed" against a database holding 438 of them. A wrong key does not fail;
+    # it returns an empty result that is indistinguishable from the truth.
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
