@@ -2621,9 +2621,9 @@
  {
   "body": "Periodically inspect proven Brambleloop evergreen products for legitimate seasonal re-merchandising opportunities: new colourways, styled photography, bundles, compatible add-ons and seasonal search positioning. Avoid unnecessary new pattern SKUs when the pattern itself is unchanged; preserve clean version/product accounting.",
   "id": 292,
-  "note": "evergreen-to-seasonal multiplier",
+  "note": "seasonal/remerchandising.py lists the five moves the requirement names -- colourway, styled photography, bundle, add-on, seasonal search positioning -- and refuses any that changes construction, form, rows, stitch counts, gauge or the release hash, because that is a new product and a different pipeline with a tournament, a compile and a physical test in it. No move increments the catalogue: a recolour presented as a launch inflates catalogue size, release rate and the apparent breadth of a collection at once. 'Proven' is a claim about sales and this company has none, so candidates are eligible rather than proven and every row says which. Remaining: styled photography and colourway renders need the image-generation capability, so the moves are reported blocked with what each waits on rather than missing from the list. /api/seasonal/remerchandising.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
+  "status": "partial",
   "title": "Evergreen-to-Seasonal Multiplier",
   "version": "v1.4.2"
  },

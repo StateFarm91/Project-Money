@@ -930,6 +930,18 @@ def api_arbitrage() -> dict:
     return arbitrage.state(db)
 
 
+@app.get("/api/seasonal/remerchandising")
+def api_seasonal_remerchandising(event: str = "Christmas") -> dict:
+    """Existing certified products that could be sold into a season, and what each move needs.
+
+    Re-merchandising never increments the catalogue, and "proven" is a claim about sales this
+    company cannot make yet -- so candidates are eligible rather than proven, on every row.
+    """
+    from ..seasonal import remerchandising
+
+    return remerchandising.plan(db, event=event)
+
+
 @app.get("/api/seasonal/fastlane")
 def api_seasonal_fastlane() -> dict:
     """What "fast" is allowed to mean here: bounded scope, and the same gates as everything.
