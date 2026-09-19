@@ -524,9 +524,9 @@
  {
   "body": "Add deterministic bounding-box and safe-area tests for title truncation, chart/text collision, footer overlap, edge clipping, minimum font size, mobile crop, aspect ratio and whitespace. Render every listing frame at target Etsy dimensions and at a small mobile preview. Text or charts crossing reserved regions is a test failure, not an aesthetic opinion.",
   "id": 59,
-  "note": "LISTING_NO_FONT, LISTING_HERO_FABRIC_FLAT and the thumbnail check exist; no bounding-box/safe-area/mobile-crop suite",
+  "note": "publish/layout_qa.py measures the rendered pixels rather than the plan that produced them, which is the class of defect Build 1 actually shipped: text a few pixels tall on a hero with no internal contrast, while the plan was correct, the renderer ran and the file was written. Rules: a frame that is more than 94% one colour is flat (covering blank, full-bleed and a subject too small to see), content in the outer 4% badge band is content at risk, a square centre crop that keeps less than 55% of the subject is the crop the mobile grid applies, a frame with ink at listing scale and none at 170px is an image nobody will ever click, type shorter than 14px is the smudge a missing font produces, and a gallery mixing aspect ratios reads as a reseller's page. The background is inferred from the whole image rather than assumed from the palette or read off the corners -- the corner version inverted on a full-bleed frame and reported 97% of one colour as 96% empty, which is in the tests. /api/verify is unaffected; this runs in the asset chain.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Automated Visual Layout QA",
   "version": "v1.3.3"
  },
