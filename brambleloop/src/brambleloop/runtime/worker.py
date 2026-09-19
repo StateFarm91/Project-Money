@@ -222,6 +222,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Daily. A platform policy is not a constant, and the cost of noticing a change late is
     # a suspension notice about listings that were compliant when they were created (#39).
     ("policy_watch", "orchestrator", "ops.policy_watch", 24 * 60 * 60),
+    # Hourly. The build loop's own heartbeat: it reconciles the requirement graph against the
+    # owner gates, un-parks anything whose gate opened, and notices a stall. Hourly rather
+    # than daily because the interesting event -- a credential arriving -- should not wait
+    # until tomorrow to unblock fourteen requirements.
+    ("build_tick", "orchestrator", "build.tick", 60 * 60),
 ]
 
 

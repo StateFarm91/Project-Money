@@ -34,7 +34,7 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["plan.cycle", "portfolio.review", "ops.heartbeat",
                             "ops.queue_check", "plan.strategy", "launch.readiness",
                             "ops.continuity", "seasonal.sentinel",
-                            "improve.retrospective", "ops.policy_watch"],
+                            "improve.retrospective", "ops.policy_watch", "build.tick"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",

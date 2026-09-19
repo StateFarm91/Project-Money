@@ -1,0 +1,343 @@
+"""The build loop, and the ways a never-idle loop lies about being busy.
+
+The master intent asks for an autonomous build executor: owner-blocked work parked, the
+highest-value unblocked requirement continuing, and a lost session not being a lost build.
+
+The honest problem is that "never idle" is trivially satisfiable. A loop that always has
+something to do can invent work; a dependency graph is satisfiable by declaring nothing
+depends on anything; and parking is satisfiable by parking whatever is hard. Each of those
+produces a queue that looks healthy and a build that has stopped, so most of these tests are
+about the queue being unable to overstate itself.
+"""
+from __future__ import annotations
+
+import sys
+import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
+
+from brambleloop.build2 import executor as E  # noqa: E402
+from brambleloop.build2 import requirements as reg  # noqa: E402
+from brambleloop.core.db import Database  # noqa: E402
+
+
+def _db() -> Database:
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/executor.sqlite")
+    db.create_all()
+    return db
+
+
+def _synced(env: dict | None = None) -> Database:
+    db = _db()
+    E.sync(db, env=env if env is not None else {})
+    return db
+
+
+# ---- the queue cannot overstate itself ------------------------------------
+
+
+def test_the_ready_count_equals_what_the_registry_calls_executable():
+    """The guard that keeps the two halves honest.
+
+    They are computed from different things -- the registry from its status field, the queue
+    from the gates -- so they agree only if every owner-gated requirement is genuinely
+    parked and every parked one is genuinely gated. When this first ran it disagreed by four,
+    and the four were real: requirements the registry called executable that cannot be built
+    without a credential.
+    """
+    db = _synced()
+    assert E.queue(db)["ready_total"] == len(reg.executable())
+
+
+def test_an_owner_gated_requirement_with_no_gate_is_refused():
+    """Otherwise it falls into the ready list as work nobody can do.
+
+    That is the single failure this module exists to prevent, and it is silent: the queue
+    reports more ready work than exists, which is the one number the whole thing is for.
+    """
+    original = dict(E._GATE_FOR_REQUIREMENT)
+    victim = reg.by_status(reg.OWNER_GATED)[0].id
+    try:
+        E._GATE_FOR_REQUIREMENT.pop(victim)
+        try:
+            E._validate_gates()
+        except E.ExecutorRefused as e:
+            assert "no gate" in str(e)
+            assert "the queue overstates itself" in str(e)
+        else:
+            raise AssertionError("an ungated owner-gated requirement was accepted")
+    finally:
+        E._GATE_FOR_REQUIREMENT.clear()
+        E._GATE_FOR_REQUIREMENT.update(original)
+
+
+def test_every_gate_has_a_condition_the_code_can_test():
+    """Free text would make parking a place to put anything difficult.
+
+    A queue that can absorb its own difficulties never reports being blocked and never
+    finishes — so a gate is a callable, not a sentence.
+    """
+    db = _db()
+    for gate in E.GATES:
+        assert callable(gate.check), gate.key
+        assert gate.how and len(gate.how.split()) >= 4, gate.key
+        assert gate.open(db, {}) in (True, False)
+
+    # Two of them check rows rather than environment variables, which is the point: the
+    # mechanism is "is this true yet", not "is there a credential".
+    assert E.GATE_BY_KEY["benchmark_purchases"].open(db, {}) is False
+    assert E.GATE_BY_KEY["ad_authority"].open(db, {}) is False
+
+
+def test_a_dependency_cycle_is_refused_because_it_looks_healthy():
+    original = dict(E.DEPENDENCIES)
+    try:
+        E.DEPENDENCIES[161] = (168,)  # 168 already depends on 161
+        try:
+            E._validate_graph()
+        except E.ExecutorRefused as e:
+            assert "cycle" in str(e)
+            assert "while looking healthy" in str(e)
+        else:
+            raise AssertionError("a dependency cycle was accepted")
+    finally:
+        E.DEPENDENCIES.clear()
+        E.DEPENDENCIES.update(original)
+
+
+# ---- parking and un-parking ------------------------------------------------
+
+
+def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
+    """The defect this was built for, stated as a property rather than as an intention."""
+    db = _synced()
+    q = E.queue(db)
+
+    assert q["parked_total"] > 0, "nothing is parked, so this proves nothing"
+    assert q["ready_total"] > 100, "the queue stopped because something was parked"
+    # Parked, ready and blocked are reported together: a queue showing only ready work looks
+    # identical whether fourteen requirements are parked on a browser or none are.
+    assert "browser_vision" in q["parked_by_capability"]
+    assert len(q["parked_by_capability"]["browser_vision"]) >= 10
+    assert "reported together" in q["note"]
+
+    # The next thing to do is named, and it is not one of the parked ones.
+    nxt = q["next"]
+    assert nxt is not None
+    assert nxt["state"] == E.READY
+
+
+def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
+    """The whole reason parking is a checkable condition rather than a note."""
+    db = _synced()
+    before = E.queue(db)
+    parked_on_etsy = before["parked_by_capability"]["etsy_shop"]
+    assert parked_on_etsy
+
+    result = E.sync(db, env={"ETSY_SHOP_ID": "12345678"})
+    assert sorted(result["unparked"]) == sorted(parked_on_etsy)
+
+    after = E.queue(db)
+    assert after["ready_total"] == before["ready_total"] + len(parked_on_etsy)
+    assert "etsy_shop" not in after["parked_by_capability"]
+
+
+def test_a_gate_that_checks_rows_opens_when_the_rows_arrive():
+    """Not every owner action is a credential: ten purchased patterns is a row count."""
+    from brambleloop.core.models import BenchmarkProduct
+
+    db = _synced()
+    assert E.GATE_BY_KEY["benchmark_purchases"].open(db, {}) is False
+    parked = E.queue(db)["parked_by_capability"]["benchmark_purchases"]
+
+    with db.session() as s:
+        s.add(BenchmarkProduct(ref="acme-granny", seller="acme", purchased_on="2026-09-19"))
+
+    assert E.GATE_BY_KEY["benchmark_purchases"].open(db, {}) is True
+    assert sorted(E.sync(db, env={})["unparked"]) == sorted(parked)
+
+
+def test_a_parked_requirement_cannot_be_claimed():
+    """Starting work that cannot finish is how a loop looks busy and produces nothing."""
+    db = _synced()
+    parked = E.queue(db)["parked_by_capability"]["browser_vision"][0]
+    try:
+        E.claim(db, parked, worker="session-1")
+    except E.ExecutorRefused as e:
+        assert "cannot finish" in str(e)
+    else:
+        raise AssertionError("a parked requirement was claimed")
+
+
+# ---- session loss ----------------------------------------------------------
+
+
+def test_a_dead_session_loses_a_worker_rather_than_the_build():
+    """The state is in the database, so the next worker reads it and continues.
+
+    This is the requirement behind all of it: a build loop that exists only while a
+    conversation is open is not autonomy, it is a person with extra steps — and the failure
+    is invisible until the moment it matters.
+    """
+    db = _synced()
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="session-1")
+
+    # Session 1 dies here. A second worker cannot steal the claim while the lease holds.
+    try:
+        E.claim(db, target, worker="session-2")
+    except E.ExecutorRefused as e:
+        assert "lease has not expired" in str(e)
+    else:
+        raise AssertionError("a live claim was stolen")
+
+    # Once the lease expires it is taken over, and no manual intervention was needed.
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildTask
+
+    with db.session() as s:
+        task = s.scalar(select(BuildTask).where(BuildTask.requirement_id == target))
+        task.claimed_at = datetime.now(timezone.utc) - timedelta(
+            minutes=E.CLAIM_LEASE_MINUTES + 5)
+
+    taken = E.claim(db, target, worker="session-2")
+    assert taken["worker"] == "session-2"
+
+    # And the whole queue is readable by a process that has never seen this conversation.
+    fresh = E.queue(db)
+    assert fresh["in_progress"] and fresh["in_progress"][0]["claimed_by"] == "session-2"
+
+
+def test_a_completion_needs_evidence_because_it_is_the_loops_own_progress():
+    db = _synced()
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="session-1")
+
+    try:
+        E.complete(db, target, worker="session-1", evidence={})
+    except E.ExecutorRefused as e:
+        assert "nobody has to evidence" in str(e)
+    else:
+        raise AssertionError("a requirement was completed with no evidence")
+
+    done = E.complete(db, target, worker="session-1",
+                      evidence={"suite": "tests/test_executor.py", "tests": 12,
+                                "commit": "abc1234"})
+    assert done["state"] == E.DONE
+    assert E.next_ready(db)["requirement_id"] != target
+
+
+def test_a_released_requirement_is_not_a_finished_one():
+    db = _synced()
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="session-1")
+    E.release(db, target, worker="session-1", why="turned out to need the browser gate")
+    assert E.next_ready(db)["requirement_id"] == target
+
+
+# ---- the watchdog ----------------------------------------------------------
+
+
+def test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not():
+    """They need opposite responses and look identical from outside."""
+    db = _synced()
+    stalled = E.watchdog(db)
+    assert stalled["verdict"] == "stalled"
+    assert stalled["alarm"] is True
+    assert stalled["next"] is not None
+    assert "look identical from outside" in stalled["note"]
+
+    # Park everything, and the same silence becomes correct rather than alarming.
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildTask
+
+    with db.session() as s:
+        for task in s.scalars(select(BuildTask).where(BuildTask.state == E.READY)):
+            task.state = E.PARKED
+            task.parked_on = "browser_vision"
+
+    waiting = E.watchdog(db)
+    assert waiting["verdict"] == "waiting_on_owner"
+    assert waiting["alarm"] is False
+    assert "working correctly rather than a stall" in waiting["note"]
+
+
+def test_a_completion_makes_the_loop_moving_again():
+    db = _synced()
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="session-1")
+    E.complete(db, target, worker="session-1", evidence={"commit": "abc1234"})
+
+    health = E.watchdog(db)
+    assert health["moving"] is True
+    assert health["verdict"] == "moving"
+    assert health["completions_in_window"] == 1
+
+
+def test_never_idle_is_measured_in_completions_rather_than_ticks():
+    """A loop that always has something to do can invent work; this counts finished things."""
+    db = _synced()
+    for _ in range(5):
+        E.sync(db, env={})
+    assert E.watchdog(db)["completions_in_window"] == 0
+    assert E.watchdog(db)["verdict"] == "stalled"
+
+
+# ---- the cadence -----------------------------------------------------------
+
+
+def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import AuditLog, Incident, Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
+    from brambleloop.runtime.worker import CADENCES, Worker
+
+    assert any(c[2] == "build.tick" for c in CADENCES), \
+        "the build loop is not on a cadence, so it only runs when somebody asks"
+
+    db = _db()
+    Registry(db).seed_defaults()
+    JobQueue(db).enqueue("orchestrator", "build.tick", {}, idempotency_key="build-1")
+    worker = Worker(db, "build-worker")
+    for _ in range(20):
+        if not worker.run_once():
+            break
+
+    with db.session() as s:
+        dead = list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
+        ticked = list(s.scalars(select(AuditLog).where(AuditLog.action == "build.ticked")))
+        stalls = [i for i in s.scalars(select(Incident))
+                  if i.signature == "build.stalled"]
+
+    assert not dead, [(j.job_type, (j.last_error or "")[:200]) for j in dead]
+    assert ticked, "the build tick ran and recorded nothing"
+    detail = ticked[-1].detail
+    assert detail["ready"] == len(reg.executable())
+    assert detail["parked"] > 0
+    assert detail["next"] is not None
+    # Nothing has been completed and work is ready, so the loop raises exactly one stall.
+    assert len(stalls) == 1
+    assert "look identical from outside" in stalls[0].summary
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

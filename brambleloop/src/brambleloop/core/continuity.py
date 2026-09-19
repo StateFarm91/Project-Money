@@ -76,6 +76,11 @@ NON_REDERIVABLE = (
     # restore that lost them would lose the only evidence price or ads ever produced.
     "price_observations",
     "cohorts",
+    # The build loop's own state. Re-derivable from the registry only in part: the claims,
+    # the completion evidence and the decision history are not in any file, and losing them
+    # would mean a restored company that does not know what it was doing.
+    "build_tasks",
+    "build_events",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

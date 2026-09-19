@@ -746,6 +746,29 @@ def api_visual() -> dict:
         "escalation_ladder": [{"action": a, "why": w} for a, w in ESCALATION],
     }
 
+@app.get("/api/build")
+def api_build() -> dict:
+    """The build loop itself: what is ready, what is parked on whom, and whether it is moving.
+
+    This is the page that answers "is anything happening" without reading code logs. The
+    queue, the gates and the watchdog verdict come from Postgres, so the answer is the same
+    whether or not any session is open — which is the whole point of the loop existing here
+    rather than in a conversation.
+    """
+    from ..build2 import autonomy, executor
+
+    # Reconcile on read as well as on the cadence: a gate that opened a minute ago should
+    # show as open on the page somebody is looking at, not in an hour.
+    executor.sync(db)
+    report = executor.report(db)
+    report["approval_inbox"] = executor.approval_inbox(db)
+    # #195/#185: the proof that this runs with the owner's devices off, and the continuous
+    # version of the same question.
+    report["off_device_proof"] = autonomy.off_device_proof(db)
+    report["health"] = autonomy.health(db)
+    return report
+
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

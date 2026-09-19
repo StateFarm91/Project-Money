@@ -1586,18 +1586,18 @@
   {
     "body": "Each agent/cell maintains a versioned capability profile: objective, baseline metrics, mistakes, lessons, successful tactics, rejected tactics, current prompt/policy/tool versions and challenger experiments. Agents regularly review their own outcomes and propose evidence-backed improvements.",
     "id": 177,
-    "note": "per-agent learning loops, controlled promotion by risk tier",
+    "note": "a learning loop needs a model to learn with; parked on the model_provider gate. Found by the build executor, whose gate validator refuses an owner-gated requirement with no gate and surfaced this one as ready work nobody could do",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "missing",
+    "status": "owner_gated",
     "title": "Every Agent Has a Learning Loop",
     "version": "v1.3.9"
   },
   {
     "body": "Learning may occur continuously as evidence arrives; promotion of changes follows controlled cadence and risk tier. Low-risk scoring/prompt improvements may be tested frequently. Code, release logic, spend, policy and truth gates require regression/adversarial testing and rollback. Never equate 'constant learning' with uncontrolled production mutation.",
     "id": 178,
-    "note": "per-agent learning loops, controlled promotion by risk tier",
+    "note": "high-frequency learning needs a model; parked on the model_provider gate. Same reconciliation as #177",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "missing",
+    "status": "owner_gated",
     "title": "High-Frequency Learning Without Blind Self-Modification",
     "version": "v1.3.9"
   },
@@ -1982,18 +1982,18 @@
   {
     "body": "The MJs/elite benchmark observation layer requires production-capable browser traversal plus image/gallery understanding that operates in cloud infrastructure with owner devices off. Build 2 must not silently replace this with static seeded data, occasional manual screenshots or text-only search. Missing capability is an explicit owner/integration gate.",
     "id": 221,
-    "note": "the owner approved the Etsy developer application at CA$0 and one model provider at a hard CA$25/month. intel/etsy_public.py is the sanctioned read-only client -- current v3 auth (keystring:shared_secret), an endpoint allowlist of the nine api_key-only endpoints, no OAuth scope and no code path that could send a token. gateway/routing.py routes by capability and cost and refuses a call before making it once the month's ledgered spend would cross the ceiling. Remaining: the credentials do not exist yet, so nothing has been called; and rendered-page presentation still needs a browser, recorded as an unmet fraction.",
+    "note": "the cloud browser/vision capability is the thing being requested, so it cannot be built without it; parked on the browser_vision gate rather than counted as executable",
     "section": "Voice session reconciliation (model + MJs)",
-    "status": "partial",
+    "status": "owner_gated",
     "title": "Mandatory Cloud Browser + Vision Capability",
     "version": "v1.4.0"
   },
   {
     "body": "Prove end-to-end capability against the canonical benchmark: resolve shop URL; enumerate catalogue; open multiple listings; traverse gallery assets; capture visible listing text/commerce metadata; produce image-level observations; classify into specialist pods; persist evidence; detect a simulated/new change; and trigger a re-audit. Evidence must show each step actually occurred.",
     "id": 222,
-    "note": "tests/test_intel.py walks every step the acceptance test names against a fixture: resolve the named shop, enumerate the catalogue, open listings, traverse galleries, capture text and commerce metadata, queue image observations, classify into pods, persist evidence, detect a change and trigger a re-audit, and record the action in the coverage matrix. The evidence explicitly records satisfies_mandate=False, because a fixture is not observation. Remaining: the real run, which needs the credential.",
+    "note": "the browser/vision acceptance test cannot run without the capability it tests; parked on the browser_vision gate",
     "section": "Voice session reconciliation (model + MJs)",
-    "status": "partial",
+    "status": "owner_gated",
     "title": "Browser/Vision Acceptance Test",
     "version": "v1.4.0"
   },

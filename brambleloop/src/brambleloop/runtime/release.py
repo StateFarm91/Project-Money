@@ -1264,3 +1264,76 @@ def handle_policy_watch(ctx: JobContext) -> dict:
             "note": ("This cadence does not fetch. No policy reader is connected, and a "
                      "cadence that fails every run because a dependency is absent is a dead "
                      "letter with a schedule.")}
+
+
+@handlers.register("build.tick")
+def handle_build_tick(ctx: JobContext) -> dict:
+    """The never-idle build loop's heartbeat, running in the deployed worker.
+
+    Reconciles the task graph against the registry and the owner gates, then reports what is
+    ready, what is parked and whether the loop is actually moving. It deliberately does *not*
+    write code -- that is what a session does. What it does is make the decision about *what
+    to work on next* survive the session ending, which is the part that used to live in a
+    conversation and evaporate with it.
+
+    A gate that opened since the last tick un-parks its requirements here, with nobody having
+    to remember. A loop that has completed nothing while work is ready raises an incident; a
+    loop that has completed nothing because everything is parked does not, because those are
+    opposite situations that look identical from outside.
+
+    GREEN by the authority matrix: it reads the registry, writes its own tables and may open
+    an incident. It publishes nothing, spends nothing and contacts nobody.
+    """
+    from sqlalchemy import select
+
+    from ..build2 import executor
+    from ..core.models import Incident
+
+    synced = executor.sync(ctx.db)
+    snapshot = executor.queue(ctx.db)
+    health = executor.watchdog(ctx.db)
+
+    if synced["unparked"]:
+        executor.record(
+            ctx.db, kind="unpark",
+            summary=(f"{len(synced['unparked'])} requirements un-parked because their gate "
+                     f"opened: {synced['unparked'][:10]}"),
+            detail={"requirement_ids": synced["unparked"],
+                    "gates_open": synced["gates_open"]})
+
+    if health.get("alarm"):
+        signature = "build.stalled"
+        with ctx.db.session() as s:
+            existing = s.scalar(select(Incident).where(
+                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
+            if existing is None:
+                s.add(Incident(
+                    severity="P2", signature=signature,
+                    summary=(f"The build loop has completed nothing in "
+                             f"{health['window_hours']} hours while "
+                             f"{health['ready_total']} requirements are ready. Idle with "
+                             f"ready work is a stalled loop; idle with everything parked "
+                             f"would be correct, and the two look identical from outside."),
+                    halts_publication=False,
+                    detail={"watchdog": health, "next": health.get("next")}))
+    else:
+        # A loop that started moving again resolves its own stall, rather than leaving a red
+        # row somebody has to notice and close.
+        with ctx.db.session() as s:
+            stale = s.scalar(select(Incident).where(
+                Incident.signature == "build.stalled",
+                Incident.resolved == False))  # noqa: E712
+            if stale is not None and health.get("moving"):
+                stale.resolved = True
+
+    ctx.audit("build.ticked", detail={
+        "ready": snapshot["ready_total"], "parked": snapshot["parked_total"],
+        "blocked": snapshot["blocked_total"], "done": snapshot["done_total"],
+        "unparked": synced["unparked"], "verdict": health["verdict"],
+        "next": (snapshot["next"] or {}).get("requirement_id")})
+
+    return {"ready": snapshot["ready_total"], "parked": snapshot["parked_total"],
+            "blocked": snapshot["blocked_total"], "done": snapshot["done_total"],
+            "parked_by_gate": snapshot["parked_by_capability"],
+            "unparked": synced["unparked"],
+            "next": snapshot["next"], "watchdog": health}

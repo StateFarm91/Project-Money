@@ -829,3 +829,63 @@ class Cohort(Base):
     assisted: Mapped[int] = mapped_column(Integer, default=0)
     direct: Mapped[int] = mapped_column(Integer, default=0)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+# ---------------------------------------------------------------------------
+# The autonomous build executor (v1.4.3 master intent: never-idle development).
+
+
+class BuildTask(Base):
+    """One Build-2 requirement as a schedulable unit of work, with its readiness derived.
+
+    The registry in `build2/requirements.json` says what each requirement *is*. This says
+    what can be worked on *now*, and it lives in Postgres rather than in a session's head --
+    which is the whole point. A build loop that exists only while a conversation is open is
+    not autonomy; it is a person with extra steps.
+    """
+
+    __tablename__ = "build_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    requirement_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    section: Mapped[str] = mapped_column(String(120), default="", index=True)
+    # Mirrors the registry status at the time of the last sync, so drift is detectable.
+    status: Mapped[str] = mapped_column(String(20), default="missing", index=True)
+    # ready | parked | blocked | in_progress | done
+    state: Mapped[str] = mapped_column(String(20), default="ready", index=True)
+    priority: Mapped[float] = mapped_column(Float, default=100.0, index=True)
+    # Requirement ids that must be done first. A cycle here is refused at sync time.
+    depends_on: Mapped[list] = mapped_column(JSON, default=list)
+    # The capability key this is parked on, if any. Checkable, never free text: an unpark
+    # condition nothing can make true is a refusal dressed as a wait.
+    parked_on: Mapped[str | None] = mapped_column(String(60), nullable=True, index=True)
+    parked_reason: Mapped[str] = mapped_column(Text, default="")
+    parked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claimed_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    # What proved it done: suite name, test count, commit. Evidence, not a checkbox.
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BuildEvent(Base):
+    """Append-only record of the executor's own decisions.
+
+    Separate from the audit log because the question it answers is different: the audit log
+    says what the company did, and this says why the build loop chose it -- which is the only
+    way to tell a loop that is working from one that is turning over.
+    """
+
+    __tablename__ = "build_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(30), index=True)
+    requirement_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    actor: Mapped[str] = mapped_column(String(80), default="executor")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
