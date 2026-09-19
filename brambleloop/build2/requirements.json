@@ -209,18 +209,18 @@
   {
     "body": "Make Revenue per Visitor and Contribution per Visitor first-class metrics. A higher-priced product with slightly lower conversion may be commercially superior to a cheap product. Pricing, SEO and paid-media agents optimize contribution economics rather than conversion rate alone.",
     "id": 24,
-    "note": "revenue and contribution per visitor as first-class metrics",
+    "note": "scale/runrate.per_visitor() ranks on contribution per visitor and reports when the conversion-rate ranking disagrees, which is the case the requirement exists for",
     "section": "Core commercial upgrades",
-    "status": "missing",
+    "status": "covered",
     "title": "Revenue and Contribution per Visitor",
     "version": "v1.3"
   },
   {
     "body": "Express CA$3,000/month as solvable funnel math: e.g. 200 orders x CA$15 AOV, 150 x CA$20, or 120 x CA$25. Then derive required qualified visits from observed conversion. Every weekly review identifies the largest constraint: traffic, CTR, conversion, AOV, repeat rate, product coverage or margin.",
     "id": 25,
-    "note": "run-rate decomposition and Monte Carlo trajectory simulator",
+    "note": "runrate.decompose() shows the target at four price points and derives required visits only from an observed conversion rate; constraint() names the single binding term, walked in funnel order",
     "section": "Core commercial upgrades",
-    "status": "missing",
+    "status": "covered",
     "title": "$3K Run-Rate Decomposition",
     "version": "v1.3"
   },
@@ -236,18 +236,18 @@
   {
     "body": "Brambleloop may only report 75-90% modeled confidence of reaching/sustaining CA$3,000/month when evidence includes multiple independently selling SKUs rather than one viral outlier; positive contribution margin; stable pattern-quality/support metrics; repeatable qualified traffic; observed conversion over meaningful samples; at least one repeatable acquisition channel; improving legitimate review/trust base; no platform-policy warnings; and a scenario model whose conservative assumptions still approach the target.",
     "id": 27,
-    "note": "confidence gate (superseded for CA$5K by 230/275)",
+    "note": "the evidence gate now carries #27's eight qualitative conditions alongside the counts, and an unstated condition is unmet rather than unknown. Sixty orders from one viral listing satisfies every count and no condition",
     "section": "Core commercial upgrades",
-    "status": "missing",
+    "status": "covered",
     "title": "75-90% Confidence Gate",
     "version": "v1.3"
   },
   {
     "body": "Strong conversion + low traffic -> increase distribution. High traffic + weak CTR -> thumbnail/title. Strong CTR + weak conversion -> offer/trust/price. Sustainable paid CAC below allowable CAC -> scale gradually. Rising support/refund defects -> stop scaling and investigate.",
     "id": 28,
-    "note": "conditional scale rules",
+    "note": "runrate.SCALE_RULES holds #28's five conditions as data, constraint() selects one, and rising defects outrank every commercial term",
     "section": "Core commercial upgrades",
-    "status": "missing",
+    "status": "covered",
     "title": "Conditional Scale Rules",
     "version": "v1.3"
   },
@@ -272,7 +272,7 @@
   {
     "body": "Track agent/API minutes and dollar cost per concept, validated pattern, PDF, listing, video asset, support case and acquired customer. Optimize validated products per operating dollar and contribution profit per operating dollar. A six-figure store that burns more than it earns is failure.",
     "id": 31,
-    "note": "finance/books.py tracks cost; no cost-per-artifact throughput metrics",
+    "note": "finance/unit_cost.py reports both of #31's ratios and marks artefacts produced by uncosted work as a floor rather than as cheap. Per-artefact attribution needs cost entries carrying job ids, which most handlers do not yet record",
     "section": "Core commercial upgrades",
     "status": "partial",
     "title": "Cost-to-Create and Profitable Throughput",

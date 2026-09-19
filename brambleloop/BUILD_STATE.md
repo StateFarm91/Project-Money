@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 110 | satisfied, with a named test or artefact |
+| covered | 114 | satisfied, with a named test or artefact |
 | partial | 72 | something real exists and is short of the requirement |
-| missing | 91 | nobody has built it |
+| missing | 87 | nobody has built it |
 | owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **163 requirements are executable by this session** (partial +
+as one nobody has written. **159 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **797 tests passing, 0 failing** across
-45 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **811 tests passing, 0 failing** across
+46 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -157,6 +157,44 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**CA$3,000 as arithmetic, and the metric everyone optimises instead (#24, #25, #27, #28, #31).**
+
+A revenue target is a wish until it is a funnel, and the useful part of writing it as one is
+not the number at the end. It is that only one term is ever binding, and the company almost
+always works on a different one — because the binding term is usually the one nobody owns, and
+the term under our hand is always the listing.
+
+- **Contribution per visitor, not conversion rate (#24).** A CA$25 pattern converting at 1.6%
+  beats a CA$12 pattern at 2.5%, and the second listing looks healthier on every dashboard.
+  Conversion is a ratio whose denominator the company is also buying. The ranking function
+  reports explicitly when the two orderings **disagree**, because that disagreement is the
+  requirement rather than a footnote to it.
+- **The target at four prices is four companies (#25).** 200 × CA$15, 150 × CA$20, 120 × CA$25
+  — shown together so the price decision is visible as a decision instead of implicit in
+  whichever number was written down first. Required visits are derived **only** from an
+  observed conversion rate: the category benchmark is available, plausible, would complete the
+  funnel, and would produce a confident plan about a company that does not exist.
+- **The constraint is one term, walked in funnel order (#25, #28).** A test caught the first
+  implementation contradicting its own stated principle: a listing with 100,000 impressions
+  and 200 visits satisfies "strong conversion, low traffic", and buying more impressions when
+  99.8% of them bounce is buying more of a broken funnel. The CTR check now precedes the
+  traffic check. Rising defects outrank every commercial term — scaling a defect multiplies it.
+- **#27's conditions sit beside the counts, and silence is not neutral.** Counts and conditions
+  fail differently: volume arrives from one lucky listing. A shop with sixty orders from a
+  single viral outlier, a negative contribution margin and an open policy warning satisfies
+  **every count** in the gate and **none** of the eight conditions. An undeclared condition is
+  unmet rather than unknown, because treating silence as neutral is the cheapest way to pass
+  any gate.
+- **An artefact produced by uncosted work is a floor, not a price (#31).** The averaging
+  instinct spreads unattributed spend across the artefacts, which makes every unit cost look
+  plausible. Free is the most dangerous price, so the uncosted producer count is reported per
+  artefact and unattributed spend is its own number. Both of #31's ratios are reported even
+  when one side is zero — `burning: true` today, with CA$0 earned.
+
+`GET /api/runrate`. Honest gap: #31 is **partial** — per-artefact attribution needs cost
+entries carrying job ids, which most handlers do not yet record.
+
+## Previously in Build 2
 **Four ways an autonomous system flatters itself, closed (#49, #52, #53, #55).**
 
 None of these is a bug. Each is what a system does when nothing stops it: one that measures its

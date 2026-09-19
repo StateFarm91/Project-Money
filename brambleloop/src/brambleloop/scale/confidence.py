@@ -294,9 +294,39 @@ def ladder(db, *, observed_conversion: float = 0.0, conversion_sample: int = 0,
     return bounded
 
 
+# #27's qualitative conditions: the ones that are not counts. Each is a state the company is
+# either in or not, and each can be true while every count above is satisfied -- which is the
+# point. A shop with sixty orders from one viral listing, a negative contribution margin and a
+# policy warning meets every number and none of the conditions.
+QUALITATIVE_CONDITIONS: dict[str, str] = {
+    "multiple_independent_sellers": ("revenue spread across several SKUs rather than one "
+                                     "viral outlier"),
+    "positive_contribution_margin": "contribution after fees and cost of sale is above zero",
+    "stable_quality_metrics": "pattern defect and support rates are not rising",
+    "repeatable_qualified_traffic": ("a traffic source that produced qualified visits more "
+                                     "than once, on purpose"),
+    "conversion_over_meaningful_sample": ("a conversion rate measured over enough visits to "
+                                          "survive being halved"),
+    "repeatable_acquisition_channel": "at least one channel that can be run again",
+    "improving_trust_base": "a legitimate review and trust base that is growing",
+    "no_open_policy_risk": "no unresolved platform-policy exposure",
+}
+
+
 def gate_status(db, *, selling_skus: int = 0, product_families: int = 0,
-                acquisition_loops: int = 0, outside_customers: int = 0) -> dict:
-    """The #275 floor: the conditions under which 75% may even be discussed."""
+                acquisition_loops: int = 0, outside_customers: int = 0,
+                conditions: dict | None = None) -> dict:
+    """The #275 floor and #27's conditions: what must hold before 75% may be discussed.
+
+    Counts and conditions are kept apart because they fail differently. A count is satisfied
+    by volume and can arrive from one lucky listing; a condition is a statement about the
+    shape of the business. Requiring both means the band cannot be reached by a shop with
+    sixty orders from one viral outlier, a negative margin and an open policy warning --
+    which meets every number here and none of the conditions.
+
+    An unstated condition is unmet. Not unknown: a company that has not established it does
+    not have it, and treating silence as neutral is how a gate is passed by omission.
+    """
     c = _counts(db)
     actual = {
         "selling_skus": selling_skus,
@@ -307,12 +337,29 @@ def gate_status(db, *, selling_skus: int = 0, product_families: int = 0,
         "months_of_history": c["months_with_revenue"],
     }
     unmet = {k: {"have": actual[k], "need": v} for k, v in GATE.items() if actual[k] < v}
+
+    declared = conditions or {}
+    unknown = [k for k in declared if k not in QUALITATIVE_CONDITIONS]
+    if unknown:
+        raise ValueError(
+            f"{sorted(unknown)} are not gate conditions: {sorted(QUALITATIVE_CONDITIONS)}")
+    conditions_unmet = {k: QUALITATIVE_CONDITIONS[k] for k in QUALITATIVE_CONDITIONS
+                        if not declared.get(k)}
+
     return {
-        "satisfied": not unmet,
+        "satisfied": not unmet and not conditions_unmet,
         "required": GATE,
         "actual": actual,
         "unmet": unmet,
+        "conditions_required": QUALITATIVE_CONDITIONS,
+        "conditions_unmet": conditions_unmet,
+        "counts_satisfied": not unmet,
+        "conditions_satisfied": not conditions_unmet,
         "ceiling_while_unmet": GATE_CEILING,
+        "note": ("Counts and conditions both, because they fail differently: sixty orders "
+                 "from one viral listing satisfies every count and none of the conditions "
+                 "(#27). An unstated condition is unmet rather than unknown -- treating "
+                 "silence as neutral is how a gate is passed by omission."),
     }
 
 
@@ -337,7 +384,9 @@ def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
     gate_kwargs = {k: evidence.get(k, 0) for k in
                    ("selling_skus", "product_families", "acquisition_loops",
                     "outside_customers")}
-    rungs = ladder(db, **{k: v for k, v in evidence.items() if k != "outside_customers"})
+    gate_kwargs["conditions"] = evidence.get("conditions")
+    rungs = ladder(db, **{k: v for k, v in evidence.items()
+                          if k not in ("outside_customers", "conditions")})
     gate = gate_status(db, **gate_kwargs)
 
     critical = [r for r in rungs if r.critical]
@@ -397,7 +446,8 @@ def bands(db, **evidence) -> dict:
                     "weakest_critical_layer": result["weakest_critical_layer"],
                     "capped_by": result["capped_by"]})
     stages = [r.to_dict() for r in ladder(db, **{k: v for k, v in evidence.items()
-                                                 if k != "outside_customers"})]
+                                                 if k not in ("outside_customers",
+                                                              "conditions")})]
     identical = len({b["probability"] for b in out}) == 1
     return {
         "bands": out,

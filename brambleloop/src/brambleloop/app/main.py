@@ -427,6 +427,27 @@ def api_teardown() -> dict:
     }
 
 
+@app.get("/api/runrate")
+def api_runrate() -> dict:
+    """CA$3,000 a month as arithmetic, and which single term is binding.
+
+    Contribution per visitor rather than conversion rate, because optimising conversion
+    optimises a ratio whose denominator you are also buying.
+    """
+    from ..finance import unit_cost
+    from ..scale import runrate
+
+    observed = runrate.Observed()
+    return {
+        "decomposition": runrate.decompose(3000.0, observed=observed),
+        "constraint": runrate.constraint(observed, target_cad=3000.0),
+        "scale_rules": [{"key": k, "condition": c, "action": a}
+                        for k, c, a in runrate.SCALE_RULES],
+        "funnel_terms": dict(runrate.TERMS),
+        "unit_cost": unit_cost.unit_costs(db),
+    }
+
+
 @app.get("/api/discipline")
 def api_discipline() -> dict:
     """The reserves, the stop list and the staged ladder: what stops a system flattering itself.

@@ -206,14 +206,61 @@ def test_the_gate_opening_is_what_finally_allows_a_high_number():
         loops.observe(db, key, visits=400, orders=9)
         loops.observe(db, key, visits=400, orders=9)
 
+    # #27's conditions are separate from the counts and every one of them must be declared:
+    # an unstated condition is unmet rather than unknown.
+    conditions = {k: True for k in confidence.QUALITATIVE_CONDITIONS}
+
     result = confidence.probability(
         db, observed_conversion=0.024, conversion_sample=60_000,
         selling_skus=9, product_families=3, acquisition_loops=2,
-        repeat_orders=260, top_sku_revenue_share=0.22, outside_customers=600)
+        repeat_orders=260, top_sku_revenue_share=0.22, outside_customers=600,
+        conditions=conditions)
 
     assert result["evidence_gate"]["satisfied"] is True
     assert result["probability"] > 0.75, result["ladder"]
     assert result["capped_by"] == "the weakest critical layer"
+
+
+def test_every_count_satisfied_and_one_condition_missing_still_closes_the_gate():
+    """#27. Sixty orders from one viral listing satisfies every number and nothing else.
+
+    The counts and the conditions fail differently, which is why they are separate: volume
+    arrives from one lucky listing, and the conditions are statements about the shape of the
+    business. A negative contribution margin is invisible to every count here.
+    """
+    db = _db()
+    _certify(db, 19, physical=5)
+    for month in range(4):
+        _sell(db, 220, aov=26.0, months_back=month)
+    from brambleloop.growth import loops
+
+    loops.seed(db)
+    for key in ("pinterest", "etsy_organic"):
+        loops.observe(db, key, visits=400, orders=9)
+        loops.observe(db, key, visits=400, orders=9)
+
+    counts = dict(observed_conversion=0.024, conversion_sample=60_000, selling_skus=9,
+                  product_families=3, acquisition_loops=2, repeat_orders=260,
+                  top_sku_revenue_share=0.22, outside_customers=600)
+
+    all_conditions = {k: True for k in confidence.QUALITATIVE_CONDITIONS}
+    without_margin = {**all_conditions, "positive_contribution_margin": False}
+
+    result = confidence.probability(db, conditions=without_margin, **counts)
+    gate = result["evidence_gate"]
+    assert gate["counts_satisfied"] is True
+    assert gate["conditions_satisfied"] is False
+    assert "positive_contribution_margin" in gate["conditions_unmet"]
+    assert gate["satisfied"] is False
+    assert result["probability"] <= confidence.GATE_CEILING
+    assert result["capped_by"] == "the evidence gate (#275)"
+
+    # And silence is not neutral: declaring nothing leaves every condition unmet.
+    silent = confidence.gate_status(db, selling_skus=9, product_families=3,
+                                    acquisition_loops=2, outside_customers=600)
+    assert silent["counts_satisfied"] is True
+    assert len(silent["conditions_unmet"]) == len(confidence.QUALITATIVE_CONDITIONS)
+    assert "passed by omission" in silent["note"]
 
 
 def test_an_empty_portfolio_is_not_a_diversified_one():
