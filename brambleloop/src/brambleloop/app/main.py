@@ -427,6 +427,29 @@ def api_teardown() -> dict:
     }
 
 
+@app.get("/api/culture")
+def api_culture() -> dict:
+    """The culture engine: what it remembers, what it owns, and what it may not use.
+
+    The rights routing is reported first and unconditionally, because it is the part that
+    stops a culture radar becoming a legal problem, and it is invisible in every other view.
+    """
+    from ..culture import radar, rapid, rights, score, translate
+
+    return {
+        "rights": rights.describe(),
+        "radar": radar.sweep(db),
+        "owned_territories": translate.owned_territories(),
+        "primitives": dict(translate.PRIMITIVES),
+        "opportunity_components": score.MEANING,
+        "gates": list(score.GATES),
+        "rapid_response_cell": rapid.describe(),
+        "note": ("Cultural observation is demand evidence, never source material. A signal "
+                 "whose rights are unclear becomes an original concept rather than a dead "
+                 "opportunity, which is where the territories this company owns come from."),
+    }
+
+
 @app.get("/api/models")
 def api_models() -> dict:
     """Model routing, what it costs, and how much of the approved month is left.

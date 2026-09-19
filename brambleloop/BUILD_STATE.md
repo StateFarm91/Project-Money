@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 89 | satisfied, with a named test or artefact |
-| partial | 67 | something real exists and is short of the requirement |
-| missing | 117 | nobody has built it |
+| covered | 100 | satisfied, with a named test or artefact |
+| partial | 71 | something real exists and is short of the requirement |
+| missing | 102 | nobody has built it |
 | owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **184 requirements are executable by this session** (partial +
+as one nobody has written. **173 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **733 tests passing, 0 failing** across
-41 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **756 tests passing, 0 failing** across
+42 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -157,6 +157,63 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The Culture & Nostalgia opportunity engine, rights gate first (#133-#147).**
+
+Fifteen requirements, nothing built, and the reason to build the gate before the radar is that
+a culture radar is the most dangerous thing a pattern company can own. The danger does not
+arrive as a decision. It arrives as a gradient: the radar optimises for demand, the strongest
+demand signals are all somebody's property, each step downstream receives a slightly more
+abstract description of the same protected thing, and it reaches production having been
+refused by nobody. Nobody chose it.
+
+`culture/rights.py` exists before the radar that would feed it, the same order the benchmark
+quarantine was built in:
+
+- **Unclear rights route to the original lane, never to a refusal (#135).** Killing an
+  opportunity because its obvious execution is protected teaches every downstream step that
+  the gate is an obstacle, and a gate people argue with eventually loses one. The original
+  lane is a turning, and the turning is where a product this company *owns* comes from.
+- **Decomposition is checked, not trusted (#134).** The protected element is the most salient
+  thing in the input, so it is exactly what survives a judgement call — "the warmth of
+  watching <character>" is a sincere attempt at an emotion primitive and it is the
+  infringement intact. Word-boundary matching, because a check that fires on "art" inside
+  "heart" is one everybody learns to route around.
+- **The public-domain screen refuses to do arithmetic it should not do (#135).** Term depends
+  on authorship, work type, renewal and jurisdiction. The screen passes only works published
+  before **1900**, records that passing is not clearance, and sends everything else to the
+  original lane or to the owner.
+- **Quotes, lyrics, slogans and catchphrases are their own class (#139)** — the class that
+  feels most free and is not — and a final check catches one reaching customer-facing copy
+  through the original lane, because a concept can pick up a token anywhere in the middle.
+
+On top of that gate: the ten translation primitives (#134); nine reusable **eras** and ten
+franchise-free **themes** (#137, #142) that recur annually and that nobody can withdraw in
+January — 19 territories this company owns outright, counted, because a dependence nobody
+measures is one nobody notices growing (#146); a white-space tournament measuring **families
+and distinct premises rather than a count** (#138), since fifteen ideas in two families is one
+idea in fifteen colours and the jury cannot see that reading concepts one at a time; the
+six-role collection architecture (#143); the eleven-component opportunity score where **rights
+feasibility and the make-time window are gates rather than weights** (#136) — five out of five
+everywhere and zero on rights is not a four; signal memory with sources, exit reasons and
+lessons, carried in the continuity export as non-rederivable (#144); the lead-lag model that
+names the case where the radar is *reporting the news* (#140); a four-condition saturation
+exit where any one is sufficient and unmeasured conversion is not failure (#145); the
+rapid-response cell as two closed lists rather than a principle (#141); and culture lessons
+routed to creativity, market radar, SEO and portfolio (#147).
+
+`GET /api/culture` reports the rights routing first and unconditionally, because it is the
+part that stops this becoming a legal problem and it is invisible in every other view. With no
+feed connected the radar says **it has no source** rather than reporting no trends: an empty
+trend list is indistinguishable from a world with no culture in it, and the second reading is
+the one an absent owner would take.
+
+Honest gaps: #133 and #140 are **partial** — the machinery is built and there is no connected
+search or marketplace feed, so the lead-lag model has one series where it needs two. #146 is
+partial: the borrowed/owned split is countable, and recurring Brambleloop characters and
+collection worlds are not built. #147 is partial: outcomes updating the scoring weights needs
+launch data that does not exist.
+
+## Previously in Build 2
 **The Competitive Product Teardown Laboratory, finished — and three regressions it exposed
 (#152-#160, #164, #168).**
 

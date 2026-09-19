@@ -65,6 +65,11 @@ NON_REDERIVABLE = (
     "lessons",
     "capability_history",
     "growth_loops",
+    # #144 exactly: the point of a culture radar is what it remembers. A restore that
+    # rebuilt everything except which territories recur annually would have lost the
+    # asset and kept the machinery.
+    "culture_signals",
+    "culture_observations",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

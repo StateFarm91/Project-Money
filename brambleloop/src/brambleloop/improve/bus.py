@@ -37,6 +37,12 @@ SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     "delivery_experience": ("customer_experience", "creative_assets", "quality"),
     "defect": ("quality", "pattern_engineering", "runtime"),
     "cost": ("finance", "runtime", "growth"),
+    # #147: culture findings are useless inside the culture engine. A cultural territory that
+    # translated well is a creativity lesson, a search-language lesson and a seasonal lesson
+    # at the same time, and the one department that must not be left out is Market Radar --
+    # it is the one holding the competitive picture the territory has to survive.
+    "cultural_territory": ("product_creativity", "market_radar", "seo_search", "portfolio"),
+    "cultural_timing": ("market_radar", "growth", "portfolio", "product_creativity"),
 }
 
 CONFIDENCE = ("observed", "measured", "confirmed")

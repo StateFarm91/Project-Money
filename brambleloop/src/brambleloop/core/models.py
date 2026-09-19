@@ -707,3 +707,52 @@ class GrowthLoop(Base):
     scalable: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Culture and nostalgia (v1.4.3 sections 133-147).
+
+
+class CultureSignal(Base):
+    """One thing people are emotionally engaging with, and what it is allowed to become.
+
+    The protected tokens are stored on the signal rather than worked out downstream, because
+    a token declared at the point of observation is one every later step can be checked
+    against -- and a token nobody declared is one nobody can be checked against (#135, #139).
+    """
+
+    __tablename__ = "culture_signals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    topic: Mapped[str] = mapped_column(Text, default="")
+    domain: Mapped[str] = mapped_column(String(30), index=True)
+    first_seen: Mapped[str] = mapped_column(String(10), default="")
+    lane: Mapped[str] = mapped_column(String(30), default="original_concept", index=True)
+    # Declared at observation time. Filenames-and-hashes discipline, applied to rights.
+    protected_tokens: Mapped[list] = mapped_column(JSON, default=list)
+    basis: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    primitives: Mapped[dict] = mapped_column(JSON, default=dict)
+    score: Mapped[dict] = mapped_column(JSON, default=dict)
+    state: Mapped[str] = mapped_column(String(20), default="observed", index=True)
+    exit_reason: Mapped[str] = mapped_column(Text, default="")
+    outcome: Mapped[dict] = mapped_column(JSON, default=dict)
+    sources: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CultureObservation(Base):
+    """One momentum reading for one signal, so decay is measured rather than felt (#140, #145)."""
+
+    __tablename__ = "culture_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    signal_key: Mapped[str] = mapped_column(String(80), index=True)
+    channel: Mapped[str] = mapped_column(String(30), index=True)
+    observed_on: Mapped[str] = mapped_column(String(10), default="")
+    interest: Mapped[float] = mapped_column(Float, default=0.0)
+    competitor_listings: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(Text, default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
