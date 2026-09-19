@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 124 | satisfied, with a named test or artefact |
-| partial | 72 | something real exists and is short of the requirement |
-| missing | 77 | nobody has built it |
+| covered | 134 | satisfied, with a named test or artefact |
+| partial | 73 | something real exists and is short of the requirement |
+| missing | 66 | nobody has built it |
 | owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **149 requirements are executable by this session** (partial +
+as one nobody has written. **139 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -58,8 +58,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **826 tests passing, 0 failing** across
-47 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **839 tests passing, 0 failing** across
+48 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -162,6 +162,55 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Cells to generate against, and a real finding about Christmas 2026 (#105, #113, #114,
+#117-#123, #132).**
+
+One idea runs through all of it: *generate against explicit cells and measure the cells*,
+because the alternative is generating against a keyword and measuring a count. "Christmas
+crochet patterns" produces what the phrase suggests. The same December contains a mantel
+stocking, a teacher gift under fifteen dollars, a nursery keepsake somebody keeps for thirty
+years, a table setting and a front door — different products for different people, and a
+catalogue ends up with six variations on a blanket because nothing ever asked which cell each
+one was for. **Six products against 288 cells reads as six products.**
+
+- **Sixteen Christmas departments × eighteen contexts (#105, #113).** The contexts are people
+  *and* places — "a teacher" and "the front door" are both cells somebody shops for, and
+  neither is reachable from a keyword.
+- **Skill level is segmentation, not difficulty (#114).** A wave of only flagships has no
+  beginner entry and no impulse purchase; one of only quick makes has nothing anybody keeps.
+  Both look busy.
+- **Diversity is measured per axis (#119),** because twelve concepts sharing one construction
+  have explored one construction, and twelve is exactly the number that makes it look like
+  exploration.
+- **A crowded archetype needs a named unmet angle first (#117).** Forty near-interchangeable
+  pumpkin coasters is evidence the archetype sells *and* evidence the forty-first is invisible;
+  only the second reading has arithmetic behind it. The refusal names the number, because
+  "ours will be nicer" is what everybody entering a crowded category believes — including the
+  forty already there.
+- **White space is mined from complaints (#118).** A buyer saying what went wrong is a brief
+  with a customer attached, which no search-volume report is. With nothing recorded the agent
+  says so rather than proposing from the category, which is how a white-space agent
+  rediscovers the commodity and reports it as discovery.
+- **The mechanism transfers between seasons; the theme does not (#120)** — the distinction
+  that collapses first under a deadline, because the finished design is right there.
+- **Four-season programs and non-holiday occasions (#121, #122),** because a shop that only
+  sells in December is closed for eleven months and calls it seasonality.
+
+### A finding, not a feature
+
+The collection calendar (#123) holds ten dated milestones per occasion. **Run today against
+Christmas 2026, five of the ten are already past** — research start, concept freeze,
+engineering start, physical-test deadline and creative-production deadline — with
+listing/indexing due **2026-09-26, one week away**. A missed date is a portfolio failure
+rather than an amber row, and the failure is silent: a phase that slips does not announce
+itself, it becomes the next phase, and the first visible symptom is a product that lists in
+December.
+
+#132 is **partial**: all eleven north-star metrics are tracked by cohort, with the four that
+need no customers separated from the seven that do — a dashboard showing four numbers and
+seven blanks is read as four numbers.
+
+## Previously in Build 2
 **The creativity defect the owner named, addressed at the brief rather than at the gate
 (#106-#110, #115, #124, #125, #127, #129).**
 

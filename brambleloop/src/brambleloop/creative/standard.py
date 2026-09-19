@@ -238,3 +238,78 @@ def autopsy_patterns(db, *, cohort: str = "") -> dict:
                  f"is a brief problem rather than forty concept problems, and it is only "
                  f"visible because the reasons were recorded (#127)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #132: the creative department's north-star metrics
+
+# Eleven metrics, and the split that matters: four the company can compute today, seven that
+# need customers. Reported together with which is which, because a dashboard showing four
+# green numbers and seven blanks is a dashboard somebody reads as four green numbers.
+NORTH_STAR: dict[str, tuple[bool, str]] = {
+    "concept_to_engineering_survival": (True, "concepts that reached a CIR"),
+    "concept_to_launch_survival": (True, "concepts that reached a listing"),
+    "blind_grid_score": (True, "how it reads in a grid, judged without its title"),
+    "novelty_distance": (True, "how far it sits from the nearest thing we already sell"),
+    "ctr": (False, "impressions that became visits"),
+    "favourite_rate": (False, "visits that became saves"),
+    "conversion": (False, "visits that became orders"),
+    "bestseller_incidence": (False, "share of concepts that became a bestseller"),
+    "contribution": (False, "what it earned after fees"),
+    "collection_attach_rate": (False, "how often it sold beside a sibling"),
+    "creative_defect_rate": (False, "released concepts that produced a quality incident"),
+}
+
+
+def north_star(cohorts: dict[str, dict]) -> dict:
+    """Is creativity actually getting better, by cohort? (#132)
+
+    Cohorts rather than a running total, because a running average of everything ever made
+    moves too slowly to show that anything changed — which makes it indistinguishable from
+    nothing changing.
+    """
+    unknown = {m for c in cohorts.values() for m in c if m not in NORTH_STAR}
+    if unknown:
+        raise StandardRefused(
+            f"{sorted(unknown)} are not north-star metrics: {sorted(NORTH_STAR)}")
+
+    computable = [m for m, (now, _) in NORTH_STAR.items() if now]
+    needs_customers = [m for m, (now, _) in NORTH_STAR.items() if not now]
+
+    ordered = sorted(cohorts)
+    movement = {}
+    if len(ordered) >= 2:
+        first, last = cohorts[ordered[0]], cohorts[ordered[-1]]
+        for metric in NORTH_STAR:
+            before, after = first.get(metric), last.get(metric)
+            if before is None or after is None:
+                movement[metric] = {"direction": "unmeasured",
+                                    "why": "not present in both cohorts"}
+                continue
+            movement[metric] = {
+                "before": before, "after": after,
+                "direction": ("improved" if after > before
+                              else "regressed" if after < before else "flat"),
+            }
+
+    improving = [m for m, v in movement.items() if v.get("direction") == "improved"]
+    regressing = [m for m, v in movement.items() if v.get("direction") == "regressed"]
+    return {
+        "cohorts": ordered,
+        "metrics": {m: {"computable_today": now, "meaning": why}
+                    for m, (now, why) in NORTH_STAR.items()},
+        "computable_today": computable,
+        "needs_customers": needs_customers,
+        "movement": movement,
+        "improving": improving,
+        "regressing": regressing,
+        "answerable": len(ordered) >= 2,
+        "note": ("Four of the eleven can be computed today and seven need customers. They "
+                 "are reported together with which is which, because a dashboard showing "
+                 "four green numbers and seven blanks is read as four green numbers (#132)."
+                 if len(ordered) < 2 else
+                 f"{len(improving)} improving, {len(regressing)} regressing between "
+                 f"{ordered[0]} and {ordered[-1]}. Cohorts rather than a running total: an "
+                 f"average of everything ever made moves too slowly to show that anything "
+                 f"changed, which is indistinguishable from nothing changing."),
+    }

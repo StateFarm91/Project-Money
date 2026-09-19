@@ -938,9 +938,9 @@
   {
     "body": "Replace narrow holiday keyword generation with a permanent Seasonal Creative Universe. Every holiday, season and gift occasion maintains an evolving taxonomy of product forms, motifs, emotions, recipients, rooms/use contexts, skill levels, make-times, price bands and gifting narratives. Christmas alone must span stockings, ornaments, wreaths, tree skirts, garlands, advent pieces, tableware, kitchen decor, blankets, pillows, baskets, gift bags, amigurumi, wearables, nursery, pet, door decor and original hybrids.",
     "id": 105,
-    "note": "seasonal creative universe, cross-category invention matrix, form transformation engine",
+    "note": "creative/universe.UNIVERSE holds a department taxonomy per occasion -- sixteen for Christmas -- and cells() crosses it with eighteen contexts, so a brief is generated against a cell rather than a keyword",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Seasonal Creative Universe",
     "version": "v1.3.6"
   },
@@ -1010,18 +1010,18 @@
   {
     "body": "Generate seasonal concepts against explicit recipient/context cells: adult self-use, host gift, child, baby/nursery, teacher, coworker, pet owner, family tradition, stocking stuffer, table setting, fireplace, tree, front door, kitchen, bedroom, office, cottage and party. This expands demand discovery beyond generic 'Christmas crochet pattern'.",
     "id": 113,
-    "note": "recipient/context matrix, skill-level portfolio",
+    "note": "universe.CONTEXTS is #113's own list of people and places, and coverage() reports depth as cells covered rather than a product count",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Recipient and Context Matrix",
     "version": "v1.3.6"
   },
   {
     "body": "Each major seasonal wave should contain intentional beginner/quick-win, intermediate and advanced/heirloom opportunities. Do not let the portfolio become entirely complex flagship work or entirely trivial quick makes. Skill level is part of market segmentation and gifting/make-time strategy.",
     "id": 114,
-    "note": "recipient/context matrix, skill-level portfolio",
+    "note": "universe.skill_portfolio() measures the three levels against healthy shares: a wave of only flagships has no beginner entry and one of only quick makes has nothing anybody keeps",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Skill-Level Portfolio",
     "version": "v1.3.6"
   },
@@ -1046,63 +1046,63 @@
   {
     "body": "Detect when a concept archetype is overcrowded. If dozens of nearly interchangeable pumpkin coasters, granny stockings or basic wreaths dominate results, Brambleloop must either find a meaningful unmet angle or move to a less saturated creative territory. Popularity alone does not justify imitation.",
     "id": 117,
-    "note": "creative saturation detector, white-space discovery agent",
+    "note": "discovery.may_enter() refuses a crowded archetype without a named unmet angle: popularity is evidence it sells and evidence the next one is invisible, and only the second has arithmetic behind it",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Creative Saturation Detector",
     "version": "v1.3.6"
   },
   {
     "body": "Create an agent dedicated to asking what buyers plausibly want that current search results do not satisfy. It mines review complaints, missing variants, awkward construction, poor styling, weak personalization, excessive sewing, bad sizing, low giftability and absent combinations. White-space hypotheses feed the Concept Tournament.",
     "id": 118,
-    "note": "creative saturation detector, white-space discovery agent",
+    "note": "discovery.white_space() mines eight closed complaint kinds into ranked hypotheses, and reports that it has nothing to mine rather than proposing from the category",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "White-Space Discovery Agent",
     "version": "v1.3.6"
   },
   {
     "body": "A concept tournament cannot be dominated by one construction or motif. Enforce diversity across product form, function, emotional tone, construction method, motif family, recipient and make-time. The objective is exploration breadth before exploitation.",
     "id": 119,
-    "note": "creative diversity quotas",
+    "note": "universe.diversity() measures dominance per axis, because breadth in one axis is not breadth and the entrant count is what makes a narrow tournament look wide",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Creative Diversity Quotas",
     "version": "v1.3.6"
   },
   {
     "body": "Seasonal learning must transfer abstractly. If modular character pockets convert at Halloween, Christmas/Easter agents may explore the mechanism with original themes. If quick low-sew minis outperform late in a season, future seasonal allocation learns that timing rule. Transfer mechanisms, not designs.",
     "id": 120,
-    "note": "holiday-to-holiday learning transfer",
+    "note": "discovery.transfer() carries one of seven abstract mechanisms and refuses a design or a reused theme -- the distinction that collapses first under a deadline",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Holiday-to-Holiday Learning Transfer",
     "version": "v1.3.6"
   },
   {
     "body": "Maintain Spring, Summer, Fall and Winter creative programs independent of named holidays. Examples include garden/floral, cottage/beach, harvest/woodland, cozy/winter-neutral, home refresh, outdoor entertaining and seasonal wardrobe opportunities. Revenue should not collapse between major holidays.",
     "id": 121,
-    "note": "four-season engine, non-holiday occasion engine",
+    "note": "universe.FOUR_SEASON_PROGRAMS holds seven programs across the four seasons, independent of any named holiday",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Four-Season Engine",
     "version": "v1.3.6"
   },
   {
     "body": "Continuously explore birthdays, baby showers, nursery, weddings, housewarming, teacher gifts, graduation, pet gifts, hostess gifts and family keepsakes. These provide evergreen/event demand that complements the holiday calendar.",
     "id": 122,
-    "note": "four-season engine, non-holiday occasion engine",
+    "note": "universe.NON_HOLIDAY_OCCASIONS holds #122's ten evergreen and event occasions with what each one actually is",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Non-Holiday Occasion Engine",
     "version": "v1.3.6"
   },
   {
     "body": "For each occasion, maintain research start, concept freeze, engineering start, physical-test deadline, creative-production deadline, listing/indexing date, promotional ramp, peak window, last practical make date and clearance/evergreen transition. Missed dates are portfolio failures and feed retrospective learning.",
     "id": 123,
-    "note": "seasonal collection calendar",
+    "note": "seasonal/calendar.collection_calendar() holds #123's ten dated milestones per occasion and reports a missed one as a portfolio failure. Run today it finds five of Christmas 2026's ten already past",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Seasonal Collection Calendar",
     "version": "v1.3.6"
   },
@@ -1181,9 +1181,9 @@
   {
     "body": "Track concept-to-engineering survival, concept-to-launch survival, blind-grid score, novelty distance, CTR, favourite rate, conversion, bestseller incidence, contribution, collection attach rate and creative defect rate by cohort. Improvement Department must show whether creativity is actually getting better. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.7 - Culture & Nostalgia Opportunity Engine This upgrade expands Brambleloop beyond marketplace-following. The company continuously watches cultural demand and translates strong signals into original, commercially useful crochet opportunities, with a separate clearance lane for direct references when rights permit.",
     "id": 132,
-    "note": "creative department north-star metrics",
+    "note": "standard.north_star() tracks all eleven metrics by cohort and separates the four computable today from the seven that need customers. The seven stay unmeasurable until there are orders",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "partial",
     "title": "Creative Department North-Star Metrics",
     "version": "v1.3.6"
   },

@@ -264,3 +264,70 @@ def coverage_matrix(today: date | None = None,
         "note": ("Depth is coverage of the departments an event actually spans. Six Christmas "
                  "products say nothing about whether five of them are blankets (#288)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# The collection calendar (#123)
+#
+# The phase machinery above answers "what kind of work is useful today". This answers the
+# harder question: which dated commitments exist, and which have already been missed. A phase
+# that has quietly slipped is invisible -- it just becomes the next phase -- and #123 is
+# explicit that a missed date is a portfolio failure rather than a scheduling detail.
+
+# Days before the event each milestone falls. Derived from the lead-time engine's own
+# arithmetic rather than chosen: a long make needs roughly a hundred days of runway, and every
+# date here is that runway divided among the things that must happen inside it.
+MILESTONES: tuple[tuple[str, int, str], ...] = (
+    ("research_start", 300, "what this occasion wants, before anybody has an idea"),
+    ("concept_freeze", 240, "after this the set of concepts stops changing"),
+    ("engineering_start", 210, "the CIR work begins"),
+    ("physical_test_deadline", 150, "a sample has to be in somebody's hands by now"),
+    ("creative_production_deadline", 110, "assets finished, because indexing takes weeks"),
+    ("listing_indexing_date", 90, "listed and indexed, not listed"),
+    ("promotional_ramp", 60, "the push begins, while there is still time to buy"),
+    ("peak_window_opens", 45, "the weeks when people actually buy this"),
+    ("last_practical_make_date", 21, "after this a customer cannot finish it in time"),
+    ("clearance_or_evergreen", -7, "what happens to it after the occasion passes"),
+)
+
+
+def collection_calendar(event_name: str, event_date: date,
+                        today: date | None = None,
+                        completed: dict[str, str] | None = None) -> dict:
+    """Every dated commitment for one occasion, and which have been missed (#123).
+
+    A missed milestone is reported as a portfolio failure with the reason it matters, not as
+    an amber row. The failure mode this exists for is silent: a phase that slips does not
+    announce itself, it simply becomes the next phase, and the first visible symptom is a
+    product that lists in December.
+    """
+    today = today or date.today()
+    completed = completed or {}
+
+    rows = []
+    missed = []
+    for key, days_before, why in MILESTONES:
+        due = event_date - timedelta(days=days_before)
+        done_on = completed.get(key)
+        state = ("done" if done_on else
+                 "missed" if due < today else
+                 "due" if (due - today).days <= 14 else "ahead")
+        row = {"milestone": key, "due": due.isoformat(), "days_from_today": (due - today).days,
+               "why": why, "state": state, "completed_on": done_on}
+        rows.append(row)
+        if state == "missed":
+            missed.append(row)
+
+    return {
+        "event": event_name,
+        "event_date": event_date.isoformat(),
+        "today": today.isoformat(),
+        "milestones": rows,
+        "missed": missed,
+        "on_schedule": not missed,
+        "next_due": next((r for r in rows if r["state"] in ("due", "ahead")), None),
+        "note": ("A missed date is a portfolio failure and feeds the retrospective, not an "
+                 "amber row. The failure is silent -- a phase that slips does not announce "
+                 "itself, it becomes the next phase, and the first visible symptom is a "
+                 "product that lists in December (#123)."),
+    }

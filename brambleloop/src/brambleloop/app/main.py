@@ -436,7 +436,7 @@ def api_invention() -> dict:
     that, because given a season and a category the highest-probability output is the
     commodity. The brief has to carry the novelty.
     """
-    from ..creative import audit, invention, standard
+    from ..creative import audit, discovery, invention, standard, universe
 
     return {
         "invention_matrix": invention.matrix("christmas"),
@@ -450,6 +450,20 @@ def api_invention() -> dict:
         "absolute_floor": standard.ABSOLUTE_FLOOR,
         "autopsies": standard.autopsy_patterns(db),
         "measured_defect": audit.generator_degrees_of_freedom(),
+        # The cells a brief is generated against (#105, #113), and the seasons between the
+        # holidays, which is where a shop that only sells in December is closed.
+        "universe": {occasion: list(departments)
+                     for occasion, departments in universe.UNIVERSE.items()},
+        "contexts": universe.CONTEXTS,
+        "skill_levels": universe.SKILL_LEVELS,
+        "diversity_axes": list(universe.DIVERSITY_AXES),
+        "between_holidays": {s: universe.between_holidays(s)["programs"]
+                             for s in universe.FOUR_SEASON_PROGRAMS},
+        "non_holiday_occasions": universe.NON_HOLIDAY_OCCASIONS,
+        "unmet_angles": discovery.ANGLE_KINDS,
+        "complaint_kinds": discovery.COMPLAINT_KINDS,
+        "transferable_mechanisms": discovery.TRANSFERABLE,
+        "north_star": standard.north_star({}),
     }
 
 
