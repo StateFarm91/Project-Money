@@ -284,10 +284,37 @@ def test_retirement_comes_after_the_ladder_not_instead_of_it():
 
 
 def test_every_class_has_an_intervention_ladder():
-    for label in (pf.STAR, pf.PROMISING, pf.SEO_PROBLEM, pf.CONVERSION_PROBLEM,
-                  pf.QUALITY_PROBLEM, pf.SEASONAL, pf.REWORK, pf.RETIRE, pf.NO_EVIDENCE):
+    """Derived from the module, not from a list here.
+
+    A hand-written list of classes passes unchanged when a new class is added without a
+    ladder, which is the only way this ever fails.
+    """
+    assert pf.CLASSES
+    for label in pf.CLASSES:
         assert pf.LADDERS[label], label
         assert len(pf.LADDERS[label]) >= 2
+
+
+def test_clicks_with_no_saves_is_the_product_rather_than_the_offer():
+    """#47's rung between 'shown and not chosen' and 'chosen and not bought'.
+
+    Both look like clicks that did not become orders, and the interventions are opposite:
+    tuning price and trust on a product nobody wanted produces a cheaper version of something
+    nobody wants.
+    """
+    unwanted = pf.classify(pf.SkuMetrics(
+        slug="handsome-and-pointless", impressions=4000, clicks=120, favourites=2,
+        orders=0, days_live=40))
+    assert unwanted.label == pf.APPEAL_PROBLEM
+    assert "they looked and did not want it" in unwanted.reason
+    assert "not the price" in unwanted.reason
+
+    # Saves arriving means the product is wanted; the failure is after that, and the class
+    # has to change with it.
+    wanted = pf.classify(pf.SkuMetrics(
+        slug="wanted-and-unbought", impressions=4000, clicks=120, favourites=30,
+        orders=0, days_live=40))
+    assert wanted.label != pf.APPEAL_PROBLEM
 
 
 if __name__ == "__main__":

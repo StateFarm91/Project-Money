@@ -72,6 +72,10 @@ NON_REDERIVABLE = (
     "culture_observations",
     # A policy reading cannot be re-derived: it is what the platform said on a day.
     "policy_snapshots",
+    # Neither can a price point or a cohort arm: both are a window of real behaviour, and a
+    # restore that lost them would lose the only evidence price or ads ever produced.
+    "price_observations",
+    "cohorts",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

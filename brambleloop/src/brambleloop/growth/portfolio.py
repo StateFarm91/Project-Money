@@ -25,6 +25,11 @@ from datetime import date
 STAR = "STAR"
 PROMISING = "PROMISING"
 SEO_PROBLEM = "SEO_PROBLEM"
+# The stage #47 names between "shown and not chosen" and "chosen and not bought": clicks
+# arrive and nobody favourites or carts. That is the product itself failing to appeal, and
+# it is a different intervention from a price or trust problem -- reworking the offer on an
+# unappealing product makes a cheaper unappealing product.
+APPEAL_PROBLEM = "APPEAL_PROBLEM"
 CONVERSION_PROBLEM = "CONVERSION_PROBLEM"
 QUALITY_PROBLEM = "QUALITY_PROBLEM"
 SEASONAL = "SEASONAL"
@@ -32,10 +37,20 @@ REWORK = "REWORK"
 RETIRE = "RETIRE"
 NO_EVIDENCE = "NO_EVIDENCE"
 
+# Every class, in one place, so "does each class have an intervention ladder" is a question
+# about the module rather than about whoever last updated a list in a test.
+CLASSES: tuple[str, ...] = (
+    STAR, PROMISING, SEO_PROBLEM, APPEAL_PROBLEM, CONVERSION_PROBLEM, QUALITY_PROBLEM,
+    SEASONAL, REWORK, RETIRE, NO_EVIDENCE,
+)
+
 # Below these, a rate is not a rate. Thirty clicks and one order is not a 3.3% conversion, it
 # is one order.
 MIN_IMPRESSIONS = 300
 MIN_CLICKS = 40
+# Below this share of clicks saving the listing, interest is being expressed and withdrawn.
+# Category-typical for a digital pattern; a starting point to be replaced by our own.
+MIN_SAVE_RATE = 0.05
 
 # Category-typical benchmarks for a digital pattern listing. Starting points to be replaced by
 # our own observed distribution once there is one.
@@ -108,6 +123,13 @@ LADDERS: dict[str, list[str]] = {
         "respend the thirteen tag slots on distinct concepts",
         "fill every structured attribute — they are a filter buyers actually use",
         "publish the article and pins; indexing takes weeks, not days",
+    ],
+    APPEAL_PROBLEM: [
+        "clicks arrive and nobody saves it: the product is not wanted, not mispriced",
+        "re-read the concept against the pod's coverage gaps rather than tuning the listing",
+        "check whether the object solves anything, or is only competent",
+        "retire the concept before the listing is optimised further -- a cheaper version of "
+        "something nobody wanted is still something nobody wants",
     ],
     CONVERSION_PROBLEM: [
         "the hero won the click and the rest of the listing lost it: check frames 2-4",
@@ -191,6 +213,20 @@ def classify(m: SkuMetrics, *, today: date | None = None) -> Classification:
         return Classification(m.slug, NO_EVIDENCE,
                               f"{m.clicks} clicks is too few to read a conversion rate from",
                               LADDERS[NO_EVIDENCE], ev)
+
+    # #47's missing rung: clicks arrive, and nobody saves or carts. Reached before the
+    # conversion check on purpose -- both look like "clicks that did not become orders", and
+    # the interventions are opposite. Tuning price and trust on a product nobody wanted
+    # produces a cheaper version of something nobody wants.
+    save_rate = (m.favourites / m.clicks) if m.clicks else 0.0
+    ev["save_rate"] = round(save_rate, 4)
+    if m.orders == 0 and save_rate < MIN_SAVE_RATE:
+        return Classification(
+            m.slug, APPEAL_PROBLEM,
+            f"{m.clicks} clicks produced {m.favourites} saves ({save_rate:.1%}) and no "
+            f"orders: they looked and did not want it. That is the product, not the price -- "
+            f"the listing has already done its job by getting them here",
+            LADDERS[APPEAL_PROBLEM], ev)
 
     # Clicks are healthy; what happens after the click?
     if m.conversion < BENCH_CONVERSION * 0.4:

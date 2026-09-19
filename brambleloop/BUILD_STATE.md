@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 102 | satisfied, with a named test or artefact |
+| covered | 106 | satisfied, with a named test or artefact |
 | partial | 72 | something real exists and is short of the requirement |
-| missing | 99 | nobody has built it |
+| missing | 95 | nobody has built it |
 | owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **171 requirements are executable by this session** (partial +
+as one nobody has written. **167 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **769 tests passing, 0 failing** across
-43 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **782 tests passing, 0 failing** across
+44 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -157,6 +157,46 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Price memory, control cohorts and bundle attribution: three names for one mistake
+(#45, #46, #47, #48).**
+
+The mistake is *something changed, sales moved, therefore the thing that changed caused it*.
+It is not carelessness — every version of it is locally reasonable, and every version makes a
+dashboard improve, which is why none of them is caught by looking at the dashboard.
+
+- **A comparison across a confounder is refused, not flagged (#46).** The price dropped in
+  November and sales rose; it was December that rose. Season, traffic source, category and
+  sale state are *columns*, because "was this price or was it December" has to be a filter and
+  a note cannot be filtered on. Refusing rather than warning is deliberate: a warning is read
+  by the person who wrote it and by nobody afterwards, and the number travels on alone.
+- **An unmeasured elasticity is unmeasured, never zero.** Zero is not the absence of a claim;
+  it is the claim that price does not matter, and it is what the obvious default would have
+  said. This company has no sales, so everything here reports that.
+- **Incrementality is measured against what the control predicts (#48).** Counting the
+  control's own performance as a result of the spend makes every ad budget look self-funding.
+  With one arm it cannot be done at all: a conversion rate measured on paid traffic is a
+  statement about *who was shown the listing*, and scaling on it buys more of that audience
+  and none of the improvement.
+- **A bundle is judged on contribution, and not at all without a pre-bundle baseline (#45).**
+  The failure is not that the bundle fails — it is that it succeeds with buyers who were
+  already ours and used to buy the higher-margin thing beside it. Both halves are true at
+  once, so nothing looks wrong: units rise, the catalogue looks broader, contribution is flat.
+  Revenue is the metric that hides it, so the amplification check is separate and explicit
+  rather than one number among nine that all went up. An incremental bundle still names what
+  it displaced instead of netting it away.
+- **#47's missing rung (#47).** The restored lifecycle classifier already ran four of the
+  five stages; the gap was **clicks with no saves**, which is the product failing to appeal,
+  versus **saves with no orders**, which is the offer. The two look identical in every
+  aggregate and the interventions are opposite — reworking price and trust on a product
+  nobody wanted produces a cheaper version of something nobody wants. Checked *before* the
+  conversion stage so the cheaper diagnosis cannot claim the case first.
+
+One test hardening came out of it: the ladder-coverage test enumerated classes by hand, so a
+new class with no intervention ladder would have passed. It now derives from the module.
+
+`GET /api/commercial` reports the price memory and names the confounders that are refused.
+
+## Previously in Build 2
 **Etsy's rules as a dated snapshot, the AI-disclosure gate, and customer-use terms decided
 once (#35, #39, #40).**
 

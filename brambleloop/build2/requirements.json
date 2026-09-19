@@ -398,36 +398,36 @@
   {
     "body": "When adding adjacent products and bundles, measure whether they create incremental revenue or merely move buyers from a higher-contribution SKU. Attribute bundle uplift, attach rate and cannibalization before declaring Winner Amplification successful.",
     "id": 45,
-    "note": "cannibalization / bundle attribution",
+    "note": "commerce/attribution.py measures attach rate, incrementality and cannibalisation against a pre-bundle baseline, and amplification_check() refuses to declare a winner on revenue: contribution decides",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Product Cannibalization / Bundle Attribution",
     "version": "v1.3.2"
   },
   {
     "body": "Pricing experiments build a category-specific elasticity history. Record price, sale state, traffic source, season, conversion, AOV and contribution. Avoid interpreting seasonal traffic changes as price effects. Use genuine regular prices and truthful temporary promotions.",
     "id": 46,
-    "note": "price elasticity memory",
+    "note": "commerce/elasticity.py records price points with season, traffic source and sale state as columns, and refuses a comparison across any of them. An unmeasured elasticity is reported as unmeasured, never as zero",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Price Elasticity Memory",
     "version": "v1.3.2"
   },
   {
     "body": "For new products with no sales, diagnose sequentially: insufficient impressions -> query/distribution; impressions/no clicks -> thumbnail/title; clicks/no favourites/cart -> product appeal; favourites/cart/no purchase -> price/trust/offer; purchases/refunds/support -> product quality. Do not retire a product before enough exposure exists to identify the stage failing.",
     "id": 47,
-    "note": "zero-sale diagnostic ladder",
+    "note": "growth/portfolio.classify runs all five of #47's stages; the APPEAL_PROBLEM rung distinguishes clicks that produced no saves (the product) from saves that produced no orders (the offer), and NO_EVIDENCE blocks retirement before there is exposure to diagnose",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Zero-Sale Diagnostic Ladder",
     "version": "v1.3.2"
   },
   {
     "body": "Where practical, maintain small organic/control cohorts before scaling paid promotion so the system can distinguish genuine listing/product improvement from traffic purchased by ads. Record assisted versus direct outcomes.",
     "id": 48,
-    "note": "launch cohort holdout",
+    "note": "commerce/elasticity.holdout() measures incremental orders against what the organic control predicts for the promoted arm's traffic, and refuses to separate anything with only one arm",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Launch Cohort Holdout",
     "version": "v1.3.2"
   },

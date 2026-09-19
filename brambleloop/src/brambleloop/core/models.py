@@ -780,3 +780,52 @@ class PolicySnapshot(Base):
     material_change: Mapped[bool] = mapped_column(Boolean, default=False)
     affects: Mapped[list] = mapped_column(JSON, default=list)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PriceObservation(Base):
+    """One price point held for a period, with everything that could confound it (#46).
+
+    The confounders are columns rather than notes because the whole value of an elasticity
+    memory is being able to ask "was this a price effect or was it December", and a note
+    cannot be filtered on.
+    """
+
+    __tablename__ = "price_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    category: Mapped[str] = mapped_column(String(60), default="", index=True)
+    price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
+    regular_price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    traffic_source: Mapped[str] = mapped_column(String(40), default="", index=True)
+    season: Mapped[str] = mapped_column(String(40), default="", index=True)
+    from_date: Mapped[str] = mapped_column(String(10), default="")
+    to_date: Mapped[str] = mapped_column(String(10), default="")
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    orders: Mapped[int] = mapped_column(Integer, default=0)
+    revenue_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    contribution_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Cohort(Base):
+    """One launch cohort, organic or promoted, kept apart so the two can be compared (#48)."""
+
+    __tablename__ = "cohorts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    arm: Mapped[str] = mapped_column(String(20), default="organic", index=True)
+    from_date: Mapped[str] = mapped_column(String(10), default="")
+    to_date: Mapped[str] = mapped_column(String(10), default="")
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    orders: Mapped[int] = mapped_column(Integer, default=0)
+    revenue_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    spend_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    assisted: Mapped[int] = mapped_column(Integer, default=0)
+    direct: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

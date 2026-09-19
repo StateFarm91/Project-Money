@@ -427,6 +427,29 @@ def api_teardown() -> dict:
     }
 
 
+@app.get("/api/commercial")
+def api_commercial() -> dict:
+    """What this company has learned about price and promotion, which today is nothing.
+
+    Reported as unmeasured rather than as zeroes, because an elasticity of zero is not the
+    absence of a claim — it is the claim that price does not matter.
+    """
+    from ..commerce import elasticity
+
+    return {
+        "price_memory": elasticity.memory(db),
+        "thresholds": {
+            "min_orders_per_point": elasticity.MIN_ORDERS_PER_POINT,
+            "min_visits_per_point": elasticity.MIN_VISITS_PER_POINT,
+            "min_price_separation": elasticity.MIN_PRICE_SEPARATION,
+        },
+        "confounders_refused": ["season", "traffic_source", "category"],
+        "note": ("A comparison across a confounder is refused rather than flagged. A warning "
+                 "attached to a number is read by the person who wrote it and by nobody "
+                 "afterwards, and the number travels on alone (#46, #48)."),
+    }
+
+
 @app.get("/api/policy")
 def api_policy() -> dict:
     """How old this company's reading of Etsy's rules is, and what that blocks.
