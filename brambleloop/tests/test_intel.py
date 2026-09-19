@@ -448,6 +448,226 @@ def test_a_competitor_photograph_can_never_be_published_as_brambleloop_creative(
     assert "ASSET_SOURCE_UNRECOGNISED" not in codes
 
 
+# ---- the scan -------------------------------------------------------------
+
+
+class _Reader:
+    """A benchmark catalogue under test control.
+
+    Counts the calls, because the whole point of fingerprinting is that an unchanged
+    catalogue costs nothing: a test that only checked the rows would pass while the scan
+    re-read every gallery every six hours.
+    """
+
+    def __init__(self, listings, images=None, shop_name="MJsOffTheHookDesigns"):
+        self.listings = listings
+        self._images = images if images is not None else [
+            {"rank": 1, "hex_code": "1F3A2E", "hue": 150, "saturation": 30,
+             "brightness": 22, "is_black_and_white": False,
+             "url_fullxfull": "https://i.etsystatic.com/x_fullxfull.jpg"},
+            {"rank": 2, "hex_code": "C9A227", "hue": 45, "saturation": 70,
+             "brightness": 79, "is_black_and_white": False,
+             "url_fullxfull": "https://i.etsystatic.com/y_fullxfull.jpg"},
+        ]
+        self.shop_name = shop_name
+        self.image_calls = 0
+        self.catalogue_calls = 0
+
+    def resolve_shop(self, name):
+        return {"shop_id": 4242, "shop_name": self.shop_name}
+
+    def catalogue(self, shop_id, **kwargs):
+        self.catalogue_calls += 1
+        return list(self.listings)
+
+    def images(self, listing_ref):
+        self.image_calls += 1
+        return list(self._images)
+
+
+def _listing(listing_id, title, price=8.5, favourites=120, modified=1000, **extra):
+    return {"listing_id": listing_id, "title": title,
+            "price": {"amount": int(price * 100), "divisor": 100, "currency_code": "CAD"},
+            "tags": ["crochet pattern", "cardigan"], "materials": ["yarn"],
+            "state": "active", "last_modified_timestamp": modified,
+            "num_favorers": favourites, "taxonomy_id": 66,
+            "url": f"https://www.etsy.com/listing/{listing_id}", **extra}
+
+
+def test_a_first_scan_is_a_baseline_and_the_second_pays_for_nothing():
+    """#207 then #212, in that order and for a reason.
+
+    A full catalogue re-read every six hours is the expensive way to learn nothing. The
+    fingerprint makes an unchanged listing free, so the second scan must open no galleries at
+    all — and asserting on the call count is the only way to see that, because the rows look
+    identical either way.
+    """
+    from brambleloop.intel import observe
+
+    db = _db()
+    reader = _Reader([_listing(1, "Cropped Striped Cardigan"),
+                      _listing(2, "Chunky Throw Blanket"),
+                      _listing(3, "Christmas Stocking")])
+
+    first = observe.scan(db, reader, env={})
+    assert first.baseline is True
+    assert first.listings_known == 3
+    assert sorted(first.new_listings) == ["1", "2", "3"]
+    assert len(first.deep_audited) == 3
+    assert reader.image_calls == 3
+    assert first.images_inspected == 6
+
+    reader.image_calls = 0
+    second = observe.scan(db, reader, env={})
+    assert second.baseline is False
+    assert second.unchanged == 3
+    assert second.new_listings == [] and second.changed_listings == []
+    assert reader.image_calls == 0, "an unchanged catalogue re-opened galleries"
+
+
+def test_a_changed_listing_is_re_audited_and_an_untouched_one_is_not():
+    """Change detection has to be selective or it is just a slower full scan."""
+    from brambleloop.intel import observe
+
+    db = _db()
+    listings = [_listing(1, "Cropped Striped Cardigan"),
+                _listing(2, "Chunky Throw Blanket")]
+    reader = _Reader(listings)
+    observe.scan(db, reader, env={})
+
+    # One price move, one new listing, one untouched.
+    reader.listings = [_listing(1, "Cropped Striped Cardigan", price=9.5, modified=2000),
+                       _listing(2, "Chunky Throw Blanket"),
+                       _listing(3, "Nordic Star Ornament Set")]
+    reader.image_calls = 0
+    third = observe.scan(db, reader, env={})
+
+    assert third.changed_listings == ["1"]
+    assert third.new_listings == ["3"]
+    assert third.unchanged == 1
+    assert sorted(third.deep_audited) == ["1", "3"]
+    assert reader.image_calls == 2
+
+
+def test_the_gallery_audit_keeps_etsys_colour_statistics_and_calls_it_an_inventory():
+    """The honest name for what the API can give without a vision model.
+
+    Etsy publishes per-image hex, hue, saturation and brightness, which answers palette
+    questions outright. It does not answer whether the shot is any good — so the record says
+    `gallery_audited` and stores the palette, and nothing in it claims a judgement was made.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import observe
+
+    db = _db()
+    observe.scan(db, _Reader([_listing(1, "Cropped Striped Cardigan")]), env={})
+
+    with db.session() as s:
+        row = s.scalar(select(BenchmarkListing))
+    assert row.audit_state == "audited"
+    assert row.media_count == 2
+    assert row.detail["gallery_audited"] is True
+    assert row.detail["palette"][0]["hex"] == "1F3A2E"
+    assert row.detail["image_urls"][0].startswith("https://i.etsystatic.com/")
+    assert row.pod == "garments"
+
+
+def test_a_scan_records_evidence_that_cannot_close_the_mandate_without_the_capability():
+    """The join between the scan and #224.
+
+    An API read is a mandated evidence kind. It only satisfies the mandate when the
+    credential that produced it actually exists, and `mission.record` is the only way in.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BenchmarkObservation
+    from brambleloop.intel import observe
+
+    db = _db()
+    observe.scan(db, _Reader([_listing(1, "Cropped Striped Cardigan")]), env={})
+    with db.session() as s:
+        blocked = list(s.scalars(select(BenchmarkObservation)))
+    assert blocked[-1].kind == "official_api_read"
+    assert blocked[-1].satisfies_mandate is False
+
+    db2 = _db()
+    observe.scan(db2, _Reader([_listing(1, "Cropped Striped Cardigan")]),
+                 env={"ETSY_API_KEY": "k", "ETSY_SHARED_SECRET": "s"})
+    with db2.session() as s:
+        granted = list(s.scalars(select(BenchmarkObservation)))
+    assert granted[-1].satisfies_mandate is True
+
+
+def test_a_scan_report_would_survive_the_no_generic_substitution_check():
+    """#319 is the output contract, so the scan is written against it rather than beside it."""
+    from brambleloop.intel import observe
+
+    db = _db()
+    result = observe.scan(db, _Reader([_listing(1, "Cropped Striped Cardigan"),
+                                       _listing(2, "Christmas Stocking")]), env={})
+    report = result.to_report()
+
+    mission.check_report(report)  # raises if it is a status line wearing a report's name
+    assert report["benchmark"] == "MJsOffTheHookDesigns"
+    assert report["catalogue_coverage"]["listings_known"] == 2
+    assert report["images_inspected"] == 4
+    assert set(report["pods_notified"]) == {"garments", "stockings"}
+    assert report["actions"] and report["actions"] != []
+
+
+def test_an_arena_the_benchmark_sells_and_we_do_not_becomes_queued_work():
+    """#314: the scan's purpose is not a report, it is a queue.
+
+    An observation that produces no candidate work is a newsletter.
+    """
+    from brambleloop.intel import observe
+    from brambleloop.core.models import Product
+
+    db = _db()
+    with db.session() as s:
+        s.add(Product(slug="chunky-throw-blanket", title="Throw", status="certified"))
+
+    result = observe.scan(db, _Reader([
+        _listing(1, "Cropped Striped Cardigan", favourites=900),
+        _listing(2, "Chunky Throw Blanket", favourites=800),
+        _listing(3, "Christmas Stocking", favourites=400),
+    ]), env={})
+
+    # We already sell a blanket, so no gap for blankets. We sell no garment and no stocking.
+    assert "Blankets and throws" not in result.gaps_opened
+    assert "Garments and clothing" in result.gaps_opened
+    assert "Christmas stockings" in result.gaps_opened
+
+    queue = coverage.queue(db, benchmarks.MJS_KEY)
+    assert queue and all(g["state"] == coverage.UNCOVERED for g in queue)
+    top = queue[0]
+    # Scored only on observable evidence, and the score says how little of itself is evidence.
+    assert set(top["components"]["components"]) == {"apparent_demand", "portfolio_fit"}
+    assert top["components"]["evidence_weight"] < 0.4
+
+
+def test_a_scan_with_no_credential_explains_itself_instead_of_pretending():
+    """#224 again, at the one place it is most tempting to fudge.
+
+    The easy implementation returns an empty result and lets the dashboard read zero
+    listings, which is indistinguishable from a shop that has none. This says no observation
+    was performed, names the requirements that stay unmet, and states that nothing was
+    substituted.
+    """
+    from brambleloop.intel import observe
+
+    db = _db()
+    outcome = observe.scan_or_explain(db, env={})
+
+    assert outcome["ran"] is False
+    assert outcome["substituted"] is False
+    assert 207 in outcome["requirements_unmet"]
+    assert "ETSY_API_KEY" in outcome["reason"]
+    assert "nothing was approximated" in outcome["note"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

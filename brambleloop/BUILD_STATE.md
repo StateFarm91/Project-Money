@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 39 | satisfied, with a named test or artefact |
-| partial | 59 | something real exists and is short of the requirement |
-| missing | 165 | nobody has built it |
-| owner_gated | 45 | waits on an owner decision, credential or legal acceptance |
+| covered | 40 | satisfied, with a named test or artefact |
+| partial | 64 | something real exists and is short of the requirement |
+| missing | 163 | nobody has built it |
+| owner_gated | 41 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **224 requirements are executable by this session** (partial +
+as one nobody has written. **227 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,7 +53,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **631 tests passing, 0 failing** across
+Measured by `./run_tests.sh` on the current head: **638 tests passing, 0 failing** across
 33 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -157,6 +157,44 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The benchmark observation pipeline — written while the credential does not exist, so it runs
+the moment it does (#207, #208, #212, #214, #303, #313, #319).**
+
+The pieces already existed: the read-only Etsy client, the pods, the coverage queue, the
+evidence grading. What was missing was the thing that drives them on a schedule. It is
+deliberately written *before* the key arrives, because a pipeline written the day the key
+lands is a pipeline debugged against a live marketplace. Every branch — first baseline,
+unchanged catalogue, new listing, changed listing, unreadable gallery, no credential at all —
+is exercised against an injected reader.
+
+- **Baseline once, then only what moved (#212).** Each listing carries a content fingerprint
+  over the fields that change *commercially* — title, description, price, tags, materials,
+  state, last-modified, favourites. `views` is deliberately excluded: a field that moves every
+  hour makes a fingerprint useless by making it always different. The second scan of an
+  unchanged catalogue opens **zero** galleries, and the test asserts that by counting calls,
+  because the rows look identical either way.
+- **An audit is only claimed after it happened.** `audit_state` becomes `audited` after the
+  gallery call returns, never from a catalogue row.
+- **The gallery result is called an inventory, not an analysis.** Etsy publishes per-image
+  hex, hue, saturation and brightness, so palette evidence is free — and nothing in the record
+  claims a judgement about the shot was made, because that needs the model provider.
+- **A scan's purpose is a queue, not a report (#314).** Arenas the benchmark sells into and
+  Brambleloop does not become scored coverage gaps, using only components the scan can
+  actually observe. Make time, contribution and creative potential are left **absent rather
+  than guessed**, so the queue's own `evidence_weight` reads under 0.4 and says so.
+- **#319 is enforced inside the pipeline**, not beside it: `mission.check_report()` runs
+  against the scan's own output, so a scan that could not produce a compliant report fails
+  rather than files one.
+- **No credential is not an empty catalogue.** The easy implementation returns zero listings,
+  which is indistinguishable from a shop that has none. This records that no observation was
+  performed, names the six requirements that stay unmet, and states that nothing was
+  substituted.
+
+Six-hourly cadence, `POST /api/mjs/scan` to run it now. The interval is fixed and chosen to be
+cheap; cadence that adapts to the shop's own posting behaviour (#313) is still to build, and
+is recorded as partial rather than claimed.
+
+## Previously in Build 2
 **A second cadence died on its first production run, and the guard that would have caught
 both.**
 

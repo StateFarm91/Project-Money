@@ -211,6 +211,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand
     # once a quarter is how a company misses Christmas too.
     ("seasonal_sentinel", "orchestrator", "seasonal.sentinel", 24 * 60 * 60),
+    # Six-hourly, matching the radar scan. #313 wants frequent lightweight checks once a
+    # baseline exists, and the fingerprint makes an unchanged catalogue nearly free -- but
+    # cadence that adapts to the shop's own posting behaviour is still to build, so this is
+    # a fixed interval chosen to be cheap rather than an adaptive one claimed to be smart.
+    ("mjs_scan", "market_radar", "mjs.scan", 6 * 60 * 60),
 ]
 
 

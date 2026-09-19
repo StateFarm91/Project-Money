@@ -474,6 +474,22 @@ def api_seasonal_recompute(as_of: str = "") -> dict:
                 "reason": "a seasonal assessment was already queued this minute"}
     return {"enqueued": True, "job_id": job.id}
 
+
+@app.post("/api/mjs/scan")
+def api_mjs_scan() -> dict:
+    """Scan the benchmark catalogue now rather than at the next six-hourly window.
+
+    GREEN: reads public marketplace data, writes observations, queues internal work. It
+    publishes nothing, spends nothing and contacts nobody. Without a credential it records
+    why it could not run instead of recording an empty catalogue.
+    """
+    key = f"mjs.scan:{utcnow():%Y%m%dT%H%M}"
+    try:
+        job = JobQueue(db).enqueue("market_radar", "mjs.scan", {}, idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False, "reason": "a benchmark scan was already queued this minute"}
+    return {"enqueued": True, "job_id": job.id}
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

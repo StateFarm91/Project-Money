@@ -853,6 +853,32 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
     return {"products_scheduled": room["products_scheduled"], "counts": counts,
             "at_risk": len(at_risk), "missed": len(missed)}
 
+
+@handlers.register("mjs.scan")
+def handle_mjs_scan(ctx: JobContext) -> dict:
+    """Scan the named benchmark catalogue: baseline once, then only what changed.
+
+    The owner's top-priority mandate (#301). Runs whether or not the credential exists: with
+    one it observes, without one it reports precisely why it could not and which requirements
+    stay unmet. It never substitutes search snippets or fixtures for observation (#224).
+
+    GREEN by the authority matrix: it reads public marketplace data, writes observations and
+    queues internal work. It publishes nothing, spends nothing and contacts nobody.
+    """
+    from ..intel.observe import scan_or_explain
+
+    outcome = scan_or_explain(ctx.db)
+    if not outcome["ran"]:
+        ctx.audit("mjs.scan_blocked", detail=outcome)
+        return {"ran": False, "reason": outcome["reason"][:200]}
+
+    report = outcome["report"]
+    ctx.audit("mjs.scanned", detail=report)
+    return {"ran": True,
+            "listings_known": report["catalogue_coverage"]["listings_known"],
+            "new": len(report["changes"]),
+            "inspected": report["catalogue_coverage"]["listings_inspected"]}
+
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:
     """Assess what stands between this shop and a live customer, and queue what is owner-only.

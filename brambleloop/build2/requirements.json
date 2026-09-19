@@ -1859,8 +1859,8 @@
   "body": "On first successful browser/vision integration, enumerate the complete discoverable MJsOffTheHookDesigns catalogue rather than sampling only top listings. Record listing identity, category, visible pricing/sale state, merchandising format, media count/types, product family and dated evidence. Coverage gaps must be explicit.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "MJs catalogue baseline, listing deep audit, vision gallery analysis -- needs browser/vision"
+  "status": "partial",
+  "note": "intel/observe.py enumerates the complete catalogue by pagination rather than sampling, records listing identity, category, price, sale state, media count, product family and dated evidence, and marks the first pass as a baseline. Remaining: it has never run against Etsy, because the credential does not exist; every branch is exercised against an injected reader instead."
  },
  {
   "id": 208,
@@ -1868,8 +1868,8 @@
   "body": "Every discoverable benchmark listing selected for baseline/deep audit is individually opened. Capture and analyze all accessible listing gallery assets, video where accessible, title, visible description, price/sale presentation, options/variants, badges, product claims, digital-delivery positioning, cross-sell cues and other commercially relevant listing structure. Do not claim an audit occurred if only search-result thumbnails were seen.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "MJs catalogue baseline, listing deep audit, vision gallery analysis -- needs browser/vision"
+  "status": "partial",
+  "note": "the deep audit opens each new or changed listing individually and traverses its gallery, capturing title, description, price, tags, materials, favourites and per-image colour statistics. It never claims an audit from a catalogue row: audit_state only becomes 'audited' after the gallery call succeeded. Remaining: video, variants and badges, and the fact that nothing has been run against Etsy."
  },
  {
   "id": 209,
@@ -1904,8 +1904,8 @@
   "body": "Do not wastefully re-download/reason over an unchanged full catalogue every 30 minutes. First establish complete baseline coverage. Thereafter run lightweight change detection frequently and trigger immediate deep audits for newly discovered listings or materially changed listings/assets. Periodically re-baseline to detect missed changes.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "baseline-then-change detection, adaptive cadence"
+  "status": "covered",
+  "note": "baseline first, then change detection on a content fingerprint over the fields that move commercially -- title, description, price, tags, materials, state, last-modified, favourites. Views deliberately excluded: a field that changes hourly makes a fingerprint useless by making it always different. An unchanged catalogue opens no galleries at all, which the test asserts by counting calls rather than rows."
  },
  {
   "id": 213,
@@ -1922,8 +1922,8 @@
   "body": "A new MJs listing becomes a structured market event. Archive dated observations, classify category, notify relevant specialist pods, decompose the commercial mechanisms, update category benchmark standards, run opportunity analysis and decide whether it justifies an original Brambleloop concept tournament.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "new-listing event pipeline"
+  "status": "partial",
+  "note": "a new listing becomes a structured event: archived with dated evidence, classified into a pod, routed, and turned into queued work through the coverage gap queue. Remaining: mechanism decomposition and the concept tournament it should trigger."
  },
  {
   "id": 215,
@@ -2723,8 +2723,8 @@
   "body": "Establish and maintain full discoverable MJs catalogue coverage. Every listing is assigned to specialist category pods and represented in the MJs Coverage Matrix. Track newly discovered/changed listings, product family, generic product type, silhouette/form, palette, seasonal positioning, visual merchandising mechanisms, visible pricing/promotion, gallery structure and dated evidence.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "owner_gated",
-  "note": "MJs catalogue as a living market map; needs browser"
+  "status": "partial",
+  "note": "every listing is assigned to a specialist pod and represented in the coverage matrix with product family, price, sale state, gallery structure, palette and dated evidence. Remaining: silhouette and seasonal positioning, which need image-level judgement from the model provider."
  },
  {
   "id": 304,
@@ -2813,8 +2813,8 @@
   "body": "After full baseline, perform frequent lightweight checks for catalogue/listing changes and immediately deep-audit new or materially changed listings. Adapt cadence to MJs observed release behavior and seasonal urgency. The goal is fast awareness without repeatedly paying to reprocess identical content.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "owner_gated",
-  "note": "MJs change detection; needs browser"
+  "status": "partial",
+  "note": "the scan runs six-hourly and an unchanged listing costs nothing, so frequent checks are cheap by construction. Remaining: cadence that adapts to the shop's own posting behaviour and seasonal urgency -- the current interval is fixed and chosen to be cheap rather than adaptive and claimed to be smart."
  },
  {
   "id": 314,
@@ -2868,7 +2868,7 @@
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
   "status": "covered",
-  "note": "mission.check_report() refuses a report that cannot name the shop, the timestamp, catalogue coverage, what changed, listings and images inspected, pods notified and resulting actions -- and refuses a summary that says only that the job ran. mission.record() is the only way into the observations table, so every stored observation carries its grade and whether it satisfies the mandate."
+  "note": "every scan produces a report that names the shop, the timestamp, catalogue coverage as known versus inspected, what changed, which listings and images were inspected, which pods received it and what action resulted -- and mission.check_report() is run against it inside the pipeline, so a scan that could not produce a compliant report fails rather than files one."
  },
  {
   "id": 320,
