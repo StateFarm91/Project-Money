@@ -503,6 +503,17 @@ def api_creative() -> dict:
 
     return audit_catalogue()
 
+
+@app.get("/api/mjs/vision")
+def api_mjs_vision() -> dict:
+    """The image-analysis backlog: what is waiting, what it would cost, whether it can run."""
+    from ..intel.benchmarks import MJS_KEY
+    from ..intel.cadence import next_interval
+    from ..intel.vision import plan
+
+    return {"backlog": plan(db, MJS_KEY),
+            "scan_cadence": next_interval(db, MJS_KEY).to_dict()}
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

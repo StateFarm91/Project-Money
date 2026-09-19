@@ -46,6 +46,7 @@ class ScanResult:
     new_listings: list[str] = field(default_factory=list)
     changed_listings: list[str] = field(default_factory=list)
     unchanged: int = 0
+    withdrawn: list[str] = field(default_factory=list)
     deep_audited: list[str] = field(default_factory=list)
     images_inspected: int = 0
     pods_notified: set = field(default_factory=set)
@@ -63,11 +64,14 @@ class ScanResult:
                 "listings_seen_this_scan": self.listings_seen,
                 "listings_inspected": len(self.deep_audited),
                 "unchanged_skipped": self.unchanged,
+                "withdrawn_since_last_scan": len(self.withdrawn),
             },
             "changes": ([{"listing_ref": ref, "what": "new listing"}
                          for ref in self.new_listings]
                         + [{"listing_ref": ref, "what": "materially changed"}
-                           for ref in self.changed_listings]),
+                           for ref in self.changed_listings]
+                        + [{"listing_ref": ref, "what": "no longer listed"}
+                           for ref in self.withdrawn]),
             "listings_inspected": list(self.deep_audited),
             "images_inspected": self.images_inspected,
             "pods_notified": sorted(self.pods_notified),
@@ -192,6 +196,24 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                     for img in images[:12]]
                 detail["image_urls"] = [img.get("url_fullxfull") for img in images[:12]]
                 row.detail = detail
+
+    # -- reconciliation: what was there last time and is not now ----------
+    #
+    # A vanished listing is a commercial event -- withdrawn, sold out, renamed or delisted --
+    # and deleting the row would destroy the longitudinal evidence that makes it readable. So
+    # the row is marked and kept: "we saw this for six weeks and then it stopped" is a
+    # finding, and an absent row says nothing at all.
+    seen_refs = {str(listing.get("listing_id")) for listing in listings}
+    with db.session() as s:
+        for ref, row in known.items():
+            if ref in seen_refs:
+                continue
+            live = s.merge(row)
+            if live.audit_state != "withdrawn":
+                live.audit_state = "withdrawn"
+                live.detail = {**(live.detail or {}),
+                               "withdrawn_first_noticed": now.isoformat()}
+                result.withdrawn.append(ref)
 
     with db.session() as s:
         result.listings_known = len(list(s.scalars(select(BenchmarkListing).where(

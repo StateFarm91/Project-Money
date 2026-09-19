@@ -668,6 +668,268 @@ def test_a_scan_with_no_credential_explains_itself_instead_of_pretending():
     assert "nothing was approximated" in outcome["note"]
 
 
+# ---- resilience, reconciliation, cadence, vision --------------------------
+
+
+class _Flaky:
+    """A transport that throttles, then faults, then answers."""
+
+    def __init__(self, script):
+        self.script = list(script)
+        self.calls = 0
+
+    def request(self, method, url, *, headers, body=None, timeout=20.0):
+        from dataclasses import dataclass
+
+        @dataclass
+        class R:
+            status: int
+            body: dict
+            headers: dict
+
+        self.calls += 1
+        status, payload, hdrs = self.script[min(self.calls - 1, len(self.script) - 1)]
+        return R(status, payload, hdrs)
+
+
+def test_a_rate_limit_is_waited_out_and_a_bad_request_is_not_retried():
+    """Ignoring Retry-After is how a client turns a throttle into a ban.
+
+    And a ban on the one shop the owner named by name is the worst outcome available to this
+    mission. The mirror case matters as much: a 404 retried four times is four identical
+    requests, which is exactly the behaviour that gets a key noticed.
+    """
+    from brambleloop.intel import etsy_public as ep
+
+    waits = []
+    transport = _Flaky([
+        (429, {}, {"Retry-After": "7"}),
+        (500, {}, {}),
+        (200, {"results": [{"listing_id": 1}]}, {}),
+    ])
+    reader = ep.PublicReader(transport, env={ep.KEYSTRING_VAR: "k", ep.SECRET_VAR: "s"},
+                             sleep=waits.append)
+    body = reader.get("ping")
+
+    assert body["results"][0]["listing_id"] == 1
+    assert transport.calls == 3
+    assert waits[0] == 7.0, "the server's own Retry-After was ignored"
+    assert reader.throttled == 1
+
+    # A permanent error is our mistake; repeating it cannot fix it.
+    bad = _Flaky([(404, {}, {})])
+    reader = ep.PublicReader(bad, env={ep.KEYSTRING_VAR: "k", ep.SECRET_VAR: "s"},
+                             sleep=waits.append)
+    try:
+        reader.get("ping")
+    except ep.ReadFailed as e:
+        assert "404" in str(e)
+    else:
+        raise AssertionError("a 404 was treated as retryable")
+    assert bad.calls == 1
+
+    # And a transport that never recovers stops rather than knocking forever.
+    forever = _Flaky([(429, {}, {"Retry-After": "1"})])
+    reader = ep.PublicReader(forever, env={ep.KEYSTRING_VAR: "k", ep.SECRET_VAR: "s"},
+                             max_attempts=3, sleep=lambda _s: None)
+    try:
+        reader.get("ping")
+    except ep.ReadFailed as e:
+        assert "kept refusing" in str(e)
+    else:
+        raise AssertionError("an endless throttle was not given up on")
+    assert forever.calls == 3
+
+
+def test_a_listing_that_vanishes_is_marked_withdrawn_rather_than_deleted():
+    """A disappearance is a commercial event, and a deleted row says nothing at all.
+
+    "We saw this listing for six weeks and then it stopped" is a finding. An absent row is
+    indistinguishable from a listing that never existed.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import observe
+
+    db = _db()
+    reader = _Reader([_listing(1, "Cropped Striped Cardigan"),
+                      _listing(2, "Christmas Stocking")])
+    observe.scan(db, reader, env={})
+
+    reader.listings = [_listing(1, "Cropped Striped Cardigan")]
+    second = observe.scan(db, reader, env={})
+
+    assert second.withdrawn == ["2"]
+    with db.session() as s:
+        gone = s.scalar(select(BenchmarkListing).where(
+            BenchmarkListing.listing_ref == "2"))
+    assert gone is not None, "the row was deleted, destroying the longitudinal evidence"
+    assert gone.audit_state == "withdrawn"
+    assert gone.detail["withdrawn_first_noticed"]
+
+    # Reported as a change, so the scan's own report carries it (#319).
+    assert {"listing_ref": "2", "what": "no longer listed"} in second.to_report()["changes"]
+
+    # And it is only announced once: the third scan does not re-report it.
+    third = observe.scan(db, reader, env={})
+    assert third.withdrawn == []
+
+
+def test_the_cadence_speeds_up_faster_than_it_slows_down():
+    """#213, and the asymmetry is the design.
+
+    Too slow during a release run means missing the event the mission exists to catch. Too
+    fast during a quiet week costs a few calls against a catalogue the fingerprint already
+    makes nearly free. Those are not symmetric risks, so the response is not symmetric.
+    """
+    from datetime import date
+
+    from brambleloop.intel import cadence
+
+    quiet_period = date(2026, 6, 1)   # no event inside the planning window
+
+    busy = cadence.decide(changes_last_window=4, today=quiet_period)
+    assert busy.interval_seconds < cadence.INTERVALS_SECONDS[cadence.DEFAULT_INDEX]
+    assert "releasing" in busy.reason
+
+    steady = cadence.decide(consecutive_quiet_scans=1, today=quiet_period)
+    assert steady.index == cadence.DEFAULT_INDEX
+
+    quiet = cadence.decide(consecutive_quiet_scans=5, today=quiet_period)
+    assert quiet.interval_seconds > cadence.INTERVALS_SECONDS[cadence.DEFAULT_INDEX]
+
+    # It moves one step at a time: a cadence that oscillates is its own problem.
+    assert abs(busy.index - cadence.DEFAULT_INDEX) == 1
+    assert abs(quiet.index - cadence.DEFAULT_INDEX) == 1
+
+    # A near event pulls a backed-off cadence forward, and stops it backing off further.
+    christmas_near = date(2026, 12, 1)
+    assert cadence.seasonal_pressure(christmas_near) is True
+    held = cadence.decide(current_index=4, consecutive_quiet_scans=9, today=christmas_near)
+    assert held.index < 4
+    assert held.seasonal_pressure is True
+
+
+def test_the_cadence_reads_its_history_from_recorded_scans():
+    """Held in the audit log rather than in memory, so a restart does not reset it."""
+    from brambleloop.intel import cadence, observe
+
+    db = _db()
+    reader = _Reader([_listing(1, "Cropped Striped Cardigan")])
+    observe.scan(db, reader, env={})          # baseline: one change
+    observe.scan(db, reader, env={})          # quiet
+    observe.scan(db, reader, env={})          # quiet
+
+    state = cadence.observed_state(db, benchmarks.MJS_KEY)
+    assert state["scans_in_window"] == 3
+    assert state["consecutive_quiet_scans"] == 2
+    assert state["changes_last_window"] == 1
+
+    decision = cadence.next_interval(db, benchmarks.MJS_KEY)
+    assert decision.interval_seconds in cadence.INTERVALS_SECONDS
+
+
+def test_an_image_observation_cannot_be_recorded_without_looking_at_the_image():
+    """The backlog is real work waiting, not a gap being papered over.
+
+    The tempting implementation writes plausible observations from the listing title. This
+    refuses, because an observation nobody made is the silent downgrade #224 exists to stop.
+    """
+    from brambleloop.intel import observe, vision
+
+    db = _db()
+    observe.scan(db, _Reader([_listing(1, "Cropped Striped Cardigan")]), env={})
+
+    queued = vision.pending(db, benchmarks.MJS_KEY)
+    assert queued, "an audited gallery produced no analysis work"
+    assert queued[0].key.endswith(":1")
+    assert queued[0].image_url.startswith("https://i.etsystatic.com/")
+
+    report = vision.plan(db, benchmarks.MJS_KEY, env={})
+    assert report["state"] == vision.BLOCKED
+    assert report["pending_images"] == len(queued)
+    assert report["estimated_cad_total"] > 0
+    assert "none has been guessed" in report["note"]
+
+    try:
+        vision.record(db, queued[0], {"shot_type": "hero_styled"}, env={})
+    except vision.AnalysisRefused as e:
+        assert "not produced by looking" in str(e)
+    else:
+        raise AssertionError("an observation was recorded with nothing to look with")
+
+    # With the capability, the vocabulary is still closed.
+    granted = {"ANTHROPIC_API_KEY": "k"}
+    for bad in ({"vibes": "great"}, {"shot_type": "artsy"}, {}):
+        try:
+            vision.record(db, queued[0], bad, env=granted)
+        except vision.AnalysisRefused:
+            pass
+        else:
+            raise AssertionError(f"accepted {bad}")
+
+    ok = vision.record(db, queued[0],
+                       {"shot_type": "hero_styled", "thumbnail_readability": "strong",
+                        "scale_communication": "hand for scale in frame three"},
+                       env=granted)
+    assert ok > 0
+
+
+def test_the_acceptance_test_walks_every_step_the_mandate_names():
+    """#222 and #320, end to end against a fixture.
+
+    The point is not that a fixture proves the mandate met -- it explicitly does not, and the
+    evidence records that. The point is that tomorrow's first real scan is an integration
+    verification rather than the first time this path has ever run.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BenchmarkListing, BenchmarkObservation
+    from brambleloop.intel import observe, vision
+
+    db = _db()
+    reader = _Reader([
+        _listing(1, "Cropped Striped Cardigan", favourites=900),
+        _listing(2, "Christmas Stocking Personalised", favourites=500),
+        _listing(3, "Chunky Throw Blanket", favourites=300),
+    ])
+
+    # 1. resolve the named shop  2. enumerate  3. open listings  4. traverse galleries
+    first = observe.scan(db, reader, env={})
+    assert first.listings_known == 3
+    assert len(first.deep_audited) == 3
+    assert first.images_inspected == 6
+
+    # 5. capture listing text and commerce metadata
+    with db.session() as s:
+        row = s.scalar(select(BenchmarkListing).where(
+            BenchmarkListing.listing_ref == "1"))
+    assert row.price_cad == 8.5 and row.detail["num_favorers"] == 900
+
+    # 6. produce image-level observations -> queued, and honestly blocked
+    assert vision.plan(db, benchmarks.MJS_KEY, env={})["state"] == vision.BLOCKED
+
+    # 7. classify into specialist pods
+    assert {"garments", "stockings", "blankets"} <= first.pods_notified
+
+    # 8. persist evidence  9. detect a change  10. trigger a re-audit
+    reader.listings[0] = _listing(1, "Cropped Striped Cardigan", price=11.0, modified=9999)
+    reader.image_calls = 0
+    second = observe.scan(db, reader, env={})
+    assert second.changed_listings == ["1"]
+    assert reader.image_calls == 1, "a changed listing did not trigger a re-audit"
+
+    # 11. record the action in the coverage matrix
+    assert coverage.queue(db, benchmarks.MJS_KEY)
+
+    # And the evidence says what it is: a fixture, not the mandate met.
+    with db.session() as s:
+        observations = list(s.scalars(select(BenchmarkObservation)))
+    assert observations and all(o.satisfies_mandate is False for o in observations), \
+        "a fixture run was recorded as satisfying the observation mandate"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

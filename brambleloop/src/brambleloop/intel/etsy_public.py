@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -133,11 +134,17 @@ class PublicReader:
     """Read public marketplace data. Cannot write, cannot authenticate as anybody."""
 
     def __init__(self, transport: Transport, credential: ReadCredential | None = None,
-                 env: dict[str, str] | None = None, base: str = BASE):
+                 env: dict[str, str] | None = None, base: str = BASE,
+                 max_attempts: int = 4, backoff_cap: float = 60.0, sleep=None):
         self.transport = transport
         self.credential = credential or ReadCredential.from_env(env)
         self.base = base
+        self.max_attempts = max_attempts
+        self.backoff_cap = backoff_cap
+        # Injected so a test can prove the backoff without waiting for it.
+        self.sleep = sleep or time.sleep
         self.calls: list[str] = []
+        self.throttled = 0
 
     def _headers(self) -> dict[str, str]:
         if self.credential is None:
@@ -164,18 +171,42 @@ class PublicReader:
 
         # Recorded for the evidence trail: which endpoint, never which credential.
         self.calls.append(f"{endpoint} {template}")
-        response = self.transport.request("GET", url, headers=self._headers())
+        return self._request_with_retries(endpoint, url)
 
-        status = getattr(response, "status", None)
-        body = getattr(response, "body", None)
-        if body is None and hasattr(response, "read"):  # pragma: no cover - transport variance
-            body = json.loads(response.read() or b"{}")
-        if status is not None and status >= 400:
-            raise ReadFailed(
-                f"{endpoint} returned HTTP {status}"
-                + (" — Etsy v3 requires x-api-key as keystring:shared_secret; check "
-                   f"{SECRET_VAR}" if status in (401, 403) else ""))
-        return body or {}
+    def _request_with_retries(self, endpoint: str, url: str) -> dict:
+        """One read, retried on rate limits and server faults, refused on our own mistakes.
+
+        Etsy publishes a rate limit and a `Retry-After`; ignoring it is how a client turns a
+        throttle into a ban, and a ban on the one shop the owner named is the worst available
+        outcome for this mission. A 400 or a 404 is retried zero times, because the same
+        request produces the same answer and hammering it is what gets noticed.
+        """
+        from ..core.resilience import TransientError, classify_http, retry_after_seconds
+
+        last: Exception | None = None
+        for attempt in range(self.max_attempts):
+            response = self.transport.request("GET", url, headers=self._headers())
+            status = getattr(response, "status", None)
+            body = getattr(response, "body", None)
+            headers = getattr(response, "headers", None) or {}
+            if body is None and hasattr(response, "read"):  # pragma: no cover
+                body = json.loads(response.read() or b"{}")
+
+            if status is None or status < 400:
+                return body or {}
+
+            kind = classify_http(status)
+            hint = (f" — Etsy v3 requires x-api-key as keystring:shared_secret; check "
+                    f"{SECRET_VAR}" if status in (401, 403) else "")
+            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}")
+            if kind is not TransientError:
+                raise last
+            self.throttled += status == 429
+            if attempt + 1 < self.max_attempts:
+                self.sleep(retry_after_seconds(headers, attempt, cap=self.backoff_cap))
+        raise ReadFailed(
+            f"{endpoint} failed {self.max_attempts} times: {last}. Etsy was asked to wait "
+            f"and kept refusing; the scan stops rather than continuing to knock")
 
     # -- the mission's reads ------------------------------------------------
 

@@ -1877,8 +1877,8 @@
   "body": "Browser agents must inspect the actual gallery, not merely scrape text. For every accessible image, derive non-copying commercial observations: shot type, composition, product visibility, model/product relationship, setting, scale communication, detail coverage, infographic use, typography, palette role, thumbnail readability and emotional merchandising. Preserve dated evidence/provenance.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "owner_gated",
-  "note": "MJs catalogue baseline, listing deep audit, vision gallery analysis -- needs browser/vision"
+  "status": "partial",
+  "note": "every audited gallery becomes pending analysis work with a stable per-image identity, ordered newest-first because that is the order commercial value arrives in; intel/vision.py reports the backlog size and what it would cost. The observation vocabulary is closed. Remaining: no image has been judged, because no model provider is configured -- and record() refuses an observation produced without looking at the image."
  },
  {
   "id": 210,
@@ -1905,7 +1905,7 @@
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
   "status": "covered",
-  "note": "baseline first, then change detection on a content fingerprint over the fields that move commercially -- title, description, price, tags, materials, state, last-modified, favourites. Views deliberately excluded: a field that changes hourly makes a fingerprint useless by making it always different. An unchanged catalogue opens no galleries at all, which the test asserts by counting calls rather than rows."
+  "note": "baseline, fingerprint-based change detection, and reconciliation: a listing that vanishes is marked withdrawn and kept, never deleted -- 'we saw this for six weeks and then it stopped' is a finding, an absent row is indistinguishable from a listing that never existed. Announced once, not on every later scan."
  },
  {
   "id": 213,
@@ -1913,8 +1913,8 @@
   "body": "Monitoring frequency adapts to observed posting/change behaviour, seasonal urgency and evidence freshness. During active release periods or major seasonal ramps, checks may be frequent; during quiet periods they back off. The objective is near-immediate discovery of commercially meaningful changes without pointless compute burn.",
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
-  "note": "baseline-then-change detection, adaptive cadence"
+  "status": "covered",
+  "note": "intel/cadence.py adapts the interval from recorded change rate, consecutive quiet scans and seasonal proximity, moving one step at a time so it cannot oscillate. Deliberately asymmetric: a busy shop speeds it up immediately, a quiet one only after four consecutive empty scans, because being too slow during a release run misses the event the mission exists to catch while being too fast costs calls the fingerprint already makes nearly free. History is read from recorded scans, so a restart does not reset it."
  },
  {
   "id": 214,
@@ -1995,7 +1995,7 @@
   "version": "v1.4.0",
   "section": "Voice session reconciliation (model + MJs)",
   "status": "partial",
-  "note": "every step the acceptance test names is implemented against the sanctioned API and unit-tested with a fake transport: resolve the shop by exact name, enumerate the full catalogue by pagination, open individual listings, traverse gallery assets, capture listing text and commerce metadata, route to pods and persist graded evidence. Remaining: it has never been run against Etsy, because no credential exists. Nothing claims otherwise."
+  "note": "tests/test_intel.py walks every step the acceptance test names against a fixture: resolve the named shop, enumerate the catalogue, open listings, traverse galleries, capture text and commerce metadata, queue image observations, classify into pods, persist evidence, detect a change and trigger a re-audit, and record the action in the coverage matrix. The evidence explicitly records satisfies_mandate=False, because a fixture is not observation. Remaining: the real run, which needs the credential."
  },
  {
   "id": 223,
@@ -2732,8 +2732,8 @@
   "body": "For every accessible MJs listing selected for baseline or change audit, browser/vision workers traverse the accessible gallery and analyze each image as competitive evidence. Extract product form, proportions, generic construction cues visible from the finished item, colour/stripe/blocking logic, styling, model/product presentation, detail coverage, setting, thumbnail strategy and seasonal signals. This is not satisfied by text scraping or search-result thumbnails.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "owner_gated",
-  "note": "MJs listing photos visually studied; needs browser/vision"
+  "status": "partial",
+  "note": "same as #209: the gallery is traversed and inventoried with Etsy's own colour statistics, and image-level judgement is queued rather than guessed."
  },
  {
   "id": 305,
@@ -2813,8 +2813,8 @@
   "body": "After full baseline, perform frequent lightweight checks for catalogue/listing changes and immediately deep-audit new or materially changed listings. Adapt cadence to MJs observed release behavior and seasonal urgency. The goal is fast awareness without repeatedly paying to reprocess identical content.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "partial",
-  "note": "the scan runs six-hourly and an unchanged listing costs nothing, so frequent checks are cheap by construction. Remaining: cadence that adapts to the shop's own posting behaviour and seasonal urgency -- the current interval is fixed and chosen to be cheap rather than adaptive and claimed to be smart."
+  "status": "covered",
+  "note": "frequent lightweight checks with adaptive cadence, and a changed listing triggers an immediate deep re-audit. Cost stays bounded because an unchanged listing opens no galleries."
  },
  {
   "id": 314,
