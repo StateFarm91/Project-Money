@@ -973,6 +973,18 @@ def api_seasonal_capacity(days: int = 60) -> dict:
     }
 
 
+@app.get("/api/profiles")
+def api_profiles() -> dict:
+    """Each cell's capability profile and what its own record says it should try next.
+
+    Proposals only. A review that could promote its own proposals is unsupervised rewriting
+    arriving from inside the department that is supposed to be measuring.
+    """
+    from ..improve import profiles
+
+    return profiles.review_all(db)
+
+
 @app.get("/api/tiers")
 def api_tiers() -> dict:
     """How fast this company is allowed to change itself, and how much of that it has spent.

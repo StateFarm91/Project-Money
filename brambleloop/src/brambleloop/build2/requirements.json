@@ -1586,9 +1586,9 @@
  {
   "body": "Each agent/cell maintains a versioned capability profile: objective, baseline metrics, mistakes, lessons, successful tactics, rejected tactics, current prompt/policy/tool versions and challenger experiments. Agents regularly review their own outcomes and propose evidence-backed improvements.",
   "id": 177,
-  "note": "a learning loop needs a model to learn with; parked on the model_provider gate. Found by the build executor, whose gate validator refuses an owner-gated requirement with no gate and surfaced this one as ready work nobody could do",
+  "note": "improve/profiles.py assembles each cell's versioned capability profile from the rows rather than storing a second copy beside them: objective, metric and how it is measured, baseline and latest, promoted/rejected/reverted tactics, lessons in reach, running config versions and their challengers. A cell never measured has no capability rather than a capability of zero. self_review() proposes only from patterns in that cell's own record -- a run of three measurements the wrong way (a run is a direction, a point is weather), a metric never measured or stale past 30 days, a tactic family rejected twice for the same reason, a lesson routed here and never acted on -- and each proposal carries the rows it came from. Deterministic on purpose: a cell that writes fluent hypotheses every week looks exactly like a cell that is learning. A clean record proposes nothing and says so. Nothing here promotes: proposals enter the ordinary pipeline with its governance check, sandbox result and risk tier. /api/profiles.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "owner_gated",
+  "status": "covered",
   "title": "Every Agent Has a Learning Loop",
   "version": "v1.3.9"
  },
