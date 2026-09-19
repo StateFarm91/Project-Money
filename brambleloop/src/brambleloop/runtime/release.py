@@ -1469,11 +1469,19 @@ def handle_creative_blinded(ctx: JobContext) -> dict:
     """
     from ..creative import blinded
     from ..creative.audit import catalogue_concepts
+    from ..gateway import routing
+    from ..gateway.anthropic import AnthropicProvider
     from ..gateway.model_gateway import ModelGateway
+
+    # The tier the task is routed to, rather than a model named here. Routing decides which
+    # model answers which question and prices it; a handler picking its own would make the
+    # ceiling's estimate a guess about a different call than the one being made.
+    _task, tier = routing.route(blinded.TASK)
+    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry)
 
     concepts = catalogue_concepts()
     try:
-        result = blinded.run(ctx.db, concepts, gateway=ModelGateway(db=ctx.db),
+        result = blinded.run(ctx.db, concepts, gateway=gateway,
                              agent="creative_director",
                              max_pairs=blinded.MIN_PAIRS)
     except blinded.RunRefused as e:
@@ -1482,4 +1490,5 @@ def handle_creative_blinded(ctx: JobContext) -> dict:
 
     ctx.audit("creative.blinded", detail=result)
     return {"ran": True, "verdict": result["verdict"], "judged": result["pairs_judged"],
-            "cost_cad": result["cost_cad"], "valid": result["valid"]}
+            "cost_cad": result["cost_cad"], "valid": result["valid"],
+            "gateway_spend_cad": gateway.spend_cad()}

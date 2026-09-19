@@ -112,7 +112,14 @@ def api_status() -> dict:
         # a fix has actually reached production, and it says `unknown` when it cannot tell.
         "build": build_identity(),
         "queue": q.counts(),
+        # Split, because the raw count is 99% Shadow Mode working correctly. A publication
+        # job dying is a refusal, not a failure, and a number dominated by healthy refusals
+        # is an alarm nobody can read. `/api/queue/dead` groups them.
         "dead_letters": len(q.dead_letters()),
+        "dead_letter_refusals": sum(1 for j in q.dead_letters()
+                                    if j.job_type == "store.publish"),
+        "dead_letter_defects": sum(1 for j in q.dead_letters()
+                                   if j.job_type != "store.publish"),
         "products": products,
         "certified_versions": certified,
         "open_incidents": incidents,

@@ -183,6 +183,14 @@ class BudgetState:
                          "better month, not an underused resource.")}
 
 
+# The ledger row kind the monthly ceiling counts. It is a constant because it was a literal
+# in four places and one of them disagreed: `ModelGateway` recorded its calls as "model"
+# while every ceiling reads "llm", so a real gateway call would have been invisible to the
+# budget and the ceiling would have read CA$0.00 forever while money left the account. It
+# never bit only because nothing had ever constructed a ModelGateway.
+COST_KIND = "llm"
+
+
 def spent_this_month(db, now: datetime | None = None) -> float:
     """What the month's model calls have actually cost, from the ledger that records them."""
     from sqlalchemy import func, select
@@ -194,7 +202,7 @@ def spent_this_month(db, now: datetime | None = None) -> float:
     with db.session() as s:
         total = s.scalar(
             select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
-            .where(CostEntry.kind == "llm", CostEntry.at >= start))
+            .where(CostEntry.kind == COST_KIND, CostEntry.at >= start))
     return float(total or 0.0)
 
 
@@ -229,7 +237,7 @@ def record(db, task_key: str, *, agent: str, tokens_in: int, tokens_out: int,
     task, tier = route(task_key)
     cost = 0.0 if cached else tier.cost_cad(tokens_in, tokens_out)
     with db.session() as s:
-        s.add(CostEntry(agent=agent, job_id=job_id, kind="llm", amount_cad=cost,
+        s.add(CostEntry(agent=agent, job_id=job_id, kind=COST_KIND, amount_cad=cost,
                         tokens_in=0 if cached else tokens_in,
                         tokens_out=0 if cached else tokens_out,
                         detail={"task": task_key, "tier": tier.key, "model": tier.model,

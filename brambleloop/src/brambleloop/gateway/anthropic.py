@@ -82,10 +82,12 @@ def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
     from sqlalchemy import select
 
     from ..core.models import CostEntry
+    from . import routing
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
-        rows = list(s.scalars(select(CostEntry).where(CostEntry.kind == "llm")))
+        rows = list(s.scalars(select(CostEntry).where(
+            CostEntry.kind == routing.COST_KIND)))
     total = 0.0
     for row in rows:
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
@@ -205,6 +207,7 @@ def probe(db, *, provider: AnthropicProvider | None = None,
     paraphrase somebody will later argue with.
     """
     from ..core.models import AuditLog, CostEntry
+    from . import routing
 
     provider = provider or AnthropicProvider(model=PROBE_MODEL)
     record: dict = {"at": (now or datetime.now(timezone.utc)).isoformat(),
@@ -233,7 +236,7 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                            "output_tokens": response.output_tokens,
                            "cost_cad": cost, "headroom_cad": budget["headroom_cad"]})
             with db.session() as s:
-                s.add(CostEntry(agent="gateway", kind="llm", amount_cad=cost,
+                s.add(CostEntry(agent="gateway", kind=routing.COST_KIND, amount_cad=cost,
                                 tokens_in=response.input_tokens,
                                 tokens_out=response.output_tokens,
                                 detail={"purpose": "model.probe", "model": response.model,

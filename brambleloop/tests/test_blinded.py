@@ -327,6 +327,63 @@ def test_a_pick_that_is_not_a_presented_position_is_not_counted():
     assert result["problems"]
 
 
+# ---- the ledger the ceiling actually reads ---------------------------------
+
+
+def test_a_gateway_call_moves_the_budget_it_is_checked_against():
+    """The defect that would have made the monthly ceiling ornamental.
+
+    `ModelGateway` recorded its calls as kind "model" and every ceiling counts kind "llm", so
+    a real call would have been invisible to the budget: the ceiling would have read CA$0.00
+    forever while money left the account. It never bit because nothing had ever constructed a
+    ModelGateway -- the blinded run is the first thing that does, and would have been the
+    first real spend, uncapped.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.gateway import routing
+    from brambleloop.gateway.model_gateway import ModelGateway
+
+    db = _db()
+    Registry(db).seed_defaults()
+
+    class Provider:
+        name = "stub"
+        model = "claude-opus-5"
+        cost_per_1k_input_cad = 0.01
+        cost_per_1k_output_cad = 0.02
+
+        def complete(self, system, user, *, max_tokens):
+            from brambleloop.gateway.model_gateway import ModelResponse
+            return ModelResponse(text='{"pick": "A", "reason": "warmer"}', provider=self.name,
+                                 model=self.model, input_tokens=1000, output_tokens=100,
+                                 latency_ms=1.0)
+
+    before = routing.spent_this_month(db)
+    gateway = ModelGateway([Provider()], registry=Registry(db))
+    gateway.complete_json("creative.blinded_appeal@1", agent="creative_director",
+                          values={"option_a": {}, "option_b": {}},
+                          required=("pick", "reason"))
+    after = routing.spent_this_month(db)
+    assert gateway.spend_cad() > 0, "the call cost nothing, so this proves nothing"
+    assert after > before, (
+        f"the gateway spent CA${gateway.spend_cad()} and the ceiling still reads "
+        f"CA${after}: the budget is counting rows the gateway does not write")
+
+
+def test_the_ceiling_reads_one_kind_and_every_writer_uses_it():
+    """A literal in four places had already disagreed in one of them."""
+    from brambleloop.gateway import routing
+
+    src = (ROOT / "src" / "brambleloop" / "gateway")
+    for name in ("model_gateway.py", "anthropic.py", "routing.py"):
+        text = (src / name).read_text()
+        assert 'kind="model"' not in text, name
+        stray = [ln for ln in text.splitlines()
+                 if 'kind="llm"' in ln or 'kind == "llm"' in ln]
+        assert not stray, f"{name} carries a literal cost kind: {stray}"
+    assert routing.COST_KIND == "llm"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

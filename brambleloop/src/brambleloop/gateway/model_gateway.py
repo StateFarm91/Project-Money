@@ -35,6 +35,7 @@ from ..core.resilience import (
     CircuitBreaker, MalformedModelOutput, PermanentError, TransientError, parse_model_json,
 )
 from . import prompts as prompt_registry
+from . import routing
 
 
 class DeterministicAuthorityViolation(PermissionError):
@@ -225,7 +226,10 @@ class ModelGateway:
         if self.registry is not None and cost > 0:
             # Recorded even on the failed attempts that cost money, because a retry storm
             # that bills is exactly what the daily ceiling exists to catch.
-            self.registry.record_cost(agent, cost, kind="model", tokens_in=in_tok,
+            # `routing.COST_KIND`, not "model". These rows are what the monthly ceiling
+            # counts, and a gateway writing a kind no ceiling reads is an unbounded budget
+            # that reports CA$0.00.
+            self.registry.record_cost(agent, cost, kind=routing.COST_KIND, tokens_in=in_tok,
                                       tokens_out=out_tok,
                                       detail={"prompt": prompt.ref,
                                               "provider": provider.name})
