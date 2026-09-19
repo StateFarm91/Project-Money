@@ -427,6 +427,28 @@ def api_teardown() -> dict:
     }
 
 
+@app.get("/api/policy")
+def api_policy() -> dict:
+    """How old this company's reading of Etsy's rules is, and what that blocks.
+
+    The freshness answer comes first because "never checked" and "unchanged" produce the same
+    dashboard on every other page, and they are opposite states.
+    """
+    from ..commerce import terms as customer_terms
+    from ..gates.platform_policy import describe, freshness, policy_stamp
+
+    return {
+        "freshness": freshness(db),
+        "certificate_stamp": policy_stamp(db),
+        "rules": describe(),
+        "customer_terms": customer_terms.BRAMBLELOOP_TERMS.to_dict(),
+        "terms_surfaces": {
+            surface: customer_terms.render(customer_terms.BRAMBLELOOP_TERMS, surface)
+            for surface in customer_terms.SURFACES
+        },
+    }
+
+
 @app.get("/api/culture")
 def api_culture() -> dict:
     """The culture engine: what it remembers, what it owns, and what it may not use.

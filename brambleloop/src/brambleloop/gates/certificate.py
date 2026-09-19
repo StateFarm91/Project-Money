@@ -51,6 +51,11 @@ class ReleaseCertificate:
     pattern_text: str | None = None
     twin_summary: dict | None = None
     policy_version: str = POLICY_VERSION
+    # Which version of *Etsy's* rules this was read against (#39). `policy_version` answers
+    # the same question about our own rules, and it is the other one that changes without
+    # telling us -- a certificate that cannot name it cannot be re-examined after the
+    # platform moves, which is the only time anybody wants to.
+    platform_policy: dict | None = None
     issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     physical_test_required: bool = False
     physical_test_passed: bool = False
@@ -73,6 +78,7 @@ class ReleaseCertificate:
             "stages_run": self.stages_run,
             "confidence": self.confidence,
             "policy_version": self.policy_version,
+            "platform_policy": self.platform_policy,
             "issued_at": self.issued_at.isoformat(),
             "physical_test_required": self.physical_test_required,
             "physical_test_passed": self.physical_test_passed,
@@ -107,6 +113,7 @@ def certify(
     terminology: str = "US",
     cleared_names: set[str] | None = None,
     calibration: float = 1.0,
+    platform_policy: dict | None = None,
 ) -> ReleaseCertificate:
     """Run the full release chain and issue -- or refuse -- a certificate."""
     findings: list[Finding] = []
@@ -117,7 +124,8 @@ def certify(
     stages.append("compile")
     findings.extend(result.findings)
     if not result.ok:
-        return ReleaseCertificate(cir.slug, cir.version, False, None, findings, stages)
+        return ReleaseCertificate(cir.slug, cir.version, False, None, findings, stages,
+                                  platform_policy=platform_policy)
 
     # 2. Digital twin.
     twin: TwinModel = build_twin(cir, result, calibration=calibration)
@@ -188,6 +196,7 @@ def certify(
         release_hash=rhash,
         findings=findings,
         stages_run=stages,
+        platform_policy=platform_policy,
         pattern_text=pattern_text if granted else None,
         confidence=profile.to_dict(),
         twin_summary={

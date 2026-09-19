@@ -756,3 +756,27 @@ class CultureObservation(Base):
     competitor_listings: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str] = mapped_column(Text, default="")
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PolicySnapshot(Base):
+    """One reading of one external platform policy, with its date (#39).
+
+    A policy is not a constant. Storing the snapshot -- rather than encoding the rule in code
+    and forgetting when it was true -- is what lets a release certificate say which version of
+    Etsy's rules it was certified against, and what lets the freshness watch tell the
+    difference between a policy that has not changed and one nobody has looked at.
+    """
+
+    __tablename__ = "policy_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    url: Mapped[str] = mapped_column(Text, default="")
+    checked_on: Mapped[str] = mapped_column(String(10), default="")
+    version: Mapped[str] = mapped_column(String(40), default="")
+    digest: Mapped[str] = mapped_column(String(64), default="", index=True)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    material_change: Mapped[bool] = mapped_column(Boolean, default=False)
+    affects: Mapped[list] = mapped_column(JSON, default=list)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

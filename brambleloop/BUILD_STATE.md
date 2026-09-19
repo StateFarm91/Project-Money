@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 100 | satisfied, with a named test or artefact |
-| partial | 71 | something real exists and is short of the requirement |
-| missing | 102 | nobody has built it |
+| covered | 102 | satisfied, with a named test or artefact |
+| partial | 72 | something real exists and is short of the requirement |
+| missing | 99 | nobody has built it |
 | owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **173 requirements are executable by this session** (partial +
+as one nobody has written. **171 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **756 tests passing, 0 failing** across
-42 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **769 tests passing, 0 failing** across
+43 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -157,6 +157,54 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Etsy's rules as a dated snapshot, the AI-disclosure gate, and customer-use terms decided
+once (#35, #39, #40).**
+
+Three requirements that look like paperwork and are the ones that close a shop. They share a
+shape: each fails silently and in the future. A policy encoded in code is true the day it is
+written; a generated lifestyle image is a compliance problem only once somebody complains; and
+terms that were never decided are correct until the first customer asks the question they
+actually have.
+
+- **A platform policy is a dated snapshot, not a constant (#39).** Five surfaces watched
+  separately — seller policy, creativity standards, listing-image rules, advertising rules,
+  shilling and reviews — because each blocks a different workflow and one "Etsy policy" blob
+  blocks everything or nothing. **Never checked and unchanged are opposite states**: an
+  unread source blocks the workflows it governs, and a watch that reported "no material
+  changes" from an empty table would be the most confident possible way to be wrong. A
+  material change is a **digest difference rather than a judgement**, so the question reaching
+  a person is "this changed, does it matter" instead of "has anything changed" — a much better
+  question to be asked while tired.
+- **The release certificate now records which reading of Etsy's rules it was issued under.**
+  `POLICY_VERSION` answers which version of *our* rules; the new stamp answers the one that
+  changes without telling us, and a certificate that cannot name it cannot be re-examined
+  after the platform moves.
+- **A label does not convert misrepresentation into disclosure (#35).** Asset roles carry a
+  requirement — photograph, or generated-permitted — and a generated image in a role that makes
+  a claim about the finished object is refused however carefully it is labelled. An AI render
+  of a finished blanket is a picture of a blanket that does not exist, and the buyer is looking
+  at it precisely to find out what they are buying. A deterministic render of our own chart is
+  the exception: it *is* the artefact being sold.
+- **Enabling a new product or asset class against an unread policy is refused**, which is #35
+  read literally: a new class is exactly when the old reading is least likely to cover the case.
+- **Customer-use terms are five deliberate choices, rendered once (#40).** Closed options, so
+  "do not redistribute" cannot arrive by inheritance while the question customers actually ask
+  — may I sell what I make at a craft fair? — gets answered for the first time in a support
+  reply. PDF, listing and FAQ render from one decision and a consistency check refuses
+  divergence, because writing them three times is the only way this drifts. **Decided is not
+  enforceable**: the rendered PDF says the terms have not been through legal review, and
+  `enforceable` stays False until a named reviewer and scope are recorded.
+
+`GET /api/policy` shows the freshness answer first. A daily `ops.policy_watch` cadence opens
+one blocking incident per stale or unread source; it deliberately **does not fetch**, because
+no policy reader is connected and a cadence that fails every run on an absent dependency is a
+dead letter with a schedule — a mistake this build has already made twice.
+
+Honest gap: #39 is **partial**. Snapshots are recorded rather than retrieved, so today every
+source reads as never checked and the watch is correctly blocking. Connecting a reader, or the
+owner recording a snapshot by hand, is what closes it.
+
+## Previously in Build 2
 **The Culture & Nostalgia opportunity engine, rights gate first (#133-#147).**
 
 Fifteen requirements, nothing built, and the reason to build the gate before the radar is that

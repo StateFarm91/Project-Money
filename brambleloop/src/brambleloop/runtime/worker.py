@@ -219,6 +219,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Weekly, because a retrospective run daily becomes noise and one run quarterly is
     # archaeology. #100 asks for a cadence; this is the one a human would keep reading.
     ("improvement_retrospective", "orchestrator", "improve.retrospective", 7 * 24 * 60 * 60),
+    # Daily. A platform policy is not a constant, and the cost of noticing a change late is
+    # a suspension notice about listings that were compliant when they were created (#39).
+    ("policy_watch", "orchestrator", "ops.policy_watch", 24 * 60 * 60),
 ]
 
 

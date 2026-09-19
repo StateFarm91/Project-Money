@@ -308,9 +308,9 @@
   {
     "body": "Before every Etsy release, classify the product under current Etsy Creativity Standards and generate required disclosures. Etsy permits seller-designed digital downloads and seller-prompted AI creations, but AI use must be disclosed where required. Policy Agent must re-fetch current policy before enabling new asset/product classes. Never assume an AI-generated lifestyle image satisfies Etsy's listing-image requirements.",
     "id": 35,
-    "note": "Etsy creativity/AI disclosure gate",
+    "note": "gates/platform_policy.py classifies the product, generates the disclosures it owes, and refuses a generated image in a role that makes a claim about the finished object -- labelling it does not convert it. check_new_class() refuses a new class against an unread policy",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Etsy Creativity / AI Disclosure Gate",
     "version": "v1.3.2"
   },
@@ -344,18 +344,18 @@
   {
     "body": "Policy Agent performs scheduled checks of Etsy Seller Policy, Creativity Standards, listing-image rules, advertising rules and shilling/review rules. Material policy changes create a blocking incident for affected workflows until reviewed/tested. Store policy version/date with each release certificate.",
     "id": 39,
-    "note": "policy freshness watch",
+    "note": "the five policy surfaces are watched separately, a material change is a digest difference rather than a judgement, a stale or unread source opens one blocking incident, and the release certificate carries the policy stamp. No policy fetcher is connected, so snapshots are recorded rather than retrieved",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "partial",
     "title": "Policy Freshness Watch",
     "version": "v1.3.2"
   },
   {
     "body": "Each Brambleloop pattern must carry explicit customer-use terms chosen deliberately: what the buyer may do with the PDF, whether finished physical items may be sold, redistribution prohibition, and support/version policy. The terms must be consistent across PDF, listing and FAQ and should be legally reviewed before relying on them as enforceable.",
     "id": 40,
-    "note": "product rights / commercial-use terms",
+    "note": "commerce/terms.py decides all five axes from closed options, renders the PDF, listing and FAQ from one decision, and refuses a set where the three surfaces diverge. `enforceable` stays False until a legal review is recorded",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Product Rights / Commercial-Use Terms",
     "version": "v1.3.2"
   },

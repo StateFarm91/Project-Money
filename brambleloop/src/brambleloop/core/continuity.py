@@ -70,6 +70,8 @@ NON_REDERIVABLE = (
     # asset and kept the machinery.
     "culture_signals",
     "culture_observations",
+    # A policy reading cannot be re-derived: it is what the platform said on a day.
+    "policy_snapshots",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

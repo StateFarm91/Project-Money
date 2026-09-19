@@ -371,8 +371,13 @@ def handle_certify(ctx: JobContext) -> dict:
 
     from ..quality.physical import calibration_from_db
 
+    from ..gates.platform_policy import policy_stamp
+
     cert = certify(cir, assets=[hero], listing=listing,
-                   calibration=calibration_from_db(ctx.db, cir))
+                   calibration=calibration_from_db(ctx.db, cir),
+                   # #39: the certificate records which reading of the platform's rules it
+                   # was issued under, so it can be re-examined when they change.
+                   platform_policy=policy_stamp(ctx.db))
     ctx.audit("gate.certified" if cert.granted else "gate.blocked",
               artifact=f"{cir.slug}@{cir.version}",
               policy_version=cert.policy_version,

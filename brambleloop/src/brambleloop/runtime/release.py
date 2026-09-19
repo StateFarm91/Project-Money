@@ -1145,3 +1145,66 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
             "certified": len(certified), "restarted": started,
             "redrafted": redrafted, "collections_restarted": collections_started}
+
+
+@handlers.register("ops.policy_watch")
+def handle_policy_watch(ctx: JobContext) -> dict:
+    """Check how old this company's reading of Etsy's rules is, and block what it must.
+
+    Requirement 39. Deliberately does *not* fetch: no policy fetcher is connected, and a
+    cadence that fails on every run because a dependency is absent is a dead letter with a
+    schedule. What it does is the part that does not need the network — notice that a reading
+    is stale or missing, and open a blocking incident for the workflows that reading governs.
+
+    The incident is per source and opened once. A blocking incident re-raised every six hours
+    is an alert people filter, which is the same as no alert but with more rows.
+
+    GREEN by the authority matrix: it reads its own tables, writes audit rows and opens
+    incidents. It fetches nothing, publishes nothing and spends nothing.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..gates.platform_policy import MAX_AGE_DAYS, POLICY_SOURCES, freshness
+
+    report = freshness(ctx.db)
+    unread = list(report["never_checked"])
+    stale = [e["source"] for e in report["stale"]]
+    needs_attention = unread + stale
+
+    opened: list[str] = []
+    with ctx.db.session() as s:
+        open_signatures = {
+            i.signature for i in s.scalars(select(Incident).where(
+                Incident.resolved == False))  # noqa: E712
+        }
+        for source in needs_attention:
+            signature = f"policy_stale:{source}"
+            if signature in open_signatures:
+                continue
+            affects = ", ".join(POLICY_SOURCES[source][1])
+            why = ("has never been read" if source in unread
+                   else f"was last read more than {MAX_AGE_DAYS} days ago")
+            s.add(Incident(
+                severity="P2", signature=signature,
+                summary=(f"Etsy {source.replace('_', ' ')} {why}. Until it is, "
+                         f"{affects} cannot be certified against current policy, and a new "
+                         f"asset or product class cannot be enabled (#35, #39)."),
+                halts_publication=False,
+                detail={"source": source, "url": POLICY_SOURCES[source][0],
+                        "affects": list(POLICY_SOURCES[source][1]),
+                        "owner_action": ("connect a policy reader, or read the page and "
+                                         "record the snapshot by hand"),
+                        "freshness": report}))
+            opened.append(source)
+
+    ctx.audit("policy.watched", detail={
+        "all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
+        "incidents_opened": opened, "blocked_workflows": report["blocked_workflows"]})
+
+    return {"all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
+            "incidents_opened": opened,
+            "blocked_workflows": report["blocked_workflows"],
+            "note": ("This cadence does not fetch. No policy reader is connected, and a "
+                     "cadence that fails every run because a dependency is absent is a dead "
+                     "letter with a schedule.")}
