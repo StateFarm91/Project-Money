@@ -168,6 +168,38 @@ def test_christmas_maps_to_the_christmas_occasion():
     assert P.occasion_for("Halloween") == "halloween"
 
 
+def test_arenas_reads_the_key_the_matrix_actually_returns():
+    """The second reader/writer key disagreement today, and the same comfortable failure.
+
+    `arenas()` read `proven_gaps` -- the name of the local variable that builds the list --
+    while the matrix returns `proven_and_unserved`. The wrong key returns an empty list, and
+    an empty list of proven gaps is indistinguishable from a catalogue that answers every
+    proven market. Production reported no arenas against a matrix holding twenty-seven.
+    """
+    from brambleloop.seasonal import benchmark_matrix
+
+    db = _db()
+    with db.session() as s:
+        for i in range(6):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"S{i}",
+                                   title="Cozy Crochet Christmas Stocking Pattern",
+                                   pod="stockings"))
+    report = benchmark_matrix.matrix(db)
+    gaps = report[benchmark_matrix.PROVEN_KEY]
+    assert gaps, "the fixture produced no proven gap, so this test proves nothing"
+    found = P.arenas(db)
+    assert len(found) == min(len(gaps), 12), (len(found), len(gaps))
+
+
+def test_no_reader_carries_its_own_literal_for_the_proven_gap_key():
+    """One constant, because guessing it wrong fails silently and flatteringly."""
+    from brambleloop.seasonal import benchmark_matrix
+
+    src = (ROOT / "src" / "brambleloop" / "creative" / "prospecting.py").read_text()
+    assert '"proven_gaps"' not in src and "'proven_gaps'" not in src
+    assert benchmark_matrix.PROVEN_KEY == "proven_and_unserved"
+
+
 # ---- the gauntlet -----------------------------------------------------------
 
 

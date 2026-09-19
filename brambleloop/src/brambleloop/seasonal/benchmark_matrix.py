@@ -26,6 +26,12 @@ from .calendar import coverage_matrix
 OBSERVED, UNOBSERVED = "observed", "unobserved"
 
 
+# The key the proven-and-unserved rows are returned under. A constant because a reader
+# guessed it wrong once and got an empty list, which reads exactly like a catalogue that
+# answers every proven market.
+PROVEN_KEY = "proven_and_unserved"
+
+
 def benchmark_depth(db, *, benchmark_key: str | None = None) -> dict:
     """How many observed listings the benchmark has in each department.
 
@@ -99,7 +105,7 @@ def matrix(db, *, today: date | None = None,
         "benchmark": benchmark_key,
         "benchmark_observed_listings": theirs["observed"],
         "rows": rows,
-        "proven_and_unserved": proven_gaps,
+        PROVEN_KEY: proven_gaps,
         "note": (
             "no competitor listing has been observed, so every benchmark cell is unknown "
             "rather than empty. An unobserved market and a market with nothing in it render "

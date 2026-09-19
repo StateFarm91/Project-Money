@@ -169,8 +169,14 @@ def arenas(db, *, today: date | None = None, limit: int = 12) -> list[Arena]:
     from ..seasonal import benchmark_matrix
 
     report = benchmark_matrix.matrix(db, today=today)
+    # `proven_and_unserved`, which is the key the matrix returns -- not `proven_gaps`, which
+    # is the name of the local variable that builds it. Reading the wrong key here returned
+    # an empty list, and an empty list of gaps is indistinguishable from a catalogue that
+    # answers every proven market. Production reported "no arenas" against a matrix holding
+    # 27 of them, which is the second time today a reader and a writer disagreed about a key
+    # and the wrong answer was the comfortable one.
     out: list[Arena] = []
-    for gap in report.get("proven_gaps", [])[:limit]:
+    for gap in report.get(benchmark_matrix.PROVEN_KEY, [])[:limit]:
         out.append(Arena(
             event=gap["event"], pod=gap["department"],
             benchmark_listings=gap["benchmark_listings"] or 0,
