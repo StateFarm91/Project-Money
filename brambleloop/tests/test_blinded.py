@@ -120,6 +120,49 @@ def test_a_bundle_is_not_paired_against_a_single_product_concept():
 # ---- pairing ---------------------------------------------------------------
 
 
+def test_a_cross_form_pairing_is_refused():
+    """The confound the first live run walked straight into, with both guards green.
+
+    11-1 to this catalogue, position share exactly 0.50, above the sample floor,
+    `valid: true`. Worthless: the judge named "throw" in nine of twelve reasons against
+    pillows, coasters and wreaths. A blanket beats a coaster on perceived value whoever
+    designed it, so the run measured which object is bigger.
+    """
+    ours = B.from_concept(_concept("bl-1", pod="home_decor"))
+    theirs = B.Card(ref="1", side=B.THEIRS, pod="home_decor", form="coaster",
+                    occasion="everyday", recipient="self", feeling="bold")
+    try:
+        B.pair(ours, theirs)
+    except B.NotComparable as e:
+        assert "which object is bigger" in str(e)
+    else:
+        raise AssertionError("a throw was judged against a coaster")
+
+
+def test_a_run_refuses_to_buy_a_measurement_whose_answer_is_already_known():
+    """Below the floor the verdict is `unmeasured` whatever the judge says, so do not pay."""
+    db = _db()
+    _seed(db, n=3)
+    gw = _Gateway()
+    try:
+        B.run(db, [_concept("bl-1")], gateway=gw, per_pod=3)
+    except B.RunRefused as e:
+        assert "already known" in str(e)
+        assert gw.calls == 0, "it spent money on a run it had already decided was unmeasured"
+    else:
+        raise AssertionError("it bought a result it knew would be unmeasured")
+
+
+def test_the_overlap_report_names_what_this_catalogue_makes_that_the_benchmark_does_not():
+    """The empty side is the finding: it is a fact about the catalogue, not about the tool."""
+    from brambleloop.creative.audit import catalogue_concepts
+
+    overlap = B.form_overlap(catalogue_concepts(), [])
+    assert overlap["our_concepts_with_an_opponent"] == 0
+    forms = {r["form"] for r in overlap["ours_only"]}
+    assert "rectangle_throw" in forms and "garland" in forms
+
+
 def test_a_cross_pod_pairing_is_refused():
     """A stocking beating a cardigan measures which department is easier to love."""
     ours = B.from_concept(_concept("bl-1", pod="blankets"))
@@ -153,11 +196,13 @@ def test_the_order_is_not_always_the_same_across_pairs():
     assert firsts == {B.OURS, B.THEIRS}
 
 
-def test_no_pod_can_drown_the_others():
-    """140 benchmark garments would make the overall rate a statement about garments."""
-    listings = ([_listing(str(i), "Cozy Crochet Cardigan Pattern", "garments") for i in range(50)]
-                + [_listing("x", "Chunky Throw Blanket", "blankets")])
-    pairs = B.build_pairs([_concept("bl-1", pod="garments")], listings, per_pod=3)
+def test_no_slot_can_drown_the_others():
+    """140 benchmark cardigans would make the overall rate a statement about cardigans."""
+    listings = [_listing(str(i), "Cozy Crochet Cardigan Pattern", "garments")
+                for i in range(50)]
+    ours = _concept("bl-1", pod="garments")
+    ours = Concept(**{**ours.__dict__, "form": "fitted_garment"})
+    pairs = B.build_pairs([ours], listings, per_pod=3)
     assert len(pairs) == 3
 
 
@@ -248,7 +293,7 @@ class _Gateway:
         return {"pick": self.pick, "reason": "it reads as a gift"}
 
 
-def _seed(db, n: int = 6):
+def _seed(db, n: int = 20):
     with db.session() as s:
         for i in range(n):
             s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"L{i}",
@@ -321,8 +366,9 @@ def test_a_judge_that_fails_costs_a_pair_and_not_the_run():
 
 def test_a_pick_that_is_not_a_presented_position_is_not_counted():
     db = _db()
-    _seed(db)
-    result = B.run(db, [_concept("bl-1")], gateway=_Gateway(pick="neither"))
+    _seed(db, n=30)
+    result = B.run(db, [_concept(f"bl-{i}") for i in range(6)],
+                   gateway=_Gateway(pick="neither"))
     assert result["pairs_judged"] == 0
     assert result["problems"]
 

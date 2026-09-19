@@ -13,7 +13,9 @@ creative gate has been reporting 0 of 11 survivors with emotional appeal as the 
 failure. A number for "are ours as appealing as theirs" is the thing that turns that from an
 opinion into a measurement.
 
-Three ways this measurement lies, and the guard for each.
+Four ways this measurement lies, and the guard for each. The fourth is here because the
+first live run found it, 11-1 to this catalogue with every other guard green -- which is the
+best argument available that a measurement like this should be run early and distrusted.
 
 **It is not blinded unless blinding is mechanical.** A comparison where one card says
 "Hearthside Throw, heirloom winter warmth" and the other says "CROCHET PATTERN & VIDEO/ ..."
@@ -29,7 +31,18 @@ because a correction applied to a judge that was not really reading is a number 
 bars around nothing.
 
 **A win rate from four pairs is not a capability.** Below a floor there is no rate, only
-`unmeasured`, which is not the same as parity and very much not the same as losing.
+`unmeasured`, which is not the same as parity and very much not the same as losing. And a
+run that cannot reach the floor is refused *before* it spends, because paying for a result
+already known is worse than not measuring.
+
+**A judge shown a blanket and a coaster picks the blanket.** The first live run scored 11-1
+and named "throw" in nine of its twelve reasons, against opponents that were pillows,
+coasters and wreaths. Our home decor is mostly rectangle throws and theirs is small accent
+objects, so it measured which object is bigger -- a thing that is true whoever designed
+either one. Pairing is therefore same-*form* as well as same-pod, which removes the confound
+by construction and leaves far fewer pairs. That is the honest trade: this catalogue and this
+benchmark barely overlap in what they make, and `form_overlap()` reports the empty side,
+because that is a finding about the catalogue rather than a limitation of the tool.
 
 Nothing here reads or reproduces a competitor's pattern instructions. It compares what a
 product *is and promises* -- pod, form, occasion, recipient, feeling -- which is demand
@@ -278,10 +291,24 @@ def _coin(seed: str) -> bool:
 
 
 def pair(ours: Card, theirs: Card, *, seed: str = "") -> Pairing:
-    """One same-pod head-to-head, with the presentation order decided before anything reads it.
+    """One same-pod, same-form head-to-head, with the order decided before anything reads it.
 
     Same pod because a stocking beating a cardigan measures which department is easier to
-    love. #168 makes the same point about purchased benchmarks; it is the same mistake here.
+    love. #168 makes that point about purchased benchmarks and it is the same mistake here.
+
+    Same *form* for a reason the first live run taught, which no amount of reasoning about
+    this design had produced. That run came back 11-1 to this catalogue, position share
+    exactly 0.50, comfortably above the sample floor, `valid: true`, verdict `ahead`. It was
+    worthless. The judge's own reasons said why: it named "throw" in nine of twelve, against
+    opponents that were pillows, coasters and wreaths. Our home decor is mostly rectangle
+    throws and theirs is small accent objects, so the run measured **which object is bigger**
+    -- and a blanket beats a coaster on perceived value every time, whoever designed it.
+
+    That is a third confound, alongside position bias and a thin sample, and the first two
+    guards passed it without complaint. It cannot be corrected after the fact any more than
+    position bias can, so it is removed by construction: a throw is judged against a throw.
+    The cost is that far fewer pairs exist, and the run then honestly reports `unmeasured`
+    instead of confidently reporting a number about nothing.
     """
     if ours.side != OURS or theirs.side != THEIRS:
         raise NotComparable("a pairing is one of ours against one of theirs")
@@ -289,6 +316,11 @@ def pair(ours: Card, theirs: Card, *, seed: str = "") -> Pairing:
         raise NotComparable(
             f"{ours.pod!r} against {theirs.pod!r} measures which department is easier to "
             f"love, not which idea is better. A comparison is same-pod or it is not one")
+    if ours.form != theirs.form:
+        raise NotComparable(
+            f"{ours.form!r} against {theirs.form!r} measures which object is bigger. A "
+            f"blanket beats a coaster on perceived value whoever designed it, and the first "
+            f"live run scored 11-1 on exactly that and called itself valid")
     return Pairing(ours, theirs, OURS if _coin(seed or f"{ours.ref}|{theirs.ref}") else THEIRS)
 
 
@@ -300,7 +332,7 @@ def build_pairs(concepts: list[Concept], listings: list[dict], *,
     and the overall win rate would become a statement about garments wearing the label of a
     statement about this company.
     """
-    theirs_by_pod: dict[str, list[Card]] = {}
+    theirs_by_form: dict[tuple[str, str], list[Card]] = {}
     unreadable = 0
     for listing in listings:
         try:
@@ -309,17 +341,17 @@ def build_pairs(concepts: list[Concept], listings: list[dict], *,
             unreadable += 1
             continue
         if card.ref:
-            theirs_by_pod.setdefault(card.pod, []).append(card)
+            theirs_by_form.setdefault((card.pod, card.form), []).append(card)
 
     rng = random.Random(seed)
     pairs: list[Pairing] = []
     for concept in concepts:
-        pool = theirs_by_pod.get(concept.pod) or []
-        if not pool:
-            continue
         try:
             ours = from_concept(concept)
         except NotComparable:
+            continue
+        pool = theirs_by_form.get((ours.pod, ours.form)) or []
+        if not pool:
             continue
         for opponent in rng.sample(pool, min(per_pod, len(pool))):
             try:
@@ -327,6 +359,51 @@ def build_pairs(concepts: list[Concept], listings: list[dict], *,
             except (NotComparable, BlindingFailed):
                 continue
     return pairs
+
+
+def form_overlap(concepts: list[Concept], listings: list[dict]) -> dict:
+    """Which pod-and-form slots both sides can field, which is what bounds the comparison.
+
+    The interesting output is usually the empty side. This catalogue is eleven flat
+    home-decor panels; the benchmark's home decor is pillows, wreaths and poufs. There is
+    very little like-for-like to compare, and that is a finding about the catalogue rather
+    than a limitation of the measurement.
+    """
+    mine: dict[tuple[str, str], int] = {}
+    for concept in concepts:
+        try:
+            card = from_concept(concept)
+        except NotComparable:
+            continue
+        mine[(card.pod, card.form)] = mine.get((card.pod, card.form), 0) + 1
+
+    theirs: dict[tuple[str, str], int] = {}
+    for listing in listings:
+        try:
+            card = from_listing(listing)
+        except (Unreadable, NotComparable):
+            continue
+        theirs[(card.pod, card.form)] = theirs.get((card.pod, card.form), 0) + 1
+
+    shared = sorted(set(mine) & set(theirs))
+    return {
+        "shared_slots": [{"pod": p, "form": f, "ours": mine[(p, f)],
+                          "theirs": theirs[(p, f)]} for p, f in shared],
+        "ours_only": [{"pod": p, "form": f, "ours": n}
+                      for (p, f), n in sorted(mine.items()) if (p, f) not in theirs],
+        "theirs_only_count": len([k for k in theirs if k not in mine]),
+        "our_concepts_with_an_opponent": sum(mine[k] for k in shared),
+        "our_concepts": sum(mine.values()),
+    }
+
+
+def _overlap_sentence(concepts: list[Concept], listings: list[dict]) -> str:
+    overlap = form_overlap(concepts, listings)
+    ours_only = ", ".join(f'{r["pod"]}/{r["form"]}' for r in overlap["ours_only"][:6])
+    return (f'{overlap["our_concepts_with_an_opponent"]} of {overlap["our_concepts"]} '
+            f'concepts have a like-for-like opponent at all'
+            + (f'; this catalogue makes {ours_only}, which this benchmark does not.'
+               if ours_only else '.'))
 
 
 def readability(listings: list[dict]) -> dict:
@@ -504,8 +581,18 @@ def run(db, concepts: list[Concept], *, gateway=None, agent: str = "creative_dir
     pairs = build_pairs(concepts, listings, per_pod=per_pod, seed=seed)[:max_pairs]
     if not pairs:
         raise RunRefused(
-            "no concept shares a pod with an observed listing, so every pairing would have "
-            "compared departments rather than ideas")
+            "no concept shares a pod and a form with an observed listing, so every pairing "
+            "would have compared departments or object sizes rather than ideas. "
+            + _overlap_sentence(concepts, listings))
+    if len(pairs) < MIN_PAIRS:
+        # Refused before spending rather than after. A run that judges eight pairs reports
+        # `unmeasured` by design, so buying it is paying real money for a result already
+        # known -- and the ceiling is a maximum, not a target.
+        raise RunRefused(
+            f"only {len(pairs)} like-for-like pairs exist against a floor of {MIN_PAIRS}, so "
+            f"this run would report `unmeasured` whatever the judge said. Refused before "
+            f"spending: a measurement whose answer is already known costs nothing to skip. "
+            + _overlap_sentence(concepts, listings))
 
     judgements: list[Judgement] = []
     problems: list[str] = []
@@ -543,6 +630,7 @@ def run(db, concepts: list[Concept], *, gateway=None, agent: str = "creative_dir
         "problems": problems,
         "benchmark_listings": len(listings),
         "benchmark_readability": readability(listings),
+        "form_overlap": form_overlap(concepts, listings),
         "reasons": [{"pod": j.pairing.ours.pod, "winner": j.winner, "why": j.reason}
                     for j in judgements[:20]],
         "note": ("Blinded, same-pod, presentation order randomised per pair and recorded "
