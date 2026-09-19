@@ -1748,18 +1748,18 @@
   {
     "body": "Before launch, prove the owner can turn off all personal computers for at least 24 hours while cloud Brambleloop continues scheduled cycles, queue processing, monitoring, learning tasks and state persistence. Record timestamps, jobs completed, incidents, costs and restart/recovery evidence. This is a launch-blocking acceptance test.",
     "id": 195,
-    "note": "proof of off-device autonomy (24h test) -- release blocking",
+    "note": "build2/autonomy.off_device_proof() requires jobs completed, distinct job types, completions spread across the window, scheduler activity and no unexpected dead letters. Run against production it reports four of five met on real rows",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "missing",
+    "status": "covered",
     "title": "Proof of Off-Device Autonomy",
     "version": "v1.3.9"
   },
   {
     "body": "Any task that genuinely requires owner authorization must collapse into a mobile-friendly approval card: what is requested, why, exact capability unlocked, maximum spend, risk, rollback and consequence of waiting. Batch non-urgent approvals. Everything else continues autonomously. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.0 - Voice Session Reconciliation This is the canonical reconciliation of the critical requirements discussed in the voice session: the permanent fictional Brambleloop model, owner-directed aesthetic, identity lock, MJsOffTheHookDesigns as a permanent live benchmark, specialist intelligence pods, full-catalogue browser/vision observation, adaptive change monitoring, benchmark challenge gates and owner access approvals.",
     "id": 196,
-    "note": "OwnerAction queue carries the directive's five columns and is written by the system; not a mobile approval card with rollback",
+    "note": "executor.approval_inbox() renders each unopened gate as a card with #196's seven fields, batched free-and-quick first. The asynchrony is in sync() rather than the card layout: the queue behind it does not wait",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "partial",
+    "status": "covered",
     "title": "Owner Approval Inbox",
     "version": "v1.3.9"
   },
@@ -2747,36 +2747,36 @@
   {
     "body": "When MJs demonstrates demand in a broad/generic product arena - cardigan, sweater, stocking, blanket, ornament, bag, hat, coaster, decor or another category - the relevant Brambleloop pod MUST consider entering that same arena. It may preserve commercially useful generic characteristics visible from the finished product (e.g. cropped V-neck button cardigan, striped/color-blocked look, relaxed fit) while independently engineering the Brambleloop pattern.",
     "id": 306,
-    "note": "same-arena mandate, seasonalize MJs concepts, cardigan example",
+    "note": "intel/response.consider_arena() makes 'MUST consider' a recorded decision including a refusal, permits the generic characteristics of a finished object and refuses anything that only makes sense as a reference to the source",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "missing",
+    "status": "covered",
     "title": "Same Proven Product Arena Is Mandatory to Consider",
     "version": "v1.4.3"
   },
   {
     "body": "Every commercially meaningful MJs concept is evaluated against the rolling seasonal calendar. Ask how the broad product concept can speak to the NEXT season/holiday through colour palette, styling, trim, motif vocabulary, gift context, supporting accessories, bundles and merchandising. Christmas, Halloween, Easter and fall/winter/spring/summer are mandatory recurring lenses; other events are evidence-driven.",
     "id": 307,
-    "note": "same-arena mandate, seasonalize MJs concepts, cardigan example",
+    "note": "response.seasonalise() enumerates all eight mandatory lenses and reports a palette-only answer as the recolour it is",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "missing",
+    "status": "covered",
     "title": "Seasonalize MJs-Proven Concepts",
     "version": "v1.4.3"
   },
   {
     "body": "If MJs has a strong cropped striped cardigan listing, Brambleloop may deliberately compete with a cropped striped cardigan for the same broad buyer/search market and develop Christmas colourways such as forest/cranberry/cream/gold or other current seasonal palettes. Brambleloop independently engineers stitch counts, construction, grading and written instructions and generates Brambleloop-owned listing imagery.",
     "id": 308,
-    "note": "same-arena mandate, seasonalize MJs concepts, cardigan example",
+    "note": "the owner's Christmas cardigan example runs as a test fixture over #306 and #307 rather than as a special case in the code",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "missing",
+    "status": "covered",
     "title": "Owner Example - Christmas Cardigan Response",
     "version": "v1.4.3"
   },
   {
     "body": "MJs listing/new-change event -> specialist pod -> visual/text market decomposition -> demand/season fit -> seasonal colour/theme tournament -> customer make-time estimate -> preferred/latest launch date -> original CIR/pattern engineering -> truth/certification -> Brambleloop-owned premium assets -> benchmark challenge -> SEO/ads/content -> launch -> performance measurement -> winner scaling -> lessons back to MJs specialist memory.",
     "id": 309,
-    "note": "MJs trend-to-season mission pipeline",
+    "note": "response.PIPELINE names all fourteen stages and the gate each one must pass; a stage cannot run before its predecessor and a failed gate stops the run rather than marking it amber",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "missing",
+    "status": "covered",
     "title": "MJs Trend-to-Season Mission Pipeline",
     "version": "v1.4.3"
   },

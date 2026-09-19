@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 134 | satisfied, with a named test or artefact |
-| partial | 71 | something real exists and is short of the requirement |
-| missing | 64 | nobody has built it |
+| covered | 140 | satisfied, with a named test or artefact |
+| partial | 70 | something real exists and is short of the requirement |
+| missing | 59 | nobody has built it |
 | owner_gated | 39 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **135 requirements are executable** (partial +
+as one nobody has written. **129 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -58,8 +58,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **857 tests passing, 0 failing** across
-49 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **872 tests passing, 0 failing** across
+50 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -201,12 +201,41 @@ evaporates when the session does, and the failure is invisible until the moment 
   returns 200* (#185), and a container answering health checks with a stalled queue passes
   every naive uptime monitor ever written.
 
-### Two defects this surfaced
+### Then it continued, from the requirement the queue named
+
+The loop's first job was to say what to do next, and it said **#302's cluster** — the
+MJs-proven-arena response (#306, #307, #308, #309). Built immediately, because it is what
+makes tomorrow's credential productive: the pipeline is what waits for observations, not the
+other way round.
+
+- **A third content boundary, drawn in a different place (#306).** The teardown library
+  refuses a competitor's instructions and the culture router refuses their property. This one
+  has to *permit* "cropped V-neck button cardigan" while refusing "their stripe sequence" —
+  because a rule that forbade entering a proven arena would make the intelligence mission
+  conclude that the useful answer is never to act on what it found, which is the most
+  expensive possible conclusion for the company's stated top priority.
+- **"MUST consider" is satisfied by a recorded refusal and never by silence,** and entering
+  requires a differentiator — #163's anti-parity rule arriving through the competitive door.
+- **Seasonalising enumerates eight lenses (#307),** and a palette-only answer is reported as
+  the recolour it is: exactly the output this build measured as its creativity defect.
+- **Fourteen pipeline stages, each naming its gate (#309).** A long pipeline never fails by
+  collapsing; it fails by one stage quietly becoming optional, and a failed gate stops the run
+  rather than marking it amber.
+- **The owner's Christmas cardigan example (#308) is a test fixture** over #306 and #307
+  rather than a special case in the code.
+
+### Three defects this surfaced
 
 **Four requirements the registry called executable cannot be built without a credential**
 (#177, #178, #221, #222). The gate validator refused them as ungated, which is exactly what it
 is for. Registry reconciled; ready count and executable count now agree by construction, with
 a test asserting it.
+
+**The off-device proof counted a different set than its verdict tested.** Run against
+production it reported sixteen dead letters where the condition meant one: shadow-mode publish
+refusals are the gate working and were excluded from the test but not from the number printed
+beside it. Same class of defect as an unmeasured rate reported as zero, in the one report whose
+whole job is to be believed.
 
 **`/api/build2` had been returning 500 in production for as long as it existed.** The registry
 JSON sat at the repository root and the Dockerfile copies `src`, so it was never in the

@@ -403,6 +403,7 @@ def api_teardown() -> dict:
     single seller — because a standard that is one shop's product with extra steps is worse
     than no standard, and it is the failure that arrives quietly.
     """
+    from ..intel import response as mjs_response
     from ..teardown import audits, pipeline, scorecard
     from ..teardown.library import ANALYST_ROLES, FORBIDDEN_ROLES
 
@@ -416,6 +417,9 @@ def api_teardown() -> dict:
         "publishing_standard": audits.publishing_requirements(db),
         "improvement_pipeline": pipeline.status(db),
         "critical_dimensions": list(pipeline.CRITICAL_DIMENSIONS),
+        # #306-#309: what happens when the benchmark proves an arena. Reported here because
+        # the teardown and the benchmark mission draw the same boundary in two places.
+        "mjs_response": mjs_response.describe(),
         "dimensions": list(scorecard.DIMENSIONS),
         "scale": scorecard.SCALE,
         "library": {

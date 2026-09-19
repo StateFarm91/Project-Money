@@ -79,7 +79,13 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
 
     unattended = [j for j in jobs if j[0] not in ATTENDED_JOB_TYPES]
     completed = [j for j in unattended if j[2] == JobStatus.DONE]
-    dead = [j for j in unattended if j[2] == JobStatus.DEAD]
+    # `store.publish` dead letters are the shadow-mode refusal working, so they are excluded
+    # here rather than only in the condition. Reporting a total that the condition does not
+    # test is how a report says 16 and means 2 -- which is the same class of lie as an
+    # unmeasured rate reported as zero, and it was doing it until production showed it.
+    dead = [j for j in unattended if j[2] == JobStatus.DEAD and j[0] != "store.publish"]
+    expected_refusals = [j for j in unattended
+                         if j[2] == JobStatus.DEAD and j[0] == "store.publish"]
 
     active_hours = len({c[1].replace(minute=0, second=0, microsecond=0) for c in completed})
     distinct_types = sorted({c[0] for c in completed})
@@ -105,9 +111,11 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
             "met": audit_hours >= MIN_SCHEDULER_WINDOWS,
             "why": "the system drove itself across the day rather than replaying one burst"},
         "no_unexpected_dead_letters": {
-            "have": len(dead), "need": 0,
-            "met": not [d for d in dead if d[0] != "store.publish"],
-            "why": "a window full of dead letters is uptime, not work"},
+            "have": len(dead), "need": 0, "met": not dead,
+            "types": sorted({d[0] for d in dead}),
+            "why": ("a window full of dead letters is uptime, not work. Shadow-mode publish "
+                    "refusals are excluded from the count as well as from the test, so this "
+                    "number means what it says")},
     }
 
     passed = all(c["met"] for c in conditions.values())
@@ -124,6 +132,7 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
             "active_hours": active_hours,
             "audit_hours": audit_hours,
             "dead_letters": len(dead),
+            "expected_publish_refusals": len(expected_refusals),
             "incidents_opened": len(incidents),
             "operating_cost_cad": round(float(costs), 4),
         },

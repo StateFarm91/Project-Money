@@ -290,6 +290,61 @@ def test_never_idle_is_measured_in_completions_rather_than_ticks():
     assert E.watchdog(db)["verdict"] == "stalled"
 
 
+# ---- the off-device proof (#195) -------------------------------------------
+
+
+def test_the_proof_counts_the_same_dead_letters_it_tests():
+    """Found in production: the report said 16 and the condition meant 2.
+
+    Shadow-mode publish refusals are the gate working, so they are excluded from the test --
+    and they were not excluded from the count beside it. A number that does not measure what
+    the verdict beside it measures is the same class of defect as an unmeasured rate
+    reported as zero.
+    """
+    from brambleloop.build2 import autonomy
+    from brambleloop.core.models import Job, JobStatus
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for i in range(5):
+            s.add(Job(agent="publishing", job_type="store.publish",
+                      status=JobStatus.DEAD, finished_at=now - timedelta(hours=i)))
+        s.add(Job(agent="orchestrator", job_type="build.tick",
+                  status=JobStatus.DEAD, finished_at=now - timedelta(hours=1)))
+
+    proof = autonomy.off_device_proof(db)
+    condition = proof["conditions"]["no_unexpected_dead_letters"]
+    assert condition["have"] == 1, "the count must exclude what the test excludes"
+    assert condition["types"] == ["build.tick"]
+    assert condition["met"] is False
+    assert proof["evidence"]["expected_publish_refusals"] == 5
+    assert "means what it says" in condition["why"]
+
+
+def test_the_proof_requires_work_spread_across_the_window_not_a_burst():
+    """A container that died after booting completes a burst and then nothing."""
+    from brambleloop.build2 import autonomy
+    from brambleloop.core.models import Job, JobStatus
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        # Fifty jobs, plenty of types, all inside ten minutes.
+        for i in range(50):
+            s.add(Job(agent="orchestrator", job_type=f"kind.{i % 6}",
+                      status=JobStatus.DONE,
+                      finished_at=now - timedelta(minutes=i % 10)))
+
+    proof = autonomy.off_device_proof(db)
+    assert proof["conditions"]["jobs_completed"]["met"] is True
+    assert proof["conditions"]["distinct_job_types"]["met"] is True
+    assert proof["conditions"]["activity_spread"]["met"] is False
+    assert proof["passed"] is False
+    assert "activity_spread" in proof["unmet"]
+    assert "HTTP returns 200" in proof["note"]
+
+
 # ---- the cadence -----------------------------------------------------------
 
 
