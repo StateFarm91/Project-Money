@@ -52,10 +52,19 @@ PHASE 1 — SHADOW MODE, **deployed and running 24/7**. Nothing is connected to 
 live listings or live spend. The system runs unattended on Railway whether or not any Claude
 session is open.
 
-**`/api/verify` reports `ok: true` in production as of 2026-09-19T04:55Z** — the two
-previously dead-lettered cadences (`ops.continuity`, `seasonal.sentinel`) were requeued
-on the deployed fixes and both completed, so the standing safety assertions are green
-against live state rather than only in tests.
+**`/api/verify` reports `ok: true` in production as of 2026-09-19T16:40Z — 12 of 12
+checks passing**, against live state rather than only in tests. Also verified in production
+on this deploy rather than asserted:
+
+- **A real model call succeeded** (15:31Z, 14 tokens in, 4 out, CA$0.0000466). Month-to-date
+  model spend CA$0.000047 against a CA$25 ceiling enforced before each request.
+- **The continuity archive is retained**: archive 1 holds 5,299 rows across 41 tables,
+  6.26 MB compressed to 604 KB. It survives a container replacement and a redeploy, and not
+  the loss of the provider — which is the half still parked on `offsite_storage`.
+- **The operator credential is configured** (Railway-side, never in this repository), so
+  `GET /api/continuity/export` is reachable by the owner and `POST /api/queue/requeue` can
+  re-drive a dead letter whose defect has been fixed. Both were closed-by-default before,
+  which was the safe direction and also meant the export nobody could download.
 
 Live: https://brambleloop-os-production.up.railway.app — dashboard `/`, health `/health`,
 status `/api/status`, **verification `/api/verify`**.
@@ -92,8 +101,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **916 tests passing, 0 failing** across
-54 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **1,166 tests passing, 0 failing** across
+73 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
