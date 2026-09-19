@@ -40,7 +40,7 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
-                            "mjs.scan"],
+                            "mjs.scan", "etsy.probe"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
     dict(name="crochet_engineer", description="Authors CIR from a creative brief",
          allowed_job_types=["cir.draft", "cir.revise"], authority=Authority.GREEN,

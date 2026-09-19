@@ -166,6 +166,19 @@ def _model_usable(db, env) -> bool:
     return usable(db)
 
 
+def _etsy_usable(db, env) -> bool:
+    """A credential is not a capability, for the same reason a key was not one.
+
+    Etsy v3 refuses the keystring alone with "Shared secret is required in x-api-key
+    header", so a half-configured credential is indistinguishable from a working one until
+    something actually asks. The condition is therefore a recorded successful read, and it
+    opens by itself when one happens.
+    """
+    from ..intel.etsy_public import usable
+
+    return usable(db)
+
+
 def _ads_authorised(db, env) -> bool:
     """Advertising authority is a spend limit the owner set, not a sentence in a chat."""
     from sqlalchemy import select
@@ -201,10 +214,10 @@ class Gate:
 
 GATES: tuple[Gate, ...] = (
     Gate("benchmark_observation",
-         "read-only Etsy API credentials for the MJs benchmark mission",
-         lambda db, env: _env_gate("ETSY_API_KEY", "ETSY_SHARED_SECRET")(db, env),
+         "read-only Etsy API credentials that can actually serve a request",
+         _etsy_usable,
          (206, 299, 301, 303, 319),
-         "both Railway variables are set and non-empty"),
+         "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
     Gate("model_provider", "a model provider that can actually serve a request",
          _model_usable,
          (94, 104, 177, 178),
@@ -225,9 +238,9 @@ GATES: tuple[Gate, ...] = (
     Gate("etsy_api",
          "Etsy API credentials, which are what lets this system read the shop's own seller "
          "data rather than a person reading it on a screen",
-         lambda db, env: _env_gate("ETSY_API_KEY", "ETSY_SHARED_SECRET")(db, env),
+         _etsy_usable,
          (1, 37, 235, 236),
-         "both Railway variables are set and non-empty"),
+         "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
     Gate("browser_vision",
          "a cloud browser/vision worker pool for rendered-page and image evidence",
          _env_gate("BRAMBLELOOP_BROWSER_URL"),

@@ -220,6 +220,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # baseline exists, and the fingerprint makes an unchanged catalogue nearly free -- but
     # cadence that adapts to the shop's own posting behaviour is still to build, so this is
     # a fixed interval chosen to be cheap rather than an adaptive one claimed to be smart.
+    # Six-hourly, ahead of the scan that depends on it. The benchmark gate reads this
+    # probe's result rather than the presence of two variables, so this is what opens it --
+    # and what closes it again if the credential is ever revoked, without anybody noticing
+    # by finding an empty catalogue.
+    ("etsy_probe", "market_radar", "etsy.probe", 6 * 60 * 60),
     ("mjs_scan", "market_radar", "mjs.scan", 6 * 60 * 60),
     # Weekly, because a retrospective run daily becomes noise and one run quarterly is
     # archaeology. #100 asks for a cadence; this is the one a human would keep reading.

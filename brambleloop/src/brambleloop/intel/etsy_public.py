@@ -37,6 +37,7 @@ import os
 import time
 import urllib.parse
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 BASE = "https://openapi.etsy.com"
@@ -335,4 +336,90 @@ def capability_report(env: dict[str, str] | None = None) -> dict:
             "send a token. Two parts of the mandate are not covered by the API: one is "
             "answered by the approved model provider reading public image URLs, and one "
             "needs a browser and is recorded as unmet rather than approximated."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Demonstrated capability
+#
+# The owner's condition on these credentials: the gate opens from a successful read, not from
+# the variables being present. That is the same lesson the model provider taught on the same
+# day -- a key that authenticates against an account which cannot serve a request would have
+# opened a gate and un-parked work nothing could start. Here the failure mode is narrower and
+# real: Etsy v3 refuses the keystring alone with "Shared secret is required in x-api-key
+# header", so a half-configured credential is indistinguishable from a working one until
+# something actually asks.
+
+PROBE_ENDPOINT = "ping"
+
+
+def probe(db, *, transport=None, env: dict[str, str] | None = None) -> dict:
+    """Make the smallest sanctioned read and record whether it worked.
+
+    The ping endpoint returns an application id and nothing about anybody's shop, so this
+    demonstrates capability without reading data the mission has not decided to read yet.
+    Nothing about the credential is recorded, in the row or in the failure.
+    """
+    from ..core.models import AuditLog
+
+    record: dict = {"at": datetime.now(timezone.utc).isoformat(),
+                    "endpoint": PROBE_ENDPOINT, "ok": False, "reason": ""}
+
+    credential = ReadCredential.from_env(env)
+    if credential is None:
+        record["reason"] = f"{KEYSTRING_VAR} is not set"
+    elif not credential.complete:
+        record["reason"] = (f"{SECRET_VAR} is not set; Etsy v3 refuses the keystring alone "
+                            f"with 'Shared secret is required in x-api-key header'")
+    else:
+        from ..integrations.http import UrllibTransport
+
+        reader = PublicReader(transport or UrllibTransport(), env=env)
+        try:
+            body = reader.get(PROBE_ENDPOINT)
+        except Exception as exc:  # noqa: BLE001 - the reason is the point, whatever it is
+            record["reason"] = f"{type(exc).__name__}: {exc}"[:400]
+        else:
+            record["ok"] = True
+            # The application id identifies the developer application, not the credential,
+            # and having it in the row is what makes "this worked" checkable later.
+            record["application_id"] = body.get("application_id")
+
+    with db.session() as s:
+        s.add(AuditLog(actor="market_radar", action="etsy.probe",
+                       artifact=PROBE_ENDPOINT, detail=record))
+    return record
+
+
+def last_probe(db) -> dict | None:
+    """The most recent probe result, or None if nobody has ever tried."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "etsy.probe")
+                              .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None
+
+
+def usable(db) -> bool:
+    """Whether a real sanctioned read has actually succeeded. The gate's condition."""
+    state = last_probe(db)
+    return bool(state and state.get("ok"))
+
+
+def capability(db, env: dict[str, str] | None = None) -> dict:
+    """What this company can currently read from Etsy, and what that rests on."""
+    state = last_probe(db)
+    return {
+        **health(env),
+        "last_probe": state,
+        "demonstrated": bool(state and state.get("ok")),
+        "note": ("no probe has been run, so whether these credentials can serve a request is "
+                 "unknown -- which is not the same as unavailable"
+                 if state is None else
+                 "a real sanctioned read succeeded, so the mission can observe"
+                 if state.get("ok") else
+                 f"the last read failed: {str(state.get('reason', ''))[:200]}"),
     }

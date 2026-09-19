@@ -815,6 +815,31 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/etsy")
+def api_etsy() -> dict:
+    """What this company can currently read from Etsy, and what that rests on.
+
+    A credential is not a capability: Etsy v3 refuses the keystring alone, so this reports
+    the last real read rather than whether two variables exist. It never reports the
+    credential itself.
+    """
+    from ..intel import etsy_public
+
+    return etsy_public.capability(db)
+
+
+@app.post("/api/etsy/probe")
+def api_etsy_probe() -> dict:
+    """Ask Etsy now rather than waiting for the six-hourly cadence."""
+    key = f"etsy.probe:{utcnow():%Y%m%dT%H%M}"
+    try:
+        job = JobQueue(db).enqueue("market_radar", "etsy.probe", {}, idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False, "reason": "a probe was already queued this minute"}
+    return {"enqueued": True, "job_id": job.id,
+            "note": "the result appears at GET /api/etsy once the worker runs it"}
+
+
 @app.get("/api/model")
 def api_model() -> dict:
     """Whether a model provider can actually serve a request, and what has been spent.

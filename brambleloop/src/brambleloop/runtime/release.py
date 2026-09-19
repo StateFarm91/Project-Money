@@ -994,6 +994,27 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
             "compression": programmes}
 
 
+@handlers.register("etsy.probe")
+def handle_etsy_probe(ctx: JobContext) -> dict:
+    """Ask the Etsy API whether these credentials can actually serve a request.
+
+    The owner's condition on the credentials: the gate opens from a successful read, not from
+    the variables existing. Etsy v3 refuses the keystring alone -- "Shared secret is required
+    in x-api-key header" -- so a half-configured credential is indistinguishable from a
+    working one until something asks.
+
+    The smallest sanctioned read: an application ping, which returns an application id and
+    nothing about anybody's shop. GREEN by the authority matrix -- read-only, public, no
+    publication, no spend, no customer contact.
+    """
+    from ..intel import etsy_public
+
+    record = etsy_public.probe(ctx.db)
+    ctx.audit("etsy.probe.ok" if record["ok"] else "etsy.probe.unavailable",
+              detail=record)
+    return record
+
+
 @handlers.register("mjs.scan")
 def handle_mjs_scan(ctx: JobContext) -> dict:
     """Scan the named benchmark catalogue: baseline once, then only what changed.
