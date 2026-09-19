@@ -212,6 +212,7 @@ def test_verify_endpoint_reports_the_standing_safety_assertions():
     for expected in ("phase_is_shadow", "nothing_published", "no_paid_advertising",
                      "no_revenue_claimed", "every_agent_has_a_cost_ceiling",
                      "state_is_in_a_durable_database", "worker_is_alive",
+                     "model_spend_within_its_ceiling",
                      "no_unexpected_dead_letters_in_24h"):
         assert expected in names, expected
     by_name = {ch["check"]: ch for ch in body["checks"]}
@@ -220,6 +221,33 @@ def test_verify_endpoint_reports_the_standing_safety_assertions():
     assert by_name["no_revenue_claimed"]["ok"] is True
     # Every check carries the evidence it used, so a green result can be argued with.
     assert all(ch["evidence"] for ch in body["checks"])
+
+
+def test_the_model_assertion_is_about_spend_rather_than_about_a_key_existing():
+    """The old assertion was "no model provider is configured". It was true for the whole of
+    Build 1 and stopped being true the moment the owner supplied a key.
+
+    A standing safety check that an owner decision has overtaken is not a safety check. It is
+    a red light nobody can clear, and the first thing a reader does with one is learn to
+    ignore it -- including the next time it is red for a real reason. What is still worth
+    asserting is that the spend a configured provider makes possible stays bounded.
+    """
+    from brambleloop.core.models import CostEntry
+    from brambleloop.gateway.anthropic import DEFAULT_MONTHLY_CEILING_CAD
+
+    with _client() as c:
+        body = c.get("/api/verify").json()
+
+    by_name = {ch["check"]: ch for ch in body["checks"]}
+    assert "no_model_provider_configured" not in by_name
+    assertion = by_name["model_spend_within_its_ceiling"]
+    assert assertion["ok"] is True
+    assert assertion["evidence"]["monthly_ceiling_cad"] <= DEFAULT_MONTHLY_CEILING_CAD
+    assert assertion["evidence"]["spent_this_month_cad"] == 0.0
+    # The evidence still names whatever providers are configured, so a reader can see that a
+    # key exists without the endpoint calling its existence a failure.
+    assert "providers" in assertion["evidence"]
+    assert CostEntry is not None
 
 
 def test_verify_survives_the_one_condition_it_exists_to_report():

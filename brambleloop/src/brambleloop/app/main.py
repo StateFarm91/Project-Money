@@ -1149,8 +1149,19 @@ def api_verify() -> JSONResponse:
     check("no_paid_advertising", ad_spend == 0, {"ad_spend_cad": float(ad_spend)})
     check("no_revenue_claimed", float(revenue) == 0.0 and customers == 0,
           {"revenue_cad": float(revenue), "ledger_entries": customers})
-    check("no_model_provider_configured", available_providers() == [],
-          {"providers": available_providers()})
+    # This assertion used to be "no model provider is configured", which was true for the
+    # whole of Build 1 and stopped being true the moment the owner supplied a key. A standing
+    # safety check that an owner decision has overtaken is not a safety check; it is a red
+    # light nobody can clear, and the first thing a reader does with one is learn to ignore
+    # it. What is still worth asserting is that the spend it makes possible is bounded.
+    from ..gateway.anthropic import monthly_ceiling_cad, spent_this_month_cad
+
+    ceiling = monthly_ceiling_cad()
+    model_spend = spent_this_month_cad(db)
+    check("model_spend_within_its_ceiling",
+          ceiling <= 25.0 and model_spend <= ceiling,
+          {"providers": available_providers(), "spent_this_month_cad": model_spend,
+           "monthly_ceiling_cad": ceiling})
     check("every_agent_has_a_cost_ceiling",
           bool(agents) and all(a.daily_cost_ceiling_cad > 0 for a in agents),
           {"agents": len(agents),
