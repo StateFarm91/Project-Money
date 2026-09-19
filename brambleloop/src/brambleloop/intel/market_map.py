@@ -264,6 +264,7 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200) -> dict:
             BenchmarkListing.benchmark_key == benchmark_key)))
         observed = [{"listing_ref": r.listing_ref, "title": r.title or "",
                      "product_type": r.product_type or "",
+                     "stored_pod": r.pod or UNCLASSIFIED,
                      "palette": (r.detail or {}).get("palette")} for r in rows]
 
     unrouted = [x for x in observed if route(x["title"], x["product_type"]) == UNCLASSIFIED]
@@ -280,6 +281,17 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200) -> dict:
                       key=lambda wc: (-wc[1], wc[0]))
 
     missing_palette = [x["listing_ref"] for x in observed if not x["palette"]]
+
+    # The third gap, and the one nobody would have gone looking for. The scanner routes a
+    # listing when it first sees it and then short-circuits on an unchanged fingerprint, so a
+    # widened vocabulary reaches nothing already in the table: the stored pod is whatever the
+    # vocabulary said on the day the listing was discovered. Every improvement to routing is
+    # therefore invisible until the benchmark shop happens to edit its own listings.
+    drift = [{"listing_ref": x["listing_ref"], "title": x["title"][:120],
+              "stored_pod": x["stored_pod"],
+              "current_pod": route(x["title"], x["product_type"])}
+             for x in observed
+             if route(x["title"], x["product_type"]) != x["stored_pod"]]
     return {
         "benchmark_key": benchmark_key,
         "listings": len(observed),
@@ -291,6 +303,16 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200) -> dict:
                           "product_type": x["product_type"]} for x in unrouted[:limit]],
             "frequent_terms": [{"term": w, "listings": c} for w, c in frequent[:40]],
             "truncated": max(0, len(unrouted) - limit),
+        },
+        "stored_routing_drift": {
+            "listings": len(drift),
+            "share": round(len(drift) / len(observed), 3) if observed else 0.0,
+            "reason": ("the scanner routes on discovery and skips unchanged listings, so a "
+                       "stored pod is the vocabulary of the day it was found"),
+            "remedy": "intel.observe.reclassify, which re-routes without re-reading Etsy",
+            "moves": [{"from": d["stored_pod"], "to": d["current_pod"],
+                       "listing_ref": d["listing_ref"], "title": d["title"]}
+                      for d in drift[:limit]],
         },
         "attributes": {
             "palette": {

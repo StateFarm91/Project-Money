@@ -310,3 +310,47 @@ def scan_or_explain(db, *, env: dict[str, str] | None = None,
     report = result.to_report()
     mission.check_report(report)
     return {"ran": True, "report": report}
+
+
+def reclassify(db, *, benchmark_key: str = "", dry_run: bool = False) -> dict:
+    """Re-route every stored listing through the current pod vocabulary.
+
+    The scanner routes a listing once, when it first sees it, and then short-circuits on an
+    unchanged fingerprint -- which is right for cost and wrong for coverage. It means every
+    improvement to the pod vocabulary applies only to listings the benchmark shop happens to
+    edit afterwards, so a widening drawn from 58 unrouted titles would leave all 58 unrouted.
+
+    This costs nothing: it re-reads titles already in the table, not Etsy.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    moves: list[dict] = []
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key)))
+        for row in rows:
+            current = pods.route(row.title or "", row.product_type or "")
+            if current == (row.pod or pods.UNCLASSIFIED):
+                continue
+            moves.append({"listing_ref": row.listing_ref, "title": (row.title or "")[:120],
+                          "from": row.pod or pods.UNCLASSIFIED, "to": current})
+            if not dry_run:
+                row.pod = current
+        if dry_run:
+            s.rollback()
+
+    by_move: dict[str, int] = {}
+    for m in moves:
+        by_move[f'{m["from"]} -> {m["to"]}'] = by_move.get(f'{m["from"]} -> {m["to"]}', 0) + 1
+    return {
+        "benchmark_key": benchmark_key, "listings": len(rows), "moved": len(moves),
+        "dry_run": dry_run,
+        "by_move": dict(sorted(by_move.items(), key=lambda kv: -kv[1])),
+        "moves": moves[:200],
+        "note": ("Re-routing reads titles already stored; it makes no Etsy call and costs "
+                 "nothing. A vocabulary improvement that cannot reach the catalogue it was "
+                 "drawn from is not an improvement."),
+    }

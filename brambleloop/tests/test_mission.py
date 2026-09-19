@@ -258,20 +258,20 @@ def test_an_unrouted_listing_is_named_rather_than_counted():
     """`unclassified: 58` tells nobody which 58, so it cannot be closed."""
     db = _db()
     _listings(db, [("Crochet Christmas Stocking", ""),
-                   ("Amigurumi Fox Plush Toy", ""),
+                   ("Dusty Rose Baby Set", ""),
                    ("Boot Cuffs Pattern", "")])
     report = M.gaps(db)
     assert report["routing"]["unclassified"] == 2
     named = {r["title"] for r in report["routing"]["listings"]}
-    assert named == {"Amigurumi Fox Plush Toy", "Boot Cuffs Pattern"}, named
+    assert named == {"Dusty Rose Baby Set", "Boot Cuffs Pattern"}, named
 
 
 def test_the_gap_report_surfaces_the_terms_a_widening_may_be_drawn_from():
     """The vocabulary may only grow from observed titles, so the titles have to be readable."""
     db = _db()
-    _listings(db, [(f"Amigurumi Bunny Plush number {i}", "") for i in range(5)])
+    _listings(db, [(f"Dusty Rose Baby Set number {i}", "") for i in range(5)])
     terms = {t["term"]: t["listings"] for t in M.gaps(db)["routing"]["frequent_terms"]}
-    assert terms.get("amigurumi") == 5, terms
+    assert terms.get("dusty") == 5, terms
     assert "number" in terms  # noise is shown too; the judgement is not the report's to make
 
 
@@ -288,7 +288,7 @@ def test_a_palette_absence_names_an_unmade_call_not_a_missing_capability():
 def test_the_gap_report_reads_the_key_the_scanner_writes():
     """The defect that made the map report an empty catalogue against 438 rows."""
     db = _db()
-    _listings(db, [("Amigurumi Fox", "")])
+    _listings(db, [("Dusty Rose Baby Set", "")])
     assert M.gaps(db)["listings"] == 1
     assert M.gaps(db)["benchmark_key"] == benchmarks.MJS_KEY
 

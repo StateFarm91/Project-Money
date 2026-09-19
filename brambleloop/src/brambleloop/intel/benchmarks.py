@@ -38,9 +38,14 @@ MJS_OWNER_SUPPLIED_URL = (
 
 # The categories the mandate names for this shop (#210, #312). Pods are permanent for these
 # and are added as catalogue evidence requires -- never removed because a quarter was quiet.
+# Extended 2026-09-19 from the first full catalogue observation. The original eight were the
+# departments the mandate named; the live catalogue showed four more that no specialist owned:
+# kitchen and bath textiles (13 listings), soft sculpture (11), multi-pattern ebooks (12) and
+# guidebooks (2). They are added rather than substituted -- a pod is permanent (#312).
 MJS_CATEGORIES = (
     "garments", "blankets", "stockings", "ornaments", "home_decor",
     "bags", "hats", "seasonal_gift",
+    "kitchen_bath", "amigurumi", "collections", "education",
 )
 
 # What a URL has to contain to still be this shop. Matching on the whole URL would fail on

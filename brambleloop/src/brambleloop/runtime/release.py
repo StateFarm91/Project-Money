@@ -1026,18 +1026,28 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
     GREEN by the authority matrix: it reads public marketplace data, writes observations and
     queues internal work. It publishes nothing, spends nothing and contacts nobody.
     """
-    from ..intel.observe import scan_or_explain
+    from ..intel.observe import reclassify, scan_or_explain
 
     outcome = scan_or_explain(ctx.db)
     if not outcome["ran"]:
         ctx.audit("mjs.scan_blocked", detail=outcome)
         return {"ran": False, "reason": outcome["reason"][:200]}
 
+    # Every scan re-routes the whole stored catalogue through the current pod vocabulary.
+    # The scan itself only routes what it read, and it deliberately skips anything whose
+    # fingerprint is unchanged -- so without this, widening the vocabulary would reach only
+    # the listings the benchmark shop edits afterwards, which is close to none of them. It
+    # reads stored titles, makes no Etsy call and usually moves nothing.
+    routing = reclassify(ctx.db)
+    if routing["moved"]:
+        ctx.audit("mjs.reclassified", detail=routing)
+
     report = outcome["report"]
     ctx.audit("mjs.scanned", detail=report)
     return {"ran": True,
             "listings_known": report["catalogue_coverage"]["listings_known"],
             "new": len(report["changes"]),
+            "reclassified": routing["moved"],
             "inspected": report["catalogue_coverage"]["listings_inspected"]}
 
 

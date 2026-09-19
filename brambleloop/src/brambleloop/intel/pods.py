@@ -21,9 +21,60 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 
 UNCLASSIFIED = "unclassified"
+
+# Matching used to be `keyword in text.lower()`, and a substring test fails in both
+# directions at once. It missed "Crochet Slipper Boot Pattern" because the keyword was
+# "slippers", and "Winter Wonder Cable Mitten Pattern" because the keyword was "mittens" --
+# two listings a human would route without hesitating. In the other direction "vest" is
+# inside "harvest", "hat" is inside "what", and "top" is inside "tree topper", so a fall
+# decor listing could be routed to the garment specialist and nobody would ever see it
+# happen, because a wrong pod looks exactly like a right one from the outside.
+#
+# So matching is on words, with singulars and plurals treated as the same word. The cost of
+# the looser rule is a false positive that is invisible; the cost of the stricter one is an
+# unclassified listing, which is visible by construction (#207).
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+# "6 Granny Stitch Patterns", "10 Pattern Ebook", "3 pattern Crochet Pattern Ebook": a title
+# that counts its own patterns is selling a bundle, whatever the products inside it are.
+_COUNTS_PATTERNS = re.compile(r"\b\d+\s+(?:[a-z]+\s+){0,3}patterns?\b")
+
+
+def _singular(word: str) -> str:
+    """One canonical form per word, so "slipper" and "slippers" are the same keyword."""
+    if word.endswith("ies") and len(word) > 4:
+        return word[:-3] + "y"
+    if word.endswith("ss") or len(word) <= 3:
+        return word
+    if word.endswith("es") and word[-3:-2] in ("s", "x", "z", "h"):
+        return word[:-2]
+    if word.endswith("s"):
+        return word[:-1]
+    return word
+
+
+def _words(text: str) -> list[str]:
+    return [_singular(w) for w in _WORD.findall((text or "").lower())]
+
+
+def signals(text: str) -> tuple[frozenset[str], str]:
+    """What a title offers a router: its words, and the phrase-searchable form of them.
+
+    Computed once per listing rather than once per pod, because the router runs over a whole
+    benchmark catalogue and the pods are consulted in order until one answers.
+    """
+    words = _words(text)
+    return frozenset(words), " ".join(words)
+
+
+def counts_its_own_patterns(text: str) -> bool:
+    """True when the title states how many patterns it contains."""
+    return bool(_COUNTS_PATTERNS.search(" ".join(_WORD.findall((text or "").lower()))))
 
 
 @dataclass(frozen=True)
@@ -36,13 +87,43 @@ class Pod:
     # stocking lands in the seasonal pod and the stocking specialist never sees one.
     keywords: tuple[str, ...]
     rubric: tuple[str, ...]
+    # Set on the pod that answers for multi-pattern bundles, so a title that counts its own
+    # patterns reaches it even when it names no product this vocabulary knows.
+    claims_counted_bundles: bool = False
 
     def matches(self, text: str) -> bool:
-        low = (text or "").lower()
-        return any(k in low for k in self.keywords)
+        return self.matches_signals(*signals(text)) or (
+            self.claims_counted_bundles and counts_its_own_patterns(text))
+
+    def matches_signals(self, words: frozenset[str], phrase: str) -> bool:
+        for keyword in self.keywords:
+            if " " in keyword:
+                if " ".join(_words(keyword)) in phrase:
+                    return True
+            elif _singular(keyword) in words:
+                return True
+        return False
 
 
+# Ordered most specific first, and every keyword below is a word that appears in an observed
+# MJs title. The vocabulary is not allowed to grow from imagination: a keyword nothing matches
+# widens the table without widening coverage, and it does it invisibly.
 PODS: tuple[Pod, ...] = (
+    # First, because a guidebook about sizing is an education product that happens to be a
+    # PDF, and the ebook keywords below would otherwise claim it.
+    Pod("education", "Education and guidebooks",
+        ("guidebook", "guide book", "masterclass", "crochet course", "crochet workshop"),
+        ("what the reader can do afterwards", "worked examples over assertions",
+         "standalone value without a pattern purchase", "revision and errata policy")),
+    # Second, because a six-pattern ebook is a bundle first and a garment second. Routing it
+    # to whichever product its title mentions first puts a bundle in a product pod and hides
+    # the mechanism -- and bundling is the mechanism MJs uses most visibly.
+    Pod("collections", "Multi-pattern collections and ebooks",
+        ("ebook", "e book", "pattern collection", "pattern ebook", "collection ebook",
+         "crochet collection", "pattern bundle", "pattern pack"),
+        ("what holds the set together", "price against the sum of its parts",
+         "whether the anchor pattern is the strongest", "seasonal shelf life of the set"),
+        claims_counted_bundles=True),
     Pod("stockings", "Christmas stockings",
         ("stocking",),
         ("cuff and heel construction", "name personalisation", "hanging loop strength",
@@ -51,14 +132,36 @@ PODS: tuple[Pod, ...] = (
         ("ornament", "bauble", "tree decor", "garland", "tree skirt"),
         ("hanging behaviour", "thread weight suitability", "batch giftability",
          "thumbnail legibility at small size")),
+    # Kitchen and bath textiles: fourteen of the fifty-eight listings the old vocabulary
+    # dropped. They are not "home decor" in any useful sense -- they are consumable,
+    # washable, stash-busting and bought in sets, and they are the fastest giftables in the
+    # benchmark catalogue, which makes them directly relevant to a compressed Christmas.
+    Pod("kitchen_bath", "Kitchen and bath textiles",
+        ("dishcloth", "dish cloth", "washcloth", "wash cloth", "facecloth", "face cloth",
+         "scrubby", "scrubbie", "scrubber", "tea towel", "towel holder", "potholder",
+         "pot holder", "hot pad", "trivet", "apron", "mug cozy", "cup cozy",
+         "bottle cozy", "coffee cozy"),
+        ("absorbency and fibre honesty", "wash and shrink behaviour",
+         "set and colourway coherence", "stash-busting yardage",
+         "make time against a gifting deadline")),
+    # Soft sculpture: amigurumi proper, and the stuffed seasonal objects made the same way.
+    # A crochet pumpkin is not decor the way a table runner is decor; it is shaped, stuffed
+    # and graded by size, and the specialist who answers for a snowman answers for it.
+    Pod("amigurumi", "Amigurumi and soft sculpture",
+        ("amigurumi", "plush", "plushie", "lovey", "stuffie", "softie", "gnome", "snowman",
+         "mushroom", "acorn", "pumpkin", "doll", "toy"),
+        ("stuffing firmness and seam invisibility", "safety of attached parts",
+         "shaping without a chart", "stability when set down", "batch giftability")),
     Pod("garments", "Garments and clothing",
         ("cardigan", "sweater", "jumper", "top", "vest", "shrug", "poncho", "dress",
-         "pullover"),
+         "pullover", "shawl", "wrap", "ruana", "skirt", "coverup", "cover up", "kimono",
+         "tank", "cropped"),
         ("fit and ease strategy", "grading across sizes", "seam and shaping method",
          "drape of the stated yarn", "modelled fit coverage")),
     Pod("hats", "Hats and wearables",
-        ("hat", "beanie", "headband", "ear warmer", "scarf", "mittens", "gloves", "cowl",
-         "slippers", "socks"),
+        ("hat", "beanie", "toque", "tuque", "headband", "ear warmer", "scarf", "mitten",
+         "glove", "cowl", "slipper", "sock", "bootie", "scrunchie", "hair tie", "bandana",
+         "balaclava"),
         ("head circumference grading", "brim behaviour", "stretch recovery",
          "quick-gift make time")),
     Pod("blankets", "Blankets and throws",
@@ -71,7 +174,8 @@ PODS: tuple[Pod, ...] = (
          "load-bearing claims")),
     Pod("home_decor", "Home and decor",
         ("coaster", "placemat", "pillow", "cushion", "wall hanging", "rug", "doily",
-         "table runner", "plant hanger"),
+         "table runner", "plant hanger", "pouf", "poof", "ottoman", "wreath", "banner",
+         "bunting"),
         ("washability", "flatness and blocking", "set coherence", "interior styling")),
     Pod("seasonal_gift", "Seasonal and gift products",
         ("christmas", "halloween", "easter", "valentine", "thanksgiving", "advent",
@@ -92,8 +196,12 @@ def route(title: str, product_type: str = "") -> str:
     stocking specialist is the one who knows about heel construction.
     """
     text = f"{title} {product_type}"
+    words, phrase = signals(text)
+    counted = counts_its_own_patterns(text)
     for pod in PODS:
-        if pod.matches(text):
+        if pod.matches_signals(words, phrase):
+            return pod.key
+        if counted and pod.claims_counted_bundles:
             return pod.key
     return UNCLASSIFIED
 

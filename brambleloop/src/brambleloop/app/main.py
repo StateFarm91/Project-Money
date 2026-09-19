@@ -434,6 +434,30 @@ def api_seasonal() -> dict:
     return catalogue_plans(db)
 
 
+@app.post("/api/mjs/reclassify")
+def api_mjs_reclassify(dry_run: bool = False,
+                       authorization: str = Header(default="")) -> JSONResponse:
+    """Re-route the stored benchmark catalogue through the current pod vocabulary (#303).
+
+    Runs on every scan too. Exposed because a vocabulary widening should not have to wait six
+    hours to become visible, and because the dry run is the honest way to see what a change to
+    `pods.PODS` would actually do before it does it.
+
+    Authenticated because it writes, even though it reads only stored titles and reaches no
+    network: an endpoint that rewrites the benchmark's classification is not a public read.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..intel import observe
+
+    return JSONResponse(observe.reclassify(db, dry_run=dry_run))
+
+
 @app.get("/api/mjs/coverage")
 def api_mjs_coverage() -> dict:
     """What the living market map cannot see, named rather than counted (#207, #303).
