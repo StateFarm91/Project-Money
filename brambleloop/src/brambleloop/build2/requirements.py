@@ -26,7 +26,12 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-REGISTRY_PATH = Path(__file__).resolve().parents[3] / "build2" / "requirements.json"
+# Inside the package on purpose. It used to live at the repository root, which worked
+# everywhere except the container -- the Dockerfile copies `src`, so the registry was never
+# shipped and every endpoint that reads it returned 500 in production while passing every
+# test locally. A data file beside its module travels with it by construction rather than by
+# somebody remembering a COPY line.
+REGISTRY_PATH = Path(__file__).resolve().parent / "requirements.json"
 
 COVERED = "covered"
 PARTIAL = "partial"

@@ -20,20 +20,20 @@ exists. See `baseline/BUILD_1_BASELINE.md`, including what the baseline does **n
 ## Build 2: IN PROGRESS — Master Upgrades v1.4.3
 The owner's v1.4.3 master is the canonical Build-2 specification
 (`spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf`). All 320 numbered requirements are
-audited against the system that actually exists and carried in `build2/requirements.json`,
+audited against the system that actually exists and carried in `src/brambleloop/build2/requirements.json`,
 readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
 | covered | 134 | satisfied, with a named test or artefact |
-| partial | 73 | something real exists and is short of the requirement |
-| missing | 66 | nobody has built it |
-| owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
+| partial | 71 | something real exists and is short of the requirement |
+| missing | 64 | nobody has built it |
+| owner_gated | 39 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **139 requirements are executable by this session** (partial +
+as one nobody has written. **135 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -58,8 +58,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **840 tests passing, 0 failing** across
-48 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **857 tests passing, 0 failing** across
+49 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -162,6 +162,60 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The build loop moved out of the conversation and into Postgres (#195, #196, and the master
+intent's Autonomous Build Executor).**
+
+Build 2 *did* route around the missing Etsy credential — eight milestones landed while it was
+unavailable and no requirement waited on it. But the thing doing the routing was a session.
+The dependency graph was prose in this file, the priority queue was judgement, and the parking
+decision was made once and remembered by whoever was in the conversation. All of that
+evaporates when the session does, and the failure is invisible until the moment it matters.
+**Autonomy that depends on a particular process staying alive is not autonomy.**
+
+- **The graph, the queue and the parking state are rows.** `build_tasks` and `build_events` in
+  Postgres, reconciled hourly by a `build.tick` cadence in the deployed worker. A claim
+  carries a 90-minute lease, so a session that dies mid-requirement loses a worker rather than
+  the build — another one takes it over with nobody noticing that intervention was needed.
+- **Parking is checkable or it is refused.** Seven owner gates, each with a condition the code
+  can *test*, and `sync()` refuses an owner-gated requirement that has no gate. That refusal
+  is the load-bearing half: without it, such a requirement falls into the ready list as work
+  nobody can do and the queue reports more ready work than exists — the one number the whole
+  module is for. Free text would make parking a place to put anything difficult, and a queue
+  that can absorb its own difficulties never reports being blocked and never finishes.
+- **Two of the seven gates check rows, not environment variables.** Benchmark purchases is a
+  `BenchmarkProduct` count; advertising authority is a `SpendLimit` with a positive cap. The
+  question a gate asks is "is this true yet", not "is there a credential".
+- **Un-parking is automatic.** A gate opens, its requirements go ready, and nothing had to
+  remember. Setting `ETSY_SHOP_ID` un-parks four; a browser endpoint un-parks sixteen.
+- **Never-idle is measured in completions, not ticks.** A loop that always has something to do
+  can invent work. The watchdog distinguishes idle-with-ready-work (a stall, raises an
+  incident) from idle-with-everything-parked (correct, raises nothing) — opposite situations
+  that look identical from outside.
+- **#196: the owner inbox is asynchronous by construction.** Seven cards with what, why,
+  capability, maximum spend, risk, rollback and consequence of waiting, sorted free-and-quick
+  first. An inbox is only asynchronous if the queue behind it does not wait, and that property
+  lives in `sync()` rather than in the card layout.
+- **#195: the off-device proof** counts five things and requires all of them — jobs completed,
+  distinct job types, completions *spread across* the window, scheduler activity, and no
+  unexpected dead letters. Because *"online" means useful work is progressing, not that HTTP
+  returns 200* (#185), and a container answering health checks with a stalled queue passes
+  every naive uptime monitor ever written.
+
+### Two defects this surfaced
+
+**Four requirements the registry called executable cannot be built without a credential**
+(#177, #178, #221, #222). The gate validator refused them as ungated, which is exactly what it
+is for. Registry reconciled; ready count and executable count now agree by construction, with
+a test asserting it.
+
+**`/api/build2` had been returning 500 in production for as long as it existed.** The registry
+JSON sat at the repository root and the Dockerfile copies `src`, so it was never in the
+container — passing every local test the whole time. The file now lives inside the package, so
+it travels by construction. The more valuable fix is the general guard: a test that walks the
+app's declared GET routes and calls every one, so a new endpoint is covered the moment it is
+registered rather than when somebody remembers to list it.
+
+## Previously in Build 2
 **Cells to generate against, and a real finding about Christmas 2026 (#105, #113, #114,
 #117-#123, #132).**
 

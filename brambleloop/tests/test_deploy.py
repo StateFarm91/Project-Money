@@ -157,6 +157,53 @@ def test_a_chain_rebuild_can_be_started_on_demand():
     assert second["enqueued"] is False, "two rebuilds queued at once"
 
 
+def test_every_get_endpoint_answers_rather_than_500ing():
+    """The guard for a whole class of defect, and it was written because the class bit.
+
+    `/api/build2` read its registry from the repository root. The Dockerfile copies `src`,
+    so the file was never in the container and the endpoint returned 500 in production while
+    passing every test locally — for as long as it had existed, with nothing to notice.
+
+    Any endpoint that only 500s once deployed is invisible to a suite that exercises the code
+    rather than the app, so this walks the routes the app actually declares. A new endpoint
+    is covered the moment it is registered, which is the property a hand-written list of
+    paths does not have.
+    """
+    from fastapi.routing import APIRoute
+
+    paths = sorted({
+        route.path for route in app_main.app.routes
+        if isinstance(route, APIRoute) and "GET" in route.methods
+        and "{" not in route.path
+    })
+    assert len(paths) >= 20, f"only {len(paths)} GET routes found; the walk is not working"
+
+    failures = []
+    with _client() as c:
+        for path in paths:
+            try:
+                response = c.get(path)
+            except Exception as e:  # noqa: BLE001
+                failures.append((path, f"raised {e!r}"))
+                continue
+            # 503 is a legitimate answer from /api/verify when an assertion is failing; a
+            # 500 never is.
+            if response.status_code >= 500 and response.status_code != 503:
+                failures.append((path, f"{response.status_code}: {response.text[:200]}"))
+    assert not failures, failures
+
+
+def test_the_requirement_registry_travels_with_its_package():
+    """The specific fix, asserted where somebody moving the file back would see it."""
+    from brambleloop.build2 import requirements as reg
+
+    package_root = Path(reg.__file__).resolve().parent
+    assert reg.REGISTRY_PATH.parent == package_root, (
+        "the registry must live beside its module, or it does not ship in the container")
+    assert reg.REGISTRY_PATH.exists()
+    assert len(reg.load()) == reg.TOTAL
+
+
 def test_verify_endpoint_reports_the_standing_safety_assertions():
     """"Railway says deployed" is not "the company is alive and behaving"."""
     with _client() as c:

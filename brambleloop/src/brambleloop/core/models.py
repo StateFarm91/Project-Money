@@ -838,10 +838,10 @@ class Cohort(Base):
 class BuildTask(Base):
     """One Build-2 requirement as a schedulable unit of work, with its readiness derived.
 
-    The registry in `build2/requirements.json` says what each requirement *is*. This says
-    what can be worked on *now*, and it lives in Postgres rather than in a session's head --
-    which is the whole point. A build loop that exists only while a conversation is open is
-    not autonomy; it is a person with extra steps.
+    The registry in `build2/requirements.json`, which lives inside the package, says what
+    each requirement *is*. This says what can be worked on *now*, and it lives in Postgres
+    rather than in a session's head -- which is the whole point. A build loop that exists
+    only while a conversation is open is not autonomy; it is a person with extra steps.
     """
 
     __tablename__ = "build_tasks"
