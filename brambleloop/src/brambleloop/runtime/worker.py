@@ -216,6 +216,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # cadence that adapts to the shop's own posting behaviour is still to build, so this is
     # a fixed interval chosen to be cheap rather than an adaptive one claimed to be smart.
     ("mjs_scan", "market_radar", "mjs.scan", 6 * 60 * 60),
+    # Weekly, because a retrospective run daily becomes noise and one run quarterly is
+    # archaeology. #100 asks for a cadence; this is the one a human would keep reading.
+    ("improvement_retrospective", "orchestrator", "improve.retrospective", 7 * 24 * 60 * 60),
 ]
 
 

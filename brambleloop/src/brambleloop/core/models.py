@@ -628,3 +628,64 @@ class TeardownFinding(Base):
     improvement: Mapped[str] = mapped_column(Text, default="")
     promoted: Mapped[bool] = mapped_column(Boolean, default=False)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+# ---------------------------------------------------------------------------
+# Continuous improvement (v1.4.3 sections 90-104).
+
+
+class Improvement(Base):
+    """One hypothesis, its evidence, and the way back (#92, #93)."""
+
+    __tablename__ = "improvements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    cell: Mapped[str] = mapped_column(String(40), index=True)
+    metric: Mapped[str] = mapped_column(String(60), index=True)
+    hypothesis: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    # Captured before anything changes. An improvement measured against a baseline recorded
+    # afterwards is measured against itself.
+    baseline_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    baseline_ref: Mapped[str] = mapped_column(String(80), default="")
+    result_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    expected_effect: Mapped[str] = mapped_column(Text, default="")
+    rollback_ref: Mapped[str] = mapped_column(String(200), default="")
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                         nullable=True)
+    reverted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                         nullable=True)
+
+
+class Lesson(Base):
+    """Something learned once, routed to everyone it affects (#97, #101)."""
+
+    __tablename__ = "lessons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    origin_cell: Mapped[str] = mapped_column(String(40), index=True)
+    subject: Mapped[str] = mapped_column(String(80), index=True)
+    statement: Mapped[str] = mapped_column(Text)
+    evidence_ref: Mapped[str] = mapped_column(String(200), default="")
+    confidence: Mapped[str] = mapped_column(String(20), default="observed")
+    routed_to: Mapped[list] = mapped_column(JSON, default=list)
+    acted_on_by: Mapped[list] = mapped_column(JSON, default=list)
+    superseded_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class CapabilityPoint(Base):
+    """One measurement of one cell's capability, so improvement is checkable (#94, #95)."""
+
+    __tablename__ = "capability_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    cell: Mapped[str] = mapped_column(String(40), index=True)
+    metric: Mapped[str] = mapped_column(String(60), index=True)
+    value: Mapped[float] = mapped_column(Float)
+    sample: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

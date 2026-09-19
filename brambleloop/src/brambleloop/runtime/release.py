@@ -879,6 +879,27 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
             "new": len(report["changes"]),
             "inspected": report["catalogue_coverage"]["listings_inspected"]}
 
+
+@handlers.register("improve.retrospective")
+def handle_improvement_retrospective(ctx: JobContext) -> dict:
+    """The weekly machine-readable business retrospective (#100).
+
+    Reports what regressed as prominently as what improved, and names the bottleneck. A
+    retrospective that lists only wins is a newsletter, and a newsletter is what a company
+    reads instead of noticing.
+
+    GREEN: reads rows and writes an audit record. It changes nothing.
+    """
+    from ..improve.bus import compounding
+    from ..improve.cells import retrospective
+
+    report = retrospective(ctx.db)
+    report["compounding"] = compounding(ctx.db)
+    ctx.audit("improvement.retrospective", detail=report)
+    return {"bottleneck": report["bottleneck"],
+            "regressed": report["regressed_cells"],
+            "unmeasured": len(report["unmeasured_cells"])}
+
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:
     """Assess what stands between this shop and a live customer, and queue what is owner-only.

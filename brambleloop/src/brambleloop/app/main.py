@@ -514,6 +514,23 @@ def api_mjs_vision() -> dict:
     return {"backlog": plan(db, MJS_KEY),
             "scan_cadence": next_interval(db, MJS_KEY).to_dict()}
 
+
+@app.get("/api/improve")
+def api_improve() -> dict:
+    """The Improvement Department: what moved, what regressed, and what it may never do."""
+    from ..improve.bus import compounding
+    from ..improve.cells import CELLS, capability_history, retrospective
+    from ..improve.governance import describe
+
+    return {
+        "retrospective": retrospective(db),
+        "compounding": compounding(db),
+        "cells": [{"cell": c.key, "department": c.department, "metric": c.metric,
+                   "higher_is_better": c.higher_is_better, "measure": c.measure,
+                   "history": capability_history(db, c.key, limit=20)} for c in CELLS],
+        "governance": describe(),
+    }
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""

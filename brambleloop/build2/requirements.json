@@ -806,8 +806,8 @@
   "body": "Create a permanent autonomous Improvement Department whose only mission is to make Brambleloop and every department measurably better over time. It observes incidents, experiments, customer feedback, market changes, agent performance, cost, latency, product quality, creative quality and commercial outcomes; proposes bounded improvements; tests them; and promotes only evidence-backed upgrades.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "Improvement Department, cells, sandbox loop, rollback"
+  "status": "covered",
+  "note": "improve/ is the department. Its central risk is why governance.py exists: every number this company reports is produced by a check, so the cheapest way to improve any of them is to weaken the check that produces it."
  },
  {
   "id": 91,
@@ -815,8 +815,8 @@
   "body": "Each major department receives an improvement cell: Product Creativity, Pattern Engineering, QA, Market Radar, Pricing, Creative Assets, SEO/Search, Growth/Ads, Customer Experience, Portfolio, Finance and Runtime. Cells maintain their own defect/opportunity backlog, experiments, baselines and improvement history while a central Improvement Director prevents conflicting local optimizations.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "Improvement Department, cells, sandbox loop, rollback"
+  "status": "covered",
+  "note": "twelve cells, one per department, each owning a single metric AND the statement of where the number comes from -- a rating a cell assigns itself is not a measurement, so every cell names its source in rows."
  },
  {
   "id": 92,
@@ -824,8 +824,8 @@
   "body": "Self-improvement follows a controlled loop: observe evidence -> identify constraint -> form explicit hypothesis -> implement in sandbox/branch -> run regression/adversarial tests -> compare against baseline -> promote if better -> monitor -> rollback if worse -> record lesson. Production code/prompts/rules may not self-modify blindly.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "Improvement Department, cells, sandbox loop, rollback"
+  "status": "covered",
+  "note": "observe -> hypothesise -> sandbox -> test -> promote -> monitor. The baseline is captured at proposal time, never after: a result compared against a number measured afterwards is compared with itself, which makes every promotion a success and the loop decorative. A first measurement becomes the baseline rather than a win."
  },
  {
   "id": 93,
@@ -833,8 +833,8 @@
   "body": "Every promoted improvement stores previous version, test evidence, expected metric effect and rollback path. If post-promotion quality, cost, reliability, policy compliance or commercial KPI materially degrades, automatically revert within defined authority. Safety/policy/financial gates cannot be weakened by the learning system.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "Improvement Department, cells, sandbox loop, rollback"
+  "status": "covered",
+  "note": "a rollback reference is required before a hypothesis can be recorded, and monitor() reverts a degrading promotion automatically rather than escalating it -- a regression that waits to be agreed is a regression that stays deployed over a weekend. The post-promotion observation is kept either way."
  },
  {
   "id": 94,
@@ -869,8 +869,8 @@
   "body": "A lesson discovered in one department must be routable to others. Example: customers strongly prefer low-sew construction -> Market Radar scores low-sew opportunities higher, Creativity explores low-sew concepts, Pattern Engineering prioritizes suitable primitives, Listings surface the benefit, and Support tracks whether it reduces confusion.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "cross-department lesson bus"
+  "status": "covered",
+  "note": "improve/bus.py routes a lesson by its subject rather than to a maintained distribution list, and a subject with no audience is refused: a lesson nobody receives changes nothing. A cell that was never sent a lesson cannot claim to have acted on it."
  },
  {
   "id": 98,
@@ -887,8 +887,8 @@
   "body": "Continuous learning is not permission to burn unlimited tokens or rebuild working systems. Track improvement cost and expected/realized benefit. Prioritize changes with high expected impact on product desirability, quality, conversion, acquisition, margin or reliability. Apply stagnation/thrash rules to the Improvement Department itself.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "improvement budget and ROI"
+  "status": "partial",
+  "note": "improvement spend is checked against an authorised budget at proposal time and recorded per hypothesis. Remaining: realised-benefit tracking, which needs promoted changes to accumulate history."
  },
  {
   "id": 100,
@@ -896,8 +896,8 @@
   "body": "On a scheduled cadence, the Improvement Director produces an internal machine-readable retrospective: what improved, what regressed, what was learned, current bottleneck, experiments completed, experiments killed, department health, top next upgrades and STOP-doing list. It should execute approved low-risk improvements rather than merely write reports.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "weekly autonomous business retrospective"
+  "status": "covered",
+  "note": "the weekly retrospective reports what regressed as prominently as what improved, names the bottleneck, and counts the cells that have no measurement at all -- improvement in those is unclaimable rather than unproven. Scheduled as a weekly cadence."
  },
  {
   "id": 101,
@@ -905,8 +905,8 @@
   "body": "Brambleloop must not repeatedly start from generic model intelligence. Persist structured lessons from every product, competitor scan, experiment, incident, support case and sale. New designs should demonstrably use accumulated Brambleloop knowledge while remaining original. The expected creative bar rises as the evidence base grows.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "compounding knowledge requirement"
+  "status": "partial",
+  "note": "compounding is measured by what acted on a lesson rather than by how many lessons exist, and stale routed-but-untouched lessons are surfaced. Remaining: demonstrating that a specific new design used accumulated knowledge, which needs designs generated from concepts."
  },
  {
   "id": 102,
@@ -914,8 +914,8 @@
   "body": "The system may autonomously improve code, prompts, scoring, workflows and agent configuration within tested, reversible and spend-authorized bounds. It may never autonomously weaken policy gates, fabricate evidence/reviews, bypass owner-only legal/KYC/spend gates, erase audit history, or promote an untested change directly to production.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "partial",
-  "note": "agents/registry.py enforces authority and forbidden combinations; no self-improvement governance boundary"
+  "status": "covered",
+  "note": "governance.check() refuses at proposal time, before any work is done: weakening a protected gate, fabricating evidence, widening the system's own authority, irreversibility, and spending past the improvement budget. A hypothesis cannot evade it by declaring no surfaces. The boundary is also stated in prose on /api/improve, because a boundary only the code knows is one the owner cannot hold anybody to."
  },
  {
   "id": 103,
