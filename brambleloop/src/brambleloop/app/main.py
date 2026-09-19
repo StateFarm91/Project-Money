@@ -502,6 +502,40 @@ def api_mjs_reclassify(dry_run: bool = False,
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
 
 
+@app.get("/api/creative/prospects")
+def api_creative_prospects() -> dict:
+    """Where discovery could go, what it has found, and what the engine cannot build (#104).
+
+    Read-only and spends nothing. The expedition itself is a weekly cadence, for the same
+    reason the blinded run is: a request that spends the model budget should not be one URL
+    away.
+    """
+    from ..creative import prospecting
+    from ..creative.audit import catalogue_concepts
+    from ..gateway import routing
+
+    catalogue = catalogue_concepts() + prospecting.discovered(db)
+    found = prospecting.arenas(db)
+    plans = []
+    for arena in found[:6]:
+        plan = prospecting.slots(arena, catalogue=catalogue)
+        plans.append({k: v for k, v in plan.items() if k != "slot_objects"})
+
+    state = routing.budget(db)
+    per_field = routing.estimate_cad(prospecting.GENERATION_TASK)
+    return {
+        "arenas": [a.to_dict() for a in found],
+        "plans": plans,
+        "engine_gaps": prospecting.engine_gaps(),
+        "saturated_forms": prospecting.saturated_forms(catalogue),
+        "history": prospecting.history(db),
+        "estimated_cad_per_field": per_field,
+        "affordable_fields": int(state.remaining_cad // per_field) if per_field else 0,
+        "budget": state.to_dict(),
+        "runs_on": "the weekly `arena_expedition` cadence, rotating through the proven gaps",
+    }
+
+
 @app.get("/api/creative/blinded")
 def api_creative_blinded() -> dict:
     """What a blinded comparison against the human catalogue could currently measure (#94).

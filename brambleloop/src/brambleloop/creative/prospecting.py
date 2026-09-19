@@ -603,3 +603,86 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
         **{k: v for k, v in result.items() if k != "survivor_objects"},
         "survivor_objects": result["survivor_objects"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Memory
+#
+# Survivors are kept and fed back as catalogue on the next run. Without that, every
+# expedition re-invents last week's field and the novelty gate has nothing to measure
+# against -- a discovery process with no memory rediscovers its favourite idea forever.
+
+ACTION = "creative.expedition"
+
+
+def store(db, result: dict) -> None:
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=ACTION,
+                       artifact=f'{result["arena"]["event"]}/{result["arena"]["pod"]}',
+                       detail={k: v for k, v in result.items()
+                               if k not in ("survivor_objects",)}))
+
+
+def discovered(db, *, limit: int = 40) -> list[Concept]:
+    """Every survivor a past expedition kept, rebuilt as concepts.
+
+    Rebuilt rather than stored as objects, so a change to the concept vocabulary invalidates
+    the old row loudly instead of resurrecting a shape the schema no longer allows.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from .concept import ConceptRefused
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                              .order_by(desc(AuditLog.id)).limit(limit)))
+    out: list[Concept] = []
+    for row in rows:
+        for entry in (row.detail or {}).get("survivors") or []:
+            try:
+                out.append(Concept(
+                    key=entry["key"], title=entry.get("title", ""),
+                    premise=entry.get("premise", ""), pod=entry["pod"], form=entry["form"],
+                    construction=entry["construction"], motif=entry.get("motif", ""),
+                    palette_story=entry.get("palette_story", ""),
+                    recipient=entry["recipient"], occasion=entry["occasion"],
+                    feeling=entry["feeling"], function=entry.get("function", "carried"),
+                    make_lane=entry["make_lane"], provenance="prospecting:stored"))
+            except (KeyError, ConceptRefused):
+                continue
+    return out
+
+
+def history(db, *, limit: int = 10) -> dict:
+    """What discovery has actually produced, including the runs that produced nothing."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                              .order_by(desc(AuditLog.id)).limit(limit)))
+    runs = [{
+        "at": r.at.isoformat() if getattr(r, "at", None) else "",
+        "arena": r.artifact,
+        "proposed": (r.detail or {}).get("proposed", 0),
+        "survivors": len(((r.detail or {}).get("survivors") or [])),
+        "survival_rate": (r.detail or {}).get("survival_rate"),
+        "forms": (r.detail or {}).get("forms_discovered") or [],
+        "causes": (r.detail or {}).get("causes") or {},
+        "cost_cad": (r.detail or {}).get("cost_cad"),
+        "answered_the_arena": (r.detail or {}).get("answered_the_arena"),
+    } for r in rows]
+    return {
+        "runs": runs,
+        "arenas_answered": sorted({r["arena"] for r in runs if r["answered_the_arena"]}),
+        "arenas_attempted": sorted({r["arena"] for r in runs}),
+        "forms_discovered": sorted({f for r in runs for f in r["forms"]}),
+        "total_cost_cad": round(sum(r["cost_cad"] or 0 for r in runs), 6),
+        "note": ("Runs that produced nothing are kept. An expedition into a proven arena "
+                 "that came back empty is evidence about this system's creative reach, and "
+                 "deleting it would leave only the flattering half of the record."),
+    }

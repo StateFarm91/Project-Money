@@ -244,6 +244,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # that expensive is one somebody eventually switches off -- which costs more than a
     # slower measurement that survives.
     ("blinded_benchmark", "creative_director", "creative.blinded", 30 * 24 * 60 * 60),
+    # Weekly. Discovery into a proven arena the catalogue does not answer, rotating through
+    # the gaps so breadth accumulates rather than one department deepening. About CA$0.32 a
+    # run against the CA$25 month -- affordable enough to be a habit, which is the point: a
+    # catalogue widens by repeatedly trying somewhere it does not sell, not by one campaign.
+    ("arena_expedition", "creative_director", "creative.expedition", 7 * 24 * 60 * 60),
 ]
 
 

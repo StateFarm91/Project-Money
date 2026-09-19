@@ -1492,3 +1492,51 @@ def handle_creative_blinded(ctx: JobContext) -> dict:
     return {"ran": True, "verdict": result["verdict"], "judged": result["pairs_judged"],
             "cost_cad": result["cost_cad"], "valid": result["valid"],
             "gateway_spend_cad": gateway.spend_cad()}
+
+
+@handlers.register("creative.expedition")
+def handle_creative_expedition(ctx: JobContext) -> dict:
+    """Discovery into one proven-and-unserved arena (#104).
+
+    Weekly, and it rotates: the arena is picked from the top proven gaps by the week number,
+    so the catalogue broadens across departments instead of deepening in whichever one ranked
+    first the day the cadence was written. Cost is roughly CA$0.32 a run at four slots, which
+    is about 6% of the monthly ceiling a month.
+
+    GREEN: it reads an already-observed benchmark and its own history, spends model budget
+    bounded before each field, and writes a row. It publishes nothing and contacts nobody.
+    An expedition that comes back empty is recorded as such -- that is evidence about this
+    system's creative reach, and only keeping the successful runs would leave a record that
+    flatters it.
+    """
+    from ..creative import prospecting
+    from ..creative.audit import catalogue_concepts
+    from ..gateway import routing
+    from ..gateway.anthropic import AnthropicProvider
+    from ..gateway.model_gateway import ModelGateway
+
+    found = prospecting.arenas(ctx.db)
+    if not found:
+        ctx.audit("creative.expedition_blocked",
+                  detail={"reason": "no proven-and-unserved arena is currently observed"})
+        return {"ran": False, "reason": "no proven-and-unserved arena is observed"}
+
+    week = int(utcnow().timestamp() // (7 * 24 * 3600))
+    arena = found[week % len(found)]
+
+    _task, tier = routing.route(prospecting.GENERATION_TASK)
+    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry)
+    catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
+
+    try:
+        result = prospecting.expedition(ctx.db, arena, gateway=gateway, catalogue=catalogue)
+    except prospecting.ProspectingRefused as e:
+        ctx.audit("creative.expedition_blocked",
+                  detail={"arena": arena.to_dict(), "reason": str(e)[:400]})
+        return {"ran": False, "arena": f"{arena.event}/{arena.pod}", "reason": str(e)[:200]}
+
+    prospecting.store(ctx.db, result)
+    return {"ran": True, "arena": f"{arena.event}/{arena.pod}",
+            "proposed": result["proposed"], "survivors": len(result["survivors"]),
+            "forms": result["forms_discovered"], "cost_cad": result["cost_cad"],
+            "answered_the_arena": result["answered_the_arena"]}

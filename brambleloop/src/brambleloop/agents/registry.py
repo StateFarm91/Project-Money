@@ -48,7 +48,7 @@ DEFAULT_AGENTS: list[dict] = [
     # call. Its own daily ceiling is set low on purpose -- a capability measurement that can
     # consume a day's whole model allowance is a measurement nobody can afford to repeat.
     dict(name="creative_director", description="Blinded creative benchmarking (#94, #104)",
-         allowed_job_types=["creative.blinded"],
+         allowed_job_types=["creative.blinded", "creative.expedition"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=2.0),
     dict(name="crochet_engineer", description="Authors CIR from a creative brief",
          allowed_job_types=["cir.draft", "cir.revise"], authority=Authority.GREEN,
