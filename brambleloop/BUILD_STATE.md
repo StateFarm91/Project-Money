@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 165 | satisfied, with a named test or artefact |
-| partial | 48 | something real exists and is short of the requirement |
-| missing | 51 | nobody has built it |
+| covered | 170 | satisfied, with a named test or artefact |
+| partial | 46 | something real exists and is short of the requirement |
+| missing | 48 | nobody has built it |
 | owner_gated | 42 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 14 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **99 requirements are executable** (partial +
+as one nobody has written. **94 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -101,8 +101,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **1,166 tests passing, 0 failing** across
-73 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **1,217 tests passing, 0 failing** across
+77 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -205,6 +205,57 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The Etsy shop opened, and the reconciliation it produced was not the one it looked like
+(#279, #282, #216, #59, #62, executor).**
+
+BrambleloopStudio exists as of 2026-09-19: empty, zero sales, staying that way while Shadow
+Mode holds. The owner asked for anything blocked only by the shop's existence to be unparked
+automatically. **Nothing qualified, and saying so is the finding.**
+
+The four requirements parked on `etsy_shop` — Marketplace Insights, the query budgeter, the
+portfolio allocator, targeted offers — were never blocked by the shop existing. They are
+blocked by *automated access* to it, which is the developer credential still pending.
+Unparking them on this good news would have put work in the ready queue that nothing can
+start: the exact failure the executor exists to prevent, arriving as a reward. So they moved
+to a new `etsy_api` gate, `etsy_shop` stays satisfied and carrying nothing — a gate that has
+opened is evidence — and the ready count did not move. `ETSY_SHOP_NAME` is set Railway-side.
+
+Then the owner's first priority, which is product quality rather than product count.
+
+- **#279 and #282 — the seasonal transformation engine.** Every transformation is routed
+  before it is costed. Palette, styling, gift context and collection story change what a
+  buyer sees and nothing a maker makes: a photograph, not a pattern. Motif vocabulary, trim
+  and a companion accessory change the object, so they take a CIR, a compile and a physical
+  test — and therefore have to be worth them. **An engineered variant carrying no emotional
+  promise is refused by name**, because that is the creative jury's dominant failure arriving
+  through the seasonal door, and a seasonal palette does not fix it.
+- **The test that answers the standard.** The throw the jury rejects for emotional appeal —
+  an everyday thing for oneself that feels cosy, the default answer to every crochet brief —
+  goes through the engine and comes out clearing every mechanical critic. The child still
+  faces the jury on its own; the engine's job is to produce something that survives the gate,
+  never to be trusted instead of it.
+- **#282's worked example is a function, not a paragraph.** The striped cardigan in three
+  seasonal palettes returns `catalogue_growth: 1`, not 4.
+- **#216 — the breakthrough lane.** Eight divergence axes, and the label that makes them
+  honest: "what the competitor has not made" requires having looked, so with nothing observed
+  the divergence runs against our own catalogue and every brief says so. A brief calling that
+  a market gap is refused. Both lanes are held open by a floor, because incremental work has
+  a visible customer and breakthrough work has an argument, and the argument loses every
+  planning round unless something stops it.
+- **#59 and #62 — measuring the pixels.** Build 1 shipped a hero that was entirely truthful
+  and entirely invisible, and everything upstream reported success. Layout QA now measures
+  the rendered frame: flat frames, badge-band content, the square crop the mobile grid
+  applies, type too short to be type, and the one that matters most — ink at listing scale
+  and none at 170px, which is an image nobody will ever click. The hero is held to it inside
+  `check_frame_plan`, not beside it.
+
+One defect found in my own checker while writing its tests: inferring the background from the
+corners inverted on a full-bleed frame — the subject reached the corners, became the
+background by definition, and a frame that was 97% one block of colour was reported as 96%
+empty. Fixed by measuring the dominant colour over the whole image, and both the failure and
+the fix are in the tests.
+
+## Previously in Build 2
 **The seasonal machine, built out around the Christmas instruction (#289, #287, #291, #292,
 #2).**
 
