@@ -197,6 +197,25 @@ PHYSICAL_SAMPLE = OwnerRequest(
     blocks="calibrated yardage claims and any fitted garment",
 )
 
+BENCHMARK_PURCHASES = OwnerRequest(
+    key="benchmark_challenge",
+    action=("Buy about ten representative competitor patterns across the pods we intend to "
+            "compete in -- a mix of price points, at least two that look premium -- and drop "
+            "each purchase in its own folder under the benchmark library path. Nothing needs "
+            "describing: intake reads the filenames."),
+    reason=("#168 blocks a live launch until a representative Brambleloop product has been "
+            "compared, dimension by dimension, against the best category-matched product a "
+            "customer could buy instead. Without a purchased benchmark that comparison cannot "
+            "be made, and an unrun challenge is not a pass -- it is the one check that would "
+            "catch us shipping something a buyer would rate below what they already own."),
+    max_cost_cad=120.0,
+    minutes=45,
+    consequence_of_delay=("The pre-launch challenge stays unrunnable, so the first honest "
+                          "comparison against a paid competitor happens in a buyer's "
+                          "downloads folder."),
+    blocks="the pre-launch benchmark challenge, and therefore live publishing",
+)
+
 TRADEMARK_SCREEN = OwnerRequest(
     key="brand_clearance",
     action=("Decide whether to run a trademark clearance search on \"Brambleloop Studio\" "
@@ -403,6 +422,47 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         ready=False, blocked_by=BLOCKED_OWNER,
         evidence={"name": "Brambleloop Studio"},
         owner_request=TRADEMARK_SCREEN))
+
+    # #168: the pre-launch benchmark challenge. Deliberately a requirement rather than a
+    # report, because a comparison nobody is obliged to act on is a comparison that loses to
+    # a launch date. It reads the library rather than re-scoring anything: with no purchased
+    # benchmark torn down, the challenge is unrunnable and therefore unpassed.
+    from ..teardown.pipeline import challenge as benchmark_challenge
+
+    from ..core.models import BenchmarkProduct, Product
+    from ..teardown.pipeline import ChallengeRefused
+
+    with db.session() as s:
+        representative = ""
+        for product in s.scalars(select(Product).order_by(Product.slug)):
+            if any(v.certified for v in product.versions):
+                representative = product.slug
+                break
+        # #168 asks for a *category-matched* comparison, and this catalogue does not yet
+        # carry a category per product. Matching on the slug family is the nearest honest
+        # thing: `hearthside-throw` matches a benchmark filed under `hearthside` only if
+        # somebody filed one there. Comparing against every benchmark regardless of category
+        # would be the silent degradation of the requirement rather than the meeting of it.
+        family = representative.split("-")[0] if representative else ""
+        category = family if s.scalar(select(BenchmarkProduct).where(
+            BenchmarkProduct.category == family)) is not None else ""
+
+    try:
+        challenge_result = benchmark_challenge(
+            db, product_slug=representative, category=category, our_scores={})
+    except ChallengeRefused as e:
+        challenge_result = {"verdict": "unavailable", "comparable": False,
+                            "blocks_release": True, "product": representative,
+                            "category": category, "reason": str(e), "rows": []}
+    out.append(Requirement(
+        key="benchmark_challenge",
+        description=("a representative product has beaten, or deliberately traded against, "
+                     "the best category-matched purchased benchmark"),
+        ready=not challenge_result["blocks_release"],
+        blocked_by=None if not challenge_result["blocks_release"] else (
+            BLOCKED_BUILD if challenge_result["comparable"] else BLOCKED_OWNER),
+        evidence=challenge_result,
+        owner_request=None if challenge_result["comparable"] else BENCHMARK_PURCHASES))
 
     out.append(Requirement(
         key="phase",

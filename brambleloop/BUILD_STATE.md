@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 40 | satisfied, with a named test or artefact |
-| partial | 64 | something real exists and is short of the requirement |
-| missing | 163 | nobody has built it |
-| owner_gated | 41 | waits on an owner decision, credential or legal acceptance |
+| covered | 89 | satisfied, with a named test or artefact |
+| partial | 67 | something real exists and is short of the requirement |
+| missing | 117 | nobody has built it |
+| owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **227 requirements are executable by this session** (partial +
+as one nobody has written. **184 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **638 tests passing, 0 failing** across
-33 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **733 tests passing, 0 failing** across
+41 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -157,6 +157,74 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The Competitive Product Teardown Laboratory, finished — and three regressions it exposed
+(#152-#160, #164, #168).**
+
+The laboratory had a twelve-dimension scorecard and no way to earn a score. "Chart quality: 4"
+is a feeling with a number attached; #154 asks about legibility, symbols, legends, colour
+independence, pagination, row numbering, motif boundaries, print quality, scale, schematics,
+assembly diagrams and written correspondence. Twelve things a person can look at and disagree
+about. `teardown/audits.py` is the nine schedules the requirements enumerate — **92 elements
+across nine audits** — and four rules that keep them evidence rather than impressions:
+
+- **An audit is complete or it is not scored.** Scoring five of twelve chart elements and
+  reporting the mean would let a shallow teardown outrank a thorough one.
+- **Only the extremes owe a mechanism.** A 3 is "competent" and teaches nothing. A 4 or 5 is a
+  mechanism worth adopting and a 0-2 is a trap worth preventing, and both must say what
+  produced them. Demanding an essay for all 92 elements is how ten purchases become a task
+  nobody finishes.
+- **A strength with no answer is reported, not converted.** A benchmark element scoring 4 or 5
+  becomes a Brambleloop publishing requirement only when an advantage this company can
+  *evidence* beats it. Otherwise it is recorded as an **unmatched strength** — a competitor
+  does something we have no answer to, which is the most useful thing a teardown can find and
+  the first thing an invented differentiator would destroy.
+- **The requirement is to exceed, never to match.** #154 says clearer charts than the best
+  benchmark and #156 says the best purchased experience rather than the average; parity is the
+  floor #163 already refuses.
+
+Video applies only where the manifest records video: a pattern that never promised video does
+not have bad video, and scoring it zero manufactures a weakness out of a category difference.
+Delivery packaging is half answered from the intake manifest, so the analyst answers only what
+filenames cannot settle. Every free-text field still goes through `check_derived()`, so a
+mechanism that is really the competitor's instructions is refused at the new door too.
+
+**#164 is now a pipeline rather than a convention.** `teardown/pipeline.promote()` routes a
+finding through `improve.cells.propose`, so the pre-change baseline and the governance
+boundary both apply unchanged — and "relax the claim gates so our listings can state the same
+size range as theirs" is refused by the same rule that refuses it anywhere else. A competitor
+doing something this company is not allowed to do is a finding about the competitor. The
+funnel counts **measured improvements, not filed findings**: a finding that became a
+hypothesis nobody tested has changed nothing.
+
+**#168 is a gate, not a report.** The pre-launch challenge compares a product against the best
+category-matched benchmark on seven critical dimensions, blocks on a full-point gap unless a
+tradeoff was declared *and* names an advantage we can evidence, and refuses to pass a critical
+dimension by leaving it unscored. It is carried in `launch/readiness.py` as a real requirement
+with an owner request attached. An unrun challenge is **not** a pass — it currently blocks,
+and the unblock path is the owner's benchmark purchases.
+
+### Three regressions this work exposed, all fixed
+
+Running the full suite found four failing suites. All three defects were real, and one was
+mine:
+
+- **`growth/portfolio.py` had been overwritten, not extended.** The CA$5K portfolio-mix work
+  replaced a Build-1 module that `runtime/pipeline.py` imports, so the weekly `portfolio.review`
+  cadence was **dead-lettering in production**. The lifecycle classifier is restored and the
+  new mix/concentration/stress-test code now lives in `growth/mix.py`. They answer different
+  questions — how a SKU is *performing* versus what the catalogue is *shaped* like — and a
+  catalogue of twelve healthy stars with one role is a portfolio one trend away from zero.
+- **A continuity export cut exactly on a table boundary restored as if complete.** Every table
+  it contained was internally consistent, so every per-table row count agreed and the operator
+  was told the restore succeeded. The header now declares which tables the file will contain
+  and the file carries an end marker; a restore missing either is refused.
+- **`/api/verify` returned 500 instead of 503 whenever there was a dead letter to report.**
+  `cutoff` is timezone-aware, SQLite returns naive datetimes, and the comparison only runs when
+  the dead-letter list is non-empty — so the endpoint an absent owner relies on was green in
+  every state where nobody needed it and opaque in the one where they did. Fixed, with a test
+  that plants a dead letter, because the existing tests all passed while the defect was live.
+
+## Previously in Build 2
 **The benchmark observation pipeline — written while the credential does not exist, so it runs
 the moment it does (#207, #208, #212, #214, #303, #313, #319).**
 

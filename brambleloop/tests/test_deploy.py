@@ -175,6 +175,42 @@ def test_verify_endpoint_reports_the_standing_safety_assertions():
     assert all(ch["evidence"] for ch in body["checks"])
 
 
+def test_verify_survives_the_one_condition_it_exists_to_report():
+    """A dead letter is the thing this endpoint is for, and it used to 500 on one.
+
+    `cutoff` is timezone-aware and SQLite hands back naive datetimes, so the comparison only
+    ran -- and only raised -- when the dead-letter list was non-empty. Every other test here
+    ran against an empty queue and passed, which is why the defect survived: the endpoint was
+    green in exactly the states where nobody needed it and opaque in the one where they did.
+    """
+    from datetime import datetime
+
+    from brambleloop.core.models import Job, JobStatus
+
+    with app_main.db.session() as s:
+        # Naive datetimes on purpose: that is what SQLite returns, and the aware/naive
+        # mismatch is the defect.
+        planted = Job(agent="orchestrator", job_type="verify.probe",
+                      status=JobStatus.DEAD, attempts=3,
+                      created_at=datetime.utcnow(), finished_at=datetime.utcnow())
+        s.add(planted)
+        s.flush()
+        planted_id = planted.id
+    try:
+        with _client() as c:
+            response = c.get("/api/verify")
+        assert response.status_code == 503, response.status_code
+        check = {ch["check"]: ch for ch in response.json()["checks"]}[
+            "no_unexpected_dead_letters_in_24h"]
+        assert check["ok"] is False
+        assert "verify.probe" in check["evidence"]["recent"]
+    finally:
+        # Only the planted row. The embedded runner's own jobs are referenced by audit and
+        # cost rows, and deleting those by job_type is a foreign-key error wearing a cleanup.
+        with app_main.db.session() as s:
+            s.delete(s.get(Job, planted_id))
+
+
 def test_verify_fails_loudly_rather_than_reporting_green_on_ephemeral_storage():
     """A SQLite-backed container must not be able to report itself durably deployed."""
     with _client() as c:

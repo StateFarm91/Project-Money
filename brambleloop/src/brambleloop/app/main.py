@@ -10,7 +10,7 @@ anything waiting on me.
 from __future__ import annotations
 
 import os
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from fastapi import FastAPI, Header
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -403,13 +403,19 @@ def api_teardown() -> dict:
     single seller — because a standard that is one shop's product with extra steps is worse
     than no standard, and it is the failure that arrives quietly.
     """
-    from ..teardown import scorecard
+    from ..teardown import audits, pipeline, scorecard
     from ..teardown.library import ANALYST_ROLES, FORBIDDEN_ROLES
 
     composite = scorecard.composite_standard(db)
     return {
         "composite_standard": composite,
         "improvement_queue": scorecard.improvement_queue(db),
+        # The nine per-dimension schedules (#152-#160): which have been run, what standard
+        # they imply, and how far a finding actually travels before it becomes a change.
+        "audit_coverage": audits.coverage(db),
+        "publishing_standard": audits.publishing_requirements(db),
+        "improvement_pipeline": pipeline.status(db),
+        "critical_dimensions": list(pipeline.CRITICAL_DIMENSIONS),
         "dimensions": list(scorecard.DIMENSIONS),
         "scale": scorecard.SCALE,
         "library": {
@@ -545,7 +551,7 @@ def api_calendar() -> dict:
 def api_growth() -> dict:
     """The growth architecture: portfolio shape, loop evidence and this week's constraint."""
     from ..growth.loops import constraint, evidence_summary, from_db
-    from ..growth.portfolio import report
+    from ..growth.mix import report
 
     return {
         "portfolio": report(db),
@@ -759,8 +765,19 @@ def api_verify() -> JSONResponse:
     q = JobQueue(db)
     dead = q.dead_letters()
     cutoff = utcnow() - timedelta(hours=24)
+
+    def _aware(value):
+        """SQLite hands back naive datetimes; Postgres hands back aware ones.
+
+        Comparing them raises, and the comparison only happens when there is a dead letter
+        to report -- so this endpoint returned 500 instead of a 503 with evidence at exactly
+        the moment an absent owner needed to read it. Found when an unrelated defect put a
+        real dead letter in the queue for the first time.
+        """
+        return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
     unexpected = [j for j in dead if j.job_type != "store.publish"]
-    recent = [j for j in unexpected if (j.finished_at or j.created_at) >= cutoff]
+    recent = [j for j in unexpected if _aware(j.finished_at or j.created_at) >= cutoff]
     check("no_unexpected_dead_letters_in_24h", not recent,
           {"recent": sorted({j.job_type for j in recent}),
            "historical_total": len(unexpected),

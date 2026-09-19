@@ -204,12 +204,20 @@ def export(db: Database, dest: str | Path) -> ExportResult:
 
     tables: list[TableExport] = []
     with path.open("w", encoding="utf-8") as fh:
+        ordered = list(_ordered_tables())
+        # The header declares which tables this file will contain, and the trailer declares
+        # that it finished. Without both, a file cut exactly on a table boundary reads as a
+        # complete export of fewer tables -- every table it does contain is internally
+        # consistent, so the per-table row counts all agree and the operator is told the
+        # restore succeeded. That is the failure mode this whole module exists to prevent,
+        # and it was found by a test cutting an export in half at the wrong place.
         header = {"__brambleloop_export__": EXPORT_FORMAT,
                   "created_at": created.isoformat(),
-                  "source": source}
+                  "source": source,
+                  "tables": [t.name for t in ordered]}
         fh.write(json.dumps(header, sort_keys=True) + "\n")
 
-        for table in _ordered_tables():
+        for table in ordered:
             digest = hashlib.sha256()
             count = 0
             fh.write(json.dumps({"__table__": table.name}, sort_keys=True) + "\n")
@@ -224,6 +232,11 @@ def export(db: Database, dest: str | Path) -> ExportResult:
                 name=table.name, rows=count, sha256=digest.hexdigest(),
                 non_rederivable=table.name in NON_REDERIVABLE,
             ))
+
+        fh.write(json.dumps({"__end_export__": EXPORT_FORMAT,
+                             "tables": len(ordered),
+                             "total_rows": sum(t.rows for t in tables)},
+                            sort_keys=True) + "\n")
 
     result = ExportResult(path=path, format=EXPORT_FORMAT, created_at=created,
                           source=source, tables=tables,
@@ -264,6 +277,7 @@ def restore(export_path: str | Path, target: Database) -> dict[str, int]:
             s.execute(insert(table), rows)
         buffer.clear()
 
+    finished: dict | None = None
     with path.open("r", encoding="utf-8") as fh:
         first = fh.readline()
         if not first:
@@ -285,6 +299,9 @@ def restore(export_path: str | Path, target: Database) -> dict[str, int]:
                 current = record["__table__"]
                 counts[current] = 0
                 continue
+            if "__end_export__" in record:
+                finished = record
+                continue
             if "__end_table__" in record:
                 flush()
                 name = record["__end_table__"]
@@ -300,6 +317,25 @@ def restore(export_path: str | Path, target: Database) -> dict[str, int]:
             if len(buffer) >= 500:
                 flush()
     flush()
+
+    declared_tables = header.get("tables")
+    if isinstance(declared_tables, list):
+        never_arrived = [t for t in declared_tables if t not in closed]
+        if never_arrived:
+            raise ValueError(
+                f"the export declares {len(declared_tables)} tables and "
+                f"{len(never_arrived)} never arrived ({never_arrived[:3]}...); the file is "
+                f"truncated. Each table it does contain is internally consistent, which is "
+                f"exactly why this has to be checked against the header rather than against "
+                f"the rows")
+    if finished is None:
+        raise ValueError(
+            "the export has no end marker, so it is truncated or was never finished. A "
+            "restore that stops halfway and reports success is worse than one that fails")
+    if finished.get("tables") != len(closed):
+        raise ValueError(
+            f"the export says it holds {finished.get('tables')} tables and {len(closed)} "
+            f"were read; the file is truncated or corrupt")
 
     unterminated = set(counts) - closed
     if unterminated:

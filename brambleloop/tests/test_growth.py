@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.growth import experiments as ex  # noqa: E402
-from brambleloop.growth import loops, portfolio  # noqa: E402
+from brambleloop.growth import loops, mix as portfolio  # noqa: E402
 
 
 def _db() -> Database:

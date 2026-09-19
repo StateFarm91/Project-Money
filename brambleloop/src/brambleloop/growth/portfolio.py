@@ -1,207 +1,279 @@
-"""Portfolio roles, concentration, and the failure that would end the target.
+"""Portfolio, reviews and product mortality (Master Plan section 12).
 
-Requirements 231, 232, 234, 270. CA$5,000 a month must not require one viral hit, and the way
-a catalogue quietly comes to require one is not a decision anybody makes — it is a winner that
-grows while nothing else is built, until the portfolio is one product and eleven hobbies.
+Section 12 classifies every SKU and gives each class an intervention. The diagnostic table is
+the useful part and it is worth stating plainly, because it is the difference between fixing a
+listing and rewriting a pattern that was never the problem:
 
-So every SKU carries a role it was created for, concentration is measured rather than felt, and
-the stress test asks the only question that matters: if the best thing here disappeared, would
-the target survive?
+  high impressions / low clicks   -> the hero or the title, not the product
+  high clicks / low conversion    -> the offer, the trust signals or the price
+  low impressions / high conversion -> a distribution problem; the product is fine
+  high sales / high support       -> a quality emergency, whatever the revenue says
 
-The roles are not labels applied afterwards. #232's point is that product creation should be
-guided by portfolio gaps rather than raw listing count, which only works if a gap is a thing
-the system can see — which means the roles have to be declared and counted.
+The classifier's most important behaviour is refusing to classify. Every SKU currently has
+zero impressions, zero clicks and zero orders, and a system that reads that as
+CONVERSION_PROBLEM would retire a catalogue that has simply never been shown to anyone.
+`classify` therefore returns NO_EVIDENCE until a SKU has been seen enough times to say
+anything, and the intervention ladder for NO_EVIDENCE is "wait, and get it in front of
+people".
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date
 
-HERO = "HERO"                 # the traffic and revenue driver
-CORE = "CORE"                 # reliable evergreen or seasonal earner
-ENTRY = "ENTRY"               # low-friction acquisition product
-BUNDLE = "BUNDLE"             # raises order value
-CROSS_SELL = "CROSS_SELL"     # attaches to something else
-EXPERIMENT = "EXPERIMENT"     # a learning vehicle, expected to mostly fail
-RETIRE = "RETIRE"             # a candidate for withdrawal
+# Classes from section 12, plus the one the plan implies and does not name.
+STAR = "STAR"
+PROMISING = "PROMISING"
+SEO_PROBLEM = "SEO_PROBLEM"
+CONVERSION_PROBLEM = "CONVERSION_PROBLEM"
+QUALITY_PROBLEM = "QUALITY_PROBLEM"
+SEASONAL = "SEASONAL"
+REWORK = "REWORK"
+RETIRE = "RETIRE"
+NO_EVIDENCE = "NO_EVIDENCE"
 
-ROLES: tuple[str, ...] = (HERO, CORE, ENTRY, BUNDLE, CROSS_SELL, EXPERIMENT, RETIRE)
+# Below these, a rate is not a rate. Thirty clicks and one order is not a 3.3% conversion, it
+# is one order.
+MIN_IMPRESSIONS = 300
+MIN_CLICKS = 40
 
-# What a healthy portfolio looks like as shares of the catalogue. Not precise targets — a
-# range, because the useful signal is "we have no entry products at all", not "entry is 14%
-# and should be 15%".
-HEALTHY_SHARE: dict[str, tuple[float, float]] = {
-    HERO: (0.05, 0.20),
-    CORE: (0.30, 0.60),
-    ENTRY: (0.10, 0.25),
-    BUNDLE: (0.05, 0.20),
-    CROSS_SELL: (0.05, 0.20),
-    EXPERIMENT: (0.05, 0.25),
+# Category-typical benchmarks for a digital pattern listing. Starting points to be replaced by
+# our own observed distribution once there is one.
+BENCH_CTR = 0.020
+BENCH_CONVERSION = 0.025
+SUPPORT_CASE_RATE_ALARM = 0.08     # cases per order
+
+
+@dataclass
+class SkuMetrics:
+    slug: str
+    impressions: int = 0
+    clicks: int = 0
+    orders: int = 0
+    revenue_cad: float = 0.0
+    refunds: int = 0
+    support_cases: int = 0
+    open_p1_incidents: int = 0
+    favourites: int = 0
+    season: str | None = None
+    window_open: bool = True
+    days_live: int = 0
+
+    @property
+    def ctr(self) -> float:
+        return self.clicks / self.impressions if self.impressions else 0.0
+
+    @property
+    def conversion(self) -> float:
+        return self.orders / self.clicks if self.clicks else 0.0
+
+    @property
+    def support_rate(self) -> float:
+        return self.support_cases / self.orders if self.orders else 0.0
+
+    @property
+    def refund_rate(self) -> float:
+        return self.refunds / self.orders if self.orders else 0.0
+
+
+@dataclass
+class Classification:
+    slug: str
+    label: str
+    reason: str
+    interventions: list[str] = field(default_factory=list)
+    evidence: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {"slug": self.slug, "label": self.label, "reason": self.reason,
+                "interventions": list(self.interventions), "evidence": dict(self.evidence)}
+
+
+# Section 12's intervention ladders. Ordered: cheapest and most reversible first, so a SKU is
+# never retired before the things that cost nothing have been tried.
+LADDERS: dict[str, list[str]] = {
+    STAR: [
+        "build the matching products the demand implies (Winner Amplification, section 5)",
+        "add sizes and colourways to the same validated pattern",
+        "bundle it with its collection siblings",
+        "only then consider bounded paid discovery",
+    ],
+    PROMISING: [
+        "improve the hero and re-measure at search-grid scale",
+        "close the biggest reachable query gaps in the tag set",
+        "add the frames the listing is missing",
+    ],
+    SEO_PROBLEM: [
+        "rewrite the title around the reachable queries, not the head term",
+        "respend the thirteen tag slots on distinct concepts",
+        "fill every structured attribute — they are a filter buyers actually use",
+        "publish the article and pins; indexing takes weeks, not days",
+    ],
+    CONVERSION_PROBLEM: [
+        "the hero won the click and the rest of the listing lost it: check frames 2-4",
+        "state the finished size and the hours honestly and early",
+        "re-read the price against contribution per visitor, not against the shelf",
+        "check the first two lines of the description on a phone",
+    ],
+    QUALITY_PROBLEM: [
+        "stop selling it — a quality emergency outranks its revenue",
+        "reproduce the defect through the compiler, not through opinion",
+        "fix the CIR, re-validate, re-certify, increment the version",
+        "re-issue to everyone who bought it, then reopen",
+    ],
+    SEASONAL: [
+        "leave it live; its window is simply closed",
+        "schedule the next window's content now, while the evidence is fresh",
+        "do not read out-of-window numbers as a product problem",
+    ],
+    REWORK: [
+        "the listing has been tried; the product itself is the variable now",
+        "re-engineer sizing, colourway or construction from the CIR",
+        "re-release as a new version rather than editing in place",
+    ],
+    RETIRE: [
+        "stop spending attention on it",
+        "keep it listed if it costs nothing, delist if it dilutes the grid",
+        "record why, so the next portfolio does not rebuild the same SKU",
+    ],
+    NO_EVIDENCE: [
+        "do nothing to the product: it has not been seen enough to judge",
+        "get it in front of people — indexing, content, collection cross-sell",
+        "re-assess once it has real impressions",
+    ],
 }
 
-# Above this share from one SKU, the portfolio is a single product with dependants.
-CONCENTRATION_ALARM = 0.35
+
+def classify(m: SkuMetrics, *, today: date | None = None) -> Classification:
+    """Diagnose one SKU. Refuses to diagnose what it cannot see."""
+    ev = {"impressions": m.impressions, "clicks": m.clicks, "orders": m.orders,
+          "ctr": round(m.ctr, 5), "conversion": round(m.conversion, 5),
+          "support_rate": round(m.support_rate, 4), "refund_rate": round(m.refund_rate, 4),
+          "days_live": m.days_live}
+
+    # A quality emergency outranks every commercial signal, including a good one.
+    if m.open_p1_incidents > 0:
+        return Classification(m.slug, QUALITY_PROBLEM,
+                              f"{m.open_p1_incidents} open P1 incident(s): a quality "
+                              f"emergency outranks whatever the revenue is doing",
+                              LADDERS[QUALITY_PROBLEM], ev)
+    if m.orders >= 10 and m.support_rate >= SUPPORT_CASE_RATE_ALARM:
+        return Classification(m.slug, QUALITY_PROBLEM,
+                              f"{m.support_rate:.0%} of orders generate a support case; high "
+                              f"sales with high support is a quality problem wearing a "
+                              f"revenue costume",
+                              LADDERS[QUALITY_PROBLEM], ev)
+
+    if m.impressions < MIN_IMPRESSIONS:
+        return Classification(
+            m.slug, NO_EVIDENCE,
+            f"{m.impressions} impressions is below {MIN_IMPRESSIONS}; nothing can be "
+            f"concluded, and concluding anyway is how a catalogue that was never shown to "
+            f"anyone gets retired for underperforming",
+            LADDERS[NO_EVIDENCE], ev)
+
+    if m.season and not m.window_open:
+        return Classification(m.slug, SEASONAL,
+                              "its buying window is closed; out-of-window numbers are not a "
+                              "product problem",
+                              LADDERS[SEASONAL], ev)
+
+    # High impressions, low clicks -> the hero or the title.
+    if m.ctr < BENCH_CTR * 0.5:
+        return Classification(
+            m.slug, SEO_PROBLEM,
+            f"{m.ctr:.2%} click-through against a {BENCH_CTR:.1%} benchmark on "
+            f"{m.impressions} impressions: it is being shown and not chosen, which is the "
+            f"hero and the title rather than the product",
+            LADDERS[SEO_PROBLEM], ev)
+
+    if m.clicks < MIN_CLICKS:
+        return Classification(m.slug, NO_EVIDENCE,
+                              f"{m.clicks} clicks is too few to read a conversion rate from",
+                              LADDERS[NO_EVIDENCE], ev)
+
+    # Clicks are healthy; what happens after the click?
+    if m.conversion < BENCH_CONVERSION * 0.4:
+        label = REWORK if m.days_live > 120 else CONVERSION_PROBLEM
+        return Classification(
+            m.slug, label,
+            f"{m.conversion:.2%} conversion on {m.clicks} clicks: the hero won the click and "
+            f"the listing lost it"
+            + (" — and it has had long enough that the product itself is now the variable"
+               if label == REWORK else ""),
+            LADDERS[label], ev)
+
+    if m.ctr >= BENCH_CTR and m.conversion >= BENCH_CONVERSION:
+        if m.orders >= 25:
+            return Classification(m.slug, STAR,
+                                  f"{m.orders} orders at {m.conversion:.1%} conversion: this "
+                                  f"is where the next products should come from",
+                                  LADDERS[STAR], ev)
+        return Classification(m.slug, PROMISING,
+                              f"both rates are at or above benchmark on {m.orders} orders; "
+                              f"worth pushing before it is worth copying",
+                              LADDERS[PROMISING], ev)
+
+    if m.days_live > 180 and m.orders <= 2:
+        return Classification(m.slug, RETIRE,
+                              f"{m.days_live} days live and {m.orders} orders after the "
+                              f"listing interventions have been tried",
+                              LADDERS[RETIRE], ev)
+
+    return Classification(m.slug, PROMISING,
+                          "mixed signals, nothing broken; keep improving the listing",
+                          LADDERS[PROMISING], ev)
 
 
-class PortfolioRefused(ValueError):
-    """A role that does not exist, or a claim the evidence cannot carry."""
+@dataclass
+class PortfolioVerdict:
+    as_of: str
+    evidence_available: bool
+    classifications: list[Classification]
+    actions: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"as_of": self.as_of, "evidence_available": self.evidence_available,
+                "classifications": [c.to_dict() for c in self.classifications],
+                "actions": list(self.actions),
+                "summary": self.summary()}
+
+    def summary(self) -> dict:
+        out: dict[str, int] = {}
+        for c in self.classifications:
+            out[c.label] = out.get(c.label, 0) + 1
+        return out
 
 
-@dataclass(frozen=True)
-class Position:
-    slug: str
-    role: str
-    revenue_cad: float = 0.0
-    orders: int = 0
-    family: str = ""
+def review_portfolio(metrics: list[SkuMetrics], *, today: date | None = None
+                     ) -> PortfolioVerdict:
+    """Classify the catalogue and say what to do next.
 
-    def __post_init__(self) -> None:
-        if self.role not in ROLES:
-            raise PortfolioRefused(
-                f"{self.slug}: {self.role!r} is not a portfolio role. Roles are declared so a "
-                f"gap is something the system can see, which is what lets product creation "
-                f"follow gaps rather than listing count (#232)")
-
-
-def shape(positions: list[Position]) -> dict:
-    """Role mix against the healthy range, and which roles are missing entirely."""
-    total = len(positions)
-    counts = {role: sum(1 for p in positions if p.role == role) for role in ROLES}
-    shares = {role: (counts[role] / total if total else 0.0) for role in ROLES}
-
-    gaps = []
-    for role, (low, high) in HEALTHY_SHARE.items():
-        share = shares[role]
-        if share < low:
-            gaps.append({"role": role, "share": round(share, 3), "want_at_least": low,
-                         "missing_entirely": counts[role] == 0})
-        elif share > high:
-            gaps.append({"role": role, "share": round(share, 3), "want_at_most": high,
-                         "missing_entirely": False})
-
-    return {
-        "skus": total,
-        "counts": counts,
-        "shares": {k: round(v, 3) for k, v in shares.items()},
-        "gaps": sorted(gaps, key=lambda g: -abs(g["share"] - g.get("want_at_least",
-                                                                  g.get("want_at_most", 0)))),
-        "roles_absent": [r for r in ROLES if r != RETIRE and counts[r] == 0],
-    }
-
-
-def concentration(positions: list[Position]) -> dict:
-    """How much of the revenue rests on how little of the catalogue (#231)."""
-    earning = [p for p in positions if p.revenue_cad > 0]
-    total = sum(p.revenue_cad for p in earning)
-    if total <= 0:
-        return {"measurable": False,
-                "reason": ("no product has earned anything, so concentration is undefined "
-                           "rather than zero — an empty portfolio is not a diversified one"),
-                "top_1_share": None, "top_5_share": None, "families": 0}
-
-    ranked = sorted(earning, key=lambda p: -p.revenue_cad)
-    top1 = ranked[0].revenue_cad / total
-    top5 = sum(p.revenue_cad for p in ranked[:5]) / total
-    families = len({p.family for p in earning if p.family})
-    return {
-        "measurable": True,
-        "top_1_share": round(top1, 3),
-        "top_5_share": round(top5, 3),
-        "top_sku": ranked[0].slug,
-        "families": families,
-        "alarm": top1 >= CONCENTRATION_ALARM,
-        "note": (f"{ranked[0].slug} is {top1:.0%} of revenue: this is one product with "
-                 f"dependants, not a portfolio"
-                 if top1 >= CONCENTRATION_ALARM else
-                 "no single product dominates the revenue"),
-    }
-
-
-def stress_test(positions: list[Position], *, target_cad: float = 5000.0) -> dict:
-    """Remove the best thing and see whether the target survives (#270).
-
-    Three plausible single failures, because they are the ones that actually happen: the top
-    product gets copied or delisted, the top family goes out of fashion, and the season that
-    carries the year does not repeat.
+    Capital allocation (section 15) follows from this and not the other way round: attention
+    goes to STARs and to the SEO/conversion problems that are cheap to fix, and away from
+    products that have had their interventions and not responded.
     """
-    earning = [p for p in positions if p.revenue_cad > 0]
-    total = sum(p.revenue_cad for p in earning)
-    if total <= 0:
-        return {"testable": False,
-                "reason": ("nothing has earned anything, so there is no revenue to stress. "
-                           "The target does not survive any scenario, including the one where "
-                           "nothing goes wrong"),
-                "scenarios": []}
+    today = today or date.today()
+    classifications = [classify(m, today=today) for m in metrics]
+    have_evidence = any(c.label != NO_EVIDENCE for c in classifications)
 
-    ranked = sorted(earning, key=lambda p: -p.revenue_cad)
-    by_family: dict[str, float] = {}
-    for p in earning:
-        by_family[p.family or "unfamilied"] = by_family.get(
-            p.family or "unfamilied", 0.0) + p.revenue_cad
-    worst_family = max(by_family, key=by_family.get)
-
-    scenarios = [
-        {"scenario": "top SKU lost", "removed": ranked[0].slug,
-         "remaining_cad": round(total - ranked[0].revenue_cad, 2)},
-        {"scenario": "top family lost", "removed": worst_family,
-         "remaining_cad": round(total - by_family[worst_family], 2)},
-        {"scenario": "top three lost",
-         "removed": ", ".join(p.slug for p in ranked[:3]),
-         "remaining_cad": round(total - sum(p.revenue_cad for p in ranked[:3]), 2)},
-    ]
-    for s in scenarios:
-        s["survives_target"] = s["remaining_cad"] >= target_cad
-        s["shortfall_cad"] = round(max(0.0, target_cad - s["remaining_cad"]), 2)
-
-    fragile = [s for s in scenarios if not s["survives_target"]]
-    return {
-        "testable": True,
-        "current_cad": round(total, 2),
-        "target_cad": target_cad,
-        "scenarios": scenarios,
-        "fragile_to": [s["scenario"] for s in fragile],
-        "note": ("Exploiting a winner stays aggressive; this measures what it would cost to "
-                 "lose it, so resilience is part of the confidence rather than an afterthought "
-                 "(#270)."),
-    }
-
-
-def positions_from_db(db) -> list[Position]:
-    """Read the portfolio from what the warehouse holds.
-
-    Revenue comes from the ledger, so a product with no sales has a role and no earnings —
-    which is the true state of every product this company has.
-    """
-    from sqlalchemy import select
-
-    from ..core.models import LedgerEntry, Product
-
-    with db.session() as s:
-        products = list(s.scalars(select(Product)))
-        sales = list(s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale")))
-
-    earned: dict[str, float] = {}
-    counted: dict[str, int] = {}
-    for entry in sales:
-        # `evidence_ref` carries the product where the sale recorded one.
-        slug = (entry.evidence_ref or "").split(":")[-1]
-        earned[slug] = earned.get(slug, 0.0) + entry.gross_cad
-        counted[slug] = counted.get(slug, 0) + 1
-
-    out = []
-    for product in products:
-        role = (product.detail or {}).get("portfolio_role", EXPERIMENT) \
-            if hasattr(product, "detail") else EXPERIMENT
-        out.append(Position(slug=product.slug, role=role if role in ROLES else EXPERIMENT,
-                            revenue_cad=earned.get(product.slug, 0.0),
-                            orders=counted.get(product.slug, 0),
-                            family=(product.slug.split("-")[0] if product.slug else "")))
-    return out
-
-
-def report(db, *, target_cad: float = 5000.0) -> dict:
-    positions = positions_from_db(db)
-    return {
-        "shape": shape(positions),
-        "concentration": concentration(positions),
-        "stress_test": stress_test(positions, target_cad=target_cad),
-    }
+    actions: list[str] = []
+    if not have_evidence:
+        actions.append(
+            "No SKU has enough impressions to classify. The correct action is distribution, "
+            "not product changes: nothing is underperforming, because nothing has been shown "
+            "to anyone yet.")
+    else:
+        stars = [c.slug for c in classifications if c.label == STAR]
+        quality = [c.slug for c in classifications if c.label == QUALITY_PROBLEM]
+        if quality:
+            actions.append(f"Quality first: {quality} — these outrank every commercial signal.")
+        if stars:
+            actions.append(f"Amplify {stars}: build the matching products, sizes and bundles "
+                           f"the demand implies before spending on anything new.")
+        seo = [c.slug for c in classifications if c.label == SEO_PROBLEM]
+        if seo:
+            actions.append(f"Listing work on {seo}: being shown and not chosen is the "
+                           f"cheapest problem on this list to fix.")
+    return PortfolioVerdict(as_of=today.isoformat(), evidence_available=have_evidence,
+                            classifications=classifications, actions=actions)
