@@ -2576,9 +2576,9 @@
  {
   "body": "Create persistent or on-demand specialist strike teams for major commercially relevant events. Christmas, Halloween, Easter and major seasons receive deep dedicated coverage; additional events are created when demand evidence supports them. Teams own opportunity maps, product gaps, colour/motif language, deadlines, benchmark changes and revenue targets.",
   "id": 287,
-  "note": "rolling 365-day calendar, strike teams, holiday depth",
+  "note": "seasonal/teams.py gives Christmas, Halloween and Easter standing teams and requires recorded demand evidence -- rows in the learning radar or observed listings, counted against a floor -- before any fourth event earns one, because a team is cheap to create and expensive to staff. A team is a share of capacity or it is a name: shares are checked against what exists, a team holding nothing is refused as an org-chart entry, and 25% is reserved for evergreen work because a seasonal programme that consumes everything leaves a shop excellent in December and absent in February. Overlapping occasions scale proportionally rather than overrunning, keeping the order the compression programmes established. A team whose occasion has passed the buyer's last practical make date releases its capacity automatically, which is how the next occasion gets staffed without a manual rebalance, and a priority programme with neither a team nor a recorded reason is refused. /api/seasonal/teams.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
+  "status": "covered",
   "title": "Seasonal Strike Teams by Event",
   "version": "v1.4.2"
  },

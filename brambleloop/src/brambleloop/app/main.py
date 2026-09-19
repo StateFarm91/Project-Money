@@ -930,6 +930,23 @@ def api_arbitrage() -> dict:
     return arbitrage.state(db)
 
 
+@app.get("/api/seasonal/teams")
+def api_seasonal_teams() -> dict:
+    """Which events hold dedicated capacity today, and what each holds.
+
+    A team is a share of capacity or it is a name. One whose occasion has passed the buyer's
+    last practical make date releases what it held without anybody remembering.
+    """
+    from ..seasonal import teams, uncertainty
+
+    allocation = teams.allocate(db, samples=uncertainty.sample_count(db))
+    try:
+        teams.check(allocation)
+    except teams.TeamRefused as exc:
+        allocation["problem"] = str(exc)
+    return allocation
+
+
 @app.get("/api/seasonal/collections")
 def api_seasonal_collections() -> dict:
     """The collection architecture's rules, and what a coherent collection has to satisfy.
