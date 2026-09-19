@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 157 | satisfied, with a named test or artefact |
+| covered | 162 | satisfied, with a named test or artefact |
 | partial | 47 | something real exists and is short of the requirement |
-| missing | 58 | nobody has built it |
-| owner_gated | 44 | waits on an owner decision, credential or legal acceptance |
+| missing | 55 | nobody has built it |
+| owner_gated | 42 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 14 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **105 requirements are executable** (partial +
+as one nobody has written. **102 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -60,12 +60,15 @@ against live state rather than only in tests.
 Live: https://brambleloop-os-production.up.railway.app — dashboard `/`, health `/health`,
 status `/api/status`, **verification `/api/verify`**.
 
-## OWNER ACTION REQUIRED — one item, asynchronous
+## OWNER ACTIONS — nothing currently blocking
 
-Everything else in Build 2 continues without it. Listed here in the Execution Directive's
+The one item this session raised has been done. Listed here in the Execution Directive's
 format; the live queue is `/api/launch`.
 
-**Add credit to the Anthropic account the API key belongs to.**
+**~~Add credit to the Anthropic account the API key belongs to.~~ DONE 2026-09-19.** Credit
+arrived and a real call succeeded in production at 15:31Z; the gate opened by itself and the
+four requirements un-parked. Kept here with its original wording because an owner-action list
+that deletes what was done stops being a record of what this company asked for.
 - *Exact action:* open the Anthropic console's billing page and add credit. The smallest
   top-up is enough.
 - *Why:* the key supplied on 2026-09-19 authenticates, and the first request it made returned
@@ -193,6 +196,66 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Christmas is attacked with faster products as the slow ones close, and the model provider
+became real (#6, #293, #177, #178, model access).**
+
+The owner's second correction: the make-time interval work must not read as permission to
+deprioritise Christmas. A 150-hour flagship genuinely cannot be finished for this one.
+"Christmas is closed" is a different sentence, and the difference is most of the commercial
+year. It is now encoded rather than remembered.
+
+- **The engine may retire a product class and may never stand down an occasion.** Two
+  refusals enforce it: a priority programme with open lanes cannot fall below its capacity
+  floor, and one that names no department to pursue is treating the occasion as a single
+  product class.
+- **The mix shifts by arithmetic.** Each lane's share is its runway verdict weighted by how
+  soon it closes, so a comfortable lane with months of runway ranks below a tight one shutting
+  in a fortnight — the tight one is the opportunity about to be lost. MEDIUM leads at 150
+  days, SHORT at 120, QUICK from 75, QUICK alone at 45. Nobody decides that.
+- **Christmas is a taxonomy.** Departments come from the calendar's own event map filtered by
+  open lanes: ornaments, stockings, home decor, bags, hats, seasonal gift. Blankets drop out
+  by themselves at 60 days.
+- **A closed launch lane is not a closed occasion.** When nothing new can be launched and
+  indexed in time the programme moves to merchandising and holds its floor through the
+  fortnight the occasion earns the money, releasing only past the buyer's last practical make
+  date. Next year's flagship track runs now and is capped below this year's share.
+
+**The model provider is verified, not configured.** The owner supplied a key; the first call
+it made returned `Your credit balance is too low to access the Anthropic API`. The gate was
+changed to read a recorded successful call rather than an environment variable — a
+variable-check would have un-parked four requirements onto work that cannot run. Credit
+arrived, and at **2026-09-19T15:31Z a real call succeeded in production** (14 tokens in, 4
+out, CA$0.0000466 against a CA$25 ceiling enforced before the request). The gate opened by
+itself and #94, #104, #177 and #178 un-parked with nobody telling it to, which is the
+property the executor was built for, observed rather than asserted.
+
+Two of those were then built:
+
+- **#178, risk tiers.** A change is graded by what it touches, never by what it is called —
+  the description is the part somebody chooses. Five tiers, each with a cooldown (six changes
+  to one surface in an afternoon cannot be attributed to any of them), a rolling weekly
+  ceiling (continuous learning with no ceiling is a company rewriting itself faster than it
+  can observe the result) and the evidence its failure mode needs. An unknown surface grades
+  *upward*. The gate tier never promotes without a person. Enforced in `cells.promote()`, not
+  offered.
+- **#177, capability profiles.** Assembled from the rows rather than stored beside them, and
+  reviewed deterministically: a run of three measurements the wrong way, a metric never
+  measured, a stale baseline, a tactic rejected twice for the same reason, a lesson nobody
+  acted on. A model can write a plausible hypothesis about anything, and a cell proposing
+  fluently every week looks exactly like a cell that is learning. A clean record proposes
+  nothing. Nothing here promotes.
+- **#293, buyer language.** Six facets, and a refusal for the two ways the map becomes a
+  description of ourselves. Every phrase is labelled assumed or observed and the two are never
+  blended into one ranked list.
+
+One measurement defect, found while checking a number rather than reported by it:
+`run_tests.sh` counted only pass lines beginning `OK` at column zero, so nine suites written
+this session contributed **zero** to the headline total. Exit codes still caught their
+failures, so nothing was broken and the number was quietly wrong — the harder fault to
+notice. Markers standardised, and a suite that exits clean while reporting no passes now
+counts as a failure.
+
+## Previously in Build 2
 **An Anthropic key arrived, and the gate it opens is not the gate it looks like
 (model access, #17, #18).**
 
