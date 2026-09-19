@@ -839,9 +839,9 @@
  {
   "body": "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas.",
   "id": 94,
-  "note": "creative/tournament.scorecard() tracks field spread, survival rate, death causes and their trends, and refuses to read a rising survival rate alongside falling spread as progress -- a jury going soft looks identical to improvement on survival alone. Remaining: blinded human/agent benchmark comparison and market CTR, which need the model provider and live traffic.",
+  "note": "creative/tournament.scorecard() tracks field spread, survival rate, death causes and their trends, and refuses to read a rising survival rate alongside falling spread as progress -- a jury going soft looks identical to improvement on survival alone. Everything computable without a model is computed. What remains is the blinded human/agent benchmark comparison, which needs a model to be the agent side, and market CTR, which needs live traffic. Parked on model_provider rather than left in the ready queue as work nobody can start.",
   "section": "Creativity engine + continuous improvement",
-  "status": "partial",
+  "status": "owner_gated",
   "title": "Creativity Capability Scorecard",
   "version": "v1.3.5"
  },
@@ -929,9 +929,9 @@
  {
   "body": "The long-term creative objective is explicit: later Brambleloop concepts should be more desirable, distinctive and commercially informed than earlier ones. Improvement is measured against historical Brambleloop cohorts and current category benchmarks. If creative capability plateaus, the Improvement Department treats that as a top-level business defect. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.6 - Deep Seasonal Creativity Audit This audit was derived from the supplied Etsy benchmark screenshots. The observed standard is not merely attractive photography: strong products repeatedly combine recognizable silhouettes, dimensional motifs, functional transformations, gift narratives, character systems, seasonal storytelling and cohesive model-led merchandising. Brambleloop must treat that level as a floor and seek original concepts beyond it.",
   "id": 104,
-  "note": "the north star is explicit in the scorecard and distinctiveness is measured against historical cohorts. Remaining: desirability needs a judgement nobody can currently make, and commercial information needs the benchmark scan.",
+  "note": "the north star is explicit in the scorecard and distinctiveness is measured against historical cohorts. What remains is desirability, which is a judgement no code here can make and no data here supports, and the commercial half, which needs the benchmark scan. Parked on model_provider.",
   "section": "Creativity engine + continuous improvement",
-  "status": "partial",
+  "status": "owner_gated",
   "title": "Creative Growth North Star",
   "version": "v1.3.5"
  },
@@ -992,18 +992,18 @@
  {
   "body": "Before engineering a strong seasonal concept, ask whether it can seed a coherent family: hero product, quick-make companion, bundle, giftable mini, decor variant, wearable/accessory or adjacent room/use case. Prefer ideas that can become collections without forcing low-quality derivatives.",
   "id": 111,
-  "note": "collections exist; no multi-product family test before engineering",
+  "note": "creative/family.py runs the family test before engineering, on structure rather than enthusiasm: five roles with the forms that can fill them, a construction -> form buildability map and a construction -> size-band range, so a role is viable only when the hero's own visual idea survives the size change and the form can actually be built that way. Size compatibility alone would invent members -- an amigurumi robin and a scarf are both small objects -- which is the derivative-forcing the requirement names, reached from the other side. A concept that fails is reported as a single product, not refused, and a bundle is derived from two viable roles rather than asserted. /api/seasonal/capacity.",
   "section": "Deep seasonal creativity audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Multi-Product Family Test",
   "version": "v1.3.6"
  },
  {
   "body": "Creative scoring must account for how long the buyer needs to make the item. Large blankets and complex garments must enter the market much earlier than ornaments/coasters/quick gifts. Seasonal Radar should shift late-window capacity toward fast makes instead of continuing to design products customers no longer have time to complete.",
   "id": 112,
-  "note": "radar has make-time in the buy-window arithmetic; not a creative-fit scoring input",
+  "note": "creative/family.window_fit grades a concept's make lane against the time left, using the make-time interval rather than a point estimate: infeasible means the optimistic bound has passed and everything short of it carries a real multiplier because hurry and stop are different instructions. Wired into creative scoring as the jury's shopping_window critic, which judges nothing when nobody said how long is left -- an unknown window is not a comfortable one -- and into the autopsy's diagnosis. shift_capacity() names what to continue, what to hurry and what to stand down, and the heaviest lane new work should use.",
   "section": "Deep seasonal creativity audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Make-Time / Shopping-Window Creative Fit",
   "version": "v1.3.6"
  },
@@ -1181,9 +1181,9 @@
  {
   "body": "Track concept-to-engineering survival, concept-to-launch survival, blind-grid score, novelty distance, CTR, favourite rate, conversion, bestseller incidence, contribution, collection attach rate and creative defect rate by cohort. Improvement Department must show whether creativity is actually getting better. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.7 - Culture & Nostalgia Opportunity Engine This upgrade expands Brambleloop beyond marketplace-following. The company continuously watches cultural demand and translates strong signals into original, commercially useful crochet opportunities, with a separate clearance lane for direct references when rights permit.",
   "id": 132,
-  "note": "standard.north_star() tracks all eleven metrics by cohort and separates the four computable today from the seven that need customers. The seven stay unmeasurable until there are orders",
+  "note": "standard.north_star() tracks all eleven metrics by cohort and separates the four computable today from the seven that need customers. The seven -- CTR, favourite rate, conversion, bestseller incidence, contribution, collection attach rate and concept-to-launch survival -- stay unmeasurable until there are orders, and are reported as unmeasurable rather than as zero. Nothing executable remains.",
   "section": "Deep seasonal creativity audit",
-  "status": "partial",
+  "status": "data_gated",
   "title": "Creative Department North-Star Metrics",
   "version": "v1.3.6"
  },
@@ -2657,9 +2657,9 @@
  {
   "body": "For each major upcoming event, show days to preferred/latest launch, products by stage, benchmark gaps, search opportunities, projected customer make time, ad learning status, current seasonal revenue/run rate, winner alerts and bottlenecks. The orchestrator reallocates agents toward deadlines and expected contribution.",
   "id": 296,
-  "note": "/api/seasonal is the war room and seasonal.sentinel recomputes it daily, naming the at-risk rows rather than counting them and raising a P2 for the soonest. Remaining: seasonal revenue and run rate, and ad learning status, which need live commerce.",
+  "note": "/api/seasonal is the war room and seasonal.sentinel recomputes it daily, naming the at-risk rows rather than counting them and raising a P2 for the soonest. What remains is seasonal revenue, run rate and ad learning status, each of which is a reading of commerce that has not happened. Unmeasured is not zero, so the war room reports them absent.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "partial",
+  "status": "data_gated",
   "title": "Seasonal Revenue War Room",
   "version": "v1.4.2"
  },
@@ -2684,9 +2684,9 @@
  {
   "body": "For each major event and department, maintain a matrix of elite-benchmark product markets versus Brambleloop coverage: benchmark concept/category, observed merchandising mechanisms, upcoming seasonal adaptation opportunities, our competing products, quality-gate result, launch date, traffic, conversion and revenue. Use it to expose unserved proven markets.",
   "id": 299,
-  "note": "the coverage matrix ranks events by how thin their department coverage is and names the gaps. Remaining: the benchmark half of the matrix -- observed competitor concepts per event and department -- which needs the credential.",
+  "note": "the coverage matrix ranks events by how thin their department coverage is and names the gaps. The benchmark half of the matrix -- observed competitor concepts per event and department -- is the credentialled half, and the read-only Etsy API key is the gate. Parked on benchmark_observation.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "partial",
+  "status": "owner_gated",
   "title": "Seasonal Benchmark Coverage Matrix",
   "version": "v1.4.2"
  },

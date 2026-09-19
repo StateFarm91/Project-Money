@@ -63,6 +63,12 @@ class Context:
     catalogue: list[Concept] | None = None      # what we already sell
     benchmark: list[Concept] | None = None      # what the observed competitor sells
     techniques: int = 1                          # distinct techniques the concept needs
+    # How long the buyer has left before the occasion this concept is for. None means nobody
+    # said, and the window critic then judges nothing: an unknown window is not a comfortable
+    # one, and inferring a date here would make the critic fire on everyday products.
+    days_to_event: int | None = None
+    # Completed physical tests behind the make-time interval. Zero is honest and wide.
+    make_time_samples: int = 0
 
 
 Critic = Callable[[Concept, Context], "Finding | None"]
@@ -166,6 +172,31 @@ def unnecessary_complexity(concept: Concept, ctx: Context) -> Finding | None:
     return None
 
 
+def shopping_window(concept: Concept, ctx: Context) -> Finding | None:
+    """Can the buyer still finish this before the occasion it is for? (#112)
+
+    Creative scoring that ignores make time treats an ornament and a flagship blanket as the
+    same bet in November. It rejects only when even the optimistic bound of the make-time
+    interval has passed, per the owner's correction: until physical testing produces real
+    maker-speed data the estimate is a distribution, and a tight runway is an instruction to
+    hurry rather than to stop.
+    """
+    if ctx.days_to_event is None:
+        return None
+
+    from .family import window_fit
+
+    fit = window_fit(concept, days_to_event=ctx.days_to_event,
+                     samples=ctx.make_time_samples)
+    if fit["verdict"] != "infeasible":
+        return None
+    return Finding("shopping_window", concept.key,
+                   f"a {concept.make_lane} make with {ctx.days_to_event} days left: "
+                   f"{fit['meaning']}, so the buyer cannot finish it for this occasion",
+                   {"days_to_event": ctx.days_to_event, "make_lane": concept.make_lane,
+                    "verdict": fit["verdict"], "calibrated": fit["calibrated"]})
+
+
 CRITICS: tuple[tuple[str, Critic], ...] = (
     ("sameness", sameness),
     ("genericness", genericness),
@@ -173,6 +204,7 @@ CRITICS: tuple[tuple[str, Critic], ...] = (
     ("derivative", derivative),
     ("thumbnail", thumbnail),
     ("complexity", unnecessary_complexity),
+    ("shopping_window", shopping_window),
 )
 
 

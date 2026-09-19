@@ -127,6 +127,9 @@ def autopsy(result: Result) -> dict:
         "derivative": "the field is anchoring too closely on observed competitor products",
         "thumbnail": "ideas depend on detail that does not survive the grid",
         "complexity": "briefs are over-scoped for their make lane",
+        "shopping_window": "briefs are being written for an occasion the buyer can no "
+                           "longer finish them for; late-window capacity belongs on fast "
+                           "makes rather than on products nobody has time to complete",
     }.get(dominant or "", "")
 
     return {

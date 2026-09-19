@@ -188,13 +188,13 @@ GATES: tuple[Gate, ...] = (
     Gate("benchmark_observation",
          "read-only Etsy API credentials for the MJs benchmark mission",
          lambda db, env: _env_gate("ETSY_API_KEY", "ETSY_SHARED_SECRET")(db, env),
-         (206, 301, 303, 319),
+         (206, 299, 301, 303, 319),
          "both Railway variables are set and non-empty"),
     Gate("model_provider", "a language and vision model API key",
          lambda db, env: _env_gate("ANTHROPIC_API_KEY")(db, env)
          or _env_gate("OPENAI_API_KEY")(db, env)
          or _env_gate("BRAMBLELOOP_MODEL_KEY")(db, env),
-         (177, 178),
+         (94, 104, 177, 178),
          "any recognised provider key is set"),
     Gate("etsy_shop", "a live Etsy shop, which only the account holder can open",
          _env_gate("ETSY_SHOP_ID"),

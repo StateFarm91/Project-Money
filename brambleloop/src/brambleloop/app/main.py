@@ -783,6 +783,32 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/seasonal/capacity")
+def api_seasonal_capacity(days: int = 60) -> dict:
+    """Where late-window creative capacity should go, given what a buyer can still finish.
+
+    The failure this prevents is not designing the wrong thing. It is continuing to design
+    the right thing three weeks too late, which looks like productivity the whole time.
+    """
+    from ..creative import family
+    from ..seasonal import uncertainty
+    from ..seasonal.calendar import lane_feasibility
+
+    samples = uncertainty.sample_count(db)
+    return {
+        "days_to_event": days,
+        "lanes": lane_feasibility(days, samples=samples),
+        "roles": [{"role": r.key, "what": r.what, "lane_ceiling": r.lane_ceiling,
+                   "why_it_matters": r.why} for r in family.ROLES],
+        "minimum_roles_for_a_family": family.MIN_VIABLE_ROLES,
+        "window_multipliers": family.WINDOW_MULTIPLIER,
+        "make_time_samples": samples,
+        "note": ("Graded against the make-time interval rather than a point estimate: "
+                 "impossible means the optimistic bound has passed, and everything short of "
+                 "that is an instruction to hurry rather than to stop."),
+    }
+
+
 @app.get("/api/roi")
 def api_roi() -> dict:
     """What the improvement programme bought, and whether new designs stand on what we know.
