@@ -61,6 +61,40 @@ def test_every_executable_requirement_is_either_ready_or_parked():
     assert balance["executable_parked"], "nothing is half-built and gated; this proves little"
 
 
+def test_a_requirement_re_audited_as_gated_leaves_the_queue():
+    """A queue row must not outlive the status that created it.
+
+    The first version of sync() skipped straight past an existing task when its requirement
+    stopped being schedulable, so requirements re-audited as data-gated kept reporting
+    themselves ready: the queue advertising work nobody can start, which is the exact failure
+    this module exists to prevent.
+    """
+    import dataclasses
+
+    db = _synced()
+
+    ready = {r["requirement_id"] for r in E.queue(db, limit=400)["ready"]}
+    victim = min(ready)
+
+    original = reg.load
+    reaudited = [dataclasses.replace(r, status=reg.DATA_GATED) if r.id == victim else r
+                 for r in original()]
+    try:
+        reg.load = lambda: reaudited
+        result = E.sync(db, env={})
+    finally:
+        reg.load = original
+
+    assert victim in result["retired"], result["retired"]
+    assert victim not in {r["requirement_id"] for r in E.queue(db, limit=400)["ready"]}
+
+    # And the reverse: a requirement audited back to executable returns to the queue, so the
+    # retirement is a reconciliation rather than a deletion the build cannot undo.
+    E.sync(db, env={})
+    assert victim in {r["requirement_id"] for r in E.queue(db, limit=400)["ready"]}
+    assert E.reconciliation(db)["balances"] is True
+
+
 def test_an_owner_gated_requirement_with_no_gate_is_refused():
     """Otherwise it falls into the ready list as work nobody can do.
 

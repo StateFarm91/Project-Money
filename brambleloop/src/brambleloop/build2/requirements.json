@@ -2585,9 +2585,9 @@
  {
   "body": "Do not reduce an event to one blanket. For each major event, explore the full maker/gift ecosystem: garments, stockings, ornaments, tree/table decor, wreaths, coasters, baskets, pillows, throws, bags, hats, accessories, amigurumi, quick gifts, bundles and other technically/market appropriate categories. Portfolio selection remains evidence-driven.",
   "id": 288,
-  "note": "depth is measured against the departments an event actually spans rather than against a product count, because six Christmas products say nothing about whether five are blankets. Measured today: ecosystem depth 0.07, and Christmas has no coverage in garments, stockings, ornaments, bags, hats or seasonal gift. Remaining: the gap queue feeds concepts into those departments, which needs the creativity engine driving generation.",
+  "note": "depth is measured against the departments an event actually spans rather than against a product count, because six Christmas products say nothing about whether five are blankets. seasonal/depth.py turns each gap into a brief: the forms that serve the department, the make lane each form implies, whether that lane can still launch for this event, the family roles it would fill and the last optimistic launch date. A department whose forms are all past their window is reported as next season's gap rather than this season's work, and hurry is kept apart from stop. A brief is not a product: nothing here counts as coverage, and depth moves only when something is built. /api/seasonal/depth.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "partial",
+  "status": "covered",
   "title": "Holiday Portfolio Depth",
   "version": "v1.4.2"
  },

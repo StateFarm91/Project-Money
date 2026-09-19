@@ -319,7 +319,7 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
 
     open_gates: dict[str, bool] = {g.key: g.open(db, env) for g in GATES}
 
-    created, updated, unparked, completed = 0, 0, [], []
+    created, updated, unparked, completed, retired = 0, 0, [], [], []
     with db.session() as s:
         existing = {t.requirement_id: t for t in s.scalars(select(BuildTask))}
         done_ids = {r.id for r in reg.load() if r.status == reg.COVERED}
@@ -331,6 +331,16 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
                 # no credential makes a customer exist and a task that can never be ready is
                 # a permanent blocker wearing a queue entry.
                 if requirement.status != reg.COVERED:
+                    stale = existing.get(requirement.id)
+                    if stale is not None:
+                        # A requirement re-audited as data-gated must leave the queue, not
+                        # sit in it forever because the row already existed. The first
+                        # version of this skipped straight past an existing task, so five
+                        # requirements reclassified as gated kept reporting themselves ready
+                        # -- the queue advertising work nobody can start, which is the exact
+                        # failure this module was written to prevent.
+                        s.delete(stale)
+                        retired.append(requirement.id)
                     continue
 
             task = existing.get(requirement.id)
@@ -394,7 +404,7 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
                 task.state = READY
 
     result = {"created": created, "updated": updated, "unparked": unparked,
-              "completed": completed, "gates_open": open_gates}
+              "completed": completed, "retired": retired, "gates_open": open_gates}
 
     # A completion the watchdog cannot see is a completion that did not happen, as far as the
     # only thing watching is concerned. Most completions arrive this way -- a session finishes

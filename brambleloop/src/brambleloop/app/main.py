@@ -783,6 +783,18 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/seasonal/depth")
+def api_seasonal_depth() -> dict:
+    """Every ecosystem gap, thinnest event first, as briefs rather than as a count.
+
+    A gap report that produces no work is a report. These are briefs, not products: nothing
+    here counts as coverage, and depth moves when something is built.
+    """
+    from ..seasonal import depth, uncertainty
+
+    return depth.depth_plan(samples=uncertainty.sample_count(db))
+
+
 @app.get("/api/seasonal/capacity")
 def api_seasonal_capacity(days: int = 60) -> dict:
     """Where late-window creative capacity should go, given what a buyer can still finish.
