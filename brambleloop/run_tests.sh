@@ -32,7 +32,7 @@ SUITES=(
   tests/test_intel.py tests/test_learning.py tests/test_response.py tests/test_mission.py tests/test_teardown.py tests/test_teardown_audits.py tests/test_culture.py tests/test_creative.py tests/test_invention.py tests/test_universe.py tests/test_family.py tests/test_funnel.py tests/test_improve.py tests/test_league.py tests/test_roi.py tests/test_growth.py tests/test_swarm.py tests/test_visual.py
   tests/test_etsy.py tests/test_brand.py tests/test_takeover.py tests/test_moat.py tests/test_commerce.py tests/test_departments.py
   tests/test_buyer_trust.py tests/test_trust.py tests/test_quality.py tests/test_physical.py tests/test_finance.py tests/test_commercial_truth.py
-  tests/test_leadtime.py tests/test_uncertainty.py tests/test_depth.py tests/test_model_access.py tests/test_scale.py tests/test_discipline.py tests/test_runrate.py
+  tests/test_leadtime.py tests/test_uncertainty.py tests/test_depth.py tests/test_compression.py tests/test_model_access.py tests/test_scale.py tests/test_discipline.py tests/test_runrate.py
   tests/test_launch.py tests/test_access.py tests/test_platform_policy.py
   tests/test_shadow.py
   tests/test_persistence.py tests/test_continuity.py tests/test_chaos.py tests/test_deploy.py
@@ -88,6 +88,15 @@ for t in "${SUITES[@]}"; do
   total=$((total+n))
   code=$(cat "$outdir/$safe.code" 2>/dev/null || echo 1)
   [ "$code" -ne 0 ] && failed=$((failed+1))
+  # A suite that exits clean and reports no passes is not a passing suite; it is a suite
+  # whose results are not reaching this total. Nine files printing a lowercase marker were
+  # counted as zero here for a whole session -- exit codes still caught their failures, so
+  # nothing was broken and the headline number was quietly wrong, which is the harder fault
+  # to notice. Counted as a failure so the log says so on the line somebody reads.
+  if [ "$code" -eq 0 ] && [ "$n" -eq 0 ]; then
+    echo "   SUITE REPORTED NO PASSES: its results are not reaching the total"
+    failed=$((failed+1))
+  fi
 done
 
 echo

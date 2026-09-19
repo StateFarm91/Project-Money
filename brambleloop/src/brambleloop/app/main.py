@@ -877,6 +877,42 @@ def api_learning() -> dict:
     }
 
 
+@app.post("/api/model/probe")
+def api_model_probe() -> dict:
+    """Ask the provider now rather than waiting for the six-hourly cadence.
+
+    Useful exactly once per change in the account's state -- credit arriving, a key rotating
+    -- which is why it is idempotent per minute rather than per call. The ceiling is checked
+    before the request like every other model call.
+    """
+    key = f"model.probe:{utcnow():%Y%m%dT%H%M}"
+    try:
+        job = JobQueue(db).enqueue("orchestrator", "model.probe", {},
+                                   idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False,
+                "reason": "a probe was already queued this minute"}
+    return {"enqueued": True, "job_id": job.id,
+            "note": "the result appears at GET /api/model once the worker runs it"}
+
+
+@app.get("/api/seasonal/compression")
+def api_seasonal_compression(event: str = "Christmas") -> dict:
+    """What to build for a priority occasion this week, given what a buyer can still finish.
+
+    A retired product class is a statement about that class. The occasion continues, and the
+    capacity the closed lane was holding moves into the fastest lane still open rather than
+    out of the programme.
+    """
+    from ..seasonal import uncertainty
+    from ..seasonal.compression import CompressionRefused, programme
+
+    try:
+        return programme(event, samples=uncertainty.sample_count(db))
+    except CompressionRefused as exc:
+        return {"event": event, "error": str(exc)}
+
+
 @app.get("/api/seasonal/depth")
 def api_seasonal_depth() -> dict:
     """Every ecosystem gap, thinnest event first, as briefs rather than as a count.

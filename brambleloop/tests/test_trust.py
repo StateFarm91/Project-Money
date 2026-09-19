@@ -201,10 +201,10 @@ def _run() -> int:
         if name.startswith("test_") and callable(fn):
             try:
                 fn()
-                print(f"  ok   {name}")
+                print(f"OK   {name}")
             except Exception as exc:  # noqa: BLE001
                 failures += 1
-                print(f"  FAIL {name}: {exc}")
+                print(f"FAIL {name}: {exc}")
     return failures
 
 

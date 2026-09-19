@@ -47,9 +47,9 @@
  {
   "body": "As soon as real Market Radar is available, score Christmas micro-markets immediately: ornaments, stockings, tree skirts, blankets, pillows, runners, gift bags, hats, amigurumi, quick gifts and bundles. Select from current evidence. Do not allow infrastructure perfectionism to consume the seasonal making window.",
   "id": 6,
-  "note": "superseded by 33; radar has shopping-window arithmetic and Christmas concepts, but no seasonal engine",
+  "note": "seasonal/compression.py is the permanent form of this: Christmas is a named priority programme holding 45% of engineering capacity with a 25% floor, and the mix across make lanes is its runway verdict weighted by how soon each lane closes. That makes the compression automatic -- at 150 days MEDIUM leads, at 120 SHORT, from 75 QUICK, and a lane that retires hands its share to the lanes behind it rather than out of the occasion. The engine may retire a product class and may never stand down the occasion: two refusals enforce it. Departments come from the calendar's own event map filtered by open lanes, so what it names is ornaments, stockings, decor, bags, hats and seasonal gift rather than blankets. When no lane can still be launched the programme moves to merchandising rather than stopping, holding the floor through the fortnight the occasion earns the money, and releases only past the buyer's last practical make date. Recomputed daily by seasonal.sentinel, which raises a P3 when a preparation stream is late. /api/seasonal/compression.",
   "section": "Core commercial upgrades",
-  "status": "partial",
+  "status": "covered",
   "title": "Christmas 2026 Strike Team",
   "version": "v1.3"
  },

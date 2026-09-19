@@ -935,9 +935,63 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
         "events_behind": [b["event"] for b in behind],
         "events_checked": len(SEASONAL_EVENTS)})
 
+    # The compression programme for every priority occasion, recomputed on the same cadence.
+    # This is the half that makes the owner's correction automatic rather than remembered: as
+    # a lane's runway closes, the mix moves into the fastest lane still open and the
+    # departments that can no longer be finished drop out by themselves. A retirement is
+    # recorded as a transition, because "FLAGSHIP closed today" is the sentence a reader
+    # needs and "FLAGSHIP is closed" is the one they will misread a fortnight later.
+    from ..seasonal import uncertainty
+    from ..seasonal.compression import PRIORITY_PROGRAMMES, programme
+
+    samples = uncertainty.sample_count(ctx.db)
+    programmes = []
+    overdue_prep: list[dict] = []
+    for name in PRIORITY_PROGRAMMES:
+        try:
+            plan = programme(name, today=today, samples=samples)
+        except Exception as exc:  # noqa: BLE001 - a calendar fault must not stop the sentinel
+            ctx.audit("seasonal.compression_failed",
+                      detail={"event": name, "error": str(exc)[:300]})
+            continue
+        late = [row for row in plan["preparation"] if row["overdue"]]
+        overdue_prep.extend(late)
+        programmes.append({
+            "event": name, "days_away": plan["days_away"], "mode": plan["mode"]["mode"],
+            "leading_lane": plan["mix"]["leading_lane"],
+            "shares": plan["mix"]["shares"],
+            "retired_classes": [r["lane"] for r in plan["retired_classes"]],
+            "departments": [a["department"] for a in plan["arenas"]],
+            "capacity_share": plan["capacity"]["share"],
+            "overdue_preparation": [f"{r['lane']}:{r['stream']}" for r in late][:10],
+        })
+        ctx.audit("seasonal.compression", detail=programmes[-1])
+
+    if overdue_prep:
+        from sqlalchemy import select
+
+        from ..core.models import Incident
+
+        soonest = min(overdue_prep, key=lambda r: r["days_until"])
+        signature = f"seasonal.preparation_late:{soonest['lane']}:{soonest['stream']}"
+        with ctx.db.session() as s:
+            existing = s.scalar(select(Incident).where(
+                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
+            if existing is None:
+                s.add(Incident(
+                    severity="P3", signature=signature,
+                    summary=(f"{soonest['stream']} for the {soonest['lane']} lane should "
+                             f"have started {abs(soonest['days_until'])} days ago. "
+                             f"{soonest['why']} A product ready on its launch date is late: "
+                             f"indexing is not instant, and a listing nobody can find is "
+                             f"not a launch."),
+                    halts_publication=False,
+                    detail={"overdue": overdue_prep[:20], "as_of": today.isoformat()}))
+
     return {"products_scheduled": room["products_scheduled"], "counts": counts,
             "at_risk": len(at_risk), "missed": len(missed),
-            "collection_calendar_behind": behind}
+            "collection_calendar_behind": behind,
+            "compression": programmes}
 
 
 @handlers.register("mjs.scan")
