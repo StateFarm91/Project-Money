@@ -1595,9 +1595,9 @@
  {
   "body": "Learning may occur continuously as evidence arrives; promotion of changes follows controlled cadence and risk tier. Low-risk scoring/prompt improvements may be tested frequently. Code, release logic, spend, policy and truth gates require regression/adversarial testing and rollback. Never equate 'constant learning' with uncontrolled production mutation.",
   "id": 178,
-  "note": "high-frequency learning needs a model; parked on the model_provider gate. Same reconciliation as #177",
+  "note": "improve/tiers.py grades every self-change by what it touches, never by what it is called -- a spend limit adjusted inside a change described as a scoring tweak is still a spend change, and the description is the part somebody chooses. Five tiers from scoring to gate, each with a cooldown (six changes to one surface in an afternoon cannot be attributed to anything), a rolling weekly ceiling (continuous learning with no ceiling is a company rewriting itself faster than it can observe the result) and the evidence its failure mode needs. An unknown surface grades upward to code, because defaulting downward would make 'touch something unlisted' the fast path. The gate tier -- truth gates, policy, release logic, spend, publication -- never promotes without an owner approval among its evidence. Enforced rather than offered: cells.promote() refuses an improvement that does not declare what it touches or that outruns its tier. /api/tiers.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "owner_gated",
+  "status": "covered",
   "title": "High-Frequency Learning Without Blind Self-Modification",
   "version": "v1.3.9"
  },

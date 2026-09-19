@@ -40,7 +40,7 @@ def _promoted(db, *, cell="quality", baseline=0.20, result=0.10, cost=1.50) -> i
     improvement_id = cells.propose(
         db, cell=cell, hypothesis=("tightening the chart check before certification should catch "
                     "stitch-count defects earlier"),
-        expected_effect="fewer defects reach a release", rollback_ref="git:abc123",
+        expected_effect="fewer defects reach a release", rollback_ref="git:abc123", touches=("weights",),
         spend_cad=cost, spend_authorised_cad=5.0)
     cells.test_result(db, improvement_id, result)
     cells.promote(db, improvement_id)
@@ -151,7 +151,8 @@ def test_direction_follows_the_cell_not_the_arithmetic():
     improvement_id = cells.propose(
         db, cell="growth", hypothesis=("adding a second acquisition loop with attribution should raise "
                     "the count of loops carrying measured traffic"),
-        expected_effect="more loops carry measured traffic", rollback_ref="git:def456")
+        expected_effect="more loops carry measured traffic", rollback_ref="git:def456",
+        touches=("weights",))
     cells.test_result(db, improvement_id, 3.0)
     cells.promote(db, improvement_id)
     _age(db, improvement_id, 30)

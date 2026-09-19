@@ -973,6 +973,18 @@ def api_seasonal_capacity(days: int = 60) -> dict:
     }
 
 
+@app.get("/api/tiers")
+def api_tiers() -> dict:
+    """How fast this company is allowed to change itself, and how much of that it has spent.
+
+    Learning may happen as fast as evidence arrives; promotion may not. A change is graded by
+    what it touches, never by what it is called.
+    """
+    from ..improve import tiers
+
+    return tiers.state(db)
+
+
 @app.get("/api/roi")
 def api_roi() -> dict:
     """What the improvement programme bought, and whether new designs stand on what we know.

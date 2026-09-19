@@ -205,9 +205,18 @@ def test_result(db, improvement_id: int, value: float, *, evidence: dict | None 
         return row.state
 
 
-def promote(db, improvement_id: int) -> str:
-    """Apply a tested improvement. Refuses anything that was not actually shown to be better."""
+def promote(db, improvement_id: int, *,
+            evidence: tuple[str, ...] = ()) -> str:
+    """Apply a tested improvement. Refuses anything that was not actually shown to be better.
+
+    Also refuses anything that outruns its risk tier (#178). Learning may happen as fast as
+    evidence arrives; promotion may not, and the tier reads what the change *touches* rather
+    than what it was called -- so a change to a spend limit cannot take the scoring lane by
+    being described as one.
+    """
     from ..core.models import Improvement
+
+    from . import tiers
 
     with db.session() as s:
         row = s.get(Improvement, improvement_id)
@@ -219,12 +228,54 @@ def promote(db, improvement_id: int) -> str:
                 f"baseline recorded before it may be promoted (#92)")
         if not row.rollback_ref:
             raise ImprovementRefused("cannot promote without a rollback path (#93)")
+        touches = tuple((row.evidence or {}).get("touches") or ())
+        carried = _evidence_kinds(row, extra=evidence)
+
+    if not touches:
+        raise ImprovementRefused(
+            f"improvement {improvement_id} does not say what it touches, so its risk tier "
+            f"cannot be graded and an ungraded change takes whichever lane its author felt "
+            f"like (#178). Declare `touches` at proposal time")
+    try:
+        graded = tiers.check_promotion(db, touches=touches, evidence=carried)
+    except tiers.TierRefused as exc:
+        raise ImprovementRefused(str(exc)) from exc
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
         row.state = PROMOTED
         row.promoted_at = datetime.now(timezone.utc)
+        row.evidence = {**(row.evidence or {}), "tier": graded["tier"],
+                        "tier_evidence": graded["satisfied"]}
+        cell, result_value = row.cell, row.result_value
 
-    record_capability(db, row.cell, row.result_value,
+    tiers.record_promotion(db, tier=graded["tier"],
+                           summary=f"improvement {improvement_id} on {cell}",
+                           detail={"improvement_id": improvement_id, "cell": cell})
+    record_capability(db, cell, result_value,
                       detail={"from": f"improvement:{improvement_id}"})
     return PROMOTED
+
+
+def _evidence_kinds(row, *, extra: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """What this improvement actually carries, read off the row rather than asserted.
+
+    A caller may add the kinds only it knows about -- that a regression test was written, that
+    the owner approved -- and may not add the ones the row can be asked about directly.
+    """
+    from . import tiers
+
+    carried = set(extra)
+    carried.discard(tiers.BASELINE)
+    carried.discard(tiers.SANDBOX_RESULT)
+    carried.discard(tiers.ROLLBACK)
+    if row.baseline_value is not None:
+        carried.add(tiers.BASELINE)
+    if row.result_value is not None:
+        carried.add(tiers.SANDBOX_RESULT)
+    if row.rollback_ref:
+        carried.add(tiers.ROLLBACK)
+    return tuple(sorted(carried))
 
 
 def monitor(db, improvement_id: int, observed: float) -> dict:

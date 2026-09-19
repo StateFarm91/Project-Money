@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.improve import bus, cells, governance  # noqa: E402
+from brambleloop.improve import bus, cells, governance, tiers  # noqa: E402
 
 
 def _db() -> Database:
@@ -156,7 +156,8 @@ def test_the_baseline_is_taken_before_the_change_or_there_is_no_baseline():
     second = cells.propose(
         db, cell="quality",
         hypothesis="adding a frame-level contrast check should reduce defects further",
-        expected_effect="fewer post-release defects", rollback_ref="git:bbb")
+        expected_effect="fewer post-release defects", rollback_ref="git:bbb",
+        touches=("weights",))
     assert cells.test_result(db, second, 1.0) == cells.TESTING
     assert cells.promote(db, second) == cells.PROMOTED
 
@@ -208,9 +209,13 @@ def test_a_degrading_promotion_reverts_itself_rather_than_waiting_for_agreement(
     improvement = cells.propose(
         db, cell="runtime",
         hypothesis="a longer lease should reduce dead letters from slow jobs",
-        expected_effect="fewer dead letters", rollback_ref="git:eee")
+        expected_effect="fewer dead letters", rollback_ref="git:eee",
+        touches=("cadence",))
     cells.test_result(db, improvement, 2.0)
-    cells.promote(db, improvement)
+    # A lease length is a cadence, which #178 grades as tooling: routing and timing changes
+    # alter cost and reliability together, so the tier asks for a regression test the row
+    # cannot be asked about and the caller has to carry.
+    cells.promote(db, improvement, evidence=(tiers.REGRESSION_TEST,))
 
     held = cells.monitor(db, improvement, 2.05)
     assert held["action"] == "held"
