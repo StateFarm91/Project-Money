@@ -242,6 +242,57 @@ def test_a_lesson_carrying_a_competitors_instructions_is_refused_by_the_shared_b
         raise AssertionError("a competitor's instructions entered the pod memory")
 
 
+# ---- coverage gaps are named, not counted (#207, #303) --------------------
+
+
+def _listings(db, rows):
+    from brambleloop.core.models import BenchmarkListing
+    with db.session() as s:
+        for i, (title, product_type) in enumerate(rows):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY,
+                                   listing_ref=f"L{i}", title=title,
+                                   product_type=product_type))
+
+
+def test_an_unrouted_listing_is_named_rather_than_counted():
+    """`unclassified: 58` tells nobody which 58, so it cannot be closed."""
+    db = _db()
+    _listings(db, [("Crochet Christmas Stocking", ""),
+                   ("Amigurumi Fox Plush Toy", ""),
+                   ("Boot Cuffs Pattern", "")])
+    report = M.gaps(db)
+    assert report["routing"]["unclassified"] == 2
+    named = {r["title"] for r in report["routing"]["listings"]}
+    assert named == {"Amigurumi Fox Plush Toy", "Boot Cuffs Pattern"}, named
+
+
+def test_the_gap_report_surfaces_the_terms_a_widening_may_be_drawn_from():
+    """The vocabulary may only grow from observed titles, so the titles have to be readable."""
+    db = _db()
+    _listings(db, [(f"Amigurumi Bunny Plush number {i}", "") for i in range(5)])
+    terms = {t["term"]: t["listings"] for t in M.gaps(db)["routing"]["frequent_terms"]}
+    assert terms.get("amigurumi") == 5, terms
+    assert "number" in terms  # noise is shown too; the judgement is not the report's to make
+
+
+def test_a_palette_absence_names_an_unmade_call_not_a_missing_capability():
+    """Confusing the two is how a closeable gap waits on a gate that was never its blocker."""
+    db = _db()
+    _listings(db, [("Crochet Blanket", "")])
+    attrs = M.gaps(db)["attributes"]
+    assert attrs["palette"]["absent_on"] == 1
+    assert "credential" in attrs["palette"]["capability"]
+    assert attrs["silhouette"]["capability"] == "browser/vision"
+
+
+def test_the_gap_report_reads_the_key_the_scanner_writes():
+    """The defect that made the map report an empty catalogue against 438 rows."""
+    db = _db()
+    _listings(db, [("Amigurumi Fox", "")])
+    assert M.gaps(db)["listings"] == 1
+    assert M.gaps(db)["benchmark_key"] == benchmarks.MJS_KEY
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -434,6 +434,19 @@ def api_seasonal() -> dict:
     return catalogue_plans(db)
 
 
+@app.get("/api/mjs/coverage")
+def api_mjs_coverage() -> dict:
+    """What the living market map cannot see, named rather than counted (#207, #303).
+
+    The map reports an unclassified count. This reports the listings behind it, because a
+    keyword vocabulary may only grow from observed titles -- widening it from imagination
+    produces pods that match nothing while looking broader.
+    """
+    from ..intel import market_map
+
+    return market_map.gaps(db)
+
+
 @app.get("/api/teardown")
 def api_teardown() -> dict:
     """The teardown laboratory: what has been purchased, scored, and made into a standard.

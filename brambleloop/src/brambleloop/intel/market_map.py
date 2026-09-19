@@ -228,3 +228,84 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool = Fals
                  "look complete and be fiction -- persuasive fiction, because nine of ten "
                  "columns would be right (#303)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Coverage gaps (#207, #303)
+#
+# The map reports `unclassified: 58` and that number, on its own, is not actionable. It says
+# 13% of the benchmark catalogue reaches no specialist and gives nobody the evidence to fix
+# it. A gap counted is not a gap known.
+#
+# So this names them. The keyword vocabulary in `pods.py` is only allowed to grow from
+# observed titles -- widening it from imagination produces pods that match nothing and a
+# router that still drops the same listings, while looking broader.
+
+
+def gaps(db, *, benchmark_key: str | None = None, limit: int = 200) -> dict:
+    """What the map cannot see, listing by listing, with the reason it cannot see it.
+
+    Two kinds of gap, and they have different owners:
+
+      - **Routing gaps**: a listing whose title matched no pod keyword. Ours to close, from
+        the titles themselves.
+      - **Attribute gaps**: a column absent on some rows. Each one names the capability that
+        would fill it, so an absence caused by a missing gallery call is never confused with
+        one caused by a missing vision capability.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from . import benchmarks
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key)))
+        observed = [{"listing_ref": r.listing_ref, "title": r.title or "",
+                     "product_type": r.product_type or "",
+                     "palette": (r.detail or {}).get("palette")} for r in rows]
+
+    unrouted = [x for x in observed if route(x["title"], x["product_type"]) == UNCLASSIFIED]
+
+    # The words that actually appear in the titles nothing matched. This is the evidence a
+    # keyword widening has to be drawn from; a term that appears once is noise, a term that
+    # appears across a dozen unrouted listings is a missing pod or a missing keyword.
+    counts: dict[str, int] = {}
+    for x in unrouted:
+        for word in {w.strip(".,!|()-–—\"'") for w in x["title"].lower().split()}:
+            if len(word) > 3 and word.isalpha():
+                counts[word] = counts.get(word, 0) + 1
+    frequent = sorted(((w, c) for w, c in counts.items() if c >= 3),
+                      key=lambda wc: (-wc[1], wc[0]))
+
+    missing_palette = [x["listing_ref"] for x in observed if not x["palette"]]
+    return {
+        "benchmark_key": benchmark_key,
+        "listings": len(observed),
+        "routing": {
+            "unclassified": len(unrouted),
+            "share": round(len(unrouted) / len(observed), 3) if observed else 0.0,
+            "owner": "ours: the pod vocabulary is short, and it is closeable from these titles",
+            "listings": [{"listing_ref": x["listing_ref"], "title": x["title"][:120],
+                          "product_type": x["product_type"]} for x in unrouted[:limit]],
+            "frequent_terms": [{"term": w, "listings": c} for w, c in frequent[:40]],
+            "truncated": max(0, len(unrouted) - limit),
+        },
+        "attributes": {
+            "palette": {
+                "absent_on": len(missing_palette),
+                "share": round(len(missing_palette) / len(observed), 3) if observed else 0.0,
+                "capability": "a gallery read on the existing read-only credential",
+                "note": ("Etsy publishes per-image hex, hue, saturation and brightness, so "
+                         "this is an unmade call rather than a missing capability"),
+            },
+            **{k: {"absent_on": len(observed), "share": 1.0,
+                   "capability": "browser/vision", "note": ATTRIBUTES[k][1]}
+               for k in VISION_ATTRIBUTES},
+        },
+        "note": ("A gap counted is not a gap known. Every unrouted listing is named here "
+                 "because the pod vocabulary may only grow from observed titles -- widening "
+                 "it from imagination produces pods that match nothing while looking "
+                 "broader (#207)."),
+    }
