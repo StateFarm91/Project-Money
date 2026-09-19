@@ -235,6 +235,90 @@ def test_unfinished_jobs_are_visible_for_recovery_after_restart():
         assert recovered.claim("worker-2") is not None
 
 
+def test_a_deploy_re_drives_what_it_fixed_exactly_once():
+    """A monthly job that dies on a typo must not wait thirty days after the typo is fixed.
+
+    The bound is the whole design: one re-drive per deployed commit. A commit that did not
+    fix the defect kills the job again and it waits for the next one, so this is a retry
+    after a fix rather than a retry loop.
+    """
+    import os
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.pipeline import handle_queue_check
+    from brambleloop.runtime.worker import JobContext
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/redrive.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    q = JobQueue(db)
+
+    broken = q.enqueue("orchestrator", "ops.heartbeat", {})
+    refused = q.enqueue("listing", "store.publish", {})
+    q.fail(broken.id, "TypeError: got an unexpected keyword argument 'db'", retry=False)
+    q.fail(refused.id, "capability not enabled: the system is in SHADOW mode", retry=False)
+    assert len(q.dead_letters()) == 2
+
+    ctx = JobContext(job=q.enqueue("orchestrator", "ops.queue_check", {}), db=db, queue=q,
+                     registry=Registry(db), phase=None)
+    os.environ["BRAMBLELOOP_COMMIT"] = "aaaaaaaaaaaa"
+    try:
+        first = handle_queue_check(ctx)
+        assert first["requeued"] == 1, first
+        with db.session() as s:
+            assert s.get(Job, broken.id).status == JobStatus.PENDING
+            # A refusal is not a failure and is never re-driven, whatever is deployed.
+            assert s.get(Job, refused.id).status == JobStatus.DEAD
+
+        # Same commit, nothing more to do even though a dead letter remains.
+        q.fail(broken.id, "TypeError: still broken", retry=False)
+        again = handle_queue_check(ctx)
+        assert again["requeued"] == 0
+        assert "already" in again["reason"]
+
+        # A new deploy is a new chance.
+        os.environ["BRAMBLELOOP_COMMIT"] = "bbbbbbbbbbbb"
+        third = handle_queue_check(ctx)
+        assert third["requeued"] == 1, third
+    finally:
+        os.environ.pop("BRAMBLELOOP_COMMIT", None)
+
+
+def test_an_unknown_commit_does_not_re_drive_anything():
+    """"Once per deploy" has no meaning without a deploy identity, and a retry there loops."""
+    import os
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.pipeline import handle_queue_check
+    from brambleloop.runtime.worker import JobContext
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/redrive2.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    q = JobQueue(db)
+    broken = q.enqueue("orchestrator", "ops.heartbeat", {})
+    q.fail(broken.id, "TypeError: boom", retry=False)
+
+    saved = {k: os.environ.pop(k) for k in
+             ("RAILWAY_GIT_COMMIT_SHA", "BRAMBLELOOP_COMMIT", "GIT_COMMIT_SHA",
+              "SOURCE_COMMIT") if k in os.environ}
+    try:
+        ctx = JobContext(job=q.enqueue("orchestrator", "ops.queue_check", {}), db=db,
+                         queue=q, registry=Registry(db), phase=None)
+        result = handle_queue_check(ctx)
+        assert result["requeued"] == 0
+        assert "unbounded loop" in result["reason"]
+    finally:
+        os.environ.update(saved)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -608,10 +608,49 @@ def handle_heartbeat(ctx: JobContext) -> dict:
 
 @handlers.register("ops.queue_check")
 def handle_queue_check(ctx: JobContext) -> dict:
+    """Count the dead letters, and re-drive them once per deployed commit.
+
+    A dead letter caused by a defect is work the company still owes, and the fix for a defect
+    is a deploy. So a deploy is exactly the event that should retry it -- once. That bound is
+    what stops this becoming a retry loop: a commit that did not fix the defect kills the job
+    again, and it waits for the next one rather than for somebody with database access.
+
+    This matters more than it looks for infrequent cadences. A monthly job that dies on a
+    typo would otherwise sit in the graveyard for thirty days after the typo is fixed, which
+    is how an autonomous build stalls on something already repaired.
+
+    Deliberate refusals are never re-driven: `requeue_dead` skips anything whose error
+    carries a refusal marker, so Shadow Mode's publication refusals stay refused.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core import build
+    from ..core.models import AuditLog
+
     dead = ctx.queue.dead_letters()
-    if dead:
-        ctx.audit("ops.dead_letters_present", detail={"ids": [d.id for d in dead][:20]})
-    return {"dead_letters": len(dead)}
+    if not dead:
+        return {"dead_letters": 0, "requeued": 0}
+
+    ctx.audit("ops.dead_letters_present", detail={"ids": [d.id for d in dead][:20]})
+
+    here = build.commit() or "unknown"
+    with ctx.db.session() as s:
+        seen = list(s.scalars(
+            select(AuditLog).where(AuditLog.action == "ops.requeued_for_commit")
+            .order_by(desc(AuditLog.id)).limit(20)))
+        already = any((row.detail or {}).get("commit") == here for row in seen)
+    if already or here == "unknown":
+        return {"dead_letters": len(dead), "requeued": 0,
+                "reason": ("this commit has already re-driven them" if already else
+                           "the deployed commit is unknown, so 'once per deploy' has no "
+                           "meaning and a retry here would be an unbounded loop")}
+
+    result = ctx.queue.requeue_dead(
+        job_types=sorted({j.job_type for j in dead if j.job_type != "store.publish"}))
+    ctx.audit("ops.requeued_for_commit",
+              detail={"commit": here, **{k: v for k, v in result.items() if k != "skipped"}})
+    return {"dead_letters": len(dead), "requeued": len(result.get("requeued") or []),
+            "commit": here}
 
 
 @handlers.register("plan.cycle")
