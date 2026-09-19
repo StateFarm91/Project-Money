@@ -2,7 +2,7 @@
  {
   "body": "Once the Etsy shop exists, use Etsy Marketplace Insights as a primary research input where accessible: real Etsy search terms, recent search volume, related terms/trends and listing competition. Use limited free research capacity efficiently; if a paid Etsy tier would materially improve research, present exact cost and expected value for owner approval.",
   "id": 1,
-  "note": "Etsy Marketplace Insights needs automated access to the shop's own seller data, not the shop's existence. BrambleloopStudio exists as of 2026-09-19 and this is still parked, now on etsy_api: Insights is a seller-dashboard surface, so without the developer credential the only way to read it is a person reading it on a screen. Re-gated rather than unparked, because unparking it on the shop's existence would put work in the ready queue that nothing can start.",
+  "note": "re-audited 2026-09-19 after the developer credential was verified by use. Marketplace Insights is a Shop Manager surface, not an API product: none of the nine endpoints this application is authorised for touches it, and the approved personal app does not add one. So the blocker was never the shop's existence and is not the API credential either -- reading Insights means reading a rendered page, which is the browser_vision gate. Parked there rather than released into the ready queue as work nothing can start, which is the third time today that distinction has mattered.",
   "section": "Core commercial upgrades",
   "status": "owner_gated",
   "title": "Etsy Marketplace Insights as First-Party Demand Oracle",
@@ -326,7 +326,7 @@
  {
   "body": "Marketplace Insights becomes a scarce first-party research resource. Allocate keyword queries using expected information gain: validate the highest-uncertainty/highest-value micro-markets first. Store every query/result snapshot so the same keyword is not wastefully re-queried. Etsy Plus/unlimited access is an owner-approved upgrade only when expected value exceeds cost.",
   "id": 37,
-  "note": "the query budgeter allocates a scarce resource this system cannot yet query. Re-gated from etsy_shop to etsy_api on 2026-09-19: the shop exists, and Marketplace Insights still needs the developer credential. The budgeting logic is worth building before the credential arrives and is tracked as such rather than as blocked work.",
+  "note": "the query budgeter allocates a resource this system still cannot query: Marketplace Insights has no endpoint among the nine this application is authorised for. Re-gated to browser_vision on 2026-09-19 for the same reason as #1. The budgeting arithmetic is buildable before the source exists and is tracked as owed rather than as blocked work.",
   "section": "Adversarial commercial + policy audit",
   "status": "owner_gated",
   "title": "Marketplace Insights Query Budgeter",
@@ -2108,16 +2108,16 @@
  {
   "body": "Where Etsy supports and the buyer is eligible/opted-in, test abandoned-cart, favorited-item, interested-shopper and thank-you offers. Measure incremental conversion, margin and repeat purchase versus baseline; do not assume every discount is accretive. Preserve truthful regular prices and promotion rules.",
   "id": 235,
-  "note": "targeted offers are seller-dashboard promotions. Re-gated to etsy_api on 2026-09-19: the shop exists and running a promotion is both an API action and a consequential owner-gated one, so it stays parked on both counts.",
+  "note": "re-audited 2026-09-19. Targeted offers are seller-dashboard promotions, and the requirement's own measurement -- incremental conversion, margin and repeat purchase versus baseline, do not assume every discount is accretive -- needs orders. With zero sales there is no baseline to be incremental to, so this is data-gated rather than credential-gated, and running a promotion is separately a consequential owner action this system does not take.",
   "section": "CA$5K/month scale architecture",
-  "status": "owner_gated",
+  "status": "data_gated",
   "title": "Etsy Targeted-Offer Optimizer",
   "version": "v1.4.1"
  },
  {
   "body": "Use Etsy Marketplace Insights as first-party demand/competition evidence once accessible. Allocate limited free queries by expected information gain; consider Etsy Plus only through owner approval if unlimited research has positive expected value. Store search count, listing count, related terms, trend direction, date and geography/context.",
   "id": 236,
-  "note": "the portfolio allocator consumes Marketplace Insights evidence. Re-gated to etsy_api on 2026-09-19 for the same reason as #1: the blocker was automated access to the shop, never the shop's existence.",
+  "note": "the portfolio allocator consumes Marketplace Insights evidence, which has no API surface among this application's endpoints. Re-gated to browser_vision on 2026-09-19 for the same reason as #1.",
   "section": "CA$5K/month scale architecture",
   "status": "owner_gated",
   "title": "Marketplace Insights Portfolio Allocator",
@@ -2684,9 +2684,9 @@
  {
   "body": "For each major event and department, maintain a matrix of elite-benchmark product markets versus Brambleloop coverage: benchmark concept/category, observed merchandising mechanisms, upcoming seasonal adaptation opportunities, our competing products, quality-gate result, launch date, traffic, conversion and revenue. Use it to expose unserved proven markets.",
   "id": 299,
-  "note": "the coverage matrix ranks events by how thin their department coverage is and names the gaps. The benchmark half of the matrix -- observed competitor concepts per event and department -- is the credentialled half, and the read-only Etsy API key is the gate. Parked on benchmark_observation.",
+  "note": "the coverage matrix ranks events by how thin their department coverage is and names the gaps. The benchmark half became executable on 2026-09-19 when the credential was verified and 438 listings were observed across nine pods, so this is no longer gated: it is work this build owes.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "owner_gated",
+  "status": "partial",
   "title": "Seasonal Benchmark Coverage Matrix",
   "version": "v1.4.2"
  },
