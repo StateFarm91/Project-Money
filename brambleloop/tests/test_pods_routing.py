@@ -152,6 +152,52 @@ def test_a_season_says_when_a_product_sells_not_what_it_is():
     assert pods.route("Festive Crochet Decor Bundle") == "seasonal_gift"
 
 
+# ---- the three faults production found after the first two fixes ------------
+
+
+def test_an_html_escaped_possessive_is_not_a_count_of_thirty_nine_patterns():
+    """Etsy returns titles escaped, and "Men&#39;s" tokenised to a bare 39.
+
+    Seventeen cardigans and four blankets moved to the bundle pod on that alone, and the
+    120-character display truncation is why it took a second look to see it.
+    """
+    assert pods.route("Cobblestone Men&#39;s Cardigan, Cardigan Pattern, Sizes Xs-5X") \
+        == "garments"
+    assert pods.route("Mj&#39;s Signature Blanket Pattern, Afghan pattern") == "blankets"
+    assert not pods.counts_its_own_patterns("Children&#39;s Crochet Cardigan Pattern")
+
+
+def test_a_number_in_front_of_a_unit_counts_the_unit():
+    """"3 sizes, Pdf pattern" and "2 Piece Sweater Pattern" are not bundles."""
+    assert not pods.counts_its_own_patterns("Textured Blanket, 3 sizes, Pdf pattern")
+    assert not pods.counts_its_own_patterns("Snowy Season Sweater, 2 Piece Sweater Pattern")
+    assert pods.counts_its_own_patterns("Hooded Crochet Blanket 10 PATTERN Bundle")
+    assert pods.counts_its_own_patterns("Mountainscapes Collection, 6 Granny Stitch Patterns")
+
+
+def test_a_plural_stem_never_costs_a_pod_its_own_keyword():
+    """An "es" rule that made "boxes" into "box" made "purses" into "purs"."""
+    assert pods._singular("sizes") == "size"
+    assert pods.route("Crochet Purses and Bags Pattern") == "bags"
+
+
+def test_a_title_naming_two_products_is_routed_by_the_one_it_names_first():
+    """"Beach Bag Pattern and Hair Tie" is a bag; "Ear Warmer / Head wrap" is a headband."""
+    assert pods.route("Salt + Sand Beach Bag Pattern and Hair Tie, Crochet Bag, Purse") \
+        == "bags"
+    assert pods.route("Pumpkin Spice Ear Warmer & Keychain / Head wrap / Headband") == "hats"
+    assert pods.route("The Winterberry Wine Bottle Cozy, Crochet Bottle Cozy, Wine Gift Bag") \
+        == "kitchen_bath"
+    assert pods.route("Crochet Baby Koala Lovey / Crochet Toy / Security Blanket") \
+        == "amigurumi"
+
+
+def test_a_guidebook_sold_as_an_ebook_is_still_education():
+    """Position settles it: the title says what it is before it says how it ships."""
+    assert pods.route("The Perfect Fit Guidebook: Unlocking Pattern Sizing and Body "
+                      "Measurements / PDF Digital Download Ebook") == "education"
+
+
 # ---- reclassification ------------------------------------------------------
 
 

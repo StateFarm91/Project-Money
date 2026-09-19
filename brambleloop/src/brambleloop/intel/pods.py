@@ -20,6 +20,7 @@ which is the most comfortable possible wrong answer.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
 from dataclasses import dataclass, field
@@ -40,26 +41,47 @@ UNCLASSIFIED = "unclassified"
 
 _WORD = re.compile(r"[a-z0-9]+")
 
-# "6 Granny Stitch Patterns", "10 Pattern Ebook", "3 pattern Crochet Pattern Ebook": a title
-# that counts its own patterns is selling a bundle, whatever the products inside it are.
+# Etsy returns titles HTML-escaped: "Children&#39;s", "Sweater &amp; Cardigan". Without
+# decoding, the tokeniser sees the bare number 39 in every possessive, and the bundle rule
+# below read "Men&#39;s Cardigan Pattern" as a set of thirty-nine patterns. Seventeen
+# cardigans and four blankets moved to the bundle pod on that alone.
+def _clean(text: str) -> str:
+    return html.unescape(text or "").lower()
+
+
+# "6 Granny Stitch Patterns", "10 Pattern Ebook", "5 PATTERN Crochet Bundle": a title that
+# counts its own patterns is selling a bundle, whatever the products inside it are.
 _COUNTS_PATTERNS = re.compile(r"\b\d+\s+(?:[a-z]+\s+){0,3}patterns?\b")
+
+# ...but a title counting anything else is not. "3 sizes, Pdf pattern" and "2 Piece Sweater
+# Pattern" both satisfy the shape above and neither is a bundle, so the word the number
+# actually counts is checked. A number in front of a unit counts the unit.
+_NOT_A_PATTERN_COUNT = frozenset((
+    "size", "piece", "pc", "pack", "month", "year", "ply", "mm", "cm", "inch", "yard",
+    "metre", "meter", "skein", "ball", "colour", "color", "page", "hour", "week", "day",
+    "row", "round", "strand", "week", "hook", "part", "video", "week",
+))
 
 
 def _singular(word: str) -> str:
-    """One canonical form per word, so "slipper" and "slippers" are the same keyword."""
+    """One canonical form per word, so "slipper" and "slippers" are the same keyword.
+
+    Deliberately the two rules that are always safe, rather than the five that are usually
+    right. An earlier version also stripped "es" after s/x/z/h to turn "boxes" into "box",
+    and it turned "sizes" into "siz" and "purses" into "purs" -- so the bags pod would have
+    stopped matching its own "purse" keyword on any plural title. English plurals are not
+    worth a stemmer here: the vocabulary is short and the cost of a wrong stem is a silently
+    mis-routed listing.
+    """
     if word.endswith("ies") and len(word) > 4:
         return word[:-3] + "y"
-    if word.endswith("ss") or len(word) <= 3:
-        return word
-    if word.endswith("es") and word[-3:-2] in ("s", "x", "z", "h"):
-        return word[:-2]
-    if word.endswith("s"):
+    if word.endswith("s") and not word.endswith("ss") and len(word) > 3:
         return word[:-1]
     return word
 
 
 def _words(text: str) -> list[str]:
-    return [_singular(w) for w in _WORD.findall((text or "").lower())]
+    return [_singular(w) for w in _WORD.findall(_clean(text))]
 
 
 def signals(text: str) -> tuple[frozenset[str], str]:
@@ -69,12 +91,21 @@ def signals(text: str) -> tuple[frozenset[str], str]:
     benchmark catalogue and the pods are consulted in order until one answers.
     """
     words = _words(text)
-    return frozenset(words), " ".join(words)
+    # Padded, so a term at either end is still surrounded by spaces and `find` can be used
+    # for both single words and phrases without a separate membership test.
+    return frozenset(words), f' {" ".join(words)} '
 
 
 def counts_its_own_patterns(text: str) -> bool:
-    """True when the title states how many patterns it contains."""
-    return bool(_COUNTS_PATTERNS.search(" ".join(_WORD.findall((text or "").lower()))))
+    """True when the title states how many patterns it contains, and counts patterns."""
+    tokens = _WORD.findall(_clean(text))
+    joined = " ".join(tokens)
+    for match in _COUNTS_PATTERNS.finditer(joined):
+        after = joined[match.start():].split()
+        if len(after) > 1 and _singular(after[1]) in _NOT_A_PATTERN_COUNT:
+            continue
+        return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -106,22 +137,30 @@ class Pod:
                 or self.matches_motifs(words, phrase)
                 or (self.claims_counted_bundles and counts_its_own_patterns(text)))
 
-    def _any(self, terms: tuple[str, ...], words: frozenset[str], phrase: str) -> bool:
+    def _first(self, terms: tuple[str, ...], phrase: str) -> tuple[int, int]:
+        """Where this pod's earliest matching term starts, and how long it is.
+
+        `(-1, 0)` when nothing matches. Position rather than presence, because a title that
+        names two products names the one it is selling first: "Beach Bag Pattern and Hair
+        Tie" is a bag, and "Ear Warmer / Head wrap / Headband" is a headband.
+        """
+        best, best_len = -1, 0
         for term in terms:
-            if " " in term:
-                if " ".join(_words(term)) in phrase:
-                    return True
-            elif _singular(term) in words:
-                return True
-        return False
+            needle = f' {" ".join(_words(term))} '
+            at = phrase.find(needle)
+            if at < 0:
+                continue
+            if best < 0 or at < best or (at == best and len(needle) > best_len):
+                best, best_len = at, len(needle)
+        return best, best_len
 
     def matches_signals(self, words: frozenset[str], phrase: str) -> bool:
         """Form words only: what the object is."""
-        return self._any(self.keywords, words, phrase)
+        return self._first(self.keywords, phrase)[0] >= 0
 
     def matches_motifs(self, words: frozenset[str], phrase: str) -> bool:
         """Motif words only: what the object depicts, or when it is sold."""
-        return self._any(self.motifs, words, phrase)
+        return self._first(self.motifs, phrase)[0] >= 0
 
 
 # Ordered most specific first, and every keyword below is a word that appears in an observed
@@ -182,7 +221,8 @@ PODS: tuple[Pod, ...] = (
         ("fit and ease strategy", "grading across sizes", "seam and shaping method",
          "drape of the stated yarn", "modelled fit coverage")),
     Pod("hats", "Hats and wearables",
-        ("hat", "beanie", "toque", "tuque", "headband", "ear warmer", "scarf", "mitten",
+        ("hat", "beanie", "toque", "tuque", "headband", "head wrap", "ear warmer",
+         "scarf", "mitten",
          "glove", "cowl", "slipper", "sock", "bootie", "scrunchie", "hair tie", "bandana",
          "balaclava"),
         ("head circumference grading", "brim behaviour", "stretch recovery",
@@ -229,14 +269,22 @@ def route(title: str, product_type: str = "") -> str:
     # pod is asked what the object *is* before any pod is asked what it *depicts*, so a
     # cardigan with a pumpkin on it reaches the garment specialist and a pumpkin reaches the
     # soft-sculpture one.
-    for pod in PODS:
-        if pod.matches_signals(words, phrase):
-            return pod.key
-        if counted and pod.claims_counted_bundles:
-            return pod.key
-    for pod in PODS:
-        if pod.matches_motifs(words, phrase):
-            return pod.key
+    for field in ("keywords", "motifs"):
+        # The earliest match wins; a longer term breaks a positional tie and table order
+        # breaks the rest. "Ear Warmer / Head wrap / Headband" matched the garment pod's
+        # "wrap" and the hat pod's "ear warmer", and went to garments purely because
+        # garments is listed first -- a headband sent to the specialist in chest grading.
+        best_pod, best_at, best_len = None, -1, 0
+        for pod in PODS:
+            if field == "keywords" and counted and pod.claims_counted_bundles:
+                return pod.key
+            at, length = pod._first(getattr(pod, field), phrase)
+            if at < 0:
+                continue
+            if best_pod is None or at < best_at or (at == best_at and length > best_len):
+                best_pod, best_at, best_len = pod, at, length
+        if best_pod is not None:
+            return best_pod.key
     return UNCLASSIFIED
 
 
