@@ -1095,6 +1095,20 @@ def api_seasonal_collections() -> dict:
     }
 
 
+@app.get("/api/seasonal/benchmark-matrix")
+def api_seasonal_benchmark_matrix() -> dict:
+    """Events against departments, with the benchmark's half filled from what was observed.
+
+    A department the benchmark was seen selling and this catalogue does not answer is the row
+    this exists for. A department neither of us sells is not that row, and an unobserved one
+    is unknown rather than empty -- all three render identically in a matrix, and the empty
+    cell is the one somebody points at.
+    """
+    from ..seasonal import benchmark_matrix
+
+    return benchmark_matrix.matrix(db)
+
+
 @app.get("/api/seasonal/compression")
 def api_seasonal_compression(event: str = "Christmas") -> dict:
     """What to build for a priority occasion this week, given what a buyer can still finish.

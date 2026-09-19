@@ -32,7 +32,7 @@ SUITES=(
   tests/test_intel.py tests/test_learning.py tests/test_response.py tests/test_mission.py tests/test_teardown.py tests/test_teardown_audits.py tests/test_culture.py tests/test_creative.py tests/test_invention.py tests/test_seasonal_transform.py tests/test_breakthrough.py tests/test_universe.py tests/test_family.py tests/test_funnel.py tests/test_improve.py tests/test_league.py tests/test_roi.py tests/test_tiers.py tests/test_profiles.py tests/test_growth.py tests/test_swarm.py tests/test_visual.py tests/test_layout_qa.py
   tests/test_etsy.py tests/test_brand.py tests/test_takeover.py tests/test_moat.py tests/test_commerce.py tests/test_intent.py tests/test_departments.py
   tests/test_buyer_trust.py tests/test_trust.py tests/test_quality.py tests/test_physical.py tests/test_finance.py tests/test_commercial_truth.py
-  tests/test_leadtime.py tests/test_uncertainty.py tests/test_depth.py tests/test_compression.py tests/test_collections.py tests/test_teams.py tests/test_fastlane.py tests/test_remerchandising.py tests/test_model_access.py tests/test_etsy_capability.py tests/test_scale.py tests/test_discipline.py tests/test_runrate.py
+  tests/test_leadtime.py tests/test_uncertainty.py tests/test_depth.py tests/test_compression.py tests/test_benchmark_matrix.py tests/test_collections.py tests/test_teams.py tests/test_fastlane.py tests/test_remerchandising.py tests/test_model_access.py tests/test_etsy_capability.py tests/test_scale.py tests/test_discipline.py tests/test_runrate.py
   tests/test_launch.py tests/test_access.py tests/test_platform_policy.py
   tests/test_shadow.py
   tests/test_persistence.py tests/test_continuity.py tests/test_chaos.py tests/test_deploy.py

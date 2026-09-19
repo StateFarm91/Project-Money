@@ -2684,9 +2684,9 @@
  {
   "body": "For each major event and department, maintain a matrix of elite-benchmark product markets versus Brambleloop coverage: benchmark concept/category, observed merchandising mechanisms, upcoming seasonal adaptation opportunities, our competing products, quality-gate result, launch date, traffic, conversion and revenue. Use it to expose unserved proven markets.",
   "id": 299,
-  "note": "the coverage matrix ranks events by how thin their department coverage is and names the gaps. The benchmark half became executable on 2026-09-19 when the credential was verified and 438 listings were observed across nine pods, so this is no longer gated: it is work this build owes.",
+  "note": "seasonal/benchmark_matrix.py joins the two halves: the calendar's own map of which departments an occasion spans and which this catalogue answers, and the benchmark's depth per department counted from observed listings. The half that was missing arrived on 2026-09-19 when the credential was verified by use and 438 listings were read. The discipline it enforces is narrow and is the reason the requirement is worth having: a department is 'proven and unserved' only when somebody actually looked, because an unobserved market and a market with nothing in it render identically in a matrix -- both as an empty cell -- and the empty cell is the one somebody points at in a planning meeting. Gaps are ordered by how much the benchmark sells there and how soon the occasion is. /api/seasonal/benchmark-matrix.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "partial",
+  "status": "covered",
   "title": "Seasonal Benchmark Coverage Matrix",
   "version": "v1.4.2"
  },
