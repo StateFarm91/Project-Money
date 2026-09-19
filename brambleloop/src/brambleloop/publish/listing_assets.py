@@ -450,6 +450,24 @@ def check_frame_plan(frames: list[Frame]) -> list[str]:
                 "pattern is all relief, and relief has to be drawn or there is nothing to "
                 "look at")
 
+    # #62: the hero's job is desire and instant comprehension at the size a shopper first
+    # sees it, which is a search grid on a phone. Everything else in this function checks
+    # that the hero is *truthful*; this checks that it is legible, and the two fail
+    # independently -- Build 1's hero was entirely truthful and entirely invisible.
+    for f in frames:
+        if not f.is_hero or f.image is None:
+            continue
+        from . import layout_qa
+
+        measured = layout_qa.inspect(f.image, position=f.position)
+        for problem in measured.problems:
+            problems.append(f"LISTING_HERO_{problem}")
+        if f.asset_class is AssetClass.INFOGRAPHIC:
+            problems.append(
+                "LISTING_HERO_IS_AN_INFOGRAPHIC: charts, stitch maps and size cards belong "
+                "later in the gallery. The hero answers 'what will I have made', and a "
+                "diagram answers 'how' to somebody who has not decided to care yet")
+
     if not frames:
         # Appended rather than returned alone: a render that failed *and* produced no frames
         # should report both reasons, and an early return here would throw away whatever the

@@ -551,9 +551,9 @@
  {
   "body": "The hero's job is desire and instant comprehension, not documentation. It should communicate the expected finished project at search-grid/mobile scale while remaining truthful and policy-compliant. Technical charts, stitch maps and size cards belong later in the listing sequence unless market evidence proves otherwise.",
   "id": 62,
-  "note": "hero rules exist (not a concept, fabric not flat); no finished-project comprehension standard",
+  "note": "the hero's truthfulness rules already existed -- not an AI concept, fabric not flat, claims matching the twin. #62 asks for something they do not check and that fails independently: instant comprehension at the size a shopper first sees it. Build 1's hero was entirely truthful and entirely invisible. check_frame_plan() now runs layout_qa.inspect() over the hero, so it inherits the flat-frame, badge-band, mobile-crop and dies-at-thumbnail rules as LISTING_HERO_* problems in the real asset chain, and an infographic hero is refused by name: charts, stitch maps and size cards answer 'how' to somebody who has not decided to care yet, and the hero answers 'what will I have made'.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Hero Image Standard",
   "version": "v1.3.3"
  },

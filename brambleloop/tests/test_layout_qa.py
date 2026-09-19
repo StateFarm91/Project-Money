@@ -209,6 +209,50 @@ def test_a_consistent_gallery_passes():
     assert "rather than about the code that drew it" in report["note"]
 
 
+# ---- #62: the hero is held to it in the real chain -------------------------
+
+
+def test_the_hero_standard_runs_inside_the_listing_check():
+    """Everything else in that function checks the hero is truthful. This checks it is
+    legible, and the two fail independently: Build 1's hero was entirely truthful and
+    entirely invisible."""
+    from brambleloop.gates.asset_truth import AssetClass
+    from brambleloop.publish.listing_assets import Frame, check_frame_plan
+
+    blank_hero = Frame(position=1, role="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
+                       caption="hero", image=_blank((800, 800)))
+
+    problems = check_frame_plan([blank_hero])
+
+    assert any(p.startswith("LISTING_HERO_FRAME_FLAT") for p in problems), problems
+
+
+def test_a_chart_may_not_be_the_hero():
+    """The hero answers 'what will I have made'. A diagram answers 'how' to somebody who has
+    not decided to care yet."""
+    from brambleloop.gates.asset_truth import AssetClass
+    from brambleloop.publish.listing_assets import Frame, check_frame_plan
+
+    chart_hero = Frame(position=1, role="hero", asset_class=AssetClass.INFOGRAPHIC,
+                       caption="chart", image=_subject((800, 800), (200, 200, 600, 600)))
+
+    problems = check_frame_plan([chart_hero])
+
+    assert any("LISTING_HERO_IS_AN_INFOGRAPHIC" in p for p in problems), problems
+
+
+def test_a_legible_hero_raises_no_layout_problem():
+    from brambleloop.gates.asset_truth import AssetClass
+    from brambleloop.publish.listing_assets import Frame, check_frame_plan
+
+    good_hero = Frame(position=1, role="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
+                      caption="hero", image=_subject((800, 800), (200, 180, 600, 620)))
+
+    problems = check_frame_plan([good_hero])
+
+    assert not [p for p in problems if p.startswith("LISTING_HERO_FRAME")], problems
+
+
 def _run() -> int:
     failures = 0
     for name, fn in sorted(globals().items()):
