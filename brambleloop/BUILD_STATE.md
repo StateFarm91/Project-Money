@@ -205,6 +205,65 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The first blinded run scored 11-1 for this catalogue and was worthless (#94).**
+
+It ran in production for CA$0.1523. Twelve same-pod pairs, position share exactly 0.50,
+comfortably above the sample floor, `valid: true`, verdict `ahead`, win rate 0.9167. Both
+guards green. The number was meaningless and the judge's own reasons say why — it named
+"throw" in nine of the twelve:
+
+> *"A cosy rectangle throw gives far more warmth and everyday use than a single pillow."*
+> *"...whereas a single coaster feels like a small extra."*
+
+Our home decor is mostly rectangle throws; this benchmark's home decor is pillows, coasters
+and wreaths. The run measured **which object is bigger**, which is true whoever designed
+either one. That is a third confound beside position bias and a thin sample, and neither
+existing guard flinched at it.
+
+It cannot be corrected after the fact, so it is removed by construction: pairing is now
+same-**form** as well as same-pod. A throw is judged against a throw. The honest cost is
+that almost nothing remains to compare — `form_overlap()` reports **0 of 11 concepts have a
+like-for-like opponent**. This catalogue makes garlands, ornaments, table runners, wall
+hangings and flat panels; this benchmark's home decor does not. That is a finding about the
+catalogue, not a limitation of the measurement, and a more useful one than "92%".
+
+Two rules came out of it. A run that cannot reach the sample floor is refused **before** it
+spends, because paying for a result already known to be `unmeasured` is worse than not
+measuring. And results carry a `method_version`: the 11-1 verdict is still served, marked
+superseded and not valid, because the record of a measurement that was confidently wrong is
+what stops the same mistake being made confidently a second time.
+
+**The measurement was worth running early precisely because it was wrong in a way no amount
+of reasoning about the design had produced.**
+
+Two more #94 measures now exist, both computable and both awkward reading. **Theme fatigue**,
+per field because "the catalogue is repetitive" is not actionable: pod, feeling and make_lane
+each hold exactly **one** distinct value across all eleven products; recipient is 82% `self`.
+A field with one value is not a preference, it is a missing field. **Novelty distance**
+reports the minimum beside the mean, because the mean is the reassuring number and the
+minimum is the true one — mean 0.34, minimum 0.25, closest pair winter-village-graphghan
+against nordic-star-ornaments.
+
+**Two production defects, both found by the new dead-letter endpoint in one request.** 121
+dead letters turned out to be 120 Shadow Mode publication refusals working exactly as
+designed, plus one real failure. `/api/status` now splits refusals from defects, because a
+three-digit number that is 99% healthy is an alarm nobody can read. The real one was my own
+handler, and fixing it surfaced the serious one: **`ModelGateway` ledgered its calls as
+`kind="model"` while every ceiling counts `kind="llm"`**, so a real gateway call would have
+been invisible to the budget — the ceiling would have read CA$0.00 indefinitely while money
+left the account. It had never bitten because nothing had ever constructed a ModelGateway;
+the blinded run is the first thing that does, and would have been the first spend, uncapped.
+
+**A deploy now re-drives the dead letters it fixed, exactly once per commit.** The blinded
+job died on a typo and would have sat in the graveyard until its next monthly window, thirty
+days after the repair. A commit that did not fix the defect kills the job again and it waits
+for the next one. Verified in production: dead-letter defects went 1 → 0 by itself, and the
+re-driven job ran.
+
+Model spend to date: **CA$0.1524 of the CA$25 monthly ceiling.** Suite **1312 passing, 0
+failing**.
+
+## Previously — last completed milestone
 **The blinded human/agent comparison, and what it refuses to tell you (#94, #104).**
 
 Everything #94 asks for that code can compute has been in `tournament.scorecard()` since
