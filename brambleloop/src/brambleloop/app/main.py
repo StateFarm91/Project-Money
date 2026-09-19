@@ -427,6 +427,32 @@ def api_teardown() -> dict:
     }
 
 
+@app.get("/api/invention")
+def api_invention() -> dict:
+    """The brief machinery, and the bar it has to clear today.
+
+    The creativity defect this addresses is measured rather than asserted: every product in
+    the catalogue compiles to one component shape in two stitches. A validator cannot fix
+    that, because given a season and a category the highest-probability output is the
+    commodity. The brief has to carry the novelty.
+    """
+    from ..creative import audit, invention, standard
+
+    return {
+        "invention_matrix": invention.matrix("christmas"),
+        "dimensions": invention.DIMENSIONS,
+        "transformations": invention.TRANSFORMATIONS,
+        "wow_mechanisms": invention.WOW_MECHANISMS,
+        "motif_grammar": {k: list(v) for k, v in invention.MOTIF_GRAMMAR.items()},
+        "saturated_motifs": {k: sorted(v) for k, v in invention.SATURATED.items()},
+        "generic_forms": sorted(invention.GENERIC_FORMS),
+        "taste_rejections": standard.TASTE_REJECTIONS,
+        "absolute_floor": standard.ABSOLUTE_FLOOR,
+        "autopsies": standard.autopsy_patterns(db),
+        "measured_defect": audit.generator_degrees_of_freedom(),
+    }
+
+
 @app.get("/api/runrate")
 def api_runrate() -> dict:
     """CA$3,000 a month as arithmetic, and which single term is binding.

@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 114 | satisfied, with a named test or artefact |
+| covered | 124 | satisfied, with a named test or artefact |
 | partial | 72 | something real exists and is short of the requirement |
-| missing | 87 | nobody has built it |
+| missing | 77 | nobody has built it |
 | owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **159 requirements are executable by this session** (partial +
+as one nobody has written. **149 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -44,6 +44,11 @@ PHASE 1 — SHADOW MODE, **deployed and running 24/7**. Nothing is connected to 
 live listings or live spend. The system runs unattended on Railway whether or not any Claude
 session is open.
 
+**`/api/verify` reports `ok: true` in production as of 2026-09-19T04:55Z** — the two
+previously dead-lettered cadences (`ops.continuity`, `seasonal.sentinel`) were requeued
+on the deployed fixes and both completed, so the standing safety assertions are green
+against live state rather than only in tests.
+
 Live: https://brambleloop-os-production.up.railway.app — dashboard `/`, health `/health`,
 status `/api/status`, **verification `/api/verify`**.
 
@@ -53,8 +58,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **811 tests passing, 0 failing** across
-46 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **826 tests passing, 0 failing** across
+47 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -157,6 +162,56 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The creativity defect the owner named, addressed at the brief rather than at the gate
+(#106-#110, #115, #124, #125, #127, #129).**
+
+The defect is measured, not asserted: `creative/audit.py` compiles all eleven catalogue
+products and finds one component shape, one construction and two stitches. That is not a taste
+failure. It is a generator with one degree of freedom being asked for variety and answering
+with colour — and **no validator fixes it**, because given a season and a category the
+highest-probability output *is* the commodity. The commodity is what the category is made of.
+A validator can only reject what arrives.
+
+So all of this acts on the brief:
+
+- **Two dimensions that do not normally co-occur (#106).** Motif × function, holiday × storage,
+  tableware × character. One dimension is a category, and a category is what everybody else is
+  already making. Two near-synonyms are the same failure with two names — storage crossed with
+  organization reads like a combination and is one idea stated twice, which is exactly what a
+  system under pressure to produce pairings emits.
+- **Abstract transformation patterns, never a seller's expression (#107).** Becomes a set,
+  nests, unfolds, stacks into a scene, inverts, reveals. A description that names a specific
+  product is refused by the same content boundary the teardown library uses.
+- **The silhouette gate enforces #108's own sentence literally.** "A concept that needs its
+  title to explain why it is interesting is weak" is unenforceable while the two are read
+  together, because the title supplies the interest and nobody can tell which half carried it.
+  The premise is read with the title's words deleted: *"Gingerbread Village Basket"* /
+  *"a gingerbread village basket"* leaves nothing.
+- **The emotional promise names what delivers it (#109).** "Cosy" achieved by writing *cosy*
+  in the listing is the failure the requirement names, and the cheapest way to satisfy any
+  check that reads text. The promise must survive a buyer looking at the photograph with the
+  sound off.
+- **A motif grammar with its clichés marked (#110).** 10–20 motifs per season; a selection
+  built only from the saturated set is reported as the commodity by construction.
+- **A flagship's WOW mechanism must be grounded in the object (#115).** Naming one from a
+  closed list is half; requiring four specific words about *this* object is the half that stops
+  "it has a reveal" counting. A checkbox is what a generator learns to tick.
+- **The floor is the trailing median, with an absolute floor underneath (#124).** A fixed
+  threshold is one the company grows past and keeps meeting — the bar that rejected two thirds
+  now rejects none, and the improving pass rate looks like success. A trailing median alone has
+  the mirror failure, so the absolute floor sits below it.
+- **Flagships aim at the top decile (#125), and boring is a verdict (#129).** #129's most
+  important sentence is that agents must be able to reject technically valid ideas: every other
+  gate here is a correctness gate, and the correctness score is *precisely* what a boring
+  concept passes. A taste rejection is a closed vocabulary with no numeric content and it ends
+  the question.
+- **Rejection reasons are closed, or forty autopsies have forty reasons (#127).** Five of six
+  rejections being "obvious" is a brief problem rather than six concept problems, and it is
+  invisible under free text.
+
+`GET /api/invention` reports the machinery and the measured defect side by side.
+
+## Previously in Build 2
 **CA$3,000 as arithmetic, and the metric everyone optimises instead (#24, #25, #27, #28, #31).**
 
 A revenue target is a wish until it is a funnel, and the useful part of writing it as one is

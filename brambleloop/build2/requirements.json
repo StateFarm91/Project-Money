@@ -947,45 +947,45 @@
   {
     "body": "For every seasonal opportunity, deliberately combine two or more dimensions that do not normally appear together: motif x function, holiday x storage, character x household utility, wearable x personalization, amigurumi x organization, decor x interaction, nursery x keepsake, tableware x character, modularity x gifting. The purpose is to create new product premises rather than another recoloured commodity.",
     "id": 106,
-    "note": "seasonal creative universe, cross-category invention matrix, form transformation engine",
+    "note": "creative/invention.cross() requires two dimensions that do not normally co-occur and refuses a self-pairing or two near-synonyms; matrix() holds #106's nine named pairings as a queue of empty brief slots",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Cross-Category Invention Matrix",
     "version": "v1.3.6"
   },
   {
     "body": "Study the strongest market examples for transformation logic: a pumpkin that becomes/coexists with coasters, a flower that becomes a functional table object, a stocking built from modular squares, a plant pot turned into a holiday character scene, cutlery holders turned into Santa/reindeer/tree characters. Learn the abstract transformation pattern, never the seller's protected expression, then invent original transformations.",
     "id": 107,
-    "note": "seasonal creative universe, cross-category invention matrix, form transformation engine",
+    "note": "invention.transform() holds nine abstract transformation patterns and refuses a description that names a specific seller's product -- the same content boundary the teardown library uses",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Form Transformation Engine",
     "version": "v1.3.6"
   },
   {
     "body": "At mobile-grid scale, the product should have a recognisable silhouette or visual structure whenever the category permits. Generic circles, rectangles and tubes require an exceptional texture, motif, transformation or use-case to survive. A concept that needs its title to explain why it is interesting is weak.",
     "id": 108,
-    "note": "product silhouette gate",
+    "note": "invention.silhouette() knows which forms are shapes rather than outlines and enforces #108's own sentence literally: the premise is read with the title's words removed",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Product Silhouette Gate",
     "version": "v1.3.6"
   },
   {
     "body": "Creative generation must explicitly choose and execute an emotional promise: magical, nostalgic, whimsical, cozy, elegant, funny, adorable, heirloom, rustic, modern, playful, premium, surprising or gift-worthy. The emotional promise must be visible in the object itself, not merely added as listing copy.",
     "id": 109,
-    "note": "emotional design vocabulary, seasonal motif grammar",
+    "note": "invention.promise() requires the feeling to be delivered by a physical execution and refuses listing copy as a mechanism",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Emotional Design Vocabulary",
     "version": "v1.3.6"
   },
   {
     "body": "Maintain a broad motif grammar per season without collapsing into cliches. Christmas includes trees, stockings, bows, candy, gingerbread, snow, woodland, stars, ornaments, Santa, reindeer, wreaths and more; fall includes leaves, mushrooms, acorns, pumpkins, woodland and harvest; Halloween includes ghosts, bats, monsters, witches and haunted architecture; spring/Easter includes florals, chicks, rabbits, eggs and garden life. Agents must recombine, stylize and abstract motifs into original Brambleloop design language.",
     "id": 110,
-    "note": "emotional design vocabulary, seasonal motif grammar",
+    "note": "invention.MOTIF_GRAMMAR holds 10-20 motifs per season, SATURATED names the clich\u00e9s, and a selection built only from them is reported as the commodity by construction",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Seasonal Motif Grammar",
     "version": "v1.3.6"
   },
@@ -1028,9 +1028,9 @@
   {
     "body": "Every flagship concept must contain at least one explicit WOW mechanism: surprising transformation, exceptional motif composition, dimensional construction, unusual but useful function, strong character system, modular reveal, personalization architecture, striking texture, premium silhouette or collection-scale storytelling. 'Clean and correct' is not enough.",
     "id": 115,
-    "note": "wow-factor requirement",
+    "note": "invention.wow() requires a flagship to declare one of ten mechanisms and to ground it in something about the object; an ungrounded mechanism is a checkbox",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Wow-Factor Requirement",
     "version": "v1.3.6"
   },
@@ -1109,18 +1109,18 @@
   {
     "body": "Set a moving minimum creative threshold based on Brambleloop's trailing cohorts and current category benchmarks. A concept that would have passed six months ago can fail today if the company has learned enough to demand better. Continuous improvement must literally raise the release bar.",
     "id": 124,
-    "note": "rising creativity floor, top-decile aspiration",
+    "note": "standard.floor() derives the bar from the trailing cohort's median, so a concept that would have passed six months ago can fail today, with an absolute floor underneath so a bad quarter cannot lower it",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Creativity Floor Rises Over Time",
     "version": "v1.3.6"
   },
   {
     "body": "Competitive parity is the floor. Flagship creative should target the top decile of current category presentation and concept strength, and experiments should attempt to exceed it. The system should ask 'what would make this the most memorable result on the page?' while preserving originality, truth and feasibility.",
     "id": 125,
-    "note": "rising creativity floor, top-decile aspiration",
+    "note": "standard.aspiration() targets the category's ninetieth percentile for flagships and refuses to estimate a decile from fewer than five benchmark scores",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Top-Decile Aspiration, Not Average Parity",
     "version": "v1.3.6"
   },
@@ -1136,9 +1136,9 @@
   {
     "body": "Every rejected or underperforming concept receives a structured autopsy: generic form, weak silhouette, no emotional hook, over-saturated motif, poor function, too complex, wrong timing, weak thumbnail, derivative distance, or merchandising mismatch. These autopsies directly update future ideation constraints.",
     "id": 127,
-    "note": "creative failure autopsy",
+    "note": "standard.autopsy() records a closed rejection reason with a specific detail, and autopsy_patterns() surfaces when one reason dominates -- which is a brief problem rather than forty concept problems",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Creative Failure Autopsy",
     "version": "v1.3.6"
   },
@@ -1154,9 +1154,9 @@
   {
     "body": "Creative output should be judged as if produced by an elite independent crochet designer and merchandiser, not as 'good for AI'. Agents must be able to reject technically valid ideas as boring, obvious or commercially forgettable. The creativity department is rewarded for hit quality and learning, not concept volume.",
     "id": 129,
-    "note": "human-quality creative standard",
+    "note": "standard.meets_standard() treats a taste rejection as final: no correctness score overrides 'boring', because the correctness score is exactly what a boring concept passes",
     "section": "Deep seasonal creativity audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Human-Quality Creative Standard",
     "version": "v1.3.6"
   },
