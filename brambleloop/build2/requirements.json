@@ -2570,8 +2570,8 @@
   "body": "Maintain a continuously rolling calendar rather than separate one-off 'Christmas strike teams.' Every day, look 30/60/90/120/180/365 days ahead for holidays, seasons, gifting moments and cultural/market events relevant to crochet. Each event has research, concept, engineering, test, asset, launch, optimization and late-season quick-make phases.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "rolling 365-day calendar, strike teams, holiday depth"
+  "status": "covered",
+  "note": "seasonal/calendar.py rolls: an event that has passed is next year's, so Christmas is 364 days away on Boxing Day rather than vanishing for eleven months. All six horizons index into one event list rather than duplicating it, and each event carries the phase its distance implies -- research, concept, engineering, test, assets, launch, optimise, late quick make, closed. The phase boundaries come from the lead-time engine's arithmetic, not from taste."
  },
  {
   "id": 287,
@@ -2588,8 +2588,8 @@
   "body": "Do not reduce an event to one blanket. For each major event, explore the full maker/gift ecosystem: garments, stockings, ornaments, tree/table decor, wreaths, coasters, baskets, pillows, throws, bags, hats, accessories, amigurumi, quick gifts, bundles and other technically/market appropriate categories. Portfolio selection remains evidence-driven.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "rolling 365-day calendar, strike teams, holiday depth"
+  "status": "partial",
+  "note": "depth is measured against the departments an event actually spans rather than against a product count, because six Christmas products say nothing about whether five are blankets. Measured today: ecosystem depth 0.07, and Christmas has no coverage in garments, stockings, ornaments, bags, hats or seasonal gift. Remaining: the gap queue feeds concepts into those departments, which needs the creativity engine driving generation."
  },
  {
   "id": 289,
@@ -2606,8 +2606,8 @@
   "body": "Every observed trend receives an estimated half-life: flash/meme, short seasonal, recurring seasonal, multi-season fashion, or evergreen. Development effort and launch urgency depend on half-life. Do not spend flagship engineering time on a trend likely to expire before customers can finish the project.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "trend half-life classification, fast response lane"
+  "status": "covered",
+  "note": "every trend carries a half-life and the half-life caps the make lane it may justify: a flash trend cannot buy FLAGSHIP engineering. A refusal rather than a ranking penalty, because multi-week work on something that expires before a customer could finish it costs the window as well as the work. An unclassified trend is refused outright."
  },
  {
   "id": 291,
@@ -2687,8 +2687,8 @@
   "body": "For each major event and department, maintain a matrix of elite-benchmark product markets versus Brambleloop coverage: benchmark concept/category, observed merchandising mechanisms, upcoming seasonal adaptation opportunities, our competing products, quality-gate result, launch date, traffic, conversion and revenue. Use it to expose unserved proven markets.",
   "version": "v1.4.2",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
-  "note": "seasonal benchmark coverage matrix"
+  "status": "partial",
+  "note": "the coverage matrix ranks events by how thin their department coverage is and names the gaps. Remaining: the benchmark half of the matrix -- observed competitor concepts per event and department -- which needs the credential."
  },
  {
   "id": 300,
@@ -2858,8 +2858,8 @@
   "body": "Owner command centre must expose MJs mission status: last successful scan, catalogue coverage, listings changed/new, gallery audit coverage, specialist pod assignments, top uncovered opportunities, upcoming seasonal adaptations, launch deadlines, Brambleloop comparison results, products launched, conversion/revenue and mission incidents.",
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "partial",
-  "note": "/api/mjs reports the mandate, capability state, registry including the owner URL, catalogue coverage by pod, recent graded observations, pod roster and the gap queue summary, leading with whether the mission can observe anything at all. Remaining: conversion/revenue and mission incidents, which need live commerce and observation respectively."
+  "status": "covered",
+  "note": "the dashboard at / now carries a Build-2 command centre: coverage counts and executable remainder, MJs mission state including scan health, catalogue known versus audited, image backlog with its cost and the current cadence, seasonal windows with the at-risk rows named, the CA$5K probability and its binding layer, the creative gate's verdict on our own catalogue, improvement bottleneck and lessons acted on, and capabilities against spend. Every block is guarded: a page that fails to render because one subsystem is unhappy tells the owner nothing about the others, and fails exactly when they most need to look."
  },
  {
   "id": 319,

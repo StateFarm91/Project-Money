@@ -531,6 +531,14 @@ def api_improve() -> dict:
         "governance": describe(),
     }
 
+
+@app.get("/api/calendar")
+def api_calendar() -> dict:
+    """The rolling 365-day calendar: every event, its phase, and how thin its coverage is."""
+    from ..seasonal.calendar import coverage_matrix, rolling
+
+    return {"calendar": rolling(), "coverage": coverage_matrix()}
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
@@ -827,6 +835,131 @@ def dashboard() -> str:
         launch_html = ('<h2>Launch readiness</h2><div class="empty">could not be assessed: '
                        f'{type(e).__name__}</div>')
 
+    # -- the Build-2 command centre (#318, and the owner's request) --------
+    #
+    # Built because the owner said they should not have to infer progress from code logs.
+    # Every block is guarded: a dashboard that fails to render because one subsystem is
+    # unhappy tells the owner nothing about the twelve that are fine.
+    def _block(title: str, build) -> str:
+        try:
+            return f"<h2>{title}</h2>" + build()
+        except Exception as e:  # noqa: BLE001
+            return (f'<h2>{title}</h2><div class="empty">unavailable: '
+                    f'{type(e).__name__}: {e}</div>')
+
+    def _build2() -> str:
+        from ..build2 import requirements as reqs
+
+        cov = reqs.coverage()
+        executable = cov.get("partial", 0) + cov.get("missing", 0)
+        cards = "".join(
+            f'<div class="card"><span>{k.replace("_", " ")}</span><b>{v}</b></div>'
+            for k, v in sorted(cov.items()))
+        return (f'<div class="grid">{cards}'
+                f'<div class="card"><span>executable left</span><b>{executable}</b></div>'
+                f"</div>")
+
+    def _mission() -> str:
+        from ..intel.benchmarks import MJS_KEY
+        from ..intel.cadence import next_interval
+        from ..intel.mission import mission_report
+        from ..intel.vision import plan as vision_plan
+
+        report = mission_report(db)
+        backlog = vision_plan(db, MJS_KEY)
+        cadence = next_interval(db, MJS_KEY)
+        cov = report["catalogue_coverage"]
+        return rows([
+            ("observation", report["observation_state"]),
+            ("shop", report["registry"]["shop_name"]),
+            ("scan health", str(report["registry"]["scan_health"].get("state", "unknown"))),
+            ("catalogue known / audited",
+             f"{cov['listings_known']} / {cov['listings_audited']}"),
+            ("last mandated evidence", str(report["last_mandated_evidence_at"] or "never")),
+            ("images awaiting judgement",
+             f"{backlog['pending_images']} (CA${backlog['estimated_cad_total']:.2f})"),
+            ("scan cadence", f"every {cadence.interval_hours}h"),
+            ("coverage gaps", str(report["gap_queue"]["total"])),
+        ], [["Mission", "State"]], "")
+
+    def _seasonal() -> str:
+        from ..seasonal.leadtime import catalogue_plans
+
+        room = catalogue_plans(db)
+        at_risk = [r for r in room["at_risk_or_missed"] if r["status"] == "at_risk"]
+        counts = room["counts"]
+        head = rows([(k.replace("_", " "), str(v)) for k, v in counts.items()],
+                    [["Window", "Products"]], "")
+        if not at_risk:
+            return head + '<div class="empty">Nothing is inside its last actionable window.</div>'
+        return head + rows(
+            [(r["slug"], r["event"], f"{r['days_to_latest']}d",
+              r["latest_effective_launch"]) for r in at_risk[:10]],
+            [["At risk", "Event", "Runway", "Last viable launch"]], "")
+
+    def _scale() -> str:
+        from ..scale.confidence import probability
+
+        p = probability(db)
+        gate = p["evidence_gate"]
+        return rows([
+            ("modelled probability of CA$5,000/month", f"{p['probability']:.2f}"),
+            ("binding layer", p["weakest_critical_layer"]),
+            ("capped by", p["capped_by"]),
+            ("evidence gate", "met" if gate["satisfied"] else
+             f"unmet: {', '.join(sorted(gate['unmet']))}"),
+        ], [["CA$5K model", "Value"]], "")
+
+    def _creative() -> str:
+        from ..creative.audit import audit_catalogue
+
+        report = audit_catalogue()
+        freedom = report["generator_degrees_of_freedom"]
+        return rows([
+            ("products audited", str(report["products_audited"])),
+            ("survived the creative gate", str(len(report["survivors"]))),
+            ("dominant failure", str(report["autopsy"]["dominant_cause"])),
+            ("constructions used", ", ".join(freedom["constructions_used"])),
+            ("stitch vocabularies", ", ".join(freedom["stitch_vocabularies"])),
+        ], [["Creative gate", "Value"]], "")
+
+    def _improve() -> str:
+        from ..improve.bus import compounding
+        from ..improve.cells import CELLS, retrospective
+
+        report = retrospective(db)
+        comp = compounding(db)
+        return rows([
+            ("cells", str(len(CELLS))),
+            ("measured", str(len(CELLS) - len(report["unmeasured_cells"]))),
+            ("regressed", ", ".join(report["regressed_cells"]) or "none"),
+            ("bottleneck", str(report["bottleneck"] or "none")),
+            ("lessons acted on", f"{comp['acted_on']} / {comp['routed']}"),
+        ], [["Improvement", "Value"]], "")
+
+    def _models() -> str:
+        from ..gateway.routing import budget
+        from ..intel.etsy_public import health as etsy_health
+        from ..launch.access import statuses
+
+        state = budget(db)
+        etsy = etsy_health()
+        lines = [("model budget this month",
+                  f"CA${state.spent_cad:.2f} / CA${state.ceiling_cad:.2f}"),
+                 ("etsy read credential", "usable" if etsy["usable"] else etsy["reason"])]
+        lines += [(c["name"], c["state"]) for c in statuses()]
+        return rows(lines, [["Capability", "State"]], "")
+
+    command_centre = (
+        _block("Build 2 coverage", _build2)
+        + _block("MJs mission", _mission)
+        + _block("Seasonal deadlines", _seasonal)
+        + _block("CA$5,000/month model", _scale)
+        + _block("Creative standard", _creative)
+        + _block("Improvement", _improve)
+        + _block("Capabilities and spend", _models)
+    )
+
     owner_html = ""
     if owner:
         items = [(a.action, f"CA${a.max_cost_cad:.2f}", f"{a.minutes} min",
@@ -861,6 +994,7 @@ Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
 {('&middot; last error: ' + st['runner']['last_error']) if st['runner']['last_error'] else ''}
 </div>
 {owner_html}
+{command_centre}
 {launch_html}
 <h2>Recent jobs</h2>
 {rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,

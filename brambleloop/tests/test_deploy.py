@@ -498,6 +498,60 @@ def test_verify_reports_whether_the_runner_is_starting_rather_than_deciding_sile
     assert not (state["worker_alive"] and state["worker_starting"]), state
 
 
+def test_the_command_centre_shows_every_build_2_subsystem():
+    """The owner asked not to have to infer progress from code logs.
+
+    Seven blocks, each answering a question the owner actually has: how much of Build 2
+    exists, can the mission see anything, what is about to miss its window, how likely the
+    revenue target is, whether the creative standard is being met, what is improving, and
+    what capabilities and spend are live.
+    """
+    body = _client().get("/").text
+
+    for block in ("Build 2 coverage", "MJs mission", "Seasonal deadlines",
+                  "CA$5,000/month model", "Creative standard", "Improvement",
+                  "Capabilities and spend"):
+        assert block in body, f"{block} is missing from the command centre"
+
+    # The numbers are rendered, not just the headings.
+    assert "executable left" in body
+    assert "modelled probability" in body
+    assert "binding layer" in body
+
+
+def test_one_unhappy_subsystem_does_not_take_the_whole_dashboard_down():
+    """A page that fails to render because one block raised tells the owner nothing about
+    the twelve that are fine — and it fails at exactly the moment they most need to look.
+    """
+    import brambleloop.app.main as main
+
+    body = _client().get("/").text
+    assert "unavailable:" not in body, "a block is already failing on a healthy system"
+
+    # Break one block's data source and confirm the page still renders everything else.
+    original = main.JobQueue
+    try:
+        from brambleloop.scale import confidence
+
+        def explode(*args, **kwargs):
+            raise RuntimeError("deliberate")
+
+        real = confidence.probability
+        confidence.probability = explode
+        try:
+            broken = _client().get("/")
+            assert broken.status_code == 200
+            assert "unavailable: RuntimeError" in broken.text
+            # Everything else still rendered.
+            assert "Build 2 coverage" in broken.text
+            assert "MJs mission" in broken.text
+            assert "Owner action required" in broken.text or "Launch readiness" in broken.text
+        finally:
+            confidence.probability = real
+    finally:
+        main.JobQueue = original
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

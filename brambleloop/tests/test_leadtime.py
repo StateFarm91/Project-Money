@@ -359,6 +359,107 @@ def test_the_sentinel_runs_on_a_cadence_and_raises_only_what_can_still_be_acted_
     assert raised.detail["days_to_latest"] <= 21
 
 
+# ---- the rolling calendar -------------------------------------------------
+
+
+def test_the_calendar_rolls_so_no_event_is_ever_discovered_late():
+    """#286's actual objection is to strike teams.
+
+    A shop with strike teams attends to Christmas in October and discovers in March that
+    Easter's window shut in January. On a rolling calendar every event is always some number
+    of days away, and the day after Christmas it is 364 rather than zero.
+    """
+    from datetime import date
+
+    from brambleloop.seasonal import calendar as cal
+
+    boxing_day = date(2026, 12, 26)
+    rolled = cal.rolling(boxing_day)
+    christmas = [e for e in rolled["events"] if e["event"] == "Christmas"][0]
+    assert christmas["days_away"] > 300, "Christmas vanished the day after Christmas"
+    assert christmas["phase"] == "research"
+
+    # Horizons index into the events rather than duplicating them.
+    horizons = {h["days"]: h["events"] for h in rolled["horizons"]}
+    assert list(horizons) == list(cal.HORIZONS)
+    for smaller, larger in zip(cal.HORIZONS, cal.HORIZONS[1:]):
+        assert set(horizons[smaller]) <= set(horizons[larger])
+
+
+def test_the_phase_decides_what_work_is_useful_today():
+    """Research at launch time and creative at ninety days are both waste."""
+    from brambleloop.seasonal import calendar as cal
+
+    assert cal.phase_for(400) == "research"
+    assert cal.phase_for(200) == "concept"
+    assert cal.phase_for(150) == "engineering"
+    assert cal.phase_for(100) == "test"
+    assert cal.phase_for(75) == "assets"
+    assert cal.phase_for(45) == "launch"
+    assert cal.phase_for(20) == "optimise"
+    assert cal.phase_for(3) == "late_quick_make"
+    assert cal.phase_for(-1) == "closed"
+
+
+def test_the_heaviest_launchable_lane_comes_from_the_lead_time_engine():
+    """Asked rather than tabulated, so the two cannot disagree.
+
+    And the honest answer for a near event is nothing at all, rather than a lane no customer
+    could finish.
+    """
+    from brambleloop.seasonal import calendar as cal
+
+    assert cal.heaviest_launchable_lane(300) == "FLAGSHIP"
+    assert cal.heaviest_launchable_lane(5) is None
+
+    far = cal.heaviest_launchable_lane(300)
+    near = cal.heaviest_launchable_lane(100)
+    assert cal.LANE_ORDER.index(far) >= cal.LANE_ORDER.index(near)
+
+
+def test_a_flash_trend_cannot_buy_flagship_engineering():
+    """#290. Multi-week work on something that expires first costs the window too."""
+    from brambleloop.seasonal import calendar as cal
+
+    for half_life, lane in (("flash", "FLAGSHIP"), ("flash", "MEDIUM"),
+                            ("short_seasonal", "LONG")):
+        try:
+            cal.check_half_life(half_life, lane)
+        except cal.CalendarRefused as e:
+            assert "ceiling" in str(e)
+        else:
+            raise AssertionError(f"{half_life} bought {lane} engineering")
+
+    cal.check_half_life("flash", "QUICK")
+    cal.check_half_life("recurring_seasonal", "LONG")
+    cal.check_half_life("evergreen", "FLAGSHIP")
+
+    try:
+        cal.check_half_life("probably-fine", "QUICK")
+    except cal.CalendarRefused as e:
+        assert "not a half-life" in str(e)
+    else:
+        raise AssertionError("an unclassified trend was allowed engineering effort")
+
+
+def test_depth_is_measured_against_the_ecosystem_an_event_actually_spans():
+    """#288. Six Christmas products say nothing about whether five are blankets."""
+    from datetime import date
+
+    from brambleloop.seasonal import calendar as cal
+
+    matrix = cal.coverage_matrix(date(2026, 9, 19),
+                                 covered={"Christmas": ("blankets", "home_decor")})
+    christmas = [r for r in matrix["rows"] if r["event"] == "Christmas"][0]
+
+    assert set(christmas["covered"]) == {"blankets", "home_decor"}
+    assert "stockings" in christmas["gaps"] and "garments" in christmas["gaps"]
+    assert 0 < christmas["depth"] < 1
+    # Ranked by how thin the coverage is, so the emptiest event leads.
+    assert matrix["rows"][0]["depth"] <= matrix["rows"][-1]["depth"]
+    assert matrix["ecosystem_depth"] < 0.2, "the catalogue is not this broad"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
