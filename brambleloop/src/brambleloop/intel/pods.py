@@ -84,6 +84,14 @@ def _words(text: str) -> list[str]:
     return [_singular(w) for w in _WORD.findall(_clean(text))]
 
 
+# Phrases that name a stitch or a character rather than a thing. Every one of these was a
+# live mis-route: "Seabreeze Basket Weave Blanket" reached the bag specialist because a
+# basket weave is a stitch, and "Adult Sock Monkey Set, crochet cardigan" reached the hat
+# specialist because a sock monkey is a monkey. They are removed before matching rather than
+# argued with afterwards, and the list grows only when a real title proves an entry.
+_NOT_A_PRODUCT: tuple[str, ...] = ("basket weave", "basketweave", "sock monkey")
+
+
 def signals(text: str) -> tuple[frozenset[str], str]:
     """What a title offers a router: its words, and the phrase-searchable form of them.
 
@@ -93,7 +101,10 @@ def signals(text: str) -> tuple[frozenset[str], str]:
     words = _words(text)
     # Padded, so a term at either end is still surrounded by spaces and `find` can be used
     # for both single words and phrases without a separate membership test.
-    return frozenset(words), f' {" ".join(words)} '
+    phrase = f' {" ".join(words)} '
+    for stitch in _NOT_A_PRODUCT:
+        phrase = phrase.replace(f' {" ".join(_words(stitch))} ', " ")
+    return frozenset(phrase.split()), phrase
 
 
 def counts_its_own_patterns(text: str) -> bool:
@@ -103,6 +114,11 @@ def counts_its_own_patterns(text: str) -> bool:
     for match in _COUNTS_PATTERNS.finditer(joined):
         after = joined[match.start():].split()
         if len(after) > 1 and _singular(after[1]) in _NOT_A_PATTERN_COUNT:
+            continue
+        # And the word in front of it. "0-6months to child size 12, Pdf pattern" read as a
+        # set of twelve patterns, because the unit that number belongs to is behind it.
+        before = joined[:match.start()].split()
+        if before and _singular(before[-1]) in _NOT_A_PATTERN_COUNT:
             continue
         return True
     return False
@@ -222,7 +238,7 @@ PODS: tuple[Pod, ...] = (
          "drape of the stated yarn", "modelled fit coverage")),
     Pod("hats", "Hats and wearables",
         ("hat", "beanie", "toque", "tuque", "headband", "head wrap", "ear warmer",
-         "scarf", "mitten",
+         "blanket scarf", "scarf", "mitten",
          "glove", "cowl", "slipper", "sock", "bootie", "scrunchie", "hair tie", "bandana",
          "balaclava"),
         ("head circumference grading", "brim behaviour", "stretch recovery",

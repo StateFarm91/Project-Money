@@ -242,7 +242,8 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool = Fals
 # router that still drops the same listings, while looking broader.
 
 
-def gaps(db, *, benchmark_key: str | None = None, limit: int = 200) -> dict:
+def gaps(db, *, benchmark_key: str | None = None, limit: int = 200,
+         title_chars: int = 200) -> dict:
     """What the map cannot see, listing by listing, with the reason it cannot see it.
 
     Two kinds of gap, and they have different owners:
@@ -287,7 +288,10 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200) -> dict:
     # widened vocabulary reaches nothing already in the table: the stored pod is whatever the
     # vocabulary said on the day the listing was discovered. Every improvement to routing is
     # therefore invisible until the benchmark shop happens to edit its own listings.
-    drift = [{"listing_ref": x["listing_ref"], "title": x["title"][:120],
+    # Two of the faults this report found were hidden behind a 120-character truncation --
+    # an HTML-escaped possessive and a size range, both past the cut. A report whose own
+    # display hides the evidence it exists to show is worse than a shorter list.
+    drift = [{"listing_ref": x["listing_ref"], "title": x["title"][:title_chars],
               "stored_pod": x["stored_pod"],
               "current_pod": route(x["title"], x["product_type"])}
              for x in observed
@@ -299,7 +303,7 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200) -> dict:
             "unclassified": len(unrouted),
             "share": round(len(unrouted) / len(observed), 3) if observed else 0.0,
             "owner": "ours: the pod vocabulary is short, and it is closeable from these titles",
-            "listings": [{"listing_ref": x["listing_ref"], "title": x["title"][:120],
+            "listings": [{"listing_ref": x["listing_ref"], "title": x["title"][:title_chars],
                           "product_type": x["product_type"]} for x in unrouted[:limit]],
             "frequent_terms": [{"term": w, "listings": c} for w, c in frequent[:40]],
             "truncated": max(0, len(unrouted) - limit),

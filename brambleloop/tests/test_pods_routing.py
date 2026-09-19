@@ -198,6 +198,36 @@ def test_a_guidebook_sold_as_an_ebook_is_still_education():
                       "Measurements / PDF Digital Download Ebook") == "education"
 
 
+# ---- modifiers, stitches and characters ------------------------------------
+
+
+def test_a_modifier_in_front_of_the_head_noun_does_not_take_the_listing():
+    """"Blanket Scarf" is a scarf. Both terms start in the same place; the longer one wins."""
+    assert pods.route("Fall For You Blanket Scarf, Easy Scarf Crochet Pattern") == "hats"
+    assert pods.route("Unicorn blanket and Cowl - Crochet Pattern") == "blankets"
+
+
+def test_a_stitch_name_is_not_a_product():
+    """"Seabreeze Basket Weave Blanket" reached the bag specialist. A basket weave is a stitch."""
+    assert pods.route("Seabreeze Basket Weave Blanket, Crochet Throw Blanket Pattern") \
+        == "blankets"
+
+
+def test_a_character_name_is_not_the_thing_it_is_named_after():
+    """"Adult Sock Monkey Set, crochet cardigan" reached the hat specialist, via "sock"."""
+    assert pods.route("Adult Sock Monkey Set, crochet cardigan, easy crochet cardigan") \
+        == "garments"
+    # And the word still works when it means the garment.
+    assert pods.route("Crochet Sock Pattern, Cozy Wool Socks") == "hats"
+
+
+def test_a_number_behind_a_unit_counts_the_unit_too():
+    """"0-6months to child size 12, Pdf pattern" read as a set of twelve patterns."""
+    assert not pods.counts_its_own_patterns("Hoodie Pattern, 0-6months to child size 12, "
+                                            "Pdf pattern")
+    assert pods.counts_its_own_patterns("Collection Ebook | 7 Crochet Patterns")
+
+
 # ---- reclassification ------------------------------------------------------
 
 
