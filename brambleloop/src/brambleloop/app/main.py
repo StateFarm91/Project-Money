@@ -329,6 +329,38 @@ def api_continuity_verify() -> dict:
     return {"enqueued": True, "job_id": job.id}
 
 
+@app.post("/api/queue/requeue")
+def api_queue_requeue(authorization: str = Header(default="")) -> JSONResponse:
+    """Re-drive dead letters whose defect has since been fixed. Authenticated.
+
+    This exists because the same operational need has now arisen twice: a defect kills a job,
+    the defect is fixed and deployed, and the dead letter sits there making the queue-health
+    signal red until somebody with database access clears it. A signal that stays red after
+    the fix is a signal people learn to ignore.
+
+    Publication jobs are never re-driven from here, whatever is asked for. Their dead letters
+    are refusals working correctly, and a re-drive endpoint that can touch them is a
+    publication path wearing an operations label.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    q = JobQueue(db)
+    types = sorted({j.job_type for j in q.dead_letters() if j.job_type != "store.publish"})
+    if not types:
+        return JSONResponse({"requeued": 0, "job_types": [],
+                             "note": "no dead letter is eligible to be re-driven"})
+    result = q.requeue_dead(job_types=types)
+    Registry(db).audit("orchestrator", "queue.requeued", detail=result)
+    return JSONResponse({**result, "job_types": types,
+                         "note": ("publication refusals are never re-driven: they are "
+                                  "refusals working correctly")})
+
+
 @app.get("/api/continuity/export")
 def api_continuity_export(authorization: str = Header(default="")) -> Response:
     """Download the portable export. Authenticated, and closed when unconfigured.

@@ -250,6 +250,48 @@ def test_the_model_assertion_is_about_spend_rather_than_about_a_key_existing():
     assert CostEntry is not None
 
 
+def test_the_requeue_endpoint_is_closed_without_the_operator_credential():
+    """It re-drives work, so it is a write endpoint and gets the same door as the export."""
+    with _client() as c:
+        response = c.post("/api/queue/requeue")
+    assert response.status_code in (401, 503), response.status_code
+
+
+def test_the_requeue_endpoint_never_re_drives_a_publication_refusal():
+    """A re-drive endpoint that can touch publication jobs is a publication path wearing an
+    operations label."""
+    import os
+
+    from brambleloop.core.models import Job, JobStatus
+
+    previous = os.environ.get("BRAMBLELOOP_OPS_TOKEN")
+    token = "x" * 40
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = token
+    try:
+        with _client() as c:
+            from brambleloop.app.main import db as app_db
+
+            with app_db.session() as s:
+                s.add(Job(agent="publishing", job_type="store.publish", inputs={},
+                          idempotency_key="requeue-guard-1", status=JobStatus.DEAD,
+                          last_error="refused: shadow mode"))
+            response = c.post("/api/queue/requeue",
+                              headers={"Authorization": f"Bearer {token}"})
+            body = response.json()
+            assert "store.publish" not in body.get("job_types", [])
+
+            with app_db.session() as s:
+                planted = s.query(Job).filter(
+                    Job.idempotency_key == "requeue-guard-1").one()
+                assert planted.status == JobStatus.DEAD
+                s.delete(planted)
+    finally:
+        if previous is None:
+            os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)
+        else:
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = previous
+
+
 def test_verify_survives_the_one_condition_it_exists_to_report():
     """A dead letter is the thing this endpoint is for, and it used to 500 on one.
 
