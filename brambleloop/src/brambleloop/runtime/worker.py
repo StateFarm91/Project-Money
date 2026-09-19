@@ -237,6 +237,13 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # than daily because the interesting event -- a credential arriving -- should not wait
     # until tomorrow to unblock fourteen requirements.
     ("build_tick", "orchestrator", "build.tick", 60 * 60),
+    # Monthly, and the interval is the decision. #94 asks for creative capability tracked
+    # *over time*, and this is the only cadence here that spends real money per run: twelve
+    # judged pairs at the deep tier is about CA$1.55, or 6% of the month's model ceiling.
+    # Weekly would be 27% of it for a number that cannot move that fast, and a measurement
+    # that expensive is one somebody eventually switches off -- which costs more than a
+    # slower measurement that survives.
+    ("blinded_benchmark", "creative_director", "creative.blinded", 30 * 24 * 60 * 60),
 ]
 
 

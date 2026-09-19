@@ -479,6 +479,10 @@ def api_creative_blinded() -> dict:
         "estimated_cad_per_pair": per_pair,
         "affordable_pairs": int(state.remaining_cad // per_pair) if per_pair else 0,
         "budget": state.to_dict(),
+        "last_run": blinded.last_run(db),
+        "runs_on": ("the monthly `blinded_benchmark` cadence. There is no endpoint that "
+                    "runs it, because a request that spends the model budget should not be "
+                    "one URL away"),
         "compared_on": list(blinded.CARD_FIELDS),
         "not_compared_on": ["the photograph, which is most of why a listing sells and needs "
                             "the browser/vision capability"],

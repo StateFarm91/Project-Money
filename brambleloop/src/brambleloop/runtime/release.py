@@ -1452,3 +1452,34 @@ def handle_build_tick(ctx: JobContext) -> dict:
             "parked_by_gate": snapshot["parked_by_capability"],
             "unparked": synced["unparked"],
             "next": snapshot["next"], "watchdog": health}
+
+
+@handlers.register("creative.blinded")
+def handle_creative_blinded(ctx: JobContext) -> dict:
+    """Judge this catalogue against the observed human one, blinded (#94).
+
+    Monthly rather than weekly. Creative capability does not change in a week, and a
+    measurement that costs real money every seven days becomes a line item somebody
+    eventually switches off -- which is worse than a slower measurement that survives.
+
+    GREEN: it reads its own catalogue and an already-observed benchmark, spends model budget
+    bounded by the monthly ceiling, and writes a row. It publishes nothing and contacts
+    nobody. If the ceiling is close it judges fewer pairs and says so; a run that reports
+    `unmeasured` because it could not afford the floor is the correct outcome, not a failure.
+    """
+    from ..creative import blinded
+    from ..creative.audit import catalogue_concepts
+    from ..gateway.model_gateway import ModelGateway
+
+    concepts = catalogue_concepts()
+    try:
+        result = blinded.run(ctx.db, concepts, gateway=ModelGateway(db=ctx.db),
+                             agent="creative_director",
+                             max_pairs=blinded.MIN_PAIRS)
+    except blinded.RunRefused as e:
+        ctx.audit("creative.blinded_refused", detail={"reason": str(e)[:300]})
+        return {"ran": False, "reason": str(e)[:200]}
+
+    ctx.audit("creative.blinded", detail=result)
+    return {"ran": True, "verdict": result["verdict"], "judged": result["pairs_judged"],
+            "cost_cad": result["cost_cad"], "valid": result["valid"]}

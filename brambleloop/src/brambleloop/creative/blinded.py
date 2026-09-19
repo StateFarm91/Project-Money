@@ -550,3 +550,15 @@ def run(db, concepts: list[Concept], *, gateway=None, agent: str = "creative_dir
                  "for; nothing about either side's origin reaches the judge (#94)."),
     })
     return result
+
+
+def last_run(db) -> dict | None:
+    """The most recent blinded run, or None if the cadence has not come round yet."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "creative.blinded")
+                              .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None

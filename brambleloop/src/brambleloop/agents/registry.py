@@ -42,6 +42,14 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
                             "mjs.scan", "etsy.probe"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
+    # The creative side of #94: it judges this catalogue against an observed human one and
+    # records the result. It writes no product, publishes nothing and contacts nobody; the
+    # only thing it spends is model budget, which the gateway's ceiling bounds before each
+    # call. Its own daily ceiling is set low on purpose -- a capability measurement that can
+    # consume a day's whole model allowance is a measurement nobody can afford to repeat.
+    dict(name="creative_director", description="Blinded creative benchmarking (#94, #104)",
+         allowed_job_types=["creative.blinded"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=2.0),
     dict(name="crochet_engineer", description="Authors CIR from a creative brief",
          allowed_job_types=["cir.draft", "cir.revise"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=4.0),
