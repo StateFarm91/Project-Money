@@ -302,8 +302,8 @@
   "body": "Any agent that observes three materially identical states without progress must stop polling and re-plan. Repeated identical tool call + identical result triggers a circuit breaker. Polling backs off exponentially. Deployment retries require a changed hypothesis/root-cause fix. Track progress-per-dollar and progress-per-iteration; suspend loops consuming budget without state change.",
   "version": "v1.3.2",
   "section": "Adversarial commercial + policy audit",
-  "status": "missing",
-  "note": "stagnation/thrash detection and circuit breaker"
+  "status": "covered",
+  "note": "swarm/orchestrate.ThrashDetector stops on three identical call-and-result pairs and forces a re-plan. The check is on call AND result: a poll whose answer keeps changing is progress, one whose answer never does is a loop that has stopped working and started spending."
  },
  {
   "id": 35,
@@ -1562,8 +1562,8 @@
   "body": "Do not impose an arbitrary small-agent architecture. The system may use dozens or hundreds of logical specialist agents/cells when parallel specialization improves quality, coverage or speed. Agent count is not a success metric: each agent must have a defined responsibility, inputs, outputs, authority, budget, quality metric and retirement condition.",
   "version": "v1.3.9",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "partial",
-  "note": "15 agents with permissions and ceilings; no elastic swarm or orchestrator fan-out"
+  "status": "covered",
+  "note": "fan-out is bounded by spend rather than by a headcount constant -- the ceiling that matters is money, and a number in the code is exactly the artificial scarcity this requirement objects to. 400 items of open work justifies fifty specialists at CA$25 remaining and eight at CA$0.40."
  },
  {
   "id": 175,
@@ -1571,8 +1571,8 @@
   "body": "Use an orchestrator to create or activate specialist workers based on queue depth, category, season, opportunity value and bottleneck. A large catalogue scan may fan out across many workers; quiet periods scale down. Prefer elastic logical agents over 500 permanently running paid processes when identical coverage can be achieved more reliably and cheaply.",
   "version": "v1.3.9",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "partial",
-  "note": "15 agents with permissions and ceilings; no elastic swarm or orchestrator fan-out"
+  "status": "covered",
+  "note": "capacity is computed from queue depth and deadline pressure, so a catalogue baseline fans out and a quiet Tuesday does not."
  },
  {
   "id": 176,
@@ -1580,8 +1580,8 @@
   "body": "Every material task, defect, opportunity, benchmark, listing, experiment, customer issue and improvement must have an accountable agent/cell and an explicit state. The orchestrator detects orphaned work and reassigns it. 'Everyone has a job' is enforced through ownership records, not assumed.",
   "version": "v1.3.9",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "partial",
-  "note": "every job has an agent and the worker denies unauthorised work; no orphaned-work detection"
+  "status": "covered",
+  "note": "orphans() is a query with a name rather than a report somebody remembers to run, because unowned work is precisely the work nobody is watching."
  },
  {
   "id": 177,
@@ -1670,8 +1670,8 @@
   "body": "When no urgent queue exists, agents should not sit idle merely to satisfy a 24/7 slogan. They should consume a prioritized backlog: market research, competitor change detection, creative tournaments, benchmark analysis, catalogue QA, SEO experiments, learning replays, documentation, cost optimization and improvement experiments. Avoid pointless token-burning loops.",
   "version": "v1.3.9",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
-  "note": "work-conserving autonomy backlog"
+  "status": "covered",
+  "note": "an idle agent takes the highest-value standing backlog item rather than polling to look alive, which spends money to produce a heartbeat, or stopping, which makes the 24/7 claim false."
  },
  {
   "id": 187,
@@ -1679,8 +1679,8 @@
   "body": "Allocate autonomous capacity by expected business value and deadlines: customer incidents and truth defects first; imminent seasonal windows next; proven high-value product opportunities; listing/creative bottlenecks; experiments; background research. Prevent 500 low-value agents from starving one critical release.",
   "version": "v1.3.9",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "partial",
-  "note": "scheduler runs fixed cadences; no priority scheduler by business value"
+  "status": "covered",
+  "note": "eight priority bands, and a band is never traded away for value: a CA$5,000 opportunity with a one-day deadline does not outrank a customer incident. Deadline and value decide within a band only."
  },
  {
   "id": 188,
@@ -1724,8 +1724,8 @@
   "body": "More agents are allowed, but redundant or consistently weak agents are merged, retrained or retired. Preserve useful specialist knowledge before retirement. This prevents organizational bloat while keeping the owner's 'never too many specialists' principle focused on actual performance.",
   "version": "v1.3.9",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
-  "note": "agent retirement / merge rule"
+  "status": "covered",
+  "note": "retirement review merges redundant cells and retires idle ones, and every recommendation carries the lessons to preserve first -- discarding what a cell learned costs more than the cell did."
  },
  {
   "id": 193,
@@ -2715,7 +2715,7 @@
   "version": "v1.4.3",
   "section": "MJsOffTheHookDesigns priority mission",
   "status": "partial",
-  "note": "model capacity is now elastic within a ceiling enforced in code: routing sends high-volume classification to the cheap tier and reserves the expensive one for release-blocking judgement, which buys roughly 8,200 cheap calls or 990 gallery observations a month inside CA$25. Remaining: the orchestrator does not yet fan out into large specialist swarms; the economics that would allow it now exist."
+  "note": "the orchestrator can now fan out elastically under central spend control, which is the capacity half of this requirement. Remaining: dedicated MJs capacity that stays independent of generic market research, which needs the observation credential to have work to do."
  },
  {
   "id": 303,

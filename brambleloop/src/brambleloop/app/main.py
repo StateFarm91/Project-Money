@@ -553,6 +553,24 @@ def api_growth() -> dict:
         "constraint": constraint({}),
     }
 
+
+@app.get("/api/swarm")
+def api_swarm() -> dict:
+    """Capacity, priority and orphaned work."""
+    from ..gateway.routing import budget
+    from ..swarm.orchestrate import BANDS, fan_out, next_work
+
+    with db.session() as s:
+        pending = s.scalar(select(func.count()).select_from(Job)
+                           .where(Job.status == JobStatus.PENDING)) or 0
+    state = budget(db)
+    return {
+        "capacity": fan_out(open_work=int(pending),
+                            budget_remaining_cad=state.remaining_cad),
+        "bands": [{"priority": p, "kind": k, "why": w} for p, k, w in BANDS],
+        "next_when_idle": next_work([]),
+    }
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
