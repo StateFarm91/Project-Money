@@ -206,6 +206,38 @@ rather than an amber row, and the failure is silent: a phase that slips does not
 itself, it becomes the next phase, and the first visible symptom is a product that lists in
 December.
 
+### What the calendar actually permits, computed 2026-09-19
+
+Not a worry — the engines now answer it. Heaviest lane a customer could still finish, and
+milestones already past:
+
+| event | days out | heaviest lane still launchable | milestones past |
+|---|---:|---|---|
+| Christmas | 97 | **MEDIUM** | 5/10 |
+| Halloween | 42 | QUICK | 8/10 |
+| Thanksgiving (CA) | 23 | **none** | 8/10 |
+| Valentine's | 148 | LONG | 4/10 |
+| Easter | 197 | LONG | 3/10 |
+| Mother's Day | 233 | **FLAGSHIP** | 2/10 |
+
+Christmas 2026 by lane, as latest effective launch date:
+
+| lane | up to | latest launch | from today |
+|---|---:|---|---:|
+| QUICK | 6h | 2026-11-15 | +57 days |
+| SHORT | 20h | 2026-10-30 | +41 days |
+| MEDIUM | 45h | 2026-10-03 | **+14 days** |
+| LONG | 90h | 2026-08-12 | −38 days |
+| FLAGSHIP | 150h | 2026-06-06 | −105 days |
+
+**The prioritisation decision, made here rather than referred upward.** Christmas 2026 is a
+QUICK and SHORT season for this company; MEDIUM is available only for something that can be
+engineered inside the next two weeks, and LONG and FLAGSHIP Christmas work is arithmetically
+impossible — a customer could not finish it. Thanksgiving (CA) is gone. **Flagship effort
+belongs to Mother's Day 2027** (233 days, every lane open, 2 milestones past) and to the
+four-season programs that do not wait for a date. That is what the concept queue should be
+pointed at, and it is a consequence of the calendar rather than a preference.
+
 The calendar is checked by the **daily `seasonal.sentinel` cadence**, not by somebody opening
 a page: a function nobody calls produces that finding once and never again. Run against
 today's state it finds **every** seasonal event behind — Halloween worst at 8 of 10 — which is
