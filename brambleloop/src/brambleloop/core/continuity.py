@@ -81,6 +81,9 @@ NON_REDERIVABLE = (
     # would mean a restored company that does not know what it was doing.
     "build_tasks",
     "build_events",
+    # What the pods learned and what changed their minds. Re-derivable from nothing: the
+    # outcomes that moved these are gone once the rows are.
+    "pod_lessons",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

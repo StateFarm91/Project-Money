@@ -889,3 +889,29 @@ class BuildEvent(Base):
     actor: Mapped[str] = mapped_column(String(80), default="executor")
     summary: Mapped[str] = mapped_column(Text, default="")
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PodLesson(Base):
+    """One versioned interpretation a specialist pod holds, and what it survived (#316).
+
+    Versioned rather than mutable because the useful question next year is not what the pod
+    believes, it is what it used to believe and what changed its mind. A lesson overwritten
+    in place answers neither.
+    """
+
+    __tablename__ = "pod_lessons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    subject: Mapped[str] = mapped_column(String(60), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    statement: Mapped[str] = mapped_column(Text, default="")
+    mechanism: Mapped[str] = mapped_column(String(40), default="")
+    # Only outcomes move this. Repetition does not.
+    supported_by: Mapped[list] = mapped_column(JSON, default=list)
+    contradicted_by: Mapped[list] = mapped_column(JSON, default=list)
+    superseded_by: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    origin: Mapped[str] = mapped_column(String(30), default="observation")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

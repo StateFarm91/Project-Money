@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 140 | satisfied, with a named test or artefact |
-| partial | 70 | something real exists and is short of the requirement |
-| missing | 59 | nobody has built it |
+| covered | 142 | satisfied, with a named test or artefact |
+| partial | 69 | something real exists and is short of the requirement |
+| missing | 58 | nobody has built it |
 | owner_gated | 39 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **129 requirements are executable** (partial +
+as one nobody has written. **127 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -58,8 +58,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **873 tests passing, 0 failing** across
-50 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **885 tests passing, 0 failing** across
+51 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -162,6 +162,47 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Heartbeat 2026-09-19T08:14Z — the mission's capacity, its map and its memory (#302, #303,
+#316).**
+
+The operator loop ran as designed: lease acquired, production `/api/verify` green, and then
+the build queue — not a judgement call — named the top three ready requirements. All three
+fail in a way that leaves the org chart intact.
+
+- **The capacity floor is reserved, not allocated (#302).** Capacity merely allocated to a
+  mission gets borrowed, and the borrowing decision is locally sensible *every single time*:
+  generic research is busy now, the specialists are idle now, moving them is obviously right.
+  It is obviously right often enough that the mission ends up with specialists on paper and no
+  throughput, and nobody ever decided to defund it. The refusal names the five kinds of work it
+  would starve. Above the floor the ceiling is money rather than headcount, and a fan-out must
+  name which of coverage, quality or latency it is buying — "we could use more" is what an
+  elastic system asks for by default.
+- **The map records judgement columns as absent with the capability named (#303).** Silhouette,
+  merchandising mechanism and styling are judgements about a photograph; inferring them from a
+  title would make every row look complete and be fiction — *persuasive* fiction, because seven
+  of ten columns would be right. Completeness is scored against what the available capabilities
+  can observe, or a correctly limited map reports itself permanently broken. Palette is a third
+  case and is distinguished: Etsy publishes it per image, so its absence is **a request nobody
+  made**, not a capability nobody has.
+- **A map that does not know how stale it is is not living.** Every row carries its evidence
+  date; the map reports its oldest. A catalogue map nobody refreshed is indistinguishable from
+  a current one right up to the moment it is wrong — which is exactly when the shop changed
+  something, and exactly when somebody is reading it.
+- **Only an outcome moves the learning memory (#316).** The failure every learning system has
+  is confidence that grows with repetition: forty observations of one shop's Christmas listings
+  is one observation made forty times. "Observed again" is refused **by name**, with the reason
+  attached. A challenger wins on outcomes or not at all, a tie leaves the incumbent standing —
+  promoting on equal evidence is promoting on novelty — and superseded lessons are kept,
+  because a memory that has only ever been right is not learning.
+
+One refactor fell out: the pods' competitor-expression boundary lived inline inside
+`lesson()`, and the learning memory needed the same rule. It is now called rather than copied
+— a boundary that exists twice drifts, and the copy that drifts is always the newer one.
+
+#303 stays **partial**: full discoverable catalogue coverage needs the Etsy credential. The map
+is built and waiting.
+
+## Previously in Build 2
 **The build loop moved out of the conversation and into Postgres (#195, #196, and the master
 intent's Autonomous Build Executor).**
 

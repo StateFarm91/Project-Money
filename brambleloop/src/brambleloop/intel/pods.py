@@ -132,6 +132,22 @@ class MechanismRefused(Exception):
     """A lesson that is not a mechanism, or that carries a competitor's expression."""
 
 
+def check_expression(text: str) -> None:
+    """Refuse text that is really a competitor's instructions rather than an observation.
+
+    Extracted from `lesson()` so the pods' learning memory can hold the same boundary rather
+    than a copy of it. A boundary that exists twice is a boundary that drifts, and the copy
+    that drifts is always the newer one.
+    """
+    low = (text or "").lower()
+    for phrase in _PROTECTED_EXPRESSION:
+        if phrase in low:
+            raise MechanismRefused(
+                f"the note contains {phrase!r}, which reads as a competitor's instructions "
+                f"rather than an observation about merchandising. Competitor research is for "
+                f"demand and merchandising intelligence only")
+
+
 @dataclass(frozen=True)
 class Lesson:
     pod: str
@@ -157,13 +173,7 @@ def lesson(pod: str, mechanism: str, note: str, evidence_ref: str = "") -> Lesso
             f"(#217); an open vocabulary is how a competitor's pattern ends up in this table")
     if pod not in POD_KEYS:
         raise MechanismRefused(f"unknown pod {pod!r}")
-    low = (note or "").lower()
-    for phrase in _PROTECTED_EXPRESSION:
-        if phrase in low:
-            raise MechanismRefused(
-                f"the note contains {phrase!r}, which reads as a competitor's instructions "
-                f"rather than an observation about merchandising. Competitor research is for "
-                f"demand and merchandising intelligence only")
+    check_expression(note)
     if len(note.strip()) < 10:
         raise MechanismRefused("a lesson with no substance is not a lesson")
     return Lesson(pod=pod, mechanism=mechanism, note=note.strip(),

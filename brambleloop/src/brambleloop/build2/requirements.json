@@ -2711,16 +2711,16 @@
   {
     "body": "Maintain dedicated MJs intelligence capacity independent of generic market research. Agent count is elastic and uncapped by an arbitrary small number: the orchestrator may fan out into very large logical specialist swarms when needed for complete catalogue coverage, image analysis, category decomposition, seasonal response and QA. Scale is justified by coverage/quality/latency and remains under global spend controls.",
     "id": 302,
-    "note": "the orchestrator can now fan out elastically under central spend control, which is the capacity half of this requirement. Remaining: dedicated MJs capacity that stays independent of generic market research, which needs the observation credential to have work to do.",
+    "note": "intel/capacity.py reserves a floor generic research cannot draw below and names what borrowing would starve; above it scale is bounded by spend rather than headcount and must name coverage, quality or latency",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "partial",
+    "status": "covered",
     "title": "MJs Mission Has Dedicated Capacity",
     "version": "v1.4.3"
   },
   {
     "body": "Establish and maintain full discoverable MJs catalogue coverage. Every listing is assigned to specialist category pods and represented in the MJs Coverage Matrix. Track newly discovered/changed listings, product family, generic product type, silhouette/form, palette, seasonal positioning, visual merchandising mechanisms, visible pricing/promotion, gallery structure and dated evidence.",
     "id": 303,
-    "note": "every listing is assigned to a specialist pod and represented in the coverage matrix with product family, price, sale state, gallery structure, palette and dated evidence. Remaining: silhouette and seasonal positioning, which need image-level judgement from the model provider.",
+    "note": "intel/market_map.py maps every observed listing to a pod across ten attributes, records the three judgement columns as absent with the capability named rather than inferring them, and reports its own staleness. Full catalogue coverage needs the Etsy credential",
     "section": "MJsOffTheHookDesigns priority mission",
     "status": "partial",
     "title": "MJs Catalogue Is a Living Market Map",
@@ -2837,9 +2837,9 @@
   {
     "body": "All observations, Brambleloop launches, failures, owner vetoes, conversion data and customer outcomes update the MJs specialist pods' versioned learning memory. Challenger agents should repeatedly test better ways to interpret MJs market signals, generate stronger seasonal responses and improve commercial execution.",
     "id": 316,
-    "note": "MJs mission feeds continuous improvement",
+    "note": "intel/memory.py versions every pod interpretation, moves standing only on recorded outcomes and refuses repetition as evidence; challengers win on outcomes or not at all, and superseded lessons are kept",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "missing",
+    "status": "covered",
     "title": "MJs Mission Feeds Continuous Improvement",
     "version": "v1.4.3"
   },

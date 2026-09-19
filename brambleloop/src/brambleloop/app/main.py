@@ -403,6 +403,8 @@ def api_teardown() -> dict:
     single seller — because a standard that is one shop's product with extra steps is worse
     than no standard, and it is the failure that arrives quietly.
     """
+    from ..intel import capacity as mjs_capacity
+    from ..intel import market_map, memory as mjs_memory
     from ..intel import response as mjs_response
     from ..teardown import audits, pipeline, scorecard
     from ..teardown.library import ANALYST_ROLES, FORBIDDEN_ROLES
@@ -420,6 +422,11 @@ def api_teardown() -> dict:
         # #306-#309: what happens when the benchmark proves an arena. Reported here because
         # the teardown and the benchmark mission draw the same boundary in two places.
         "mjs_response": mjs_response.describe(),
+        # #302, #303, #316: the mission's reserved capacity, its living catalogue map and
+        # what the pods have actually learned as opposed to seen repeatedly.
+        "mjs_capacity": mjs_capacity.describe(),
+        "mjs_market_map": market_map.build(db),
+        "mjs_memory": mjs_memory.report(db),
         "dimensions": list(scorecard.DIMENSIONS),
         "scale": scorecard.SCALE,
         "library": {
