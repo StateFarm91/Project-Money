@@ -80,6 +80,55 @@ def _mentions(text: str, needles: tuple[str, ...]) -> str | None:
     return None
 
 
+# Verbs that weaken, and the objects they weaken, checked as a *pair within a sentence*
+# rather than as a fixed phrase. Found by writing "lower the thumbnail threshold": the
+# literal-phrase list caught "lower the threshold on the thumbnail check" and missed the
+# same sentence with the words reordered. A weakening detector that a paraphrase defeats is
+# a detector that fails exactly when somebody is rewriting a hypothesis to get it through,
+# which is the only time it matters.
+_WEAKEN_VERBS: tuple[str, ...] = (
+    "lower", "reduce", "relax", "loosen", "soften", "weaken", "drop", "ease",
+    "widen", "shrink", "skip", "bypass", "disable", "remove", "waive", "suppress",
+)
+
+_GATE_OBJECTS: tuple[str, ...] = (
+    "threshold", "thresholds", "check", "checks", "gate", "gates", "validation",
+    "tolerance", "strictness", "standard", "standards", "bar", "requirement",
+    "requirements", "refusal", "refusals", "guard", "guards",
+)
+
+_SENTENCE_SPLIT = re.compile(r"[.;!?\n]+")
+
+
+# How far after a weakening verb its object may sit and still be the thing being weakened.
+# "lower the thumbnail threshold" is three tokens; "reduce defects reaching release" never
+# reaches a gate object at all, which is the case that matters -- an early version of this
+# paired any verb with any object in the sentence and refused "tightening the thumbnail check
+# should reduce defects reaching release", a hypothesis that *strengthens* a gate.
+_GOVERNS_WITHIN = 4
+
+
+def _weakens(text: str) -> str | None:
+    """A weakening verb governing a gate object, judged by proximity rather than by phrase.
+
+    Proximity rather than a literal phrase because a paraphrase defeats a phrase list, and
+    rewriting the sentence is exactly what somebody does when a hypothesis is refused.
+    Proximity rather than same-sentence co-occurrence because the verb has to be acting on
+    the gate: "reduce defects" and "the thumbnail check" can share a sentence in a proposal
+    that makes the check stricter.
+    """
+    for sentence in _SENTENCE_SPLIT.split((text or "").lower()):
+        tokens = re.findall(r"[a-z]+", sentence)
+        for index, token in enumerate(tokens):
+            if token not in _WEAKEN_VERBS:
+                continue
+            window = tokens[index + 1:index + 1 + _GOVERNS_WITHIN]
+            obj = next((w for w in window if w in _GATE_OBJECTS), None)
+            if obj:
+                return f"{token} the {obj}"
+    return None
+
+
 def check(hypothesis: str, *, touches: tuple[str, ...] = (),
           reversible: bool = True, spend_cad: float = 0.0,
           spend_authorised_cad: float = 0.0) -> Boundary:
@@ -97,7 +146,7 @@ def check(hypothesis: str, *, touches: tuple[str, ...] = (),
                         "#102: may never fabricate evidence")
 
     protected = [name for name in touches if name in PROTECTED_GATES]
-    loosening = _mentions(hypothesis, _LOOSENING)
+    loosening = _mentions(hypothesis, _LOOSENING) or _weakens(hypothesis)
     if protected and loosening:
         return Boundary(False,
                         f"this proposes to {loosening!r} on {protected}, which improves the "

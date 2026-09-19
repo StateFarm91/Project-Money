@@ -915,3 +915,30 @@ class PodLesson(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     origin: Mapped[str] = mapped_column(String(30), default="observation")
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ConfigVersion(Base):
+    """One version of a material prompt, model, tool or decision policy (#96).
+
+    Versioned with *why* rather than only what: a registry that records the change and not
+    the reason answers "what is running" and never "should it still be". The second question
+    is the one somebody asks six months later, usually while something is wrong.
+    """
+
+    __tablename__ = "config_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(20), index=True)   # prompt | model | tool | policy
+    key: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    digest: Mapped[str] = mapped_column(String(64), default="", index=True)
+    why_changed: Mapped[str] = mapped_column(Text, default="")
+    tests_run: Mapped[list] = mapped_column(JSON, default=list)
+    cost_per_call_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    affected_departments: Mapped[list] = mapped_column(JSON, default=list)
+    measured_outcome: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    incumbent: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                        nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

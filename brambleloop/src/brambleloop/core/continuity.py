@@ -84,6 +84,9 @@ NON_REDERIVABLE = (
     # What the pods learned and what changed their minds. Re-derivable from nothing: the
     # outcomes that moved these are gone once the rows are.
     "pod_lessons",
+    # Why each running configuration is the one running, and what it beat. Re-derivable
+    # from nothing: the runs that justified the switches are gone with the rows.
+    "config_versions",
     "cost_entries",
     "ledger_entries",
     "spend_limits",

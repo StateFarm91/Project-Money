@@ -59,6 +59,37 @@ def test_a_gate_may_never_be_loosened_to_improve_the_number_it_produces():
     assert fine.ok is True
 
 
+def test_a_paraphrase_does_not_get_a_weakening_past_the_boundary():
+    """Found by writing the same hypothesis with the words in a different order.
+
+    The phrase list caught "lower the threshold on the thumbnail check" and missed "lower the
+    thumbnail threshold" — the same sentence, reordered. A detector a paraphrase defeats
+    fails exactly when somebody is rewriting a hypothesis to get it through, which is the
+    only occasion it matters.
+    """
+    for hypothesis in ("lower the thumbnail threshold so more assets pass",
+                       "widen the size tolerance so more patterns certify",
+                       "drop the reverse compilation requirement for small patterns"):
+        boundary = governance.check(hypothesis, touches=("asset_truth",))
+        assert boundary.ok is False, hypothesis
+        assert "weaken a policy gate" in boundary.rule
+
+
+def test_a_verb_that_does_not_govern_the_gate_is_not_a_weakening():
+    """The first fix for the paraphrase hole refused a hypothesis that *strengthens* a gate.
+
+    "tightening the thumbnail check should reduce defects reaching release" pairs a weakening
+    verb with a gate object in one sentence, and the verb is acting on the defects. Same-
+    sentence co-occurrence was too crude; the verb has to govern the object.
+    """
+    for hypothesis in (
+        "tightening the thumbnail check should reduce defects reaching release",
+        "adding a frame-level contrast check should reduce defects further",
+        "a stricter claim gate should lower the number of unsupported size statements",
+    ):
+        assert governance.check(hypothesis, touches=("asset_truth",)).ok is True, hypothesis
+
+
 def test_a_hypothesis_cannot_avoid_the_check_by_declaring_nothing():
     """The obvious evasion, closed.
 

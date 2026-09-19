@@ -757,6 +757,43 @@ def api_visual() -> dict:
         "escalation_ladder": [{"action": a, "why": w} for a, w in ESCALATION],
     }
 
+@app.get("/api/league")
+def api_league() -> dict:
+    """What is running, why, and what it was measured to beat.
+
+    An incumbent with no measured outcome is named as such: it is running because it was
+    first, which is the commonest reason anything runs.
+    """
+    from ..improve import league
+
+    return {
+        "standings": league.standings(db),
+        "axes": {k: v[1] for k, v in league.AXES.items()},
+        "quality_margin": league.QUALITY_MARGIN,
+        "cost_tolerance": league.COST_TOLERANCE,
+        "note": ("A challenger that brings its own tasks wins every time, so the task set is "
+                 "shared and fixed. Cost and reliability are outcomes, not footnotes (#95)."),
+    }
+
+
+@app.get("/api/roi")
+def api_roi() -> dict:
+    """What the improvement programme bought, and whether new designs stand on what we know.
+
+    Cost is known on the day and benefit is known later, so benefit is the number nobody goes
+    back for. The sandbox result that won a promotion is deliberately not read as its return:
+    counting it would make every promotion succeed by construction.
+    """
+    from ..improve import roi
+
+    return {
+        "realised": roi.realised_benefit(db),
+        "compounding": roi.compounding_report(db),
+        "neutral_band": roi.NEUTRAL_BAND,
+        "realisation_days": roi.REALISATION_DAYS,
+    }
+
+
 @app.get("/api/dependencies")
 def api_dependencies() -> dict:
     """What this company stands on, and how each one comes back.

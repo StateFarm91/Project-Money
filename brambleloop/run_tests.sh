@@ -29,8 +29,8 @@ SUITES=(
   tests/test_compiler.py tests/test_reverse.py tests/test_rowcycle.py
   tests/test_geometry.py tests/test_twin.py tests/test_grading.py
   tests/test_platform.py tests/test_gates.py tests/test_radar.py tests/test_provenance.py tests/test_gateway.py
-  tests/test_intel.py tests/test_response.py tests/test_mission.py tests/test_teardown.py tests/test_teardown_audits.py tests/test_culture.py tests/test_creative.py tests/test_invention.py tests/test_universe.py tests/test_improve.py tests/test_growth.py tests/test_swarm.py tests/test_visual.py
-  tests/test_etsy.py tests/test_brand.py tests/test_commerce.py tests/test_departments.py
+  tests/test_intel.py tests/test_response.py tests/test_mission.py tests/test_teardown.py tests/test_teardown_audits.py tests/test_culture.py tests/test_creative.py tests/test_invention.py tests/test_universe.py tests/test_improve.py tests/test_league.py tests/test_roi.py tests/test_growth.py tests/test_swarm.py tests/test_visual.py
+  tests/test_etsy.py tests/test_brand.py tests/test_moat.py tests/test_commerce.py tests/test_departments.py
   tests/test_buyer_trust.py tests/test_quality.py tests/test_physical.py tests/test_finance.py tests/test_commercial_truth.py
   tests/test_leadtime.py tests/test_uncertainty.py tests/test_model_access.py tests/test_scale.py tests/test_discipline.py tests/test_runrate.py
   tests/test_launch.py tests/test_access.py tests/test_platform_policy.py

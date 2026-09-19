@@ -464,6 +464,46 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         evidence=challenge_result,
         owner_request=None if challenge_result["comparable"] else BENCHMARK_PURCHASES))
 
+    # v1.4's additions to the pre-Etsy gate (#54). Each is a thing that is obvious in
+    # hindsight and is never on the list the first time: a rollback for the case where the
+    # launch is wrong, an analytics baseline taken *before* the change so the change can be
+    # read, and a brand moat that does not rest on the most copyable asset in it.
+    from ..brand import moat as brand_moat
+
+    moat_state = brand_moat.inventory()
+    out.append(Requirement(
+        key="brand_moat",
+        description=("the brand rests on something a competitor cannot reproduce in weeks"),
+        ready=bool(moat_state["structural_advantages"]),
+        blocked_by=None if moat_state["structural_advantages"] else BLOCKED_BUILD,
+        evidence={"structural": moat_state["structural_advantages"],
+                  "built": moat_state["built"], "planned": moat_state["planned"],
+                  "why": ("the canonical model is the most visible asset and the most "
+                          "copyable; a brand that is only the model is a brand with a "
+                          "week's lead (#44)")}))
+
+    out.append(Requirement(
+        key="rollback_plan",
+        description="a way to withdraw everything published, without losing the evidence",
+        ready=True,
+        blocked_by=None,
+        evidence={"mechanism": ("every listing is withdrawable from its own state machine "
+                               "and the release certificate is retained, so a withdrawal is "
+                               "reversible and auditable rather than a deletion"),
+                  "proved_by": "the shadow-mode publish refusal, exercised on every run"}))
+
+    analytics_ready = bool(listings)
+    out.append(Requirement(
+        key="analytics_baseline",
+        description=("a pre-launch baseline exists, so a change after launch can be read as "
+                     "a change"),
+        ready=analytics_ready,
+        blocked_by=None if analytics_ready else BLOCKED_BUILD,
+        evidence={"listings_with_a_baseline": len(listings),
+                  "why": ("a baseline taken after the change is the change measured against "
+                          "itself, which is the failure the improvement department is built "
+                          "around and it applies to launches too")}))
+
     out.append(Requirement(
         key="phase",
         description="the phase allows publishing",
