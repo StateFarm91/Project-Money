@@ -783,6 +783,27 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/takeovers")
+def api_takeovers() -> dict:
+    """When each storefront surface turns over for each upcoming event, and what is late.
+
+    Surfaces transition on different dates on purpose, and every takeover carries the date it
+    reverts: the failure is not the Christmas banner going up late, it is the Christmas
+    banner still being up in February.
+    """
+    from datetime import date as _date
+
+    from ..brand import takeover
+    from ..seasonal.calendar import rolling
+
+    today = _date.today()
+    # The rolling calendar already carries each event's true next date, so a takeover for
+    # Christmas is never scheduled against a Christmas that has passed.
+    upcoming = {e["event"]: _date.fromisoformat(e["event_date"])
+                for e in rolling(today)["events"]}
+    return takeover.calendar(upcoming, today=today)
+
+
 @app.get("/api/funnel")
 def api_funnel() -> dict:
     """The shape a selection tournament is meant to have, and the gates that make it one.

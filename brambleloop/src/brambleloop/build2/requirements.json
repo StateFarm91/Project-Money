@@ -1172,9 +1172,9 @@
  {
   "body": "Storefront banners, featured collections, thumbnails, bundles and content should transition ahead of each seasonal buying window. Maintain Brambleloop brand continuity while making the shop feel timely and alive. Seasonal takeovers are scheduled from the Collection Calendar, not improvised after demand peaks.",
   "id": 131,
-  "note": "seasonal storefront takeovers",
+  "note": "brand/takeover.py schedules the five surfaces from the collection calendar's own milestones rather than from a judgement about how much warning feels right: the featured collection rides listing_indexing_date, the banner and bundles the promotional ramp, shop content and thumbnails the peak window -- because a thumbnail saying December in October competes against what the buyer can still finish. Every takeover carries its revert date, scheduled with its start, since the failure is not the Christmas banner going up late but its still being up in February. Six brand invariants are refused rather than flagged: a shop that resets its wordmark each quarter is not seasonal, it is unrecognisable. A takeover with no event is refused as an ad-hoc change. /api/takeovers.",
   "section": "Deep seasonal creativity audit",
-  "status": "missing",
+  "status": "covered",
   "title": "Seasonal Storefront Takeovers",
   "version": "v1.3.6"
  },
