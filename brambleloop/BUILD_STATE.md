@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 106 | satisfied, with a named test or artefact |
+| covered | 110 | satisfied, with a named test or artefact |
 | partial | 72 | something real exists and is short of the requirement |
-| missing | 95 | nobody has built it |
+| missing | 91 | nobody has built it |
 | owner_gated | 35 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **167 requirements are executable by this session** (partial +
+as one nobody has written. **163 requirements are executable by this session** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -53,8 +53,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **782 tests passing, 0 failing** across
-44 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **797 tests passing, 0 failing** across
+45 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -157,6 +157,47 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Four ways an autonomous system flatters itself, closed (#49, #52, #53, #55).**
+
+None of these is a bug. Each is what a system does when nothing stops it: one that measures its
+own throughput optimises throughput, because throughput is the thing it can move without
+anybody's permission. One with cash in the account finds a use for it, because the obvious use
+is more of whatever produced it. One that reviews itself weekly adds work, because removing
+work is nobody's job. And one reporting confidence as a single number reports zero for a year
+while a great deal is built, which teaches its owner to stop reading it.
+
+- **Revenue does not automatically become ad budget (#49).** Four reserves filled in order —
+  tax (never yours), operating floor, cash reserve, then whatever is spare. The
+  *recommendation* is the envelope scaled by the modelled confidence, so a company with
+  CA$20,000 in the account and no customers recommends **nothing**: cash from an unrepeatable
+  source is not evidence that spending will repeat it. Confidence is read from the ladder
+  rather than accepted as an argument. **No code path returns `owner_approval_required:
+  False`** — an authority boundary in a docstring is one the next change forgets, and small
+  amounts are how standing budgets start.
+- **There is no function that returns a release count alone (#52).** The four companions —
+  defect rate, support burden, conversion, contribution — travel with it structurally rather
+  than presentationally, and a faster week where any of them degrades is reported as
+  *degraded*. Writing it surfaced a real hole: the percentage-change guard skipped every
+  metric whose previous value was zero, dropping the single most important movement it can
+  see — a defect rate going from none to some.
+- **A review that stops nothing has to say why (#53).** Not blocked: a hard requirement to
+  stop something weekly manufactures removals, which is worse than the bureaucracy it
+  prevents. But a silent empty list is exactly what a bureaucracy reports, every week, for
+  years. One sentence costs a lean week nothing and makes an accumulating one visible. Five
+  categories, because an experiment that will not conclude is a different problem from a
+  cadence costing more than it returns.
+- **The ladder opens with an architecture rung that is earned and moves nothing (#55).** A
+  ladder whose every rung reads 0.00 shows no stages at all. Architecture is the layer this
+  company *can* honestly earn — derived from rows: a certified pattern, a proved restore, a
+  refused publish, completed work, no accumulating dead letters — and it is non-critical, so
+  earning it does not move the modelled probability by a point. Progress is visible and is not
+  convertible into confidence about revenue. CA$3,000 and CA$5,000 are now computed as
+  separate questions and today give the same answer: **a smaller target is not a nearer one
+  when nothing has been sold.**
+
+`GET /api/discipline` reports all four together.
+
+## Previously in Build 2
 **Price memory, control cohorts and bundle attribution: three names for one mistake
 (#45, #46, #47, #48).**
 

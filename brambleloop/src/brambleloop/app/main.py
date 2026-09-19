@@ -427,6 +427,30 @@ def api_teardown() -> dict:
     }
 
 
+@app.get("/api/discipline")
+def api_discipline() -> dict:
+    """The reserves, the stop list and the staged ladder: what stops a system flattering itself.
+
+    Grouped because they are one discipline seen three ways. A system that measures its own
+    throughput optimises throughput; one with cash finds a use for it; one that reviews itself
+    weekly only ever adds work.
+    """
+    from ..finance import reinvestment
+    from ..improve import velocity
+    from ..scale import confidence
+
+    return {
+        "confidence_bands": confidence.bands(db),
+        "reinvestment_policy": reinvestment.describe(),
+        "velocity": velocity.from_db(db),
+        "stop_categories": velocity.STOP_CATEGORIES,
+        "note": ("Releases per week is never reported alone (#52), a review that stops "
+                 "nothing has to say why (#53), revenue fills four reserves before any of it "
+                 "is an envelope (#49), and the architecture stage is earned without moving "
+                 "either confidence band (#55)."),
+    }
+
+
 @app.get("/api/commercial")
 def api_commercial() -> dict:
     """What this company has learned about price and promotion, which today is nothing.

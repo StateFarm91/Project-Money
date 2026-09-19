@@ -434,9 +434,9 @@
   {
     "body": "Revenue does not automatically become ad budget. Define a cash reserve, tax reserve, operating reserve and reinvestment envelope. CFO can recommend reinvestment based on marginal contribution and confidence, but consequential increases remain owner-gated.",
     "id": 49,
-    "note": "cash-to-growth reinvestment policy",
+    "note": "finance/reinvestment.py fills tax, operating and cash reserves in order; the envelope is what survives them, scaled by the modelled confidence, and no code path returns owner_approval_required False",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Cash-to-Growth Reinvestment Policy",
     "version": "v1.3.2"
   },
@@ -461,18 +461,18 @@
   {
     "body": "CEO dashboard tracks releases/week only alongside defect rate, support burden, conversion and contribution. Never reward agents for shipping more SKUs if quality or economics deteriorate.",
     "id": 52,
-    "note": "quality-adjusted release velocity",
+    "note": "improve/velocity.py has no function that returns a release count without its four companions, and a faster week where any of them degrades is reported as degraded -- including a metric moving off zero",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Quality-Adjusted Release Velocity",
     "version": "v1.3.2"
   },
   {
     "body": "Every weekly strategy review produces not only new work but a STOP list: experiments to end, agents/cadences to reduce, products to stop polishing, queries not worth monitoring and infrastructure work with insufficient commercial value. This prevents autonomous bureaucracy.",
     "id": 53,
-    "note": "stop-doing queue",
+    "note": "velocity.stop_list() covers #53's five categories, refuses a stop with no arguable reason, and requires a review that stops nothing to say why",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "Stop-Doing Queue",
     "version": "v1.3.2"
   },
@@ -488,9 +488,9 @@
   {
     "body": "Track confidence in stages rather than jumping from zero to 75-90%. Architecture confidence -> product-quality confidence -> demand confidence -> conversion confidence -> acquisition confidence -> repeatability confidence. The 75-90% modeled band requires evidence across all layers, not merely a Monte Carlo output.",
     "id": 55,
-    "note": "confidence evidence ladder (superseded for CA$5K by 274)",
+    "note": "the confidence ladder now opens with an architecture rung derived from rows, and bands() reports CA$3,000 and CA$5,000 side by side. The architecture stage is earned and moves neither band, because the ladder takes a minimum over the critical layers",
     "section": "Adversarial commercial + policy audit",
-    "status": "missing",
+    "status": "covered",
     "title": "$3K Confidence Evidence Ladder",
     "version": "v1.3.2"
   },

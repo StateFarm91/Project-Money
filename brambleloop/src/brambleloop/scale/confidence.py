@@ -85,7 +85,8 @@ def _counts(db) -> dict:
     from sqlalchemy import func, select
 
     from ..core.models import (
-        Incident, LedgerEntry, Listing, PatternVersion, PhysicalTest, SupportCase,
+        AuditLog, Incident, Job, JobStatus, LedgerEntry, Listing, PatternVersion,
+        PhysicalTest, SupportCase,
     )
 
     now = datetime.now(timezone.utc)
@@ -103,6 +104,17 @@ def _counts(db) -> dict:
         sales = list(s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale")))
         refunds = s.scalar(
             select(func.coalesce(func.sum(LedgerEntry.refunds_cad), 0.0))) or 0.0
+        # #55's architecture layer, counted rather than asserted. A restore that was verified,
+        # a publish that was refused, and dead letters that are not accumulating are three
+        # different claims about whether the machine works, and all three are rows.
+        restores_proved = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "continuity.verified")) or 0
+        publish_refusals = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "store.publish_refused")) or 0
+        dead_letters = s.scalar(select(func.count()).select_from(Job).where(
+            Job.status == JobStatus.DEAD, Job.job_type != "store.publish")) or 0
+        jobs_done = s.scalar(select(func.count()).select_from(Job).where(
+            Job.status == JobStatus.DONE)) or 0
 
     # SQLite hands back naive datetimes where Postgres returns aware ones, and comparing the
     # two raises. Normalising here rather than at every call site means the model gives the
@@ -126,6 +138,10 @@ def _counts(db) -> dict:
         "refunds_cad": round(float(refunds), 2),
         "months_with_revenue": len(months),
         "aov_cad": round(gross / len(sales), 2) if sales else 0.0,
+        "restores_proved": restores_proved,
+        "publish_refusals": publish_refusals,
+        "dead_letters": dead_letters,
+        "jobs_done": jobs_done,
     }
 
 
@@ -141,6 +157,33 @@ def ladder(db, *, observed_conversion: float = 0.0, conversion_sample: int = 0,
     """
     c = _counts(db)
     rungs: list[Rung] = []
+
+    # -- architecture: whether the machine that would earn the money works (#55) --------
+    #
+    # #55's point is that confidence should move through stages rather than jumping from zero
+    # to a modelled band, and a ladder whose every rung reads 0.00 shows no stages at all --
+    # it tells an owner nothing about whether six months of building happened. This rung is
+    # the one this company can honestly earn today, and earning it does not move the modelled
+    # probability by a single point, because the ladder takes a minimum. That is the whole
+    # design: progress is visible and it is not convertible into confidence about revenue.
+    architecture_signals = [
+        ("a pattern certified through the full gate chain", c["certified_patterns"] > 0),
+        ("a continuity restore proved, not merely exported", c["restores_proved"] > 0),
+        ("publication attempted and refused by shadow mode", c["publish_refusals"] > 0),
+        ("work completing unattended", c["jobs_done"] >= 100),
+        ("dead letters not accumulating", c["dead_letters"] == 0),
+    ]
+    met = [name for name, ok in architecture_signals if ok]
+    architecture = round(len(met) / len(architecture_signals), 3)
+    rungs.append(Rung(
+        "architecture", architecture, False,
+        {"signals_met": met,
+         "signals_unmet": [name for name, ok in architecture_signals if not ok],
+         "certified_patterns": c["certified_patterns"],
+         "restores_proved": c["restores_proved"],
+         "jobs_done": c["jobs_done"], "dead_letters": c["dead_letters"]},
+        "the machine working unattended: certification, a proved restore, a refused publish, "
+        "completed work and no accumulating dead letters"))
 
     # -- product quality: the only rung this company can currently earn ----
     #
@@ -273,11 +316,23 @@ def gate_status(db, *, selling_skus: int = 0, product_families: int = 0,
     }
 
 
-def probability(db, **evidence) -> dict:
-    """The modelled probability of sustaining CA$5,000 a month, and why it is that number.
+# The bands this company reasons about. #55 asks for CA$3,000 as its own question rather than
+# as a fraction of the CA$5,000 one -- a business can be confident of reaching three thousand
+# and have no idea whether five is available, and averaging the two loses both answers.
+TARGETS: tuple[float, ...] = (3000.0, 5000.0)
+
+
+def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
+    """The modelled probability of sustaining `target_cad` a month, and why it is that number.
 
     A minimum over the critical rungs, capped by the evidence gate. Deliberately incapable of
-    being talked upward: there is no argument this function accepts.
+    being talked upward: there is no argument this function accepts, and `target_cad` chooses
+    which question is being answered rather than adjusting the answer.
+
+    A lower target does not raise the number today, and that is correct rather than a
+    limitation: every critical rung counts rows about customers, and there are none. CA$3,000
+    and CA$5,000 are equally unevidenced when the demand rung is zero, which is the honest
+    thing for a ladder to say and the thing a fractional model would hide.
     """
     gate_kwargs = {k: evidence.get(k, 0) for k in
                    ("selling_skus", "product_families", "acquisition_loops",
@@ -295,7 +350,7 @@ def probability(db, **evidence) -> dict:
 
     return {
         "probability": round(modelled, 3),
-        "target_cad_per_month": 5000.0,
+        "target_cad_per_month": target_cad,
         "weakest_critical_layer": weakest.key,
         "capped_by": capped_by,
         "ladder": [r.to_dict() for r in rungs],
@@ -324,3 +379,36 @@ def _statement(modelled: float, weakest: Rung, gate: dict) -> str:
                 f"until those counts exist.")
     return (f"Limited by {weakest.key!r} at {weakest.confidence:.2f}. "
             f"{weakest.what_would_move_it}")
+
+
+def bands(db, **evidence) -> dict:
+    """Both targets side by side, with the stages that produced each (#55).
+
+    Reported together because the interesting fact is usually that they are the same number:
+    when the binding layer counts customers, a smaller target is not a nearer one. A model
+    that scaled confidence with the size of the goal would show CA$3,000 as comfortably
+    likely while no customer had ever existed.
+    """
+    out = []
+    for target in TARGETS:
+        result = probability(db, target_cad=target, **evidence)
+        out.append({"target_cad_per_month": target,
+                    "probability": result["probability"],
+                    "weakest_critical_layer": result["weakest_critical_layer"],
+                    "capped_by": result["capped_by"]})
+    stages = [r.to_dict() for r in ladder(db, **{k: v for k, v in evidence.items()
+                                                 if k != "outside_customers"})]
+    identical = len({b["probability"] for b in out}) == 1
+    return {
+        "bands": out,
+        "stages": stages,
+        "identical": identical,
+        "note": ("Both bands report the same number because the binding layer counts "
+                 "customers and there are none: a smaller target is not a nearer one when "
+                 "nothing has been sold. The architecture stage is the one this company has "
+                 "earned, and earning it moves neither band -- progress is visible and is "
+                 "not convertible into confidence about revenue (#55)."
+                 if identical else
+                 "the bands differ, which means a layer below the binding one is "
+                 "target-sensitive"),
+    }
