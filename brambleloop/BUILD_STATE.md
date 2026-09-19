@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 162 | satisfied, with a named test or artefact |
-| partial | 47 | something real exists and is short of the requirement |
-| missing | 55 | nobody has built it |
+| covered | 165 | satisfied, with a named test or artefact |
+| partial | 48 | something real exists and is short of the requirement |
+| missing | 51 | nobody has built it |
 | owner_gated | 42 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 14 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **102 requirements are executable** (partial +
+as one nobody has written. **99 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -196,6 +196,41 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The seasonal machine, built out around the Christmas instruction (#289, #287, #291, #292,
+#2).**
+
+Five requirements that all answer the same question from different sides: given an occasion
+and a finite company, what gets built, by whom, how fast, and out of what already exists.
+
+- **#289, collections.** Coherence and originality as opposing constraints. Members carry the
+  palette and story a buyer recognises across a grid, and they must differ structurally —
+  measured by the concept engine's own `distance()`, which scores a pure recolour at zero
+  because palette is not a term in it. So a derivative is refused by exactly the arithmetic
+  that refuses a duplicate in a tournament field: one mechanism, two places, no second
+  definition of "the same idea" to drift. The *closest* pair is reported, never the mean.
+- **#287, strike teams.** A team is a share of capacity or it is a name. Christmas, Halloween
+  and Easter stand; a fourth event brings counted rows rather than enthusiasm. A quarter of
+  capacity is reserved for evergreen work, because a seasonal programme that consumes
+  everything leaves a shop excellent in December and absent in February. A team whose occasion
+  has passed releases what it held without anybody remembering.
+- **#291, the fast lane.** Every fast lane begins as a queue-jump and ends as an exemption,
+  one defensible deadline at a time. So the gate list is the release chain's own, *imported
+  rather than retyped* — a second copy is how the guarantee quietly stops being true — and a
+  test reads `certificate.py` and asserts the constant matches the stages the chain actually
+  appends. What the lane buys is scope: one component, three colours, no technique the
+  catalogue has never used, because a new technique needs a sample and a sample is the one
+  part of this company nobody can hurry.
+- **#292, re-merchandising.** A recolour presented as a launch inflates catalogue size,
+  release rate and collection breadth at once, so no move here increments the catalogue, and
+  any move touching construction, rows, gauge or the release hash is refused as the new
+  product it is. "Proven" is a claim about sales this company has none of: candidates are
+  *eligible*, on every row.
+- **#2, micro-market scoring.** An unmeasured dimension leaves the arithmetic and is named.
+  Filling it with a neutral value keeps the number's shape and loses its meaning, and nobody
+  can tell by looking. Markets scored at confidences more than fifteen points apart are
+  refused a ranking outright, because a caveat is read once and a ranking is read every week.
+
+## Previously in Build 2
 **Christmas is attacked with faster products as the slow ones close, and the model provider
 became real (#6, #293, #177, #178, model access).**
 
