@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.intel import capacity as C  # noqa: E402
+from brambleloop.intel import benchmarks  # noqa: E402
 from brambleloop.intel import market_map as M  # noqa: E402
 from brambleloop.intel import memory as Mem  # noqa: E402
 
@@ -123,10 +124,10 @@ def test_the_map_reports_its_own_staleness_and_what_changed():
     db = _db()
     now = datetime.now(timezone.utc)
     with db.session() as s:
-        s.add(BenchmarkListing(benchmark_key="mjs", listing_ref="a", title="Fair Isle Hat",
+        s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref="a", title="Fair Isle Hat",
                                product_type="hat", price_cad=9.0, media_count=5,
                                fingerprint="f1", last_seen=now))
-        s.add(BenchmarkListing(benchmark_key="mjs", listing_ref="b", title="Chunky Throw",
+        s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref="b", title="Chunky Throw",
                                product_type="blanket", price_cad=14.0, media_count=8,
                                fingerprint="f2",
                                last_seen=now - timedelta(hours=M.STALE_AFTER_HOURS + 6)))
