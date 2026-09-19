@@ -87,22 +87,41 @@ class Pod:
     # stocking lands in the seasonal pod and the stocking specialist never sees one.
     keywords: tuple[str, ...]
     rubric: tuple[str, ...]
+    # Words that describe what a product *depicts*, never what it *is*: pumpkin, gnome,
+    # snowman, Christmas. They are consulted only after every pod's form words have failed.
+    #
+    # This is the second half of the substring lesson. Adding "pumpkin" to the soft-sculpture
+    # pod routed "Hello Pumpkin Mosaic Cardigan" and "Pumpkin Pillow Crochet Pattern" to
+    # amigurumi -- a cardigan and a cushion, sent to the specialist in stuffing firmness,
+    # invisibly, by a fix for exactly that class of error. A motif is not a form, and a form
+    # word beats a motif word wherever both appear.
+    motifs: tuple[str, ...] = ()
     # Set on the pod that answers for multi-pattern bundles, so a title that counts its own
     # patterns reaches it even when it names no product this vocabulary knows.
     claims_counted_bundles: bool = False
 
     def matches(self, text: str) -> bool:
-        return self.matches_signals(*signals(text)) or (
-            self.claims_counted_bundles and counts_its_own_patterns(text))
+        words, phrase = signals(text)
+        return (self.matches_signals(words, phrase)
+                or self.matches_motifs(words, phrase)
+                or (self.claims_counted_bundles and counts_its_own_patterns(text)))
 
-    def matches_signals(self, words: frozenset[str], phrase: str) -> bool:
-        for keyword in self.keywords:
-            if " " in keyword:
-                if " ".join(_words(keyword)) in phrase:
+    def _any(self, terms: tuple[str, ...], words: frozenset[str], phrase: str) -> bool:
+        for term in terms:
+            if " " in term:
+                if " ".join(_words(term)) in phrase:
                     return True
-            elif _singular(keyword) in words:
+            elif _singular(term) in words:
                 return True
         return False
+
+    def matches_signals(self, words: frozenset[str], phrase: str) -> bool:
+        """Form words only: what the object is."""
+        return self._any(self.keywords, words, phrase)
+
+    def matches_motifs(self, words: frozenset[str], phrase: str) -> bool:
+        """Motif words only: what the object depicts, or when it is sold."""
+        return self._any(self.motifs, words, phrase)
 
 
 # Ordered most specific first, and every keyword below is a word that appears in an observed
@@ -148,10 +167,14 @@ PODS: tuple[Pod, ...] = (
     # A crochet pumpkin is not decor the way a table runner is decor; it is shaped, stuffed
     # and graded by size, and the specialist who answers for a snowman answers for it.
     Pod("amigurumi", "Amigurumi and soft sculpture",
-        ("amigurumi", "plush", "plushie", "lovey", "stuffie", "softie", "gnome", "snowman",
-         "mushroom", "acorn", "pumpkin", "doll", "toy"),
+        ("amigurumi", "plushie", "lovey", "stuffie", "softie", "doll", "rattle", "teether"),
         ("stuffing firmness and seam invisibility", "safety of attached parts",
-         "shaping without a chart", "stability when set down", "batch giftability")),
+         "shaping without a chart", "stability when set down", "batch giftability"),
+        # Motifs, not forms. "Hello Pumpkin Mosaic Cardigan" and "Pumpkin Pillow Crochet
+        # Pattern" are both in the live catalogue; so is "Plush and Blush Crop Top", where
+        # "plush" is a colour name. A motif decides only when nothing says what the object is.
+        motifs=("gnome", "snowman", "mushroom", "acorn", "pumpkin", "plush", "toy",
+                "scarecrow", "reindeer", "bunny", "chick")),
     Pod("garments", "Garments and clothing",
         ("cardigan", "sweater", "jumper", "top", "vest", "shrug", "poncho", "dress",
          "pullover", "shawl", "wrap", "ruana", "skirt", "coverup", "cover up", "kimono",
@@ -177,11 +200,15 @@ PODS: tuple[Pod, ...] = (
          "table runner", "plant hanger", "pouf", "poof", "ottoman", "wreath", "banner",
          "bunting"),
         ("washability", "flatness and blocking", "set coherence", "interior styling")),
+    # Last, and motif-only but for the one form it owns. "Christmas" says when a product
+    # sells, not what it is, so a Christmas stocking is a stocking and a Christmas blanket is
+    # a blanket -- both were already true by ordering, and are now true by construction.
     Pod("seasonal_gift", "Seasonal and gift products",
-        ("christmas", "halloween", "easter", "valentine", "thanksgiving", "advent",
-         "gift set", "seasonal"),
+        ("gift set", "advent calendar", "gift tag"),
         ("seasonal palette", "gift framing", "make-time versus the event",
-         "bundle logic")),
+         "bundle logic"),
+        motifs=("christmas", "halloween", "easter", "valentine", "thanksgiving", "advent",
+                "seasonal", "festive")),
 )
 
 POD_KEYS: tuple[str, ...] = tuple(p.key for p in PODS) + (UNCLASSIFIED,)
@@ -198,10 +225,17 @@ def route(title: str, product_type: str = "") -> str:
     text = f"{title} {product_type}"
     words, phrase = signals(text)
     counted = counts_its_own_patterns(text)
+    # Two passes, and the order between them matters more than the order within them. Every
+    # pod is asked what the object *is* before any pod is asked what it *depicts*, so a
+    # cardigan with a pumpkin on it reaches the garment specialist and a pumpkin reaches the
+    # soft-sculpture one.
     for pod in PODS:
         if pod.matches_signals(words, phrase):
             return pod.key
         if counted and pod.claims_counted_bundles:
+            return pod.key
+    for pod in PODS:
+        if pod.matches_motifs(words, phrase):
             return pod.key
     return UNCLASSIFIED
 
