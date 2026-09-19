@@ -839,9 +839,9 @@
  {
   "body": "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas.",
   "id": 94,
-  "note": "creative/tournament.scorecard() tracks field spread, survival rate, death causes and their trends, and refuses to read a rising survival rate alongside falling spread as progress -- a jury going soft looks identical to improvement on survival alone. Everything computable without a model is computed. What remains is the blinded human/agent benchmark comparison, which needs a model to be the agent side, and market CTR, which needs live traffic. Parked on model_provider rather than left in the ready queue as work nobody can start.",
+  "note": "creative/tournament.scorecard() tracks field spread, survival rate, death causes and their trends, and refuses to read a rising survival rate alongside falling spread as progress -- a jury going soft looks identical to improvement on survival alone. Everything computable without a model is computed. The model_provider gate opened on 2026-09-19 from a recorded successful call, so the blinded human/agent comparison is now executable and this is no longer owner_gated. Market CTR and conversion still need live traffic, which no amount of engineering supplies.",
   "section": "Creativity engine + continuous improvement",
-  "status": "owner_gated",
+  "status": "partial",
   "title": "Creativity Capability Scorecard",
   "version": "v1.3.5"
  },
@@ -929,9 +929,9 @@
  {
   "body": "The long-term creative objective is explicit: later Brambleloop concepts should be more desirable, distinctive and commercially informed than earlier ones. Improvement is measured against historical Brambleloop cohorts and current category benchmarks. If creative capability plateaus, the Improvement Department treats that as a top-level business defect. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.6 - Deep Seasonal Creativity Audit This audit was derived from the supplied Etsy benchmark screenshots. The observed standard is not merely attractive photography: strong products repeatedly combine recognizable silhouettes, dimensional motifs, functional transformations, gift narratives, character systems, seasonal storytelling and cohesive model-led merchandising. Brambleloop must treat that level as a floor and seek original concepts beyond it.",
   "id": 104,
-  "note": "the north star is explicit in the scorecard and distinctiveness is measured against historical cohorts. What remains is desirability, which is a judgement no code here can make and no data here supports, and the commercial half, which needs the benchmark scan. Parked on model_provider.",
+  "note": "the north star is explicit in the scorecard and distinctiveness is measured against historical cohorts. Both of its former blockers have cleared: the model_provider gate opened on 2026-09-19, so desirability judgement is executable, and the benchmark scan now returns 438 observed listings, so the commercial half has evidence to measure against. Re-audited from owner_gated to partial.",
   "section": "Creativity engine + continuous improvement",
-  "status": "owner_gated",
+  "status": "partial",
   "title": "Creative Growth North Star",
   "version": "v1.3.5"
  },
@@ -2720,7 +2720,7 @@
  {
   "body": "Establish and maintain full discoverable MJs catalogue coverage. Every listing is assigned to specialist category pods and represented in the MJs Coverage Matrix. Track newly discovered/changed listings, product family, generic product type, silhouette/form, palette, seasonal positioning, visual merchandising mechanisms, visible pricing/promotion, gallery structure and dated evidence.",
   "id": 303,
-  "note": "intel/market_map.py maps every observed listing to a pod across ten attributes, records the three judgement columns as absent with the capability named rather than inferring them, and reports its own staleness. Full catalogue coverage needs the Etsy credential",
+  "note": "intel/market_map.py maps every observed listing across ten attributes and reports its own staleness. Live against the real catalogue on 2026-09-19: 438 listings, 2 unclassified, stored routing drift 0, twelve pods. market_map.gaps() and GET /api/mjs/coverage name the gaps rather than counting them, and observe.reclassify() keeps the stored catalogue on the current vocabulary without re-reading Etsy. Palette is closing by itself: the deep audit backfills up to 40 unread galleries a scan and stops when the backlog is empty. What remains is silhouette and merchandising mechanism, which are judgements about a photograph -- parked on browser_vision rather than inferred from the title, because a map that inferred them would look complete and be fiction.",
   "section": "MJsOffTheHookDesigns priority mission",
   "status": "partial",
   "title": "MJs Catalogue Is a Living Market Map",

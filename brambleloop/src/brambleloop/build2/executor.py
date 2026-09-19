@@ -244,8 +244,13 @@ GATES: tuple[Gate, ...] = (
     Gate("browser_vision",
          "a cloud browser/vision worker pool for rendered-page and image evidence",
          _env_gate("BRAMBLELOOP_BROWSER_URL"),
+         # 303 joins this list on 2026-09-19. Its API half is complete and live -- 438
+         # listings, 2 unclassified, palette closing on a backfill -- and the two columns
+         # left are judgements about a photograph. A requirement whose only remaining work
+         # needs a parked capability belongs with the parked, not in a queue advertising
+         # work nobody can start.
          (1, 15, 37, 39, 67, 71, 76, 86, 116, 126, 189, 218, 221, 222, 236, 277, 278,
-          281, 304, 315, 320),
+          281, 303, 304, 315, 320),
          "a browser worker endpoint is configured"),
     Gate("image_generation", "an image-generation capability for the canonical model pack",
          _env_gate("BRAMBLELOOP_IMAGE_KEY"),
