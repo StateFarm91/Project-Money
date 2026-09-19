@@ -167,7 +167,7 @@ def test_late_window_capacity_is_pointed_at_what_can_still_be_finished():
     assert [c["concept"] for c in plan["continue"]] == ["ornament"]
     assert [c["concept"] for c in plan["stand_down"]] == ["throw"]
     assert plan["new_work_should_be_no_heavier_than"] == "SHORT"
-    assert "SHORT makes or faster" in plan["note"]
+    assert "short makes or faster" in plan["note"]
 
 
 def test_a_window_with_no_lane_left_says_start_next_season_rather_than_nothing():

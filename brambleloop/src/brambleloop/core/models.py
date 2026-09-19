@@ -972,3 +972,25 @@ class ContinuityArchive(Base):
     total_rows: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str] = mapped_column(String(200), default="")
     manifest: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class LearningObservation(Base):
+    """Something noticed outside this company, with where and when it was noticed (#98).
+
+    Deliberately a different table from the internal record of what this company has
+    *established*. An observation is that somebody said something, somewhere, on a date. A
+    lesson is that Brambleloop measured something and knows why. They are both useful and
+    they are not the same kind of thing, and the single place they get confused is the
+    sentence where an observation becomes the reason for a decision.
+    """
+
+    __tablename__ = "learning_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    domain: Mapped[str] = mapped_column(String(40), index=True)
+    source: Mapped[str] = mapped_column(String(120), index=True)
+    citation: Mapped[str] = mapped_column(String(400))
+    observed_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    summary: Mapped[str] = mapped_column(Text)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

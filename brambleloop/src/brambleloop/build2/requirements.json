@@ -875,9 +875,9 @@
  {
   "body": "Continuously monitor permitted sources for new crochet techniques, aesthetics, seasonal behaviour, marketplace tooling/policy, search changes, image/video capabilities, competitor positioning and customer pain points. Every observation stores source/date/freshness and is separated from verified internal causal evidence.",
   "id": 98,
-  "note": "external learning radar",
+  "note": "intel/learning.py holds the eight domains the requirement names, each with its own freshness window -- a marketplace policy ages in three weeks and a stitch technique does not age at all -- and refuses an observation with no source, no citation or no date. The second clause is the load-bearing one and is mechanical: observations are stored apart from internal lessons, carry kind=external_signal, as_evidence() refuses by name, and support() refuses a signal passed in the evidence list. A claim may rest on signals alone and says so. A domain nobody has looked at is named rather than counted as zero. Remaining: nothing fetches these yet, so every domain currently reports unobserved, which the radar states plainly. /api/learning.",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
+  "status": "partial",
   "title": "External Learning Radar",
   "version": "v1.3.5"
  },

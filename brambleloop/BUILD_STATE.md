@@ -25,17 +25,25 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 147 | satisfied, with a named test or artefact |
-| partial | 64 | something real exists and is short of the requirement |
+| covered | 157 | satisfied, with a named test or artefact |
+| partial | 47 | something real exists and is short of the requirement |
 | missing | 58 | nobody has built it |
-| owner_gated | 39 | waits on an owner decision, credential or legal acceptance |
-| data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
+| owner_gated | 44 | waits on an owner decision, credential or legal acceptance |
+| data_gated | 14 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **122 requirements are executable** (partial +
+as one nobody has written. **105 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
+
+Seven of those moved out of `partial` this session without being built, and that is a claim
+worth being precise about: they were re-audited, not finished. #39's retrieval half is
+refused 403 by Etsy's bot protection, verified by request rather than assumed; #94, #104 and
+#299 need a model or a credential to make the next measurement at all; #132 and #296 need
+customers; #51's remaining half needs storage outside this provider. Each now names a gate
+whose condition code can test, which is the only form of parking this build accepts. The
+executable number went down because it was wrong, not because the work went away.
 
 Build 1 remains recoverable throughout: baseline commit `d5168c0`, branch `build-1-baseline`.
 
@@ -162,6 +170,59 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**What an improvement returned, whether an idea seeds a family, and two requirements that
+were pretending to be executable (#99, #101, #111, #112, #288, #51, #39).**
+
+Six requirements, and the thread running through them is the second half: the half that gets
+skipped because the first half feels like the work.
+
+- **#99 knew what every improvement cost and nothing about what any returned.** Realised
+  benefit is now read against the baseline captured at proposal time, and deliberately *not*
+  against the sandbox result that won the promotion — that number was taken under the
+  conditions chosen to show the change working, and reading it as the return would make every
+  promotion succeed by construction. A promotion younger than the window is `too_early`; an
+  older one with nothing measured since is a cost with no return, which is a real outcome
+  rather than a broken system.
+- **#101 counted lessons acted on; the direction it is named after is the other one.** A new
+  design now records which accumulated lessons it drew on. Drawing on nothing is recorded,
+  not forbidden — the first product in a new territory legitimately has nothing to stand on —
+  and a catalogue of them reports restarting from generic intelligence by name.
+- **#111 asks whether an idea seeds a family before engineering, because afterwards the
+  answer is always yes.** Five roles, a construction→size-band range for whether the visual
+  idea still reads, and a construction→form map for whether it can be built that way at all.
+  Both are needed: size compatibility alone would pair an amigurumi robin with a scarf, which
+  is the forced derivative the requirement names arrived at from the other side. A mosaic
+  throw gets no quick companion — its motif on a coaster is four stitches nobody can see — so
+  it is reported as a family with no entry price rather than as a collection.
+- **#112 puts make-time into creative scoring, where the owner's correction belongs.** Graded
+  against the interval, so infeasible means the optimistic bound has passed and everything
+  short of it is an instruction to hurry. Wired in rather than offered: the jury gained a
+  `shopping_window` critic that rejects what the buyer cannot finish and judges *nothing*
+  when nobody said how long is left, because an unknown window is not a comfortable one.
+- **#288's gap report now produces work.** Each uncovered department becomes a brief with the
+  forms that serve it, the lane each implies, the last optimistic launch date and the family
+  role it would fill — and a department past its window is next season's gap, not this
+  season's. A brief is not a product: nothing in the module counts as coverage, and a test
+  holds that line.
+- **#51 was proving a restore every night of a file that no longer existed an hour later.**
+  The export landed on ephemeral container storage. A proved export is now retained in the
+  database — three generations, gzipped, hashed, refused on read if the bytes do not match —
+  and exports exclude the archive table so a backup does not carry the previous backups. It
+  survives a container replacement, a redeploy and a crash. It does not survive losing the
+  provider, which is the failure #51 actually names, so that half is parked on a new
+  `offsite_storage` gate rather than claimed.
+- **#39's retrieval half is blocked from outside, established rather than assumed.** A plain
+  HTTPS GET of Etsy's seller-policy page returns 403 from their bot protection while
+  `robots.txt` fetches fine, so it is the edge refusing an automated client. Spoofing a
+  browser user-agent past it is evasion and was not done.
+
+One defect in the executor, and it was its own kind: `sync()` skipped past an existing task
+when its requirement stopped being schedulable, so requirements re-audited as gated kept
+reporting themselves ready — the queue advertising work nobody can start, which is precisely
+what the module was written to prevent. Stale rows are retired, the reverse transition brings
+them back, and both directions have a regression test.
+
+## Previously in Build 2
 **Make-time became a distribution, and the claim it had produced was withdrawn (#283, #284,
 #36, #41, #42, #38, #50).**
 

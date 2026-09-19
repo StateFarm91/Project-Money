@@ -783,6 +783,26 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/learning")
+def api_learning() -> dict:
+    """What the world outside this company said, and what nobody has looked at.
+
+    Observations are signals, never causal evidence. A domain with no observations is named
+    rather than counted as zero: zero signal and no look are the same number and opposite
+    situations, and only the second is a defect in this system.
+    """
+    from ..intel import learning
+
+    return {
+        "radar": learning.radar(db),
+        "domains": [{"domain": d.key, "what": d.what, "fresh_for_days": d.fresh_for_days,
+                     "why": d.why} for d in learning.DOMAINS],
+        "note": ("Nothing fetches these yet. The spine, the freshness model and the "
+                 "signal/evidence boundary exist and are tested; retrieval is not "
+                 "connected, and the radar says so by reporting every domain unobserved."),
+    }
+
+
 @app.get("/api/seasonal/depth")
 def api_seasonal_depth() -> dict:
     """Every ecosystem gap, thinnest event first, as briefs rather than as a count.
