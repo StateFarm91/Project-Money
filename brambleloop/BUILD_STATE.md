@@ -58,7 +58,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **872 tests passing, 0 failing** across
+Measured by `./run_tests.sh` on the current head: **873 tests passing, 0 failing** across
 50 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -230,6 +230,14 @@ other way round.
 (#177, #178, #221, #222). The gate validator refused them as ungated, which is exactly what it
 is for. Registry reconciled; ready count and executable count now agree by construction, with
 a test asserting it.
+
+**The watchdog could not see the commonest kind of progress.** Registry-driven completions
+— a session finishes work and moves the status — were recorded only as a sync event, so the
+loop reported *stalled* while six requirements had just closed. A false alarm in the channel
+that exists to catch a real one is worse than no channel. Fixing it naively then made the
+first sync count the whole 140-requirement backlog as completions, so a table created ten
+seconds ago reported a busy loop: a completion is a transition this system **observed**, not a
+status it found on first sight.
 
 **The off-device proof counted a different set than its verdict tested.** Run against
 production it reported sixteen dead letters where the condition meant one: shadow-mode publish

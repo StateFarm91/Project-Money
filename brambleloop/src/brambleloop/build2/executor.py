@@ -328,7 +328,8 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
                     continue
 
             task = existing.get(requirement.id)
-            if task is None:
+            first_sight = task is None
+            if first_sight:
                 task = BuildTask(requirement_id=requirement.id)
                 s.add(task)
                 created += 1
@@ -347,7 +348,13 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
                 if task.state != DONE:
                     task.state = DONE
                     task.completed_at = task.completed_at or now
-                    completed.append(requirement.id)
+                    # A completion is a transition this system *observed*, not a status it
+                    # found on first sight. Counting the already-covered backlog as
+                    # completions would make the first sync look like 140 requirements
+                    # finishing at once, and the watchdog would report a moving loop from a
+                    # table that had just been created.
+                    if not first_sight:
+                        completed.append(requirement.id)
                 continue
 
             gate_key = gate_for(requirement.id)
@@ -382,10 +389,20 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
 
     result = {"created": created, "updated": updated, "unparked": unparked,
               "completed": completed, "gates_open": open_gates}
-    if unparked or completed:
-        record(db, kind="sync", summary=(
-            f"{len(unparked)} unparked, {len(completed)} completed by registry status"),
-            detail=result)
+
+    # A completion the watchdog cannot see is a completion that did not happen, as far as the
+    # only thing watching is concerned. Most completions arrive this way -- a session finishes
+    # the work and moves the registry status -- and recording them only as a "sync" event made
+    # the watchdog report a stalled loop while six requirements had just closed. A false alarm
+    # in the channel that exists to catch a real one is worse than no channel.
+    for requirement_id in completed:
+        record(db, kind="complete", requirement_id=requirement_id, actor="registry_sync",
+               summary=f"completed {requirement_id} by registry status",
+               detail={"source": "registry_sync"})
+    if unparked:
+        record(db, kind="unpark", summary=(
+            f"{len(unparked)} requirements un-parked because their gate opened"),
+            detail={"requirement_ids": unparked, "gates_open": open_gates})
     return result
 
 

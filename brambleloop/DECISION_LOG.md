@@ -249,6 +249,8 @@ Consequential decisions with reasoning, so future sessions do not re-litigate th
 | B-233 | 2026-09-19 | Seasonalising enumerates eight lenses, and a palette-only answer is reported as a recolour. | An agent told to "seasonalise" answers for the colour and stops, and a palette answer alone is precisely the output this build measured as its creativity defect. Naming the lenses individually -- styling, trim, motif, gift context, accessories, bundles, merchandising -- is what stops the easy one standing in for the question. | Yes |
 | B-234 | 2026-09-19 | Every pipeline stage names its gate, and a stage cannot run before its predecessor. | A long pipeline never fails by collapsing; it fails by one stage quietly becoming optional, and a stage nobody named cannot be noticed missing. A failed gate stops the run rather than marking it amber, because amber is how a stage becomes optional in practice. | Yes |
 
+| B-235 | 2026-09-19 | A completion is a transition this system observed, not a status it found on first sight. | Two bugs in one place, both found by watching production. Registry-driven completions -- the commonest kind, because a session finishes work and moves the status -- were recorded only as a sync event, so the watchdog reported a stalled loop while six requirements had just closed. A false alarm in the channel that exists to catch a real one is worse than no channel. Fixing that naively then made the first sync count the whole 140-requirement backlog as completions, and a table created ten seconds ago reported a busy loop. Only a transition counts. | Yes |
+
 
 ## Standing constraints carried from the spec
 

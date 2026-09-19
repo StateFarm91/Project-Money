@@ -281,6 +281,47 @@ def test_a_completion_makes_the_loop_moving_again():
     assert health["completions_in_window"] == 1
 
 
+def test_a_completion_the_watchdog_cannot_see_is_a_false_alarm():
+    """Found in production: six requirements closed and the watchdog said stalled.
+
+    Most completions arrive through the registry rather than through `complete()` -- a
+    session finishes the work and moves the status. Recording those only as a sync event
+    left the watchdog blind to the commonest kind of progress, and a false alarm in the
+    channel that exists to catch a real one is worse than no channel.
+    """
+    db = _db()
+    E.sync(db, env={})
+
+    # Close a requirement the way a session actually closes one: by moving the registry.
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildEvent, BuildTask
+
+    target = E.next_ready(db)["requirement_id"]
+    with db.session() as s:
+        task = s.scalar(select(BuildTask).where(BuildTask.requirement_id == target))
+        task.status = reg.COVERED
+
+    # A second sync sees the registry move and must record it as a completion.
+    original = reg.load
+    try:
+        reg.load = lambda: tuple(
+            r if r.id != target else type(r)(**{**r.to_dict(), "status": reg.COVERED,
+                                                "body": r.body})
+            for r in original())
+        result = E.sync(db, env={})
+    finally:
+        reg.load = original
+
+    assert target in result["completed"]
+    with db.session() as s:
+        completions = [e for e in s.scalars(select(BuildEvent))
+                       if e.kind == "complete" and e.requirement_id == target]
+    assert completions, "a registry-driven completion was invisible to the watchdog"
+    assert completions[0].actor == "registry_sync"
+    assert E.watchdog(db)["moving"] is True
+
+
 def test_never_idle_is_measured_in_completions_rather_than_ticks():
     """A loop that always has something to do can invent work; this counts finished things."""
     db = _synced()
