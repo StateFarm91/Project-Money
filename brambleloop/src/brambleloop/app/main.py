@@ -329,6 +329,43 @@ def api_continuity_verify() -> dict:
     return {"enqueued": True, "job_id": job.id}
 
 
+@app.get("/api/queue/dead")
+def api_queue_dead() -> dict:
+    """What is in the dead-letter queue, grouped by job type and failure.
+
+    `/api/status` has reported a dead-letter *count* since the first deploy, and a count is
+    not a diagnosis: it says something is wrong and gives nobody a way to find out what,
+    which is how a number becomes wallpaper. Grouped rather than listed because a hundred
+    dead letters are usually four defects.
+
+    Public and read-only. The errors are this system's own tracebacks; nothing in them comes
+    from a credential, because no client here puts one in an exception.
+    """
+    q = JobQueue(db)
+    groups: dict[tuple[str, str], dict] = {}
+    for job in q.dead_letters():
+        head = (job.last_error or "").strip().split("\n")[0][:160]
+        key = (job.job_type, head)
+        row = groups.setdefault(key, {"job_type": job.job_type, "error": head, "count": 0,
+                                      "first_seen": None, "last_seen": None,
+                                      "example_job_id": job.id})
+        row["count"] += 1
+        at = job.finished_at or job.created_at
+        stamp = at.isoformat() if at else None
+        if stamp:
+            row["first_seen"] = min(row["first_seen"] or stamp, stamp)
+            row["last_seen"] = max(row["last_seen"] or stamp, stamp)
+    rows = sorted(groups.values(), key=lambda r: -r["count"])
+    return {
+        "dead_letters": sum(r["count"] for r in rows),
+        "distinct_failures": len(rows),
+        "groups": rows,
+        "note": ("A hundred dead letters are usually four defects. Re-driving them is "
+                 "POST /api/queue/requeue and is authenticated; publication refusals are "
+                 "never re-driven, because they are refusals working correctly."),
+    }
+
+
 @app.post("/api/queue/requeue")
 def api_queue_requeue(authorization: str = Header(default="")) -> JSONResponse:
     """Re-drive dead letters whose defect has since been fixed. Authenticated.
