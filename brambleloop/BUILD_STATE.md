@@ -60,6 +60,29 @@ against live state rather than only in tests.
 Live: https://brambleloop-os-production.up.railway.app — dashboard `/`, health `/health`,
 status `/api/status`, **verification `/api/verify`**.
 
+## OWNER ACTION REQUIRED — one item, asynchronous
+
+Everything else in Build 2 continues without it. Listed here in the Execution Directive's
+format; the live queue is `/api/launch`.
+
+**Add credit to the Anthropic account the API key belongs to.**
+- *Exact action:* open the Anthropic console's billing page and add credit. The smallest
+  top-up is enough.
+- *Why:* the key supplied on 2026-09-19 authenticates, and the first request it made returned
+  `Your credit balance is too low to access the Anthropic API`. Nothing in this build treats
+  the provider as available until a real call succeeds, so four requirements (#94, #104,
+  #177, #178) are parked on it.
+- *Maximum cost:* CA$25/month, enforced in code before every call, not by intention.
+- *Minutes:* about 3.
+- *Consequence of waiting:* those four requirements stay parked. No other Build-2 work is
+  affected, and the gate opens by itself within six hours of credit arriving — the probe
+  cadence does not need to be told.
+
+**Separately, and not a build item:** the key was pasted into this session in plaintext and
+in a screenshot. It is stored only as a Railway variable and appears nowhere in this
+repository, but a key that has travelled through a chat transcript should be rotated once the
+build no longer needs this one. The owner has said a replacement is coming.
+
 ## Canonical specification
 `brambleloop/spec/01_Brambleloop_Master_Plan_v1.2.pdf` (vendored copy of the owner's handoff).
 Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog — do not
@@ -170,6 +193,56 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**An Anthropic key arrived, and the gate it opens is not the gate it looks like
+(model access, #17, #18).**
+
+The owner supplied an API key on 2026-09-19. The first request it made returned, verbatim:
+*"Your credit balance is too low to access the Anthropic API."* The key authenticates; the
+account cannot serve a request. Both halves of that are recorded because both matter.
+
+- **The model gate now reads a call, not a variable.** It used to check whether
+  `ANTHROPIC_API_KEY` was set, which would have reported the provider available and
+  un-parked #94, #104, #177 and #178 onto work that cannot run — the queue advertising work
+  nobody can start, which is exactly what the build executor was written to prevent, arriving
+  through the one door nobody was watching. `gateway/anthropic.probe()` makes the smallest
+  call the API accepts on the cheapest model and records the outcome in the provider's own
+  words. A six-hourly cadence runs it, so when credits arrive the gate opens by itself.
+- **The CA$25/month ceiling is enforced in front of the call.** Spend counted from ledger
+  rows; the estimate assumes the model writes its whole output allowance and is padded 1.25×
+  on top; an unpriced model is refused as an unbounded call; configuration can lower the
+  ceiling and never raise it. Prices are the provider's published list at an assumed exchange
+  rate, so every row carries `price_basis: assumed`.
+- **The key is in Railway and nowhere else** — not in the repository, not here, not in any
+  log or audit row. A repository-wide search for the prefix returns nothing.
+- **One owner action was added**, below. It is the only thing in this batch that needs a
+  human, and the rest of Build 2 is unaffected by it.
+
+Then down the queue:
+
+- **#3, the selection tournament.** The shape is the requirement — 75-100 concepts to 5-10
+  releases — and it is the part that disappears. Four refusals keep it a funnel: survivors
+  plus killed equals entrants, a stage that killed nothing did not happen, a kill cause
+  outside the vocabulary aggregates to nothing, and a stage fed below its floor is choosing
+  among whatever happened to be there. `may_engineer()` refuses a concept the tournament has
+  not carried to prototype, which is the requirement's opening sentence made mechanical.
+- **#98, the external learning radar.** The radar is unremarkable; the second clause is the
+  requirement. Observations carry `kind=external_signal`, `as_evidence()` exists so it can
+  refuse by name, and `support()` refuses a signal passed in the evidence list — because the
+  step where "textured stitches are trending" becomes something the company knows is a
+  sentence nobody notices writing. Nothing fetches these yet and every domain reports
+  unobserved, which is different from quiet.
+- **#131, seasonal storefront takeovers.** Surfaces transition on different dates read off
+  the collection calendar, every takeover carries the revert date scheduled with its start —
+  the failure is the Christmas banner still up in February — and six brand invariants are
+  refused rather than flagged.
+- **#17 and #18.** The trust accelerator is a sequence where unmeasured is never passed and
+  proof is counted from rows, with `record_proof()` refusing anything free-standing: the rule
+  against manufactured reviews in mechanical form. Support takes the *minimum* of its
+  canonical and escalated service levels, because one average lets a fast automated majority
+  bury the slow escalated minority where the unhappy buyers are. Whether fast support reduces
+  refunds is reported unmeasurable — there are no orders — rather than assumed.
+
+## Previously in Build 2
 **What an improvement returned, whether an idea seeds a family, and two requirements that
 were pretending to be executable (#99, #101, #111, #112, #288, #51, #39).**
 
