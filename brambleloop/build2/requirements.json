@@ -743,8 +743,8 @@
   "body": "A technically feasible concept does not deserve CIR engineering merely because it fills a keyword/category slot. Before expensive engineering, independently score visual hook, emotional hook, functional hook, distinctiveness, giftability/occasion fit, thumbnail concept, collection potential, physical plausibility and competitive novelty. Concepts below threshold are killed or returned for ideation.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "design desirability as a pre-engineering hard gate"
+  "status": "covered",
+  "note": "creative/jury.py is a pre-engineering hard gate whose best verdict without a vision model is needs_taste, never approved: structural critics are real and cannot tell whether a thing is desirable, so a concept reaching engineering on structural cleanliness alone is exactly what this requirement forbids."
  },
  {
   "id": 84,
@@ -752,8 +752,8 @@
   "body": "For each commercially promising opportunity, generate a diverse field of materially different concepts before selecting one. Target approximately 12-25 concepts when economics justify it. Do not accept superficial colour/name variants as diversity. The tournament should include different forms, transformations, storage/presentation ideas, motif systems, emotional tones, construction approaches and bundle/collection possibilities.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "creative concept tournament (12-25 materially different concepts)"
+  "status": "covered",
+  "note": "the field is judged before any concept in it. 12-25 required, and a field whose mean pairwise distance falls below the spread minimum is refused as 'one idea in N costumes' with the near-identical pairs named. Palette is deliberately not a term in the distance function, so a recolour scores 0.0 against its original."
  },
  {
   "id": 85,
@@ -761,8 +761,8 @@
   "body": "Create a Creativity Director responsible for concept quality, plus independent critic agents that attack sameness, genericness, weak emotional appeal, derivative thinking, poor thumbnail potential and unnecessary complexity. The proposing agent may not be the sole judge of its own concept. Jury feedback becomes structured training memory for future ideation.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "Creativity Director + adversarial creative jury"
+  "status": "covered",
+  "note": "six independent critics attacking sameness, genericness, weak emotional appeal, derivative thinking, thumbnail potential and unnecessary complexity. Each can only reject -- a scoring jury averages the fatal objection away, the same arithmetic mistake as averaging the confidence ladder. One rejection ends the concept."
  },
  {
   "id": 86,
@@ -779,8 +779,8 @@
   "body": "Before engineering, compare a candidate against observed competitor concepts and Brambleloop's own catalogue. Reject near-clones, trivial recolours and ideas whose primary appeal depends on reproducing another seller's distinctive expression. Require a defensible Brambleloop creative contribution.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "novelty distance / anti-clone gate"
+  "status": "covered",
+  "note": "novelty distance against both our own catalogue and observed benchmark concepts, with a clone threshold tuned against the pair this company already has. Entering the same broad arena stays explicitly allowed (#215, #306); what is refused is a concept whose distinctiveness collapses to one seller's execution."
  },
  {
   "id": 88,
@@ -788,8 +788,8 @@
   "body": "Every finalist must have a one-sentence visual premise and a thumbnail storyboard before CIR work. Ask: if seller name, reviews, badges and price vanished, would the product idea itself still create curiosity or desire at mobile-grid size? If not, return to ideation.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "idea-to-thumbnail test"
+  "status": "covered",
+  "note": "a one-sentence visual premise is required at construction time, and a premise built only from generic tokens is refused by the genericness critic: if the seller name, price and reviews vanished, nothing in it would create curiosity. The thumbnail critic catches small objects whose appeal is fine detail."
  },
  {
   "id": 89,
@@ -842,8 +842,8 @@
   "body": "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "creativity capability scorecard"
+  "status": "partial",
+  "note": "creative/tournament.scorecard() tracks field spread, survival rate, death causes and their trends, and refuses to read a rising survival rate alongside falling spread as progress -- a jury going soft looks identical to improvement on survival alone. Remaining: blinded human/agent benchmark comparison and market CTR, which need the model provider and live traffic."
  },
  {
   "id": 95,
@@ -932,8 +932,8 @@
   "body": "The long-term creative objective is explicit: later Brambleloop concepts should be more desirable, distinctive and commercially informed than earlier ones. Improvement is measured against historical Brambleloop cohorts and current category benchmarks. If creative capability plateaus, the Improvement Department treats that as a top-level business defect. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.6 - Deep Seasonal Creativity Audit This audit was derived from the supplied Etsy benchmark screenshots. The observed standard is not merely attractive photography: strong products repeatedly combine recognizable silhouettes, dimensional motifs, functional transformations, gift narratives, character systems, seasonal storytelling and cohesive model-led merchandising. Brambleloop must treat that level as a floor and seek original concepts beyond it.",
   "version": "v1.3.5",
   "section": "Creativity engine + continuous improvement",
-  "status": "missing",
-  "note": "creative growth north star"
+  "status": "partial",
+  "note": "the north star is explicit in the scorecard and distinctiveness is measured against historical cohorts. Remaining: desirability needs a judgement nobody can currently make, and commercial information needs the benchmark scan."
  },
  {
   "id": 105,

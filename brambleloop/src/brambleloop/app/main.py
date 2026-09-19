@@ -490,6 +490,19 @@ def api_mjs_scan() -> dict:
         return {"enqueued": False, "reason": "a benchmark scan was already queued this minute"}
     return {"enqueued": True, "job_id": job.id}
 
+
+@app.get("/api/creative")
+def api_creative() -> dict:
+    """The creative gate, pointed at our own catalogue.
+
+    The owner judged the generated catalogue materially below standard. This reports the
+    measurement rather than the agreement: which critic fires, on how many products, and what
+    in the generator produces it.
+    """
+    from ..creative.audit import audit_catalogue
+
+    return audit_catalogue()
+
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
