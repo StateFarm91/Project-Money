@@ -2594,9 +2594,9 @@
  {
   "body": "Products should form coherent collections where useful. A winning seasonal visual language can extend across multiple original products and price points, enabling cross-sell and bundle behavior. Collections share palette/story but each product must stand on its own commercially.",
   "id": 289,
-  "note": "seasonal collection architecture",
+  "note": "seasonal/collections.py checks coherence and originality as opposing constraints, which is what makes this more than a naming convention. Members must carry the collection's palette and story, because that is what a buyer recognises across a grid; and they must differ structurally, measured by the concept engine's own distance() -- which scores a pure recolour at zero because palette is not a term in it, so a derivative is refused by the same arithmetic that refuses a duplicate in a tournament field. The closest pair is reported rather than the mean: one derivative pair makes a derivative collection and an average hides it. A collection needs three members (two is a product and its accessory) across at least two make lanes, because cross-sell is the commercial argument and it needs somewhere cheap to enter and somewhere dearer to move to. assemble() builds the largest coherent collection from candidates, greedy by lane breadth since that is the constraint that actually binds, and names what it rejected and why.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
+  "status": "covered",
   "title": "Seasonal Collection Architecture",
   "version": "v1.4.2"
  },

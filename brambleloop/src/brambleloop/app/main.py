@@ -918,6 +918,27 @@ def api_model_probe() -> dict:
             "note": "the result appears at GET /api/model once the worker runs it"}
 
 
+@app.get("/api/seasonal/collections")
+def api_seasonal_collections() -> dict:
+    """The collection architecture's rules, and what a coherent collection has to satisfy.
+
+    No collection has been assembled from live concepts: the concept pool a collection is
+    built from needs the creative engine, so this reports the constraints rather than a
+    result it does not have.
+    """
+    from ..seasonal import collections
+
+    return {
+        "minimum_members": collections.MIN_MEMBERS,
+        "minimum_price_points": collections.MIN_PRICE_POINTS,
+        "derivative_below": collections.DERIVATIVE_BELOW,
+        "assembled": 0,
+        "note": ("Members share a palette and a story and differ structurally. A recolour "
+                 "scores zero on the concept engine's own distance, so it is refused by the "
+                 "same arithmetic that refuses a duplicate in a tournament field (#289)."),
+    }
+
+
 @app.get("/api/seasonal/compression")
 def api_seasonal_compression(event: str = "Christmas") -> dict:
     """What to build for a priority occasion this week, given what a buyer can still finish.
