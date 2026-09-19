@@ -210,7 +210,9 @@ mine:
 
 - **`growth/portfolio.py` had been overwritten, not extended.** The CA$5K portfolio-mix work
   replaced a Build-1 module that `runtime/pipeline.py` imports, so the weekly `portfolio.review`
-  cadence was **dead-lettering in production**. The lifecycle classifier is restored and the
+  cadence would have dead-lettered on its next run. It had **not** yet done so in production —
+  `/api/verify` records two historical dead letters, neither of them this one — because the
+  cadence is weekly and the guard test caught it first. The lifecycle classifier is restored and the
   new mix/concentration/stress-test code now lives in `growth/mix.py`. They answer different
   questions — how a SKU is *performing* versus what the catalogue is *shaped* like — and a
   catalogue of twelve healthy stars with one role is a portfolio one trend away from zero.
