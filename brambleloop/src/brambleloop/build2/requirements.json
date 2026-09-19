@@ -1937,9 +1937,9 @@
  {
   "body": "In parallel, benchmark releases should trigger a more divergent tournament asking what the competitor has NOT made: adjacent functions, new recipients, transformations, silhouettes, construction systems, bundles, seasonal stories and collection families. Maintain both incremental market participation and breakthrough exploration.",
   "id": 216,
-  "note": "same-arena response lane, breakthrough response lane",
+  "note": "creative/breakthrough.py runs the divergent lane across the eight axes the requirement names, drawing each axis's vocabulary from the closed lists and excluding what the catalogue already covers. The load-bearing part is the label: 'what the competitor has NOT made' is a claim about their catalogue and requires having looked, so with nothing observed the divergence runs against our own catalogue and every brief says so. check_claim() refuses a brief that describes itself as an unserved market gap on that basis -- the thing nobody has made and the thing we happen not to have made are different discoveries, and only one is an opportunity. Both lanes are held open by a floor: incremental work has a visible customer and breakthrough work has an argument, so the argument loses every planning round unless something stops it. /api/breakthrough.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
+  "status": "covered",
   "title": "Breakthrough Response Lane",
   "version": "v1.4.0"
  },

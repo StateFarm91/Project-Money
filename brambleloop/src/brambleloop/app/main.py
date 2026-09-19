@@ -962,6 +962,18 @@ def api_arbitrage() -> dict:
     return arbitrage.state(db)
 
 
+@app.get("/api/breakthrough")
+def api_breakthrough(arena: str = "stocking") -> dict:
+    """The divergent lane: what is not being made, and what that claim currently rests on.
+
+    With no observed competitor listing, a divergence is against our own catalogue -- useful,
+    and not a market gap. Nothing here borrows the authority of a scan that has not happened.
+    """
+    from ..creative import breakthrough
+
+    return {**breakthrough.diverge(db, arena=arena), "lanes": breakthrough.state(db)}
+
+
 @app.get("/api/seasonal/transform")
 def api_seasonal_transform() -> dict:
     """How a proven object becomes a seasonal one, and which of those are only photographs.
