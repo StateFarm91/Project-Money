@@ -10,8 +10,8 @@ import enum
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    JSON, Boolean, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text,
-    UniqueConstraint,
+    JSON, Boolean, DateTime, Enum, Float, ForeignKey, Index, Integer, LargeBinary,
+    String, Text, UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -942,3 +942,33 @@ class ConfigVersion(Base):
     retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
                                                         nullable=True)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ContinuityArchive(Base):
+    """A retained continuity export, held where it survives the container it was made in.
+
+    Requirement 51. The proof that an export restores was already run daily, but the archive
+    itself was written to ephemeral container storage, so the company was proving a restore
+    of a file that no longer existed an hour later. Holding the bytes here means the export
+    survives a container replacement, a redeploy and a crash.
+
+    It does not survive the provider disappearing, which is the other half of #51 and is the
+    reason an off-provider copy is an owner item rather than a claim made here. The row says
+    so itself rather than leaving a reader to assume.
+    """
+
+    __tablename__ = "continuity_archives"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    format: Mapped[int] = mapped_column(Integer, default=1)
+    digest: Mapped[str] = mapped_column(String(64), index=True)
+    # sha256 of the compressed bytes as stored. A payload that does not hash to this is
+    # refused on read: a corrupt archive that restores half a company is worse than none.
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[bytes] = mapped_column(LargeBinary)
+    raw_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    stored_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    total_rows: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(200), default="")
+    manifest: Mapped[dict] = mapped_column(JSON, default=dict)

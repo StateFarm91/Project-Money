@@ -94,6 +94,13 @@ NON_REDERIVABLE = (
     "agents",
 )
 
+# An export does not contain the previous exports. Retained archives are copies of this
+# file, so including them would make each night's export carry the compressed bytes of the
+# last three, and the backup would grow faster than the company it describes. They are also
+# the one table a restore does not need: whoever is restoring is holding the archive.
+EXCLUDED_TABLES = ("continuity_archives",)
+
+
 _URL_CREDENTIALS = re.compile(r"://[^/@\s]*@")
 
 
@@ -196,7 +203,7 @@ class ExportResult:
 
 def _ordered_tables():
     """Dependency order, so a restore inserts parents before children."""
-    return list(Base.metadata.sorted_tables)
+    return [t for t in Base.metadata.sorted_tables if t.name not in EXCLUDED_TABLES]
 
 
 def _rows_of(db: Database, table) -> Iterator[dict]:
@@ -236,7 +243,8 @@ def export(db: Database, dest: str | Path) -> ExportResult:
         header = {"__brambleloop_export__": EXPORT_FORMAT,
                   "created_at": created.isoformat(),
                   "source": source,
-                  "tables": [t.name for t in ordered]}
+                  "tables": [t.name for t in ordered],
+                  "excluded_tables": list(EXCLUDED_TABLES)}
         fh.write(json.dumps(header, sort_keys=True) + "\n")
 
         for table in ordered:
@@ -465,3 +473,121 @@ def counts_by_table(db: Database) -> dict[str, int]:
         for table in _ordered_tables():
             out[table.name] = s.scalar(select(func.count()).select_from(table)) or 0
     return out
+
+
+# ---------------------------------------------------------------------------
+# Retention (#51). Proving a restore of a file that no longer exists an hour later is a
+# drill, not a backup.
+
+# How many archives are kept. More than one because the newest export of a database that was
+# corrupted this morning is an export of the corruption; three gives a reader somewhere to
+# step back to. Few enough that the archives never become the largest thing in the database.
+RETAINED_ARCHIVES = 3
+
+
+def _compress(path: Path) -> tuple[bytes, int]:
+    import gzip
+
+    raw = path.read_bytes()
+    return gzip.compress(raw, 6), len(raw)
+
+
+def retain(db: Database, export_path: str | Path, result: ExportResult) -> dict:
+    """Store a finished export where it outlives the container that produced it.
+
+    This is deliberately not called durable storage. The bytes sit in the same database they
+    describe, so they survive a container replacement, a redeploy and a crash -- the failures
+    that actually happen -- and not the provider disappearing, which is the failure #51 names
+    and the reason an off-provider copy is an owner item rather than something claimed here.
+    """
+    from .models import ContinuityArchive
+
+    path = Path(export_path)
+    payload, raw_bytes = _compress(path)
+    with db.session() as s:
+        row = ContinuityArchive(
+            format=result.format, digest=result.digest,
+            payload_sha256=hashlib.sha256(payload).hexdigest(), payload=payload,
+            raw_bytes=raw_bytes, stored_bytes=len(payload),
+            total_rows=result.total_rows, source=result.source,
+            manifest=result.to_dict())
+        s.add(row)
+        s.flush()
+        archive_id = row.id
+
+        keep = [r.id for r in s.scalars(
+            select(ContinuityArchive).order_by(ContinuityArchive.at.desc(),
+                                               ContinuityArchive.id.desc()))][:RETAINED_ARCHIVES]
+        pruned = [r for r in s.scalars(select(ContinuityArchive)) if r.id not in keep]
+        for old in pruned:
+            s.delete(old)
+        pruned_ids = [r.id for r in pruned]
+
+    return {
+        "archive_id": archive_id,
+        "digest": result.digest,
+        "raw_bytes": raw_bytes,
+        "stored_bytes": len(payload),
+        "retained": len(keep),
+        "pruned": pruned_ids,
+        "survives": {"container_replacement": True, "redeploy": True,
+                     "provider_loss": False},
+        "note": ("held in the database it describes: this survives losing the container, "
+                 "not losing the provider. The off-provider copy #51 asks for is an owner "
+                 "item and is not claimed here"),
+    }
+
+
+def retained(db: Database) -> list[dict]:
+    """What archives exist, newest first, without reading the payloads back."""
+    from .models import ContinuityArchive
+
+    with db.session() as s:
+        rows = list(s.scalars(select(ContinuityArchive).order_by(
+            ContinuityArchive.at.desc(), ContinuityArchive.id.desc())))
+        return [{"archive_id": r.id, "at": r.at.isoformat(), "digest": r.digest,
+                 "total_rows": r.total_rows, "stored_bytes": r.stored_bytes,
+                 "raw_bytes": r.raw_bytes, "tables": len(r.manifest.get("tables", []))}
+                for r in rows]
+
+
+def write_retained(db: Database, archive_id: int, dest: str | Path) -> Path:
+    """Write a retained archive back out as the same JSON Lines file it was made from.
+
+    The stored bytes are hashed before they are trusted. A corrupt archive that restores
+    three quarters of a company is worse than one that refuses, because the first is
+    discovered months later and the second is discovered now.
+    """
+    from .models import ContinuityArchive
+
+    import gzip
+
+    with db.session() as s:
+        row = s.get(ContinuityArchive, archive_id)
+        if row is None:
+            raise ValueError(f"no retained archive {archive_id}")
+        payload, expected = row.payload, row.payload_sha256
+        manifest = dict(row.manifest or {})
+
+    actual = hashlib.sha256(payload).hexdigest()
+    if actual != expected:
+        raise ValueError(
+            f"archive {archive_id} does not hash to what was stored "
+            f"({actual[:12]} != {expected[:12]}); it is corrupt and will not be restored")
+
+    path = Path(dest)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(gzip.decompress(payload))
+    # The manifest travels with the file, so a recovered archive is as readable on its own as
+    # the export that made it. An archive that restores but cannot say what it contains
+    # leaves the operator counting rows by hand at the worst possible moment.
+    Path(str(path) + ".manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def restore_retained(db: Database, archive_id: int, target: Database,
+                     work_dir: str | Path) -> dict[str, int]:
+    """Rebuild a database from a retained archive, the way a real recovery would."""
+    path = write_retained(db, archive_id, Path(work_dir) / f"archive-{archive_id}.jsonl")
+    return restore(path, target)

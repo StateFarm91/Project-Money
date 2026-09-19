@@ -772,14 +772,23 @@ def handle_continuity(ctx: JobContext) -> dict:
                 existing.report_count += 1
                 existing.detail = detail
 
-    # Recorded every run, because the export currently lands on a container filesystem that
-    # does not survive a restart. The evidence is durable; the bytes are not, and the owner
-    # queue carries the storage decision that fixes it.
-    ctx.audit("continuity.storage_not_durable", detail={
-        "reason": "the export is written to ephemeral container storage. Hashes, row counts "
-                  "and the restore proof are durable in the audit log; the archive itself "
-                  "must be pulled through /api/continuity/export or written to object "
-                  "storage once provisioned.",
+    # Only a proved export is retained. Keeping one that failed its own restore would put a
+    # file nobody can use where the next operator will find it and believe it.
+    if proof.ok:
+        retained = continuity.retain(ctx.db, proof.export.path, proof.export)
+        detail["retained"] = retained
+        ctx.audit("continuity.retained", detail=retained)
+
+    # Recorded every run. The archive now survives the container -- it is held in the
+    # database, which is what a redeploy and a crash cannot take away. It does not survive
+    # the provider disappearing, which is the failure #51 actually names, so the claim stops
+    # exactly where the evidence does and the owner queue carries the off-provider decision.
+    ctx.audit("continuity.storage_not_offsite", detail={
+        "reason": "the retained archive lives in the database it describes, so it survives "
+                  "a container replacement, a redeploy and a crash, and not the loss of the "
+                  "provider. An off-provider copy needs a bucket and a credential, which is "
+                  "an owner decision and is not claimed here.",
+        "retained_archives": continuity.RETAINED_ARCHIVES,
     })
     return detail
 

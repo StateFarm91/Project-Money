@@ -82,7 +82,18 @@ def test_business_continuity_is_registered_as_the_owner_flagged_it():
     """51 is the gap Build 1 found and the owner told Build 2 to close early."""
     r = R.get(51)
     assert "continuity" in r.title.lower() or "export" in r.title.lower()
-    assert r.status in (R.MISSING, R.PARTIAL, R.COVERED)
+    assert r.status in (R.MISSING, R.PARTIAL, R.COVERED, R.OWNER_GATED)
+    if r.status == R.OWNER_GATED:
+        # The export, the restore, the proof and the retained archive are all built. What is
+        # left is a copy outside this provider, and an owner gate is only honest if it names
+        # a condition code can check rather than a reason nobody revisits.
+        from brambleloop.build2 import executor as E
+
+        gate = E.gate_for(51)
+        assert gate is not None, "51 was parked without naming what it is waiting for"
+        assert gate == "offsite_storage"
+        assert E.GATE_BY_KEY[gate].how.strip(), "a gate with no checkable condition"
+        assert "retained" in r.note and "provider" in r.note
 
 
 def test_sections_account_for_every_requirement_exactly_once():

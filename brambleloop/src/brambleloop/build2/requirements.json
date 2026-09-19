@@ -344,9 +344,9 @@
  {
   "body": "Policy Agent performs scheduled checks of Etsy Seller Policy, Creativity Standards, listing-image rules, advertising rules and shilling/review rules. Material policy changes create a blocking incident for affected workflows until reviewed/tested. Store policy version/date with each release certificate.",
   "id": 39,
-  "note": "the five policy surfaces are watched separately, a material change is a digest difference rather than a judgement, a stale or unread source opens one blocking incident, and the release certificate carries the policy stamp. No policy fetcher is connected, so snapshots are recorded rather than retrieved",
+  "note": "the five policy surfaces are watched separately, a material change is a digest difference rather than a judgement, a stale or unread source opens one blocking incident, and the release certificate carries the policy stamp. Retrieval is externally blocked, verified 2026-09-19: a plain HTTPS GET of https://www.etsy.com/legal/sellers/ returns 403 from Etsy's bot protection (robots.txt fetches fine, so it is the edge refusing an automated client, not a network fault). Spoofing a browser user-agent to get past it is evasion and was not done. A legitimate retrieval path needs a real browser worker, so this is gated on browser_vision rather than left as a partial nobody is working on.",
   "section": "Adversarial commercial + policy audit",
-  "status": "partial",
+  "status": "owner_gated",
   "title": "Policy Freshness Watch",
   "version": "v1.3.2"
  },
@@ -452,9 +452,9 @@
  {
   "body": "Nightly or scheduled exports preserve CIRs, PDFs, charts, listing copy/assets metadata, customer-support knowledge, competitor snapshots, experiments and financial ledger in portable formats. The company must be reconstructable if a SaaS provider disappears.",
   "id": 51,
-  "note": "core/continuity.py exports every table as portable JSON Lines with per-table sha256, restores into any SQLAlchemy engine, and prove_restore() re-exports the restored database and compares digests -- a row count would pass a restore that mangled every value. Scheduled daily as the continuity_proof cadence; the ops.continuity handler raises a P1 incident when the proof fails. Remaining: the archive is written to ephemeral container storage, so durable object storage is an owner decision (batched). Rendered PDFs/charts are re-derivable from CIR + code and are deliberately not archived.",
+  "note": "core/continuity.py exports every table as portable JSON Lines with per-table sha256, restores into any SQLAlchemy engine, and prove_restore() re-exports the restored database and compares digests -- a row count would pass a restore that mangled every value. A proved export is now retained in the database (last 3, gzipped, hashed, refused on read if the bytes do not match), so it survives a container replacement, a redeploy and a crash; exports exclude the archive table itself so backups do not carry the previous backups. Remaining and gated: a copy outside this provider, which is what '#51 reconstructable if a SaaS provider disappears' actually asks for and needs a bucket and credential the owner must create. Rendered PDFs/charts are re-derivable from CIR + code and are deliberately not archived.",
   "section": "Adversarial commercial + policy audit",
-  "status": "partial",
+  "status": "owner_gated",
   "title": "Business Continuity Export",
   "version": "v1.3.2"
  },

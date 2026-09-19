@@ -248,6 +248,114 @@ def test_the_restore_proof_runs_where_ephemeral_sqlite_is_refused():
             os.environ["BRAMBLELOOP_REQUIRE_POSTGRES"] = previous
 
 
+# ---- retention: a backup that outlives the container that made it (#51) ----
+
+
+def test_a_proved_export_is_retained_where_it_outlives_the_container():
+    db, tmp = _loaded_db()
+    result = continuity.export(db, Path(tmp) / "export.jsonl")
+
+    held = continuity.retain(db, Path(tmp) / "export.jsonl", result)
+
+    assert held["digest"] == result.digest
+    assert held["stored_bytes"] < held["raw_bytes"], "the archive was not compressed"
+    assert held["survives"]["container_replacement"] is True
+    assert held["survives"]["provider_loss"] is False, (
+        "an archive held in the database it describes cannot survive losing the provider, "
+        "and saying otherwise is the claim #51 exists to stop")
+
+
+def test_an_export_does_not_carry_the_previous_exports():
+    """Each archive is a copy of the export. Including them would make every night's backup
+    carry the compressed bytes of the last three, growing faster than the company."""
+    db, tmp = _loaded_db()
+    sizes = []
+    for i in range(4):
+        path = Path(tmp) / f"export-{i}.jsonl"
+        result = continuity.export(db, path)
+        sizes.append(continuity.retain(db, path, result)["raw_bytes"])
+
+    assert len(set(sizes)) == 1, f"the export grew as archives accumulated: {sizes}"
+    assert "continuity_archives" in continuity.EXCLUDED_TABLES
+
+
+def test_only_the_newest_archives_are_kept():
+    db, tmp = _loaded_db()
+    for i in range(continuity.RETAINED_ARCHIVES + 2):
+        path = Path(tmp) / f"export-{i}.jsonl"
+        continuity.retain(db, path, continuity.export(db, path))
+
+    held = continuity.retained(db)
+
+    assert len(held) == continuity.RETAINED_ARCHIVES
+    ids = [h["archive_id"] for h in held]
+    assert ids == sorted(ids, reverse=True), "archives are not newest-first"
+    assert min(ids) > 1, "an older archive outlived a newer one"
+
+
+def test_a_retained_archive_restores_a_working_database():
+    db, tmp = _loaded_db()
+    path = Path(tmp) / "export.jsonl"
+    result = continuity.export(db, path)
+    archive_id = continuity.retain(db, path, result)["archive_id"]
+
+    target = Database(f"sqlite:///{tmp}/recovered.sqlite")
+    counts = continuity.restore_retained(db, archive_id, target, Path(tmp) / "recovery")
+
+    assert counts["jobs"] == 7
+    assert counts["audit_log"] >= 2
+    # The manifest travels with the file: a recovered archive can say what it contains
+    # without the operator counting rows by hand at the worst possible moment.
+    recovered = continuity.read_manifest(Path(tmp) / "recovery" / f"archive-{archive_id}.jsonl")
+    assert recovered["digest"] == result.digest
+
+
+def test_a_corrupt_archive_is_refused_rather_than_half_restored():
+    db, tmp = _loaded_db()
+    path = Path(tmp) / "export.jsonl"
+    archive_id = continuity.retain(db, path, continuity.export(db, path))["archive_id"]
+
+    from brambleloop.core.models import ContinuityArchive
+
+    with db.session() as s:
+        row = s.get(ContinuityArchive, archive_id)
+        row.payload = row.payload[:-40]
+
+    try:
+        continuity.write_retained(db, archive_id, Path(tmp) / "corrupt.jsonl")
+    except ValueError as e:
+        assert "corrupt" in str(e)
+    else:
+        raise AssertionError("a truncated archive was unpacked as though it were intact")
+
+
+def test_no_credential_reaches_a_retained_archive_manifest():
+    """The archive carries its manifest into the database, so the redaction that protects the
+    file has to protect the row as well -- a secret leaks through whichever copy forgot."""
+    import re
+
+    db, tmp = _loaded_db()
+    path = Path(tmp) / "export.jsonl"
+    result = continuity.export(db, path)
+    continuity.retain(db, path, result)
+
+    from sqlalchemy import select
+
+    from brambleloop.core.models import ContinuityArchive
+
+    with db.session() as s:
+        manifests = [r.manifest for r in s.scalars(select(ContinuityArchive))]
+
+    import json as _json
+
+    blob = _json.dumps(manifests)
+    assert "hunter2" not in blob
+    assert re.search(r"://(?!\*\*\*@)[^/@\s\"]+@", blob) is None, (
+        "an unredacted credential reached the archive row")
+    assert manifests[0]["source"] == result.source
+    assert continuity.redact("postgresql://user:hunter2@host/db") == "postgresql://***@host/db"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

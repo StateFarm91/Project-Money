@@ -291,6 +291,8 @@ def api_continuity() -> dict:
     """
     from sqlalchemy import desc
 
+    from ..core import continuity
+
     with db.session() as s:
         recent = list(s.scalars(
             select(AuditLog).where(AuditLog.action.in_(
@@ -303,9 +305,14 @@ def api_continuity() -> dict:
         "last_proof": (last.detail or {}) if last else {},
         "archive_retrievable": opsauth.configured(),
         "credential": opsauth.token_health(),
+        "retained": continuity.retained(db),
+        "survives": {"container_replacement": True, "redeploy": True,
+                     "provider_loss": False},
         "note": ("The archive is downloaded through GET /api/continuity/export with the "
                  "operator credential. Without that credential the endpoint is closed to "
-                 "everyone, including the owner."),
+                 "everyone, including the owner. Retained archives live in the database "
+                 "they describe: that survives a container replacement, a redeploy and a "
+                 "crash, and not the loss of the provider, which is an owner item."),
     }
 
 
