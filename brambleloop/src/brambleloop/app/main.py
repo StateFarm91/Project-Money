@@ -815,6 +815,22 @@ def api_league() -> dict:
     }
 
 
+@app.post("/api/mjs/scan")
+def api_mjs_scan() -> dict:
+    """Run the benchmark mission now rather than at the next six-hourly window.
+
+    Read-only and public: it observes the named shop's own catalogue through the sanctioned
+    API and writes nothing to Etsy.
+    """
+    key = f"mjs.scan:{utcnow():%Y%m%dT%H%M}"
+    try:
+        job = JobQueue(db).enqueue("market_radar", "mjs.scan", {}, idempotency_key=key)
+    except DuplicateJob:
+        return {"enqueued": False, "reason": "a scan was already queued this minute"}
+    return {"enqueued": True, "job_id": job.id,
+            "note": "the result appears at GET /api/mjs once the worker runs it"}
+
+
 @app.get("/api/etsy")
 def api_etsy() -> dict:
     """What this company can currently read from Etsy, and what that rests on.
