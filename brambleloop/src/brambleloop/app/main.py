@@ -962,6 +962,23 @@ def api_arbitrage() -> dict:
     return arbitrage.state(db)
 
 
+@app.get("/api/seasonal/transform")
+def api_seasonal_transform() -> dict:
+    """How a proven object becomes a seasonal one, and which of those are only photographs.
+
+    Includes the master's own worked example run through the engine, so the answer is a
+    function of the rules rather than of whoever is reading them.
+    """
+    from ..creative import seasonal_transform
+
+    return {
+        "layers": [{"layer": l.key, "what": l.what, "why": l.why,
+                    "changes_the_object": l.changes_the_object}
+                   for l in seasonal_transform.LAYERS],
+        "worked_example": seasonal_transform.striped_cardigan_example(),
+    }
+
+
 @app.get("/api/seasonal/remerchandising")
 def api_seasonal_remerchandising(event: str = "Christmas") -> dict:
     """Existing certified products that could be sold into a season, and what each move needs.

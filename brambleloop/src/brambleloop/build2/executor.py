@@ -209,10 +209,25 @@ GATES: tuple[Gate, ...] = (
          _model_usable,
          (94, 104, 177, 178),
          "a recorded model.probe succeeded -- a real call, not a variable being set"),
+    # Satisfied 2026-09-19: BrambleloopStudio exists, empty, zero sales. Kept rather than
+    # deleted, and carrying no requirements rather than the four it used to. Those four --
+    # Marketplace Insights and seller-side offers -- were never blocked by the shop existing;
+    # they are blocked by *automated access to it*, which is the developer credential. Parking
+    # them here was imprecise, and unparking them on the shop's existence would have put work
+    # in the ready queue that nobody can start, which is the one thing this module exists to
+    # prevent. A gate that has opened is evidence and is worth keeping.
     Gate("etsy_shop", "a live Etsy shop, which only the account holder can open",
-         _env_gate("ETSY_SHOP_ID"),
+         lambda db, env: _env_gate("ETSY_SHOP_NAME")(db, env)
+         or _env_gate("ETSY_SHOP_ID")(db, env),
+         (),
+         "the shop's public identifier is set -- the name in its URL -- which only exists "
+         "once the shop does"),
+    Gate("etsy_api",
+         "Etsy API credentials, which are what lets this system read the shop's own seller "
+         "data rather than a person reading it on a screen",
+         lambda db, env: _env_gate("ETSY_API_KEY", "ETSY_SHARED_SECRET")(db, env),
          (1, 37, 235, 236),
-         "ETSY_SHOP_ID is set, which only exists once the shop does"),
+         "both Railway variables are set and non-empty"),
     Gate("browser_vision",
          "a cloud browser/vision worker pool for rendered-page and image evidence",
          _env_gate("BRAMBLELOOP_BROWSER_URL"),

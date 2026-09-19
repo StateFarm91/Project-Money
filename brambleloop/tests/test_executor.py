@@ -187,15 +187,47 @@ def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
     """The whole reason parking is a checkable condition rather than a note."""
     db = _synced()
     before = E.queue(db)
-    parked_on_etsy = before["parked_by_capability"]["etsy_shop"]
-    assert parked_on_etsy
+    credential = {"ETSY_API_KEY": "k", "ETSY_SHARED_SECRET": "s"}
 
-    result = E.sync(db, env={"ETSY_SHOP_ID": "12345678"})
-    assert sorted(result["unparked"]) == sorted(parked_on_etsy)
+    # One developer application grants both the seller-side API and read-only research, so
+    # this credential opens two gates at once. The property is that exactly the requirements
+    # parked on the gates it opens become ready, and nothing else moves -- asserting only one
+    # gate's set would pass while the other quietly did the wrong thing.
+    opened = [g.key for g in E.GATES if g.open(db, credential) and not g.open(db, {})]
+    assert sorted(opened) == ["benchmark_observation", "etsy_api"], opened
+    expected = sorted(
+        r for key in opened for r in before["parked_by_capability"].get(key, []))
+    assert expected
+
+    result = E.sync(db, env=credential)
+    assert sorted(result["unparked"]) == expected
 
     after = E.queue(db)
-    assert after["ready_total"] == before["ready_total"] + len(parked_on_etsy)
-    assert "etsy_shop" not in after["parked_by_capability"]
+    assert after["ready_total"] == before["ready_total"] + len(expected)
+    for key in opened:
+        assert key not in after["parked_by_capability"]
+
+
+def test_a_gate_may_be_satisfied_and_carry_no_requirements():
+    """BrambleloopStudio opened on 2026-09-19, and the four requirements parked on the shop
+    turned out not to have been waiting for it.
+
+    Marketplace Insights and seller-side offers are blocked by *automated access* to the
+    shop, which is the developer credential, and unparking them because the shop now exists
+    would have put work in the ready queue that nothing can start -- the exact failure this
+    module exists to prevent, arriving as a reward for good news. So they moved to etsy_api
+    and this gate stays, satisfied and empty, because a gate that has opened is evidence.
+    """
+    db = _synced({"ETSY_SHOP_NAME": "BrambleloopStudio"})
+
+    assert E.GATE_BY_KEY["etsy_shop"].open(db, {"ETSY_SHOP_NAME": "BrambleloopStudio"})
+    assert E.GATE_BY_KEY["etsy_shop"].requirement_ids == ()
+    for requirement_id in (1, 37, 235, 236):
+        assert E.gate_for(requirement_id) == "etsy_api", requirement_id
+
+    # And the queue is unchanged by the good news, which is the honest outcome.
+    assert "etsy_shop" not in E.queue(db)["parked_by_capability"]
+    assert E.reconciliation(db)["balances"] is True
 
 
 def test_a_gate_that_checks_rows_opens_when_the_rows_arrive():

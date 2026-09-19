@@ -2,7 +2,7 @@
  {
   "body": "Once the Etsy shop exists, use Etsy Marketplace Insights as a primary research input where accessible: real Etsy search terms, recent search volume, related terms/trends and listing competition. Use limited free research capacity efficiently; if a paid Etsy tier would materially improve research, present exact cost and expected value for owner approval.",
   "id": 1,
-  "note": "Etsy Marketplace Insights needs the shop (owner action 2)",
+  "note": "Etsy Marketplace Insights needs automated access to the shop's own seller data, not the shop's existence. BrambleloopStudio exists as of 2026-09-19 and this is still parked, now on etsy_api: Insights is a seller-dashboard surface, so without the developer credential the only way to read it is a person reading it on a screen. Re-gated rather than unparked, because unparking it on the shop's existence would put work in the ready queue that nothing can start.",
   "section": "Core commercial upgrades",
   "status": "owner_gated",
   "title": "Etsy Marketplace Insights as First-Party Demand Oracle",
@@ -326,7 +326,7 @@
  {
   "body": "Marketplace Insights becomes a scarce first-party research resource. Allocate keyword queries using expected information gain: validate the highest-uncertainty/highest-value micro-markets first. Store every query/result snapshot so the same keyword is not wastefully re-queried. Etsy Plus/unlimited access is an owner-approved upgrade only when expected value exceeds cost.",
   "id": 37,
-  "note": "Marketplace Insights query budgeter; needs the shop",
+  "note": "the query budgeter allocates a scarce resource this system cannot yet query. Re-gated from etsy_shop to etsy_api on 2026-09-19: the shop exists, and Marketplace Insights still needs the developer credential. The budgeting logic is worth building before the credential arrives and is tracked as such rather than as blocked work.",
   "section": "Adversarial commercial + policy audit",
   "status": "owner_gated",
   "title": "Marketplace Insights Query Budgeter",
@@ -2108,7 +2108,7 @@
  {
   "body": "Where Etsy supports and the buyer is eligible/opted-in, test abandoned-cart, favorited-item, interested-shopper and thank-you offers. Measure incremental conversion, margin and repeat purchase versus baseline; do not assume every discount is accretive. Preserve truthful regular prices and promotion rules.",
   "id": 235,
-  "note": "Etsy targeted offers; needs the shop",
+  "note": "targeted offers are seller-dashboard promotions. Re-gated to etsy_api on 2026-09-19: the shop exists and running a promotion is both an API action and a consequential owner-gated one, so it stays parked on both counts.",
   "section": "CA$5K/month scale architecture",
   "status": "owner_gated",
   "title": "Etsy Targeted-Offer Optimizer",
@@ -2117,7 +2117,7 @@
  {
   "body": "Use Etsy Marketplace Insights as first-party demand/competition evidence once accessible. Allocate limited free queries by expected information gain; consider Etsy Plus only through owner approval if unlimited research has positive expected value. Store search count, listing count, related terms, trend direction, date and geography/context.",
   "id": 236,
-  "note": "Marketplace Insights allocator; needs the shop",
+  "note": "the portfolio allocator consumes Marketplace Insights evidence. Re-gated to etsy_api on 2026-09-19 for the same reason as #1: the blocker was automated access to the shop, never the shop's existence.",
   "section": "CA$5K/month scale architecture",
   "status": "owner_gated",
   "title": "Marketplace Insights Portfolio Allocator",
@@ -2504,9 +2504,9 @@
  {
   "body": "For every proven evergreen or current benchmark concept, automatically evaluate season/holiday transformations. Examples include changing palette, styling, motif vocabulary, trim, gift context, collection story and supporting accessories for Christmas, Halloween, Easter, Valentine's, Mother's/Father's Day where relevant, fall, winter, spring, summer and other evidence-supported events. Transformations must remain technically coherent and commercially desirable.",
   "id": 279,
-  "note": "seasonal transformation engine, colour-forecast layer",
+  "note": "creative/seasonal_transform.py routes every transformation before it is costed. Palette, styling, gift context and collection story change what a buyer sees and nothing a maker makes, so they re-merchandise (#292's path, which already refuses to count them as catalogue growth). Motif vocabulary, trim and a companion accessory change the object, so they take a new CIR, a compile and a physical test -- and therefore have to be worth them: an engineered variant with no emotional promise is refused by name, because the creative jury's dominant failure on the Build-1 catalogue was exactly that and a seasonal palette does not fix it. Motifs outside the occasion's grammar are refused, and a variant built only from the saturated motifs is named as the commodity. derive() mints a child concept only from an engineering route with no unresolved problems, and the child faces the jury on its own. /api/seasonal/transform.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
+  "status": "covered",
   "title": "Seasonal Transformation Engine",
   "version": "v1.4.2"
  },
@@ -2531,9 +2531,9 @@
  {
   "body": "A proven broad concept such as a cropped V-neck button-front striped crochet cardigan may trigger Brambleloop variants for upcoming demand: Christmas palettes (e.g. forest/cranberry/cream/gold), winter palettes, spring palettes, fall palettes and other evidence-supported themes. Preserve commercially useful generic characteristics while Brambleloop independently engineers construction, grading and instructions and creates its own model-led photography.",
   "id": 282,
-  "note": "worked transformation example (striped cardigan)",
+  "note": "the master's worked example is a function rather than a paragraph: striped_cardigan_example() runs the proven cropped cardigan through the engine and returns three seasonal palettes routed as re-merchandising -- one cardigan photographed three times, zero new patterns -- beside one engineered Christmas variant that changes what the garment depicts, carries a nostalgic promise delivered by the motif, and grounds a WOW mechanism in the yoke's own increases. catalogue_growth is 1, not 4. Running it as code means the answer comes from the rules rather than from whoever is reading them.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "missing",
+  "status": "covered",
   "title": "Example Transformation - Striped Cardigan",
   "version": "v1.4.2"
  },
