@@ -918,6 +918,18 @@ def api_model_probe() -> dict:
             "note": "the result appears at GET /api/model once the worker runs it"}
 
 
+@app.get("/api/arbitrage")
+def api_arbitrage() -> dict:
+    """What this company can currently score about a micro-market, and what the rest needs.
+
+    An unmeasured dimension leaves the arithmetic and is named. Filling it with a neutral
+    value keeps the number's shape and loses its meaning, and nobody can tell by looking.
+    """
+    from ..radar import arbitrage
+
+    return arbitrage.state(db)
+
+
 @app.get("/api/seasonal/collections")
 def api_seasonal_collections() -> dict:
     """The collection architecture's rules, and what a coherent collection has to satisfy.
