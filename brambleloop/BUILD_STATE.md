@@ -205,6 +205,42 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The Etsy credential was verified by using it, and the benchmark mission ran for the first
+time (#206, #301, #303, #319, #2).**
+
+The developer application was approved on 2026-09-19 and the credentials are in Railway. The
+owner's condition was that the gate open from demonstrated capability, and Etsy makes that
+condition concrete rather than theoretical: **v3 refuses the keystring alone** with `Shared
+secret is required in x-api-key header`, so a half-configured credential returns 403 and
+looks exactly like a working one to anything checking whether two variables are set.
+
+- `etsy_public.probe()` makes the smallest sanctioned read — an application ping returning an
+  application id and nothing about anybody's shop — and records the outcome as a row. Both
+  the `etsy_api` and `benchmark_observation` gates read that row. A six-hourly cadence runs
+  it *ahead of* the scan that depends on it, so the gate closes again by itself if the
+  credential is revoked, rather than being discovered by finding an empty catalogue.
+- Nothing about the credential reaches the row, the audit detail or a failure message, and a
+  test searches the recorded evidence for its parts.
+- **Verified in production at 2026-09-19T18:03Z**: `ok: true`, application id returned. Four
+  gates are now open and nine requirements un-parked by themselves.
+
+**The mission then ran, live, at 18:04Z. 438 listings observed** from
+`MJsOffTheHookDesigns` through the sanctioned read-only API: garments 141, blankets 88, hats
+82, seasonal gift 19, bags 18, stockings 13, ornaments 13, home decor 6, unclassified 58. Ten
+listings and ten galleries audited in depth. `observation_state: observing`, and the mission's
+own honest statement is now *"coverage above is measured, not assumed"* rather than a
+description of what it would do with a credential.
+
+**The first competitive weakness this company has measured rather than assumed:** 413 of 438
+observed listings carry fewer than five images. #2's weakness hunt reported `measurable:
+false` an hour ago and reports a number now, which is the difference a first-party credential
+makes and the reason the hunt refused to report an empty list as "none found".
+
+Nothing was written to Etsy. The shop stays empty, Shadow Mode holds, and these credentials
+authorise reading public marketplace data and nothing else — enforced by an endpoint
+allowlist that raises before a request is built, not by an intention.
+
+## Previously in Build 2
 **The Etsy shop opened, and the reconciliation it produced was not the one it looked like
 (#279, #282, #216, #59, #62, executor).**
 
