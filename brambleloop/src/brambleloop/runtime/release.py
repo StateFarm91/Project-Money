@@ -850,8 +850,64 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
                             "latest_effective_launch": soonest["latest_effective_launch"]},
                 ))
 
+    # #123: the collection calendar's dated commitments, checked on the same cadence. The
+    # launch-date work above answers "can a customer still finish this"; this answers "did
+    # the work that had to happen by now happen", which slips silently -- a phase that is
+    # late does not announce itself, it becomes the next phase.
+    from ..seasonal.calendar import collection_calendar
+    from ..radar.market import SEASONAL_EVENTS
+
+    today = _date.fromisoformat(as_of) if as_of else _date.today()
+    behind: list[dict] = []
+    for event in SEASONAL_EVENTS:
+        event_date = event.event_date
+        if event_date < today:
+            try:
+                event_date = event_date.replace(year=event_date.year + 1)
+            except ValueError:  # pragma: no cover - 29 February
+                continue
+        calendar = collection_calendar(event.name, event_date, today=today)
+        if calendar["missed"]:
+            behind.append({"event": event.name,
+                           "event_date": event_date.isoformat(),
+                           "missed": [m["milestone"] for m in calendar["missed"]],
+                           "next_due": calendar["next_due"]})
+
+    if behind:
+        from sqlalchemy import select
+
+        from ..core.models import Incident
+        from ..seasonal.calendar import MILESTONES
+
+        # One incident for the worst-affected event rather than one per missed milestone:
+        # eight rows about one Christmas is the noise that trains everybody to close the
+        # channel, and the event is the unit somebody can actually act on.
+        worst = max(behind, key=lambda b: len(b["missed"]))
+        signature = f"seasonal.calendar_behind:{worst['event']}"
+        with ctx.db.session() as s:
+            existing = s.scalar(select(Incident).where(
+                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
+            if existing is None:
+                s.add(Incident(
+                    severity="P2", signature=signature,
+                    summary=(f"{worst['event']}: {len(worst['missed'])} of "
+                             f"{len(MILESTONES)} collection milestones are already past "
+                             f"({', '.join(worst['missed'][:3])}). A missed date is a "
+                             f"portfolio failure rather than a scheduling detail, and the "
+                             f"failure is silent -- a phase that slips becomes the next "
+                             f"phase, and the first visible symptom is a product that lists "
+                             f"in December (#123)."),
+                    halts_publication=False,
+                    detail={"behind": behind, "as_of": today.isoformat()}))
+
+    ctx.audit("seasonal.calendar_checked", detail={
+        "as_of": today.isoformat(),
+        "events_behind": [b["event"] for b in behind],
+        "events_checked": len(SEASONAL_EVENTS)})
+
     return {"products_scheduled": room["products_scheduled"], "counts": counts,
-            "at_risk": len(at_risk), "missed": len(missed)}
+            "at_risk": len(at_risk), "missed": len(missed),
+            "collection_calendar_behind": behind}
 
 
 @handlers.register("mjs.scan")

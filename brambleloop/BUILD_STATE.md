@@ -58,7 +58,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **839 tests passing, 0 failing** across
+Measured by `./run_tests.sh` on the current head: **840 tests passing, 0 failing** across
 48 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -205,6 +205,13 @@ listing/indexing due **2026-09-26, one week away**. A missed date is a portfolio
 rather than an amber row, and the failure is silent: a phase that slips does not announce
 itself, it becomes the next phase, and the first visible symptom is a product that lists in
 December.
+
+The calendar is checked by the **daily `seasonal.sentinel` cadence**, not by somebody opening
+a page: a function nobody calls produces that finding once and never again. Run against
+today's state it finds **every** seasonal event behind — Halloween worst at 8 of 10 — which is
+the honest state of a company that has never run a collection calendar. One incident for the
+worst-affected event, because eight rows about one Christmas is the noise that trains
+everybody to close the channel.
 
 #132 is **partial**: all eleven north-star metrics are tracked by cohort, with the four that
 need no customers separated from the seven that do — a dashboard showing four numbers and

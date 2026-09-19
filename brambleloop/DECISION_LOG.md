@@ -234,6 +234,8 @@ Consequential decisions with reasoning, so future sessions do not re-litigate th
 | B-221 | 2026-09-19 | A missed seasonal milestone is a portfolio failure, and the failure is silent. | A phase that slips does not announce itself; it becomes the next phase, and the first visible symptom is a product that lists in December. Ten dated milestones per occasion make the slip a row rather than a realisation. Run today, Christmas 2026 has five of ten already past -- research, concept freeze, engineering start, physical test and creative production -- with listing/indexing due in a week. | Yes |
 | B-222 | 2026-09-19 | The north-star metrics report which of them can be computed today. | Four of the eleven need no customers and seven do. A dashboard showing four numbers and seven blanks is read as four numbers, so the split is stated rather than implied, and the cohort framing is deliberate: a running average of everything ever made moves too slowly to show that anything changed, which is indistinguishable from nothing changing. | Yes |
 
+| B-223 | 2026-09-19 | The collection calendar is checked by the daily sentinel, not by somebody opening a page. | The finding that five of Christmas 2026's ten milestones were already past came from running the function once. A function nobody calls produces that finding once and never again, which is the same as not having it -- and the owner's instruction after the first seasonal finding was explicit: use the engine continuously rather than rediscovering timing manually. One incident for the worst-affected event rather than one per missed milestone, because eight rows about one Christmas is the noise that trains everybody to close the channel. | Yes |
+
 
 ## Standing constraints carried from the spec
 

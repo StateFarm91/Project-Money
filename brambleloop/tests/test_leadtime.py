@@ -332,7 +332,10 @@ def test_the_sentinel_runs_on_a_cadence_and_raises_only_what_can_still_be_acted_
     with db.session() as s:
         assessed = list(s.scalars(select(AuditLog).where(
             AuditLog.action == "seasonal.assessed")))
-        incidents = list(s.scalars(select(Incident)))
+        # Scoped to the at-risk signature: the same cadence also checks the collection
+        # calendar (#123) and raises its own incident, which is a different question.
+        incidents = [i for i in s.scalars(select(Incident))
+                     if i.signature.startswith("seasonal.at_risk:")]
         jobs_dead = list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
 
     assert not jobs_dead, [(j.job_type, (j.last_error or '')[:200]) for j in jobs_dead]
@@ -440,6 +443,58 @@ def test_a_flash_trend_cannot_buy_flagship_engineering():
         assert "not a half-life" in str(e)
     else:
         raise AssertionError("an unclassified trend was allowed engineering effort")
+
+
+def test_the_sentinel_checks_the_dated_milestones_as_well_as_the_launch_dates():
+    """#123 on the same cadence as #283, because they answer different questions.
+
+    The launch-date work asks whether a customer could still finish the object. This asks
+    whether the work that had to happen by now happened — and that slips silently, because a
+    phase that is late does not announce itself, it becomes the next phase.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog, Incident, Job, JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
+    from brambleloop.runtime.worker import Worker
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/calendar.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    JobQueue(db).enqueue("orchestrator", "seasonal.sentinel", {"as_of": "2026-09-19"},
+                         idempotency_key="seasonal-calendar-1")
+    worker = Worker(db, "seasonal-calendar-worker")
+    for _ in range(50):
+        if not worker.run_once():
+            break
+
+    with db.session() as s:
+        dead = list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
+        checked = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "seasonal.calendar_checked")))
+        incidents = [i for i in s.scalars(select(Incident))
+                     if i.signature.startswith("seasonal.calendar_behind:")]
+
+    assert not dead, [(j.job_type, (j.last_error or "")[:200]) for j in dead]
+    assert checked, "the calendar check ran and recorded nothing"
+    behind = checked[-1].detail["events_behind"]
+    # Every seasonal event is behind, which is the honest state: this company has never run a
+    # collection calendar, so nothing has ever been done by a date.
+    assert "Christmas" in behind
+    assert "Halloween" in behind
+
+    # One incident for the worst-affected event, not one per missed milestone: eight rows
+    # about one Christmas is the noise that trains everybody to close the channel.
+    assert len(incidents) == 1
+    assert "collection milestones are already past" in incidents[0].summary
+    assert "becomes the next phase" in incidents[0].summary
+    assert len(incidents[0].detail["behind"]) >= 2
 
 
 def test_depth_is_measured_against_the_ecosystem_an_event_actually_spans():
