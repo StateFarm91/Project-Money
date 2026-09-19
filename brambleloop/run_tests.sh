@@ -27,7 +27,7 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 # the CIR engine is visible at the top of the log rather than buried.
 SUITES=(
   tests/test_compiler.py tests/test_reverse.py tests/test_rowcycle.py
-  tests/test_geometry.py tests/test_twin.py
+  tests/test_geometry.py tests/test_twin.py tests/test_grading.py
   tests/test_platform.py tests/test_gates.py tests/test_radar.py tests/test_gateway.py
   tests/test_intel.py tests/test_teardown.py tests/test_creative.py tests/test_improve.py tests/test_growth.py tests/test_swarm.py tests/test_visual.py
   tests/test_etsy.py tests/test_brand.py tests/test_commerce.py tests/test_departments.py
