@@ -41,17 +41,24 @@ def _synced(env: dict | None = None) -> Database:
 # ---- the queue cannot overstate itself ------------------------------------
 
 
-def test_the_ready_count_equals_what_the_registry_calls_executable():
-    """The guard that keeps the two halves honest.
+def test_every_executable_requirement_is_either_ready_or_parked():
+    """The invariant the two halves actually share, stated correctly.
 
-    They are computed from different things -- the registry from its status field, the queue
-    from the gates -- so they agree only if every owner-gated requirement is genuinely
-    parked and every parked one is genuinely gated. When this first ran it disagreed by four,
-    and the four were real: requirements the registry called executable that cannot be built
-    without a credential.
+    An earlier version asserted ready == executable, which held only while every gated
+    requirement was also `owner_gated`. It stopped holding the moment a requirement was
+    half-built with its remainder behind a credential -- the ordinary case, not the
+    exception -- and the equality would then have forced a choice between two lies: calling
+    a half-built requirement owner-gated, or calling gated work ready.
     """
     db = _synced()
-    assert E.queue(db)["ready_total"] == len(reg.executable())
+    balance = E.reconciliation(db)
+    assert balance["balances"], balance
+    assert balance["unaccounted"] == []
+    # Nothing the owner has to unblock may appear as work this build can pick up.
+    assert balance["owner_gated_but_ready"] == []
+    # And the gap between the two numbers is exactly the half-built-but-gated set.
+    assert balance["ready"] + len(balance["executable_parked"]) == balance["executable"]
+    assert balance["executable_parked"], "nothing is half-built and gated; this proves little"
 
 
 def test_an_owner_gated_requirement_with_no_gate_is_refused():
@@ -418,7 +425,9 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     assert not dead, [(j.job_type, (j.last_error or "")[:200]) for j in dead]
     assert ticked, "the build tick ran and recorded nothing"
     detail = ticked[-1].detail
-    assert detail["ready"] == len(reg.executable())
+    # Ready is executable minus the half-built requirements whose remainder is gated.
+    assert detail["ready"] == E.reconciliation(db)["ready"]
+    assert detail["ready"] < len(reg.executable())
     assert detail["parked"] > 0
     assert detail["next"] is not None
     # Nothing has been completed and work is ready, so the loop raises exactly one stall.

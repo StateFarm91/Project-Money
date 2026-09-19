@@ -757,6 +757,60 @@ def api_visual() -> dict:
         "escalation_ladder": [{"action": a, "why": w} for a, w in ESCALATION],
     }
 
+@app.get("/api/dependencies")
+def api_dependencies() -> dict:
+    """What this company stands on, and how each one comes back.
+
+    Grouped by what stops rather than by vendor, because vendor prestige gets that backwards:
+    Postgres holds the company's memory and GitHub holds a copy of code that is also on disk.
+    """
+    from ..ops import dependencies
+
+    return dependencies.map_state(db)
+
+
+@app.get("/api/seasonal/feasibility")
+def api_seasonal_feasibility() -> dict:
+    """What each make-lane's runway actually supports, as a gradient rather than a cliff.
+
+    Graded against the optimistic bound of the make-time interval. A point estimate cannot
+    establish impossibility, and this endpoint exists because an earlier version of this
+    system reported a whole season closed on the strength of an assumed seven crochet hours
+    a week.
+    """
+    from datetime import date as _date
+
+    from ..radar.market import SEASONAL_EVENTS
+    from ..seasonal.calendar import heaviest_launchable_lane, lane_feasibility
+    from ..seasonal.uncertainty import interval, sample_count
+
+    today = _date.today()
+    samples = sample_count(db)
+    events = []
+    for event in SEASONAL_EVENTS:
+        when = event.event_date
+        if when < today:
+            try:
+                when = when.replace(year=when.year + 1)
+            except ValueError:  # pragma: no cover - 29 February
+                continue
+        days = (when - today).days
+        events.append({
+            "event": event.name, "event_date": when.isoformat(), "days_away": days,
+            "heaviest_lane": heaviest_launchable_lane(days, samples=samples, today=today),
+            "lanes": lane_feasibility(days, samples=samples, today=today),
+        })
+    return {
+        "today": today.isoformat(),
+        "physical_samples": samples,
+        "example_interval": interval(90.0, samples=samples).to_dict(),
+        "events": sorted(events, key=lambda e: e["days_away"]),
+        "note": ("Infeasible means the optimistic bound has passed, not that the point "
+                 "estimate has. Until a maker has actually been timed the interval is wide, "
+                 "and a wide interval is the honest input to a decision about a season."),
+    }
+
+
 @app.get("/api/build")
 def api_build() -> dict:
     """The build loop itself: what is ready, what is parked on whom, and whether it is moving.

@@ -138,24 +138,53 @@ def phase_for(days_away: int) -> str:
     return "research"
 
 
-def heaviest_launchable_lane(days_away: int, skill: str = "intermediate") -> str | None:
+def heaviest_launchable_lane(days_away: int, skill: str = "intermediate",
+                             *, samples: int = 0, today: date | None = None) -> str | None:
     """The biggest product a customer could still finish, given today.
 
-    Asked of the lead-time engine rather than tabulated, so the two cannot disagree — and so
-    the honest answer for a near event is `None` rather than a lane nobody can complete.
+    Graded against the *optimistic* bound of the make-time interval rather than the point
+    estimate. The difference is not academic: a 90-hour Christmas project reads as impossible
+    on a point estimate built from an assumed seven crochet hours a week, and reads as high
+    risk once the interval is honest about never having timed a maker. Abandoning a season on
+    an assumption cannot be discovered later, because nothing gets built to find out with.
     """
     from .leadtime import LANE_MAX_HOURS, compile_launch
+    from .uncertainty import INFEASIBLE
 
+    today = today or date.today()
     if days_away < 0:
         return None
-    event_date = date.today() + timedelta(days=days_away)
+    event_date = today + timedelta(days=days_away)
     for lane in reversed(LANE_ORDER):
         hours = LANE_MAX_HOURS[lane]
         probe = hours if hours != float("inf") else 150.0
-        plan = compile_launch("probe", event_date, make_hours=probe, skill=skill)
-        if plan.latest_effective_launch >= date.today():
+        plan = compile_launch("probe", event_date, make_hours=probe, skill=skill,
+                              samples=samples)
+        if plan.feasibility(today)["verdict"] != INFEASIBLE:
             return lane
     return None
+
+
+def lane_feasibility(days_away: int, skill: str = "intermediate", *, samples: int = 0,
+                     today: date | None = None) -> list[dict]:
+    """Every lane's verdict, so a window is read as a gradient rather than a cliff."""
+    from .leadtime import LANE_MAX_HOURS, compile_launch
+
+    today = today or date.today()
+    event_date = today + timedelta(days=max(0, days_away))
+    out = []
+    for lane in LANE_ORDER:
+        hours = LANE_MAX_HOURS[lane]
+        probe = hours if hours != float("inf") else 150.0
+        plan = compile_launch("probe", event_date, make_hours=probe, skill=skill,
+                              samples=samples)
+        graded = plan.feasibility(today)
+        out.append({"lane": lane, "probe_hours": probe, "verdict": graded["verdict"],
+                    "meaning": graded["meaning"],
+                    "days_needed": graded["days_needed"],
+                    "latest_optimistic_launch": (plan.latest_optimistic_launch.isoformat()
+                                                 if plan.latest_optimistic_launch else None)})
+    return out
 
 
 def rolling(today: date | None = None, *, covered: dict[str, tuple[str, ...]] | None = None,

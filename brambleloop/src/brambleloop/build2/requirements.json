@@ -317,9 +317,9 @@
   {
     "body": "Separate product proof from promotional concept imagery. For patterns, prioritize real tester/customer finished-project photography as soon as available. Store provenance, consent/license, pattern version, yarn/colour and whether image is physical, simulated or AI-assisted. If current Etsy policy requires seller-owned photos/video or restricts renderings for the relevant listing class, the Policy Gate blocks incompatible assets.",
     "id": 36,
-    "note": "gates/asset_truth.py has provenance and the B-097 disclosure rule; no consent/licence/physical-vs-simulated policy routing",
+    "note": "commerce/buyer_trust.record_image() stores kind, physical-vs-simulated nature, pattern version, yarn, colourway and a recorded consent basis; third-party imagery without one is refused, and gallery_proof() reports a render-only gallery as honest and not proof",
     "section": "Adversarial commercial + policy audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Evidence-Backed Listing Imagery Policy",
     "version": "v1.3.2"
   },
@@ -335,9 +335,9 @@
   {
     "body": "Every trend/search datum stores source, date range, geography/population and freshness. Etsy trend reports can be based on specific populations/time windows, so agents may not present U.S.-only or historical trend data as current Canadian/global demand. Opportunity scores discount stale or mismatched evidence.",
     "id": 38,
-    "note": "radar observations carry observation dates; no geography/population or freshness discounting in the score",
+    "note": "radar/provenance.py refuses a datum with no population or window, discounts a neighbouring population rather than dismissing it, measures staleness against the topic's own seasonality, and refuses to present a foreign or expired figure as current Canadian demand",
     "section": "Adversarial commercial + policy audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Trend Data Provenance and Geography",
     "version": "v1.3.2"
   },
@@ -362,18 +362,18 @@
   {
     "body": "Design digital-product messaging to prevent mistaken purchases: prominent 'DIGITAL CROCHET PATTERN \u2014 NOT A FINISHED ITEM', skill level, required materials, terminology and download/support instructions. Track confusion-driven contacts/refunds as a conversion-quality defect. Customer Experience prioritizes resolution before Etsy's case window where applicable.",
     "id": 41,
-    "note": "listing copy says digital pattern; no refund/chargeback prevention programme or confusion-defect tracking",
+    "note": "six closed purchase-protecting disclosures with the digital-not-finished one required in the title, and confusion contacts counted as a listing defect rather than a cost of doing business",
     "section": "Adversarial commercial + policy audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Refund / Chargeback / Case Prevention",
     "version": "v1.3.2"
   },
   {
     "body": "Every sold product maps order -> pattern_id -> purchased version -> current safe version. When a material correction occurs, identify affected buyers and prepare policy-compliant update communication. Support always answers against the buyer's version and can explain migration to the corrected version.",
     "id": 42,
-    "note": "support answers against the purchased version; no order->version map or affected-buyer identification",
+    "note": "VersionMap records order to purchased version at sale time, affected_by() names exactly which buyers a correction applies to, and correction_notice() prepares the communication without sending it",
     "section": "Adversarial commercial + policy audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Pattern Version Delivery System",
     "version": "v1.3.2"
   },
@@ -443,9 +443,9 @@
   {
     "body": "Continuously map dependencies: Etsy account, Railway, Postgres, model providers, GitHub, domain/email, payment rails, tester network and key traffic channels. Each critical dependency gets backup/export/recovery strategy proportional to business impact.",
     "id": 50,
-    "note": "BUILD_1_BASELINE.md maps dependencies by hand; not a live map",
+    "note": "ops/dependencies.py maps nine dependencies graded by what stops rather than by vendor, refuses one with no recovery strategy, probes configuration where it can and reports None where it cannot",
     "section": "Adversarial commercial + policy audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Single-Point Dependency Map",
     "version": "v1.3.2"
   },
@@ -2540,7 +2540,7 @@
   {
     "body": "Seasonal demand planning must work backward from when the CUSTOMER needs the finished object, not merely the holiday date. Estimate project make-time distribution by product/skill level, buyer planning/shopping lead time, tester/QA time, Etsy indexing/learning time, creative production time and advertising ramp. Complex products must launch substantially earlier than quick makes.",
     "id": 283,
-    "note": "seasonal/leadtime.py estimates customer make-time from the digital twin -- stitch count, colour changes counted in working order, and per-piece finishing -- never from a typed figure, and scales it by the skill level the pattern is written for. The backward chain carries buyer planning, marketplace indexing ramp, creative iteration, ad learning and tester/QA as named terms. calibrate_from_samples() converts tester-reported hours into a measured stitch rate; with no samples it says so rather than returning a number that looks measured.",
+    "note": "make-time is an interval (seasonal/uncertainty.py) rather than a point estimate; the spread is asymmetric, narrows only with recorded physical samples, and never collapses to a point",
     "section": "Proven-trend seasonal capture & lead-time engine",
     "status": "covered",
     "title": "Maker Lead-Time Is Mandatory",
@@ -2549,7 +2549,7 @@
   {
     "body": "For every event, compute: EVENT DATE minus customer completion buffer minus estimated make time minus purchase/planning buffer minus marketplace discovery/ramp buffer = target latest effective launch date. Also calculate preferred launch date with additional learning/optimization time. Recompute as observed buyer behavior improves estimates.",
     "id": 284,
-    "note": "compile_launch() computes latest effective launch = event - completion buffer - make days - planning buffer - marketplace ramp, and preferred launch = latest - creative iteration - ad learning. Assumptions.measured() is the only route from assumed to measured, so recomputing as buyer behaviour is observed cannot quietly relabel a guess. /api/seasonal runs it across every certified pattern.",
+    "note": "the backward chain now carries optimistic and pessimistic launch dates, and feasibility() grades a window as comfortable/tight/high-risk/infeasible with infeasible reserved for a passed optimistic bound",
     "section": "Proven-trend seasonal capture & lead-time engine",
     "status": "covered",
     "title": "Seasonal Launch-Date Compiler",

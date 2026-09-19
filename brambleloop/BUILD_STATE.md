@@ -25,15 +25,15 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 142 | satisfied, with a named test or artefact |
-| partial | 69 | something real exists and is short of the requirement |
+| covered | 147 | satisfied, with a named test or artefact |
+| partial | 64 | something real exists and is short of the requirement |
 | missing | 58 | nobody has built it |
 | owner_gated | 39 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 12 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **127 requirements are executable** (partial +
+as one nobody has written. **122 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed.
 
@@ -58,8 +58,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **885 tests passing, 0 failing** across
-51 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **916 tests passing, 0 failing** across
+54 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -162,6 +162,53 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Make-time became a distribution, and the claim it had produced was withdrawn (#283, #284,
+#36, #41, #42, #38, #50).**
+
+The owner's correction landed on a real defect, and one this build makes nowhere else. The
+lead-time chain is exact arithmetic over guesses — seven crochet hours a week, an assumed skill
+multiplier, no Brambleloop maker ever timed — and its single date was reported first as a fact
+and then as an impossibility covering a whole season. Unmeasured is not zero and absent is not
+inferred; a point estimate is not a proof of impossibility either.
+
+- **The interval is asymmetric and only samples narrow it.** Craft overruns: a project going
+  well finishes a little early, one going badly finishes very late. A symmetric band would be
+  a third wrong claim dressed as rigour. More planning does not narrow it — timing somebody
+  does — and even fully calibrated it stays an interval, because two makers differ.
+- **Infeasible now requires the optimistic bound to have passed.** Christmas 2026 at 97 days:
+  QUICK/SHORT comfortable, MEDIUM tight, **LONG high risk** (needs 95 days optimistically,
+  has 97), FLAGSHIP genuinely infeasible (needs 134, short by 37). So the correction is a
+  distinction rather than an excuse — one window really has shut and one has not.
+
+Then down the queue, which named the rest:
+
+- **A tester's photograph without recorded consent is refused (#36)** — the same act as using
+  a competitor's, arriving from the friendly direction, which is exactly why it gets a
+  mechanical check rather than good intentions. A physical photograph records its yarn,
+  because a buyer choosing a substitute is choosing against that picture.
+- **The digital-not-finished disclosure belongs in the title (#41).** A buyer who thinks they
+  are purchasing a blanket does not read the description, and that refund is the most
+  preventable one in the category. Confusion contacts are a listing defect, not a cost of
+  doing business — counting them as a cost budgets for them.
+- **The order-to-version map is written at sale time (#42),** because it cannot be
+  reconstructed: once the listing moves on, nobody knows who holds what. The one requirement
+  here impossible to retrofit, so it exists before the first order does.
+- **A trend datum with no population or window is refused; a foreign one is discounted (#38).**
+  Those are different answers to different problems. The discount is baked into the value the
+  consumer sees, because a caveat beside a figure is read once and the figure travels alone.
+  Staleness is measured against the topic's own seasonality — last January's Christmas figure
+  is one cycle old; last January's meme is archaeology.
+- **Dependency impact is graded by what stops, not by vendor (#50).** Postgres holds the
+  company's memory; GitHub holds a copy of code that is also on disk. A dependency with no
+  recovery strategy is refused at construction, because a hand-written map marks three things
+  critical and those are the three somebody was already worried about.
+
+One modelling fix in the executor: **executable and ready are two numbers, not one.** The old
+invariant held only while every gated requirement was also `owner_gated`, and broke the moment
+a requirement was half-built with its remainder behind a credential — the ordinary case. #303
+and #304 are now correctly parked while still counted as owed.
+
+## Previously in Build 2
 **Heartbeat 2026-09-19T08:14Z — the mission's capacity, its map and its memory (#302, #303,
 #316).**
 
@@ -354,18 +401,28 @@ milestones already past:
 
 Christmas 2026 by lane, as latest effective launch date:
 
-| lane | up to | latest launch | from today |
-|---|---:|---|---:|
-| QUICK | 6h | 2026-11-15 | +57 days |
-| SHORT | 20h | 2026-10-30 | +41 days |
-| MEDIUM | 45h | 2026-10-03 | **+14 days** |
-| LONG | 90h | 2026-08-12 | −38 days |
-| FLAGSHIP | 150h | 2026-06-06 | −105 days |
+| lane | up to | days needed (optimistic / typical / pessimistic) | verdict at 97 days |
+|---|---:|---|---|
+| QUICK | 6h | 37 / 40 / 47 | comfortable |
+| SHORT | 20h | 47 / 56 / 80 | comfortable |
+| MEDIUM | 45h | 63 / 83 / 137 | tight |
+| LONG | 90h | 95 / 135 / 243 | **high risk** |
+| FLAGSHIP | 150h | 134 / 202 / 382 | **infeasible** |
 
-**The prioritisation decision, made here rather than referred upward.** Christmas 2026 is a
-QUICK and SHORT season for this company; MEDIUM is available only for something that can be
-engineered inside the next two weeks, and LONG and FLAGSHIP Christmas work is arithmetically
-impossible — a customer could not finish it. Thanksgiving (CA) is gone. **Flagship effort
+The spread is wide because nothing has been calibrated: zero completed physical tests. Every
+recorded sample narrows it, and nothing else does — more planning does not narrow an interval,
+timing somebody does.
+
+**Corrected 2026-09-19: "arithmetically impossible" was wrong, and wrong in the way this
+build refuses everywhere else.** The arithmetic is exact; its inputs are guesses — an assumed
+seven crochet hours a week, an assumed skill multiplier, and no Brambleloop maker ever timed.
+Make-time is now an interval (`seasonal/uncertainty.py`), and *infeasible* requires the
+**optimistic** bound to have passed. Against that, Christmas 2026 at 97 days reads:
+QUICK and SHORT **comfortable**, MEDIUM **tight**, LONG **high risk** (needs 95 days
+optimistically, has 97), FLAGSHIP genuinely **infeasible** (needs 134, short by 37).
+
+So LONG Christmas work is attemptable and carries real risk, rather than being impossible.
+Thanksgiving (CA) is gone. **Flagship effort
 belongs to Mother's Day 2027** (233 days, every lane open, 2 milestones past) and to the
 four-season programs that do not wait for a date. That is what the concept queue should be
 pointed at, and it is a consequence of the calendar rather than a preference.

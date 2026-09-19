@@ -182,6 +182,31 @@ class LaunchPlan:
     preferred_launch: date
     work_must_start_by: date
     assumptions: Assumptions
+    # The interval, and the dates its bounds imply. `latest_effective_launch` remains the
+    # typical case; `latest_optimistic_launch` is the only one that may close a window.
+    make_time: object = None
+    effective_make_days_low: int = 0
+    effective_make_days_high: int = 0
+    latest_optimistic_launch: date | None = None
+    latest_pessimistic_launch: date | None = None
+
+    def feasibility(self, today: date) -> dict:
+        """How much runway there is, graded against the interval (#284 corrected).
+
+        The old `status()` answered from the point estimate alone, which is how a season got
+        reported as arithmetically impossible on the strength of an assumed seven crochet
+        hours a week.
+        """
+        from .uncertainty import feasibility as grade
+
+        fixed = (self.completion_buffer_days + self.planning_buffer_days
+                 + self.marketplace_ramp_days)
+        return grade(days_available=(self.event_date - today).days,
+                     days_needed_point=fixed + self.effective_make_days,
+                     days_needed_low=fixed + (self.effective_make_days_low
+                                              or self.effective_make_days),
+                     days_needed_high=fixed + (self.effective_make_days_high
+                                               or self.effective_make_days))
 
     def days_to_preferred(self, today: date) -> int:
         return (self.preferred_launch - today).days
@@ -237,6 +262,12 @@ class LaunchPlan:
                 "marketplace_ramp": self.marketplace_ramp_days,
             },
             "latest_effective_launch": self.latest_effective_launch.isoformat(),
+            "latest_optimistic_launch": (self.latest_optimistic_launch.isoformat()
+                                         if self.latest_optimistic_launch else None),
+            "latest_pessimistic_launch": (self.latest_pessimistic_launch.isoformat()
+                                          if self.latest_pessimistic_launch else None),
+            "make_time": (self.make_time.to_dict()
+                          if self.make_time is not None else None),
             "preferred_launch": self.preferred_launch.isoformat(),
             "work_must_start_by": self.work_must_start_by.isoformat(),
             "assumption_evidence": self.assumptions.evidence(),
@@ -260,17 +291,35 @@ def effective_make_days(make_hours: float, skill: str,
 
 def compile_launch(event: str, event_date: date, *, make_hours: float,
                    skill: str = "intermediate",
-                   assumptions: Assumptions = DEFAULT) -> LaunchPlan:
-    """The backward chain of #284, with every term named rather than folded into a constant."""
+                   assumptions: Assumptions = DEFAULT,
+                   samples: int = 0) -> LaunchPlan:
+    """The backward chain of #284, with every term named rather than folded into a constant.
+
+    `samples` is the count of completed physical tests, and it is what narrows the make-time
+    interval. With none -- the state this company is in -- the interval is wide and the
+    optimistic bound is the only thing that may establish infeasibility.
+    """
+    from .uncertainty import interval
+
     lane = classify(make_hours)
     make_days = effective_make_days(make_hours, skill, assumptions)
     planning = assumptions.planning_buffer_days[lane]
+
+    spread = interval(make_hours, samples=samples)
+    make_days_low = effective_make_days(spread.low_hours, skill, assumptions)
+    make_days_high = effective_make_days(spread.high_hours, skill, assumptions)
 
     latest = (event_date
               - timedelta(days=assumptions.completion_buffer_days)
               - timedelta(days=make_days)
               - timedelta(days=planning)
               - timedelta(days=assumptions.marketplace_ramp_days))
+    fixed_days = (assumptions.completion_buffer_days + planning
+                  + assumptions.marketplace_ramp_days)
+    # The optimistic bound is the latest a *fast* maker could still be served. It is the only
+    # date that may be used to call a window closed.
+    latest_optimistic = event_date - timedelta(days=fixed_days + make_days_low)
+    latest_pessimistic = event_date - timedelta(days=fixed_days + make_days_high)
     preferred = latest - timedelta(days=assumptions.creative_iteration_days
                                    + assumptions.ad_learning_days)
     # Ours: a tester has to crochet the sample before any of the above can happen.
@@ -279,6 +328,11 @@ def compile_launch(event: str, event_date: date, *, make_hours: float,
     return LaunchPlan(
         event=event, event_date=event_date, lane=lane, make_hours=make_hours, skill=skill,
         effective_make_days=make_days,
+        make_time=spread,
+        effective_make_days_low=make_days_low,
+        effective_make_days_high=make_days_high,
+        latest_optimistic_launch=latest_optimistic,
+        latest_pessimistic_launch=latest_pessimistic,
         completion_buffer_days=assumptions.completion_buffer_days,
         planning_buffer_days=planning,
         marketplace_ramp_days=assumptions.marketplace_ramp_days,

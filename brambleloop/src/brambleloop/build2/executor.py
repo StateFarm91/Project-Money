@@ -188,7 +188,7 @@ GATES: tuple[Gate, ...] = (
     Gate("benchmark_observation",
          "read-only Etsy API credentials for the MJs benchmark mission",
          lambda db, env: _env_gate("ETSY_API_KEY", "ETSY_SHARED_SECRET")(db, env),
-         (206, 301, 319),
+         (206, 301, 303, 319),
          "both Railway variables are set and non-empty"),
     Gate("model_provider", "a language and vision model API key",
          lambda db, env: _env_gate("ANTHROPIC_API_KEY")(db, env)
@@ -203,7 +203,7 @@ GATES: tuple[Gate, ...] = (
     Gate("browser_vision",
          "a cloud browser/vision worker pool for rendered-page and image evidence",
          _env_gate("BRAMBLELOOP_BROWSER_URL"),
-         (15, 67, 71, 76, 86, 116, 126, 189, 218, 221, 222, 277, 278, 281, 315, 320),
+         (15, 67, 71, 76, 86, 116, 126, 189, 218, 221, 222, 277, 278, 281, 304, 315, 320),
          "a browser worker endpoint is configured"),
     Gate("image_generation", "an image-generation capability for the canonical model pack",
          _env_gate("BRAMBLELOOP_IMAGE_KEY"),
@@ -420,6 +420,51 @@ def record(db, *, kind: str, summary: str, requirement_id: int | None = None,
 
 # ---------------------------------------------------------------------------
 # The queue
+
+
+def reconciliation(db) -> dict:
+    """The invariant tying the registry to the queue, stated as what is actually true.
+
+    `executable` (partial or missing) means this build still owes the requirement.
+    `ready` means nothing is stopping it right now. Those were the same number while every
+    gated requirement was also `owner_gated` -- and they stopped being the same the moment a
+    requirement was half-built with its remainder behind a credential, which is the ordinary
+    case rather than the exception. Asserting equality would have forced a choice between
+    two lies: calling a half-built requirement owner-gated, or calling gated work ready.
+
+    So: every executable requirement is either ready or parked, nothing owner-gated is ever
+    ready, and the parked ones name their gate.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BuildTask
+
+    with db.session() as s:
+        tasks = [(t.requirement_id, t.status, t.state, t.parked_on)
+                 for t in s.scalars(select(BuildTask))]
+
+    executable = {r.id for r in reg.executable()}
+    ready = {rid for rid, _, state, _ in tasks if state == READY}
+    parked = {rid: gate for rid, _, state, gate in tasks if state == PARKED}
+    blocked = {rid for rid, _, state, _ in tasks if state == BLOCKED}
+
+    owner_gated_ready = sorted(
+        rid for rid in ready
+        if reg.get(rid).status == reg.OWNER_GATED)
+    unaccounted = sorted(executable - ready - set(parked) - blocked)
+
+    return {
+        "executable": len(executable),
+        "ready": len(ready),
+        "executable_parked": sorted(executable & set(parked)),
+        "blocked": len(blocked),
+        "balances": not unaccounted and not owner_gated_ready,
+        "unaccounted": unaccounted,
+        "owner_gated_but_ready": owner_gated_ready,
+        "note": ("Executable means this build owes it; ready means nothing is stopping it "
+                 "now. A half-built requirement whose remainder waits on a credential is "
+                 "both owed and parked, which is why these are two numbers rather than one."),
+    }
 
 
 def queue(db, *, limit: int = 25) -> dict:
