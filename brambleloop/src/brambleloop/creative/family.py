@@ -114,6 +114,22 @@ FORM_CONSTRUCTIONS: dict[str, frozenset[str]] = {
                                  "cable_panel", "modular_panels"}),
     "draped_garment": frozenset({"flat_rows", "side_to_side", "motif_join", "granny_square",
                                  "modular_panels", "corner_to_corner", "cable_panel"}),
+    # Added 2026-09-19. These six were absent from the map entirely, and an absent form has
+    # no buildable construction -- so the pairing rules above silently refused to build a
+    # Christmas stocking, which is a pod the benchmark carries thirteen listings in and the
+    # owner names as a top commercial priority. A form missing from this table is not
+    # "unconstrained", it is unbuildable, and nothing said so.
+    "stocking": frozenset({"in_the_round", "seamless_tube", "flat_rows", "tapestry",
+                           "mosaic_overlay", "cable_panel", "granny_square", "motif_join"}),
+    "rectangle_throw": frozenset({"flat_rows", "corner_to_corner", "granny_square",
+                                  "motif_join", "modular_panels", "mosaic_overlay",
+                                  "tapestry", "cable_panel", "side_to_side"}),
+    "flat_panel": frozenset({"flat_rows", "corner_to_corner", "granny_square", "motif_join",
+                             "mosaic_overlay", "tapestry", "cable_panel", "side_to_side"}),
+    "round_disc": frozenset({"in_the_round", "flat_rows", "tapestry", "granny_square"}),
+    "tube": frozenset({"seamless_tube", "in_the_round", "flat_rows", "cable_panel",
+                       "tapestry", "mosaic_overlay"}),
+    "cone": frozenset({"in_the_round", "amigurumi_shaping", "seamless_tube"}),
 }
 
 

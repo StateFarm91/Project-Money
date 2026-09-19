@@ -106,6 +106,14 @@ TASKS: dict[str, Task] = {
     "creative_evaluation": Task(
         "creative_evaluation", DEEP, 2000, 4000, False,
         "is this concept commercially desirable and distinctive, or merely correct (#218)"),
+    # Discovery into a proven arena. Deep tier on purpose: this is the call that decides
+    # what the company tries to sell, and the owner's standing instruction is not to quietly
+    # trade creative quality for trivial savings. Batched -- one call proposes a whole field,
+    # which is both cheaper per concept and produces internal variety, because a model asked
+    # for five different things at once cannot answer with the same thing five times.
+    "concept_generation": Task(
+        "concept_generation", DEEP, 2000, 1600, False,
+        "propose a field of concepts for one form in one proven arena (#104, #106-#115)"),
     "benchmark_challenge": Task(
         "benchmark_challenge", DEEP, 2500, 6000, False,
         "blinded comparison against category-matched benchmark evidence (#315) — "

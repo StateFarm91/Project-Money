@@ -135,3 +135,39 @@ BLINDED_APPEAL = register(Prompt(
               "JSON: {{\"pick\": \"A\" or \"B\", \"reason\": \"...\"}}"),
     output_schema=("pick", "reason"),
     max_output_tokens=200))
+
+
+# Concept discovery into a proven arena (#104). The system prompt carries the refusals rather
+# than hoping for them: every field below is a closed vocabulary validated on return, so a
+# model that invents a value produces a structural rejection instead of a plausible-looking
+# concept nothing downstream can check.
+CONCEPT_FIELD = register(Prompt(
+    name="creative.concept_field", version="1",
+    system=("You invent crochet product concepts for a premium pattern studio. You are given "
+            "one product form, one occasion, one recipient lane and a market that is known to "
+            "buy in this department. Propose genuinely different products, not one product "
+            "with different colours: if two of your concepts would photograph alike, replace "
+            "one. Each concept states what the object IS, what it DOES for its owner, and the "
+            "physical thing that delivers its feeling -- a structure, a texture, a shape or a "
+            "colour relationship -- never a sentence about how lovely it is. Say what the "
+            "object is and never how to make it: no numbers of any kind, no instructions, no "
+            "materials quantities, no tension figures. Those are produced by a compiler and "
+            "anything you say about them is discarded. Never "
+            "describe or reproduce another seller's product. Use only the listed vocabulary "
+            "values. Reply with JSON only."),
+    template=("Form: {form}\nOccasion: {occasion}\nRecipient lane: {make_lane}\n"
+              "Market evidence: {evidence}\n"
+              "Allowed construction values: {constructions}\n"
+              "Allowed feeling values: {feelings}\n"
+              "Allowed recipient values: {recipients}\n"
+              "Allowed occasion values: {occasions}\n"
+              "Invention brief: {brief}\n\n"
+              "Propose {count} concepts. JSON: {{\"concepts\": [{{"
+              "\"title\": \"...\", \"premise\": \"one sentence, at least twelve words, "
+              "describing the object so a buyer could picture it\", "
+              "\"construction\": \"...\", \"motif\": \"...\", \"palette_story\": \"...\", "
+              "\"recipient\": \"...\", \"occasion\": \"...\", \"feeling\": \"...\", "
+              "\"function\": \"what it does for the person who owns it\", "
+              "\"wow\": \"the physical mechanism that makes it worth looking at twice\"}}]}}"),
+    output_schema=("concepts",),
+    max_output_tokens=2000))
