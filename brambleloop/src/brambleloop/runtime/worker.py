@@ -203,6 +203,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # was ours yesterday can be the owner's today, and the owner queue should say so without
     # anyone asking.
     ("launch_readiness", "orchestrator", "launch.readiness", 24 * 60 * 60),
+    # Six-hourly. The model gate reads a recorded successful call rather than a configured
+    # key, because the key this company has authenticates against an account with no credit.
+    # This is what makes the gate open by itself the moment that changes, and it is cheap:
+    # eight tokens on the smallest model, refused entirely if the month's ceiling is close.
+    ("model_probe", "orchestrator", "model.probe", 6 * 60 * 60),
     # Requirement 51. Daily, and it proves the restore rather than only writing the export --
     # a backup nobody has restored is a hope, not a continuity plan.
     ("continuity_proof", "orchestrator", "ops.continuity", 24 * 60 * 60),

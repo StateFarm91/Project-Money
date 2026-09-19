@@ -720,6 +720,27 @@ def handle_physical_record(ctx: JobContext) -> dict:
 
 
 
+@handlers.register("model.probe")
+def handle_model_probe(ctx: JobContext) -> dict:
+    """Ask the model provider whether it can actually serve a request, and record the answer.
+
+    A key is not a capability. The key the owner supplied on 2026-09-19 authenticates and the
+    account behind it cannot serve a request, so the build executor's model gate reads this
+    probe rather than an environment variable -- and when credits arrive, the next run of this
+    cadence opens the gate with nobody having to remember.
+
+    The probe is the smallest call the API accepts, on the cheapest model, checked against the
+    monthly ceiling first like every other call. GREEN by the authority matrix: no
+    publication, no customer contact, and spend bounded before the request is made.
+    """
+    from ..gateway import anthropic
+
+    record = anthropic.probe(ctx.db)
+    ctx.audit("model.probe.ok" if record["ok"] else "model.probe.unavailable",
+              detail={k: v for k, v in record.items() if k != "key"})
+    return record
+
+
 @handlers.register("ops.continuity")
 def handle_continuity(ctx: JobContext) -> dict:
     """Export the database portably and prove the export can be restored.

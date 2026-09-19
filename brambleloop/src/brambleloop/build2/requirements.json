@@ -146,16 +146,16 @@
  {
   "body": "Before scaling ads, complete the shop: premium icon/banner, About, policies, sections, coherent thumbnails, clear digital-download expectations, truthful product information and rapid support. Accumulate legitimate tester/customer proof. Never manufacture reviews.",
   "id": 17,
-  "note": "brand/storefront exists and passes its checks; no trust-accelerator sequencing before scaling",
+  "note": "commerce/trust.py is the sequence as a gate rather than a checklist: six rungs, each reporting passed, failed or unmeasured, and unmeasured is never counted as passed -- a rung nobody has looked at and a rung this shop has cleared are opposite situations. Proof is counted from rows (passed PhysicalTest, sale LedgerEntry) and record_proof() refuses anything without a row behind it, which is the standing rule against manufactured reviews in mechanical form. may_scale_ads() returns rather than raises, because the answer is no for months and a refusal that reads as an error trains a reader to route around it. /api/trust.",
   "section": "Core commercial upgrades",
-  "status": "partial",
+  "status": "covered",
   "title": "New-Shop Trust Accelerator",
   "version": "v1.3"
  },
  {
   "body": "Target response in minutes when automation can safely answer from canonical data. Pattern Help must know the exact purchased version. Measure whether fast support reduces refunds and improves genuine reviews/repeat purchase. Escalate uncertainty instead of hallucinating.",
   "id": 18,
-  "note": "support/concierge.py answers from the exact released version; no response-time targets or refund-impact measurement",
+  "note": "support/service.py sets separate targets for a canonical answer (5 minutes) and an escalation (24 hours) and never averages them together, because one number lets a fast automated majority bury the slow escalated minority where the unhappy buyers are; meets_target takes the minimum. An untimed case is counted as untimed rather than dropped, since dropping it measures the cases somebody remembered to time, and a response time cannot be revised. Timings live in the case's existing detail column because the deployed database was created with create_all, which adds tables and not columns. Pattern Help already answers from the exact purchased version (concierge). Remaining and data-gated: whether fast support reduces refunds and improves reviews, which needs orders -- reported unmeasurable with the reason rather than as zero. /api/trust.",
   "section": "Core commercial upgrades",
   "status": "partial",
   "title": "Customer-Service Conversion Advantage",

@@ -197,6 +197,36 @@ PHYSICAL_SAMPLE = OwnerRequest(
     blocks="calibrated yardage claims and any fitted garment",
 )
 
+
+def _model_state(db) -> dict:
+    """What the model provider's situation is, without importing it at module load."""
+    from ..gateway.anthropic import last_probe
+
+    probe = last_probe(db) or {}
+    return {"usable": bool(probe.get("ok")),
+            "last_probe_at": probe.get("at"),
+            "last_probe_reason": (probe.get("reason") or "")[:200],
+            "probed": bool(probe)}
+
+MODEL_CREDITS = OwnerRequest(
+    key="model_credits",
+    action=("Add credit to the Anthropic account the API key belongs to. The console's "
+            "smallest top-up is enough to start; the build's own ceiling is CA$25 a month "
+            "and is enforced in code, so a larger balance cannot be spent faster than that."),
+    reason=("The key you supplied authenticates. The first request it made returned, "
+            "verbatim, 'Your credit balance is too low to access the Anthropic API', so the "
+            "account cannot serve a request. Nothing in the build treats the provider as "
+            "available until a real call succeeds, which means four requirements stay parked "
+            "and no model work starts -- correctly, but they are parked on this."),
+    max_cost_cad=25.0,
+    minutes=3,
+    consequence_of_delay=("The creativity capability scorecard's blinded comparison (#94), "
+                          "the creative north star's desirability judgement (#104) and the "
+                          "two model-routing requirements (#177, #178) stay parked. The rest "
+                          "of Build 2 continues unaffected."),
+    blocks="every requirement that needs a model to make a judgement",
+)
+
 BENCHMARK_PURCHASES = OwnerRequest(
     key="benchmark_challenge",
     action=("Buy about ten representative competitor patterns across the pods we intend to "
@@ -408,6 +438,18 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         evidence={"listings": len(listings),
                   "estimate_cad": round(len(listings) * LISTING_FEE_CAD, 2)},
         owner_request=listing_fees_request(len(listings))))
+
+    model_state = _model_state(db)
+    out.append(Requirement(
+        key="model_credits",
+        description="the model provider can actually serve a request, proved by one",
+        ready=bool(model_state["usable"]),
+        blocked_by=None if model_state["usable"] else BLOCKED_OWNER,
+        # A key is not a capability. This evidence is the provider's own words about why,
+        # because "unavailable" covers both "no key" and "no credit" and those are different
+        # things for the owner to act on.
+        evidence=model_state,
+        owner_request=None if model_state["usable"] else MODEL_CREDITS))
 
     out.append(Requirement(
         key="physical_calibration",

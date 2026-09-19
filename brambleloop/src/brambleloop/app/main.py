@@ -783,6 +783,37 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/model")
+def api_model() -> dict:
+    """Whether a model provider can actually serve a request, and what has been spent.
+
+    A key is not a capability: this reports the last real call rather than whether a variable
+    is set, and it never reports the key itself.
+    """
+    from ..gateway import anthropic
+
+    return anthropic.state(db)
+
+
+@app.get("/api/trust")
+def api_trust() -> dict:
+    """What has to be true before this shop buys traffic, and how fast it answers.
+
+    Every rung reports passed, failed or unmeasured, and unmeasured is not passed: a rung
+    nobody has looked at and a rung this shop has cleared are opposite situations.
+    """
+    from ..commerce import trust
+    from ..support import service
+
+    return {
+        "accelerator": trust.may_scale_ads(db),
+        "service_level": service.service_level(db),
+        "refund_impact": service.refund_impact(db),
+        "proof_floor": trust.PROOF_FLOOR,
+        "targets": service.TARGETS,
+    }
+
+
 @app.get("/api/takeovers")
 def api_takeovers() -> dict:
     """When each storefront surface turns over for each upcoming event, and what is late.

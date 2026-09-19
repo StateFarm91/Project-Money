@@ -151,6 +151,21 @@ def _benchmarks_purchased(db, env) -> bool:
         return bool(s.scalar(select(func.count()).select_from(BenchmarkProduct)))
 
 
+def _model_usable(db, env) -> bool:
+    """A key is not a capability.
+
+    The owner supplied an Anthropic key on 2026-09-19 and the first call it made returned
+    "Your credit balance is too low to access the Anthropic API." The key authenticates; the
+    account cannot serve a request. An environment-variable check would have opened this gate
+    and un-parked four requirements onto work that cannot run, which is the queue advertising
+    work nobody can start -- the exact failure this module exists to prevent. So the
+    condition is a recorded successful call, and it opens by itself when one happens.
+    """
+    from ..gateway.anthropic import usable
+
+    return usable(db)
+
+
 def _ads_authorised(db, env) -> bool:
     """Advertising authority is a spend limit the owner set, not a sentence in a chat."""
     from sqlalchemy import select
@@ -190,12 +205,10 @@ GATES: tuple[Gate, ...] = (
          lambda db, env: _env_gate("ETSY_API_KEY", "ETSY_SHARED_SECRET")(db, env),
          (206, 299, 301, 303, 319),
          "both Railway variables are set and non-empty"),
-    Gate("model_provider", "a language and vision model API key",
-         lambda db, env: _env_gate("ANTHROPIC_API_KEY")(db, env)
-         or _env_gate("OPENAI_API_KEY")(db, env)
-         or _env_gate("BRAMBLELOOP_MODEL_KEY")(db, env),
+    Gate("model_provider", "a model provider that can actually serve a request",
+         _model_usable,
          (94, 104, 177, 178),
-         "any recognised provider key is set"),
+         "a recorded model.probe succeeded -- a real call, not a variable being set"),
     Gate("etsy_shop", "a live Etsy shop, which only the account holder can open",
          _env_gate("ETSY_SHOP_ID"),
          (1, 37, 235, 236),
