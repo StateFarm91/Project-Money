@@ -735,7 +735,8 @@ def api_mjs_scan() -> dict:
         job = JobQueue(db).enqueue("market_radar", "mjs.scan", {}, idempotency_key=key)
     except DuplicateJob:
         return {"enqueued": False, "reason": "a benchmark scan was already queued this minute"}
-    return {"enqueued": True, "job_id": job.id}
+    return {"enqueued": True, "job_id": job.id,
+            "note": "the result appears at GET /api/mjs once the worker runs it"}
 
 
 @app.get("/api/creative")
@@ -850,22 +851,6 @@ def api_league() -> dict:
         "note": ("A challenger that brings its own tasks wins every time, so the task set is "
                  "shared and fixed. Cost and reliability are outcomes, not footnotes (#95)."),
     }
-
-
-@app.post("/api/mjs/scan")
-def api_mjs_scan() -> dict:
-    """Run the benchmark mission now rather than at the next six-hourly window.
-
-    Read-only and public: it observes the named shop's own catalogue through the sanctioned
-    API and writes nothing to Etsy.
-    """
-    key = f"mjs.scan:{utcnow():%Y%m%dT%H%M}"
-    try:
-        job = JobQueue(db).enqueue("market_radar", "mjs.scan", {}, idempotency_key=key)
-    except DuplicateJob:
-        return {"enqueued": False, "reason": "a scan was already queued this minute"}
-    return {"enqueued": True, "job_id": job.id,
-            "note": "the result appears at GET /api/mjs once the worker runs it"}
 
 
 @app.get("/api/etsy")

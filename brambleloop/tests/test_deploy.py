@@ -705,6 +705,27 @@ def test_one_unhappy_subsystem_does_not_take_the_whole_dashboard_down():
         main.JobQueue = original
 
 
+def test_no_route_is_registered_twice():
+    """A second definition of the same path is dead code that reads as live code.
+
+    FastAPI serves the first match, so `POST /api/mjs/scan` had a second handler that could
+    never run. Both bodies happened to agree, which is the dangerous version: the module
+    name `api_mjs_scan` referred to the unreachable one, so anybody editing it would have
+    changed nothing and had no way to tell.
+    """
+    from brambleloop.app import main
+
+    seen: dict[tuple[str, str], int] = {}
+    for route in main.app.routes:
+        for method in getattr(route, "methods", None) or ():
+            if method in ("HEAD", "OPTIONS"):
+                continue
+            key = (method, route.path)
+            seen[key] = seen.get(key, 0) + 1
+    duplicates = sorted(f"{m} {p}" for (m, p), n in seen.items() if n > 1)
+    assert not duplicates, f"registered more than once: {duplicates}"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

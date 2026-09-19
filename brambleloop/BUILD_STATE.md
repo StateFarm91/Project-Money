@@ -205,6 +205,68 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The 58 unrouted benchmark listings, and the six routing defects reading them exposed
+(#303, #207, #210, #312).**
+
+The first full observation of the MJs catalogue put 58 of 438 listings — 13% — into
+`unclassified`. That number was in the dashboard and was not actionable: it said one listing
+in eight reached no specialist and gave nobody the evidence to fix it. `market_map.gaps()`
+and `GET /api/mjs/coverage` now name them, with the terms recurring across them, because the
+pod vocabulary may only grow from observed titles. Widening it from imagination produces pods
+that match nothing and a router that drops the same listings while looking broader.
+
+Reading the 58 found **three defects in the router and three more in the fixes for them**,
+and every one needed a real Etsy title to appear at all:
+
+1. **Substring matching, failing in both directions.** `"slippers" in title` missed "Crochet
+   Slipper Boot Pattern"; `"vest"` is inside `"harvest"`, so "Hello Harvest Chunky Throw
+   Blanket" and "Harvest Twist Ear Warmer" were both filed as garments. A missed listing is
+   visible in the unclassified count. A wrongly-routed one is invisible forever.
+2. **A vocabulary narrower than the catalogue it watches.** Four departments had no
+   specialist: kitchen and bath textiles, amigurumi and soft sculpture, multi-pattern ebooks
+   and guidebooks.
+3. **Stored routing that never updates.** The scanner routes on discovery and short-circuits
+   on an unchanged fingerprint, so a widened vocabulary would have reached only listings MJs
+   later edits. Both fixes above would have looked like they worked and changed nothing.
+4. **A motif taken for a form.** Adding "pumpkin" sent "Hello Pumpkin Mosaic Cardigan" and
+   "Pumpkin Pillow Crochet Pattern" to the specialist in stuffing firmness — the same
+   invisible misrouting, reintroduced by its own fix.
+5. **HTML entities.** Etsy returns titles escaped; "Men&#39;s Cardigan Pattern" tokenised to
+   `men 39 s cardigan pattern`, and the bundle rule read thirty-nine patterns. Seventeen
+   cardigans and four blankets had moved pods on a possessive apostrophe.
+6. **A stemmer that cost a pod its own keyword.** Stripping "es" after s/x/z/h turns "boxes"
+   into "box" and "purses" into "purs" — the bags pod would have stopped matching `purse`.
+
+The rules that came out of it: match on words, not substrings; **form beats motif**, always;
+**the earliest match wins**, because a title that names two products names the one it is
+selling first; a stitch name and a character name are not products.
+
+**Verified in production.** 438 listings, **unclassified 2**, stored routing drift **0** after
+the scan reconciled it. The two that remain name no product at all ("Dusty Rose Baby Set"),
+and guessing is the worse answer. Twelve pods now carry the catalogue:
+
+| pod | listings | | pod | listings |
+|---|---|---|---|---|
+| garments | 140 | | bags | 17 |
+| blankets | 85 | | kitchen_bath | 14 |
+| hats | 85 | | ornaments | 13 |
+| collections | 29 | | home_decor | 11 |
+| amigurumi | 20 | | stockings / seasonal_gift | 10 / 10 |
+| | | | education / unclassified | 2 / 2 |
+
+**Two merchandising mechanisms this company does not have, now counted rather than sensed.**
+MJs sells 29 multi-pattern collections and 2 standalone guidebooks. Collections are a pod
+rather than a keyword because a six-pattern ebook is a bundle first: routing it to whichever
+product its title mentions first hides the mechanism.
+
+Also fixed: `POST /api/mjs/scan` was defined twice. FastAPI serves the first match, so the
+second handler could never run — and both bodies agreed, which is the dangerous version,
+because the module name `api_mjs_scan` referred to the unreachable one. A test now asserts no
+method and path pair is registered twice.
+
+28 new regression tests, each built from an observed title. Suite **1268 passing, 0 failing**.
+
+## Previously — last completed milestone
 **The Etsy credential was verified by using it, and the benchmark mission ran for the first
 time (#206, #301, #303, #319, #2).**
 
