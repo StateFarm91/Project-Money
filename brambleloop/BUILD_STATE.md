@@ -25,11 +25,11 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 170 | satisfied, with a named test or artefact |
+| covered | 171 | satisfied, with a named test or artefact |
 | partial | 46 | something real exists and is short of the requirement |
 | missing | 48 | nobody has built it |
-| owner_gated | 42 | waits on an owner decision, credential or legal acceptance |
-| data_gated | 14 | waits on market evidence that does not exist yet in shadow mode |
+| owner_gated | 40 | waits on an owner decision, credential or legal acceptance |
+| data_gated | 15 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
@@ -101,8 +101,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **1,217 tests passing, 0 failing** across
-77 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **1,236 tests passing, 0 failing** across
+80 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -230,6 +230,33 @@ looks exactly like a working one to anything checking whether two variables are 
 listings and ten galleries audited in depth. `observation_state: observing`, and the mission's
 own honest statement is now *"coverage above is measured, not assumed"* rather than a
 description of what it would do with a credential.
+
+**The coverage matrix now has both halves (#299), and it reads as a plan.** 27 department
+and event pairs where the benchmark was observed selling and this catalogue has no answer,
+ordered by how deep they are and how soon the occasion is. The top of that list:
+
+| event | department | benchmark listings | days away |
+|---|---|---|---|
+| Christmas | garments | 141 | 97 |
+| Thanksgiving (CA) | blankets | 88 | 23 |
+| Christmas | blankets | 88 | 97 |
+| Halloween | hats | 82 | 42 |
+| Christmas | hats | 82 | 97 |
+
+The discipline that makes the matrix worth having: a department is *proven and unserved* only
+when somebody actually looked. An unobserved market and a market with nothing in it render
+identically — both as an empty cell — and the empty cell is the one somebody points at in a
+planning meeting.
+
+**Two defects found by production disagreeing with itself.** `/api/mjs` reported 438 listings
+known while the new matrix reported zero observed, reading the same table. The scanner writes
+`benchmark_key` `mjs_off_the_hook_designs`; the living market map and the new matrix both
+defaulted to `"mjs"`. A wrong key does not raise — it returns an empty result indistinguishable
+from the truth — so **the market map had been reporting "no benchmark listing has been
+observed" from the moment the first scan succeeded**. The existing test wrote its fixtures
+under the same wrong literal, which is why a closely covered module carried the defect: the
+test and the code shared one assumption. Both readers now default from the scanner's own
+constant, and the regression test asserts no reader carries a literal key of its own.
 
 **The first competitive weakness this company has measured rather than assumed:** 413 of 438
 observed listings carry fewer than five images. #2's weakness hunt reported `measurable:
