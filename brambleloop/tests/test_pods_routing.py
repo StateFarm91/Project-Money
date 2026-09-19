@@ -282,6 +282,89 @@ def test_a_scan_that_reads_nothing_new_still_keeps_the_catalogue_on_the_vocabula
     assert observe.reclassify(db)["by_move"] == {"home_decor -> kitchen_bath": 1}
 
 
+# ---- the gallery backlog (#303) --------------------------------------------
+
+
+class _Reader:
+    """A benchmark shop that never changes, which is the case the deep audit forgot."""
+
+    def __init__(self, listings: int):
+        self.listings = listings
+        self.image_calls: list[str] = []
+
+    def resolve_shop(self, name):
+        return {"shop_id": 1, "shop_name": name}
+
+    def catalogue(self, shop_id, **kw):
+        return [{"listing_id": 1000 + i, "title": f"Crochet Blanket {i}",
+                 "taxonomy_id": 6343, "price": {"amount": 1000, "divisor": 100},
+                 "tags": [], "materials": []} for i in range(self.listings)]
+
+    def images(self, ref):
+        self.image_calls.append(str(ref))
+        return [{"rank": 1, "hex_code": "AABBCC", "hue": 200, "saturation": 30,
+                 "brightness": 70, "url_fullxfull": "https://example/1.jpg"}]
+
+    def videos(self, ref):
+        return []
+
+
+def _audited(db) -> int:
+    from sqlalchemy import select
+    with db.session() as s:
+        return sum(1 for r in s.scalars(select(BenchmarkListing))
+                   if (r.detail or {}).get("gallery_audited"))
+
+
+def test_an_unchanged_catalogue_still_closes_its_gallery_backlog():
+    """A gallery is read when a listing moves, so a shop that stops posting stops the audit.
+
+    That left 413 of 438 live galleries unread with no path to ever reading them, and palette
+    absent on 94% of the map for want of a call nobody was going to make.
+    """
+    db = _db()
+    observe.scan(db, reader=_Reader(100), deep_audit_limit=25, backfill_limit=40)
+    first = _audited(db)
+    assert first == 65, first
+    second = observe.scan(db, reader=_Reader(100), deep_audit_limit=25, backfill_limit=40)
+    assert len(second.backfilled) == 35
+    assert _audited(db) == 100
+
+
+def test_the_backfill_stops_when_there_is_nothing_left_to_read():
+    """A backfill that keeps paying for galleries it has already read is a rate-limit bill."""
+    db = _db()
+    for _ in range(3):
+        observe.scan(db, reader=_Reader(100), deep_audit_limit=25, backfill_limit=40)
+    final = _Reader(100)
+    result = observe.scan(db, reader=final, deep_audit_limit=25, backfill_limit=40)
+    assert result.backfilled == []
+    assert final.image_calls == []
+
+
+def test_a_changed_listing_is_never_starved_by_the_backlog():
+    """The backlog is patient; a listing the shop just edited is not."""
+    db = _db()
+    observe.scan(db, reader=_Reader(100), deep_audit_limit=25, backfill_limit=40)
+    reader = _Reader(100)
+    reader.catalogue = lambda shop_id, **kw: [  # noqa: ARG005
+        {"listing_id": 1000, "title": "Crochet Blanket 0 RENAMED", "taxonomy_id": 6343,
+         "price": {"amount": 9999, "divisor": 100}, "tags": [], "materials": []}
+    ] + _Reader(100).catalogue(shop_id)[1:]
+    result = observe.scan(db, reader=reader, deep_audit_limit=25, backfill_limit=40)
+    assert "1000" in result.deep_audited
+
+
+def test_the_map_reads_the_palette_the_audit_already_stored():
+    """It was being written on every deep audit and never read back, so it read as absent."""
+    db = _db()
+    observe.scan(db, reader=_Reader(3), deep_audit_limit=25, backfill_limit=40)
+    report = market_map.build(db)
+    assert report["listings"] == 3
+    assert all("palette" in row["attributes"] for row in report["rows"]), report["rows"][0]
+    assert market_map.gaps(db)["attributes"]["palette"]["absent_on"] == 0
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

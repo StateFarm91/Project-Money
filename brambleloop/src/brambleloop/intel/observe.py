@@ -48,6 +48,8 @@ class ScanResult:
     unchanged: int = 0
     withdrawn: list[str] = field(default_factory=list)
     deep_audited: list[str] = field(default_factory=list)
+    # Galleries read to close the backlog rather than because the listing moved.
+    backfilled: list[str] = field(default_factory=list)
     images_inspected: int = 0
     pods_notified: set = field(default_factory=set)
     gaps_opened: list[str] = field(default_factory=list)
@@ -65,6 +67,7 @@ class ScanResult:
                 "listings_inspected": len(self.deep_audited),
                 "unchanged_skipped": self.unchanged,
                 "withdrawn_since_last_scan": len(self.withdrawn),
+                "galleries_backfilled": len(self.backfilled),
             },
             "changes": ([{"listing_ref": ref, "what": "new listing"}
                          for ref in self.new_listings]
@@ -102,6 +105,7 @@ def fingerprint_of(listing: dict) -> str:
 
 def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
          shop_name: str = benchmarks.MJS_SHOP, deep_audit_limit: int = 25,
+         backfill_limit: int = 40,
          env: dict[str, str] | None = None) -> ScanResult:
     """One pass over the benchmark catalogue. Cheap unless something moved."""
     from sqlalchemy import select
@@ -164,8 +168,35 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                           "when_made": listing.get("when_made")}
             result.pods_notified.add(pod)
 
-    # -- the deep audit, only for what moved (#208, #212) -------------------
-    for listing in to_audit[:deep_audit_limit]:
+    # -- the deep audit: what moved first, then the backlog (#208, #212, #303) ----
+    #
+    # The limit here was a first-scan safeguard and had quietly become a permanent ceiling.
+    # A gallery is read when a listing is new or changed, so once the baseline is in, nothing
+    # is new, `to_audit` is empty and the deep audit does nothing at all -- which left 413 of
+    # 438 galleries unread with no path to ever reading them, and palette permanently absent
+    # on 94% of the map. The backfill is the path: changed listings keep their priority, and
+    # whatever the shop did not change this cycle is spent on the oldest unread gallery.
+    #
+    # Cost: at most `deep_audit_limit + backfill_limit` calls per scan, four scans a day,
+    # against Etsy's published 5,000 a day. The backlog closes in under a week.
+    backfilled: list[str] = []
+    if len(to_audit) < deep_audit_limit + backfill_limit:
+        audited_refs = {str(x.get("listing_id")) for x in to_audit}
+        with db.session() as s:
+            pending = [r.listing_ref for r in s.scalars(
+                select(BenchmarkListing).where(
+                    BenchmarkListing.benchmark_key == benchmark_key).order_by(
+                        BenchmarkListing.listing_ref))
+                if not (r.detail or {}).get("gallery_audited")
+                and r.listing_ref not in audited_refs]
+        by_ref = {str(x.get("listing_id")): x for x in listings}
+        for ref in pending[:backfill_limit]:
+            if ref in by_ref:
+                to_audit.append(by_ref[ref])
+                backfilled.append(ref)
+    result.backfilled = backfilled
+
+    for listing in to_audit[:deep_audit_limit + backfill_limit]:
         ref = str(listing.get("listing_id"))
         try:
             images = reader.images(ref)

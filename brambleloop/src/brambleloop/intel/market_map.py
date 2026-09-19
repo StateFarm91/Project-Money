@@ -171,6 +171,11 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool = Fals
             "listing_ref": r.listing_ref, "title": r.title, "product_type": r.product_type,
             "price_cad": r.price_cad, "on_sale": r.on_sale, "media_count": r.media_count,
             "seasonal": r.seasonal, "fingerprint": r.fingerprint, "pod": r.pod,
+            # Read from the row rather than left out of it. The deep audit has been storing
+            # Etsy's per-image colour since the first scan, and the map never looked -- so
+            # every audited listing reported its palette absent and the map understated its
+            # own completeness. An attribute nobody reads is an attribute nobody collects.
+            "palette": (r.detail or {}).get("palette"),
             "observed_on": _aware(r.last_seen).isoformat()
             if getattr(r, "last_seen", None) else "",
         } for r in s.scalars(select(BenchmarkListing).where(
@@ -321,6 +326,8 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200,
         "attributes": {
             "palette": {
                 "absent_on": len(missing_palette),
+                "closing_at": ("up to 40 galleries a scan, four scans a day, until the "
+                               "backlog is empty"),
                 "share": round(len(missing_palette) / len(observed), 3) if observed else 0.0,
                 "capability": "a gallery read on the existing read-only credential",
                 "note": ("Etsy publishes per-image hex, hue, saturation and brightness, so "
