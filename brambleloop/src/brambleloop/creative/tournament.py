@@ -184,6 +184,11 @@ def scorecard(results: list[Result]) -> dict:
                     if trend(rates) == "improving" and trend(spreads) == "declining" else ""),
         "north_star": ("Later concepts should be more desirable, distinctive and "
                        "commercially informed than earlier ones (#104). Distinctiveness is "
-                       "measured here; desirability needs judgement nobody can currently "
-                       "make; commercial information needs the benchmark scan."),
+                       "measured here. Desirability is measurable from 2026-09-19: "
+                       "creative/blinded.py runs same-pod blinded head-to-heads against the "
+                       "observed human catalogue, and reports `unmeasured` rather than a "
+                       "win rate until enough pairs are judged without position bias."),
+        "blinded_comparison": ("creative.blinded.run -- the agent side of #94's human/agent "
+                               "comparison. Not run from here: it costs model calls against "
+                               "the monthly ceiling, so it is invoked deliberately"),
     }

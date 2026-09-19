@@ -458,6 +458,33 @@ def api_mjs_reclassify(dry_run: bool = False,
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
 
 
+@app.get("/api/creative/blinded")
+def api_creative_blinded() -> dict:
+    """What a blinded comparison against the human catalogue could currently measure (#94).
+
+    A GET reports readiness and cost, and never spends: the run itself is a POST, because a
+    read-only endpoint that quietly bills the month's model budget is a trap.
+    """
+    from ..creative import blinded
+    from ..gateway import routing
+
+    listings = blinded.benchmark_cards(db)
+    state = routing.budget(db)
+    per_pair = routing.estimate_cad(blinded.TASK)
+    return {
+        "benchmark_listings": len(listings),
+        "readability": blinded.readability(listings) if listings else {},
+        "min_pairs": blinded.MIN_PAIRS,
+        "position_bias_ceiling": blinded.MAX_POSITION_SHARE,
+        "estimated_cad_per_pair": per_pair,
+        "affordable_pairs": int(state.remaining_cad // per_pair) if per_pair else 0,
+        "budget": state.to_dict(),
+        "compared_on": list(blinded.CARD_FIELDS),
+        "not_compared_on": ["the photograph, which is most of why a listing sells and needs "
+                            "the browser/vision capability"],
+    }
+
+
 @app.get("/api/mjs/coverage")
 def api_mjs_coverage() -> dict:
     """What the living market map cannot see, named rather than counted (#207, #303).

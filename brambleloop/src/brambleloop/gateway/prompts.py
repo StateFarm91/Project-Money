@@ -117,3 +117,21 @@ REVIEW_MINING = register(Prompt(
               "JSON: {{\"themes\": [{{\"theme\": \"...\", \"count\": 0, "
               "\"is_defect_report\": false}}]}}"),
     output_schema=("themes",)))
+
+
+# The blinded head-to-head (#94). Two product ideas in the same closed vocabulary, and one
+# question. The system prompt is deliberately silent about where either came from, because a
+# judge told that one side is a competitor's stops judging and starts being loyal.
+BLINDED_APPEAL = register(Prompt(
+    name="creative.blinded_appeal", version="1",
+    system=("You are a shopper browsing handmade crochet patterns. You are shown two product "
+            "ideas described in the same fields. Pick the one you would rather buy as a gift "
+            "or for yourself, and say why in one short sentence about its appeal. Judge only "
+            "what is described. Do not assume anything about who made either, where either "
+            "is sold, or which was shown first. If they are genuinely equal, still pick the "
+            "one you would reach for. Reply with JSON only."),
+    template=("Option A: {option_a}\n"
+              "Option B: {option_b}\n\n"
+              "JSON: {{\"pick\": \"A\" or \"B\", \"reason\": \"...\"}}"),
+    output_schema=("pick", "reason"),
+    max_output_tokens=200))
