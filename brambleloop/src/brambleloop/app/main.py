@@ -783,6 +783,28 @@ def api_league() -> dict:
     }
 
 
+@app.get("/api/funnel")
+def api_funnel() -> dict:
+    """The shape a selection tournament is meant to have, and the gates that make it one.
+
+    Reported as the specification rather than as a run: no tournament has been run at this
+    scale, because generating 75-100 cheap concepts needs a model this build does not have a
+    key for. The machinery, its refusals and its arithmetic exist and are tested.
+    """
+    from ..creative import funnel
+
+    return {
+        "stages": [{"stage": s.key, "what": s.what, "floor_in": s.floor_in,
+                    "target_out": list(s.target_out), "gate": s.gate}
+                   for s in funnel.STAGES],
+        "kill_causes": funnel.KILL_CAUSES,
+        "runs": 0,
+        "note": ("A stage that advances everything is a queue with a name, and a funnel fed "
+                 "twelve concepts is the first ideas with a process wrapped around them. "
+                 "Both are refused rather than warned about."),
+    }
+
+
 @app.get("/api/learning")
 def api_learning() -> dict:
     """What the world outside this company said, and what nobody has looked at.

@@ -20,7 +20,7 @@
  {
   "body": "Do not fully engineer the first ideas. Generate roughly 75-100 inexpensive concepts -> research about 40 -> develop stronger commercial/visual propositions for about 20 -> prototype/digital-twin about 10-15 -> fully release only the strongest 5-10. Every stage has a kill gate. Concentrate engineering cost only after commercial evidence improves.",
   "id": 3,
-  "note": "radar selects an 11-SKU portfolio from a 34-concept pool; no staged 75-100 -> 40 -> 20 -> 10-15 -> 5-10 tournament with per-stage kill gates",
+  "note": "creative/funnel.py is the staged tournament with the shape the requirement specifies -- 75-100 -> ~40 -> ~20 -> 10-15 -> 5-10 -- and four refusals that stop it being a queue: survivors plus killed must equal entrants, a stage that kills nothing did not happen, a kill cause outside the closed vocabulary aggregates to nothing, and a stage fed below its floor is choosing among whatever happened to be there. A concept cannot join late, stages cannot run out of order, and may_engineer() refuses a concept the tournament has not carried to prototype -- the requirement's opening sentence made mechanical. Remaining: no tournament has been run at this scale, because generating 75-100 cheap concepts needs the model provider. /api/funnel.",
   "section": "Core commercial upgrades",
   "status": "partial",
   "title": "Product Selection Tournament",
