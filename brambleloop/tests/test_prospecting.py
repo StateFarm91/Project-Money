@@ -446,6 +446,57 @@ def test_one_failed_field_is_not_a_failed_expedition():
     assert result["answered_the_arena"] is False
 
 
+# ---- the handler itself ------------------------------------------------------
+
+
+def test_the_expedition_handler_runs_end_to_end_with_arenas_present():
+    """The cadence test only ever exercised the empty path.
+
+    `test_every_scheduled_cadence_can_actually_run` passes with an empty database, so the
+    handler returns before it picks an arena -- and a `NameError` on the line that picks one
+    reached production twice over. A handler whose interesting half is never executed by any
+    test is an untested handler with a passing test next to it.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.release import handle_creative_expedition
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    Registry(db).seed_defaults()
+    with db.session() as s:
+        for i in range(8):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"H{i}",
+                                   title="Cozy Chunky Crochet Beanie Hat Pattern",
+                                   pod="hats"))
+    q = JobQueue(db)
+    ctx = JobContext(job=q.enqueue("creative_director", "creative.expedition", {}),
+                     db=db, queue=q, registry=Registry(db), phase=None)
+
+    calls = {"n": 0}
+
+    class Gateway:
+        def complete_json(self, ref, *, agent, values, required=None):
+            calls["n"] += 1
+            return {"concepts": []}
+
+    # Substitute the gateway's call so no network request is made, while every other line
+    # of the handler -- arena selection, tier routing, catalogue assembly, storage -- runs.
+    from brambleloop.gateway import model_gateway
+    saved = model_gateway.ModelGateway.complete_json
+    model_gateway.ModelGateway.complete_json = (
+        lambda self, ref, *, agent, values, required=None: Gateway().complete_json(
+            ref, agent=agent, values=values, required=required))
+    try:
+        result = handle_creative_expedition(ctx)
+    finally:
+        model_gateway.ModelGateway.complete_json = saved
+
+    assert result["ran"] is True, result
+    assert "/" in result["arena"]
+    assert calls["n"] > 0, "the handler never reached the generator"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

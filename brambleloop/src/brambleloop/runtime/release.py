@@ -1525,6 +1525,8 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
                   detail={"reason": "no benchmark listing has been observed yet"})
         return {"ran": False, "reason": "no benchmark listing has been observed yet"}
 
+    from ..core.models import utcnow
+
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
     arena = found[week % len(found)]
 
