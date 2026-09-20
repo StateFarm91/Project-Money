@@ -548,6 +548,30 @@ def api_mjs_reclassify(dry_run: bool = False,
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
 
 
+@app.get("/api/search/arena-language")
+def api_arena_language() -> dict:
+    """The words a shopper in each proven arena actually sees (#293).
+
+    Observed by construction: every term is read from a recorded benchmark listing, so
+    nothing here can be labelled assumed. It is not a search-volume claim, which the payload
+    says on itself rather than in a footnote.
+    """
+    from ..commerce import intent
+    from ..creative import prospecting
+
+    pods = []
+    seen = set()
+    for arena in prospecting.arenas(db):
+        if arena.pod in seen:
+            continue
+        seen.add(arena.pod)
+        pods.append(intent.arena_language(db, pod=arena.pod))
+    return {"arenas": pods,
+            "note": ("One entry per proven-and-unserved department. A department with too "
+                     "few observed listings reports that it cannot be measured rather than "
+                     "a frequency over four titles, which is one seller's habit.")}
+
+
 @app.get("/api/creative/prospects")
 def api_creative_prospects() -> dict:
     """Where discovery could go, what it has found, and what the engine cannot build (#104).

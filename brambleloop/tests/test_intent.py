@@ -171,5 +171,92 @@ def _run() -> int:
     return failures
 
 
+# ---- arena language, now that the credential exists (#293) -------------------
+
+
+def _stocking_db():
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/arena.sqlite")
+    db.create_all()
+    titles = [
+        "CROCHET PATTERN &amp; VIDEO/ Chunky Rustic Farmhouse Christmas Stocking, Easy",
+        "CROCHET PATTERN/ Cable Christmas Stocking Pattern, Beginner Friendly, Holiday Decor",
+        "CROCHET PATTERN/ Granny Stitch Christmas Stocking, Quick Crochet, Gift Idea",
+        "CROCHET PATTERN &amp; VIDEO/ Woodland Christmas Stocking, Rustic Home Decor, Easy",
+        "CROCHET PATTERN/ Mosaic Christmas Stocking, Modern Holiday Decor, Chart Included",
+        "CROCHET PATTERN/ Bulky Farmhouse Stocking, Fast Crochet, Stash Buster",
+    ]
+    with db.session() as s:
+        for i, t in enumerate(titles):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=str(i),
+                                   title=t, pod="stockings"))
+    return db
+
+
+def test_arena_language_is_observed_by_construction():
+    """Every term is read from a recorded listing, so none of it can be assumed."""
+    from brambleloop.commerce import intent
+
+    report = intent.arena_language(_stocking_db(), pod="stockings")
+    assert report["measurable"] and report["evidence"] == intent.OBSERVED
+    assert report["by_facet"]["object"][0]["word"] == "stocking"
+    assert report["by_facet"]["season_event"][0]["word"] == "christmas"
+
+
+def test_marketplace_furniture_is_separated_rather_than_dropped():
+    """"pattern" and "pdf" describe nothing and are most of what a shopper types."""
+    from brambleloop.commerce import intent
+
+    report = intent.arena_language(_stocking_db(), pod="stockings")
+    furniture = {r["word"] for r in report["marketplace_furniture"]}
+    assert "crochet" in furniture and "pattern" in furniture
+    facet_words = {r["word"] for rows in report["by_facet"].values() for r in rows}
+    assert not (furniture & facet_words), "a word was counted in both places"
+
+
+def test_a_thin_pod_reports_that_it_cannot_be_measured():
+    """A frequency over four titles is one seller's habit, not a department's language."""
+    from brambleloop.commerce import intent
+
+    db = _stocking_db()
+    report = intent.arena_language(db, pod="education")
+    assert not report["measurable"]
+    assert "one seller's habit" in report["reason"]
+
+
+def test_an_html_escaped_title_does_not_leak_entities_into_the_language():
+    from brambleloop.commerce import intent
+
+    report = intent.arena_language(_stocking_db(), pod="stockings")
+    words = {r["word"] for rows in report["by_facet"].values() for r in rows}
+    words |= {r["word"] for r in report["unclassified"]}
+    assert "amp" not in words and "39" not in words
+
+
+def test_a_word_that_means_two_things_is_classified_as_neither():
+    """"cozy" is as often a mug cozy as a mood in this marketplace."""
+    from brambleloop.commerce import intent
+
+    assert intent._FACET_WORDS.get("cozy") is None
+
+
+def test_no_title_is_reproduced_anywhere_in_the_output():
+    """Term frequency is demand intelligence; a title is somebody's expression."""
+    from brambleloop.commerce import intent
+
+    report = intent.arena_language(_stocking_db(), pod="stockings")
+    blob = repr(report)
+    assert "Woodland Christmas Stocking" not in blob
+    everything = [r["word"] for rows in report["by_facet"].values() for r in rows]
+    everything += [r["word"] for r in report["marketplace_furniture"]]
+    everything += [r["word"] for r in report["unclassified"]]
+    assert all(" " not in w for w in everything), "a multi-word phrase was emitted"
+
+
 if __name__ == "__main__":
     raise SystemExit(1 if _run() else 0)

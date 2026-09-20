@@ -25,6 +25,7 @@ on each row rather than in a caveat at the bottom that travels separately from t
 """
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass
 
@@ -215,4 +216,131 @@ def strategy(db, *, facet_map: dict) -> dict:
                  if not observed_rows else
                  f"{len(observed_rows)} of {len(rows)} phrases appear in recorded market "
                  f"evidence; the rest are assumed"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Arena language (#293, with the credential that arrived on 2026-09-19)
+#
+# The requirement asks for buyer language "from Etsy/market evidence". Until the benchmark
+# credential existed there was no evidence, so every phrase this module produced was
+# `assumed` and said so. There are now 438 observed listings, and the useful question is no
+# longer "is this phrase attested" one phrase at a time -- it is "what words does a shopper
+# in *this department* actually see", which is what a seasonal brief needs before a launch
+# date rather than after it.
+#
+# What this reads is term frequency across observed titles. That is demand intelligence: how
+# a market describes a category. It is not, and must not become, a reproduction of anybody's
+# listing, so nothing here emits a title, a phrase longer than a word, or an ordering taken
+# from a seller.
+
+# Words that appear in almost every title in this marketplace and therefore distinguish
+# nothing. Separated rather than dropped: "pattern" and "pdf" are most of what a shopper
+# types, so they belong in a search strategy and not in a creative brief.
+MARKETPLACE_FURNITURE: frozenset[str] = frozenset({
+    "crochet", "pattern", "patterns", "pdf", "digital", "download", "instant", "video",
+    "tutorial", "printable", "ebook", "etsy", "shop", "sale", "new", "the", "and", "with",
+    "for", "that", "this", "your", "our", "from", "includes", "included", "size", "sizes",
+})
+
+# The facet each observed word speaks to, so a frequency list becomes a brief rather than a
+# word cloud. Only words that are unambiguous are classified; the rest are reported as
+# unclassified, because a facet map that guesses is the thing #293 refuses.
+_FACET_WORDS: dict[str, str] = {}
+for _facet, _words_for in (
+    ("season_event", ("christmas", "halloween", "easter", "valentine", "thanksgiving",
+                      "holiday", "fall", "autumn", "winter", "spring", "summer", "festive",
+                      "merry", "advent", "harvest")),
+    ("technique", ("mosaic", "tapestry", "amigurumi", "granny", "cable", "cabled", "moss",
+                   "star", "herringbone", "waffle", "bobble", "puff", "overlay", "c2c",
+                   "corner", "stitch")),
+    # "cozy" is deliberately absent: in this marketplace it is as often an object (a mug
+    # cozy) as a mood, and a word that means two things classifies as neither.
+    ("aesthetic", ("rustic", "farmhouse", "boho", "modern", "vintage", "chunky",
+                   "cosy", "woodland", "nordic", "scandi", "coastal", "seaside", "retro",
+                   "minimal", "whimsical")),
+    ("skill_feature", ("easy", "beginner", "quick", "simple", "friendly", "bulky", "fast",
+                       "seamless", "sew", "chart", "written", "stash")),
+    ("object", ("stocking", "stockings", "ornament", "ornaments", "garland", "wreath",
+                "blanket", "throw", "afghan", "scarf", "cowl", "hat", "beanie", "toque",
+                "mitten", "mittens", "glove", "gloves", "slipper", "slippers", "sock",
+                "socks", "bag", "tote", "purse", "basket", "pouch", "pillow", "cushion",
+                "coaster", "runner", "dishcloth", "washcloth", "scrubby", "potholder",
+                "cardigan", "sweater", "pullover", "hoodie", "vest", "shawl", "wrap",
+                "poncho", "skirt", "coverup", "pouf", "lovey", "gnome", "snowman",
+                "pumpkin")),
+    ("recipient_or_use", ("gift", "gifting", "baby", "child", "children", "kids", "men",
+                          "mens", "women", "womens", "teacher", "home", "decor", "kitchen",
+                          "nursery", "teen", "toddler")),
+):
+    for _w in _words_for:
+        _FACET_WORDS[_w] = _facet
+
+
+def arena_language(db, *, pod: str, benchmark_key: str = "",
+                   min_listings: int = 5, top: int = 12) -> dict:
+    """The words a shopper in this department actually sees, counted from observed listings.
+
+    Observed by construction: every term is read from a recorded `BenchmarkListing`, so
+    nothing here can be labelled `assumed`. What it is *not* is a claim about search volume
+    -- a word being common in a shop's titles says the shop believes shoppers use it, which
+    is a different and weaker thing than a shopper using it, and the note says so rather
+    than letting a frequency stand in for a search report.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..intel import benchmarks
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        titles = [(r.title or "") for r in s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key,
+            BenchmarkListing.pod == pod))]
+
+    if len(titles) < min_listings:
+        return {
+            "pod": pod, "listings": len(titles), "measurable": False,
+            "reason": (f"{len(titles)} observed listing(s) in this pod against a floor of "
+                       f"{min_listings}. A frequency over four titles is one seller's habit, "
+                       f"not a department's language"),
+        }
+
+    counts: dict[str, int] = {}
+    for title in titles:
+        seen = set()
+        for word in _WORD.findall(html.unescape(title).lower()):
+            if len(word) < 3 or word.isdigit() or word in seen:
+                continue
+            seen.add(word)
+            counts[word] = counts.get(word, 0) + 1
+
+    by_facet: dict[str, list] = {}
+    furniture: list[dict] = []
+    unclassified: list[dict] = []
+    for word, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        row = {"word": word, "listings": n, "share": round(n / len(titles), 3)}
+        if word in MARKETPLACE_FURNITURE:
+            furniture.append(row)
+        elif word in _FACET_WORDS:
+            by_facet.setdefault(_FACET_WORDS[word], []).append(row)
+        else:
+            unclassified.append(row)
+
+    return {
+        "pod": pod,
+        "listings": len(titles),
+        "measurable": True,
+        "evidence": OBSERVED,
+        "by_facet": {facet: rows[:top] for facet, rows in sorted(by_facet.items())},
+        "marketplace_furniture": furniture[:top],
+        "unclassified": unclassified[:top],
+        "facets_with_no_observed_word": sorted(
+            f.key for f in FACETS if f.key not in by_facet),
+        "note": ("Term frequency across observed titles: how this market describes this "
+                 "department. It is not a search-volume claim -- a word being common in a "
+                 "shop's titles says that shop believes shoppers use it, which is weaker "
+                 "than a shopper using it. Marketplace furniture is separated rather than "
+                 "dropped: 'pattern' and 'pdf' describe nothing and are most of what a "
+                 "shopper types, so they belong in a search strategy and not in a brief."),
     }
