@@ -1254,8 +1254,15 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     # Stage four: author a CIR, compile it, and ask the twin whether the object it describes
     # is the one that was asked for. No model is consulted -- the gate this stage names is
     # deterministic validation, and a model that disagrees with the compiler is noise.
-    built: dict = {"ran": False, "reason": "nothing reached the prototype stage"}
-    if developed:
+    built: dict = {"ran": False,
+                   "reason": ("proposition did not run, and a concept engineered without "
+                              "having been developed is the thing the stage order exists to "
+                              "prevent" if not proposed.get("ran") else
+                              "nothing reached the prototype stage")}
+    # Only attempted when proposition actually ran. The funnel refuses an out-of-order stage
+    # anyway, and catching that refusal and reporting it would bury the real finding -- which
+    # is the stage *before* it -- under a complaint about ordering.
+    if developed and proposed.get("ran"):
         attempt = prototype(developed)
         try:
             advance(run, stage="prototype",
@@ -1291,8 +1298,11 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
         "stages_run": [r.stage for r in run.rounds],
         "stages_not_run": (([] if proposed.get("ran") else ["proposition"])
                            + ([] if built.get("ran") else ["prototype"]) + ["release"]),
-        "proposition_refused": proposed.get("refused", ""),
-        "prototype_refused": built.get("refused", ""),
+        # A stage that did not run always says why, whether the funnel refused it or it had
+        # nothing to work on. An empty string here would mean "no reason recorded", which is
+        # the one thing a skipped stage must never be able to say.
+        "proposition_refused": proposed.get("refused") or proposed.get("reason", ""),
+        "prototype_refused": built.get("refused") or built.get("reason", ""),
         "note": ("Four stages, not five. proposition runs the two of its three checks that "
                  "observation supports -- the family test and whether the concept arrives "
                  "speaking the department's own language -- and names margin as not applied, "

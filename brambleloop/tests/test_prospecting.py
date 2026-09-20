@@ -865,7 +865,8 @@ def test_the_tournament_handler_runs_end_to_end_and_names_its_arena():
     assert result["ran"] is True, result
     assert "/" in result["arena"], result
     assert result["generated"] > 0, "the handler never produced a concept"
-    assert result["stages_run"] == ["ideation", "research"], result["stages_run"]
+    assert result["stages_run"][:2] == ["ideation", "research"], result["stages_run"]
+    assert "release" in result["stages_not_run"], result["stages_not_run"]
     assert calls["n"] > 0
 
     # The run is on the record whatever it concluded, which is the only way the history is
@@ -1225,28 +1226,65 @@ def test_a_field_the_catalogue_can_judge_reports_the_comparison():
 # ---- the tournament at its specified scale (#3) ------------------------------
 
 
+_TEXTURES = ("pleated", "shingled", "fluted", "lattice", "quilted", "ribbed", "faceted")
+_PARTS = ("collar", "cuff", "hem", "spine", "brim")
+_BEHAVIOURS = ("stands upright without stiffener", "folds flat for storage",
+               "opens into a second shape", "holds a card upright",
+               "carries its own handle")
+
+
 class _WideGateway:
     """A generator that answers with a full batch of parseable concepts."""
 
     def __init__(self):
         self.calls = 0
+        self.issued = 0
 
     def complete_json(self, ref, *, agent, values, required=None):
         self.calls += 1
         n = int(values["count"])
+        allowed = [c.strip() for c in str(values["constructions"]).split(",") if c.strip()]
         out = []
         for i in range(n):
-            k = self.calls * 100 + i
+            # A running counter, not `calls * 100 + i`. That stride is a multiple of both 4
+            # and 5, so the recipient and the function repeated identically in every batch --
+            # two concepts that differed only in motif, which the sibling gate is right to
+            # kill. The field looked repetitive because the double was repetitive, and a test
+            # that then tuned the gate would have been tuning around its own fixture.
+            self.issued += 1
+            k = self.issued
             out.append({
                 "title": f"Piece {k}",
-                "premise": (f"a sculpted winter form number {k} whose ribbed collar stands "
-                            f"upright without stiffener so it keeps its shape on a mantel"),
-                "construction": "in_the_round", "motif": f"motif-{k % 7}",
+                # The premise varies as well, because a near-identical sentence contributes
+                # nothing to the novelty distance and the field then collapses into siblings
+                # whatever its other fields say. A real generator asked twelve different
+                # questions returns twelve different sentences; a double that does not cannot
+                # put anything into the stages after research.
+                "premise": " ".join((
+                    "a", _TEXTURES[k % len(_TEXTURES)], "winter form whose",
+                    _PARTS[k % len(_PARTS)], _BEHAVIOURS[k % len(_BEHAVIOURS)],
+                    "without being told twice")),
+                # Picked from the constructions the prompt actually offers for this form.
+                # The double used to answer "in_the_round" whatever it was asked, which is
+                # both twenty unbuildable concepts and a fifth of the novelty distance
+                # thrown away -- a model that ignored the allowed list would be refused, and
+                # a double that ignores it tests something the real path never does.
+                "construction": allowed[k % len(allowed)], "motif": f"motif-{k % 7}",
                 "palette_story": "frost and cranberry",
                 "recipient": ("child", "host", "teen", "new_parent")[k % 4],
                 "occasion": "christmas",
                 "feeling": ("festive", "folkloric", "whimsical", "heirloom")[k % 4],
-                "function": "holds small gifts and stands up on a mantel by itself",
+                # Function varies as well as motif and recipient. Within one slot the pod,
+                # form and occasion are already identical, so a pair only clears the novelty
+                # floor when motif, recipient *and* function all differ -- a double that
+                # varies two of the three cannot put anything into stage three, and the
+                # stages after research would then never be exercised by any test.
+                "function": (
+                    "holds small gifts and stands up on a mantel by itself",
+                    "keeps a draught out of a doorway without being moved",
+                    "carries a warm drink from one room to another",
+                    "marks whose seat is whose at a crowded table",
+                    "hangs a small light where there is no shelf")[k % 5],
                 "wow": "a collar that stands by itself"})
         return {"concepts": out}
 
@@ -1292,11 +1330,46 @@ def test_a_tournament_runs_the_stages_it_can_and_names_the_ones_it_cannot():
 
     report = P.tournament(_wide_db(), gateway=_WideGateway(), target=80,
                           today=date(2026, 9, 20), catalogue=catalogue_concepts())
-    assert report["stages_run"] == ["ideation", "research"]
-    assert report["stages_not_run"] == ["proposition", "prototype", "release"]
+    # Whatever the field produces, the two halves must account for every stage exactly once
+    # and a stage that did not run must say why rather than vanishing.
+    assert report["stages_run"][:2] == ["ideation", "research"]
+    assert set(report["stages_run"]) | set(report["stages_not_run"]) == {
+        "ideation", "research", "proposition", "prototype", "release"}
+    assert not set(report["stages_run"]) & set(report["stages_not_run"])
+    assert "release" in report["stages_not_run"], "release was run without the gates"
+    for stage in ("proposition", "prototype"):
+        if stage in report["stages_not_run"]:
+            assert report[f"{stage}_refused"], f"{stage} vanished without a reason"
+
     rounds = {r["stage"]: r for r in report["rounds"]}
     assert rounds["ideation"]["examined"] == rounds["ideation"]["entered"]
     assert rounds["research"]["killed"] > 0, "the research gate cut nothing from 80"
+
+
+def test_a_wide_enough_field_reaches_the_prototype_stage():
+    """The stage nothing was exercising, which is how two handler defects reached production.
+
+    The earlier assertions passed because proposition and prototype were being *refused* for
+    want of entrants -- correct behaviour, and it meant no test ever drove a concept through
+    a compile and a twin inside the tournament.
+    """
+    from brambleloop.creative.audit import catalogue_concepts
+
+    report = P.tournament(_wide_db(), gateway=_WideGateway(), target=80,
+                          today=date(2026, 9, 20), catalogue=catalogue_concepts())
+    if "prototype" not in report["stages_run"]:
+        # Refused for entrants rather than broken: the reason must say so, and the field
+        # size is the finding.
+        assert report["proposition_refused"] or report["prototype_refused"], report
+        return
+
+    rounds = {r["stage"]: r for r in report["rounds"]}
+    assert rounds["prototype"]["entered"] > 0
+    built = report["prototype"]
+    assert built["ran"] is True, built
+    # Every survivor was measured by the twin, not merely compiled.
+    for key in [c["key"] for c in report["survivors"]]:
+        assert built["detail"][key]["measured_cm"], built["detail"][key]
 
 
 def test_every_kill_cause_reaching_the_funnel_is_in_its_closed_vocabulary():
