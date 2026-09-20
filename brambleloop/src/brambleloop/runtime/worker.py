@@ -249,9 +249,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # slower measurement that survives.
     ("blinded_benchmark", "creative_director", "creative.blinded", 30 * 24 * 60 * 60),
     # Weekly. Discovery into a proven arena the catalogue does not answer, rotating through
-    # the gaps so breadth accumulates rather than one department deepening. About CA$0.32 a
-    # run against the CA$25 month -- affordable enough to be a habit, which is the point: a
-    # catalogue widens by repeatedly trying somewhere it does not sell, not by one campaign.
+    # the gaps so breadth accumulates rather than one department deepening. **Measured at
+    # CA$1.02** on the first live run -- three slots of six concepts at the deep tier -- not
+    # the CA$0.32 estimated before the prompt's output budget was raised to hold a full
+    # field. That is about CA$4.40 a month against a CA$25 ceiling: affordable enough to be
+    # a habit, which is the point, a catalogue widens by repeatedly trying somewhere it does
+    # not sell rather than by one campaign.
     ("arena_expedition", "creative_director", "creative.expedition", 7 * 24 * 60 * 60),
     # Weekly, and free. #292 asks for evergreen products to be *periodically* inspected for
     # seasonal re-merchandising, and a review that never runs is the same as one that does

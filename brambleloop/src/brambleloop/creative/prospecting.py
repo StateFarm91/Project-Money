@@ -938,8 +938,14 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
             f"That is a statement about the calendar, not about the catalogue")
     found = reachable
 
-    priority = [a for a in found if a.event in PRIORITY_PROGRAMMES]
-    others = [a for a in found if a.event not in PRIORITY_PROGRAMMES]
+    # Soonest first within each half. The first live run went to Mother's Day at 231 days
+    # while Christmas sat at 96 and Halloween at 41, because the wheel indexed the list in
+    # whatever order the matrix returned it. A discovery run aimed at the occasion furthest
+    # away is the one whose runway was least in danger.
+    priority = sorted((a for a in found if a.event in PRIORITY_PROGRAMMES),
+                      key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
+    others = sorted((a for a in found if a.event not in PRIORITY_PROGRAMMES),
+                    key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
     if not priority or not others:
         return found[cycle % len(found)]
 

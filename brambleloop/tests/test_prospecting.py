@@ -714,6 +714,20 @@ def test_everything_else_still_gets_a_turn():
     assert len({a.event for a in picks}) >= 4
 
 
+def test_the_soonest_occasion_is_reached_before_the_furthest():
+    """The first live run went to Mother's Day at 231 days while Christmas sat at 96 and
+    Halloween at 41. A discovery run aimed at the occasion furthest away is the one whose
+    runway was least in danger."""
+    picks = _wheel(cycles=20)
+    non_priority = [a for a in picks if a.event != "Christmas"]
+    assert non_priority, "the wheel gave nothing to the non-priority half"
+    # Halloween/hats at 41 days is the soonest reachable non-priority arena.
+    assert non_priority[0].event == "Halloween", non_priority[0].event
+    mothers = [i for i, a in enumerate(picks) if a.event == "Mother's Day"]
+    halloween = [i for i, a in enumerate(picks) if a.event == "Halloween"]
+    assert not mothers or not halloween or min(halloween) < min(mothers)
+
+
 def test_the_schedule_is_reproducible():
     """The same cycle always picks the same arena, so a change in the answer is a change in
     the evidence rather than in a random draw."""
