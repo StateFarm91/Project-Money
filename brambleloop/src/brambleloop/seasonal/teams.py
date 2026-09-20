@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from .compression import (
-    MIN_PRIORITY_SHARE, POST_OCCASION, PRIORITY_PROGRAMMES, programme,
+    MIN_PRIORITY_SHARE, POST_OCCASION, priority_shares, programme,
 )
 
 # Events that always have a team, because the calendar says they are the commercial year.
@@ -170,7 +170,7 @@ def check(allocation: dict) -> None:
             raise TeamRefused(
                 f"the {team['event']} team holds no capacity. A team with no capacity exists "
                 f"on an org chart and nowhere a product comes from")
-    for event in PRIORITY_PROGRAMMES:
+    for event in priority_shares()["shares"]:
         active = [t for t in allocation["teams"] if t["event"] == event]
         disbanded = [d for d in allocation["disbanded"] if d["event"] == event]
         if not active and not disbanded:

@@ -45,9 +45,67 @@ from .depth import DEPARTMENT_FORMS, department_brief, implied_lane
 # Programmes this company treats as commercially top-priority, with the share of engineering
 # capacity each reserves while it has any viable lane. Named here so that "is Christmas still
 # a priority" is a lookup rather than a judgement somebody makes in a tired week.
-PRIORITY_PROGRAMMES: dict[str, float] = {
+# What the evergreen base keeps back before any occasion is granted anything. Mirrors
+# `seasonal.engine.EVERGREEN_FLOOR`, and the two are asserted equal by test rather than
+# assumed: a shop entirely inside one festival has nothing to sell in February.
+EVERGREEN_RESERVE = 0.20
+
+# The campaign the owner named, seeded because the score below has nothing to read yet.
+#
+# This was `PRIORITY_PROGRAMMES` and it was the permanent seasonal strategy: a dict with one
+# festival in it, holding nearly half of engineering capacity, consulted by five modules.
+# Requirement 33's merge instruction is to replace exactly that -- "preserve Christmas as the
+# current campaign, not the company identity" -- and `seasonal.engine` is the replacement:
+# seven factors, multiplied, with no occasion named anywhere in the arithmetic.
+#
+# What could not be replaced today is the evidence. Scoring an occasion needs observed demand,
+# visibility and competitive weakness, and this shop has none of those, so a straight cutover
+# would score every occasion at zero and reserve nothing for the campaign that is actually
+# open. So the seed stays, with two differences that matter: it is named as a seed rather
+# than as the strategy, and every reading of it carries `basis="current_campaign_seed"` so
+# that nothing downstream can mistake the owner's decision for a measurement. The day any
+# occasion scores, the score wins and the seed is not consulted.
+CURRENT_CAMPAIGN_SEED: dict[str, float] = {
     "Christmas": 0.45,
 }
+
+SCORED = "scored"
+SEEDED = "current_campaign_seed"
+
+
+def priority_shares(scores: dict[str, float] | None = None) -> dict:
+    """Which occasions hold reserved capacity, and on what basis (#33).
+
+    `scores` is `{event: score}` from `seasonal.engine`. With any positive score the shares
+    are derived from them and no occasion is named in the derivation. With none -- which is
+    every day so far -- the seed is returned and labelled, because a company that reserves
+    nothing for the campaign whose making window is open is not being rigorous, it is being
+    absent.
+    """
+    scored = {event: value for event, value in (scores or {}).items() if value > 0}
+    if scored:
+        total = sum(scored.values())
+        pool = 1.0 - EVERGREEN_RESERVE
+        return {
+            "basis": SCORED,
+            "shares": {event: round(pool * value / total, 4)
+                       for event, value in sorted(scored.items())},
+            "why": ("derived from seasonal.engine scores. No occasion is named in this "
+                    "derivation and there is no argument that raises one"),
+        }
+    return {
+        "basis": SEEDED,
+        "shares": dict(CURRENT_CAMPAIGN_SEED),
+        "why": ("no occasion has scored evidence yet, so this is the campaign the owner "
+                "named rather than a measurement. It is a seed and says so: the day any "
+                "occasion scores, the score wins and this is not consulted"),
+    }
+
+
+def is_priority(event: str, scores: dict[str, float] | None = None) -> bool:
+    """Whether this occasion holds reserved capacity today, by score or by seed."""
+    return event in priority_shares(scores)["shares"]
+
 
 # The floor a priority programme's reservation may never fall below while any lane is open.
 # Without it, a programme whose heavy lanes have closed decays into a rounding error exactly
@@ -253,9 +311,10 @@ def preparation(states: list[LaneState], *, today: date | None = None) -> list[d
     return out
 
 
-def reservation(event: str, states: list[LaneState], *, mode: str = LAUNCH) -> dict:
+def reservation(event: str, states: list[LaneState], *, mode: str = LAUNCH,
+                scores: dict[str, float] | None = None) -> dict:
     """The engineering capacity this programme holds, and why it cannot fall to nothing."""
-    base = PRIORITY_PROGRAMMES.get(event)
+    base = priority_shares(scores)["shares"].get(event)
     open_lanes = [s for s in states if s.viable]
     if base is None:
         return {"priority": False, "share": 0.0,
@@ -370,7 +429,7 @@ def programme(event: str = "Christmas", *, today: date | None = None, samples: i
         "event_date": state["event_date"],
         "today": today.isoformat(),
         "days_away": days_away,
-        "priority": event in PRIORITY_PROGRAMMES,
+        "priority": is_priority(event),
         "mode": stance,
         "lanes": [s.to_dict() for s in states],
         "mix": the_mix,

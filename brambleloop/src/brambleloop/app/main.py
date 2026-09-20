@@ -1350,8 +1350,11 @@ def api_seasonal_engine() -> dict:
     commercial lessons cross seasons; designs do not. A breakout moves allocation and cannot
     reach a gate.
 
-    `still_to_replace` names what is not done: compression.PRIORITY_PROGRAMMES is still a
-    constant with one festival in it, read by five modules.
+    The constant the merge instruction names is gone: all five call sites now read
+    `compression.priority_shares()`, which returns scores when any occasion has them and the
+    owner's named campaign, labelled, when none does. The seed survives because the evidence
+    does not exist yet -- a straight cutover would reserve nothing for the campaign whose
+    making window is open -- but it can no longer be read as a measurement.
     """
     from ..seasonal import engine
 

@@ -1,10 +1,11 @@
 """A year with many occasions in it, and the constant that says this is a Christmas company.
 
 Requirement 33, whose merge instruction is the point: preserve Christmas as the current
-campaign, not the company identity. `compression.PRIORITY_PROGRAMMES` is `{"Christmas": 0.45}`
--- a constant naming one occasion and granting it nearly half of engineering capacity
-permanently, read by five modules. That is the Christmas Strike Team in code, and no amount of
-rolling-wave machinery wrapped around it changes what it says.
+campaign, not the company identity. `compression.PRIORITY_PROGRAMMES` was `{"Christmas":
+0.45}` -- a constant naming one occasion and granting it nearly half of engineering capacity
+permanently, read by five modules. That was the Christmas Strike Team in code. It is now a
+seed read only through `compression.priority_shares()`, which returns scores when any
+occasion has them and labels the seed when none does.
 
 So the tests here are mostly about the score having no favourites, the evergreen floor being
 taken before anything is granted, and an emergency being structurally unable to reach a gate.
@@ -307,19 +308,71 @@ def test_a_request_outside_the_breakouts_authority_is_refused():
 # ---- what is still to replace ---------------------------------------------
 
 
-def test_state_names_the_constant_this_requirement_exists_to_replace():
+def test_state_names_what_was_replaced_and_what_survives():
     out = E.state()
     assert out["requirement"] == 33
-    assert "PRIORITY_PROGRAMMES" in out["still_to_replace"]
-    assert "Christmas Strike Team in code" in out["still_to_replace"]
+    assert "PRIORITY_PROGRAMMES was" in out["replaced"]
+    assert "cannot be mistaken for a measurement" in out["seed_remains_and_says_so"]
 
 
-def test_the_constant_it_names_is_really_still_there():
-    """The claim in state() is checked rather than asserted, so it cannot go stale silently."""
-    from brambleloop.seasonal.compression import PRIORITY_PROGRAMMES
+def test_the_constant_this_requirement_names_is_really_gone():
+    """The previous version of this test asserted the constant was still there, so that
+    state()'s claim could not go stale silently. It did its job: the migration happened and
+    the test failed, which is how the claim got updated rather than quietly becoming false."""
+    from brambleloop.seasonal import compression
 
-    assert "Christmas" in PRIORITY_PROGRAMMES, (
-        "if this fails the migration happened and state()['still_to_replace'] is now wrong")
+    assert not hasattr(compression, "PRIORITY_PROGRAMMES")
+    assert hasattr(compression, "CURRENT_CAMPAIGN_SEED")
+
+
+def test_nothing_reads_the_seed_except_through_the_labelled_accessor():
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    offenders = []
+    for path in list((root / "src").rglob("*.py")) + list((root / "tests").rglob("*.py")):
+        if path.name in ("compression.py", "test_engine.py", "engine.py"):
+            continue
+        text = path.read_text()
+        if "CURRENT_CAMPAIGN_SEED" in text:
+            offenders.append(str(path.relative_to(root)))
+    assert not offenders, (
+        "the seed is read directly by " + ", ".join(offenders) + ". It is readable only "
+        "through priority_shares(), which labels its basis -- a direct read is a reading of "
+        "the owner's decision with the label stripped off")
+
+
+def test_the_seed_labels_itself_when_nothing_has_scored():
+    from brambleloop.seasonal import compression
+
+    out = compression.priority_shares()
+    assert out["basis"] == compression.SEEDED
+    assert out["shares"] == {"Christmas": 0.45}
+    assert "rather than a measurement" in out["why"]
+
+
+def test_a_single_scored_occasion_takes_the_seed_out_of_the_answer():
+    from brambleloop.seasonal import compression
+
+    out = compression.priority_shares({"Halloween": 0.4})
+    assert out["basis"] == compression.SCORED
+    assert "Christmas" not in out["shares"]
+    assert "no occasion is named in this derivation" in out["why"].lower()
+
+
+def test_the_scored_shares_leave_the_evergreen_reserve_alone():
+    from brambleloop.seasonal import compression
+
+    out = compression.priority_shares({"a": 1.0, "b": 1.0})
+    assert round(sum(out["shares"].values()), 4) <= round(
+        1.0 - compression.EVERGREEN_RESERVE, 4)
+
+
+def test_the_two_evergreen_floors_are_the_same_number():
+    """Two modules holding the same floor at different values is the floor nobody enforces."""
+    from brambleloop.seasonal import compression
+
+    assert compression.EVERGREEN_RESERVE == E.EVERGREEN_FLOOR
 
 
 if __name__ == "__main__":

@@ -13,11 +13,20 @@ an occasion closes, `seasonal.leadtime` turns make-time into a launch date, and
 rebuilt.
 
 The second thing is harder and is the reason this module exists.
-`compression.PRIORITY_PROGRAMMES` is `{"Christmas": 0.45}` -- a constant, naming one occasion,
-granting it nearly half of engineering capacity permanently, read by five modules. That *is*
-the Christmas Strike Team, in code, and no amount of rolling-wave machinery around it changes
-what it says. A company whose seasonal strategy is a dict with one festival in it is a
-Christmas company that also does other things.
+`compression.PRIORITY_PROGRAMMES` was `{"Christmas": 0.45}` -- a constant, naming one
+occasion, granting it nearly half of engineering capacity permanently, read by five modules.
+That *was* the Christmas Strike Team, in code, and no amount of rolling-wave machinery around
+it changed what it said. A company whose seasonal strategy is a dict with one festival in it
+is a Christmas company that also does other things.
+
+It is now `compression.CURRENT_CAMPAIGN_SEED`, read only through
+`compression.priority_shares()`, which returns the scores when any occasion has them and the
+seed labelled `current_campaign_seed` when none does. The seed survives because the evidence
+does not yet exist: scoring an occasion needs observed demand, visibility and competitive
+weakness, and a straight cutover would score every occasion at zero and reserve nothing for
+the campaign whose making window is actually open. That is not rigour, it is absence. What
+changed is that the owner's decision can no longer be read as a measurement, and the day any
+occasion scores, the score wins.
 
 So priority here comes from a score, and the score has no favourites:
 
@@ -381,12 +390,17 @@ def state() -> dict:
             "a design, motif, colourway or listing copy crossing seasons",
             "a breakout asking to move a quality, policy, release or spend gate",
         ],
-        "still_to_replace": (
-            "compression.PRIORITY_PROGRAMMES is {'Christmas': 0.45} -- a constant naming one "
-            "occasion and granting it nearly half of engineering capacity permanently, read "
-            "by five modules. That is the Christmas Strike Team in code, and the merge "
-            "instruction in this requirement says to replace it. Scoring here is the "
-            "replacement; the migration of those five call sites is not done, and saying so "
-            "is better than describing a rolling-wave engine wrapped around a dict with one "
-            "festival in it"),
+        "replaced": (
+            "compression.PRIORITY_PROGRAMMES was a constant naming one occasion and granting "
+            "it nearly half of engineering capacity permanently, read by five modules -- the "
+            "Christmas Strike Team in code, and what this requirement's merge instruction "
+            "says to replace. All five call sites now read compression.priority_shares(), "
+            "which returns scores when any occasion has them and the seed labelled "
+            "`current_campaign_seed` when none does"),
+        "seed_remains_and_says_so": (
+            "scoring needs observed demand, visibility and competitive weakness, and this "
+            "shop has none of those. A straight cutover would score every occasion at zero "
+            "and reserve nothing for the campaign whose making window is open, which is not "
+            "rigour but absence. So the owner's named campaign survives as a seed that "
+            "cannot be mistaken for a measurement, and the score wins the day there is one"),
     }

@@ -1046,11 +1046,15 @@ def test_christmas_gets_the_share_the_compression_engine_reserves_for_it():
     reservation rather than on it, and rounding it up to reach the exact number would take
     capacity the programme was not given.
     """
-    from brambleloop.seasonal.compression import PRIORITY_PROGRAMMES
+    from brambleloop.seasonal.compression import priority_shares
 
     picks = _wheel()
     christmas = sum(1 for a in picks if a.event == "Christmas")
-    held = PRIORITY_PROGRAMMES["Christmas"]
+    # Read through the accessor rather than from the constant, since #33's migration: the
+    # share is whatever holds reserved capacity today, by score where one exists and by the
+    # owner's named campaign where none does. The wheel does not care which.
+    reserved = priority_shares()["shares"]
+    held = reserved["Christmas"]
     assert abs(christmas / len(picks) - held) <= 0.06, (christmas, len(picks), held)
 
 

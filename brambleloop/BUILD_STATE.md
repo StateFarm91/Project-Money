@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 200 | satisfied, with a named test or artefact |
-| partial | 58 | something real exists and is short of the requirement |
+| covered | 201 | satisfied, with a named test or artefact |
+| partial | 57 | something real exists and is short of the requirement |
 | missing | 6 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **64 requirements are executable** (partial +
+as one nobody has written. **63 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 200 of 320 covered is **62.5% complete**, read from the registry rather than
+typed. 201 of 320 covered is **62.8% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `e5f74e4`: **2,395 tests passing, 0 failing** across
-136 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `8757100`: **2,433 tests passing, 0 failing** across
+137 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -659,8 +659,20 @@ copy do not — recolouring last October's product is not the insight, it is the
 And a breakout moves allocation and is *structurally* unable to reach a gate, because
 "emergency" is the word people use when they want to skip a step.
 
-`partial`, and the remaining step is named precisely: migrating those five call sites off the
-constant. A test asserts the constant is still there, so the claim cannot go stale silently.
+**And then the constant went.** All five call sites now read
+`compression.priority_shares()`, which returns scores when any occasion has them and the
+owner's named campaign, labelled `current_campaign_seed`, when none does. A straight cutover
+was the tempting move and would have been wrong: scoring needs observed demand, visibility and
+competitive weakness, this shop has none, and every occasion would have scored zero — reserving
+nothing for the campaign whose making window is actually open. That is absence, not rigour.
+What the migration buys is that the owner's decision can no longer be read as a measurement,
+and a test refuses any direct read of the seed outside its accessor, because a direct read is
+that decision with the label stripped off.
+
+The guard test written one commit earlier asserted the constant was still present so
+`state()`'s claim could not go stale silently. The migration broke it, which is exactly what it
+was for: the claim got updated because a test failed, not because somebody remembered. #33 is
+`covered`.
 
 **And the process failure got a check.** Three times this session prose in a registry note was
 doing a gate's job — the cultural feed, vision, physical proof, purchased benchmarks. Every
@@ -3810,10 +3822,11 @@ timings, written there by the system rather than by hand.
   listing evaluated where it is chosen rather than where it was built. #168 and #79 parked;
   ready is 15 against 87 (green at 2,395). Then #33's seasonal engine: priority from a score
   with no favourites, an evergreen floor taken before anything is granted, squads that stand
-  down by arithmetic, and a breakout that cannot reach a gate -- left `partial` because the
-  constant it replaces still drives five modules. Plus a test that fails when a note
-  describes a blocker and the requirement is not parked. Registry 200 of 320 covered, 64
-  executable. Decisions B-404..B-462.
+  down by arithmetic, and a breakout that cannot reach a gate (green at 2,433). Then the
+  migration itself: all five call sites off the constant and onto a labelled accessor, with
+  the owner's campaign surviving as a seed that cannot be read as a measurement. Plus a test
+  that fails when a note describes a blocker and the requirement is not parked. Registry 201
+  of 320 covered, 63 executable. Decisions B-404..B-463.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

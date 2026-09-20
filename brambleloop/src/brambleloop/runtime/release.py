@@ -942,12 +942,12 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
     # recorded as a transition, because "FLAGSHIP closed today" is the sentence a reader
     # needs and "FLAGSHIP is closed" is the one they will misread a fortnight later.
     from ..seasonal import uncertainty
-    from ..seasonal.compression import PRIORITY_PROGRAMMES, programme
+    from ..seasonal.compression import priority_shares, programme
 
     samples = uncertainty.sample_count(ctx.db)
     programmes = []
     overdue_prep: list[dict] = []
-    for name in PRIORITY_PROGRAMMES:
+    for name in priority_shares()["shares"]:
         try:
             plan = programme(name, today=today, samples=samples)
         except Exception as exc:  # noqa: BLE001 - a calendar fault must not stop the sentinel

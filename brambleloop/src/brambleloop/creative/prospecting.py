@@ -978,7 +978,7 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
 
     Plain round-robin over twelve arenas gives Christmas one expedition in twelve, which is
     a rotation that treats a named priority programme exactly like every other occasion.
-    `compression.PRIORITY_PROGRAMMES` already says Christmas holds a share of engineering
+    `compression.priority_shares()` already says which occasion holds engineering
     capacity and that the share has a floor it may never fall below; discovery is
     engineering capacity, so it obeys the same number rather than a second one invented
     here.
@@ -988,7 +988,7 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     else, and the same cycle number always produces the same arena, so a run is reproducible
     and a change in the answer is a change in the evidence.
     """
-    from ..seasonal.compression import (MIN_PRIORITY_SHARE, PRIORITY_PROGRAMMES,
+    from ..seasonal.compression import (MIN_PRIORITY_SHARE, priority_shares,
                                         lane_states, reservation)
 
     if not found:
@@ -1010,9 +1010,10 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     # while Christmas sat at 96 and Halloween at 41, because the wheel indexed the list in
     # whatever order the matrix returned it. A discovery run aimed at the occasion furthest
     # away is the one whose runway was least in danger.
-    priority = sorted((a for a in found if a.event in PRIORITY_PROGRAMMES),
+    reserved = priority_shares()["shares"]
+    priority = sorted((a for a in found if a.event in reserved),
                       key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
-    others = sorted((a for a in found if a.event not in PRIORITY_PROGRAMMES),
+    others = sorted((a for a in found if a.event not in reserved),
                     key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
     if not priority or not others:
         return found[cycle % len(found)]
