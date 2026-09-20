@@ -26,7 +26,7 @@ from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
-from . import substitution
+from . import substitution, value_stack
 from .charts import (
     ChartSpec, crop_grids, detect_repeat, is_round, render_chart, render_legend,
     render_round_chart,
@@ -279,6 +279,38 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         "above; if your gauge differs, your finished piece will differ by the same "
         "proportion. The stitch counts in this pattern are correct at any gauge -- only the "
         "measurements change.", size=10)
+
+    # -- how to know it is going right (#7) --------------------------------
+    #
+    # A maker halfway up a blanket is asking one question: is what is on my hook what should
+    # be on my hook. A progress picture they can only agree with does not answer it; a stitch
+    # count and a measurement do.
+    try:
+        progress = value_stack.milestones(cir, twin)
+    except value_stack.ValueStackRefused:
+        progress = None
+    if progress and len(progress["milestones"]) > 2:
+        doc.heading("Checking your progress", size=12)
+        doc.para(
+            f"At these rows the fabric should measure roughly this much. If it does not, the "
+            f"difference is gauge, and it is easier to fix now than at row "
+            f"{progress['rows_total']}.", size=10)
+        for mark in progress["milestones"]:
+            doc.kv(f"row {mark['row']} of {progress['rows_total']}",
+                   f"{mark['stitches_in_this_row']} stitches across, "
+                   f"about {mark['height_so_far_cm']:.0f} cm made")
+
+    # -- printing it (#7) ---------------------------------------------------
+    #
+    # Most home printers are greyscale, and a chart whose colours differ in hue but not in
+    # lightness prints as one flat block. Said in the document, because the person it affects
+    # is holding the document.
+    printing = value_stack.print_safety(cir)
+    if printing.get("measurable") and printing.get("prints") is False:
+        doc.para(
+            f"Printing in black and white: two of these colours are close in lightness and "
+            f"will merge on a greyscale printer. The chart carries a letter for each colour, "
+            f"so follow the letters rather than the shading.", size=9, color=MUTED)
 
     # -- substituting the yarn (#7) ----------------------------------------
     #
