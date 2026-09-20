@@ -47,9 +47,15 @@ DEFAULT_AGENTS: list[dict] = [
     # only thing it spends is model budget, which the gateway's ceiling bounds before each
     # call. Its own daily ceiling is set low on purpose -- a capability measurement that can
     # consume a day's whole model allowance is a measurement nobody can afford to repeat.
-    dict(name="creative_director", description="Blinded creative benchmarking (#94, #104)",
-         allowed_job_types=["creative.blinded", "creative.expedition"],
-         authority=Authority.GREEN, daily_cost_ceiling_cad=2.0),
+    dict(name="creative_director",
+         description="Blinded creative benchmarking and product discovery (#94, #104, #3)",
+         allowed_job_types=["creative.blinded", "creative.expedition",
+                            "creative.tournament"],
+         # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
+         # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
+         # sum rather than at it, because a ceiling a normal week touches is a ceiling that
+         # stops work rather than one that catches a runaway.
+         authority=Authority.GREEN, daily_cost_ceiling_cad=2.5),
     dict(name="crochet_engineer", description="Authors CIR from a creative brief",
          allowed_job_types=["cir.draft", "cir.revise"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=4.0),
