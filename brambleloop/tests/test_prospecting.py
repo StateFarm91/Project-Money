@@ -630,6 +630,27 @@ def test_a_metric_the_north_star_does_not_carry_is_refused():
         raise AssertionError("an invented metric was tracked")
 
 
+def test_an_expedition_says_it_is_not_a_tournament():
+    """The funnel sets an ideation floor because a small field is not a selection.
+
+    Generating enough per arena to clear it would be optimising for volume, which is the one
+    thing the owner explicitly said not to do -- so the pass reports what it is instead.
+    """
+    from brambleloop.creative.funnel import STAGE_BY_KEY
+
+    db = _db()
+    with db.session() as session:
+        for i in range(30):
+            session.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY,
+                                         listing_ref=f"T{i}", pod="stockings",
+                                         title="Cozy Crochet Christmas Stocking Pattern"))
+    result = P.expedition(db, _arena(pod="stockings", forms={"stocking": 13}),
+                          gateway=_Gateway(), today=date(2026, 9, 19))
+    assert result["ideation_floor"] == STAGE_BY_KEY["ideation"].floor_in
+    assert result["is_a_tournament"] is False
+    assert "optimising for volume" in result["what_this_is"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

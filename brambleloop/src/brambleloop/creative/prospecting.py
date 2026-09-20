@@ -104,6 +104,17 @@ class ProspectingRefused(ValueError):
     """An expedition that would not have discovered anything."""
 
 
+def _ideation_floor() -> int:
+    """The tournament's own view of how small a field stops being a selection.
+
+    Read from `funnel.STAGES` rather than restated, so an expedition cannot quietly disagree
+    with the funnel about what counts as a choice.
+    """
+    from .funnel import STAGE_BY_KEY
+
+    return STAGE_BY_KEY["ideation"].floor_in
+
+
 # ---------------------------------------------------------------------------
 # What a pod is actually made of
 
@@ -740,9 +751,22 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
         "stopped_on_ceiling": stopped,
         "cost_cad": round(routing.spent_this_month(db) - started, 6),
         "forms_discovered": forms,
+        # Said rather than left for somebody to notice. The funnel's ideation stage sets a
+        # floor because "fewer entrants than this and the stage is not a selection", and an
+        # expedition proposes a couple of dozen. That does not make the pass worthless -- it
+        # makes it prospecting into one arena rather than the tournament. Generating enough
+        # per arena to clear the threshold would be optimising for volume, which is the one
+        # thing the owner explicitly said not to do.
+        "is_a_tournament": len(candidates) >= _ideation_floor(),
+        "ideation_floor": _ideation_floor(),
         # The headline the owner asked for: not a win rate, but whether a proven arena with
         # no Brambleloop answer produced something that survived everything thrown at it.
         "answered_the_arena": bool(result["survivors"]),
+        "what_this_is": (
+            "a prospecting pass into one proven arena, not the full tournament. The "
+            "tournament's ideation stage wants at least "
+            f"{_ideation_floor()} entrants before a cut counts as a selection; generating "
+            "that many per arena to clear the threshold would be optimising for volume"),
         **{k: v for k, v in result.items() if k != "survivor_objects"},
         "survivor_objects": result["survivor_objects"],
     }
