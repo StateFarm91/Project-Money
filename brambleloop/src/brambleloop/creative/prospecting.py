@@ -38,6 +38,7 @@ and then reports honestly how little survived.
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -659,25 +660,82 @@ def occasion_for(event: str) -> str:
     return occasion
 
 
-def _brief_for(slot: Slot) -> str:
-    """A two-dimension invention brief, so the field is asked for a thing rather than a type.
+def _stable_index(*parts: str) -> int:
+    """A reproducible index from strings.
 
-    Deterministic: the pair is chosen from the slot itself, so the same arena always asks the
-    same question and a change in the field is a change in the answer rather than in the
-    prompt.
+    `hash()` on a str is salted per process unless PYTHONHASHSEED is set, so a brief chosen
+    with it is a different brief on every worker restart -- while the docstring promised that
+    the same arena always asks the same question. A schedule that silently changes between
+    deploys makes every comparison between two runs unreadable: the field moved and nothing
+    recorded that it had.
     """
-    from .invention import DIMENSIONS, NAMED_PAIRS, cross
+    digest = hashlib.blake2b("\x00".join(parts).encode("utf-8"), digest_size=8).hexdigest()
+    return int(digest, 16)
 
-    index = (hash((slot.arena.pod, slot.form)) % len(NAMED_PAIRS))
-    a, b = NAMED_PAIRS[index]
-    premise = (f"a {slot.form.replace('_', ' ')} for {slot.arena.event} where "
-               f"{DIMENSIONS[a]} and {DIMENSIONS[b]} are the same decision rather than two "
-               f"separate features of the object")
-    return cross(a, b, season=slot.arena.event, premise=premise).to_dict()["premise"]
+
+def _crosses_for(slot: Slot, count: int, *, offset: int = 0) -> list[tuple[str, str, str]]:
+    """`count` structurally different invention briefs for one slot.
+
+    The single most expensive lesson of the first tournament at scale: research killed 78 of
+    80 and 58 of those deaths were `sameness`. That is not a harsh jury, it is one brief
+    asked twelve times. Twelve concepts from one question are siblings by construction, and
+    no amount of asking a model for variety changes what it was asked for.
+
+    So the brief varies per concept rather than per field. #106's named pairs crossed with
+    #107's transformation patterns give 81 structurally distinct questions, walked by a
+    co-prime stride so consecutive concepts never share a pair, and indexed from the slot so
+    the same arena asks the same questions every time.
+    """
+    from .invention import DIMENSIONS, NAMED_PAIRS, TRANSFORMATIONS, cross
+
+    patterns = sorted(TRANSFORMATIONS)
+    total = len(NAMED_PAIRS) * len(patterns)
+    start = _stable_index(slot.arena.event, slot.arena.pod, slot.form) % total
+    # A stride co-prime with both factors walks every combination before repeating any, and
+    # moves the pair on every step rather than exhausting one pair's transformations first.
+    stride = len(patterns) + 1
+    out: list[tuple[str, str, str]] = []
+    for i in range(count):
+        at = (start + (offset + i) * stride) % total
+        a, b = NAMED_PAIRS[at % len(NAMED_PAIRS)]
+        pattern = patterns[(at // len(NAMED_PAIRS)) % len(patterns)]
+        premise = (f"a {slot.form.replace('_', ' ')} for {slot.arena.event} where "
+                   f"{DIMENSIONS[a]} and {DIMENSIONS[b]} are the same decision rather than "
+                   f"two separate features of the object, and where {TRANSFORMATIONS[pattern]}")
+        # Built through cross() so the near-synonym and one-dimension refusals still apply:
+        # the variety is generated, and it is still checked.
+        cross(a, b, season=slot.arena.event, premise=premise)
+        out.append((a, b, pattern))
+    return out
+
+
+def _brief_for(slot: Slot, count: int = 1, *, offset: int = 0) -> str:
+    """The brief for one batch: `count` numbered crosses, one per concept.
+
+    Deterministic in the slot, so the same arena always asks the same questions and a change
+    in the field is a change in the answer rather than in the prompt.
+    """
+    from .invention import DIMENSIONS, TRANSFORMATIONS
+
+    crosses = _crosses_for(slot, max(1, count), offset=offset)
+    if len(crosses) == 1:
+        a, b, pattern = crosses[0]
+        return (f"a {slot.form.replace('_', ' ')} for {slot.arena.event} where "
+                f"{DIMENSIONS[a]} and {DIMENSIONS[b]} are the same decision rather than two "
+                f"separate features of the object, and where {TRANSFORMATIONS[pattern]}")
+    lines = [
+        f"{i + 1}. {DIMENSIONS[a]} and {DIMENSIONS[b]} are the same decision rather than "
+        f"two separate features, and {TRANSFORMATIONS[pattern]}"
+        for i, (a, b, pattern) in enumerate(crosses)]
+    return (
+        f"Return exactly {len(crosses)} concepts for a {slot.form.replace('_', ' ')} for "
+        f"{slot.arena.event}. Concept N must execute pairing N below and no other -- these "
+        f"are different objects, not variations of one. Do not carry a motif, a palette or a "
+        f"structural idea from one to the next.\n" + "\n".join(lines))
 
 
 def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
-            agent: str = "creative_director",
+            agent: str = "creative_director", brief_offset: int = 0,
             key_prefix: str = "") -> tuple[list[Candidate], list[str]]:
     """Ask for a field of concepts for one slot, and refuse everything malformed.
 
@@ -703,7 +761,7 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
             "feelings": ", ".join(FEELINGS),
             "recipients": ", ".join(RECIPIENTS),
             "occasions": ", ".join(OCCASIONS),
-            "brief": _brief_for(slot),
+            "brief": _brief_for(slot, count, offset=brief_offset),
             "count": count,
         },
         required=("concepts",))
@@ -1032,6 +1090,7 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
     # Round-robin across slots so the field is wide by construction rather than by luck: a
     # field that took the first slot to target would be one department again.
     index = 0
+    asked: dict[int, int] = {}
     while len(candidates) < target:
         slot = reachable[index % len(reachable)]
         index += 1
@@ -1045,8 +1104,13 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
             break
         want = min(IDEATION_BATCH, target - len(candidates))
         try:
+            # Each batch continues where this slot's last one stopped, so a slot visited
+            # seven times asks eighty-four different questions rather than the same twelve
+            # seven times over.
             batch, refused = propose(slot, gateway=gateway, count=want, agent=agent,
+                                     brief_offset=asked.get(id(slot), 0),
                                      key_prefix=f"t{index}-")
+            asked[id(slot)] = asked.get(id(slot), 0) + want
         except Exception as e:  # noqa: BLE001 - one failed batch is not a failed field
             problems.append(f"{slot.form}: {type(e).__name__}: {e}"[:200])
             continue

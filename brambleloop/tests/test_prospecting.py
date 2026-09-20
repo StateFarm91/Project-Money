@@ -497,6 +497,92 @@ def test_one_failed_field_is_not_a_failed_expedition():
     assert result["answered_the_arena"] is False
 
 
+# ---- breadth inside one batch ------------------------------------------------
+
+
+def test_the_brief_is_stable_across_processes_and_not_only_within_one():
+    """`hash()` on a str is salted per process, and the docstring promised it was not.
+
+    The brief chose its invention pairing with `hash((pod, form))`, so the same arena asked a
+    different question on every worker restart while the code said the opposite. A schedule
+    that silently changes between deploys makes any comparison between two runs unreadable:
+    the field moved and nothing recorded that it had.
+    """
+    import subprocess
+    import sys as _sys
+
+    script = (
+        "import sys; sys.path.insert(0, 'src');"
+        "from brambleloop.creative.prospecting import _stable_index;"
+        "print(_stable_index('Christmas', 'garments', 'fitted_garment'))")
+    seen = set()
+    for seed in ("0", "1", "12345"):
+        out = subprocess.run([_sys.executable, "-c", script], capture_output=True, text=True,
+                             cwd=str(Path(__file__).resolve().parents[1]),
+                             env={"PYTHONHASHSEED": seed, "PATH": "/usr/bin:/bin"})
+        assert out.returncode == 0, out.stderr
+        seen.add(out.stdout.strip())
+    assert len(seen) == 1, f"the index moved with the hash seed: {seen}"
+
+
+def test_a_batch_asks_a_different_question_per_concept():
+    """58 of the first tournament's 78 deaths were `sameness`. That is one brief asked twelve
+    times, not a harsh jury.
+
+    Twelve concepts from one question are siblings by construction, and asking a model for
+    variety does not change what it was asked for. #106's nine named pairs crossed with
+    #107's nine transformation patterns give 81 structurally distinct questions; this checks
+    that a batch actually walks them rather than repeating one.
+    """
+    arena = P.Arena(event="Christmas", pod="garments", days_away=96,
+                    benchmark_listings=140, forms={"fitted_garment": 57})
+    slot = P.slots(arena)["slot_objects"][0]
+
+    crosses = P._crosses_for(slot, 12)
+    assert len(crosses) == 12
+    assert len(set(crosses)) == 12, "a batch repeated a question"
+    # And the pair moves on every step rather than one pair's transformations being
+    # exhausted first, which would leave twelve concepts sharing both dimensions.
+    pairs = [(a, b) for a, b, _ in crosses]
+    assert len(set(pairs)) >= 9, pairs
+    assert all(pairs[i] != pairs[i + 1] for i in range(len(pairs) - 1)), pairs
+
+    brief = P._brief_for(slot, 12)
+    assert "exactly 12 concepts" in brief
+    assert brief.count("\n") >= 12, brief
+    assert "not variations of one" in brief
+
+
+def test_the_second_batch_of_a_slot_continues_rather_than_repeats():
+    """A slot visited seven times must ask eighty-four questions, not the same twelve seven
+    times -- which is what an offset-free brief does, and it would put every repeat straight
+    into the sibling gate."""
+    arena = P.Arena(event="Christmas", pod="garments", days_away=96,
+                    benchmark_listings=140, forms={"fitted_garment": 57})
+    slot = P.slots(arena)["slot_objects"][0]
+
+    first = P._crosses_for(slot, 12, offset=0)
+    second = P._crosses_for(slot, 12, offset=12)
+    assert not set(first) & set(second), "the second batch repeated the first"
+
+
+def test_generated_variety_is_still_checked_rather_than_assumed():
+    """Every cross is built through `cross()`, so #106's own refusals still apply.
+
+    A generator of briefs that bypassed the validator would be free to emit a pair of
+    near-synonyms -- one idea stated twice, wearing a matrix.
+    """
+    from brambleloop.creative.invention import _FAMILIES
+
+    arena = P.Arena(event="Christmas", pod="garments", days_away=96,
+                    benchmark_listings=140, forms={"fitted_garment": 57})
+    slot = P.slots(arena)["slot_objects"][0]
+    for a, b, _pattern in P._crosses_for(slot, 40):
+        assert a != b, (a, b)
+        pair = frozenset({a, b})
+        assert not any(pair <= family for family in _FAMILIES), (a, b)
+
+
 # ---- the handler itself ------------------------------------------------------
 
 
