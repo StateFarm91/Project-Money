@@ -288,6 +288,73 @@ def test_a_deploy_re_drives_what_it_fixed_exactly_once():
         os.environ.pop("BRAMBLELOOP_COMMIT", None)
 
 
+def test_a_cadence_that_wrongly_said_nothing_is_retried_by_the_next_deploy():
+    """A no-op is the same debt as a dead letter, wearing a success.
+
+    The weekly discovery run reported "no proven-and-unserved arena is observed" against a
+    matrix holding twenty-seven, because a reader had the wrong key. It consumed its window,
+    so without this it would sit idle for seven days after the fix -- and the dead-letter
+    re-drive cannot help, because the job did not fail.
+    """
+    import os
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import JobStatus
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.pipeline import handle_queue_check
+    from brambleloop.runtime.worker import JobContext
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/noop.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    q = JobQueue(db)
+
+    noop = q.enqueue("creative_director", "creative.expedition", {})
+    q.complete(noop.id, {"ran": False, "reason": "no proven-and-unserved arena is observed"})
+    worked = q.enqueue("market_radar", "mjs.scan", {})
+    q.complete(worked.id, {"ran": True, "listings_known": 438})
+
+    ctx = JobContext(job=q.enqueue("orchestrator", "ops.queue_check", {}), db=db, queue=q,
+                     registry=Registry(db), phase=None)
+    os.environ["BRAMBLELOOP_COMMIT"] = "cccccccccccc"
+    try:
+        first = handle_queue_check(ctx)
+        assert first["cadences"] == ["arena_expedition"], first
+        pending = [j.job_type for j in q.pending()] if hasattr(q, "pending") else []
+        del pending
+        # A cadence that ran properly is finished with: a run that costs money costs it once.
+        assert "mjs_scan" not in first["cadences"]
+
+        # Same commit, no second attempt.
+        assert handle_queue_check(ctx)["recadenced"] == 0
+
+        # While the retry is still pending, a new deploy does not stack another on top of
+        # it: the last attempt has not reported yet, so there is nothing to re-drive.
+        os.environ["BRAMBLELOOP_COMMIT"] = "dddddddddddd"
+        assert handle_queue_check(ctx)["recadenced"] == 0
+
+        # Once that retry also comes back empty, the next deploy tries again.
+        retry = [j for j in q.dead_letters()] or None
+        del retry
+        pending_retry = q.claim("test-worker", ["creative.expedition"])
+        assert pending_retry is not None, "the retry was never enqueued"
+        q.complete(pending_retry.id, {"ran": False, "reason": "still nothing"})
+        os.environ["BRAMBLELOOP_COMMIT"] = "ffffffffffff"
+        assert handle_queue_check(ctx)["cadences"] == ["arena_expedition"]
+
+        # Once it succeeds, it is never re-enqueued again.
+        latest = q.claim("test-worker", ["creative.expedition"])
+        assert latest is not None
+        q.complete(latest.id, {"ran": True, "survivors": 2})
+        os.environ["BRAMBLELOOP_COMMIT"] = "eeeeeeeeeeee"
+        assert handle_queue_check(ctx)["recadenced"] == 0
+        assert JobStatus  # imported for the reader's benefit
+    finally:
+        os.environ.pop("BRAMBLELOOP_COMMIT", None)
+
+
 def test_an_unknown_commit_does_not_re_drive_anything():
     """"Once per deploy" has no meaning without a deploy identity, and a retry there loops."""
     import os

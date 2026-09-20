@@ -608,49 +608,81 @@ def handle_heartbeat(ctx: JobContext) -> dict:
 
 @handlers.register("ops.queue_check")
 def handle_queue_check(ctx: JobContext) -> dict:
-    """Count the dead letters, and re-drive them once per deployed commit.
+    """Re-drive what a deploy fixed: dead letters, and cadences that wrongly said "nothing".
 
-    A dead letter caused by a defect is work the company still owes, and the fix for a defect
-    is a deploy. So a deploy is exactly the event that should retry it -- once. That bound is
-    what stops this becoming a retry loop: a commit that did not fix the defect kills the job
-    again, and it waits for the next one rather than for somebody with database access.
+    Two failure shapes, one bound. A dead letter caused by a defect is work the company still
+    owes. And a cadence that *completed* reporting nothing to do is the same debt wearing a
+    success: the weekly discovery run reported "no proven-and-unserved arena is observed"
+    against a matrix holding twenty-seven of them, because a reader had the wrong key. It
+    consumed its window, so without this it would sit idle for seven days after the fix, and
+    the dead-letter re-drive cannot help because the job did not fail.
 
-    This matters more than it looks for infrequent cadences. A monthly job that dies on a
-    typo would otherwise sit in the graveyard for thirty days after the typo is fixed, which
-    is how an autonomous build stalls on something already repaired.
+    The fix for a defect is a deploy, so a deploy is the event that retries it -- once. A
+    commit that did not fix it produces the same no-op or the same failure and waits for the
+    next one, which is what stops this being a loop. A cadence whose last run *succeeded*
+    with real work is never re-enqueued, so a run that costs money costs it once.
 
-    Deliberate refusals are never re-driven: `requeue_dead` skips anything whose error
-    carries a refusal marker, so Shadow Mode's publication refusals stay refused.
+    Deliberate refusals are never re-driven: `requeue_dead` skips anything whose error carries
+    a refusal marker, so Shadow Mode's publication refusals stay refused.
     """
     from sqlalchemy import desc, select
 
     from ..core import build
-    from ..core.models import AuditLog
+    from ..core.models import AuditLog, Job
+    from ..queue.durable import DuplicateJob
+    from .worker import CADENCES
 
     dead = ctx.queue.dead_letters()
-    if not dead:
-        return {"dead_letters": 0, "requeued": 0}
-
-    ctx.audit("ops.dead_letters_present", detail={"ids": [d.id for d in dead][:20]})
+    if dead:
+        ctx.audit("ops.dead_letters_present", detail={"ids": [d.id for d in dead][:20]})
 
     here = build.commit() or "unknown"
+    if here == "unknown":
+        return {"dead_letters": len(dead), "requeued": 0, "recadenced": 0,
+                "reason": ("the deployed commit is unknown, so 'once per deploy' has no "
+                           "meaning and a retry here would be an unbounded loop")}
+
     with ctx.db.session() as s:
         seen = list(s.scalars(
             select(AuditLog).where(AuditLog.action == "ops.requeued_for_commit")
             .order_by(desc(AuditLog.id)).limit(20)))
-        already = any((row.detail or {}).get("commit") == here for row in seen)
-    if already or here == "unknown":
-        return {"dead_letters": len(dead), "requeued": 0,
-                "reason": ("this commit has already re-driven them" if already else
-                           "the deployed commit is unknown, so 'once per deploy' has no "
-                           "meaning and a retry here would be an unbounded loop")}
+    if any((row.detail or {}).get("commit") == here for row in seen):
+        return {"dead_letters": len(dead), "requeued": 0, "recadenced": 0,
+                "reason": "this commit has already re-driven them"}
 
-    result = ctx.queue.requeue_dead(
-        job_types=sorted({j.job_type for j in dead if j.job_type != "store.publish"}))
+    requeued: list[int] = []
+    if dead:
+        result = ctx.queue.requeue_dead(
+            job_types=sorted({j.job_type for j in dead if j.job_type != "store.publish"}))
+        requeued = list(result.get("requeued") or [])
+
+    # The no-op half. Only the last attempt matters: a cadence that has since run properly
+    # is finished with, and one still reporting nothing gets exactly one more chance.
+    recadenced: list[str] = []
+    with ctx.db.session() as s:
+        for name, agent, job_type, _period in CADENCES:
+            last = list(s.scalars(select(Job).where(Job.job_type == job_type)
+                                  .order_by(desc(Job.id)).limit(1)))
+            if not last:
+                continue
+            outputs = last[0].outputs or {}
+            if outputs.get("ran") is not False:
+                continue
+            recadenced.append(name)
+
+    for name, agent, job_type, _period in CADENCES:
+        if name not in recadenced:
+            continue
+        try:
+            ctx.enqueue(agent, job_type, {"cadence": name, "retry_for_commit": here},
+                        idempotency_key=f"cadence:{name}:retry:{here}")
+        except DuplicateJob:
+            continue
+
     ctx.audit("ops.requeued_for_commit",
-              detail={"commit": here, **{k: v for k, v in result.items() if k != "skipped"}})
-    return {"dead_letters": len(dead), "requeued": len(result.get("requeued") or []),
-            "commit": here}
+              detail={"commit": here, "requeued": requeued, "recadenced": recadenced})
+    return {"dead_letters": len(dead), "requeued": len(requeued),
+            "recadenced": len(recadenced), "cadences": recadenced, "commit": here}
 
 
 @handlers.register("plan.cycle")
