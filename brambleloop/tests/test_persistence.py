@@ -355,6 +355,52 @@ def test_a_cadence_that_wrongly_said_nothing_is_retried_by_the_next_deploy():
         os.environ.pop("BRAMBLELOOP_COMMIT", None)
 
 
+def test_a_run_that_completed_having_done_nothing_counts_as_a_no_op():
+    """The `ran` flag is the unreliable half, and the one that hides.
+
+    The discovery cadence reported `ran: true, proposed: 0, cost_cad: 0` for two consecutive
+    runs because a truncated prompt returned no concepts. That reads as a successful run in
+    every dashboard, and a rule looking only at the flag left it waiting a week for a window
+    it had already spent.
+    """
+    from brambleloop.runtime.pipeline import did_no_work
+
+    assert did_no_work({"ran": True, "proposed": 0, "survivors": 0, "cost_cad": 0.0})
+    assert did_no_work({"ran": False, "reason": "nothing observed"})
+    # Real work is never a no-op, whatever else is zero beside it.
+    assert not did_no_work({"ran": True, "listings_known": 438, "new": 0, "reclassified": 0})
+    assert not did_no_work({"ran": True, "judged": 12})
+    # A handler that reports no counters at all is not assumed idle.
+    assert not did_no_work({"ran": True})
+    assert not did_no_work({})
+
+
+def test_a_cadence_that_ran_but_did_nothing_is_re_driven_like_one_that_said_so():
+    import os
+    import tempfile
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.pipeline import handle_queue_check
+    from brambleloop.runtime.worker import JobContext
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/nowork.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    q = JobQueue(db)
+    empty = q.enqueue("creative_director", "creative.expedition", {})
+    q.complete(empty.id, {"ran": True, "proposed": 0, "survivors": 0, "cost_cad": 0.0})
+
+    ctx = JobContext(job=q.enqueue("orchestrator", "ops.queue_check", {}), db=db, queue=q,
+                     registry=Registry(db), phase=None)
+    os.environ["BRAMBLELOOP_COMMIT"] = "1111aaaa2222"
+    try:
+        assert handle_queue_check(ctx)["cadences"] == ["arena_expedition"]
+    finally:
+        os.environ.pop("BRAMBLELOOP_COMMIT", None)
+
+
 def test_an_unknown_commit_does_not_re_drive_anything():
     """"Once per deploy" has no meaning without a deploy identity, and a retry there loops."""
     import os

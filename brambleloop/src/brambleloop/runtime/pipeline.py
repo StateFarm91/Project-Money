@@ -606,6 +606,33 @@ def handle_heartbeat(ctx: JobContext) -> dict:
     return {"queue": q, "dead_letters": dead}
 
 
+# What a cadence reports when it did something. A handler that ran and moved none of these
+# did no work, whatever its `ran` flag says -- and the flag is the unreliable half: the
+# discovery cadence reported `ran: true, proposed: 0, cost_cad: 0` for two consecutive runs
+# because a truncated prompt returned no concepts, and a rule reading only the flag left it
+# waiting a week for a window it had already spent.
+WORK_COUNTERS: tuple[str, ...] = (
+    "proposed", "survivors", "judged", "requeued", "recadenced", "new", "reclassified",
+    "inspected", "moved", "enqueued", "listings_known", "dead_letters",
+)
+
+
+def did_no_work(outputs: dict) -> bool:
+    """True when a completed job reports that nothing happened.
+
+    Two shapes, because handlers were written at different times: an explicit `ran: false`,
+    and a `ran: true` whose every work counter is zero. The second is the one that hides --
+    it reads as a successful run in every dashboard, and it is what a defect upstream of the
+    work produces.
+    """
+    if outputs.get("ran") is False:
+        return True
+    if outputs.get("ran") is not True:
+        return False
+    counters = [outputs.get(key) for key in WORK_COUNTERS if key in outputs]
+    return bool(counters) and not any(counters)
+
+
 @handlers.register("ops.queue_check")
 def handle_queue_check(ctx: JobContext) -> dict:
     """Re-drive what a deploy fixed: dead letters, and cadences that wrongly said "nothing".
@@ -665,10 +692,8 @@ def handle_queue_check(ctx: JobContext) -> dict:
                                   .order_by(desc(Job.id)).limit(1)))
             if not last:
                 continue
-            outputs = last[0].outputs or {}
-            if outputs.get("ran") is not False:
-                continue
-            recadenced.append(name)
+            if did_no_work(last[0].outputs or {}):
+                recadenced.append(name)
 
     for name, agent, job_type, _period in CADENCES:
         if name not in recadenced:
