@@ -38,6 +38,46 @@ def _synced(env: dict | None = None) -> Database:
     return db
 
 
+def _open_culture_feed(db) -> None:
+    """Open one gate by making its condition true, which is the only way a gate opens."""
+    from brambleloop.core.models import CultureObservation
+
+    with db.session() as s:
+        s.add(CultureObservation(signal_key="test-signal", channel="search",
+                                 observed_on="2026-09-20", interest=1.0,
+                                 source="tests/test_executor.py"))
+
+
+def _synced_with_ready_work() -> Database:
+    """A database with ready work in it, whatever today's backlog happens to be.
+
+    Several tests below are about claiming, leases, completion and the watchdog -- mechanics
+    with nothing to do with how much work is outstanding. They read `next_ready` off the
+    live registry, which worked only while the backlog was non-empty, and on 2026-09-20 it
+    emptied: nothing is `missing` and every executable requirement is parked on a gate that
+    opens from demonstrated capability. Nine tests failed in one run, not one of them because
+    the thing it tests had broken.
+
+    That is the same mistake as the threshold in the parking test above, in a different
+    costume: a test that borrows its fixture from today's backlog is measuring the backlog.
+    So ready work is produced here the way it will actually be produced from now on -- by a
+    gate's condition becoming true.
+
+    `culture_feed` rather than a credential on purpose. Its three requirements are all
+    `partial`, so opening it produces ready work and leaves the reconciliation balanced;
+    opening a credential gate instead un-parks requirements still audited `owner_gated`,
+    which is correct behaviour and a state where `balances` is deliberately false.
+    """
+    db = _db()
+    E.sync(db, env={})
+    _open_culture_feed(db)
+    E.sync(db, env={})
+    assert E.next_ready(db) is not None, (
+        "this gate no longer produces ready work; the scenario tests below need one "
+        "requirement they can claim, and borrowing it from the live backlog is what broke")
+    return db
+
+
 # ---- the queue cannot overstate itself ------------------------------------
 
 
@@ -71,7 +111,7 @@ def test_a_requirement_re_audited_as_gated_leaves_the_queue():
     """
     import dataclasses
 
-    db = _synced()
+    db = _synced_with_ready_work()
 
     ready = {r["requirement_id"] for r in E.queue(db, limit=400)["ready"]}
     victim = min(ready)
@@ -170,17 +210,30 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     assert reconciled["balances"] is True, reconciled
     assert reconciled["ready"] == reconciled["executable"] - len(
         reconciled["executable_parked"]), reconciled
-    assert reconciled["ready"] > 0, "the queue stopped because something was parked"
+    # Zero ready is a legitimate state and a stalled queue is not, and the difference is
+    # whether the zero is accounted for. "ready > 0" stood here until the day it stopped
+    # being true, which is the failure mode the comment above already names and this file
+    # then walked into anyway: a backlog that empties is the build working. What holds at
+    # every size is that every executable requirement is either ready or parked on a named
+    # gate, so a queue at zero can say which of the two it is.
+    if reconciled["ready"] == 0:
+        assert len(reconciled["executable_parked"]) == reconciled["executable"], \
+            "the queue is empty and the parked set does not account for it"
     # Parked, ready and blocked are reported together: a queue showing only ready work looks
     # identical whether fourteen requirements are parked on a browser or none are.
     assert "browser_vision" in q["parked_by_capability"]
     assert len(q["parked_by_capability"]["browser_vision"]) >= 10
     assert "reported together" in q["note"]
 
-    # The next thing to do is named, and it is not one of the parked ones.
+    # The next thing to do is named when there is one, and it is never a parked one. There
+    # is no third answer: a queue with ready work that names nothing to do is the defect
+    # this whole module exists to prevent.
     nxt = q["next"]
-    assert nxt is not None
-    assert nxt["state"] == E.READY
+    if q["ready_total"] > 0:
+        assert nxt is not None, "work is ready and the queue names nothing to do"
+        assert nxt["state"] == E.READY
+    else:
+        assert nxt is None, "nothing is ready and the queue named something anyway"
 
 
 def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
@@ -273,7 +326,7 @@ def test_a_dead_session_loses_a_worker_rather_than_the_build():
     conversation is open is not autonomy, it is a person with extra steps — and the failure
     is invisible until the moment it matters.
     """
-    db = _synced()
+    db = _synced_with_ready_work()
     target = E.next_ready(db)["requirement_id"]
     E.claim(db, target, worker="session-1")
 
@@ -304,7 +357,7 @@ def test_a_dead_session_loses_a_worker_rather_than_the_build():
 
 
 def test_a_completion_needs_evidence_because_it_is_the_loops_own_progress():
-    db = _synced()
+    db = _synced_with_ready_work()
     target = E.next_ready(db)["requirement_id"]
     E.claim(db, target, worker="session-1")
 
@@ -323,7 +376,7 @@ def test_a_completion_needs_evidence_because_it_is_the_loops_own_progress():
 
 
 def test_a_released_requirement_is_not_a_finished_one():
-    db = _synced()
+    db = _synced_with_ready_work()
     target = E.next_ready(db)["requirement_id"]
     E.claim(db, target, worker="session-1")
     E.release(db, target, worker="session-1", why="turned out to need the browser gate")
@@ -335,7 +388,7 @@ def test_a_released_requirement_is_not_a_finished_one():
 
 def test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not():
     """They need opposite responses and look identical from outside."""
-    db = _synced()
+    db = _synced_with_ready_work()
     stalled = E.watchdog(db)
     assert stalled["verdict"] == "stalled"
     assert stalled["alarm"] is True
@@ -359,7 +412,7 @@ def test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not(
 
 
 def test_a_completion_makes_the_loop_moving_again():
-    db = _synced()
+    db = _synced_with_ready_work()
     target = E.next_ready(db)["requirement_id"]
     E.claim(db, target, worker="session-1")
     E.complete(db, target, worker="session-1", evidence={"commit": "abc1234"})
@@ -378,8 +431,7 @@ def test_a_completion_the_watchdog_cannot_see_is_a_false_alarm():
     left the watchdog blind to the commonest kind of progress, and a false alarm in the
     channel that exists to catch a real one is worse than no channel.
     """
-    db = _db()
-    E.sync(db, env={})
+    db = _synced_with_ready_work()
 
     # Close a requirement the way a session actually closes one: by moving the registry.
     from sqlalchemy import select
@@ -413,7 +465,7 @@ def test_a_completion_the_watchdog_cannot_see_is_a_false_alarm():
 
 def test_never_idle_is_measured_in_completions_rather_than_ticks():
     """A loop that always has something to do can invent work; this counts finished things."""
-    db = _synced()
+    db = _synced_with_ready_work()
     for _ in range(5):
         E.sync(db, env={})
     assert E.watchdog(db)["completions_in_window"] == 0
@@ -479,6 +531,15 @@ def test_the_proof_requires_work_spread_across_the_window_not_a_burst():
 
 
 def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
+    """Both idle states, through the worker rather than through the module.
+
+    The tick reads the world rather than an injected fixture, which is the point -- a gate
+    opening in production opens it for the deployed worker with nobody editing anything. So
+    this drives it twice: once with the backlog as it actually is, where every executable
+    requirement is parked and the loop's silence is correct, and once after a gate's
+    condition has become true, where the same silence is a stalled loop. The two look
+    identical from outside and the incident is the whole difference.
+    """
     from sqlalchemy import select
 
     from brambleloop.agents.registry import Registry
@@ -492,18 +553,24 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
 
     db = _db()
     Registry(db).seed_defaults()
-    JobQueue(db).enqueue("orchestrator", "build.tick", {}, idempotency_key="build-1")
     worker = Worker(db, "build-worker")
-    for _ in range(20):
-        if not worker.run_once():
-            break
 
-    with db.session() as s:
-        dead = list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
-        ticked = list(s.scalars(select(AuditLog).where(AuditLog.action == "build.ticked")))
-        stalls = [i for i in s.scalars(select(Incident))
-                  if i.signature == "build.stalled"]
+    def tick(key: str) -> None:
+        JobQueue(db).enqueue("orchestrator", "build.tick", {}, idempotency_key=key)
+        for _ in range(20):
+            if not worker.run_once():
+                break
 
+    def state():
+        with db.session() as s:
+            return (
+                list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD))),
+                list(s.scalars(select(AuditLog).where(AuditLog.action == "build.ticked"))),
+                [i for i in s.scalars(select(Incident)) if i.signature == "build.stalled"],
+            )
+
+    tick("build-1")
+    dead, ticked, stalls = state()
     assert not dead, [(j.job_type, (j.last_error or "")[:200]) for j in dead]
     assert ticked, "the build tick ran and recorded nothing"
     detail = ticked[-1].detail
@@ -511,10 +578,30 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     assert detail["ready"] == E.reconciliation(db)["ready"]
     assert detail["ready"] < len(reg.executable())
     assert detail["parked"] > 0
-    assert detail["next"] is not None
-    # Nothing has been completed and work is ready, so the loop raises exactly one stall.
-    assert len(stalls) == 1
-    assert "look identical from outside" in stalls[0].summary
+    # Idle with everything parked. The loop has completed nothing and must not say so in the
+    # channel that exists for real stalls, because a channel that cries wolf gets muted.
+    if detail["ready"] == 0:
+        assert detail["next"] is None
+        assert detail["verdict"] == "waiting_on_owner"
+        assert not stalls, "everything is parked and the loop raised a stall anyway"
+
+    # Now a gate's condition becomes true in the database the deployed worker actually
+    # reads, and the same silence becomes a stall with exactly one incident behind it.
+    before = len(stalls)
+    _open_culture_feed(db)
+    tick("build-2")
+    tick("build-3")
+
+    dead, ticked, stalls = state()
+    assert not dead, [(j.job_type, (j.last_error or "")[:200]) for j in dead]
+    opened = ticked[-1].detail
+    assert opened["ready"] > 0, "the gate released no work, so this proves nothing"
+    assert opened["next"] is not None
+    assert opened["verdict"] == "stalled"
+    # Two ticks, one incident: a loop that raises a fresh row every hour is a loop nobody
+    # reads.
+    assert len(stalls) == before + 1
+    assert "look identical from outside" in stalls[-1].summary
 
 
 # ---- the registry may park its own remainder ------------------------------

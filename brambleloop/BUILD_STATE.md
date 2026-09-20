@@ -1,6 +1,6 @@
 # BUILD_STATE
 
-_Updated 2026-09-18 by the Brambleloop build session. Maintained continuously so any future
+_Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
 
 ## Build 1: COMPLETE
@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 207 | satisfied, with a named test or artefact |
-| partial | 57 | something real exists and is short of the requirement |
+| covered | 208 | satisfied, with a named test or artefact |
+| partial | 56 | something real exists and is short of the requirement |
 | missing | 0 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **57 requirements are executable** (partial +
+as one nobody has written. **56 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 207 of 320 covered is **64.7% complete**, read from the registry rather than
+typed. 208 of 320 covered is **65.0% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `647d28d`: **2,480 tests passing, 0 failing** across
-139 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `e07e8f9`: **2,523 tests passing, 0
+failing** across 141 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -3903,6 +3903,32 @@ timings, written there by the system rather than by hand.
   are not expected to: they are daily and weekly, the container started at 16:14, and the
   recent window holds only the 15-minute and hourly ones. Saying they are deployed is true;
   saying they have run would not be.
+- 2026-09-20 intel block, closing the MJs benchmark cluster. #215/#219/#220/#227/#228: a
+  panel that is never one shop (MJs named once, in one constant; three members minimum;
+  membership read per category), a standard a competitor may raise and never lower, entry
+  refused on parity alone, and an owner veto recorded in a closed vocabulary whose third
+  repetition is a finding about the evaluator rather than about the product. The veto retires
+  only on predictions the evaluator made *before* the owner ruled -- a prediction dated at or
+  after the ruling is refused by the constructor, because the owner's rulings are the easiest
+  training data to hand. Then #226: a pod's capability is two numbers and no function returns
+  one alone, discernment is precision against settled outcomes and explicitly not rejection
+  rate, and pods stay out of `improve.cells.CELLS` so that one vocabulary does not come to
+  mean two things. Then #214: a mechanism is how a listing works on a buyer, never what the
+  product depicts -- depiction words refused at construction, containment reusing
+  `culture.rights` rather than a second copy of it, and a tournament requiring two mechanisms
+  this shop lacks *and* our own demand evidence, because a pipeline that answers every
+  competitor listing is handing them the roadmap. #207-#211 parked on `browser_vision`:
+  #221 mandates vision for the observation layer, so they are not code that could be written
+  now and switched on later. Registry 208 of 320 covered, 56 executable, **0 READY** --
+  nothing is `missing`, and every one of the 94 parked requirements names a gate that opens
+  from demonstrated capability. Decisions B-464..B-476.
+- The empty backlog then broke the executor's own tests, nine at once, and none of them
+  because the thing it tested had broken: they read `next_ready()` off the live registry to
+  get something to claim, and one asserted `ready > 0` directly beside a comment explaining
+  that same mistake in its previous costume. Ready work is now produced the way it will
+  actually be produced from now on -- by a gate's condition becoming true -- and both idle
+  states are asserted through the deployed worker: parked-and-silent raises nothing,
+  gate-open-and-silent raises exactly one incident across two ticks. B-477.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

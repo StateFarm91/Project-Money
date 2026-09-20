@@ -1376,6 +1376,32 @@ def api_elite_panel() -> dict:
     return {"panel": panel.state(), "veto": veto.state()}
 
 
+@app.get("/api/mechanisms")
+def api_mechanisms() -> dict:
+    """What a competitor listing teaches, and what it may never carry away (#214).
+
+    A mechanism is a claim about *how* a listing works on a buyer -- the first photograph
+    answering the sizing question before it is asked, the title leading with the occasion.
+    It is never a claim about what the product depicts. That line is the whole safety
+    property: "a wreath with cardinals" is a description of a protected design, and once it
+    is written down as a lesson the pipeline will faithfully reproduce it.
+
+    So decomposition refuses depiction words, reuses `culture.rights` for the containment
+    check rather than reimplementing it, and requires a claimed effect of at least five
+    words -- an observation with no effect cannot be wrong, and something that cannot be
+    wrong is not evidence.
+
+    A tournament is a search, not a response. It needs at least two mechanisms this shop
+    does not already have AND demand evidence for the arena from our own data; parity is
+    never a reason to ship (#227). Without that threshold, most competitor listings are
+    notes, because a pipeline that answers every one of them spends the creative budget on
+    whatever the competitor happened to publish.
+    """
+    from ..intel import mechanisms
+
+    return mechanisms.state()
+
+
 @app.get("/api/seasonal-engine")
 def api_seasonal_engine() -> dict:
     """A year with many occasions in it, and the constant that says otherwise (#33).
