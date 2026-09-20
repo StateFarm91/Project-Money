@@ -26,8 +26,8 @@ readable live at `/api/build2`.
 | status | count | meaning |
 |---|---|---|
 | covered | 182 | satisfied, with a named test or artefact |
-| partial | 49 | something real exists and is short of the requirement |
-| missing | 33 | nobody has built it |
+| partial | 52 | something real exists and is short of the requirement |
+| missing | 30 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `0782969`: **1,817 tests passing, 0 failing** across
-108 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on `72d0b79` plus #247: **1,872 tests passing, 0 failing**
+across 110 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -257,6 +257,39 @@ says absence may not be enforced yet.
 
 The 134 dead letters are all publications refused by shadow mode — the guard working — which
 is what prompted counting deliberate refusals apart from defects (B-374).
+
+**#248 — the clip that outlives its pattern.** `growth/video.py`. The instruction with
+weight in this requirement is *keeping a canonical tutorial*, and the reason is not tidiness:
+five platform videos with no canonical source diverge silently, and a corrected pattern
+leaves the troubleshooting clip telling three thousand people to do the thing that was wrong.
+That is the same defect as a stale PDF, so a module is recorded in `ops/artefacts.py` against
+the design it was cut from and goes stale by the same mechanism — found by the hourly sentinel
+rather than by somebody remembering that videos exist. Repurposing is checked: a twelve-minute
+technique explanation cut to fifteen seconds is refused as a trailer for nothing.
+Troubleshooting modules are seeded from #247's observed questions, so a clip about a problem
+nobody has had is refused.
+
+**#246 — a pin set that is genuinely several pins.** `growth/pins.py`. The requirement says
+"avoid spammy duplicate pins" and the mechanism is not about images: five pins that differ in
+crop, overlay and filter are one pin posted five times, and they are indistinguishable from
+five pins to any check that looks at the file. What makes two pins different is what they are
+*about* — seven reasons anybody saves one object — and the four things a pin factory produces
+when asked for variants are named as not being pins. Amplifying a winner means another angle;
+the same pin again with a different overlay is the same spam arriving through the door marked
+success. The schedule is the seasonal calendar's own milestones, because a second set of
+seasonal dates is a second answer to when the work is late.
+
+**#247 — search clusters from questions makers demonstrably asked.**
+`growth/clusters.py`. A keyword list produced by asking a model what crocheters search for is
+a list of things that *sound* like searches, and it is indistinguishable from a good one
+until a year of writing has been spent on it. This company already holds a list it has
+evidence for: the complaint themes counted from observed reviews. A complaint is an
+informational intent that arrived too late — "the stitch counts do not add up", "I ran out of
+yarn", "it did not fit" are the questions somebody would have typed a week earlier. A theme
+nobody has seen three times is one customer's bad day rather than a cluster, on the observer's
+own constant. A cluster with no paid destination is refused — and the download-help cluster
+says outright that it sells least of all, which is better than pretending every article sells
+something.
 
 **#233/#234 — the ladder, and what a bundle is.** `commerce/ladder.py` names the rungs with
 nothing on them (a buyer who climbs to one arrives and finds nothing) and the steps that are

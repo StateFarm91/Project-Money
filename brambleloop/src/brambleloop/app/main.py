@@ -1274,6 +1274,48 @@ def api_portfolio() -> dict:
     return portfolio.diversification(db)
 
 
+@app.get("/api/video")
+def api_video() -> dict:
+    """Video modules, where each fits, and why the canonical tutorial matters (#248).
+
+    A clip that outlives its pattern is worse than no clip, because it is trusted and it is
+    specific: the pattern is corrected, the instructions are reissued, and the
+    troubleshooting video goes on telling people to do the thing that was wrong. So a module
+    is recorded as a derived artefact and goes stale by the same mechanism a PDF does.
+    """
+    from ..growth import video
+
+    return video.state()
+
+
+@app.get("/api/pins")
+def api_pins() -> dict:
+    """What makes two pins different, and what cannot be produced yet (#246).
+
+    Five pins that differ in crop, overlay and filter are one pin posted five times, and
+    they are indistinguishable from five pins to any check that looks at the file. A pin
+    here is an angle, a destination and a date rather than an image: image generation is a
+    capability nobody has granted, and there is nowhere for a pin to land.
+    """
+    from ..growth import pins
+
+    return pins.state()
+
+
+@app.get("/api/clusters")
+def api_clusters() -> dict:
+    """Search clusters, seeded from questions makers demonstrably asked (#247).
+
+    A keyword list produced by asking a model what crocheters search for is a list of things
+    that sound like searches, and it is indistinguishable from a good one until a year of
+    writing has been spent on it. These are seeded from the complaint themes counted from
+    observed reviews: a complaint is an informational intent that arrived too late.
+    """
+    from ..growth import clusters
+
+    return clusters.state()
+
+
 @app.get("/api/ladder")
 def api_ladder() -> dict:
     """The value ladder's rungs, its steps, and what a discount may do to them (#233, #234).

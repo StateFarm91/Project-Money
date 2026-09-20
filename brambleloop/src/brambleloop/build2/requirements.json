@@ -2226,29 +2226,32 @@
  {
   "body": "Create an autonomous Pinterest production system around each validated product/collection: multiple genuinely distinct pins, keyword/board mapping, seasonal lead-time scheduling, landing destination, creative testing and attribution. Avoid spammy duplicate pins. Winner pins trigger more original variants and supporting content.",
   "id": 246,
-  "note": "Pinterest factory, SEO cluster engine, video flywheel",
+  "note": "growth/pins.py carries the instruction the requirement states outright -- avoid spammy duplicate pins -- and the mechanism is not about images. Five pins that differ in crop, overlay and filter are one pin posted five times, and they are indistinguishable from five pins to any check that looks at the file. What makes two pins different is what they are about, and there are seven reasons anybody saves one: the finished object, the fabric detail a maker judges by, the work in progress, the object in a room, the gift it makes, the scale against something familiar, and the yarn itself. A set with fewer than three distinct angles is refused, a repeated angle is the same reason to save offered twice, and the four things a pin factory produces when asked for variants -- a different crop, a different overlay, a different filter, a different aspect ratio -- are named as not being pins. Amplifying a winner means another angle: producing the successful pin again with a different overlay is the same spam arriving through the door marked success, and when every angle is used the next thing is supporting content rather than another pin. The schedule comes from seasonal/calendar.py's own milestones -- listing_indexing_date at ninety days and promotional_ramp at sixty -- rather than from dates chosen here, because a second set of seasonal dates is a second answer to when the work is late, and a pin published the week before the occasion is published after the decision. /api/pins. Remaining and parked: a pin here is an angle, a destination and a date rather than a file, because image generation is a capability nobody has granted; there is no shop, site or listing for a pin to land on, so nothing is publishable; and a pin nobody has seen has no clicks to attribute, so creative testing and attribution wait on the same gate.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Pinterest Search Factory",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "owned_surfaces"
  },
  {
   "body": "Build owned search clusters around buyer/maker questions connected to Brambleloop categories. Each cluster maps informational intent -> useful free content/tool -> relevant paid product/collection. Measure organic qualified visits, assisted conversion, email capture where permitted and revenue contribution.",
   "id": 247,
-  "note": "Pinterest factory, SEO cluster engine, video flywheel",
+  "note": "growth/clusters.py builds the clusters from questions makers demonstrably asked rather than from questions that sound like searches. A keyword list produced by asking a model what crocheters search for is indistinguishable from a good one until a year of writing has been spent on it, and this company already holds a list it has evidence for: the complaint themes counted from observed reviews. A complaint is an informational intent that arrived too late -- 'the stitch counts do not add up', 'I ran out of yarn', 'it did not fit' are the questions somebody would have typed a week earlier -- so every cluster is seeded from a counted theme, and a theme nobody has seen three times is one customer's bad day rather than a cluster, on intel/observe.py's own RECURRING_AT constant. Three refusals follow. A cluster with no paid destination is a blog: the requirement's chain is informational intent -> free content -> product, and the third link is the one that goes missing first because the first two are enjoyable to make, so each cluster names the product and why somebody whose question was just answered would want it -- and the download cluster says outright that it sells least of all, which is better than pretending every article sells something. Two clusters answering the same question in the same department rank against each other, which is #240's catalogue cannibalisation wearing a different hat: the fix for a thin cluster is depth and the instinct is a second article. The free kinds are growth/free_to_paid.py's, imported rather than restated. Clusters are ranked by how often the question was actually asked, which is a measurement rather than a guess. /api/clusters. Remaining and parked: organic qualified visits, assisted conversion, email capture and revenue contribution all need a site with organic traffic, and reporting them as zeroes would make an unbuilt funnel look like a failed one.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Google / SEO Topic Cluster Engine",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "owned_surfaces"
  },
  {
   "body": "Flagships and technique-heavy products generate reusable video modules: product reveal, technique explanation, progress checkpoints, troubleshooting and finished-result clips. Repurpose appropriately across YouTube/Shorts/Pinterest/social while keeping a canonical tutorial. Track assisted conversion and support reduction.",
   "id": 248,
-  "note": "Pinterest factory, SEO cluster engine, video flywheel",
+  "note": "growth/video.py carries the five modules the requirement names and the instruction with real weight in it: keeping a canonical tutorial. The reason is not tidiness. Five platform videos with no canonical source diverge silently -- the pattern is corrected, the written instructions are reissued, and the troubleshooting clip goes on telling people to do the thing that was wrong, which is worse than no clip because it is trusted and it is specific. That is the same problem ops/artefacts.py already solves for a PDF, so a module is recorded there against the fingerprints of the design and the canonical tutorial it was cut from: when the design moves the clip is stale by the same mechanism the chart is, and the hourly sentinel that finds one finds the others rather than somebody remembering that videos exist. Repurposing is checked rather than assumed: each module names the platforms whose shape it genuinely fits, and a twelve-minute technique explanation cut to fifteen seconds is refused as a trailer for nothing -- it converts nobody and costs the same to make. The troubleshooting modules are seeded from growth/clusters.py's questions, which are the problems makers demonstrably reported, so a clip about a problem nobody has had is refused and only a problem seen at least three times is planned for. /api/video. Remaining and parked: there is no video capability, no channel and no audience, so a module here is a plan -- what it covers, what it was cut from, where it may go. Assisted conversion needs a visit that ends in an order and support reduction needs cases on the same pattern before and after the clip existed; both are reported as unmeasurable rather than as zeroes.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Video Distribution Flywheel",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "owned_surfaces"
  },
  {
   "body": "Treat creators as a portfolio, not one-off outreach. Track audience/category fit, attributable traffic, conversion, content quality, proof assets, cost/commission and repeat performance. Scale high-contribution relationships and stop weak ones. Require appropriate disclosure.",
