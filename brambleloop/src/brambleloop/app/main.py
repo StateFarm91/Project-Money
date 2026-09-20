@@ -336,6 +336,52 @@ def api_continuity_verify() -> dict:
     return {"enqueued": True, "job_id": job.id}
 
 
+@app.get("/api/queue/cadences")
+def api_queue_cadences() -> dict:
+    """Every scheduled cadence, when it last ran, and what it returned.
+
+    `/api/status` says the queue is moving and `/api/build` says the watchdog is happy, and
+    neither can answer "did the weekly discovery run, and what did it say?". A cadence that
+    completes reporting nothing to do looks identical to a cadence that never fired, and both
+    look identical to a healthy queue -- so the outcome is the thing worth exposing, not the
+    count.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import Job, JobStatus
+    from ..runtime.worker import CADENCES
+
+    out = []
+    with db.session() as s:
+        for name, agent, job_type, period in CADENCES:
+            rows = list(s.scalars(
+                select(Job).where(Job.job_type == job_type)
+                .order_by(desc(Job.id)).limit(1)))
+            job = rows[0] if rows else None
+            out.append({
+                "cadence": name, "agent": agent, "job_type": job_type,
+                "every_hours": round(period / 3600, 2),
+                "last_job_id": job.id if job else None,
+                "last_status": job.status.value if job and hasattr(job.status, "value")
+                else (str(job.status) if job else "never_enqueued"),
+                "last_finished_at": (job.finished_at.isoformat()
+                                     if job and job.finished_at else None),
+                "last_outputs": (job.outputs or {}) if job else {},
+                "last_error": (job.last_error or "")[:200] if job else "",
+            })
+    never = [r["cadence"] for r in out if r["last_status"] == "never_enqueued"]
+    no_op = [r["cadence"] for r in out
+             if isinstance(r["last_outputs"], dict) and r["last_outputs"].get("ran") is False]
+    return {
+        "cadences": out,
+        "never_enqueued": never,
+        "last_run_was_a_no_op": no_op,
+        "note": ("A cadence that completed reporting nothing to do is not the same as one "
+                 "that never fired, and neither is visible in a queue depth of zero. A "
+                 "no-op that contradicts the evidence is a defect wearing a success."),
+    }
+
+
 @app.get("/api/queue/dead")
 def api_queue_dead() -> dict:
     """What is in the dead-letter queue, grouped by job type and failure.
