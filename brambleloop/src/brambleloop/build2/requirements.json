@@ -2256,29 +2256,32 @@
  {
   "body": "Treat creators as a portfolio, not one-off outreach. Track audience/category fit, attributable traffic, conversion, content quality, proof assets, cost/commission and repeat performance. Scale high-contribution relationships and stop weak ones. Require appropriate disclosure.",
   "id": 249,
-  "note": "creator affiliate portfolio, tester-to-ambassador path",
+  "note": "growth/creators.py's portfolio() treats the roster as positions rather than outreach events, and the trap is in the requirement's second instruction. 'Scale high-contribution relationships and stop weak ones' is correct, and applied to a roster where most relationships are unmeasured it stops the ones nobody got round to measuring -- a null sorts to the bottom of a contribution ranking, and the bottom of the list is where things are cut from. So an unmeasured relationship is classified `unmeasured` and named, never weak: what it calls for is a measurement rather than an ending. One good collaboration is a good collaboration and a track record needs more than one, so a single success holds rather than scales. Free seeding is judged on what it produced rather than what it returned, because there is no spend to divide by. Disclosure is already required at the brief: a paid or affiliate arrangement carries its disclosure in the post the audience reads, in words a reader would recognise. /api/creators. Remaining and parked on the customers gate: contribution and support impact need orders, so today every position reads unmeasured and the portfolio scales and stops nothing -- which is the correct output rather than an empty one.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Creator Affiliate Portfolio",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "customers"
  },
  {
   "body": "High-performing physical testers may graduate into ambassadors/creators when appropriate and consensual. Their real finished projects can provide trustworthy proof, colourways and educational content. Separate testing compensation/feedback from public review incentives.",
   "id": 250,
-  "note": "creator affiliate portfolio, tester-to-ambassador path",
+  "note": "growth/creators.py's may_graduate() guards the place where two honest programmes quietly merge into one dishonest one. A tester is paid, or given a sample, to find what is wrong; an ambassador is given a relationship for saying what is good. Under one agreement the test fee becomes a review fee -- and worse, the testing stops working, because a tester whose standing depends on enthusiasm reports fewer defects and the physical sample is the most expensive signal this company buys. So graduation requires demonstrated reliability on the tester roster's own threshold, two separate agreements, and a recorded revocable consent to the second relationship, since consent to test is not consent to advocate and a tester who is simply moved across was never asked. Testing terms that mention anything public -- post, share, review, tag, story, mention, feature -- are refused by name, because such a term makes the fee contingent on it whatever the sentence around it says. That a tester who reports a defect keeps their standing and their fee is stated as a term rather than assumed as a courtesy. /api/creators. Remaining and parked on browser_vision with the rest of the roster: no tester has been recruited, so nobody has graduated.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Tester-to-Ambassador Path",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "browser_vision"
  },
  {
   "body": "Where Brambleloop lawfully collects consented email subscribers, operate lifecycle flows: welcome/value, category interest, launch, post-purchase support, cross-sell and seasonal reactivation. Segment by demonstrated interest and frequency-cap communications. Track incremental contribution, not open rate vanity.",
   "id": 251,
-  "note": "email/owned audience lifecycle (CASL applies)",
+  "note": "growth/tools.py carries the six lifecycle flows and the requirement's instruction to track incremental contribution rather than open-rate vanity -- the second half made structural. There is no open-rate field and no function returns one, because an open is not a business outcome and has not been a reliable signal since mail clients began fetching images on the reader's behalf; a flow judged on opens is optimised toward subject lines and away from the purchase. Incremental contribution has the harder condition every lifecycle programme skips: a flow sent to everybody measures the people who were going to buy anyway, so without a holdout there is no incremental anything -- and growth/experiments.py already says which designs support a causal claim, so the check is delegated there rather than restated. A segment must come from something the subscriber did or said; a segment built on an open is a segment built on whether somebody's mail client fetched an image. The frequency cap is enforced on the recipient rather than the flow, because five flows that each send politely once a week send five times a week to the person who is in all five, and every flow's own report looks reasonable. Every send goes through growth/owned.py's CASL gate, which is not restated. /api/tools. Remaining and parked on owned_surfaces: no subscriber exists and nothing can be sent.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Email / Owned Audience Lifecycle",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "owned_surfaces"
  },
  {
   "body": "Measure 30/60/90/180-day repeat rate by first product/category/season. Recommend relevant next projects, matching collections and future-season products. Customer lifetime contribution becomes a first-class growth metric.",
@@ -2310,11 +2313,12 @@
  {
   "body": "Build useful free utilities that attract high-intent makers: yarn/yardage helpers, colour planners, size calculators, project-time estimators, seasonal make-time planners or motif preview tools. Each tool must have a useful standalone purpose and a measured path to relevant Brambleloop products.",
   "id": 255,
-  "note": "club research lane, personalization layer, free tool layer",
+  "note": "growth/tools.py holds the requirement's own condition -- a useful standalone purpose and a measured path to a product -- and refuses the failure that is specific and common: the tool that withholds its answer until somebody hands over an email address. That is not a useful utility with a path; it is a lead capture form wearing a calculator's name, and the maker who wanted the number leaves knowing this shop asks for things before it gives them. An address may be asked for after the answer, to save it or to send the pattern it points at, never as its price. The second finding is more useful than the module: five of the six tools the requirement names are arithmetic this system already runs on every release -- yardage per colour from the twin, finished size from the compiler and the twin, make time from the lead-time engine, the last practical make date from the seasonal calendar, and colourway contrast from publish/substitution.py -- so the table names where each already lives rather than proposing to build the calculators again. Only the motif preview needs anything new, and it needs the visual pipeline. What is missing is a surface to put them on, which is one owner action rather than five engineering ones. /api/tools. Remaining and parked on owned_surfaces: there is nowhere to host a tool.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Free Tool Acquisition Layer",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "owned_surfaces"
  },
  {
   "body": "Test legitimate referral/share mechanics that encourage customers to show finished projects or share useful products without manipulating reviews. Track attributable new customers and contribution. Never condition support or discounts on positive reviews.",

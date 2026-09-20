@@ -292,6 +292,97 @@ def test_a_recorded_creator_keeps_its_evidence_field_honest():
     assert out["creators"][0]["audience_evidence"] == "self-reported"
 
 
+# --- #249: the portfolio, and the instruction that stops the unmeasured ---------------------
+
+def test_an_unmeasured_relationship_is_not_a_weak_one():
+    """"Stop weak ones", applied to a roster where most relationships are unmeasured, stops
+    the ones nobody got round to measuring."""
+    out = C.classify(C.Relationship("cr-1"))
+    assert out["state"] == C.UNMEASURED
+    assert out["action"] == "measure it"
+    assert "rather than an ending" in out["why"]
+
+
+def test_one_good_collaboration_is_not_a_track_record():
+    out = C.classify(C.Relationship("cr-1", collaborations=1, spend_cad=10.0,
+                                    contribution_cad=100.0, support_cases=0))
+    assert out["state"] == C.HOLD
+    assert "needs more than one" in out["why"]
+
+
+def test_contribution_per_dollar_decides_once_there_is_a_record():
+    strong = C.classify(C.Relationship("s", collaborations=3, spend_cad=100.0,
+                                       contribution_cad=300.0, support_cases=0))
+    weak = C.classify(C.Relationship("w", collaborations=3, spend_cad=100.0,
+                                     contribution_cad=20.0, support_cases=0))
+    assert strong["state"] == C.SCALE and weak["state"] == C.STOP
+    assert strong["contribution_per_dollar"] == 3.0
+
+
+def test_free_seeding_is_judged_on_what_it_produced_rather_than_returned():
+    """There is no spend to divide by, so the question is whether anything came of it."""
+    produced = C.classify(C.Relationship("p", collaborations=3, spend_cad=0.0,
+                                         contribution_cad=0.0, support_cases=0,
+                                         usable_assets=2))
+    nothing = C.classify(C.Relationship("n", collaborations=3, spend_cad=0.0,
+                                        contribution_cad=0.0, support_cases=0))
+    assert produced["state"] == C.SCALE
+    assert nothing["state"] == C.STOP
+
+
+def test_an_all_unmeasured_portfolio_scales_and_stops_nothing():
+    out = C.portfolio([C.Relationship("a"), C.Relationship("b")])
+    assert out["measured"] == 0
+    assert out["by_state"] == {C.UNMEASURED: ["a", "b"]}
+    assert "That is the correct output, not an empty one" in out["note"]
+
+
+# --- #250: the tester who becomes an ambassador -------------------------------------------------
+
+def test_testing_terms_that_reach_for_anything_public_are_refused():
+    """Under one arrangement the test fee becomes a review fee."""
+    for phrase in ("make it and share a photo", "post when you finish",
+                   "tag us in a story", "we would love a review"):
+        out = C.may_graduate(C.Graduation("t", invited=4, delivered=4,
+                                          testing_terms=phrase, ambassador_terms="",
+                                          consent_ref="c-1"))
+        assert out["may_graduate"] is False, phrase
+        assert any("contingent on it" in r for r in out["reasons"]), phrase
+
+
+def test_one_agreement_covering_both_is_refused():
+    out = C.may_graduate(C.Graduation("t", invited=4, delivered=4,
+                                      testing_terms="make it and report what broke",
+                                      ambassador_terms="post when you like",
+                                      consent_ref="c-1", same_agreement=True))
+    assert any("the test fee is a review fee" in r for r in out["reasons"])
+
+
+def test_consent_to_test_is_not_consent_to_advocate():
+    out = C.may_graduate(C.Graduation("t", invited=4, delivered=4,
+                                      testing_terms="make it and report what broke",
+                                      ambassador_terms="post when you like"))
+    assert any("was never asked" in r for r in out["reasons"])
+
+
+def test_a_tester_who_has_not_demonstrated_reliability_is_not_high_performing():
+    out = C.may_graduate(C.Graduation("t", invited=1, delivered=0,
+                                      testing_terms="make it", ambassador_terms="",
+                                      consent_ref="c-1"))
+    assert any("never having been asked is neither" in r for r in out["reasons"])
+
+
+def test_a_clean_graduation_keeps_the_two_relationships_two():
+    out = C.may_graduate(C.Graduation("t", invited=4, delivered=4,
+                                      testing_terms="make it and report what broke",
+                                      ambassador_terms="post when you like",
+                                      consent_ref="c-1"))
+    assert out["may_graduate"] is True
+    assert out["terms"]["separate_agreements"] is True
+    assert "stops finding defects" in out["terms"]["reporting_a_defect_costs_nothing"]
+    assert "the two relationships stay two" in out["note"]
+
+
 def test_state_names_what_can_never_be_bought():
     out = C.state()
     assert "review" in out["never_a_deliverable"]

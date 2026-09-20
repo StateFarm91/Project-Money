@@ -1274,6 +1274,21 @@ def api_portfolio() -> dict:
     return portfolio.diversification(db)
 
 
+@app.get("/api/tools")
+def api_tools() -> dict:
+    """Free tools that answer before they ask, and the flows over a consented list (#255, #251).
+
+    A tool that withholds its answer until somebody hands over an address is a lead capture
+    form wearing a calculator's name. Five of the six tools the requirement names are
+    arithmetic this system already runs on every release; what is missing is a surface. And
+    there is no open rate here: an open is not a business outcome, and a flow judged on opens
+    is optimised toward subject lines and away from the purchase.
+    """
+    from ..growth import tools
+
+    return tools.state()
+
+
 @app.get("/api/video")
 def api_video() -> dict:
     """Video modules, where each fits, and why the canonical tutorial matters (#248).

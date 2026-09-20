@@ -42,6 +42,24 @@ available today. The scaling half is not: attributable traffic, conversion and s
 need a live listing and customers, and this module refuses to call an unmeasured outcome a
 zero, because a roster that scales on "no bad news" is the same defect this build keeps
 finding in a friendlier costume.
+
+**The portfolio (#249) has the same defect waiting in its other instruction.** "Scale
+high-contribution relationships and stop weak ones" is correct and, applied to a roster where
+most relationships are unmeasured, stops the ones nobody got round to measuring. An unmeasured
+relationship is not a weak one; it is a relationship with no evidence, and the action it
+calls for is a measurement rather than an ending. So `portfolio()` classifies only what has
+been measured, and names the rest as unmeasured instead of sorting them to the bottom -- which
+is where things get cut from.
+
+**The tester who becomes an ambassador (#250) is where two honest programmes quietly merge
+into one dishonest one.** A tester is paid, or given a sample, to find what is wrong. An
+ambassador is given a relationship for saying what is good. Run those through one agreement
+and the test fee becomes a review fee -- and worse, the testing stops working: a tester whose
+ambassador status depends on enthusiasm reports fewer defects, and the physical sample is the
+most expensive signal this company buys. So graduation requires a separate, recorded,
+revocable consent, and an arrangement whose testing terms mention anything public is refused
+by name. A tester who reports a defect must be able to do it without it costing them
+anything, and that is stated as a term rather than assumed as a courtesy.
 """
 from __future__ import annotations
 
@@ -120,6 +138,25 @@ def _says_what_it_is(disclosure: str) -> bool:
     text = disclosure.lower()
     return any(re.search(rf"(?<![a-z]){re.escape(marker)}(?![a-z])", text)
                for marker in DISCLOSURE_MARKERS)
+
+
+# How a relationship is classified once there is evidence for it (#249).
+SCALE = "scale"
+HOLD = "hold"
+STOP = "stop"
+UNMEASURED = "unmeasured"
+
+# One good collaboration is a good collaboration. A track record needs more than one.
+MIN_COLLABORATIONS_FOR_A_RECORD = 2
+# Contribution per dollar below this, with a record behind it, is a relationship to end.
+WEAK_BELOW = 0.5
+# And above this it is one to grow.
+STRONG_ABOVE = 2.0
+
+# Terms that turn a test into a review. Each is a phrase that makes a testing arrangement
+# contingent on something public, which is where the fee stops being a fee for testing.
+PUBLIC_IN_TESTING_TERMS: tuple[str, ...] = (
+    "post", "share", "review", "tag us", "story", "publicly", "mention", "feature")
 
 
 class CreatorRefused(ValueError):
@@ -427,6 +464,159 @@ def may_scale(outcomes: list[Outcome]) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class Relationship:
+    """One creator relationship, as a portfolio position rather than an outreach event."""
+
+    creator_ref: str
+    collaborations: int = 0
+    spend_cad: float = 0.0
+    contribution_cad: float | None = None      # None is unmeasured, never zero
+    usable_assets: int = 0
+    support_cases: int | None = None
+
+    def measured(self) -> bool:
+        return self.contribution_cad is not None and self.support_cases is not None
+
+
+def classify(relationship: Relationship) -> dict:
+    """Where this relationship stands, or that nothing is known about it.
+
+    The requirement's instruction is to scale the high-contribution relationships and stop
+    the weak ones, and the trap is in the second half: applied to a roster where most
+    relationships are unmeasured, it stops the ones nobody got round to measuring. An
+    unmeasured relationship is not a weak one.
+    """
+    if not relationship.measured():
+        missing = [name for name, value in
+                   (("contribution_cad", relationship.contribution_cad),
+                    ("support_cases", relationship.support_cases)) if value is None]
+        return {
+            "creator_ref": relationship.creator_ref, "state": UNMEASURED,
+            "missing": missing,
+            "why": (f"{missing} unmeasured. An unmeasured relationship is not a weak one -- "
+                    f"it is a relationship with no evidence, and what it calls for is a "
+                    f"measurement rather than an ending"),
+            "action": "measure it",
+        }
+    if relationship.collaborations < MIN_COLLABORATIONS_FOR_A_RECORD:
+        return {
+            "creator_ref": relationship.creator_ref, "state": HOLD,
+            "why": (f"{relationship.collaborations} collaboration(s): one good collaboration "
+                    f"is a good collaboration, and a track record needs more than one"),
+            "action": "work together again before deciding",
+        }
+
+    spend = relationship.spend_cad
+    per_dollar = (relationship.contribution_cad / spend) if spend else None
+    if per_dollar is None:
+        # Free seeding: there is no spend to divide by, so the question is whether it
+        # produced anything at all rather than what it returned.
+        state = SCALE if relationship.usable_assets else STOP
+        why = (f"{relationship.usable_assets} usable proof asset(s) at no cost"
+               if relationship.usable_assets else
+               "no spend and nothing produced, over a track record")
+    elif per_dollar >= STRONG_ABOVE:
+        state, why = SCALE, f"CA${per_dollar:.2f} of contribution per dollar spent"
+    elif per_dollar < WEAK_BELOW:
+        state, why = STOP, (f"CA${per_dollar:.2f} per dollar over "
+                            f"{relationship.collaborations} collaborations, below "
+                            f"CA${WEAK_BELOW:.2f}")
+    else:
+        state, why = HOLD, f"CA${per_dollar:.2f} per dollar: neither a win nor a loss yet"
+
+    return {"creator_ref": relationship.creator_ref, "state": state, "why": why,
+            "contribution_per_dollar": None if per_dollar is None else round(per_dollar, 3),
+            "action": {SCALE: "do more of this", HOLD: "one more, then decide",
+                       STOP: "end it kindly"}[state]}
+
+
+def portfolio(relationships: list[Relationship]) -> dict:
+    """The roster as a portfolio, with the unmeasured named rather than sorted to the bottom.
+
+    Sorting unmeasured relationships to the bottom of a contribution ranking is how they get
+    cut: the bottom of the list is where things are cut from, and a null sorts there.
+    """
+    cards = [classify(r) for r in relationships]
+    by_state: dict[str, list[str]] = {}
+    for card in cards:
+        by_state.setdefault(card["state"], []).append(card["creator_ref"])
+    return {
+        "positions": cards,
+        "by_state": {k: sorted(v) for k, v in sorted(by_state.items())},
+        "measured": sum(1 for c in cards if c["state"] != UNMEASURED),
+        "of": len(cards),
+        "note": ("nothing on this roster has been measured, so nothing is scaled and nothing "
+                 "is stopped. That is the correct output, not an empty one: the instruction "
+                 "to stop weak relationships would otherwise stop the unmeasured ones"
+                 if cards and all(c["state"] == UNMEASURED for c in cards) else ""),
+    }
+
+
+@dataclass(frozen=True)
+class Graduation:
+    """A tester being offered a different relationship, and the terms of both (#250)."""
+
+    tester_ref: str
+    invited: int
+    delivered: int
+    testing_terms: str
+    ambassador_terms: str
+    consent_ref: str = ""              # recorded, separate, revocable
+    same_agreement: bool = False
+
+
+def may_graduate(graduation: Graduation) -> dict:
+    """Whether a tester may become an ambassador, and what must stay separate if they do.
+
+    This is where two honest programmes quietly merge into one dishonest one. A tester is
+    paid, or given a sample, to find what is wrong; an ambassador is given a relationship for
+    saying what is good. Under one agreement the test fee becomes a review fee -- and the
+    testing stops working, because a tester whose standing depends on enthusiasm reports
+    fewer defects, and the physical sample is the most expensive signal this company buys.
+    """
+    reasons: list[str] = []
+
+    reliability = (graduation.delivered / graduation.invited) if graduation.invited else 0.0
+    if graduation.invited < 2 or reliability < RELIABLE_AT:
+        reasons.append(
+            f"{graduation.delivered} of {graduation.invited} tests delivered. A tester who "
+            f"has not demonstrated reliability is not a high-performing one, and never "
+            f"having been asked is neither")
+
+    if graduation.same_agreement:
+        reasons.append(
+            "one agreement covers both. Testing compensation and public advocacy have to be "
+            "separate documents, because under one the test fee is a review fee")
+
+    lowered = graduation.testing_terms.lower()
+    found = sorted({w for w in PUBLIC_IN_TESTING_TERMS if w in lowered})
+    if found:
+        reasons.append(
+            f"the testing terms mention {found}. Testing terms that reach for anything "
+            f"public make the fee contingent on it, whatever the sentence around it says")
+
+    if not graduation.consent_ref.strip():
+        reasons.append(
+            "no recorded consent to the second relationship. Consent to test is not consent "
+            "to advocate, and a tester who is simply moved across was never asked")
+
+    return {
+        "tester_ref": graduation.tester_ref, "may_graduate": not reasons,
+        "reasons": reasons,
+        "terms": {
+            "separate_agreements": True,
+            "reporting_a_defect_costs_nothing": (
+                "a tester who reports a defect keeps their standing and their fee. This is a "
+                "term rather than a courtesy, because a testing programme whose participants "
+                "are rewarded for enthusiasm stops finding defects"),
+            "revocable": "consent to advocate can be withdrawn without affecting testing work",
+        },
+        "note": ("graduation is allowed, and the two relationships stay two"
+                 if not reasons else f"{len(reasons)} reason(s) this graduation is refused"),
+    }
+
+
 def roster(db) -> dict:
     """The roster as it actually stands, which today is empty and says so."""
     from sqlalchemy import select
@@ -460,6 +650,9 @@ def state() -> dict:
                            "means": owned.BASES[owned.IMPLIED_PUBLISHED]},
         "scaling_floor": MIN_COLLABORATIONS_BEFORE_SCALING,
         "free_seeding_ceiling_cad": FREE_SEEDING_CEILING_CAD,
+        "portfolio_states": [SCALE, HOLD, STOP, UNMEASURED],
+        "record_needs_collaborations": MIN_COLLABORATIONS_FOR_A_RECORD,
+        "public_words_refused_in_testing_terms": list(PUBLIC_IN_TESTING_TERMS),
         "note": ("A collaboration buys work and never an opinion. The deliverable vocabulary "
                  "has no review in it and no caller can add one, a stated audience stays a "
                  "claim with its source, and a permission is scoped or it is not a "

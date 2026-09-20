@@ -26,8 +26,8 @@ readable live at `/api/build2`.
 | status | count | meaning |
 |---|---|---|
 | covered | 182 | satisfied, with a named test or artefact |
-| partial | 52 | something real exists and is short of the requirement |
-| missing | 30 | nobody has built it |
+| partial | 56 | something real exists and is short of the requirement |
+| missing | 26 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on `72d0b79` plus #247: **1,872 tests passing, 0 failing**
-across 110 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `f058b78`: **1,911 tests passing, 0 failing** across
+113 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -257,6 +257,30 @@ says absence may not be enforced yet.
 
 The 134 dead letters are all publications refused by shadow mode — the guard working — which
 is what prompted counting deliberate refusals apart from defects (B-374).
+
+**#249/#250 — the creator portfolio, and the two programmes that must not merge.**
+`growth/creators.py` extended. "Scale high-contribution relationships and stop weak ones" is
+correct, and applied to a roster where most relationships are unmeasured it stops the ones
+nobody got round to measuring — a null sorts to the bottom of a ranking, and the bottom is
+where things are cut from. So an unmeasured relationship is classified `unmeasured` and named,
+never weak. For #250: a tester is paid to find what is wrong; an ambassador is given a
+relationship for saying what is good. Under one agreement the test fee becomes a review fee —
+and the testing stops working, because a tester whose standing depends on enthusiasm reports
+fewer defects, and the physical sample is the most expensive signal this company buys. Two
+agreements, a recorded revocable consent, and testing terms that mention anything public are
+refused by name.
+
+**#251/#255 — tools that answer first, and the number the flows refuse to be judged on.**
+`growth/tools.py`. A calculator that withholds its answer until somebody hands over an address
+is a lead capture form wearing a calculator's name. The more useful finding is that **five of
+the six tools the requirement names are arithmetic this system already runs on every release**
+— yardage from the twin, finished size from the compiler, make time from the lead-time engine,
+the last practical make date from the calendar, colourway contrast from the substitution guide
+— so what is missing is a surface, which is one owner action rather than five engineering
+ones. For #251 there is no open-rate field anywhere: an open is not a business outcome, a flow
+judged on opens is optimised toward subject lines and away from the purchase, and a segment
+built on one is built on whether somebody's mail client fetched an image. Incremental
+contribution needs a holdout, and `growth/experiments.py` already refuses without one.
 
 **#248 — the clip that outlives its pattern.** `growth/video.py`. The instruction with
 weight in this requirement is *keeping a canonical tutorial*, and the reason is not tidiness:
