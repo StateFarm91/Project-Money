@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `b06537f`: **2,098 tests passing, 0 failing** across
-123 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `7855fef`: **2,144 tests passing, 0 failing** across
+125 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -3514,7 +3514,8 @@ timings, written there by the system rather than by hand.
   buyable. Then #179's meta-agent roster (`partial`: defined and enforced, not yet running
   agents) and #180's league hardening -- latency as a fourth axis, a holdout never tuned
   against, a promotion bar that scales with how much was measured, and a recorded rollback
-  target. Registry 185 of 320 covered, 79 executable. Decisions B-404..B-427.
+  target. Registry 185 of 320 covered, 79 executable. Suite green at 2,144 across 125
+  suites on `7855fef`, zero leftover directories. Decisions B-404..B-427.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
