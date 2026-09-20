@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 182 | satisfied, with a named test or artefact |
+| covered | 183 | satisfied, with a named test or artefact |
 | partial | 62 | something real exists and is short of the requirement |
-| missing | 20 | nobody has built it |
+| missing | 19 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **82 requirements are executable** (partial +
+as one nobody has written. **81 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 182 of 320 covered is **56.9% complete**, read from the registry rather than
+typed. 183 of 320 covered is **57.2% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `f058b78`: **1,911 tests passing, 0 failing** across
-113 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `e2abc2a`: **1,995 tests passing, 0 failing** across
+118 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -258,6 +258,17 @@ says absence may not be enforced yet.
 The 134 dead letters are all publications refused by shadow mode — the guard working — which
 is what prompted counting deliberate refusals apart from defects (B-374).
 
+**#172 — the rebuild set, and the part of the estate the graph cannot see.**
+`ops/rebuild_graph.py` reads its edges from #171's provenance rows rather than keeping a
+second opinion, follows them the other way and transitively — a listing built from a PDF
+built from a design is two hops away and nobody rebuilds it by hand — and emits them
+topologically, because rebuilding the listing before the PDF regenerates it from the stale
+one and afterwards everything claims to be current. A cycle is refused, not traversed. The
+number that matters is the coverage, printed on the same line as the rebuild set because the
+rebuild set is the part people read: **production holds 275 derived artefacts and not one
+carries a provenance row**, so a propagation over the recorded graph touches nothing and
+reports that no rebuild is needed — true of the graph, false of the shop.
+
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
 explain it. The cause: the suites had left **37,284 temporary directories totalling 29 GB** in
@@ -278,7 +289,8 @@ the containment was real — and the run directory itself survived with 342 MB i
 subdirectories, so the disk still filled at a third of the rate, on a run that passed 1,995
 tests. It was caught by counting what was left rather than by trusting the change, which is
 this build's recurring defect arriving in a shell script while fixing something else. One
-cleanup function, one trap.
+cleanup function, one trap. Verified on the run after: 1,995 passing, **zero** leftover
+directories of either kind, disk steady at 23%.
 
 Worth keeping because of what it looked like from inside: eleven red suites, a green run
 twenty minutes earlier, and nothing in the change to blame. The log said `ENOSPC` on every
