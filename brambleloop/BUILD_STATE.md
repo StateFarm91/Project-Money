@@ -205,6 +205,63 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The garment primitive, arena language, and the third form of a silent success (#104, #293).**
+
+**The armhole division.** Garments are 140 of 438 observed MJs listings and the deepest
+proven-and-unserved arena, and this engine could not build one — not for want of rounds,
+shaping, assembly or grading, all of which existed. One primitive was missing: **working into
+part of a previous row.** A yoke worked in rounds splits, the sleeve stitches go on hold, the
+body continues over the rest; without it the compiler saw a body round consuming 32 of 48,
+called it an underrun, and was right to.
+
+`Row.skips`, `Component.holds` and `Component.resumes` now express it, with five checks —
+because *"place 24 sts on hold for the sleeve"* is a promise, and an unchecked promise ships
+a pattern with live stitches nobody comes back for. A sleeve two stitches short is a hole in
+the armpit and compiled silently before. The writer states the division where it happens: a
+divided pattern that reads *"Rnd 3: sc 32 (32 sts)"* over a round of 48 is arithmetically
+correct, agrees with the twin, and is unfollowable. **A top-down yoke now compiles clean.**
+`top_down_yoke` and `bottom_up` route to `joined_rounds`, so every concept construction is
+buildable.
+
+**Discovery from proven arenas.** 12 live proven-and-unserved arenas. Christmas takes the
+**0.45 share the compression engine already reserves**, not one turn in twelve, and sweeps
+all four of its departments rather than deepening one. Forms come from observed listings in
+the pod; a form the engine cannot build is reported rather than dropped; a saturated form
+must earn its place; a form carries a lane *floor* so Halloween hats stay reachable as QUICK
+makes at 42 days. The pass reports `is_a_tournament: false` against the funnel's own ideation
+floor, because generating 75 concepts per arena to clear a threshold is optimising for
+volume.
+
+**The existing catalogue is 0 of 11 commercially informed** — none of it aims at a proven
+market, and none is even in a proven *department*. Plateau is now a checkable defect: a move
+under 0.03 is not a move, and unmeasured is never reported as flat.
+
+**#293's other half.** `arena_language()` counts terms across a department's observed titles
+and sorts them into the six facets — for stockings: object=stocking, season=christmas,
+aesthetic=farmhouse/rustic/chunky, skill=easy/beginner/chart, technique=cable/granny/mosaic.
+Observed by construction. Marketplace furniture is separated rather than dropped, a word
+meaning two things is classified as neither, and it emits single words and never a title,
+because term frequency is demand intelligence and a title is somebody's expression.
+
+**The same defect shape, three times.** An outcome indistinguishable from success while
+nothing happened. (1) `arenas()` read a key the matrix does not return and reported no arenas
+against 27. (2) The discovery cadence completed saying "nothing to do" and consumed its
+weekly window. (3) It then completed reporting `ran: true, proposed: 0, cost_cad: 0` twice,
+because a prompt asked for six concepts inside a 2000-token budget and came back as truncated
+JSON — a budget too small is not a transient fault, and the retry bought a second identical
+failure. The re-drive rule now reads **work done, not a flag**: a completed job whose every
+work counter is zero is a no-op. The flag was the unreliable half each time.
+
+Also found: the jury's anti-copying critic was never passed its benchmark, so the one gate
+against arriving as an MJs clone never fired. It compares the five things both sides state
+and reports its own limit — catching a borrowed *execution* needs a product in hand, which is
+the `benchmark_purchases` gate.
+
+Model spend **CA$0.1525 of CA$25**. Production verify **12/12**, queue depth 0, dead-letter
+defects 0 (120 Shadow Mode publication refusals, working as designed). Suite **1383 passing,
+0 failing**.
+
+## Previously — last completed milestone
 **Discovery that starts from a proven market rather than from what compiles (#104).**
 
 The direction of travel is inverted. Discovery no longer begins with a brief and looks for a
