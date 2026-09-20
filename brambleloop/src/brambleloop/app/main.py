@@ -1206,6 +1206,20 @@ def api_arbitrage(pod: str = "") -> dict:
     return arbitrage.state(db, pod=pod)
 
 
+@app.get("/api/dependency")
+def api_dependency() -> dict:
+    """Which single thing failing would end this company, and whether that is a risk yet.
+
+    Concentration alone is not a finding. A dependency is existential when it is concentrated
+    *and* load-bearing; before it carries anything it is a plan, and telling a pre-revenue
+    company to open a second marketplace is how its one real advantage becomes five
+    half-built ones (#29).
+    """
+    from ..scale import dependency
+
+    return dependency.report(db)
+
+
 @app.get("/api/arbitrage/departments")
 def api_arbitrage_departments() -> dict:
     """Every observed department scored, and the four dimensions observation supports.
