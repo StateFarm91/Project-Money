@@ -679,6 +679,12 @@ _BLOCKED_PHRASES = (
     "needs a connected",
     "which this company has never had",
     "needs the vision capability",
+    # Added after the list missed #200, whose note said "needs the image capability" while
+    # the list held only "vision". One word apart, and the requirement sat in the ready
+    # queue -- a phrase list catches the phrasings somebody thought of, which is why the
+    # sweep that found it ran over the whole registry rather than over one requirement.
+    "needs the image capability",
+    "needs a credential",
     "does not exist yet in shadow mode",
     "no feed is connected",
 )

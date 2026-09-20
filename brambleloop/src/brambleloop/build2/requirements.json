@@ -1817,20 +1817,22 @@
  {
   "body": "After owner selection, freeze the exact fictional model as Brambleloop's canonical recurring model. Maintain a versioned identity reference pack with approved facial geometry, hair, eye characteristics, age band, complexion characteristics and representative angles/expressions. The company may improve image quality, posing, environments, wardrobe and merchandising, but may not redesign her identity without explicit owner approval.",
   "id": 200,
-  "note": "visual/identity.py holds candidates and exactly one canonical slot, and nothing moves between them without the owner. select() refuses without approval, refuses an incomplete reference pack, and refuses to replace an existing canonical identity -- approving a selection is not approving a redesign. Remaining: no candidate has been generated, because that needs the image capability.",
+  "note": "visual/identity.py holds candidates and exactly one canonical slot, and nothing moves between them without the owner. select() refuses without approval, refuses an incomplete reference pack, and refuses to replace an existing canonical identity -- approving a selection is not approving a redesign. Remaining: no candidate has been generated, because that needs the image capability. Parked on the image_generation gate: a canonical identity is frozen from a candidate, and no candidate exists because generating one needs the image capability. The lock itself is built and refuses correctly on every path that does not need a picture.",
   "section": "Voice session reconciliation (model + MJs)",
   "status": "partial",
   "title": "Permanent Identity Lock",
-  "version": "v1.4.0"
+  "version": "v1.4.0",
+  "parked_on": "image_generation"
  },
  {
   "body": "Every model-led asset must pass identity-consistency checks against the canonical reference pack. A beautiful image of the wrong woman fails. Detect gradual face drift, hair/eye drift, age drift and stylization drift across batches and over time. Failed assets regenerate before release.",
   "id": 201,
-  "note": "drift_check compares against the reference pack across face, hair, eyes, age and stylisation, and an unmeasured dimension counts as maximum drift rather than being skipped. With no pack the verdict is 'unavailable' and blocks release -- never 'pass'. A check that passed for want of a reference would be believed. Remaining: the pack itself.",
+  "note": "drift_check compares against the reference pack across face, hair, eyes, age and stylisation, and an unmeasured dimension counts as maximum drift rather than being skipped. With no pack the verdict is 'unavailable' and blocks release -- never 'pass'. A check that passed for want of a reference would be believed. Remaining: the pack itself. Parked on the image_generation gate, transitively: the pack is built from #200's canonical identity and #200 waits on the same capability. Worth parking explicitly rather than relying on the dependency, because neither requirement declares depends_on and an implied block is one the queue cannot see.",
   "section": "Voice session reconciliation (model + MJs)",
   "status": "partial",
   "title": "Model Anti-Drift Release Gate",
-  "version": "v1.4.0"
+  "version": "v1.4.0",
+  "parked_on": "image_generation"
  },
  {
   "body": "The canonical model is attractive and premium but appropriately dressed for the product, season and Etsy shopping context. Garments must remain the commercial subject. Styling should resemble high-end crochet/lifestyle editorial photography, not glamour imagery that distracts from fit, texture, construction or product details.",
@@ -1952,9 +1954,9 @@
  {
   "body": "Brambleloop is allowed to enter the same broad/generic product arena when market evidence supports it - e.g., cardigan, stocking, blanket, hat, ornament or coaster. Agents should identify what makes the benchmark compelling and design a substantively original Brambleloop alternative with stronger product engineering, styling, usability, fit, construction, creativity or customer experience. Do not restrict Brambleloop merely because an elite competitor also sells that generic product type.",
   "id": 215,
-  "note": "same-arena response lane, breakthrough response lane",
+  "note": "intel/panel.py's may_enter(). The requirement is explicit that sharing an arena with an elite seller is not a reason to stay out of it, so entering is permitted and the over-correction -- refusing to make a blanket because they make blankets -- is the thing being avoided. What is refused is entering with nothing to offer but parity. An entry names what makes the benchmark compelling, because entering an arena without knowing why the incumbent wins there is entering it blind, and it names an axis from a closed list with the mechanism behind it: an axis without a mechanism is an intention, and an open list would let 'better' be the justification, which is what everybody thinks they are doing.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
+  "status": "covered",
   "title": "Same-Arena Response Lane",
   "version": "v1.4.0"
  },
@@ -1988,18 +1990,18 @@
  {
   "body": "MJs is the anchor, not the only teacher. Maintain a changing elite panel including other category leaders and purchased Benchmark Library products. A category specialist should learn from the best available examples across sellers so Brambleloop can combine best-of-breed mechanisms and avoid overfitting to one shop's aesthetic.",
   "id": 219,
-  "note": "elite panel beyond one seller",
+  "note": "intel/panel.py holds the panel as dated membership with MJs named once, as the anchor, so that 'the panel' never quietly means it. Below three active members it is not a panel -- one shop's aesthetic with a formal name -- and membership is read per category, because a panel that is a list of good shops cannot answer which of them a cardigan specialist should read. A mechanism needs two independent sellers before it may become a standard: one shop doing something is a preference, and the difference is what stops best-of-breed meaning best-of-MJs. Two rather than three deliberately -- a second independent seller is what separates a pattern from a habit, and demanding three would leave most real mechanisms unlearnable.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
+  "status": "covered",
   "title": "Elite Panel Beyond One Seller",
   "version": "v1.4.0"
  },
  {
   "body": "When MJs or another elite benchmark materially improves presentation, product format or customer experience, relevant Brambleloop standards are re-evaluated. The competitive bar is dynamic. Improvement Department records which standards changed and why.",
   "id": 220,
-  "note": "benchmark quality bar moves",
+  "note": "intel/panel.py's move_bar(). A standard may be raised by a competitor and never lowered by one. Lowering because somebody else slipped is a race to the bottom with a paper trail, and it is the more tempting move because it is free and shows up as an improvement in every metric about hitting standards. The polarity is per standard, so tightening a lower-is-better standard reads as a raise. Every change names the observation that prompted it, because the Improvement Department records which standards changed and why, and 'we reviewed it' is not a why anybody can re-examine. The refusal says where a genuinely wrong standard gets fixed instead: a decision about this shop, on this shop's evidence, which does not travel through a benchmark observation.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
+  "status": "covered",
   "title": "Benchmark Quality Bar Moves",
   "version": "v1.4.0"
  },
@@ -2060,18 +2062,18 @@
  {
   "body": "No agent may treat 'match MJs' as the final creative objective. The benchmark establishes a commercial quality floor and a source of market evidence. Brambleloop's Creative Department must still search for original white space, new product forms and stronger customer value beyond what the benchmark currently offers.",
   "id": 227,
-  "note": "competitive learning is input, not creative ceiling",
+  "note": "intel/panel.py's ceiling_check() and the parity refusal in may_enter(). The failure this guards is one of aggregation rather than of any single decision: every individual choice to match the benchmark is defensible -- they are good, this is what good looks like, we should be at least this good -- and a year of defensible choices is a shop that looks like a copy of a shop. There is no moment where anybody decides to become derivative, which is why it needs a refusal rather than a caution. An objective naming a competitor as the thing to match is refused; matching this shop's own last release is ordinary consistency and is not what the requirement is about, so the check reads who the matching is with rather than the word 'match' alone.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
+  "status": "covered",
   "title": "Competitive Learning Is Input, Not Creative Ceiling",
   "version": "v1.4.0"
  },
  {
   "body": "Until automated creative evaluation has demonstrated reliable alignment with the owner's standards, the owner retains veto over canonical model identity and flagship creative quality. Repeated veto reasons become structured training/evaluation evidence for the Improvement Department rather than disappearing as chat feedback. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.1 - CA$5K/Month Scale Architecture Primary commercial objective: materially increase the probability of reaching a sustainable CA$5,000/month run rate. This upgrade expands Brambleloop from product/search excellence into a diversified acquisition, offer, retention and portfolio-growth machine. A 75%+ confidence claim remains evidence-gated, not promised by architecture alone.",
   "id": 228,
-  "note": "owner quality veto with structured veto memory",
+  "note": "intel/veto.py. The requirement's second sentence is the whole of it: repeated veto reasons become structured evidence rather than disappearing as chat feedback. A veto is easy -- somebody says no and the thing does not ship -- and the reason is what evaporates: it arrives in a conversation, is acted on once, and six months later nobody can say whether the same objection was raised eleven times or once, so an evaluator that could have been trained on eleven instances was trained on nothing. So a reason comes from a closed vocabulary about what was wrong rather than how it felt, because free text cannot be counted and counting is the point. The third repetition is reported as a finding about the evaluator rather than about the products: one veto is a product that missed, three of one reason is an automated evaluation that does not know what the owner means by that word, and the fix is upstream of whichever product happened to arrive third. Retirement needs thirty predictions made ahead of the owner's ruling at ninety per cent agreement with nothing the owner refused that the evaluator would have passed -- a prediction dated at or after the ruling is refused, because grading an evaluator on answers it has seen is the natural mistake when the owner's rulings are the easiest training data to hand. Missed vetoes and over-vetoes are counted separately: the errors are asymmetric, since over-vetoing wastes a regeneration and missing one ships what the owner would have refused. There is no argument alignment() accepts that retires the veto.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
+  "status": "covered",
   "title": "Owner Quality Veto",
   "version": "v1.4.0"
  },

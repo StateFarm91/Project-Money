@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 201 | satisfied, with a named test or artefact |
+| covered | 206 | satisfied, with a named test or artefact |
 | partial | 57 | something real exists and is short of the requirement |
-| missing | 6 | nobody has built it |
+| missing | 1 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **63 requirements are executable** (partial +
+as one nobody has written. **58 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 201 of 320 covered is **62.8% complete**, read from the registry rather than
+typed. 206 of 320 covered is **64.4% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,7 +102,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `8757100`: **2,433 tests passing, 0 failing** across
+Measured by `./run_tests.sh` on commit `aff0202`: **2,438 tests passing, 0 failing** across
 137 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -682,6 +682,37 @@ and crude is the right trade: a false positive costs a reworded note, a false ne
 the ready count its meaning. Verified against the live registry rather than assumed — it
 matches four real notes, which pass only because they are now parked.
 Decisions B-458..B-462.
+
+**#215/#219/#220/#227/#228 — learning from the best shops without becoming one.**
+Six requirements in this group had never been audited; five of them were buildable and are
+now built. `intel/panel.py` and `intel/veto.py`.
+
+**#227 is the spine, and its failure is aggregation rather than any single decision.** Every
+individual choice to match the benchmark is defensible — they are good, this is what good
+looks like, we should be at least this good — and a year of defensible choices is a shop that
+looks like a copy of a shop. There is no moment where anybody decides to become derivative,
+which is precisely why parity alone is a refusal rather than a caution. #215 pushes equally
+hard the other way: sharing an arena with an elite seller is *not* a reason to stay out of it,
+so entering is permitted and the over-correction is what gets avoided.
+
+**A standard may be raised by a competitor and never lowered by one.** Lowering because
+somebody else slipped is a race to the bottom with a paper trail, and it is the more tempting
+move because it is free and shows up as an improvement in every metric about hitting
+standards.
+
+**A panel of one is one shop's aesthetic with a formal name.** MJs is named once, as the
+anchor, so "the panel" never quietly means it; a mechanism needs two independent sellers
+before it is a mechanism rather than one shop's habit.
+
+**And the owner's veto records why.** A veto is easy; the reason evaporates — acted on once,
+and six months later nobody can say whether the same objection was raised eleven times or
+once, so an evaluator that could have been trained on eleven instances was trained on nothing.
+Reasons come from a countable vocabulary, the third repetition is a finding about the
+*evaluator*, and retirement needs thirty predictions made **before** the owner ruled, because
+grading a model on answers it has seen is the natural mistake when the owner's rulings are the
+easiest training data to hand.
+
+**One requirement now remains `missing` across all 320.** Decisions B-464..B-468.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to

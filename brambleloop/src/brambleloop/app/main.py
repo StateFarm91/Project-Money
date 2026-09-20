@@ -1338,6 +1338,26 @@ def api_weekly_evolution() -> dict:
     return weekly.state()
 
 
+@app.get("/api/elite-panel")
+def api_elite_panel() -> dict:
+    """Learning from the best shops without becoming one (#215, #219, #220, #227, #228).
+
+    The failure #227 guards is one of aggregation, not of any single decision. Every
+    individual choice to match the benchmark is defensible -- they are good, this is what
+    good looks like -- and a year of defensible choices is a shop that looks like a copy of a
+    shop. Nobody ever decides to become derivative, which is why parity alone is a refusal
+    rather than a caution.
+
+    A panel of one is one shop's aesthetic with a formal name. A standard may be raised by a
+    competitor and never lowered by one. And the owner's veto records *why* in a countable
+    vocabulary, because the reason is the part that evaporates: acted on once, and six months
+    later nobody can say whether the same objection was raised eleven times or once.
+    """
+    from ..intel import panel, veto
+
+    return {"panel": panel.state(), "veto": veto.state()}
+
+
 @app.get("/api/seasonal-engine")
 def api_seasonal_engine() -> dict:
     """A year with many occasions in it, and the constant that says otherwise (#33).

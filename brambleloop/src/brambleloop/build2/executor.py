@@ -333,7 +333,7 @@ GATES: tuple[Gate, ...] = (
          "a browser worker endpoint is configured"),
     Gate("image_generation", "an image-generation capability for the canonical model pack",
          _env_gate("BRAMBLELOOP_IMAGE_KEY"),
-         (72, 73, 74, 75, 130, 198, 199, 202),
+         (72, 73, 74, 75, 130, 198, 199, 200, 201, 202),
          "an image-generation key is set"),
     Gate("benchmark_purchases", "roughly ten purchased competitor patterns",
          _benchmarks_purchased,
