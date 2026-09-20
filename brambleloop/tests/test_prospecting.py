@@ -815,6 +815,40 @@ def test_no_reachable_arena_at_all_is_a_statement_about_the_calendar():
         raise AssertionError("a dead arena was picked")
 
 
+# ---- what a 100% survival rate actually means --------------------------------
+
+
+def test_a_field_the_catalogue_cannot_judge_says_so():
+    """The first live expedition returned 18 of 18, which is the shape the owner warned
+    against.
+
+    It is not a strong field and not a weak gauntlet: our catalogue is eleven home-decor
+    products, so every garment concept scores maximum novelty automatically and the jury's
+    `sameness` critic has nothing to fire on. A novelty gate measured against a catalogue
+    containing nothing like the candidate cannot fail.
+    """
+    from brambleloop.creative.audit import catalogue_concepts
+
+    field = [_candidate(f"g-{i}", pod="garments", form="fitted_garment",
+                        construction="seamless_tube", motif=f"m{i}") for i in range(3)]
+    result = P.screen(field, catalogue=catalogue_concepts(), min_novelty=0.0)
+    assert result["novelty_comparable"] == 0
+    assert result["novelty_measurable"] is False
+    assert "could not judge" in result["survival_rate_means"]
+    assert "not that they are good" in result["survival_rate_means"]
+
+
+def test_a_field_the_catalogue_can_judge_reports_the_comparison():
+    from brambleloop.creative.audit import catalogue_concepts
+
+    field = [_candidate(f"h-{i}", pod="home_decor", form="rectangle_throw", motif=f"m{i}")
+             for i in range(3)]
+    result = P.screen(field, catalogue=catalogue_concepts(), min_novelty=0.0)
+    assert result["novelty_comparable"] == 3
+    assert result["novelty_measurable"] is True
+    assert "measured against" in result["survival_rate_means"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

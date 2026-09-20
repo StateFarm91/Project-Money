@@ -570,6 +570,15 @@ def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = Non
             continue
         survivors.append(candidate)
 
+    # How many candidates the catalogue could actually judge. A novelty gate measured
+    # against a catalogue containing nothing like the candidate cannot fail: every garment
+    # concept scores 1.0 against eleven home-decor products, and the jury's `sameness`
+    # critic never fires for the same reason. The first expedition into any new pod will
+    # therefore survive at 100%, and that number means "we have never made one of these",
+    # not "these are good". Reported rather than left to be inferred from a rate.
+    comparable = sum(1 for c in candidates
+                     if any(existing.pod == c.concept.pod for existing in catalogue))
+
     entered = len(candidates)
     causes: dict[str, int] = {}
     for candidate in candidates:
@@ -585,6 +594,16 @@ def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = Non
         "survival_rate": rate,
         "causes": dict(sorted(causes.items(), key=lambda kv: -kv[1])),
         "gauntlet_suspicious": rate > SUSPICIOUS_SURVIVAL,
+        "novelty_comparable": comparable,
+        "novelty_measurable": bool(comparable),
+        "survival_rate_means": (
+            f"{rate:.0%} of a field the existing catalogue could not judge: no product in it "
+            f"shares a pod with any of these, so the novelty gate and the jury's sameness "
+            f"critic had nothing to measure against and could not fail. This is a statement "
+            f"that we have never made one of these, not that they are good"
+            if not comparable else
+            f"{rate:.0%} of a field measured against {comparable} candidate(s) with a "
+            f"same-pod product already in the catalogue"),
         "min_novelty": min_novelty,
         "benchmark_compared": len(benchmark or []),
         "benchmark_check_strength": (
@@ -858,6 +877,14 @@ def history(db, *, limit: int = 10) -> dict:
         # reason was already stored and simply not shown. A history that records only the
         # outcome of a run cannot explain a run that had no outcome.
         "malformed": ((r.detail or {}).get("malformed") or [])[:6],
+        # The headline number needs its caveat carried with it, and the survivors are the
+        # actual deliverable: a run that says "18 survived" and cannot say what they are is
+        # a statistic about a process rather than a set of products.
+        "gauntlet_suspicious": (r.detail or {}).get("gauntlet_suspicious"),
+        "novelty_measurable": (r.detail or {}).get("novelty_measurable"),
+        "survival_rate_means": (r.detail or {}).get("survival_rate_means"),
+        "survivor_titles": [s.get("title") for s in
+                            ((r.detail or {}).get("survivors") or [])][:24],
         "stopped_on_ceiling": (r.detail or {}).get("stopped_on_ceiling"),
         "slots_attempted": [s.get("form") for s in
                             ((r.detail or {}).get("slots_attempted") or [])],

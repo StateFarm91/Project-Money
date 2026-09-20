@@ -476,10 +476,13 @@ def scan_reviews(db, *, shop_name: str = "", reader=None, benchmark_key: str = "
     mission's evidence rather than in a variable somebody trusts.
     """
     from ..core.models import BenchmarkObservation
+    from ..integrations.http import UrllibTransport
 
     shop_name = shop_name or benchmarks.MJS_SHOP
     benchmark_key = benchmark_key or benchmarks.MJS_KEY
-    reader = reader or PublicReader()
+    # Built the way every other reader in this module is built. `PublicReader()` with no
+    # transport raises, and the cadence died four times on it before anything was read.
+    reader = reader or PublicReader(UrllibTransport())
 
     shop = reader.resolve_shop(shop_name)
     reviews = reader.reviews(shop.get("shop_id"), limit=limit)
