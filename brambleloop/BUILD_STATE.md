@@ -364,6 +364,47 @@ somebody can grant; #18's remainder needs *orders*, and nothing in the gate tabl
 for that. The `customers` gate is the one entry the owner cannot grant — it counts ledger
 rows, and its test asserts that no environment variable can open it.
 
+## Four of the tournament's five stages run
+
+**#3 stage four.** `creative/prototype.py` authors a CIR from a concept's form and
+construction, compiles it, and asks the twin whether the object it describes is the one that
+was asked for. No model is consulted — a test asserts the module never reaches for a gateway,
+because section 2 outranks everything else. The finished size is the input and the stitch
+count is **derived**, which is the direction that cannot produce a "blanket" 100 cm wide and
+17 cm tall.
+
+**The gauge is derived from the declared yarn's published band**, which makes this morning's
+catalogue defect — worsted at 16 sts/10 cm against a band of 11–14 — structurally impossible
+in anything this system authors.
+
+**I shipped a bug into it and kept the bug as the gate.** My first draft alternated single and
+double crochet rows under a gauge stated in single crochet. It **compiled perfectly** and
+built a 150 cm throw the twin measured at 225 cm — a CIR that is internally consistent and
+describes the wrong object, which is exactly what the digital twin exists to catch and what a
+compile-only gate would have passed. The stage now asks the twin as well and refuses a size
+drift above 20%.
+
+Sixteen forms have geometry; **six are refused rather than sized by guess**, with reasons: a
+graded garment is a size chart rather than a finished size, a shawl's size *is* its shaping, a
+garland is a repeat count. Those refusals are the engineering backlog stated precisely.
+
+**#29 — a dependency is existential when it is concentrated AND load-bearing.** The rule's two
+halves pull against each other, and a module implementing only the first tells a pre-revenue
+company to open a second marketplace. Today: **`ai_provider` is genuinely existential** — one
+provider at 100%, and nothing needing judgement runs without it. `sku` is 100% `home_decor`,
+concentrated and not yet load-bearing. `traffic_source` and `marketplace` are unmeasurable
+with reasons, because "no traffic source is dominant" is true of a company with no traffic.
+
+**Two fixture faults, and one in my own checking.** Nothing exercised the tournament's later
+stages because the field double answered `in_the_round` whatever form it was asked about,
+used a key stride that was a multiple of both 4 and 5 (so recipient and function repeated
+identically every batch), and wrote near-identical premises. Fixed, research survivors went
+2 → 24. I stopped short of proposition's floor of 35 rather than tune a fixture until it
+cleared a gate — the live run reached 45. And my own spot-check command, `… | grep "^FAIL" ||
+echo clean`, reported clean on a file that failed to parse. Checks are by exit code now.
+
+Suite **1506 passing, 0 failing**.
+
 ## The first tournament at scale, and the three price tables underneath it
 
 **2026-09-20T06:04Z, job 1718, Mother's Day / garments: 80 generated → research kept 45 →
