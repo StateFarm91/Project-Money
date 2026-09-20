@@ -70,10 +70,36 @@ on this deploy rather than asserted:
 Live: https://brambleloop-os-production.up.railway.app — dashboard `/`, health `/health`,
 status `/api/status`, **verification `/api/verify`**.
 
-## OWNER ACTIONS — nothing currently blocking
+## OWNER ACTIONS — now the only remaining lever
 
-The one item this session raised has been done. Listed here in the Execution Directive's
-format; the live queue is `/api/launch`.
+**As of 2026-09-20 the build queue is empty: 0 READY, 94 parked, nothing `missing`.** Every
+requirement this build still owes is behind a gate, and a gate opens from demonstrated
+capability rather than from a decision to call it open. That changes what this section is.
+Until today it was a short list beside a long backlog; it is now the whole remaining lever,
+and the honest statement is that no amount of further session time moves the registry.
+
+Of the 56 executable requirements still owed, 34 are downstream of going live at all
+(21 on `customers`, 7 on `owned_surfaces`, 6 on `live_listings`) and cannot be opened by a
+credential — they need real buyers, real owned surfaces and real listings, which is the phase
+decision rather than a configuration. The other 22 are behind capability gates:
+
+| gate | executable | what opens it |
+|---|---|---|
+| `browser_vision` | 12 | a browser worker endpoint the system can drive |
+| `image_generation` | 4 | an image-generation key |
+| `culture_feed` | 3 | one cultural observation that names its source |
+| `benchmark_purchases` | 1 | one purchased benchmark pattern row (ten for the full set) |
+| `physical_proof` | 1 | one completed PhysicalTest — a Brambleloop sample crocheted and photographed |
+| `benchmark_observation` | 1 | a sanctioned Etsy read that actually succeeded |
+
+Each of these is counted rather than configured: setting a variable opens nothing, which is
+why none of them can be satisfied from inside a session. Costs are bounded in code already —
+CA$25/month for model spend and CA$20/month for recurring infrastructure, currently about
+CA$7 — and a browser worker or image key that fits inside those ceilings is not new
+consequential spend. Purchasing benchmark patterns and authorising advertising are, and
+neither happens without the owner.
+
+Listed below in the Execution Directive's format; the live queue is `/api/launch`.
 
 **~~Add credit to the Anthropic account the API key belongs to.~~ DONE 2026-09-19.** Credit
 arrived and a real call succeeded in production at 15:31Z; the gate opened by itself and the
