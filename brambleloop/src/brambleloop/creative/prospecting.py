@@ -1228,6 +1228,7 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     # field was too narrow to reach stage three" is the finding, and it points at the field
     # rather than at the gate.
     from .funnel import FunnelRefused
+    from .prototype import prototype
 
     kept = screened["survivor_objects"]
     proposed: dict = {"ran": False, "reason": "research left nothing to develop"}
@@ -1248,11 +1249,35 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
             proposed = attempt
             proposed["ran"] = True
 
-    final = proposed["survivors"] if proposed.get("ran") else kept
+    developed = proposed["survivors"] if proposed.get("ran") else kept
+
+    # Stage four: author a CIR, compile it, and ask the twin whether the object it describes
+    # is the one that was asked for. No model is consulted -- the gate this stage names is
+    # deterministic validation, and a model that disagrees with the compiler is noise.
+    built: dict = {"ran": False, "reason": "nothing reached the prototype stage"}
+    if developed:
+        attempt = prototype(developed)
+        try:
+            advance(run, stage="prototype",
+                    entrants=[c.concept.key for c in developed],
+                    survived=[c.concept.key for c in attempt["survivors"]],
+                    killed=attempt["killed"],
+                    examined=len(developed))
+        except FunnelRefused as e:
+            built = {k: v for k, v in attempt.items() if k != "survivors"}
+            built["ran"] = False
+            built["refused"] = str(e)
+            built["survivors"] = developed
+        else:
+            built = attempt
+            built["ran"] = True
+
+    final = built["survivors"] if built.get("ran") else developed
 
     return {
         "arena": f"{only[0]}/{only[1]}" if only else "",
         "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
+        "prototype": {k: v for k, v in built.items() if k != "survivors"},
         "field": {k: v for k, v in drawn.items() if k != "candidates"},
         "rounds": [r.to_dict() for r in run.rounds],
         "survivors": [c.to_dict() for c in final],
@@ -1264,17 +1289,19 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
         "survival_rate_means": screened["survival_rate_means"],
         "cost_cad": drawn["cost_cad"],
         "stages_run": [r.stage for r in run.rounds],
-        "stages_not_run": ([] if proposed.get("ran") else ["proposition"]) + [
-            "prototype", "release"],
+        "stages_not_run": (([] if proposed.get("ran") else ["proposition"])
+                           + ([] if built.get("ran") else ["prototype"]) + ["release"]),
         "proposition_refused": proposed.get("refused", ""),
-        "note": ("Three stages, not five. proposition runs the two of its three checks that "
+        "prototype_refused": built.get("refused", ""),
+        "note": ("Four stages, not five. proposition runs the two of its three checks that "
                  "observation supports -- the family test and whether the concept arrives "
                  "speaking the department's own language -- and names margin as not applied, "
                  "because contribution after fees passes every concept when the marginal "
                  "cost of a digital file is zero and the cost to create it is #31. prototype "
-                 "needs a CIR authored and a twin run; release needs the gates. Running "
-                 "either with a placeholder verdict would produce a five-stage funnel that "
-                 "had cut nothing twice (#3)."),
+                 "authors a CIR from the concept's form and construction, compiles it and "
+                 "asks the twin whether the object it describes is the one that was asked "
+                 "for. release needs the gates, and running it with a placeholder verdict "
+                 "would produce a five-stage funnel that had cut nothing (#3)."),
     }
 
 
