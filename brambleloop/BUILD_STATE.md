@@ -205,6 +205,56 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Discovery produced its first real products, and the headline number needed its caveat.**
+
+At **2026-09-20T04:02Z** the weekly expedition ran live for the first time: **Mother's Day /
+garments — 18 concepts proposed across fitted garment, draped garment and scarf, 18
+surviving, CA$1.02.** Names from the run: *Asymmetric Dawn Yoke, Shutter Sleeve Top, Folding
+Facet Jacket, Household Squares Kimono, Lit Window Wrap, Fan Wedge Ruana, Shingle Tier
+Capelet, Medallion Bloom Shawl.* The loop works: a proven MJs arena with no Brambleloop
+answer went in, and eighteen distinct garment concepts came out through the deterministic
+gates. **This is the first time this system has invented a product outside `home_decor`.**
+
+**18 of 18 is not a strong field and not a weak gauntlet — it is structural.** Our catalogue
+is eleven home-decor products, so every garment concept scores maximum novelty against it
+automatically and the jury's `sameness` critic has nothing to fire on. A novelty gate
+measured against a catalogue containing nothing like the candidate **cannot fail**. The first
+expedition into any new pod will survive at 100%, and that number says *we have never made
+one of these*, not *these are good*. The run now reports `novelty_comparable` and states in
+words what its own survival rate means.
+
+Two sequencing defects found in the same run. It went to **Mother's Day at 231 days** while
+Christmas sat at 96 and Halloween at 41 — the wheel indexed each half in whatever order the
+matrix returned, so the run was aimed at the occasion whose runway was least in danger. Both
+halves are now ordered soonest first. And `choose()` had picked `Halloween/bags` on the
+previous cycle, an arena where nothing can still be made in time, burning the slot on every
+retry; reachability is now checked where the arena is chosen.
+
+**Measured cost correction:** the cadence comment said CA$0.32 a run. The real figure is
+**CA$1.02**, about CA$4.40 a month against the CA$25 ceiling. An estimate left in place after
+the real number is known is how a budget drifts.
+
+**#2's last two weakness signals closed** from endpoints already in the sanctioned allowlist.
+The deep audit records `has_video` per listing, measured only where a gallery was actually
+audited — counting unknown as "no video" would turn an unfinished backfill into a
+competitor's weakness. And `mjs.reviews` reads the shop's reviews weekly, counting recurring
+complaint themes: **counts only, never a review's text, a reviewer or a quotation**, because
+a complaint theme is a fact about a category and a review is somebody's words. That also
+corrects a claim made earlier the same night — `customer_pain` was recorded unfeedable
+because "inferring complaints from a competitor's catalogue is inventing them", which was
+true, and reading their reviews is observing rather than inferring.
+
+**#292** now computes which re-merchandising moves it can take instead of taking the list
+from its caller. `search_positioning` became genuinely available when the credential made a
+department's buyer language countable; the rest report what they wait on. The weekly
+`remerchandising_review` runs the inspection "periodically inspect" asks for.
+
+**Re-audited:** #293 → covered, #104 → data_gated, #98 → data_gated.
+
+Model spend **CA$1.17 of CA$25**. Production verify **12/12**, dead-letter defects 0. Suite
+**1420 passing, 0 failing**.
+
+## Previously — last completed milestone
 **The garment primitive, arena language, and the third form of a silent success (#104, #293).**
 
 **The armhole division.** Garments are 140 of 438 observed MJs listings and the deepest
