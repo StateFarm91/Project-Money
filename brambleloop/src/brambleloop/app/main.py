@@ -1008,6 +1008,30 @@ def api_image_generation() -> dict:
     return images.state(db)
 
 
+@app.get("/api/image-benchmark")
+def api_image_benchmark() -> dict:
+    """How the generator gets chosen, and why nothing is chosen yet.
+
+    The owner's instruction is that quality decides and a modestly dearer model that
+    materially outperforms is worth paying for, so this is a measurement rather than a
+    comparison of price lists. Six trials that this catalogue genuinely needs rendered --
+    stitch truth, hero comprehension, thumbnail strength, premium lifestyle, the canonical
+    model brief and an anti-drift repeat against a reference -- five samples each, on every
+    model that can hold an identity at all.
+
+    The judge is the vision capability, blind to which model rendered which image, scoring a
+    rubric whose every line carries the requirement it comes from. A judge told the brand
+    grades the brand.
+
+    With no results it names nobody. Falling back to the cheapest candidate is the decision
+    the owner explicitly ruled out, and it is what a resultless benchmark becomes if the
+    refusal is not written down.
+    """
+    from ..gateway import image_bench
+
+    return image_bench.state(db)
+
+
 @app.get("/api/models")
 def api_models() -> dict:
     """Model routing, what it costs, and how much of the approved month is left.

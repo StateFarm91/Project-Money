@@ -26,14 +26,14 @@ readable live at `/api/build2`.
 | status | count | meaning |
 |---|---|---|
 | covered | 221 | satisfied, with a named test or artefact |
-| partial | 44 | something real exists and is short of the requirement |
+| partial | 43 | something real exists and is short of the requirement |
 | missing | 0 | nobody has built it |
 | owner_gated | 36 | waits on an owner decision, credential or legal acceptance |
-| data_gated | 19 | waits on market evidence that does not exist yet in shadow mode |
+| data_gated | 20 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **44 requirements are executable** (partial +
+as one nobody has written. **43 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
 typed. 221 of 320 covered is **69.1% complete**, read from the registry rather than
 estimated.
@@ -139,18 +139,27 @@ is **US$50+/month** and buys the same 403 more expensively. The client and its p
 and committed, so the day access exists the capability is one variable away. **No service has
 been provisioned and no spend incurred.** (B-500)
 
-**2. Image generation — one owner action, CA$3.40 first month.** An identity lock (#200) is
-reference conditioning rather than a better prompt, so a provider that cannot take reference
-images cannot satisfy it whatever its output quality. Three candidates priced at
-`/api/image-generation`; recommended **FLUX 2 Pro** at US$0.02/image with up to 8 reference
-images — the cheaper of the two that support conditioning. Workload: 44 one-off images
-(candidate tournament + identity pack) and 80/month (listing creative + anti-drift
-regeneration) = **CA$1.21 one-off, CA$2.19/month, CA$3.40 in the first month**, inside the
-CA$25 model ceiling alongside CA$1.17 of text spend. *Exact action:* create an account at the
-provider, set `BRAMBLELOOP_IMAGE_PROVIDER=flux-2-pro` and `BRAMBLELOOP_IMAGE_KEY` in Railway.
-~10 minutes. The gate opens on a recorded generated image, not on the key being set — and a
-provider refusing #198's brief on content grounds surfaces in its own words rather than as an
-empty gallery. Vision substitution is refused in code (B-484).
+**2. Image generation — measured, not recommended. Superseded by the owner's quality-first
+decision.** There was a recommendation here: FLUX 2 Pro, on the grounds that it was the
+cheapest candidate supporting reference conditioning. The owner replaced that instruction on
+the same day — do not lock a provider because it is inexpensive — and the recommendation is
+deleted rather than defended, because a named winner beside an unrun benchmark is the price
+list deciding again with a second opinion for cover (B-502).
+
+`gateway/image_bench.py` decides it instead: six trials this catalogue genuinely needs
+rendered (stitch truth, hero comprehension, thumbnail strength, premium lifestyle, the
+canonical model brief, an anti-drift repeat against a reference), **five samples each**, on
+every model that can hold an identity at all — **120 images, CA$6.19** of the owner's CA$25
+benchmark budget. Judged blind by the vision capability against a rubric whose every line
+cites its requirement. **Imagen 4 Ultra is excluded before the benchmark, on a requirement
+rather than a score**: the best published photorealism of the field and no reference
+conditioning, so #200 is unmeetable by it at any quality (B-503).
+
+The whole monthly spread across the four eligible models is **CA$2.19 – CA$6.90**, which is
+not an amount a catalogue decision should turn on; a test fails if that spread ever grows
+enough to make cost a real argument. **Nothing is chosen and nothing can be until an account
+exists** — creating one needs a payment method and an identity this build may not supply, so
+the measurement is the owner action. `/api/image-benchmark`.
 
 **3. Cultural signal source — done, CA$0.** Wikimedia Pageviews: official, free, keyless,
 sanctioned within its documented terms with an identifying user agent. Verified live
@@ -158,21 +167,27 @@ sanctioned within its documented terms with an identifying user agent. Verified 
 and is labelled `reference` for that reason — #140 measures the gap between that and
 marketplace demand, so a feed that measured the same thing would have nothing to say (B-483).
 
-**4. Benchmark set — selected, not purchased.** Run against the 438 observed listings at
-`/api/benchmark-selection`. **Ten purchases, CA$212**, cover every facet except three
-departments: `stockings`, `seasonal_gift`, `unclassified`. **Thirteen, CA$268**, cover
-everything — and the CA$56 margin buys stockings and seasonal gifts, which are the two
-departments the current campaign window is aimed at. Every pick names the distinct unknown it
-answers; the selection is deterministic, so it can be reviewed rather than trusted (B-501).
-Files land in the quarantined library, which refuses every reader that is not an analyst and
-stores no competitor text in any table.
+**4. Benchmark set — thirteen approved to CA$300; the list is at
+`/api/benchmark-selection?target=13`.** Thirteen purchases total **CA$268** and cover every
+facet the observed catalogue varies along; ten would total CA$212 and leave `stockings`,
+`seasonal_gift` and `unclassified` unbought — the first two being the departments this
+campaign window is aimed at, which is why the CA$56 margin is worth paying (B-501). Each pick
+now carries **the runner-up it beat, what that alternative would have taught instead, and the
+extra the winner adds**; the set carries how many of the 438 observed listings it makes
+redundant, which is the number that answers "are we buying thirteen similar things" (B-507).
+The selection is deterministic, so it is reviewed rather than trusted. Files land in the
+quarantined library, which refuses every reader that is not an analyst and stores no
+competitor text in any table.
 
 **5. Physical sample — parked, and the gate no longer asks the owner to crochet.** Its
 description said "needs somebody to crochet a Brambleloop sample", which put the owner's hands
 in a gate and so into the action list. The condition is unchanged: one completed PhysicalTest.
 Who performs it is a question for the revised risk-based protocol (B-486).
 
-**6. Etsy #268 — nothing sanctioned is missing.** The credential is proven and has been since
+**6. Etsy #268 — closed as an owner item; recorded `data_gated`.** The sanctioned read
+capability is the applicable evidence and is not requested again (B-508).
+
+**6a. (context)** Nothing sanctioned is missing. The credential is proven and has been since
 2026-09-19; it read the 438 listings the whole mission runs on. #268 was parked on
 `benchmark_observation`, which that credential *is*, so it was parked behind a condition
 already true. What it needs is a second benchmark shop **outside the United States** — one
@@ -209,8 +224,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `a0c8e62`: **2,604 tests passing, 0
-failing** across 145 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `PLACEHOLDER`: **2,628 tests passing, 0
+failing** across 146 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -4069,6 +4084,35 @@ timings, written there by the system rather than by hand.
   selector** chooses for facet coverage rather than popularity and stops short of ten rather
   than filling the list (B-485); and the `physical_proof` gate no longer names whose hands
   do the work (B-486). Decisions B-478..B-486.
+- 2026-09-20, owner's quality-first decision. The instruction is that quality decides and a
+  modestly dearer model that materially outperforms is worth paying for, and the first thing
+  it cost was a recommendation already sitting in the code: FLUX 2 Pro, chosen because it was
+  the cheapest candidate that supports reference conditioning. That is deleted rather than
+  defended -- a named winner beside an unrun benchmark is the price list deciding again with
+  a second opinion for cover (B-502). `gateway/image_bench.py` replaces it: six trials this
+  catalogue genuinely needs rendered, five samples each, four eligible models, 120 images at
+  **CA$6.19** of the CA$25 the owner authorised, judged blind by the vision capability
+  against a rubric whose every line cites its requirement (B-505). Imagen 4 Ultra leaves
+  *before* the benchmark on a requirement rather than a score: the best published
+  photorealism in the field and no reference conditioning, so the canonical model cannot be
+  held across seasons by it at any quality (B-503). Five samples rather than three because
+  one render is a sample of a distribution and this choice governs every listing image the
+  company ships; five rather than as many as the ceiling allows, because budget is not a
+  reason (B-504). With no results it names nobody, and a model below the fabric floor is out
+  at any price -- both refusals guarding the same failure, a measurement quietly becoming a
+  price comparison (B-506).
+- The benchmark purchase list now answers the question a person about to spend CA$268
+  actually asks. Each pick carries the runner-up it beat, what that alternative would have
+  taught instead and the extra the winner adds; the set carries how many of the 438 observed
+  listings it makes redundant, measured over the finished set rather than per pick -- the
+  per-pick count reads zero in a catalogue of near-duplicates right up until the duplicate is
+  bought (B-507).
+- #268 recorded `data_gated` on the owner's instruction, with the proven sanctioned Etsy
+  capability as the applicable evidence and nothing further owed by the owner. Its
+  `parked_on` came off with it: that field states what *remaining* work needs, and the
+  executor refuses one on a requirement that is not executable -- which it did, loudly, the
+  moment the status changed. The gate stays defined and carries nothing, as the condition
+  that would make it executable again (B-508). Decisions B-502..B-508.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

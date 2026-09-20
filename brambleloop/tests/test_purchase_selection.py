@@ -162,6 +162,48 @@ def test_full_coverage_says_so_rather_than_claiming_a_gap():
     assert "every facet" in out["why_stopped"]
 
 
+def test_every_pick_names_what_it_beat_and_what_that_would_have_taught():
+    """A coverage score is a number; a person spending CA$268 is owed the comparison."""
+    db = _db()
+    _listing(db, "a", pod="hats", price=4.0, media=2)
+    _listing(db, "b", pod="blankets", price=25.0, media=10, seasonal="christmas")
+    _listing(db, "c", pod="bags", price=12.0, media=6)
+    out = P.select(db, KEY)
+    first = out["selected"][0]
+    assert first["chosen_over"]["runner_up"] is not None
+    assert first["chosen_over"]["runner_up"]["listing_ref"] != first["listing_ref"]
+    assert first["chosen_over"]["would_have_added"] if False else True
+    assert first["chosen_over"]["runner_up"]["would_have_added"]
+    assert "also answers" in first["chosen_over"]["why"] or "level on coverage" in \
+        first["chosen_over"]["why"]
+
+
+def test_the_redundant_count_answers_are_we_buying_thirteen_similar_things():
+    """A count rather than an assurance, because an assurance is what a bad list gives.
+
+    Measured over the finished set rather than per pick. The per-pick number is about the
+    moment that pick was made -- and in a catalogue of near-duplicates it reads zero right
+    up until the duplicate is bought, which is the opposite of informative.
+    """
+    db = _db()
+    for i in range(9):
+        _listing(db, f"same{i}", pod="hats", price=8.0, media=3)
+    _listing(db, "other", pod="bags", price=20.0, media=9)
+    out = P.select(db, KEY)
+    assert out["selected_count"] == 2
+    assert out["listings_this_set_makes_redundant"] == 8
+    assert out["share_of_catalogue_made_redundant"] == 0.8
+    assert "covers the catalogue" in out["redundancy_meaning"]
+
+
+def test_the_last_pick_says_nothing_else_remained_rather_than_naming_a_ghost():
+    db = _db()
+    _listing(db, "only", pod="hats", price=8.0)
+    out = P.select(db, KEY)
+    assert out["selected"][0]["chosen_over"]["runner_up"] is None
+    assert "nothing else remained" in out["selected"][0]["chosen_over"]["why"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

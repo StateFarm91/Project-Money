@@ -535,11 +535,17 @@ GATES: tuple[Gate, ...] = (
     # therefore open -- so the requirement was parked on a condition that was already true,
     # which is a park that never expires by itself. What it waits on is a second market,
     # and nothing in this system could have told the difference while the two were conflated.
+    # Carries nothing since 2026-09-20, and is kept for the same reason `etsy_shop` is: the
+    # condition is worth having in code. #268 moved to `data_gated` on the owner's decision
+    # -- what it waits on is a second market's listings, which is evidence this company does
+    # not hold rather than work it can start, and `parked_on` states what remaining work
+    # needs. A data-gated requirement has left the queue rather than waiting in it, so this
+    # gate's job is to say what would bring it back.
     Gate("second_market_benchmark",
          "a benchmark shop outside the United States, which is a choice of shop rather than "
          "a credential or a capability",
          _second_market_observed,
-         (268,),
+         (),
          "observed listings exist for two or more distinct stated markets -- one shop's term "
          "frequencies are one market's language however many listings they came from"),
     Gate("culture_feed",

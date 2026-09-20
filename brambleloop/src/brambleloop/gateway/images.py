@@ -72,6 +72,10 @@ class ImageProvider:
                 "note": self.note, "price_basis": "assumed, read 2026-09-20"}
 
 
+# Kept in step with `image_bench.CANDIDATES`, which is the list the measurement runs over.
+# This table is what the *generator* can be pointed at; that one is what the benchmark
+# compares. A test asserts every conditioning-capable candidate there has an entry here, so
+# a model can never win a benchmark this module cannot then call.
 PROVIDERS: tuple[ImageProvider, ...] = (
     ImageProvider(
         "flux-2-pro", "Black Forest Labs FLUX 2 Pro",
@@ -85,6 +89,16 @@ PROVIDERS: tuple[ImageProvider, ...] = (
         "strongest prompt adherence of the three and the most reference images; half again "
         "the price of FLUX per image, which matters at catalogue scale and not at pack "
         "scale"),
+    ImageProvider(
+        "nano-banana-2", "Google Gemini 3.1 Flash Image (Nano Banana 2)",
+        "https://generativelanguage.googleapis.com/v1beta/models", 0.063, True, 5,
+        "fine-grained fabric and material texture at up to 4K and feature consistency across "
+        "characters. The most expensive candidate that can hold an identity, and the "
+        "benchmark exists to find out whether that buys anything on crochet"),
+    ImageProvider(
+        "seedream-v5-lite", "ByteDance Seedream v5.0 Lite",
+        "https://ark.cn-beijing.volces.com/api/v3/images/generations", 0.026, True, 4,
+        "production-quality output at 2048px, between FLUX and GPT Image on price"),
     ImageProvider(
         "imagen-4-standard", "Google Imagen 4 Standard",
         "https://generativelanguage.googleapis.com/v1beta/models", 0.04, False, 0,
@@ -331,7 +345,8 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
         provider, provider_error = None, str(exc)
     last = last_probe(db)
 
-    recommended = BY_KEY["flux-2-pro"]
+    from . import image_bench
+
     return {
         "configured": configured(env),
         "provider": provider.key if provider else None,
@@ -340,13 +355,21 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
         "last_probe": last,
         "usable": bool(last and last.get("ok")),
         "candidates": [p.to_dict() for p in PROVIDERS],
-        "recommended": recommended.key,
-        "why_recommended": (
-            "an identity lock is reference conditioning, not a better prompt. Two of the "
-            "three candidates support it; this is the cheaper of those two, and the third is "
-            "ruled out on the requirement rather than on output quality"),
+        # No standing recommendation. There was one -- the cheapest candidate that supports
+        # reference conditioning -- and the owner's 2026-09-20 decision replaced it with a
+        # measurement: do not lock a provider because it is inexpensive, and a moderately
+        # dearer model that materially outperforms is worth paying for. Naming a winner here
+        # would be the price list deciding again, with a benchmark sitting beside it.
+        "recommended": None,
+        "why_no_recommendation": (
+            "the choice is measured rather than reasoned. gateway/image_bench.py renders the "
+            "same six Brambleloop trials on every eligible model, five samples each, and "
+            "scores them blind against a rubric whose every line cites a requirement. Until "
+            "it runs there is no winner, and the cheapest candidate is not a default"),
+        "benchmark": image_bench.state(),
         "workload": WORKLOAD,
-        "estimate": monthly_estimate_cad(recommended),
+        "estimate_per_candidate": {
+            p.key: monthly_estimate_cad(p) for p in PROVIDERS if p.supports_lock},
         "never": ("image generation is not image understanding. The model that can look at a "
                   "photograph cannot make one, and substituting it is refused in code rather "
                   "than discouraged in a note"),

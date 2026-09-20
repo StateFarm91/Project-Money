@@ -153,6 +153,44 @@ def _new_values(candidate: Candidate, covered: dict) -> dict:
             if value != "unknown" and value not in covered.get(facet, set())}
 
 
+def _instead_of(best: Candidate, new: dict, runner_up: Candidate | None,
+                covered: dict, redundant: int, pool_size: int) -> dict:
+    """The comparison behind one pick, in the words a reviewer would ask for.
+
+    Three parts, because three different questions get asked of a purchase list: what else
+    was close, what that alternative would have taught instead, and how much of the
+    catalogue was passed over for teaching nothing new. The last is the one that answers
+    "are we buying thirteen similar things", and it is a count rather than an assurance.
+    """
+    if runner_up is None:
+        return {"runner_up": None,
+                "why": (f"nothing else remained. {redundant} of {pool_size} candidates "
+                        f"would have added no facet nothing already covers"),
+                "redundant_candidates": redundant, "pool_considered": pool_size}
+
+    alternative = _new_values(runner_up, covered)
+    extra = sorted(set(new) - set(alternative))
+    same = sorted(set(new) & set(alternative))
+    return {
+        "runner_up": {"listing_ref": runner_up.listing_ref, "title": runner_up.title,
+                      "pod": runner_up.pod, "price_cad": round(runner_up.price_cad, 2),
+                      "would_have_added": alternative},
+        "why": (
+            f"both would have answered {', '.join(same) or 'nothing in common'}; this one "
+            f"also answers {', '.join(extra)}"
+            if extra else
+            f"the two were level on coverage at {len(new)} new facets, and this one was "
+            f"taken on a stable ordering (department, then listing reference) so the same "
+            f"catalogue produces the same list twice"),
+        "redundant_candidates": redundant,
+        "pool_considered": pool_size,
+        "redundancy_note": (
+            f"{redundant} of the {pool_size} listings still in the pool would have added "
+            f"nothing new at this point. They are not cheaper versions of this pick -- they "
+            f"are the same lesson, and buying one is the failure #166 names"),
+    }
+
+
 def _reason(new: dict, candidate: Candidate) -> str:
     """The research question this purchase answers, from what it actually added."""
     parts = []
@@ -196,11 +234,26 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
         if gain < MIN_NEW_FACETS:
             break
         new = _new_values(best, covered)
+
+        # Why this one and not another. A coverage score is a number, and a person about to
+        # spend money on thirteen products is entitled to the comparison behind each: what
+        # the closest alternative was, what it would have taught instead, and how many
+        # listings were passed over because they would have taught nothing new.
+        runner_up = next((c for _, c in scored[1:]
+                          if c.listing_ref != best.listing_ref), None)
+        redundant = sum(1 for g, _ in scored if g == 0)
+        instead_of = _instead_of(best, new, runner_up, covered, redundant, len(scored))
+
         for facet, value in new.items():
             covered[facet].add(value)
         chosen.append({**best.to_dict(), "answers": _reason(new, best),
-                       "new_facets": new})
+                       "new_facets": new, "chosen_over": instead_of})
         remaining = [c for c in remaining if c.listing_ref != best.listing_ref]
+
+    # The count the owner's question actually asks for. The per-pick number is about the
+    # moment that pick was made; "are we buying thirteen similar things" is about the
+    # finished set, and the answer is how much of the catalogue the set makes redundant.
+    covered_at_end = sum(1 for c in remaining if not _new_values(c, covered))
 
     total = round(sum(c["price_cad"] for c in chosen), 2)
     uncovered = {facet: sorted({c.facets[facet] for c in pool
@@ -231,6 +284,17 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
                         f"the target of {target} was reached and every facet the observed "
                         f"catalogue varies along is covered"),
         "facets_still_uncovered": still_open,
+        "listings_this_set_makes_redundant": covered_at_end,
+        "share_of_catalogue_made_redundant": (
+            round(covered_at_end / len(pool), 4) if pool else 0.0),
+        "redundancy_meaning": (
+            f"{covered_at_end} of the {len(pool)} observed listings would now teach nothing "
+            f"this set does not already teach. That is the answer to 'are we buying similar "
+            f"things': a high number means the set covers the catalogue, and a low one means "
+            f"the catalogue varies in ways the set has not reached"),
+        "each_pick_carries": ("the distinct unknown it answers, the runner-up it beat, what "
+                             "that alternative would have taught instead, and how many "
+                             "listings were passed over for teaching nothing new"),
         "method": ("greedy coverage over the facets a customer-experience teardown can "
                    "differ along, not popularity. Sorting by favourites buys the ten most "
                    "popular listings, which in one shop share a department, a price band and "
