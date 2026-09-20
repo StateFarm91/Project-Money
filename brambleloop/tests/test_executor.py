@@ -581,6 +581,42 @@ def test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_on
         assert rid in ready, f"{rid} did not come back when its gate opened"
 
 
+def test_a_remainder_that_needs_orders_has_somewhere_to_wait():
+    """The gap in the parking mechanism, found by reading the next ready requirement.
+
+    `parked_on` covered capabilities somebody can grant. #18's remainder -- whether fast
+    support reduces refunds and improves reviews -- needs *orders*, and nothing in the gate
+    table could ever open for that, so it sat at the top of the ready queue advertising a
+    measurement that cannot be taken until refunds exist.
+
+    The `customers` gate is the one entry in that table the owner cannot grant. It counts
+    ledger rows rather than reading a phase flag, for the reason every other gate counts
+    something: a flag saying "we are selling now" is a claim and a ledger entry is an event.
+    """
+    from brambleloop.core.models import LedgerEntry
+
+    gate = E.GATE_BY_KEY["customers"]
+    shut = _db()
+    assert gate.open(shut, {}) is False
+    # And no environment variable can open it, which is the whole point.
+    assert gate.open(shut, {"BRAMBLELOOP_PHASE": "production",
+                            "BRAMBLELOOP_CUSTOMERS": "many"}) is False
+
+    E.sync(shut, env={})
+    parked = E.queue(shut, limit=400)["parked_by_capability"]
+    assert parked.get("customers"), parked
+
+    with shut.session() as s:
+        s.add(LedgerEntry(category="sale", description="first order", gross_cad=9.0,
+                          evidence_ref="test"))
+    assert gate.open(shut, {}) is True
+
+    E.sync(shut, env={})
+    ready = {r["requirement_id"] for r in E.queue(shut, limit=400)["ready"]}
+    for rid in parked["customers"]:
+        assert rid in ready, f"{rid} did not come back when the first sale landed"
+
+
 def test_a_finished_requirement_cannot_carry_a_gate_for_work_it_no_longer_owes():
     """parked_on describes the *remainder*. With no remainder it is a leftover key.
 

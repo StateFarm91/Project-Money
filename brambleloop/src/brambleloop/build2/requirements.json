@@ -156,11 +156,12 @@
  {
   "body": "Target response in minutes when automation can safely answer from canonical data. Pattern Help must know the exact purchased version. Measure whether fast support reduces refunds and improves genuine reviews/repeat purchase. Escalate uncertainty instead of hallucinating.",
   "id": 18,
-  "note": "support/service.py sets separate targets for a canonical answer (5 minutes) and an escalation (24 hours) and never averages them together, because one number lets a fast automated majority bury the slow escalated minority where the unhappy buyers are; meets_target takes the minimum. An untimed case is counted as untimed rather than dropped, since dropping it measures the cases somebody remembered to time, and a response time cannot be revised. Timings live in the case's existing detail column because the deployed database was created with create_all, which adds tables and not columns. Pattern Help already answers from the exact purchased version (concierge). Remaining and data-gated: whether fast support reduces refunds and improves reviews, which needs orders -- reported unmeasurable with the reason rather than as zero. /api/trust.",
+  "note": "support/service.py sets separate targets for a canonical answer (5 minutes) and an escalation (24 hours) and never averages them together, because one number lets a fast automated majority bury the slow escalated minority where the unhappy buyers are; meets_target takes the minimum. An untimed case is counted as untimed rather than dropped, since dropping it measures the cases somebody remembered to time, and a response time cannot be revised. Timings live in the case's existing detail column because the deployed database was created with create_all, which adds tables and not columns. Pattern Help already answers from the exact purchased version (concierge). Remaining and data-gated: whether fast support reduces refunds and improves reviews, which needs orders -- reported unmeasurable with the reason rather than as zero, and parked on the customers gate rather than left in the ready queue. That gate is the one thing in the executor's table nobody can grant: it opens when a stranger buys something, counted from the ledger. /api/trust.",
   "section": "Core commercial upgrades",
   "status": "partial",
   "title": "Customer-Service Conversion Advantage",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "customers"
  },
  {
   "body": "Use genuine time-bounded sales/coupons/order minimums only when policy-compliant. Measure incremental conversion, AOV and contribution, not merely revenue lift. Avoid conditioning the catalogue to require permanent discounts.",

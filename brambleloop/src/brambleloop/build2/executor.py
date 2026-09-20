@@ -141,6 +141,26 @@ def _env_gate(*names: str):
     return check
 
 
+def _has_customers(db, env) -> bool:
+    """At least one real money event is recorded. Counted, not asked about.
+
+    The one gate in this table the owner cannot grant. Every other capability here is a key
+    somebody pastes; this one opens when a stranger buys something, and it exists because a
+    requirement whose remainder needs orders has nowhere else to wait. Before this, #18 sat
+    at the top of the ready queue advertising a measurement -- whether fast support reduces
+    refunds -- that cannot be taken until refunds exist.
+
+    Rows rather than a variable, for the same reason every other gate here counts something:
+    a phase flag saying "we are selling now" is a claim, and a ledger entry is an event.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import LedgerEntry
+
+    with db.session() as s:
+        return bool(s.scalar(select(func.count(LedgerEntry.id))))
+
+
 def _benchmarks_purchased(db, env) -> bool:
     """The owner's ten benchmark patterns, counted rather than asked about."""
     from sqlalchemy import func, select
@@ -268,6 +288,13 @@ GATES: tuple[Gate, ...] = (
          _env_gate("BRAMBLELOOP_ARCHIVE_URL"),
          (51,),
          "BRAMBLELOOP_ARCHIVE_URL is set, which only exists once a bucket does"),
+    Gate("customers",
+         "real orders, which only a buyer can create -- not an owner action, and the reason "
+         "this gate is in the same table as the ones that are",
+         _has_customers,
+         (),
+         "at least one LedgerEntry row exists -- a recorded money event, counted rather "
+         "than a phase flag saying the company is selling"),
     Gate("ad_authority", "an approved advertising budget",
          _ads_authorised,
          (242, 243, 244, 245, 294, 295),
