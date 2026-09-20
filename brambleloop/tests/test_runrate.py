@@ -200,8 +200,16 @@ def test_both_of_the_ratios_31_names_are_reported_even_when_one_side_is_zero():
     result = U.unit_costs(db)
     assert result["validated_products_per_operating_dollar"] == 0.2
     assert result["contribution_per_operating_dollar"] == 0.0
-    assert set(U.ARTEFACTS) >= {"concept", "validated_pattern", "pdf", "listing",
-                                "visual_asset", "support_case", "acquired_customer"}
+    # ARTEFACTS became a tuple of records when an artefact needed to be producible by more
+    # than one action, so the keys come from the index rather than from iterating it. The
+    # assertion is unchanged in what it is for: every artefact #31 names a unit cost on is
+    # still present.
+    assert set(U.ARTEFACT_BY_KEY) >= {"concept", "validated_pattern", "pdf", "listing",
+                                      "visual_asset", "support_case", "acquired_customer"}
+    # And a discovery run's concepts are counted from the run rather than one per audit row.
+    discovered = U.ARTEFACT_BY_KEY["discovered_concept"]
+    assert discovered.count_in_detail == "proposed"
+    assert len(discovered.actions) > 1, discovered.actions
 
 
 if __name__ == "__main__":
