@@ -38,9 +38,16 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 #
 # The trap covers the interrupt path too, because the runs that get killed half way are
 # exactly the ones nobody goes back to tidy up after.
+# One cleanup function and one trap, because a second `trap ... EXIT` replaces the first
+# rather than adding to it. The first version of this set its own EXIT trap here and the
+# `$outdir` trap thirty lines below silently discarded it: the run was green, the containment
+# worked, and 342 MB in 399 directories survived anyway. Caught only by counting what was
+# left instead of trusting the fix -- the same defect this build keeps naming, in a shell
+# script, written while fixing something else.
 BRAMBLELOOP_RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/brambleloop-run-XXXXXXXX")"
 export TMPDIR="$BRAMBLELOOP_RUN_TMP"
-trap 'rm -rf "$BRAMBLELOOP_RUN_TMP"' EXIT INT TERM
+_brambleloop_cleanup() { rm -rf "${outdir:-}" "${BRAMBLELOOP_RUN_TMP:-}"; }
+trap _brambleloop_cleanup EXIT INT TERM
 
 # Canonical order. This is the order results are printed in, cheapest first, so a failure in
 # the CIR engine is visible at the top of the log rather than buried.
@@ -68,8 +75,7 @@ SLOW=(
   tests/test_chaos.py tests/test_deploy.py tests/test_physical.py
 )
 
-outdir=$(mktemp -d)
-trap 'rm -rf "$outdir"' EXIT
+outdir=$(mktemp -d)   # inside the run's own TMPDIR; cleaned by the trap set above
 
 schedule() {
   local t="$1" safe
