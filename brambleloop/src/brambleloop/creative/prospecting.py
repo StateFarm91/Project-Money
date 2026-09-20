@@ -442,8 +442,12 @@ class Candidate:
         }
 
 
-def benchmark_cards(db, *, pod: str = "", benchmark_key: str = "") -> list:
+def benchmark_comparables(db, *, pod: str = "", benchmark_key: str = "") -> list:
     """Observed listings as comparable cards, for the "is this theirs?" check.
+
+    Named apart from `blinded.benchmark_cards`, which returns listing rows rather than cards.
+    Two functions with one name in one package is a reading hazard, and this file is new
+    enough that renaming it costs nothing.
 
     Deliberately cards rather than concepts. A `Concept` carries construction, motif and
     function, none of which a title states, and inventing them to make `distance()` work
@@ -739,7 +743,7 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
         refusals.extend(refused)
 
     result = screen(candidates, catalogue=catalogue,
-                    benchmark=benchmark_cards(db, pod=arena.pod),
+                    benchmark=benchmark_comparables(db, pod=arena.pod),
                     days_to_event=arena.days_away)
     forms = sorted({c.concept.form for c in result["survivor_objects"]})
     return {
