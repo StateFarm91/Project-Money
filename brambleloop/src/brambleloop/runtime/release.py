@@ -1042,12 +1042,22 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
     if routing["moved"]:
         ctx.audit("mjs.reclassified", detail=routing)
 
+    # #98: four of the eight learning domains are answerable from a catalogue somebody has
+    # actually read, and until now nothing fed any of them. Recorded here because this is
+    # the moment the evidence exists; the other four stay unobserved and say why.
+    from ..intel.learning import ingest_benchmark
+
+    learned = ingest_benchmark(ctx.db)
+    if learned.get("recorded"):
+        ctx.audit("learning.ingested", detail=learned)
+
     report = outcome["report"]
     ctx.audit("mjs.scanned", detail=report)
     return {"ran": True,
             "listings_known": report["catalogue_coverage"]["listings_known"],
             "new": len(report["changes"]),
             "reclassified": routing["moved"],
+            "learning_domains": len(learned.get("recorded") or []),
             "inspected": report["catalogue_coverage"]["listings_inspected"]}
 
 

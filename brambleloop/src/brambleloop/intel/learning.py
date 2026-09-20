@@ -215,3 +215,126 @@ def support(claim: str, *, signals: list[dict], evidence: list[dict]) -> dict:
                  if evidence else
                  "this claim has neither signals nor evidence behind it"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Feeding the radar from evidence this company actually has (#98)
+#
+# Eight domains, and until the benchmark credential existed nothing fetched any of them, so
+# the radar honestly reported every one as unobserved. Four are now answerable from evidence
+# already recorded -- and four are not, which is the part that matters. A feeder that filled
+# all eight by inferring techniques from product titles would turn a truthful "nobody has
+# looked" into a confident fiction, and the radar's whole value is that it distinguishes the
+# two.
+#
+# What the benchmark scan genuinely supports:
+#
+#   competitor_positioning  -- how many listings, in which departments, at what prices
+#   seasonal_behaviour      -- which occasions this market's catalogue is built around
+#   aesthetics              -- the visual register its titles name, as term frequency
+#   media_capability        -- how many images a listing in this market carries
+#
+# What it does not, and why nothing here pretends otherwise:
+#
+#   techniques      -- a title naming "mosaic" says a product exists, not that a technique
+#                      is new or reviving. That needs a source about the craft, not a shop.
+#   search_behaviour -- no observation of this platform's ranking exists at all.
+#   marketplace_policy -- `ops.policy_watch` owns this; a second writer would let two
+#                      freshness clocks disagree about the same policy.
+#   customer_pain   -- there are no customers and no reviews read, and inferring complaints
+#                      from a competitor's catalogue is inventing them.
+
+BENCHMARK_SOURCE = "benchmark_scan"
+
+FEEDABLE: tuple[str, ...] = (
+    "competitor_positioning", "seasonal_behaviour", "aesthetics", "media_capability")
+
+NOT_FEEDABLE: dict[str, str] = {
+    "techniques": ("a title naming a stitch says a product exists, not that the technique "
+                   "is new or reviving. That needs a source about the craft"),
+    "search_behaviour": "nothing has observed this platform's ranking",
+    "marketplace_policy": ("ops.policy_watch owns this domain; a second writer would let "
+                           "two freshness clocks disagree about one policy"),
+    "customer_pain": ("no customer and no review has been read, and inferring complaints "
+                      "from a competitor's catalogue is inventing them"),
+}
+
+
+def ingest_benchmark(db, *, benchmark_key: str = "", today: date | None = None) -> dict:
+    """Record what the observed benchmark catalogue genuinely says, in four domains.
+
+    Idempotent per day and per domain: the citation carries the scan date, so running twice
+    in a day updates nothing and running tomorrow adds tomorrow's reading. A radar that
+    accumulated one row per invocation would report freshness as a function of how often the
+    scheduler fired.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing, LearningObservation
+    from . import benchmarks
+
+    today = today or date.today()
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key)))
+
+    if not rows:
+        return {"recorded": [], "skipped": dict(NOT_FEEDABLE),
+                "reason": "no benchmark listing has been observed, so there is nothing to "
+                          "report about this market"}
+
+    by_pod: dict[str, int] = {}
+    by_season: dict[str, int] = {}
+    media: list[int] = []
+    for row in rows:
+        by_pod[row.pod or "unclassified"] = by_pod.get(row.pod or "unclassified", 0) + 1
+        if row.seasonal:
+            by_season[row.seasonal] = by_season.get(row.seasonal, 0) + 1
+        media.append(int(row.media_count or 0))
+
+    thin = sum(1 for n in media if n < 5)
+    citation = f"{benchmark_key}@{today.isoformat()}"
+    readings = {
+        "competitor_positioning": (
+            f"{len(rows)} active listings across {len(by_pod)} departments; deepest is "
+            f"{max(by_pod, key=by_pod.get)} at {max(by_pod.values())}",
+            {"by_department": dict(sorted(by_pod.items(), key=lambda kv: -kv[1]))}),
+        "seasonal_behaviour": (
+            f"{len(by_season)} occasion(s) named in this catalogue's own listing data"
+            if by_season else
+            "no occasion is named in this catalogue's structured listing data, so what it "
+            "sells seasonally is visible only in its titles",
+            {"by_season": by_season}),
+        "aesthetics": (
+            f"the visual register this market names is readable from {len(rows)} titles; "
+            f"per-department term frequency is in commerce.intent.arena_language",
+            {"departments": sorted(by_pod)}),
+        "media_capability": (
+            f"{thin} of {len(rows)} listings carry fewer than five images",
+            {"thin_galleries": thin, "listings": len(rows),
+             "share": round(thin / len(rows), 3)}),
+    }
+
+    recorded: list[str] = []
+    with db.session() as s:
+        existing = {
+            (r.domain, r.citation) for r in s.scalars(select(LearningObservation))}
+    for domain in FEEDABLE:
+        if (domain, citation) in existing:
+            continue
+        summary, detail = readings[domain]
+        record(db, domain=domain, source=BENCHMARK_SOURCE, citation=citation,
+               summary=summary, observed_on=today, detail=detail)
+        recorded.append(domain)
+
+    return {
+        "recorded": recorded,
+        "citation": citation,
+        "listings": len(rows),
+        "skipped": dict(NOT_FEEDABLE),
+        "note": ("Four domains are answerable from a benchmark catalogue and four are not. "
+                 "Filling all eight by inference would turn a truthful 'nobody has looked' "
+                 "into a confident fiction, which is the one thing this radar exists to "
+                 "prevent (#98)."),
+    }

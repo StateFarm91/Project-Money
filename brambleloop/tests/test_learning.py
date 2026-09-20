@@ -184,5 +184,104 @@ def _run() -> int:
     return failures
 
 
+# ---- feeding the radar from evidence this company has (#98) ------------------
+
+
+def _benchmark_db(n=20):
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/feed.sqlite")
+    db.create_all()
+    with db.session() as s:
+        for i in range(n):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=str(i),
+                                   title="Cozy Crochet Christmas Stocking Pattern",
+                                   pod="stockings" if i < 12 else "bags",
+                                   media_count=3 if i < 17 else 7))
+    return db
+
+
+def test_only_the_domains_a_catalogue_can_answer_are_fed():
+    """Filling all eight by inference turns a truthful "nobody has looked" into fiction,
+    which is the one thing this radar exists to prevent."""
+    from brambleloop.intel import learning
+
+    report = learning.ingest_benchmark(_benchmark_db(), today=date(2026, 9, 20))
+    assert set(report["recorded"]) == set(learning.FEEDABLE)
+    assert set(report["skipped"]) == set(learning.NOT_FEEDABLE)
+    assert not set(learning.FEEDABLE) & set(learning.NOT_FEEDABLE)
+
+
+def test_a_technique_is_never_inferred_from_a_product_title():
+    """A title naming "mosaic" says a product exists, not that the technique is reviving."""
+    from brambleloop.intel import learning
+
+    report = learning.ingest_benchmark(_benchmark_db(), today=date(2026, 9, 20))
+    assert "techniques" not in report["recorded"]
+    assert "source about the craft" in report["skipped"]["techniques"]
+
+
+def test_marketplace_policy_keeps_one_writer():
+    """Two writers would let two freshness clocks disagree about one policy."""
+    from brambleloop.intel import learning
+
+    assert "marketplace_policy" not in learning.FEEDABLE
+    assert "ops.policy_watch" in learning.NOT_FEEDABLE["marketplace_policy"]
+
+
+def test_ingesting_twice_in_a_day_records_nothing_the_second_time():
+    """A radar accumulating a row per invocation reports freshness as a function of how
+    often the scheduler fired."""
+    from brambleloop.intel import learning
+
+    db = _benchmark_db()
+    assert learning.ingest_benchmark(db, today=date(2026, 9, 20))["recorded"]
+    assert learning.ingest_benchmark(db, today=date(2026, 9, 20))["recorded"] == []
+    assert learning.ingest_benchmark(db, today=date(2026, 9, 21))["recorded"]
+
+
+def test_with_no_observed_catalogue_nothing_is_recorded():
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.intel import learning
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/empty.sqlite")
+    db.create_all()
+    report = learning.ingest_benchmark(db, today=date(2026, 9, 20))
+    assert report["recorded"] == []
+    assert "nothing to report" in report["reason"]
+
+
+def test_the_radar_still_names_the_four_nobody_has_looked_at():
+    """Half-fed is the honest state, and a radar that hid it would be worse than empty."""
+    from brambleloop.intel import learning
+
+    db = _benchmark_db()
+    learning.ingest_benchmark(db, today=date(2026, 9, 20))
+    report = learning.radar(db, today=date(2026, 9, 20))
+    assert len(report["watched"]) == 4
+    assert {d["domain"] for d in report["unobserved"]} == set(learning.NOT_FEEDABLE)
+
+
+def test_a_fed_observation_still_cannot_become_evidence():
+    """The load-bearing clause: a signal is not evidence however it was recorded."""
+    from brambleloop.intel import learning
+
+    db = _benchmark_db()
+    learning.ingest_benchmark(db, today=date(2026, 9, 20))
+    observation = learning.observations(db, domain="competitor_positioning")[0]
+    try:
+        learning.as_evidence(observation)
+    except learning.LearningRefused:
+        pass
+    else:
+        raise AssertionError("an external signal was promoted into evidence")
+
+
 if __name__ == "__main__":
     raise SystemExit(1 if _run() else 0)
