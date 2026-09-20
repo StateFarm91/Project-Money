@@ -258,6 +258,24 @@ says absence may not be enforced yet.
 The 134 dead letters are all publications refused by shadow mode — the guard working — which
 is what prompted counting deliberate refusals apart from defects (B-374).
 
+**A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
+A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
+explain it. The cause: the suites had left **37,284 temporary directories totalling 29 GB** in
+`/tmp` — about twelve hundred per run, across roughly thirty runs this session. Sixty-four
+test files call `tempfile.mkdtemp`, which unlike `TemporaryDirectory` never cleans up, and
+each directory holds a SQLite database and sometimes a rendered image.
+
+The fix is in `run_tests.sh`, not in sixty-four files: `mkdtemp` honours `TMPDIR`, so the
+runner gives the whole run one temporary directory and removes it on exit, including on
+interrupt — the runs killed half way are exactly the ones nobody goes back to tidy. Fixing
+the call sites would be sixty-four edits that each have to stay correct, and the
+sixty-fifth would leak again. Verified: a run now leaves zero directories behind.
+
+Worth keeping because of what it looked like from inside: eleven red suites, a green run
+twenty minutes earlier, and nothing in the change to blame. The log said `ENOSPC` on every
+single failure, which is the sort of thing that is obvious once read and invisible while
+guessing.
+
 **#253/#254/#256 — the club, the customisation and the referral.**
 
 `products/personalisation.py` (#254) gives "keep canonical pattern truth intact" a precise

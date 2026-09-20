@@ -23,6 +23,25 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 PY="${PY:-.venv/bin/python}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 
+# Every suite gets its own TMPDIR, and it is removed when the run ends.
+#
+# Found 2026-09-20, by a run that failed eleven suites on "No space left on device" with no
+# code change behind it: the suites had left 37,284 temporary directories totalling 29 GB in
+# /tmp, which is about twelve hundred per run. Sixty-four test files call `tempfile.mkdtemp`,
+# which -- unlike `TemporaryDirectory` -- never cleans up, and each of those directories
+# holds a SQLite database, sometimes a rendered image.
+#
+# The fix is here rather than in sixty-four files on purpose. `mkdtemp` honours TMPDIR, so
+# pointing it at a per-run directory makes every one of them land in a place this script can
+# delete in a single line, whatever any individual test forgets. Fixing the call sites would
+# be sixty-four edits that each have to stay correct, and the sixty-fifth would leak again.
+#
+# The trap covers the interrupt path too, because the runs that get killed half way are
+# exactly the ones nobody goes back to tidy up after.
+BRAMBLELOOP_RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/brambleloop-run-XXXXXXXX")"
+export TMPDIR="$BRAMBLELOOP_RUN_TMP"
+trap 'rm -rf "$BRAMBLELOOP_RUN_TMP"' EXIT INT TERM
+
 # Canonical order. This is the order results are printed in, cheapest first, so a failure in
 # the CIR engine is visible at the top of the log rather than buried.
 SUITES=(
