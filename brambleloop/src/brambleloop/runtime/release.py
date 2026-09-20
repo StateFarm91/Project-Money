@@ -1528,7 +1528,7 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     from ..core.models import utcnow
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
-    arena = found[week % len(found)]
+    arena = prospecting.choose(found, cycle=week)
 
     _task, tier = routing.route(prospecting.GENERATION_TASK)
     gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry)

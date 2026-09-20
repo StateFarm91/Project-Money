@@ -651,6 +651,61 @@ def test_an_expedition_says_it_is_not_a_tournament():
     assert "optimising for volume" in result["what_this_is"]
 
 
+# ---- which arena an expedition goes to --------------------------------------
+
+
+def _wheel(today=date(2026, 9, 20), cycles=20):
+    found = [P.Arena(event=e, pod=p, benchmark_listings=n, days_away=d, forms={})
+             for e, p, n, d in [("Christmas", "garments", 140, 96),
+                                ("Mother's Day", "garments", 140, 231),
+                                ("Thanksgiving (CA)", "blankets", 85, 22),
+                                ("Halloween", "hats", 85, 41),
+                                ("Christmas", "blankets", 85, 96),
+                                ("Christmas", "hats", 85, 96),
+                                ("Halloween", "bags", 17, 41),
+                                ("Christmas", "bags", 17, 96),
+                                ("Easter", "bags", 17, 196)]]
+    return [P.choose(found, cycle=i, today=today) for i in range(cycles)]
+
+
+def test_christmas_gets_the_share_the_compression_engine_reserves_for_it():
+    """Round-robin over twelve arenas gives a named priority programme one turn in twelve.
+
+    Discovery is engineering capacity, so it obeys the reservation the compression engine
+    already holds rather than a second number invented here.
+    """
+    from brambleloop.seasonal.compression import PRIORITY_PROGRAMMES
+
+    picks = _wheel()
+    christmas = sum(1 for a in picks if a.event == "Christmas")
+    assert round(christmas / len(picks), 2) == PRIORITY_PROGRAMMES["Christmas"]
+
+
+def test_the_priority_programme_sweeps_its_departments_rather_than_repeating_one():
+    """Nine Christmas expeditions into garments would be depth, not the breadth asked for."""
+    picks = [a for a in _wheel() if a.event == "Christmas"]
+    assert len({a.pod for a in picks}) == 4, {a.pod for a in picks}
+
+
+def test_everything_else_still_gets_a_turn():
+    """A reservation is a share, not an exclusion."""
+    picks = _wheel()
+    assert len({a.event for a in picks}) >= 4
+
+
+def test_the_schedule_is_reproducible():
+    """The same cycle always picks the same arena, so a change in the answer is a change in
+    the evidence rather than in a random draw."""
+    assert [a.pod for a in _wheel()] == [a.pod for a in _wheel()]
+
+
+def test_with_no_priority_arena_it_is_a_plain_rotation():
+    found = [P.Arena(event=e, pod="bags", benchmark_listings=5, days_away=40, forms={})
+             for e in ("Halloween", "Easter")]
+    picks = [P.choose(found, cycle=i).event for i in range(4)]
+    assert picks == ["Halloween", "Easter", "Halloween", "Easter"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

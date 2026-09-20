@@ -846,6 +846,13 @@ def history(db, *, limit: int = 10) -> dict:
         "causes": (r.detail or {}).get("causes") or {},
         "cost_cad": (r.detail or {}).get("cost_cad"),
         "answered_the_arena": (r.detail or {}).get("answered_the_arena"),
+        # Surfaced because the first live run proposed nothing and cost nothing, and the
+        # reason was already stored and simply not shown. A history that records only the
+        # outcome of a run cannot explain a run that had no outcome.
+        "malformed": ((r.detail or {}).get("malformed") or [])[:6],
+        "stopped_on_ceiling": (r.detail or {}).get("stopped_on_ceiling"),
+        "slots_attempted": [s.get("form") for s in
+                            ((r.detail or {}).get("slots_attempted") or [])],
     } for r in rows]
     return {
         "runs": runs,
@@ -857,3 +864,50 @@ def history(db, *, limit: int = 10) -> dict:
                  "that came back empty is evidence about this system's creative reach, and "
                  "deleting it would leave only the flattering half of the record."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Which arena an expedition goes to
+
+
+def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Arena:
+    """Pick this cycle's arena, honouring the priority programme's reservation.
+
+    Plain round-robin over twelve arenas gives Christmas one expedition in twelve, which is
+    a rotation that treats a named priority programme exactly like every other occasion.
+    `compression.PRIORITY_PROGRAMMES` already says Christmas holds a share of engineering
+    capacity and that the share has a floor it may never fall below; discovery is
+    engineering capacity, so it obeys the same number rather than a second one invented
+    here.
+
+    The mechanism is a repeating schedule rather than a random draw: with a 0.45 share,
+    roughly nine of every twenty cycles are Christmas and the rest rotate through everything
+    else, and the same cycle number always produces the same arena, so a run is reproducible
+    and a change in the answer is a change in the evidence.
+    """
+    from ..seasonal.compression import (MIN_PRIORITY_SHARE, PRIORITY_PROGRAMMES,
+                                        lane_states, reservation)
+
+    if not found:
+        raise ProspectingRefused("nothing to choose from")
+
+    priority = [a for a in found if a.event in PRIORITY_PROGRAMMES]
+    others = [a for a in found if a.event not in PRIORITY_PROGRAMMES]
+    if not priority or not others:
+        return found[cycle % len(found)]
+
+    # The reservation the programme actually holds today, which falls as its lanes close and
+    # never below the floor.
+    soonest = min(priority, key=lambda a: a.days_away)
+    held = reservation(soonest.event,
+                       lane_states(soonest.days_away, today=today or date.today()))
+    share = max(held.get("share", 0.0), MIN_PRIORITY_SHARE)
+
+    # A twenty-slot wheel, `share` of it belonging to the priority programme. Deterministic
+    # in the cycle number so the schedule is inspectable rather than emergent.
+    wheel = 20
+    priority_slots = max(1, round(share * wheel))
+    position = cycle % wheel
+    if position < priority_slots:
+        return priority[position % len(priority)]
+    return others[(position - priority_slots) % len(others)]
