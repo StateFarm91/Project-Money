@@ -3827,6 +3827,19 @@ timings, written there by the system rather than by hand.
   the owner's campaign surviving as a seed that cannot be read as a measurement. Plus a test
   that fails when a note describes a blocker and the requirement is not parked. Registry 201
   of 320 covered, 63 executable. Decisions B-404..B-463.
+- 2026-09-20T16:14Z heartbeat: lease acquired, production verified 12 of 12 on `/api/verify`,
+  and the live deployment is `aff020260a72` -- Railway had already auto-deployed the #33
+  migration pushed minutes earlier. Console reports `healthy`, 0 pending, 134 dead letters
+  (all deliberate shadow-mode publication refusals, per B-374). **The eight meta-agents of
+  #179 are seeded in production**: `cost_optimiser`, `creative_critic`, `evaluator`,
+  `experiment_designer`, `failure_miner`, `lesson_router`, `prompt_tool_challenger` and
+  `reliability_engineer` all exist as Agent rows with their own authority and ceilings, which
+  is the verification that matters -- a roster in a module is a definition and an Agent row is
+  a thing the queue will dispatch to. All five new endpoints answer 200. The three new
+  cadences (`improve.nightly`, `improve.weekly`, `improve.role_work`) have not fired yet and
+  are not expected to: they are daily and weekly, the container started at 16:14, and the
+  recent window holds only the 15-minute and hourly ones. Saying they are deployed is true;
+  saying they have run would not be.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
