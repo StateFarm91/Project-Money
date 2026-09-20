@@ -1226,6 +1226,19 @@ def api_seasonal_cycle() -> dict:
     return cycle.run(db, gateway=gateway)
 
 
+@app.get("/api/colour")
+def api_colour(pod: str = "") -> dict:
+    """Dated palette intelligence, from the colours Etsy publishes for every photograph (#280).
+
+    One of the three sources the requirement names is available. The other two -- external
+    fashion signals and this company's own colour performance -- say so, because a forecast
+    resting on one source presented as resting on three is the most confident kind of wrong.
+    """
+    from ..seasonal import colour
+
+    return colour.forecast(db, pod=pod)
+
+
 @app.get("/api/owned")
 def api_owned() -> dict:
     """Which flagships have an owned acquisition counterpart, and the CASL rules on sending.
