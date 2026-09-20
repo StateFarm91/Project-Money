@@ -2365,29 +2365,32 @@
  {
   "body": "Invite a small voluntary sample of legitimate buyers/testers to provide structured feedback on why they clicked, why they bought, what nearly stopped them, pattern clarity and what they want next. No reward is contingent on positive sentiment. Convert responses into hypotheses.",
   "id": 260,
-  "note": "trust sprint, first-100 interviews, purchase-friction audit",
+  "note": "growth/interviews.py builds the instrument and refuses the three ways a voluntary sample is decided in advance. Selection rules that can see the outcome are refused by name -- 'left a good review', 'repeat buyer', 'no refund requested' all describe themselves as asking your best customers, and all of them pre-select the answer; only frames blind to the outcome are permitted. The incentive lives on the invitation and must be identical across a round, because an incentive chosen after reading a response is contingent on sentiment whatever was intended: contingency is a question of ordering, not of motive. 'What nearly stopped you' carries a 14-day recall window and a later answer is kept as reconstructed, since a hesitation is rebuilt rather than retrieved. Nothing here ever produces a finding: the output is hypotheses, labelled in the data, and the only promotion route runs through an instrument that asked nobody a question -- another interview is refused by name. Invitations go through the CASL gate on the purchase relationship. Remaining and parked on the customers gate: a round needs buyers to invite, and a survey of testers alone answers a question about testers.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "First-100-Customer Interview Sampling",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "customers"
  },
  {
   "body": "Regularly audit the buyer journey from Etsy search/listing through digital download and support. Identify confusion around 'pattern vs finished item', file access, terminology, skill, sizing and included deliverables. Fix recurring friction in listing and product packaging.",
   "id": 261,
-  "note": "trust sprint, first-100 interviews, purchase-friction audit",
+  "note": "commerce/friction.py files friction at the stage that caused it rather than the stage it arrived at. That is the substance: nearly all of it arrives at support and almost none of it is made there, so an audit grouped by arrival produces a better support macro while the listing goes on telling the next four hundred people the same thing. Correctness friction acts at n=1 and comprehension friction needs a rate, not a count -- three in five is an emergency, three in four hundred is three people. The five listing-caused confusions are auditable today against the listing artefact, and the audit reads the artefact rather than asking seo.build_description whether its own output is correct; a test asserts the shop's generated copy passes its own auditor. A stage with no complaints and no traversals reads not_yet_walked, never clean, because zero complaints from zero buyers is identical evidence to a flawless funnel. Remaining and parked on the live_listings gate: search, decision, delivery, first use and support are facts about a journey somebody walked, and the non-buyers whose friction costs most are outside every instrument here by construction.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Checkout / Purchase-Friction Audit",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "live_listings"
  },
  {
   "body": "Compare forecast versus actual weekly/monthly revenue by channel/category. Decompose error into traffic, CTR, conversion, AOV, repeat, launch timing and winner rate. Continuously recalibrate the CA$5K trajectory model; optimistic model error reduces confidence automatically.",
   "id": 262,
-  "note": "revenue forecast calibration, leading indicator dashboard",
+  "note": "scale/calibration.py makes three things structural. A forecast carries made_on and it must precede the period it predicts: recalibrating against expectations recorded afterwards produces a model that is always well calibrated and never right, because the expectation adjusts to the outcome on the way past and nobody notices. The error is decomposed in log space, not by a waterfall -- substituting terms one at a time through a product gives each term a different share depending where in the sequence it is walked, so whoever does it picks, after seeing the numbers, how much of the miss belongs to the term they would rather blame; log space is exact and order-independent, and an unmeasured term lands in `unexplained` rather than being distributed onto the measured ones. And optimism is penalised five times as hard as pessimism, automatically, with recovery gated behind three consecutive accurate periods, because symmetric recovery lets one good month erase a year of forecasting high. The output is a ceiling applied to scale.confidence.probability, never a second probability: two answers to one question means the flattering one gets quoted. Remaining and parked on the live_listings gate: a period with no live listings is excluded rather than scored, which is every period today -- calibrating on them would report a catastrophically optimistic model, which is arithmetic about an unopened shop rather than a finding.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Revenue Forecast Calibration",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "live_listings"
  },
  {
   "body": "Track leading indicators before revenue arrives: qualified impressions, CTR, favourites/cart signals where available, conversion, bundle attach, email/content traffic, creator traffic, search trend direction, support defects and release velocity. Avoid declaring success from leading indicators without orders.",
@@ -2429,9 +2432,9 @@
  {
   "body": "Shift product and marketing capacity based on time-to-event and make-time. Early season favors complex flagships; late season favors quick makes, giftables and digital last-minute projects. Roll capacity forward before demand collapses.",
   "id": 267,
-  "note": "seasonal capacity arbitrage",
+  "note": "most of this requirement was already built: seasonal/compression.py retires lanes one at a time and moves each closing lane's share into the fastest lane still open, so the early-flagship to late-quick-make shift falls out of the arithmetic rather than out of somebody remembering it in November, and next_year_track starts next year's flagship under a cap. What was missing is the word 'and' in 'product and marketing capacity', and it is not a detail: the two run on different clocks. Engineering leaves an occasion when its last lane closes -- nothing new could be launched, indexed and finished in time. Marketing leaves weeks later, at the buyer's own last practical make date, because the catalogue already listed goes on selling until then, and those weeks are the ones that earn most. seasonal/rollforward.py holds the two as separate ledgers over one calendar and states the rule: engineering rolls forward first, marketing rolls forward last. Roll-forward is refused in both directions -- nothing leaves an occasion that still holds it, and engineering may not arrive at one inside its own preparation lead, because capacity moved out of a season that is ending into one that is already late has been spent on being late twice. demand_curve() computes the structural floor (past the last practical make date demand is zero because nobody can finish the object) and reports the decay before it as unobserved: makers do not all wait for the last day, but no listing of this shop's has been watched through a season, and a decay date taken from a plausible curve is a point estimate presented as a fact.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "covered",
   "title": "Seasonal Capacity Arbitrage",
   "version": "v1.4.1"
  },

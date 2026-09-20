@@ -386,7 +386,8 @@ def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
                     "outside_customers")}
     gate_kwargs["conditions"] = evidence.get("conditions")
     rungs = ladder(db, **{k: v for k, v in evidence.items()
-                          if k not in ("outside_customers", "conditions")})
+                          if k not in ("outside_customers", "conditions",
+                                       "calibration_ceiling")})
     gate = gate_status(db, **gate_kwargs)
 
     critical = [r for r in rungs if r.critical]
@@ -396,6 +397,14 @@ def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
     if not gate["satisfied"] and modelled > GATE_CEILING:
         modelled = GATE_CEILING
         capped_by = "the evidence gate (#275)"
+    # A third cap, from #262: a model that has been forecasting high may not go on claiming
+    # the confidence it claimed before the misses. `scale.calibration` computes the ceiling
+    # from scored periods and this applies it -- one direction only, because a caller who
+    # could raise this number by supplying an argument is the thing #230 forbids.
+    calibrated = evidence.get("calibration_ceiling")
+    if calibrated is not None and calibrated < modelled:
+        modelled = calibrated
+        capped_by = "forecast calibration (#262): the model has been optimistic"
 
     return {
         "probability": round(modelled, 3),

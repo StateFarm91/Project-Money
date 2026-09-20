@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 183 | satisfied, with a named test or artefact |
-| partial | 62 | something real exists and is short of the requirement |
-| missing | 19 | nobody has built it |
+| covered | 184 | satisfied, with a named test or artefact |
+| partial | 65 | something real exists and is short of the requirement |
+| missing | 15 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **81 requirements are executable** (partial +
+as one nobody has written. **80 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 183 of 320 covered is **57.2% complete**, read from the registry rather than
+typed. 184 of 320 covered is **57.5% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,7 +102,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `e2abc2a`: **1,995 tests passing, 0 failing** across
+Measured by `./run_tests.sh` on commit `9e4dcfb`: **2,005 tests passing, 0 failing** across
 118 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -268,6 +268,99 @@ number that matters is the coverage, printed on the same line as the rebuild set
 rebuild set is the part people read: **production holds 275 derived artefacts and not one
 carries a provenance row**, so a propagation over the recorded graph touches nothing and
 reports that no rebuild is needed — true of the graph, false of the shop.
+
+**#260/#261 — the two halves of "why did they buy", and the one that cannot see non-buyers.**
+`commerce/friction.py` audits the buyer journey and files every friction at the stage that
+*caused* it rather than the stage it arrived at. That distinction is the module. Support is
+where nearly all friction lands and where almost none is made: "I thought I was buying the
+blanket" arrives in the support queue, an audit grouped by arrival produces a support macro,
+the macro works — the buyer is refunded quickly, the response-time metric improves — and the
+listing goes on saying the same thing to the next four hundred people. A shop can become
+measurably excellent at absorbing a defect it has never once removed, with every number
+moving the right way while it happens.
+
+Two thresholds, not one: a correctness defect acts at n=1 (nobody's second complaint makes a
+missing file more missing) and a comprehension defect needs a rate — three in five is an
+emergency, three in four hundred is three people, and the difference is a denominator a count
+does not carry. And a stage with no complaints and no traversals reads `not_yet_walked`,
+never `clean`, because zero complaints from zero buyers is identical evidence to a flawless
+funnel and this shop is the first case today. Five of the six confusions the spec names are
+made in the listing copy, so that half of the audit runs now, against the listing artefact
+rather than against `seo.build_description` — asking the generator whether its own output is
+correct is asking the defendant. A test asserts the shop's generated copy passes its own
+auditor, which is the check that catches a standard a module ships without meeting.
+
+`growth/interviews.py` is the other half. Its output is never a finding: `Hypothesis.status`
+is `hypothesis`, and the only exit is evidence from an instrument that asked nobody a
+question — another interview reproduces the selection rather than testing the claim, and is
+refused by name. The three ways a voluntary sample decides its answer in advance are each
+closed structurally: the incentive lives on the invitation and must be identical across a
+round (`Response` has no incentive field at all, because one chosen after reading a response
+is contingent on sentiment however kindly meant — contingency is ordering, not motive);
+"what nearly stopped you" carries a 14-day window and a later answer is kept as
+`reconstructed`, since a hesitation is rebuilt rather than retrieved; and selection rules
+that can see the outcome — `left_a_good_review`, `repeat_buyer`, `no_refund_requested`,
+`high_order_value` — are refused by name, because each one describes itself as *asking our
+best customers* and each produces a warm sample that measures nothing. Invitations pass
+through the CASL gate on the purchase relationship; a published business address is refused
+as a basis for surveying a private buyer.
+
+Both name the same blind spot from opposite sides: **everyone who did not buy**. The
+interview reaches only survivors of the decision it is trying to understand. Both land
+`partial` — #260 parked on `customers`, #261 on `live_listings` — and #261's listing half is
+the part that stays true for every buyer who has not arrived yet. Decisions B-406..B-412.
+
+**#262 — checking the forecast, and paying for having been optimistic.**
+`scale/calibration.py`. Three structural choices, each closing a way a calibration flatters
+the model it is checking. A `Forecast` carries `made_on` and it must precede the period it
+predicts: recalibrating against expectations recorded afterwards builds a model that is
+always well calibrated and never right, because the expectation adjusts to the outcome on the
+way past and nobody involved notices. The error is decomposed in log space rather than by a
+waterfall — revenue is a product of seven terms, and substituting them one at a time gives
+each term a different share depending where in the sequence it is walked, so whoever does the
+decomposition chooses, after seeing the numbers, how much of the miss belongs to the term
+they would rather blame. In logs the split is exact and order-independent, and a term with no
+measured actual lands in `unexplained` instead of being spread across the measured ones.
+
+Optimism costs five times what pessimism costs, automatically — there is no argument
+`ceiling()` accepts that raises it — and recovery is a ratchet: three consecutive accurate
+periods before it starts, then one step at a time, because symmetric recovery lets one good
+month erase a year of forecasting high. The output is a *ceiling* applied to
+`scale.confidence.probability`, never a second probability, since two answers to one question
+means the flattering one gets quoted.
+
+And the honest note about today: **every period would be excluded**. With nothing published
+there are no live listings, so a calibration run would score a model nobody applied as
+catastrophically optimistic and take confidence to the floor — arithmetic about an unopened
+shop rather than a finding. Excluded periods are counted in the result rather than silently
+shrinking the denominator. `partial`, parked on `live_listings`. Decisions B-413..B-417.
+
+**#267 — the weeks a single calendar throws away.**
+Most of this requirement was already built: `seasonal/compression.py` retires lanes one at a
+time and moves each closing lane's share into the fastest lane still open, so the
+early-flagship to late-quick-make shift falls out of the arithmetic rather than out of
+somebody remembering it in November. What was missing is the word *and* in "product and
+marketing capacity", and it is not a detail — the two run on different clocks. Engineering
+leaves an occasion when its last lane closes, because nothing new could be launched, indexed
+and finished in time. Marketing leaves weeks later, at the buyer's own last practical make
+date, because the catalogue already listed goes on selling until then. Those weeks are the
+ones that earn most, and a shop budgeting one capacity against one calendar has already moved
+its attention to February.
+
+`seasonal/rollforward.py` holds the two as separate ledgers over one calendar and states the
+rule: **engineering rolls forward first, marketing rolls forward last.** Rolling forward is
+refused in both directions — nothing leaves an occasion that still holds it, and engineering
+may not arrive at one inside its own preparation lead, because capacity moved out of a season
+that is ending into one that is already late has been spent on being late twice. On today's
+real calendar the ledger already shows the gap: Thanksgiving is 22 days out, unlaunchable and
+still entirely buyable.
+
+The curve it will not draw: `demand_curve()` computes the structural floor — past the last
+practical make date demand is zero, because nobody can finish the object — and reports the
+decay before it as unobserved, naming what would settle it. Makers do not all wait for the
+last possible day, but no listing of this shop's has been watched through a season, and a
+decay date taken from a plausible shape is a point estimate presented as a fact. `covered`.
+Decisions B-418..B-421.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3374,6 +3467,17 @@ timings, written there by the system rather than by hand.
   passing on `0782969`, deployed and live: production console reports `healthy`, 0 pending,
   134 dead letters all of which are deliberate shadow-mode refusals) and #188's spend
   governor: 182 of 320 covered, 82 executable. Decisions B-345..B-373.
+- 2026-09-20 continued: #172's rebuild graph (`9e4dcfb`, suite green at 2,005 across 118
+  suites, zero leftover directories), then #260/#261 — the first-100 interview instrument and
+  the purchase-friction audit. Both land `partial` and parked, #260 on `customers` and #261
+  on `live_listings`, and both name the same blind spot: the interview reaches only survivors
+  of the purchase decision, and the people who left are the ones whose friction costs most.
+  #261's listing half runs today against the listing artefact and the shop's own generated
+  copy is asserted to pass it. Then #262's forecast calibration, which caps
+  `scale.confidence` rather than computing a second probability and excludes every period
+  today as unexposed, and #267's capacity roll-forward, which holds engineering and marketing
+  as separate ledgers because the occasion stops being launchable weeks before it stops being
+  buyable. Registry 184 of 320 covered, 80 executable. Decisions B-404..B-421.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

@@ -1274,6 +1274,72 @@ def api_portfolio() -> dict:
     return portfolio.diversification(db)
 
 
+@app.get("/api/rollforward")
+def api_rollforward() -> dict:
+    """Two capacities over one calendar, and the weeks one calendar throws away (#267).
+
+    Engineering leaves an occasion when its last lane closes; marketing leaves weeks later,
+    at the buyer's own last practical make date, because the catalogue already listed goes on
+    selling until then. Those weeks are the ones that earn most, and a shop budgeting one
+    capacity against one calendar has already moved on. Rolling forward is refused in both
+    directions: nothing leaves an occasion that still holds it, and nothing arrives at one
+    whose own preparation lead has passed. Where demand falls before the structural floor is
+    reported as unobserved rather than guessed at.
+    """
+    from ..seasonal import rollforward
+
+    return rollforward.state()
+
+
+@app.get("/api/calibration")
+def api_calibration() -> dict:
+    """Forecast against outcome, and what having been optimistic costs (#262).
+
+    A forecast that was not written down before its period is a description, and
+    recalibrating against descriptions builds a model that is always well calibrated and
+    never right -- so `made_on` must precede the period and a later date is refused. The
+    error is split in log space rather than by a waterfall, because a waterfall over a
+    product gives each term a different share depending where it is walked and the order is
+    chosen after the numbers are known. Optimism is penalised five times as hard as
+    pessimism and recovers only after a run of accurate periods. Periods with no live
+    listings are excluded rather than scored, which is every period today.
+    """
+    from ..scale import calibration
+
+    return calibration.state()
+
+
+@app.get("/api/friction")
+def api_friction() -> dict:
+    """The buyer journey, audited where confusion is made rather than where it lands (#261).
+
+    A refund request that says "I thought I was buying the blanket" arrives at support and
+    was caused in the listing, and an audit grouped by arrival produces a better support
+    macro while the listing goes on saying the same thing. Friction is therefore filed at
+    its cause. The second guard is the one this build keeps rebuilding: a stage with no
+    complaints and no traversals reads `not_yet_walked`, never `clean`, because zero
+    complaints from zero buyers is the evidence for both.
+    """
+    from ..commerce import friction
+
+    return friction.state()
+
+
+@app.get("/api/interviews")
+def api_interviews() -> dict:
+    """The first-hundred interview instrument, and what it structurally cannot say (#260).
+
+    A voluntary sample answers a different question than the one asked, so nothing here is
+    ever a finding: the output is hypotheses, labelled in the data, promotable only by an
+    instrument that did not ask anybody a question. Selection rules that can see the outcome
+    and incentives that can see the answer are refused by name, and the blind spot -- every
+    person who did not buy -- is stated rather than implied.
+    """
+    from ..growth import interviews
+
+    return interviews.state()
+
+
 @app.get("/api/tools")
 def api_tools() -> dict:
     """Free tools that answer before they ask, and the flows over a consented list (#255, #251).
