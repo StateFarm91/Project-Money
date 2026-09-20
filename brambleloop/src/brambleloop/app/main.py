@@ -964,7 +964,7 @@ def api_capability_probes() -> dict:
 
 
 @app.get("/api/benchmark-selection")
-def api_benchmark_selection(target: int = 10) -> dict:
+def api_benchmark_selection(target: int = 10, budget_cad: float = 0.0) -> dict:
     """Which benchmark patterns to buy, and the distinct unknown each one answers (#165/#166).
 
     Not the ten most popular. Popularity is a fact about a listing and this purchase is about
@@ -983,7 +983,8 @@ def api_benchmark_selection(target: int = 10) -> dict:
     from ..intel.purchase_selection import SelectionRefused, select
 
     try:
-        return select(db, benchmarks.MJS_KEY, target=max(1, min(target, 40)))
+        return select(db, benchmarks.MJS_KEY, target=max(1, min(target, 40)),
+                      budget_cad=budget_cad if budget_cad > 0 else None)
     except SelectionRefused as exc:
         return {"selected": [], "refused": str(exc)}
 

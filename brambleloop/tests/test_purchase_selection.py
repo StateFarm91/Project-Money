@@ -309,6 +309,49 @@ def test_an_unobserved_favourite_count_is_zero_and_loses_a_tie_rather_than_winni
     assert out["selected"][0]["listing_ref"] == "read"
 
 
+def test_an_approved_budget_is_a_ceiling_in_code_and_the_swap_is_recorded():
+    """"We bought the cheaper one" is a decision the owner is entitled to see.
+
+    Found against the real catalogue: once popularity broke the department ties, the
+    strongest collections exemplar was a CA$85 ebook and the thirteen-pattern set came to
+    CA$309 against an approved CA$300. A ceiling nobody enforces is a number somebody
+    remembers at the till.
+    """
+    db = _db()
+    _listing(db, "cheap_hat", pod="hats", price=10.0, media=10,
+             detail={"num_favorers": 5})
+    _listing(db, "dear_hat", pod="hats", price=90.0, media=10,
+             detail={"num_favorers": 900})
+    out = P.select(db, KEY, budget_cad=50.0)
+    assert out["selected"][0]["listing_ref"] == "cheap_hat"
+    assert out["within_budget"] is True
+    swap = out["budget_forced_swaps"][0]
+    assert swap["instead_of"]["listing_ref"] == "dear_hat"
+    assert swap["extra_it_would_have_cost"] == 80.0
+    assert "past the approved" in swap["instead_of"]["why_not"]
+
+
+def test_without_a_budget_the_best_exemplar_is_taken_and_nothing_is_swapped():
+    db = _db()
+    _listing(db, "cheap_hat", pod="hats", price=10.0, media=10,
+             detail={"num_favorers": 5})
+    _listing(db, "dear_hat", pod="hats", price=90.0, media=10,
+             detail={"num_favorers": 900})
+    out = P.select(db, KEY)
+    assert out["selected"][0]["listing_ref"] == "dear_hat"
+    assert out["budget_forced_swaps"] == []
+    assert out["within_budget"] is True
+
+
+def test_a_budget_too_small_for_anything_stops_rather_than_overspending():
+    db = _db()
+    _listing(db, "a", pod="hats", price=90.0)
+    out = P.select(db, KEY, budget_cad=10.0)
+    assert out["selected_count"] == 0
+    assert out["total_cad"] == 0.0
+    assert out["within_budget"] is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

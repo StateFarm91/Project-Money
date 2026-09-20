@@ -255,7 +255,7 @@ def _reason(new: dict, candidate: Candidate) -> str:
 
 
 def select(db, benchmark_key: str, *, departments: list[str] | None = None,
-           target: int = TARGET_PURCHASES) -> dict:
+           target: int = TARGET_PURCHASES, budget_cad: float | None = None) -> dict:
     """Choose the set, name what each one answers, and total what it costs.
 
     Stops early when no remaining listing adds a facet nothing covers. Ten was always an
@@ -295,6 +295,26 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
         gain, best = scored[0]
         if gain < MIN_NEW_FACETS:
             break
+        # An approved budget is a ceiling in code, like every other ceiling here, rather
+        # than a number somebody remembers at the till. When the best exemplar of a slot
+        # would take the set past it, the affordable one is taken *and the swap is
+        # recorded* -- because "we bought the cheaper one" is a decision the owner is
+        # entitled to see, not a detail. What the ceiling cost is reported at the end.
+        forgone = None
+        if budget_cad is not None:
+            spent_so_far = sum(c["price_cad"] for c in chosen)
+            if spent_so_far + best.price_cad > budget_cad:
+                affordable = [(g, c) for g, c in scored
+                              if g == gain and spent_so_far + c.price_cad <= budget_cad]
+                if not affordable:
+                    break
+                forgone = {"listing_ref": best.listing_ref, "title": best.title,
+                           "price_cad": round(best.price_cad, 2),
+                           "favourites": best.favourites,
+                           "why_not": (f"CA${best.price_cad:.2f} would have taken the set "
+                                       f"past the approved CA${budget_cad:.2f}")}
+                gain, best = affordable[0]
+
         new = _new_values(best, covered)
 
         # Why this one and not another. A coverage score is a number, and a person about to
@@ -309,7 +329,8 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
         for facet, value in new.items():
             covered[facet].add(value)
         chosen.append({**best.to_dict(), "answers": _reason(new, best),
-                       "new_facets": new, "chosen_over": instead_of})
+                       "new_facets": new, "chosen_over": instead_of,
+                       **({"budget_forced": forgone} if forgone else {})})
         remaining = [c for c in remaining if c.listing_ref != best.listing_ref]
 
     # The count the owner's question actually asks for. The per-pick number is about the
@@ -346,6 +367,14 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
                         f"the target of {target} was reached and every facet the observed "
                         f"catalogue varies along is covered"),
         "facets_still_uncovered": still_open,
+        "budget_cad": budget_cad,
+        "within_budget": budget_cad is None or total <= budget_cad,
+        "budget_forced_swaps": [
+            {"instead_of": c["budget_forced"], "took": c["listing_ref"],
+             "took_price_cad": c["price_cad"],
+             "extra_it_would_have_cost": round(
+                 c["budget_forced"]["price_cad"] - c["price_cad"], 2)}
+            for c in chosen if c.get("budget_forced")],
         "listings_this_set_makes_redundant": covered_at_end,
         "share_of_catalogue_made_redundant": (
             round(covered_at_end / len(pool), 4) if pool else 0.0),
