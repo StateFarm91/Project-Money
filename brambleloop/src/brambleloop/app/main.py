@@ -1274,6 +1274,140 @@ def api_portfolio() -> dict:
     return portfolio.diversification(db)
 
 
+@app.get("/api/allocation")
+def api_allocation() -> dict:
+    """Where the week goes, and why the default is not more engineering (#30).
+
+    Engineering work is always available, always visible and never requires anybody outside
+    this company; distribution requires an audience that does not exist yet. So the mature
+    mix arrives as a number, distribution has a floor no bottleneck may cross, and an
+    unmeasured bottleneck is not a bottleneck.
+    """
+    from ..commerce import lanes
+    from ..scale import allocation
+
+    with db.session() as session:
+        qa = lanes.qa_stable(lanes.observe(session))
+    out = allocation.state()
+    out["today"] = allocation.allocate(qa=qa)
+    return out
+
+
+@app.get("/api/replication")
+def api_replication() -> dict:
+    """What counts as a winner, and why the reason for one is rarely a single thing (#22).
+
+    Rank is not credibility: in a catalogue of three the best seller may have sold twice. A
+    winner normally differs from the field on every dimension at once, each a complete
+    explanation of which at most one is true, so candidate causes are ranked by how
+    distinguishable they are and a confounded winner is reported as confounded.
+    """
+    from ..commerce import replication
+
+    return replication.state()
+
+
+@app.get("/api/free-to-paid")
+def api_free_to_paid() -> dict:
+    """What free work must carry, and the ladder it is supposed to move people up (#10).
+
+    A free pattern for something this company sells does not lead to it, it replaces it --
+    and that failure looks exactly like success from the inside, because the downloads go up.
+    Nothing free exists yet, and an empty funnel is an empty funnel rather than a failing one.
+    """
+    from ..growth import free_to_paid
+
+    out = free_to_paid.state()
+    out["plan"] = free_to_paid.plan([])
+    return out
+
+
+@app.get("/api/offers")
+def api_offers() -> dict:
+    """The six offers a design can wear, and what each one tests (#13).
+
+    The same design sold six ways is six propositions, and one of them failing says nothing
+    about the other five. Two of the six cannot be delivered today and are named as
+    unavailable rather than quietly priced: nothing here can make a video, and a stated
+    answer time is a promise nobody has measured the capacity to keep.
+    """
+    from ..commerce import offers
+
+    return offers.state()
+
+
+@app.get("/api/benchmarks")
+def api_benchmarks() -> dict:
+    """The funnel axes, the five metrics and the floors under a baseline (#14).
+
+    A baseline belongs to a cell -- category, traffic source, price band, shop maturity --
+    and a comparison across cells is refused with the axes that differ. There are no cells
+    yet: no listings, no impressions, no orders. That is different from a baseline of zero.
+    """
+    from ..commerce import benchmarks
+
+    out = benchmarks.state()
+    out["cells"] = benchmarks.cells([])
+    return out
+
+
+@app.get("/api/listing-tests")
+def api_listing_tests() -> dict:
+    """What a listing test must carry, and what this company has actually established (#16).
+
+    A listing nobody saw did not fail -- it was not tested -- so an unreadable test writes
+    nothing to the memory, because recording it as a disproof would block an idea nobody has
+    tried. A disproof closes a question only in the context that produced it.
+    """
+    from ..commerce import listing_tests
+
+    out = listing_tests.state()
+    with db.session() as session:
+        out["established"] = listing_tests.known(listing_tests.load(session))
+    return out
+
+
+@app.get("/api/creators")
+def api_creators() -> dict:
+    """The seeding roster: what a collaboration may ask for, and what it may never buy (#9).
+
+    A collaboration buys work -- a tested sample, a finished photograph, a colourway nobody
+    here chose, a crochet-along, a post. It can never buy an opinion: a review is not in the
+    deliverable vocabulary and no caller can add one. The roster is empty, and an empty
+    roster is not a network whose reliability is zero.
+    """
+    from ..growth import creators
+
+    out = creators.state()
+    with db.session() as session:
+        out["roster"] = creators.roster(session)
+    return out
+
+
+@app.get("/api/lanes")
+def api_lanes() -> dict:
+    """The two production queues, their floors, and the gate list neither may shorten (#5).
+
+    The fast lane buys learning rate and search coverage; the flagship lane buys authority,
+    content depth and order value. Both floors exist because the first eats the second one
+    defensible week at a time. Core QA stability is read from the records rather than set,
+    because "after core QA stabilizes" is a condition about evidence.
+    """
+    from ..commerce import lanes
+
+    with db.session() as session:
+        evidence = lanes.observe(session)
+    out = lanes.state()
+    out["qa"] = lanes.qa_stable(evidence)
+    out["qa"]["observed"] = {
+        "regression_fixtures": evidence.regression_fixtures,
+        "regression_passed": evidence.regression_passed,
+        "certified_releases": evidence.certified_releases,
+        "open_halting_incidents": evidence.open_halting_incidents,
+    }
+    return out
+
+
 @app.get("/api/colour")
 def api_colour(pod: str = "") -> dict:
     """Dated palette intelligence, from the colours Etsy publishes for every photograph (#280).

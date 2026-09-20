@@ -25,17 +25,18 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 171 | satisfied, with a named test or artefact |
-| partial | 46 | something real exists and is short of the requirement |
-| missing | 48 | nobody has built it |
-| owner_gated | 40 | waits on an owner decision, credential or legal acceptance |
-| data_gated | 15 | waits on market evidence that does not exist yet in shadow mode |
+| covered | 177 | satisfied, with a named test or artefact |
+| partial | 51 | something real exists and is short of the requirement |
+| missing | 36 | nobody has built it |
+| owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
+| data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **94 requirements are executable** (partial +
+as one nobody has written. **87 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed.
+typed. 177 of 320 covered is **55.3% complete**, read from the registry rather than
+estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
 worth being precise about: they were re-audited, not finished. #39's retrieval half is
@@ -205,6 +206,186 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The commercial spine: two production queues, a creator roster, offers, baselines,
+experiment memory, the free-to-paid funnel and where the week goes.**
+
+Nine requirements landed together because they are one argument. #5 decides which queue a
+product is made in, #13 decides the shape it is sold in, #10 decides what brings somebody to
+it, #9 and #21 decide who can vouch for it, #14 decides what its numbers are compared
+against, #16 decides what a test of it may claim, #22 decides what happens when one of them
+finally works, and #30 decides how much of the week any of it gets. Each is summarised in
+its registry note; what follows is what they have in common.
+
+**Every one of them is a refusal that costs something now to stop a mistake later**, and in
+five of the eight the mistake is the same shape this build keeps finding — *a verdict
+computed from the absence of failures will always pass a run that did not happen*:
+
+| where | the absence that would have passed | what is required instead |
+|---|---|---|
+| #5 lanes | a QA-stability flag somebody set | the regression corpus, its run, certified releases and open halting incidents, each read positively — an unread signal is its own refusal |
+| #5 gates | "no gate complained" | a gate *run* per stage; a stage nobody reached is absent, and absent is not passing |
+| #16 listing tests | a listing with no exposure, read as a failure | a listing nobody saw did not fail, it was not tested — and an unreadable test writes nothing to memory, because a disproof would block an idea nobody tried |
+| #14 baselines | a refund rate of zero on a shop with no orders | absent, named as absent; and a rate computed from three orders is a rumour with its own message |
+| #10 funnel | 0% conversion from an upstream of zero | no rate at all, because 0% makes an untried funnel look like a failed one |
+| #21 creators | an outcome nobody measured, averaging as a zero | unmeasured is named and blocks; spend does not scale on no bad news |
+
+**#5 — two production queues, and the floor that stops one eating the other.**
+`commerce/lanes.py`. The fast lane buys learning rate and search coverage; the flagship lane
+buys authority, content depth and order value. A garment cannot be argued into the fast lane
+by typing "one component" onto it under a deadline, because the pod decides what a thing is
+and the deadline does not. Both lanes have a capacity floor: the fast lane eats the flagship
+lane one defensible week at a time, and a catalogue of four magnificent blankets has had
+four chances a year to learn what sells. The mix is a share of **making capacity, never a
+count of products**. "Both retain all applicable quality gates" is structural —
+`applicable_gates()` takes the product and **has no lane argument at all**, asserted by
+signature rather than by example.
+
+**#9/#21 — a roster that buys work and never an opinion.** `growth/creators.py`. The
+deliverable vocabulary is closed and contains no review, so "never require or purchase
+dishonest reviews" is unrepresentable rather than discouraged; a sentiment condition is
+refused even when the deliverable is honest, including the one nobody writes down ("we will
+send the next one if it goes well"). A stated follower count stays a claim with its source,
+there is no reach projection anywhere in the module, and a test reads the source to assert
+the absence. Permission is scoped: a photograph licensed for the creator's own channel is
+not licensed for our listing. Outreach is a commercial electronic message and travels on
+CASL's conspicuously-published-address basis, with the message requirements delegated to
+`growth/owned.py` rather than restated. Seeding starts at zero spend, because a digital
+pattern costs nothing to give.
+
+**#13 — the offer is a variable.** `commerce/offers.py`. The same design sold six ways is
+six propositions, and one failing says nothing about the other five, so a design may not be
+retired until it has worn more than one *family* of offer — three bundles are one offer
+tested three times. Both measurements are reported and neither alone, because revenue per
+buyer is the one that flatters. Two of the six offers cannot be delivered today and are
+named unavailable rather than quietly priced: nothing here can make a video, and a stated
+answer time is a promise nobody has measured the capacity to keep.
+
+**#14 — one funnel at a time.** `commerce/benchmarks.py`. A baseline belongs to a cell
+(category, traffic source, price band, shop maturity) and a comparison across cells is
+refused with the axes that differ, because the failure the requirement names is somebody
+reading two correct numbers side by side. A thin cell answers, which makes it more dangerous
+than an empty one, so below the floor the number is not produced at all.
+
+**#16 — a memory that can also forget.** `commerce/listing_tests.py`. A disproof closes a
+question only in the context that produced it, and reopens when the caller names what
+changed; a memory that never forgets is a way to stop learning, which is the same failure as
+no memory arriving from the other side. The memory is a table, because "we tried that last
+year" is exactly the knowledge a restart loses.
+
+**#10 — free work with a commercial job.** `growth/free_to_paid.py`. A free pattern for
+something this company sells does not lead to it, it **replaces** it — and that failure looks
+exactly like success from the inside, because the downloads go up while conversion falls. An
+email is a rung only once it is consented.
+
+**#22 — rank is not credibility.** `commerce/replication.py`. In a catalogue of three the
+best seller may have sold twice. A winner normally differs from the field on every dimension
+at once, each a complete explanation of which at most one is true, so candidate causes are
+ranked by how *distinguishable* they are and a fully confounded winner is reported as
+confounded rather than explained. The study returns its capacity on the end date whether or
+not the question was answered.
+
+**#30 — the default is not more engineering.** `scale/allocation.py`. The requirement
+names the failure it prevents, and it is the one this system is most exposed to rather than
+least: engineering work is always available, always visible, always finishes, and never
+requires anybody outside this company, while distribution requires an audience that does not
+exist yet and can always be defensibly deferred until the thing being distributed is better.
+A shop can be improved indefinitely and shown to nobody, and no week feels wasted. So the
+mature 30/30/30/10 mix is the default rather than the reward, distribution has a floor no
+bottleneck may cross, and an unmeasured bottleneck is not a bottleneck — guessing produces
+whichever term somebody has a benchmark for, which is the one nearest the code. "After core
+engineering stabilizes" is #5's evidence, imported rather than restated, because two
+definitions of stable is one definition and one excuse. It runs as a **weekly cadence**
+(`capacity_review` → `ops.capacity`, GREEN, spends nothing) rather than as a function
+somebody remembers to call, because a module nobody calls is precisely "whatever was easiest
+to pick up" — the thing the requirement prevents. Its handler is executed end to end by its
+own test, since a handler whose interesting half no test runs is an untested handler with a
+passing test beside it, and this build has shipped that twice.
+
+*Worth recording, because it is the same slide happening inside the module written to stop
+it:* the first draft's build-phase mix put distribution at 15% against the 20% floor it
+enforces everywhere else, with a docstring claiming the floor was respected. The invariant
+test — every mix this module ships passes its own check — is what caught it, and it is the
+only kind of proof that survives the next edit.
+
+**One gate was added and two requirements re-parked.** #4 and #10 were parked on
+`browser_vision` and `live_listings` because those were the nearest existing keys, and
+neither is what they wait for: a concept post and a free article wait on somewhere of this
+company's own to publish them. `owned_surfaces` now exists. A gate that is nearly right is
+worse than a new one, because it opens on the wrong day and puts work in the ready queue
+that still cannot start.
+
+**Live:** `/api/lanes`, `/api/creators`, `/api/offers`, `/api/benchmarks`,
+`/api/listing-tests`, `/api/free-to-paid`, `/api/replication`, `/api/allocation`.
+
+## Previously — last completed milestone
+**Four commercial requirements, and the one defect shape behind three of them.**
+
+**#5 — two production queues, and the floor that stops one eating the other.**
+`commerce/lanes.py` operates the fast lane (ornaments, kitchen and bath textiles, simple
+decor, selected hats, suitable simple amigurumi, quick seasonal gifts) and the flagship lane
+(premium blankets, major collections, selected garments, sophisticated seasonal products).
+What the fast lane buys is learning rate and search coverage; what the flagship lane buys is
+authority, content depth and order value. Three things make it code rather than a policy
+note:
+
+- *A garment cannot be argued into the fast lane.* The pod is a necessary condition and the
+  product's own measurements decide the rest, so typing "one component" onto a cardigan
+  under a deadline changes nothing. This is the commonest way a fast lane goes wrong.
+- *Both floors are enforced.* The fast lane eats the flagship lane one defensible week at a
+  time — the fast product is always the better use of *this* week — and a catalogue that is
+  all flagship has had four chances a year to learn what sells. The mix is a share of
+  **making capacity, never a count of products**, because a flagship costs several fast
+  products and a count that looks balanced is a capacity split that is not.
+- *"Both retain all applicable quality gates" is structural.* The list is the release
+  chain's own `CANONICAL_STAGES`, imported rather than retyped, and `applicable_gates()`
+  takes the product and **has no lane argument at all**. A test asserts that by signature
+  rather than by example, because an example only proves the case somebody thought of.
+
+Flagship is never merely "not fast": substance is proved, and a product that is neither
+simple enough to buy learning rate nor substantial enough to buy authority is routed to
+neither queue and told so. A Class B fast-lane product says out loud that a physical sample
+sets its wall clock — which is why the trend lane (#291) takes Class A only, and why a test
+holds #291 at least as strict as this lane so it cannot become an exemption in a second
+costume. Live at `/api/lanes`.
+
+**The requirement's own opening — "after core QA stabilizes" — is read from records.**
+The tempting implementation is a boolean somebody sets. `qa_stable()` instead counts the
+regression corpus, runs it, counts certified releases and reads unresolved halting incidents,
+and **an unread signal is its own refusal**. `RegressionRun.ok` is true for a run that
+checked nothing, so the fixture count decides whether there is a verdict at all. Until the
+chain is steady there is one queue — running exactly the same gates, because nothing about
+the checking ever changes here.
+
+**#4 — pre-production demand validation, where the value and the hazard are the same act.**
+A picture of a thing that does not exist, posted where people buy things, is a pre-order
+somebody will try to place. `commerce/preproduction.py` requires the concept to be named as
+one in words a scroller reads rather than in a trailing hashtag, refuses every phrase that
+promises a purchase, and refuses a price — a number with a currency in front of it is an
+offer. There is **no code path in the module that can author an engagement number**, and a
+test asserts the absence by reading the source, because "we would never" is not a control.
+Nothing is published: no social credential has been granted. The refusals run anyway, so
+they are tested before the day they matter.
+
+**#268/#269 — the cross-border lens, and exact money.** The benchmark this company measures
+itself against is a US shop, so `commerce/markets.py` answers *whose language is this* before
+any comparison is read as a finding, and names the holidays that do not transfer.
+`finance/currency.py` carries `Money`, `Rate` and a fee schedule that includes the two fees
+that quietly eat a cross-border margin: currency conversion and the regulatory operating fee.
+
+**#240 — a catalogue competing with itself, and the stuffing that "fixes" it.** The two
+failures are opposites, and a module that counted one would push the catalogue into the
+other, so both are counted. Its own test caught the module inverting: a facet stated by a
+single listing was reported as 100% concentrated, which made the least crowded facet read as
+the most crowded.
+
+**The shape behind three of these** is the one this build keeps finding, and it is worth
+naming again because it arrives in a new costume each time: *a verdict computed from the
+absence of failures will always pass a run that did not happen.* It was a QA-stability flag
+in #5, a gate list checked by "nothing complained" in the release path, and "flagship" read
+as "not fast" in the routing. Each fix is the same fix — require positive evidence that the
+work was done, never the absence of a complaint.
+
+## Previously — last completed milestone
 **The tournament runs at scale, the scorer was finally fed, and the queue's top item was
 work nobody could start.**
 
@@ -2908,6 +3089,13 @@ timings, written there by the system rather than by hand.
   taken, so a rebuild could detect staleness and do nothing about it, which it did three
   times while two products sat visibly wrong in production. It now records the comparison it
   made for every listing.
+- 2026-09-20T08:19Z heartbeat: lease taken, production `/api/verify` verified 12 of 12
+  against live state, and the commercial spine landed -- #5 production lanes, #9/#21 creator
+  roster, #10 free-to-paid funnel, #13 offer engineering, #14 conversion baselines, #16
+  listing-test memory, #22 bestseller replication and #30 capacity allocation, the last of
+  which is now a weekly `capacity_review` cadence. Registry 177 of 320 covered, 87
+  executable. One gate added (`owned_surfaces`) and #4/#10 re-parked onto it. Decisions
+  B-345..B-357.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

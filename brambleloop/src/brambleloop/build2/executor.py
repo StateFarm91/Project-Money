@@ -309,6 +309,19 @@ GATES: tuple[Gate, ...] = (
          _env_gate("BRAMBLELOOP_ARCHIVE_URL"),
          (51,),
          "BRAMBLELOOP_ARCHIVE_URL is set, which only exists once a bucket does"),
+    # Added 2026-09-20. Several requirements were parked on browser_vision or live_listings
+    # because those were the nearest existing keys, and neither is what they actually wait
+    # for: a concept post and a free article wait on somewhere of this company's own to
+    # publish them. A gate that is nearly right is worse than a new one, because it opens on
+    # the wrong day and puts work in the ready queue that still cannot start.
+    Gate("owned_surfaces",
+         "a site or a Pinterest account this company can publish to, which only the owner "
+         "can create",
+         lambda db, env: _env_gate("BRAMBLELOOP_SITE_URL")(db, env)
+         or _env_gate("PINTEREST_ACCESS_TOKEN")(db, env),
+         (),
+         "a site URL or a Pinterest token is configured -- either of which only exists once "
+         "the account behind it does"),
     Gate("live_listings",
          "a listing that exists on the marketplace, which shadow mode forbids by design",
          _has_live_listing,

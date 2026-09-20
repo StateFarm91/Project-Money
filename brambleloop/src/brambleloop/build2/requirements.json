@@ -31,19 +31,19 @@
  {
   "body": "Where platform rules permit, test truthful concepts/aesthetics on Pinterest, social and owned channels before expensive engineering. Clearly identify concepts and do not imply an unavailable item is a finished purchasable product. Never use fake Etsy listings, fake purchases or fabricated engagement.",
   "id": 4,
-  "note": "commerce/preproduction.py prepares a concept post and refuses the ways it can go wrong, because the value and the hazard are the same act: a picture of a thing that does not exist, posted where people buy things, is a pre-order somebody will try to place. A post must say it is a concept in the words a scroller reads rather than in a hashtag at the end, and it is checked as meaning rather than as one blessed sentence, since a rule satisfied by an exact string is a rule somebody routes around by writing a different one. Every phrase that promises a purchase is refused -- shop now, get yours, link in bio, pre-order, available now -- and so is a price, because a number with a currency in front of it is an offer and is the most quietly damaging of them. A concept shown with somebody else's photograph is refused at this door as at every other. The prohibition the owner's directive states outright is structural rather than promised: there is no code path in this module that can author an engagement number, interest comes from a named platform or it is reported unmeasured, and a test asserts the absence by reading the source, because 'we would never' is not a control and the whole category does this. The module's own generated copy passes its own gate, which matters -- a module whose output its gate would refuse is one whose gate gets quietly loosened. Remaining and parked: posting needs a social or Pinterest credential nobody has granted, so nothing is published; the refusals run anyway, which means they are tested before the day they matter. /api/preproduction.",
+  "note": "commerce/preproduction.py prepares a concept post and refuses the ways it can go wrong, because the value and the hazard are the same act: a picture of a thing that does not exist, posted where people buy things, is a pre-order somebody will try to place. A post must say it is a concept in the words a scroller reads rather than in a hashtag at the end, and it is checked as meaning rather than as one blessed sentence, since a rule satisfied by an exact string is a rule somebody routes around by writing a different one. Every phrase that promises a purchase is refused -- shop now, get yours, link in bio, pre-order, available now -- and so is a price, because a number with a currency in front of it is an offer and is the most quietly damaging of them. A concept shown with somebody else's photograph is refused at this door as at every other. The prohibition the owner's directive states outright is structural rather than promised: there is no code path in this module that can author an engagement number, interest comes from a named platform or it is reported unmeasured, and a test asserts the absence by reading the source, because 'we would never' is not a control and the whole category does this. The module's own generated copy passes its own gate, which matters -- a module whose output its gate would refuse is one whose gate gets quietly loosened. Remaining and parked on owned_surfaces: posting needs a site or a Pinterest account nobody has created, so nothing is published; the refusals run anyway, which means they are tested before the day they matter. /api/preproduction.",
   "section": "Core commercial upgrades",
   "status": "partial",
   "title": "Pre-Production Demand Validation",
   "version": "v1.3",
-  "parked_on": "browser_vision"
+  "parked_on": "owned_surfaces"
  },
  {
   "body": "Operate two production queues after core QA stabilizes. FAST LANE: lower-complexity Class A/B products such as ornaments, coasters, mug rugs, selected hats, simple decor and suitable simple amigurumi for rapid learning/search coverage. FLAGSHIP LANE: premium blankets, major collections, selected garments and sophisticated seasonal products for authority, content depth and AOV. Both retain all applicable quality gates.",
   "id": 5,
-  "note": "fast lane / flagship lane as separate production queues",
+  "note": "commerce/lanes.py operates both queues. A pod says which queue a product may be considered for and the product's own measurements decide, so a garment cannot be argued into the fast lane by typing one component onto it under a deadline. Flagship is never merely 'not fast': substance is proved (a MEDIUM-or-heavier premium form, or a set of three patterns that holds together, plus real size depth where a pod's buyers are a range of bodies), and a product that is neither simple enough to buy learning rate nor substantial enough to buy authority is routed to neither queue and told why. Both floors are enforced because the fast lane eats the flagship lane one defensible week at a time and a flagship-only catalogue learns four things a year; the mix is a share of making capacity, never a count of products. 'Both retain all applicable quality gates' is structural: the list is the release chain's own CANONICAL_STAGES, and applicable_gates() takes the product and has no lane argument at all -- a test asserts that by signature rather than by example. check_release takes gate runs rather than a set of names that passed, because a verdict computed from the absence of failures passes a chain that never ran. 'After core QA stabilizes' is read from the records (regression corpus and run, certified releases, unresolved halting incidents) and an unread signal is its own refusal; until then one queue, running the same gates. A Class B fast-lane product says out loud that a physical sample sets its wall clock, which is why the trend lane (#291) takes Class A only -- and a test holds #291 at least as strict as this one so it cannot become an exemption in a second costume. /api/lanes.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "covered",
   "title": "Fast Lane and Flagship Lane",
   "version": "v1.3"
  },
@@ -78,20 +78,22 @@
  {
   "body": "Build a legitimate creator/tester seeding database with specialty, audience fit, reliability, engagement and permissions. Use it for independent physical proof, finished photos, colour variations, crochet-alongs, disclosed affiliate partnerships and real audience exposure. Never require or purchase dishonest reviews.",
   "id": 9,
-  "note": "creator/tester seeding database",
+  "note": "growth/creators.py is the roster, and most of it is what cannot be expressed rather than what is computed. A collaboration buys work -- a tested sample, a finished photograph, a colour variation, a crochet-along, a post, a tutorial segment -- and the deliverable vocabulary is closed and contains no opinion, so 'never require or purchase dishonest reviews' is unrepresentable rather than discouraged; a review somebody writes afterwards is theirs and nothing here asked for it. An arrangement conditioned on sentiment is refused even when the deliverable is honest, including the one nobody writes down ('we will send the next one if it goes well'). A stated follower count stays a claim with its source, there is no reach projection anywhere in the module and a test reads the source to assert the absence, because fabricated engagement arrives as a spreadsheet more often than as a lie. An engagement rate and the day it was observed travel together or neither is recorded. Permission is scoped: a photograph licensed for the creator's own channel is not licensed for our listing, an expired permission is refused like an absent one, and a permission with no reference is an assertion. Outreach is a commercial electronic message, so it travels on CASL's conspicuously-published-address basis with both of its conditions checked here (published without refusing unsolicited messages, and relevant to that business capacity) while the message requirements are delegated to growth/owned.py rather than restated. The shortlist is ordered by delivered work rather than audience, because the largest following on a roster has delivered nothing until it has, and the reliability threshold is the tester roster's own constant. Its own test caught a real defect: the disclosure check matched 'ad' inside 'made' and passed 'made with a lovely pattern' as a disclosed partnership -- a substring check that approved the exact copy it existed to catch. Tables: creator_profiles and collaborations, whose outcome columns are nullable because an unmeasured result is not a zero. /api/creators. Remaining and parked: the roster is empty and populating it means finding and verifying real people from their public pages, which needs browser_vision; an empty roster is reported as an empty roster and never as a network whose reliability is zero.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Creator and Tester Distribution",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "browser_vision"
  },
  {
   "body": "Build owned SEO/Pinterest funnels around useful free motifs, mini patterns, tutorials and tools that demonstrate Brambleloop quality and lead naturally to premium singles/collections. Track visitor -> consented email -> first purchase -> repeat purchase -> collection purchase. Free content must have a commercial job.",
   "id": 10,
-  "note": "free-to-paid acquisition funnel",
+  "note": "growth/free_to_paid.py holds the condition that makes free work pay rather than merely cost: every asset names the premium product it leads to and the reason somebody who just used it would want that next, and an asset without both is a giveaway with a marketing story attached -- pleasant to make, which is why a shop ends up with dozens and cannot say what any of them did. 'It leads to the collection' is refused as a hope rather than a job. The expensive refusal is the second: a free mini pattern for an object this company sells does not lead to it, it replaces it, and that failure is indistinguishable from success from the inside because the downloads and saves go up while conversion falls -- so the check is against the catalogue's own slugs rather than against a judgement about how much was given away. The ladder is the requirement's own -- visitor, consented email, first purchase, repeat purchase, collection purchase -- and a rung nobody reached has no conversion rather than a bad one, because 0% from an upstream of zero makes an untried funnel look like a failed one, which is how something nobody tried gets abandoned as something that did not work. A rung larger than the one above it is refused as a counting fault rather than reported as a remarkable funnel. An email is a rung only once it is consented: the count comes from the CASL consent records through growth/owned.py, since an address captured without a basis is not a step toward a purchase but a liability with a growth metric attached. /api/free-to-paid. Remaining and parked: no free work has been made and nothing is published, because publishing to an owned surface needs a site and a Pinterest account nobody has granted; the plan reports an empty funnel as empty rather than as failing.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Free-to-Paid Acquisition Engine",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "owned_surfaces"
  },
  {
   "body": "Treat the first 100 legitimate buyers as a deliberate validation cohort. Track acquisition source, search term where available, product, price, conversion context, support issue, refund, review, repeat purchase and cross-sell. The goal is to discover what real Brambleloop buyers value and which acquisition loops repeat.",
@@ -114,20 +116,22 @@
  {
   "body": "Test offers as well as designs: single pattern, pattern+video, mini bundle, complete collection, beginner-support package and seasonal bundle. Measure contribution per visitor and revenue per buyer. A winning design with a weak offer should be fixed before being discarded.",
   "id": 13,
-  "note": "offer engineering (bundle/video/support variants as testable offers)",
+  "note": "commerce/offers.py carries the six offers the requirement names and the sentence with teeth in it: a winning design with a weak offer should be fixed before being discarded, so may_retire() refuses a retirement decision taken on a single offer's evidence -- that is a verdict about a price and a package which has acquired the design's name. The floor is offer *families* rather than a count, because a mini bundle, a collection and a seasonal bundle are one proposition at three sizes and 'we tried three things' would otherwise mean three bundles. An offer with fewer than fifteen buyers did not lose, it did not run, and the refusal says so; the answer in both cases is the cheapest shape the design has not worn yet, which the module names. Both measurements are reported and neither alone, because revenue per buyer is the one that flatters: a CA$28 collection bought by three people looks magnificent beside a CA$6 pattern that converts and loses to it, so the ranking is by contribution per visitor, the only one of the two a cost can be set against. An offer whose figures are unmeasured is listed rather than ranked, because a None sorted as a zero puts the best offer nobody measured at the bottom, which is where things get discarded from. Two of the six cannot be delivered today and are named unavailable rather than quietly priced: nothing in this system can make a video, and a beginner-support package is a promise about answer time that nobody has measured the capacity to keep -- an offer that cannot be delivered is a refund and a review, not a test. /api/offers. Remaining and parked: contribution per visitor and revenue per buyer need visitors and buyers, so no offer has a number yet and the comparison says that rather than reporting every offer as equal.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Offer Engineering",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "customers"
  },
  {
   "body": "Build internal baselines by category, traffic source, price band and shop maturity for impressions-to-click, favourites, conversion, refunds/support and contribution per visitor. Do not compare a CA$6 ornament and CA$15 blanket as if they share the same funnel.",
   "id": 14,
-  "note": "conversion benchmark engine by category/source/price band",
+  "note": "commerce/benchmarks.py makes a baseline belong to a cell -- category, traffic source, price band and the maturity of the shop when it was measured -- because each of those four moves a funnel on its own. compare() returns the refusal and the axes that differ rather than a caveat, since the failure the requirement names is somebody reading two correct numbers side by side: a CA$6 ornament is an impulse at a price nobody thinks about and a CA$15 blanket is a project somebody decides to start, and the shop-wide average sits between two truths and describes neither -- overall() is reported because somebody will ask and is labelled as not comparable to any cell. A thin cell answers, which makes it more dangerous than an empty one, so below three listings or five hundred impressions the number is not produced at all rather than produced with a caveat nobody re-reads. Every metric states what it needs, and an unmeasured one is absent rather than zero: a refund rate of zero on a shop with no orders is not good performance, and a refund rate computed from three orders reads as 33% and is a rumour, which is distinguished from absence by its own message. Price bands come from what the observed market charges rather than from round numbers, so the boundary falls inside the CA$4-12 cluster; maturity is two counts rather than a judgement. A cell keyed on a typo is refused, because it would fail by looking empty. The vocabularies are now shared: #16's experiment memory keys its context on these price bands and this maturity scale, since a memory keyed on 'under_10' against a benchmark saying '6_to_10' matches nothing and lets every closed question quietly reopen. /api/benchmarks. Remaining and parked: every cell is empty because this company has no listings, no impressions and no orders, and that is reported as no baseline anywhere rather than as a baseline of zero.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Conversion Benchmark Engine",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "live_listings"
  },
  {
   "body": "For target Etsy queries, periodically capture legitimately observable search-result sets and score thumbnail composition, price/sale presentation, social-proof signals, pattern+video positioning, category diversity and Brambleloop differentiation. Treat observed rank as directional/contextual rather than absolute.",
@@ -141,11 +145,12 @@
  {
   "body": "Record hypothesis, pre-period, treatment, exposure, outcome and confounders. Change one primary variable at a time where practical. Maintain experiment memory so disproven ideas are not repeatedly tested.",
   "id": 16,
-  "note": "listing experiment discipline + experiment memory",
+  "note": "commerce/listing_tests.py adds the four things a listing test needs on top of the pre-registration discipline growth/experiments.py already holds -- a pre-period, exposure, confounders and one primary variable at a time -- and imports the plan and its verdict rather than restating them. Exposure is the one that matters, and it is this build's recurring defect in a new costume: a listing nobody saw did not fail, it was not tested, and to anything reading the outcome column the two are the same row. The consequence is worse than a wrong verdict, because an unexposed test would write a disproof into the memory and block an idea nobody ever tried -- so an unreadable test writes nothing, durably or otherwise. A multi-variable test is allowed, because a listing does sometimes get rebuilt and 'where practical' is otherwise an invitation never to do it; it simply cannot attribute the outcome to any one variable, and it is remembered as a bundle so it never blocks a clean test of one of them later. A confounder is recorded during the window rather than remembered afterwards, and a confounded window is about something else. Only a causal design may close a question: a disproof is the one verdict that stops future work, so a pre/post disproof is kept as an observation, while a supported result that closes nothing is kept as it is. The memory is a table rather than a list, because 'we tried that last year' is exactly the knowledge a restart loses; a disproof applies to the context that produced it (pod, price band, season, shop maturity) and nowhere else, and it reopens when the caller names which part of the context changed -- a memory that never forgets is a way to stop learning, which is the same failure as no memory arriving from the other side. 'Things feel different now' is refused, because it reopens every question ever closed. /api/listing-tests. Remaining and parked: running one needs a live listing and its impressions, so nothing has been established yet and an empty memory says so rather than reporting that nothing is known.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Listing Experiment Discipline",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "live_listings"
  },
  {
   "body": "Before scaling ads, complete the shop: premium icon/banner, About, policies, sections, coherent thumbnails, clear digital-download expectations, truthful product information and rapid support. Accumulate legitimate tester/customer proof. Never manufacture reviews.",
@@ -189,20 +194,22 @@
  {
   "body": "Start with small legitimate collaborations and disclosed affiliate arrangements where appropriate. Measure attributable traffic, conversion, usable proof assets and support impact before scaling creator spend.",
   "id": 21,
-  "note": "creator micro-seeding",
+  "note": "growth/creators.py carries #21's discipline. Seeding starts at zero spend, which is not a compromise -- a digital pattern costs nothing to give, so small legitimate collaborations can begin before any budget exists, and anything above zero is consequential spend the module refuses without the owner. A paid or affiliate arrangement must carry its disclosure in the post the audience actually reads, in words a reader would recognise, rather than in a profile or a linked page. may_scale() is the gate before creator spend grows: three completed collaborations because two is a coincidence, and every outcome measured rather than merely not bad -- attributable traffic, conversions, usable proof assets and support impact. The refusal that matters is the quiet one: a null averages as a zero to anything that averages it, so an unmeasured outcome is named and blocks, because a roster scaled on no bad news is a release passed by the absence of a complaint. Remaining and parked on the customers gate: attributable traffic and conversion need a live listing and real orders. The protocol and its refusals run today, so they are tested before the day they matter.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Creator Micro-Seeding",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "customers"
  },
  {
   "body": "When a SKU becomes a statistically credible winner, temporarily reallocate substantial research/creative capacity to understanding WHY: theme, category, technique, low-sew/no-sew, aesthetic, season, price, thumbnail, video, buyer intent and bundle opportunity. Run adjacent controlled experiments without cloning the same product.",
   "id": 22,
-  "note": "bestseller replication protocol",
+  "note": "commerce/replication.py is the protocol, and three refusals carry it. Rank is not credibility: in a catalogue of eleven one product is always the best seller and in a catalogue of three the best seller may have sold twice, so a winner needs thirty orders over four weeks and twice the catalogue median, and until then the correct action is to keep selling it and say nothing about why. A catalogue where nothing else has sold is named as a different and more urgent finding rather than as a winner. Second, a winner normally differs from the field on every dimension at once -- the only no-sew product, the only one at CA$6, the only one photographed in daylight -- and each difference is a complete explanation of which at most one is true; so candidate causes are ranked by contrast rather than by appeal, a dimension where every other product differs is called a story rather than a cause, and a fully confounded winner is reported as confounded with the note that the next product is the experiment. Third, adjacent and not cloned: a proposal that varies only the palette is refused by name, because it sells a little, to the same people, and answers nothing. The reallocation is bounded at 35% of capacity for 45 days and returns on its end date whether or not the question was answered, since an unanswered question is a reason to design a better experiment and not a reason to keep the capacity -- 'temporarily' is doing real work in the requirement, and capacity moved with no end date is a permanent bet on one SKU that nobody decided to make. /api/replication. Remaining and parked on the customers gate: a statistically credible winner needs orders, and no product has one.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Bestseller Replication Protocol",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "customers"
  },
  {
   "body": "Learn baselines for CTR, conversion, contribution per visitor, refund/support rate and paid CAC. Weak CTR -> thumbnail/title intervention. Strong CTR/weak conversion -> offer/trust/price. Strong conversion/low traffic -> distribution investment. High sales/high support -> QA before scaling. Learn thresholds from real data.",
@@ -271,9 +278,9 @@
  {
   "body": "After core engineering stabilizes, prevent endless technical polishing from starving distribution. Mature-state conceptual allocation: roughly 30% product/QA, 30% market intelligence/product selection, 30% distribution/growth and 10% infrastructure/operations, dynamically adjusted to the current bottleneck.",
   "id": 30,
-  "note": "growth resource allocation model",
+  "note": "scale/allocation.py holds the requirement's numbers -- 30% product and QA, 30% market intelligence and product selection, 30% distribution and growth, 10% infrastructure -- and the reason they need enforcing. Engineering work is always available, always visible, always finishes and never requires anybody outside this company; distribution requires an audience that does not exist yet and every hour of it can be defensibly deferred until the thing being distributed is better. A shop can be improved indefinitely and shown to nobody, and at no point does a week feel wasted. So the mature mix is the default rather than the reward, distribution has a floor no bottleneck may cross, and infrastructure has a ceiling because the platform is how the work happens and is not the work. 'Dynamically adjusted to the current bottleneck' reads scale/runrate.py's constraint verdict, and an unmeasured bottleneck is not a bottleneck: guessing does not produce a random answer, it produces whichever term somebody has a benchmark for, which is the one nearest the code. Each mapped term names the function that can actually move it and why, so a tilt cannot become 'whatever we were going to do anyway', and a term the map does not carry is refused rather than absorbed. The tilt takes from whoever can spare it most rather than from whoever is listed first. 'After core engineering stabilizes' is the same evidence #5 reads, imported rather than restated, because two definitions of stable is one definition and one excuse; before then the build mix applies, and it keeps distribution at its floor too, since the starvation this requirement prevents begins before there is an audience. The module's own first draft put the build mix's distribution at 15% against that floor while its docstring claimed the floor was respected -- the slide, written by the module that exists to stop it -- and the invariant test that every shipped mix passes its own check is what caught it. It is a weekly cadence (capacity_review -> ops.capacity) rather than a function somebody remembers to call, on the same reasoning #292 applies to the re-merchandising review: a module nobody calls is precisely 'whatever was easiest to pick up', which is the thing this requirement prevents. The handler is run end to end by its own test, because a handler whose interesting half no test executes is an untested handler with a passing test beside it, and this build has shipped that twice. GREEN: it reads records, writes an audit row, changes nothing and spends nothing. /api/allocation.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "covered",
   "title": "Growth Resource Allocation",
   "version": "v1.3"
  },

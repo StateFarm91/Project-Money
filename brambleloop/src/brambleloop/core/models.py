@@ -994,3 +994,86 @@ class LearningObservation(Base):
     observed_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     summary: Mapped[str] = mapped_column(Text)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CreatorProfile(Base):
+    """One person on the seeding roster (#9).
+
+    A reference rather than a name, an address or a handle: this table records that somebody
+    exists, what they work in and what they have delivered, and it is not a contact list. The
+    address itself lives where consent lives, so a roster export cannot become a mailing list
+    by being copied.
+
+    `audience_stated` keeps their own number and `audience_evidence` keeps where it came
+    from, because a follower count is a claim and stays one. There is deliberately no column
+    for a projected reach: the moment a claim is multiplied by a rate it reads as measured,
+    which is how fabricated engagement usually arrives.
+    """
+
+    __tablename__ = "creator_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    specialties: Mapped[list] = mapped_column(JSON, default=list)
+    audience_stated: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    audience_evidence: Mapped[str] = mapped_column(String(200), default="")
+    engagement_observed: Mapped[float | None] = mapped_column(Float, nullable=True)
+    observed_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    invited: Mapped[int] = mapped_column(Integer, default=0)
+    delivered: Mapped[int] = mapped_column(Integer, default=0)
+    address_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    address_refuses_unsolicited: Mapped[bool] = mapped_column(Boolean, default=False)
+    permissions: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Collaboration(Base):
+    """One agreed piece of work with one creator, and what it produced (#9, #21).
+
+    `deliverables` can only hold the closed vocabulary in `growth.creators`, which contains
+    no opinion: a review is not storable here because it is not askable there. The outcome
+    columns are nullable on purpose -- an unmeasured result is null rather than zero, since a
+    zero would average into a verdict and a null refuses to.
+    """
+
+    __tablename__ = "collaborations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    creator_ref: Mapped[str] = mapped_column(String(80), index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    deliverables: Mapped[list] = mapped_column(JSON, default=list)
+    fee_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    affiliate: Mapped[bool] = mapped_column(Boolean, default=False)
+    disclosure_in_post: Mapped[str] = mapped_column(Text, default="")
+    state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    usable_assets: Mapped[int] = mapped_column(Integer, default=0)
+    attributable_sessions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    conversions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    support_cases: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    measured_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ListingMemory(Base):
+    """One thing established by a listing test, where it applies and what proved it (#16).
+
+    The memory has to outlive the process or it is not a memory -- "we tried that last year"
+    is precisely the knowledge a restart loses. `context` is the composed key rather than
+    four columns because it is only ever matched whole, and `exposure` is stored beside the
+    verdict so a reader can see how many people actually saw the thing that was decided.
+    """
+
+    __tablename__ = "listing_memory"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    idea: Mapped[str] = mapped_column(String(120), index=True)
+    context: Mapped[str] = mapped_column(String(200), index=True)
+    outcome: Mapped[str] = mapped_column(String(20), index=True)
+    test_key: Mapped[str] = mapped_column(String(80), index=True)
+    on: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    exposure: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    __table_args__ = (UniqueConstraint("test_key", "idea", name="uq_listing_memory_test"),)

@@ -269,6 +269,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # not exist. It reads certified products and an already-observed catalogue, changes no
     # listing and cannot increment the catalogue by construction.
     ("remerchandising_review", "listing", "seasonal.remerchandising", 7 * 24 * 60 * 60),
+    # Weekly, and free. #30's argument is that the capacity mix has to arrive as a number,
+    # because the default for a system with no audience is more engineering -- it is the
+    # work that is here, it always finishes, and it never needs anybody outside this
+    # company. A module nobody calls is exactly "whatever was easiest to pick up", so the
+    # allocation is a cadence for the same reason the re-merchandising review is one.
+    ("capacity_review", "orchestrator", "ops.capacity", 7 * 24 * 60 * 60),
 ]
 
 

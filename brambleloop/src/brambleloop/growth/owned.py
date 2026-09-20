@@ -30,11 +30,20 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 EXPRESS, IMPLIED_PURCHASE, IMPLIED_ENQUIRY = "express", "implied_purchase", "implied_enquiry"
+# CASL s.10(9)(b): an address the recipient conspicuously published in their business
+# capacity, without a statement refusing unsolicited messages, and the message is relevant to
+# that capacity. This is the basis creator outreach travels on (#9), and both of its
+# conditions are facts about the recipient rather than about our list -- `growth.creators`
+# checks them, because that is where those facts are recorded.
+IMPLIED_PUBLISHED = "implied_published"
 
 BASES: dict[str, str] = {
     EXPRESS: "the recipient actively asked to receive messages, and said so",
     IMPLIED_PURCHASE: "an existing business relationship: they bought something",
     IMPLIED_ENQUIRY: "they asked this company a question and gave an address to answer it",
+    IMPLIED_PUBLISHED: ("they conspicuously published this address in their business "
+                        "capacity without refusing unsolicited messages, and the message is "
+                        "relevant to that capacity"),
 }
 
 # CASL's own clocks. Express consent has none; the other two do, and they run from the event
@@ -109,7 +118,10 @@ def may_send(consent: Consent, today: date | None = None) -> dict:
     return {
         "may_send": True, "basis": consent.basis, "means": BASES[consent.basis],
         "expires_on": expires.isoformat() if expires else None,
-        "why": ("express consent lasts until it is withdrawn"
+        "why": (("express consent lasts until it is withdrawn"
+                 if consent.basis == EXPRESS else
+                 "this basis has no clock of its own: it lasts while its conditions hold, "
+                 "and stops the day they do not")
                 if expires is None else
                 f"valid until {expires.isoformat()}, then gone unless it is renewed by a "
                 f"fresh transaction or a fresh request"),

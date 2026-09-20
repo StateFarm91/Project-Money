@@ -1697,6 +1697,48 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
             "catalogue_growth": report["catalogue_growth"]}
 
 
+@handlers.register("ops.capacity")
+def handle_capacity_review(ctx: JobContext) -> dict:
+    """This week's allocation, recorded rather than remembered (#30, #5).
+
+    Weekly. The whole argument of #30 is that the mix has to arrive as a number, because the
+    default for a system with no audience is to do more engineering -- engineering is the
+    work that is here, it always finishes, and it never requires anybody outside this
+    company. A module nobody calls *is* "whatever was easiest to pick up", so the allocation
+    is a cadence on the same reasoning as #292's re-merchandising review: one that never
+    runs is the same as one that does not exist.
+
+    It also records whether the two production queues are open, because that condition and
+    the allocation's phase read the same evidence and should be seen to agree.
+
+    GREEN: it reads the regression corpus, certified releases and open incidents, writes an
+    audit row, and changes nothing. It spends nothing -- no model call is made.
+    """
+    from ..commerce import lanes
+    from ..scale import allocation, runrate
+
+    with ctx.db.session() as session:
+        qa = lanes.qa_stable(lanes.observe(session))
+
+    # The bottleneck, where it can be identified at all. It cannot today: the funnel's terms
+    # need traffic and orders. `constraint()` says so itself rather than being asked to
+    # guess, and the allocation stays on the untilted mix.
+    observed = runrate.Observed()
+    binding = runrate.constraint(observed)
+
+    plan = allocation.allocate(qa=qa, constraint=binding if binding["identifiable"] else None)
+    detail = {
+        "mix": plan["mix"],
+        "phase": plan["phase"],
+        "tilted_toward": plan.get("tilted_toward"),
+        "constraint": plan.get("constraint"),
+        "two_queues_open": qa["stable"],
+        "qa_reasons": qa["reasons"],
+    }
+    ctx.audit("ops.capacity", detail=detail)
+    return detail
+
+
 @handlers.register("mjs.reviews")
 def handle_mjs_reviews(ctx: JobContext) -> dict:
     """Read the benchmark shop's reviews and record which complaints recur (#2, #98).
