@@ -529,7 +529,15 @@ def test_the_expedition_handler_runs_end_to_end_with_arenas_present():
     class Gateway:
         def complete_json(self, ref, *, agent, values, required=None):
             calls["n"] += 1
-            return {"concepts": []}
+            return {"concepts": [{
+                "title": "Lantern Brim Beanie",
+                "premise": ("a beanie whose folded brim stands proud of the crown so the "
+                            "silhouette reads as a lantern from across a room"),
+                "construction": "in_the_round", "motif": "lantern",
+                "palette_story": "ember and soot", "recipient": "child",
+                "occasion": "halloween", "feeling": "folkloric",
+                "function": "keeps a child warm and findable after dark",
+                "wow": "a brim engineered to hold its own shape"}]}
 
     # Substitute the gateway's call so no network request is made, while every other line
     # of the handler -- arena selection, tier routing, catalogue assembly, storage -- runs.
@@ -545,6 +553,7 @@ def test_the_expedition_handler_runs_end_to_end_with_arenas_present():
 
     assert result["ran"] is True, result
     assert "/" in result["arena"]
+    assert result["proposed"] > 0, "the handler never produced a concept"
     assert calls["n"] > 0, "the handler never reached the generator"
 
 
@@ -722,6 +731,46 @@ def test_the_prompt_can_hold_the_field_it_asks_for():
     # or the estimate prices a different call from the one being made.
     task, _tier = routing.route(P.GENERATION_TASK)
     assert task.max_output_tokens >= prompt.max_output_tokens
+
+
+def test_a_run_that_proposed_nothing_and_spent_nothing_reports_that_it_did_not_run():
+    """A false success is as invisible as a false negative, and costs a week.
+
+    The first live expedition returned `ran: true` with both fields truncated. The
+    per-deploy re-drive only picks up `ran: false`, so the fixed prompt would have waited
+    for the next weekly window.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.release import handle_creative_expedition
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    Registry(db).seed_defaults()
+    with db.session() as s:
+        for i in range(8):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"M{i}",
+                                   title="Cozy Chunky Crochet Beanie Hat Pattern",
+                                   pod="hats"))
+    q = JobQueue(db)
+    ctx = JobContext(job=q.enqueue("creative_director", "creative.expedition", {}),
+                     db=db, queue=q, registry=Registry(db), phase=None)
+
+    from brambleloop.gateway import model_gateway
+    saved = model_gateway.ModelGateway.complete_json
+
+    def truncated(self, ref, *, agent, values, required=None):
+        raise RuntimeError("model output is not valid JSON: Unterminated string")
+
+    model_gateway.ModelGateway.complete_json = truncated
+    try:
+        result = handle_creative_expedition(ctx)
+    finally:
+        model_gateway.ModelGateway.complete_json = saved
+
+    assert result["ran"] is False, result
+    assert result["proposed"] == 0
+    assert "malformed" in result["reason"]
 
 
 if __name__ == "__main__":

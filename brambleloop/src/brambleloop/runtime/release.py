@@ -1542,7 +1542,16 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
         return {"ran": False, "arena": f"{arena.event}/{arena.pod}", "reason": str(e)[:200]}
 
     prospecting.store(ctx.db, result)
-    return {"ran": True, "arena": f"{arena.event}/{arena.pod}",
+
+    # A run that proposed nothing and spent nothing did not happen, whatever it returned.
+    # The first live expedition reported `ran: true` while both of its fields came back as
+    # truncated JSON -- a false success, and the per-deploy re-drive only picks up `ran:
+    # false`, so a fixed prompt would have waited a week for its next window. "Ran" means
+    # work was attempted, not that the function returned.
+    attempted = result["proposed"] > 0 or result["cost_cad"] > 0
+    return {"ran": attempted, "arena": f"{arena.event}/{arena.pod}",
             "proposed": result["proposed"], "survivors": len(result["survivors"]),
             "forms": result["forms_discovered"], "cost_cad": result["cost_cad"],
-            "answered_the_arena": result["answered_the_arena"]}
+            "answered_the_arena": result["answered_the_arena"],
+            **({} if attempted else
+               {"reason": "every field came back malformed; nothing was proposed or spent"})}
