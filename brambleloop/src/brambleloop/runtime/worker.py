@@ -280,6 +280,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # something that keeps looking. Hourly rather than daily because the window between a
     # design changing and its PDF being served is the whole exposure.
     ("stale_artefact_sentinel", "orchestrator", "ops.sentinel", 60 * 60),
+    # Every fifteen minutes, and free. #185's definition is the reason it exists at all:
+    # online means useful work is progressing, not that HTTP returned 200, and the only way
+    # to know the difference is to keep asking whether anything was completed.
+    ("health_sweep", "orchestrator", "ops.health", 15 * 60),
 ]
 
 

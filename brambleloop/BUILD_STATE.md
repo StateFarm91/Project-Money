@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 179 | satisfied, with a named test or artefact |
-| partial | 50 | something real exists and is short of the requirement |
+| covered | 181 | satisfied, with a named test or artefact |
+| partial | 48 | something real exists and is short of the requirement |
 | missing | 35 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **85 requirements are executable** (partial +
+as one nobody has written. **83 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 179 of 320 covered is **55.9% complete**, read from the registry rather than
+typed. 181 of 320 covered is **56.6% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -206,6 +206,44 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Online means work is progressing, and the self-healing turned out to already exist.**
+
+**#185 — `ops/health.py`.** The requirement writes its own definition into the middle of the
+sentence and the module takes it literally: *online means useful work is progressing, not
+merely that HTTP returns 200*. A container can serve 200s, tick a worker, run a scheduler,
+hold an empty queue and complete nothing for a week — every liveness signal green, because
+none of them is about work. That is this build's recurring defect in its most respectable
+costume: the verdict is computed from the absence of failures, and a system doing nothing has
+none. So `progress` is a signal with the same standing as the heartbeat, and an
+otherwise-green system reports **`idle`**, which is a different word from healthy on purpose.
+
+*Writing the self-healing half produced the finding that replaced it.* Both obvious repairs
+already exist: a lease is reclaimed inside `JobQueue.claim` on **every** claim, and a dead
+letter is re-driven once per deploy (B-327) — which is the right trigger, because a dead
+letter is fixed by a code change. Re-driving one on a fifteen-minute timer re-runs a failure
+nothing has fixed, ninety-six times a day: a retry storm with a health check's name on it. So
+the sweep detects, escalates, and names where each repair actually lives, which makes
+"self-healing" a claim somebody can check. What it cannot fix at all — a container restart, a
+missing credential, money already spent — it escalates by name rather than attempting,
+because a repair that is announced and does not happen is worse than none: nobody looks.
+
+Escalation waits for persistence — one bad sweep is a blip and a deploy produces several — and
+the history is read from the handler's own audit trail rather than memory, because a container
+replacement is exactly when conditions happen. Cadence: `health_sweep` → `ops.health`, every
+fifteen minutes, GREEN, spends nothing.
+
+**#183 — `/api/console`, and the two views the dashboard was missing.** Approvals now arrive
+as the executor's own cards, each with its action and its consequence of waiting, because a
+count of queued actions does not answer *is anything waiting on me*; and learning changes
+arrive with their source and date. Both are on the dashboard page itself, so the answer is
+readable on a phone without composing a request. The console's health is #185's verdict, which
+means it can say `idle` — a console that cannot say so is one that will report a green week of
+nothing. It aggregates what the read endpoints already serve, at the same exposure, and opens
+no new door; the continuity export and the dead-letter requeue stay behind the operator
+credential. No public marketing site exists or is planned, which is the requirement's other
+half.
+
+## Previously — last completed milestone
 **Freshness is proved, not assumed — and a trajectory that refuses to state a probability.**
 
 **#171/#173 — every derived artefact tied to its evidence, and a sentinel that can stop a

@@ -21,9 +21,9 @@ from ..core.build import identity as build_identity
 from ..core import opsauth
 from ..core.db import Database
 from ..core.models import (
-    Agent, AuditLog, Collection, ContentPiece, CostEntry, Incident, Job, JobStatus,
-    LedgerEntry, Listing, ListingAsset, OwnerAction, PatternVersion, Product, SpendLimit,
-    SupportCase, utcnow,
+    Agent, AuditLog, Collection, ContentPiece, CostEntry, Experiment, Incident, Job,
+    JobStatus, LedgerEntry, Listing, ListingAsset, OwnerAction, PatternVersion, Product,
+    SpendLimit, SupportCase, utcnow,
 )
 from ..gateway.model_gateway import available_providers
 from ..queue.durable import DuplicateJob, JobQueue
@@ -1274,6 +1274,101 @@ def api_portfolio() -> dict:
     return portfolio.diversification(db)
 
 
+@app.get("/api/console")
+def api_console() -> dict:
+    """One page's worth of operations, for an owner holding a phone (#183).
+
+    A public marketing site is not required to keep agents alive; a console is. This
+    assembles what the requirement names -- health, queues, products, agent activity, spend,
+    incidents, approvals, experiments, deployment version and learning changes -- from the
+    endpoints that already serve each one, so there is a single request to make when the
+    question is "is anything waiting on me".
+
+    Health is #185's verdict rather than a liveness ping, which means this page can say
+    `idle`: every process alive and nothing completed is not healthy, and a console that
+    cannot say so is a console that will report a green week of nothing.
+
+    On exposure: this aggregates what the individual read endpoints already serve, at the
+    same exposure. The two write paths -- the continuity export and the dead-letter requeue
+    -- stay behind the operator credential, and nothing here is a new door.
+    """
+    import os
+
+    from ..build2 import executor
+    from ..intel import learning
+    from ..ops import health
+
+    env = dict(os.environ)
+    with db.session() as s:
+        readings = health.read(s, runner_state=runner.STATE.to_dict(), env=env)
+        verdict = health.verdict(readings)
+        approvals = executor.approval_inbox(db, env=env)
+        jobs = list(s.scalars(select(Job).order_by(Job.id.desc()).limit(10)))
+        pending = s.scalar(select(func.count()).select_from(Job)
+                           .where(Job.status == JobStatus.PENDING)) or 0
+        dead = s.scalar(select(func.count()).select_from(Job)
+                        .where(Job.status == JobStatus.DEAD)) or 0
+        incidents = list(s.scalars(select(Incident).where(Incident.resolved == False)))  # noqa: E712
+        products = s.scalar(select(func.count()).select_from(Product)) or 0
+        certified = s.scalar(select(func.count()).select_from(PatternVersion)
+                             .where(PatternVersion.certified)) or 0
+        limits = [{"scope": limit.scope, "daily_cap_cad": limit.daily_cap_cad,
+                   "spent_today_cad": limit.spent_today_cad, "paused": limit.paused}
+                  for limit in s.scalars(select(SpendLimit))]
+        agents = [{"name": a.name, "authority": getattr(a.authority, "value", a.authority),
+                   "daily_cost_ceiling_cad": a.daily_cost_ceiling_cad}
+                  for a in s.scalars(select(Agent).order_by(Agent.name))]
+        experiments = [{"name": e.name, "kind": e.kind, "state": e.state,
+                        "product_slug": e.product_slug}
+                       for e in s.scalars(select(Experiment).order_by(Experiment.id.desc())
+                                          .limit(10))]
+    # `learning.observations` takes the Database rather than a Session, because it opens its
+    # own. Calling it inside the block above passed a Session to something that expects to
+    # open one, which is the shape of mistake two different session conventions produce.
+    changes = learning.observations(db)
+
+    return {
+        "health": {"state": verdict["state"], "why": verdict["why"],
+                   "down": verdict["down"], "degraded": verdict["degraded"],
+                   "readings": verdict["readings"]},
+        "queues": {"pending": int(pending), "dead_letters": int(dead),
+                   "recent": [{"id": j.id, "type": j.job_type, "agent": j.agent,
+                               "status": getattr(j.status, "value", j.status)}
+                              for j in jobs]},
+        "products": {"count": int(products), "certified_versions": int(certified)},
+        "agents": agents,
+        "spend": {"limits": limits},
+        "incidents": [{"signature": i.signature, "severity": i.severity,
+                       "halts_publication": i.halts_publication,
+                       "product_slug": i.product_slug, "summary": i.summary}
+                      for i in incidents],
+        "approvals": approvals,
+        "experiments": experiments,
+        "deployment": {"version": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:12],
+                       "phase": os.environ.get("BRAMBLELOOP_PHASE", "shadow"),
+                       "started_at": runner.STATE.to_dict().get("worker_started_at")},
+        "learning_changes": changes[:10],
+        "note": ("the two questions an absent owner actually has are 'is it working' and "
+                 "'is anything waiting on me', and they are the first and the "
+                 "seventh key here"),
+    }
+
+
+@app.get("/api/health-signals")
+def api_health_signals() -> dict:
+    """Every health signal with its evidence, and what online is allowed to mean (#185)."""
+    import os
+
+    from ..ops import health
+
+    out = health.state()
+    with db.session() as s:
+        readings = health.read(s, runner_state=runner.STATE.to_dict(), env=dict(os.environ))
+        out["verdict"] = health.verdict(readings)
+        out["remediation"] = health.remediation(s, readings)
+    return out
+
+
 @app.get("/api/provenance")
 def api_provenance() -> dict:
     """What every derived artefact was made from, and what the sentinel found (#171, #173).
@@ -2149,6 +2244,45 @@ def dashboard() -> str:
             return (f'<h2>{title}</h2><div class="empty">unavailable: '
                     f'{type(e).__name__}: {e}</div>')
 
+    def _approvals() -> str:
+        """What is waiting on the owner (#183). A count does not answer the question."""
+        from ..build2 import executor
+
+        inbox = executor.approval_inbox(db, env=dict(os.environ))
+        cards = inbox.get("cards") or []
+        return rows(
+            [(c["gate"], c["action"], c.get("consequence_of_waiting", ""),
+              c.get("requirements_unparked", c.get("parked", "")))
+             for c in cards],
+            [["Gate", "Action", "Consequence of waiting", "Unparks"]],
+            "nothing is waiting on the owner")
+
+    def _learning() -> str:
+        """What this company has learned since yesterday, and where it came from (#183)."""
+        from ..intel import learning
+
+        seen = learning.observations(db)[:10]
+        return rows(
+            [(o.get("observed_on", ""), o.get("domain", ""), o.get("source", ""),
+              (o.get("summary", "") or "")[:110]) for o in seen],
+            [["Observed", "Domain", "Source", "What changed"]],
+            "nothing observed yet -- which is a state, not a quiet week")
+
+    def _health() -> str:
+        """Online means work is progressing, not that this page rendered (#185)."""
+        from ..ops import health
+
+        with db.session() as s:
+            readings = health.read(s, runner_state=runner.STATE.to_dict(),
+                                   env=dict(os.environ))
+        verdict = health.verdict(readings)
+        return (f'<div class="grid"><div class="card"><span>state</span>'
+                f'<b>{verdict["state"]}</b></div></div>'
+                + f'<div class="empty">{verdict["why"]}</div>'
+                + rows([(r["signal"], r["state"], r["why"][:90]) for r in
+                        verdict["readings"]],
+                       [["Signal", "State", "Why"]], ""))
+
     def _build2() -> str:
         from ..build2 import requirements as reqs
 
@@ -2297,6 +2431,9 @@ Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
 </div>
 {owner_html}
 {command_centre}
+{_block("Health", _health)}
+{_block("Waiting on the owner", _approvals)}
+{_block("Learning changes", _learning)}
 {launch_html}
 <h2>Recent jobs</h2>
 {rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,

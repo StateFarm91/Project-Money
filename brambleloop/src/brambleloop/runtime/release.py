@@ -1697,6 +1697,107 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
             "catalogue_growth": report["catalogue_growth"]}
 
 
+@handlers.register("ops.health")
+def handle_health_sweep(ctx: JobContext) -> dict:
+    """The continuous health sweep, and the repairs this system can actually perform (#185).
+
+    Every fifteen minutes. The verdict this produces is deliberately allowed to say `idle`:
+    a container can serve 200s, tick a worker, run a scheduler, hold an empty queue and
+    complete nothing for a week, with every liveness signal green, because none of them is
+    about work.
+
+    It repairs nothing itself, and that is the finding rather than a gap. Both obvious
+    repairs already happen: a lease is reclaimed on every queue claim, and a dead letter is
+    re-driven once per deploy -- which is the right trigger, because a dead letter is fixed
+    by a code change and a fifteen-minute timer would re-run a failure nothing has fixed,
+    ninety-six times a day. What cannot be fixed at all -- a container restart, a missing
+    credential, money already spent -- is escalated by name rather than attempted, because a
+    repair that is announced and does not happen is worse than none: nobody looks.
+
+    Escalation waits for persistence. One bad sweep is a blip and a deploy produces several;
+    the same signal failing across consecutive sweeps is a condition, and only that raises an
+    incident. The escalation carries the readings that produced it, because the first
+    question anybody asks about an alert is what it actually saw.
+
+    GREEN: it reads records, re-drives jobs the queue already permits, writes audit rows and
+    incidents, and spends nothing.
+    """
+    import os
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog, Incident
+    from ..ops import health
+
+    with ctx.db.session() as session:
+        readings = health.read(
+            session, runner_state=_runner_state(), env=dict(os.environ),
+            # Both are facts about this moment rather than about a shared variable: this
+            # handler is running inside a worker's job, and the job arrived from a cadence.
+            executing_worker=True,
+            from_cadence=bool((ctx.job.inputs or {}).get("cadence")))
+        verdict = health.verdict(readings)
+        remediation = health.remediation(session, readings)
+
+    # History for the persistence rule, from this handler's own audit trail. A record that
+    # lives only in memory forgets every condition each time the container is replaced,
+    # which is exactly when conditions happen.
+    with ctx.db.session() as session:
+        rows = list(session.scalars(
+            select(AuditLog).where(AuditLog.action == "ops.health")
+            .order_by(desc(AuditLog.id)).limit(health.ESCALATE_AFTER_SWEEPS - 1)))
+    history = []
+    for row in reversed(rows):
+        bad = ((row.detail or {}).get("bad") or [])
+        history.append([health.Reading(sig, health.DOWN) for sig in bad
+                        if sig in health.SIGNALS])
+    history.append(readings)
+    persistence = health.persistence(history)
+
+    detail = {
+        "state": verdict["state"],
+        "bad": sorted(set(verdict["down"]) | set(verdict["degraded"])),
+        "why": verdict["why"],
+        "repaired_elsewhere": remediation["repaired_elsewhere"],
+        "must_escalate": remediation["must_escalate"],
+        "persistent": persistence["persistent"],
+    }
+    ctx.audit("ops.health", detail=detail)
+
+    raised = []
+    with ctx.db.session() as session:
+        for signal in persistence["persistent"]:
+            signature = f"health:{signal}"
+            existing = session.scalar(select(Incident)
+                                      .where(Incident.signature == signature)
+                                      .where(Incident.resolved.is_(False)))
+            if existing is not None:
+                continue
+            reading = next((r for r in readings if r.signal == signal), None)
+            session.add(Incident(
+                signature=signature, product_slug=None, severity="P1",
+                halts_publication=False,
+                summary=(f"{signal} has been bad for "
+                         f"{health.ESCALATE_AFTER_SWEEPS} consecutive sweeps")[:500],
+                detail={"signal": signal,
+                        "reading": reading.to_dict() if reading else None,
+                        "consecutive": persistence["consecutive"].get(signal),
+                        "escalation": [e for e in remediation["must_escalate"]
+                                       if e["signal"] == signal]}))
+            raised.append(signature)
+    detail["escalated"] = raised
+    return detail
+
+
+def _runner_state() -> dict:
+    """What the in-process runner knows, when there is one."""
+    try:
+        from ..app import runner
+    except Exception:  # pragma: no cover - the worker can run without the web app
+        return {}
+    return runner.STATE.to_dict()
+
+
 @handlers.register("ops.sentinel")
 def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
     """The permanent sentinel #173 asks for, against the artefacts that actually exist.

@@ -35,7 +35,7 @@ DEFAULT_AGENTS: list[dict] = [
                             "ops.queue_check", "plan.strategy", "launch.readiness",
                             "ops.continuity", "seasonal.sentinel",
                             "improve.retrospective", "ops.policy_watch", "build.tick",
-                            "ops.capacity", "ops.sentinel", "model.probe"],
+                            "ops.capacity", "ops.sentinel", "ops.health", "model.probe"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
