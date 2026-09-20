@@ -850,6 +850,56 @@ def api_culture() -> dict:
     }
 
 
+@app.get("/api/creative-reference")
+def api_creative_reference(pod: str = "") -> dict:
+    """What a strong competitor photograph teaches, and what it may never hand over.
+
+    #116 and #278 read as one dangerous sentence and are two safe ones. Construction is
+    learnable: a crew neckline is a fact like a gauge or a join, nobody owns it, and a
+    company that could not observe one could not make a cardigan. Depiction is not: the
+    field that describes a motif is the field that reproduces it, so `motif_density` is a
+    quantity -- sparse, scattered, allover -- and there is no slot for what the motif is.
+
+    A brief needs two listings. One listing's primitives are one seller's habits, and a
+    brief written from them is an instruction to make that product again, which is #227's
+    aggregation failure arriving through the design system rather than through a decision.
+    """
+    from ..creative import reference
+
+    body = {"rules": reference.state()}
+    if pod:
+        body["brief"] = reference.brief(db, pod)
+    return body
+
+
+@app.get("/api/visual-inspection")
+def api_visual_inspection() -> dict:
+    """The checks this company makes on its own pictures, and what makes them (#61, #79).
+
+    `visual/gallery.py` has always known what to ask and has always reported unmade checks
+    as unjudged rather than as passes. What was missing was a model that could look, and it
+    arrived on 2026-09-19 filed under a gate named after a cloud browser.
+
+    The model is never shown the caption. "Does this image match this description" has an
+    obvious polite answer, and a grader shown the expected result grades toward it -- so it
+    is asked what it sees, and the comparison happens in deterministic code.
+    """
+    from ..visual import inspect
+
+    return {
+        "realism_checks": list(inspect.REALISM_CHECKS),
+        "description_fields": list(inspect.DESCRIPTION_FIELDS),
+        "verdicts": ["blocked", "unjudged", "clear"],
+        "why_three": ("a gate with two outcomes has to call an unmade check something, and "
+                      "whichever it calls it is wrong half the time"),
+        "method": inspect.compare({}, {})["method"],
+        "generator_does_not_grade_itself": (
+            "the description is produced from the rendered file rather than from the plan "
+            "that produced it, so a render that silently failed cannot describe what it "
+            "intended"),
+    }
+
+
 @app.get("/api/gallery-intelligence")
 def api_gallery_intelligence() -> dict:
     """What the judged gallery images have actually taught, per listing and per pod.

@@ -281,22 +281,32 @@ def usable(db) -> bool:
     return bool(last and last.get("ok"))
 
 
+# The standing watch list: topics this catalogue is merchandised against, whose interest is
+# worth a series whether or not they trend. Discovery finds what nobody thought to ask about;
+# this is the floor beneath it.
+#
+# Every entry is a real article title. The first version derived them from the radar's domain
+# keys -- "Viral Aesthetic", "Nostalgia Era", "Seasonal Tradition", "Celebrity Aesthetic" --
+# which are vocabulary this build invented and not things anybody has written an encyclopaedia
+# article about. The first production sweep recorded 7 of 12 and named the five failures,
+# which is the only reason it was visible at all: a feed that returned zero for a missing
+# article, rather than refusing, would have recorded five topics as having no cultural
+# interest whatsoever and nobody would have looked again.
+STANDING_TOPICS: tuple[str, ...] = (
+    "Crochet", "Amigurumi", "Yarn", "Knitting", "Granny_square", "Crochet_hook",
+    "Christmas_stocking", "Christmas", "Halloween", "Internet_meme", "Nostalgia", "Fashion",
+)
+
+
 def default_articles(db, *, limit: int = 12) -> list[str]:
-    """Which topics to read, derived from what this company actually sells into.
+    """Which topics to read whether or not they trend.
 
-    Deliberately not a hand-written list of things somebody finds interesting. The radar's
-    domains and the occasions on the calendar are what the catalogue is merchandised
-    against, so those are what it is worth knowing the cultural temperature of.
+    Deliberately not derived from this build's own domain vocabulary. Those are filing
+    categories, not things the world reads about, and asking a pageview API for them returns
+    nothing -- which is a refusal here and would be an interest of zero anywhere less
+    careful.
     """
-    from . import radar
-
-    topics = [d.replace("_", " ").title() for d in radar.DOMAINS]
-    seeds = ["Crochet", "Amigurumi", "Yarn"]
-    out: list[str] = []
-    for name in seeds + topics:
-        if name not in out:
-            out.append(name)
-    return out[:limit]
+    return list(STANDING_TOPICS)[:limit]
 
 
 def env_override(env: dict[str, str] | None = None) -> list[str]:

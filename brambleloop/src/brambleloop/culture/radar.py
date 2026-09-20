@@ -417,3 +417,73 @@ def findings(db, *, limit: int = 20) -> dict:
             "with -- said plainly rather than approximated, because a weight that moved for "
             "no reason looks exactly like a weight that learned"),
     }
+
+
+# Which learning domain a cultural finding is evidence about. `aesthetics` rather than a new
+# domain of its own: the improvement system already has a freshness clock for aesthetic
+# language -- roughly twice a year -- and a second domain with its own clock would let two
+# halves of the same subject go stale at different rates.
+LEARNING_DOMAIN = "aesthetics"
+
+
+def route_findings(db, *, today=None, limit: int = 20) -> dict:
+    """Deliver cultural findings into the improvement system (#147).
+
+    Listing the departments a finding is worth telling is not telling them. #147 says the
+    radar's findings *flow into* Market Radar, Creativity, SEO, Content, Seasonal Planning
+    and the Improvement Department, and a `routes_to` field that nothing reads is the shape
+    a finding takes when it reaches nobody: the radar looks busy and the catalogue does not
+    move.
+
+    Every record carries its source and the day it was observed, because `learning.record`
+    refuses an observation that cannot say where it came from -- an observation without a
+    source is a belief, and this is the path a belief would most plausibly enter by.
+    """
+    from datetime import date as _date
+
+    from ..intel import learning
+
+    today = today or _date.today()
+    found = findings(db, limit=limit)
+    recorded, skipped = [], []
+
+    for finding in found["findings"]:
+        signal = finding["signal"]
+        if finding["sensitive"]:
+            skipped.append({"signal": signal, "why": "sensitive: never routed anywhere"})
+            continue
+        moment = finding["momentum"]
+        lag = finding["lead_lag"]
+        direction = moment.get("direction") or "unknown"
+        summary = (
+            f"cultural reference interest in {signal} is {direction}"
+            + (f", peaking {lag['lead_days']} days before this benchmark published into it"
+               if lag.get("measurable") and lag.get("lead_days", 0) > 0 else
+               f", peaking {abs(lag['lead_days'])} days *after* the benchmark published into "
+               f"it, so entering on it now is entering at saturation"
+               if lag.get("measurable") else
+               ", with no marketplace series to compare against yet"))
+        try:
+            learning.record(
+                db, domain=LEARNING_DOMAIN,
+                source="culture.radar via wikimedia_pageviews",
+                citation=f"signal:{signal}", summary=summary, observed_on=today,
+                detail={"momentum": moment, "lead_lag": lag,
+                        "routes": sorted(ROUTES)})
+        except learning.LearningRefused as exc:
+            skipped.append({"signal": signal, "why": str(exc)[:200]})
+            continue
+        recorded.append({"signal": signal, "summary": summary})
+
+    return {
+        "recorded": len(recorded),
+        "skipped": skipped,
+        "domain": LEARNING_DOMAIN,
+        "findings_seen": len(found["findings"]),
+        "routes": dict(ROUTES),
+        "note": ("a `routes_to` field nothing reads is the shape a finding takes when it "
+                 "reaches nobody. These are written into the improvement system's aesthetics "
+                 "domain, which already has a freshness clock for aesthetic language"),
+        "weights_measurable": found["weights_measurable"],
+        "why_weights_are_unmeasured": found["why_weights_are_unmeasured"],
+    }

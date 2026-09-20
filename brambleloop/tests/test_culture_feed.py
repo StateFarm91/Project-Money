@@ -121,6 +121,24 @@ def test_the_courtesy_limit_is_here_rather_than_in_configuration():
     assert raised is not None and "courtesy limit" in str(raised)
 
 
+def test_the_standing_topics_are_article_titles_rather_than_this_builds_vocabulary():
+    """Found by reading a production sweep: 7 of 12 recorded, 5 named as failures.
+
+    The list was derived from the radar's domain keys -- "Viral Aesthetic", "Nostalgia Era",
+    "Seasonal Tradition", "Celebrity Aesthetic" -- which are filing categories this build
+    invented, not things anybody has written an encyclopaedia article about. It was visible
+    only because a missing article refuses rather than returning zero; a feed that returned
+    zero would have recorded five topics as having no cultural interest at all.
+    """
+    from brambleloop.culture.radar import DOMAINS
+
+    invented = {d.replace("_", " ").title() for d in DOMAINS}
+    overlap = invented & set(F.STANDING_TOPICS)
+    assert overlap == set(), f"{sorted(overlap)} are this build's words, not article titles"
+    assert "Crochet" in F.STANDING_TOPICS
+    assert len(F.STANDING_TOPICS) >= 8
+
+
 # ---- discovery --------------------------------------------------------------
 
 

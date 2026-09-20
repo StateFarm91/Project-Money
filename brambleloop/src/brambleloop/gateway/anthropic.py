@@ -246,8 +246,7 @@ class AnthropicProvider:
                 f"{MAX_IMAGES_PER_CALL}. Batching past this makes one refusal lose every "
                 f"observation in the batch")
 
-        content: list[dict] = [
-            {"type": "image", "source": {"type": "url", "url": url}} for url in image_urls]
+        content: list[dict] = [_image_block(ref) for ref in image_urls]
         content.append({"type": "text", "text": prompt})
 
         payload = json.dumps({
@@ -349,6 +348,38 @@ def probe(db, *, provider: AnthropicProvider | None = None,
         s.add(AuditLog(actor="orchestrator", action="model.probe", artifact=provider.model,
                        detail=record))
     return record
+
+
+def _image_block(reference: str) -> dict:
+    """One image content block, from a URL or from a file on this disk.
+
+    Competitor evidence arrives as URLs the sanctioned Etsy endpoint returns, and nothing is
+    downloaded or re-hosted: the observation is stored and the picture is not, which is also
+    what keeps benchmark study on the right side of "never copy a competitor's expression".
+
+    This company's *own* rendered assets are files, and #61 and #79 are checks on those. They
+    are read and sent inline rather than published somewhere first, because putting an
+    unreleased listing asset on a public URL to have it judged would be a release.
+    """
+    import base64
+    import mimetypes
+    from pathlib import Path
+
+    if reference.startswith(("http://", "https://")):
+        return {"type": "image", "source": {"type": "url", "url": reference}}
+
+    path = Path(reference)
+    if not path.is_file():
+        raise ProviderUnusable(
+            f"{reference!r} is neither a URL nor a file on this disk. An image reference "
+            f"that resolves to nothing would be sent as a question about no picture")
+    media_type = mimetypes.guess_type(path.name)[0] or "image/png"
+    if media_type not in ("image/png", "image/jpeg", "image/gif", "image/webp"):
+        raise ProviderUnusable(
+            f"{media_type} is not an image format the provider accepts: png, jpeg, gif, webp")
+    return {"type": "image",
+            "source": {"type": "base64", "media_type": media_type,
+                       "data": base64.standard_b64encode(path.read_bytes()).decode()}}
 
 
 # The probe image and what it asks. A picture whose answer is checkable without a model:

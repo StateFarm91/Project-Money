@@ -739,16 +739,28 @@ def sync(db, *, env: dict[str, str] | None = None) -> dict:
 
             gate_key = gate_for(requirement.id)
             if gate_key and not open_gates.get(gate_key, False):
-                if task.state != PARKED:
+                # Re-park when the *gate* changed, not only when the state did. The test was
+                # `task.state != PARKED`, so a task already parked kept whatever key it was
+                # parked on the day it was parked -- and when `browser_vision` was split into
+                # `image_vision` and `rendered_pages` on 2026-09-20, twenty-two live rows in
+                # production went on naming a gate nothing checks. They would still have
+                # un-parked correctly, because the un-park test reads `gate_for` rather than
+                # the stored label, so this was a reporting fault rather than a stuck queue:
+                # `parked_by_capability` groups by the stored key, so the console showed a
+                # capability that no longer exists and none of the one that does. A label
+                # that is only ever written once is a label that goes stale silently.
+                if task.state != PARKED or task.parked_on != gate_key:
                     gate = GATE_BY_KEY[gate_key]
+                    was = task.parked_on
                     task.state = PARKED
                     task.parked_on = gate_key
-                    task.parked_at = now
+                    task.parked_at = task.parked_at if was == gate_key else now
                     task.parked_reason = (
                         f"waiting on {gate.what}. Checked by: {gate.how}. Parked rather "
                         f"than blocking -- every other requirement continues, and this "
                         f"un-parks automatically when the condition becomes true, with "
-                        f"nobody having to remember")
+                        f"nobody having to remember"
+                        + (f" (moved from {was})" if was and was != gate_key else ""))
                 continue
 
             if task.state == PARKED:

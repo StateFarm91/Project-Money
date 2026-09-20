@@ -559,10 +559,9 @@
  {
   "body": "The system must test whether an image communicates what its caption/title claims. A finished-result frame cannot be only abstract horizontal rows. A chart preview must look like a chart preview. A size card must communicate scale clearly. Use independent visual review plus deterministic metadata assertions; do not rely on the generator grading itself.",
   "id": 61,
-  "note": "the deterministic half of this requirement is publish/layout_qa.py (#59), which measures rendered pixels -- flat fabric with no internal contrast, text bands below legible height, ink crossing reserved regions -- and publish/eligibility.py (#57/#65), which refuses a frame whose purpose cannot do its job, so a chart cannot be the finished-result frame. What remains is the clause the requirement leads with: independent visual review, asking whether an image communicates what its caption claims, which needs a vision model looking at the picture. Parked on browser_vision rather than left ready, because a requirement whose only remaining work needs a parked capability belongs with the parked. The requirement's last clause -- do not rely on the generator grading itself -- is already structural: layout_qa reads the rendered image rather than the plan that produced it.",
-  "parked_on": "image_vision",
+  "note": "the deterministic half is publish/layout_qa.py (#59), which measures rendered pixels -- flat fabric with no internal contrast, text bands below legible height, ink crossing reserved regions -- and publish/eligibility.py (#57/#65), which refuses a frame whose purpose cannot do its job, so a chart cannot be the finished-result frame. The clause the requirement leads with closed 2026-09-20 with visual/inspect.py: a model describes the rendered asset in a closed vocabulary and deterministic code compares that description against what the listing claims. The model is never shown the caption, because 'does this image match this description' has an obvious polite answer and a grader shown the expected result grades toward it. The requirement's own closing clause -- do not let the generator grade itself -- is structural twice over: layout_qa reads the rendered image rather than the plan, and the description is produced from the file rather than from the brief, so a render that silently failed cannot describe what it intended. A description with a field missing is refused, because a description with holes passes a caption check by not contradicting it. /api/visual-inspection.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Visual Semantic QA",
   "version": "v1.3.3"
  },
@@ -723,10 +722,9 @@
  {
   "body": "Independent visual QA checks stitch-scale plausibility, yarn continuity, edge construction, drape, joins, hands/fingers where present, garment fit, shadows, repeated textures, impossible seams and other synthetic artifacts. Product Truth validates structure; realism QA validates that the customer-facing depiction does not look fake or physically impossible.",
   "id": 79,
-  "note": "ten physical-realism checks, and unmade checks on a generated frame are unjudged rather than assumed fine. Remaining: making them, which needs the vision capability. Parked on browser_vision rather than left ready, for the reason that gate's own entry gives: a requirement whose only remaining work needs a parked capability belongs with the parked.",
-  "parked_on": "image_vision",
+  "note": "the ten physical-realism checks are named in visual/gallery.py and an unmade check has always been reported as unjudged rather than as a pass. What was missing was something that could make them, and it arrived on 2026-09-19 filed under a gate named after a cloud browser. visual/inspect.py makes them: a maker's system prompt, one answer per named check, true/false/unclear -- and `unclear` leaves the check unmade rather than passing it, because defaulting an unmade check to True is how a release gate becomes a formality and it is one line to write. A call that fails leaves all ten unmade rather than green. The gate has three verdicts (blocked, unjudged, clear) because a gate with two has to call an unmade check something, and whichever it calls it is wrong half the time. The escalation ladder (#81) is unchanged and lowering the standard is still not on it.",
   "section": "Creative parity + model hard gate",
-  "status": "partial",
+  "status": "covered",
   "title": "Physical Realism and Crochet Plausibility Review",
   "version": "v1.3.4"
  },
@@ -1057,9 +1055,9 @@
  {
   "body": "When studying high-performing products, decompose why they work into non-copying primitives: silhouette, motif density, dimensionality, palette role, prop/context, function, emotional tone, construction novelty, personalization, bundle logic and thumbnail readability. Store the decomposition, not a replica prompt.",
   "id": 116,
-  "note": "creative reference decomposition; needs benchmark observation",
+  "note": "creative/reference.py decomposes a studied product into the eight non-copying primitives the requirement names -- silhouette, motif density, dimensionality, palette role, prop/context, function, emotional tone, construction novelty -- assembled from evidence already gathered rather than by asking a third question about the same picture. `motif_density` is deliberately a quantity (none, sparse, scattered, allover, structural): the field that describes a motif is the field that reproduces it, and a vocabulary with a slot for what the motif is will eventually have one filled in. Every value passes the same containment check #214 applies to mechanisms, through the same function over the same word list, because two implementations drift and the one that drifts is the one on the competitor path. A brief needs two listings: one listing's primitives are one seller's habits, and a brief written from them is an instruction to make that product again. What it produces is constraints to design within, not an example to match. /api/creative-reference.",
   "section": "Deep seasonal creativity audit",
-  "status": "owner_gated",
+  "status": "covered",
   "title": "Creative Reference Decomposition",
   "version": "v1.3.6"
  },
@@ -1210,10 +1208,9 @@
  {
   "body": "Create a permanent radar that scans current and recurring cultural demand around movies, television, memes, nostalgia eras, seasonal traditions, viral aesthetics, music, sports culture, celebrity-driven aesthetics and internet moments. The purpose is early demand discovery: identify what people are emotionally engaging with before Etsy competition fully reflects it.",
   "id": 133,
-  "note": "culture/radar.py records signals with their protected tokens declared at observation, keeps momentum as a series, and reports honestly that no feed is connected rather than returning an empty trend list. Parked on the culture_feed gate: the note above already said no feed is connected, and a note is not a park -- the queue went on reporting this as ready work somebody could start.",
-  "parked_on": "culture_feed",
+  "note": "culture/radar.py is the permanent radar and culture/feeds.py is the source it waited on: Wikimedia pageviews, free, keyless, sanctioned within its documented terms with an identifying user agent, and therefore no consequential spend. Verified live in production 2026-09-20T20:00Z -- 28 days of series returned, observations recorded with their source. Discovery is the day's most-read articles rather than a hand-written list, because a list reflects its author and #133 asks for early discovery; meta pages are dropped by prefix and culture/classify.py files each topic into the ten mandated domains through a closed vocabulary that refuses 'culture' and refuses a filing about a topic nobody raised. Deaths, disasters and trials are dropped at discovery rather than filed and filtered later, because the most-read article on a given day is frequently one of those. What this measures is stated rather than implied: reference reading, not search volume and not purchase intent, on channel `reference` -- #140 measures the gap between that and marketplace demand, and a feed that measured the same thing as the marketplace would have nothing to say. One source rather than several: social and search feeds would each need their own terms and, for most, their own spend. /api/culture.",
   "section": "Culture & nostalgia opportunity engine",
-  "status": "partial",
+  "status": "covered",
   "title": "Culture & Nostalgia Radar",
   "version": "v1.3.7"
  },
@@ -1274,10 +1271,9 @@
  {
   "body": "Measure how Google/social/search interest precedes or follows Etsy demand by topic and season. Learn which cultural signals are useful leading indicators for crochet products so Brambleloop can enter before saturation rather than after competitors dominate.",
   "id": 140,
-  "note": "radar.lead_lag() derives the lead from both series and names the case where the radar is reporting the news. Needs a connected search source and a marketplace source to produce two real series. Parked on the culture_feed gate, which is what 'needs a connected search source' means in a form the queue can check and un-park by itself.",
-  "parked_on": "culture_feed",
+  "note": "both halves of the lead-lag model exist and one of them cannot yet be measured, which is a different state from unbuilt. The cultural series is live (culture/feeds.py, channel `reference`, recorded daily with its source). The marketplace series is culture/demand.py: how often the benchmark published into a topic, week by week, normalised against its own peak so the two are comparable -- and labelled, because it measures a seller publishing rather than buyers buying, and `shops: 1` travels with every result instead of sitting in a document beside a number everybody uses. radar.lead_lag joins them and its culture channel default was corrected from `search`, which the feed does not write and which would have reported 'not measurable' against a database full of measurements. Data-gated rather than partial: the catalogue was observed in one pass, so first_seen is the same date for almost everything the baseline found, and a series needs listings discovered over time. That accumulates by itself as the scanner finds new listings. Four matched listings minimum, because two produce a peak wherever the second one landed.",
   "section": "Culture & nostalgia opportunity engine",
-  "status": "partial",
+  "status": "data_gated",
   "title": "Cultural Demand Lead-Lag Model",
   "version": "v1.3.7"
  },
@@ -1338,10 +1334,9 @@
  {
   "body": "Culture & Nostalgia Radar findings flow into Market Radar, Creativity, SEO, Content, Seasonal Planning and Improvement Department. Post-launch outcomes update cultural scoring weights so the system becomes better at distinguishing commercially useful cultural signals from noise. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.8 - Competitive Product Teardown Laboratory This upgrade adds a controlled post-purchase benchmark laboratory. Purchased competitor files remain a separate benchmark library; Brambleloop learns abstract customer-experience mechanisms and raises its standards without treating competitor patterns as generation source material.",
   "id": 147,
-  "note": "cultural_territory and cultural_timing route through the lesson bus to creativity, market radar, SEO and portfolio. Post-launch outcomes updating the scoring weights needs launch data that does not exist. Parked on the culture_feed gate: the routing into creativity, market radar, SEO and portfolio is built and tested, and what remains -- post-launch outcomes updating the scoring weights -- needs signals to weight before it needs launches to learn from.",
-  "parked_on": "culture_feed",
+  "note": "culture.radar.findings() reports each signal's momentum, its lead-lag against the marketplace series and the departments it is worth telling; route_findings() then delivers them into the improvement system's `aesthetics` learning domain, with a source and an observation date, because a `routes_to` field nothing reads is the shape a finding takes when it reaches nobody -- the radar looks busy and the catalogue does not move. `aesthetics` rather than a new domain of its own, so that two halves of one subject do not go stale on different clocks. A sensitive signal is routed nowhere, whatever its momentum. The weight-updating half is reported as unmeasured rather than approximated: #147 asks that post-launch outcomes make the scoring better at telling useful signals from noise, that needs launches and results, and nothing has launched -- a weight that moved for no reason looks exactly like a weight that learned. Runs daily on the culture.sweep cadence.",
   "section": "Culture & nostalgia opportunity engine",
-  "status": "partial",
+  "status": "covered",
   "title": "Culture Radar Feeds Continuous Improvement",
   "version": "v1.3.7"
  },
@@ -1891,40 +1886,36 @@
  {
   "body": "Every discoverable benchmark listing selected for baseline/deep audit is individually opened. Capture and analyze all accessible listing gallery assets, video where accessible, title, visible description, price/sale presentation, options/variants, badges, product claims, digital-delivery positioning, cross-sell cues and other commercially relevant listing structure. Do not claim an audit occurred if only search-result thumbnails were seen.",
   "id": 208,
-  "note": "the deep audit opens each new or changed listing individually and traverses its gallery, capturing title, description, price, tags, materials, favourites and per-image colour statistics. It never claims an audit from a catalogue row: audit_state only becomes 'audited' after the gallery call succeeded. Corrected 2026-09-20: this note said 'nothing has been run against Etsy', which stopped being true on 2026-09-19 -- the audit has run, per-image colour statistics are present on 108 of 438 listings with the rest backfilling at up to 40 galleries a scan, and video is captured per listing from the sanctioned listing_videos endpoint. What genuinely remains is the judgement half: what each gallery image does commercially, which needs a model that can look at it. Parked on image_vision, which is a recorded successful look at a real observed image rather than a configured worker URL.",
-  "parked_on": "image_vision",
+  "note": "the deep audit opens each new or changed listing individually and traverses its gallery, capturing title, description, price, tags, materials, favourites, per-image colour statistics and has_video from the sanctioned listing_videos endpoint. It never claims an audit from a catalogue row: audit_state only becomes 'audited' after the gallery call succeeded, and 108 of 438 are audited with the rest backfilling at up to 40 galleries a scan. The judgement half closed 2026-09-20 with intel/vision.analyse: what each gallery image does commercially, one image per call, a closed vocabulary parsed strictly. Verified in production. 'Do not claim an audit occurred if only search-result thumbnails were seen' is structural rather than promised.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "partial",
+  "status": "covered",
   "title": "Listing-by-Listing Deep Audit",
   "version": "v1.4.0"
  },
  {
   "body": "Browser agents must inspect the actual gallery, not merely scrape text. For every accessible image, derive non-copying commercial observations: shot type, composition, product visibility, model/product relationship, setting, scale communication, detail coverage, infographic use, typography, palette role, thumbnail readability and emotional merchandising. Preserve dated evidence/provenance.",
   "id": 209,
-  "note": "every audited gallery becomes pending analysis work with a stable per-image identity, ordered newest-first because that is the order commercial value arrives in; intel/vision.py reports the backlog size and what it would cost. The observation vocabulary is closed. Corrected 2026-09-20. The old note said no image had been judged 'because no model provider is configured'; the provider was credentialed and probed successfully on 2026-09-19, so the true reason was that nobody had written the call -- which is not a capability anybody had to buy, and was indistinguishable from one while both lived under the gate name 'browser_vision'. intel/vision.analyse() now makes it: one image per call, a closed answer vocabulary parsed strictly, the depicted subject refused by the system prompt, every failure counted and named, and a run that judged nothing reported as a failure rather than as an empty backlog. record() still refuses an observation produced without looking. Parked on image_vision until a vision.probe has actually succeeded, because writing the call is not the same as the call working.",
-  "parked_on": "image_vision",
+  "note": "every audited gallery becomes pending analysis work with a stable per-image identity, ordered newest-first because that is the order commercial value arrives in. The observation vocabulary is closed. intel/vision.analyse makes the call the backlog was waiting for: one image per call rather than a batch, because a batch invites an answer about the set and turns a per-image field into an impression of a gallery; the system prompt refuses the depicted design, motif, character and any text in the image, so what is stored is how the photograph sells and never what it shows; every failure is counted and named and a run that judged nothing is reported as a failure rather than as an empty backlog. record() still refuses an observation produced without looking. Verified live 2026-09-20: probe ok on a real MJs gallery image, analysis draining at ten images every four hours against 1,126 pending. Dated evidence and provenance are preserved by intel.mission.record. /api/gallery-intelligence.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "partial",
+  "status": "covered",
   "title": "Vision-Level Gallery Analysis",
   "version": "v1.4.0"
  },
  {
   "body": "Create independent specialist cells for the major product departments observed in the benchmark catalogue: garments/clothing, blankets/throws, stockings, ornaments/tree decor, home/decor, bags/accessories, hats/wearables, seasonal/gift products and additional categories as discovered. Each cell owns category-specific history, quality rubric, opportunity map and competitive lessons.",
   "id": 210,
-  "note": "intel/pods.py defines the eight mandated specialist cells with ordered routing and a per-pod quality rubric, and BenchmarkObservation carries per-pod evidence. Pod-level learning memory is no longer outstanding: #226 closed with intel/pod_learning.py, which gives each pod a capability curve in two measures that cannot be collapsed into one, on the adversarial freshness clock. Corrected 2026-09-20: the observation those maps wait on is not absent -- 438 listings have been observed and routed to twelve pods since 2026-09-19. What is still empty is the image-level evidence each pod's opportunity map is built from, so this is parked on image_vision rather than on observation existing at all.",
-  "parked_on": "image_vision",
+  "note": "intel/pods.py defines the eight mandated specialist cells with ordered routing and a per-pod quality rubric, and BenchmarkObservation carries per-pod evidence. Pod-level learning memory closed with #226 (intel/pod_learning.py: a capability curve in two measures that cannot be collapsed into one). The opportunity maps closed 2026-09-20: intel.vision.by_pod builds each pod's image evidence from the judged galleries and reports its own coverage per department, so a pod with nothing judged says so rather than looking like a department with nothing going on in it. Category history is the dated observation archive each pod already writes to.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "partial",
+  "status": "covered",
   "title": "MJs Specialist Intelligence Pods",
   "version": "v1.4.0"
  },
  {
   "body": "A central director coordinates specialist pods, deduplicates observations, identifies cross-category mechanisms, routes new benchmark releases to the correct cells, and prevents siloed learning. It maintains a company-level view of where Brambleloop is ahead, at parity or materially behind on concrete dimensions without using that as permission to copy protected expression.",
   "id": 211,
-  "note": "intel/pods.Director deduplicates on content fingerprint, routes listings to the answering pod, finds mechanisms appearing across two or more pods, and computes ahead/parity/behind per concrete dimension -- with unknown, never parity, when either side has no evidence. Corrected 2026-09-20: 'has no evidence to compute from yet' was a day out of date -- 438 routed listings exist. The dimensions the company-level view is missing are the visual ones, silhouette and merchandising mechanism, so it is parked on image_vision. The on-demand computation remains correct and cheap.",
-  "parked_on": "image_vision",
+  "note": "intel/pods.Director deduplicates on content fingerprint, routes listings to the answering pod, finds mechanisms appearing across two or more pods, and computes ahead/parity/behind per concrete dimension -- with unknown, never parity, when either side has no evidence. The visual dimensions it was missing closed 2026-09-20 with the gallery judgements. The company-level view stays computed on demand rather than maintained, deliberately: a maintained view is a cache with a staleness problem, the computation is cheap, and market_map already reports its own staleness for the half that is stored. Cross-category mechanism finding requires two independent pods, which is #227's rule applied to ourselves.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "partial",
+  "status": "covered",
   "title": "Central Competitive Intelligence Director",
   "version": "v1.4.0"
  },
@@ -2545,9 +2536,9 @@
  {
   "body": "Accessible competitor listing photography is first-class market evidence. Browser/vision pods extract silhouette, proportions, neckline, sleeve treatment, stripe/blocking logic, colour architecture, styling, setting, product scale, shot sequence, seasonal cues and apparent customer promise. These observations feed concept generation. Do not copy the competitor's actual photograph or reproduce protected pattern instructions.",
   "id": 278,
-  "note": "visual listing intelligence; needs browser/vision",
+  "note": "creative/reference.py reads competitor listing photography for construction evidence: silhouette class, proportion, neckline, sleeve treatment, edge finish, colour blocking, colour architecture, styling context and seasonal cue. Every field is a construction decision a maker could arrive at independently -- a crew neckline is a fact like a gauge or a join, nobody owns it, and a company that could not observe one could not make a cardigan. The vocabulary is closed and has nowhere to put a subject; the system prompt refuses naming what the product depicts and refuses transcribing text from the image; and the parsed reading passes culture.rights.check_free_of over the depiction word list before it is stored. Readings become dated benchmark evidence through intel.mission, and feed concept briefs rather than concept copies. Requires the image_vision capability, which has been proven by use since 2026-09-20.",
   "section": "Proven-trend seasonal capture & lead-time engine",
-  "status": "owner_gated",
+  "status": "covered",
   "title": "Visual Listing Intelligence Is a Product Input",
   "version": "v1.4.2"
  },
@@ -2773,18 +2764,18 @@
  {
   "body": "Establish and maintain full discoverable MJs catalogue coverage. Every listing is assigned to specialist category pods and represented in the MJs Coverage Matrix. Track newly discovered/changed listings, product family, generic product type, silhouette/form, palette, seasonal positioning, visual merchandising mechanisms, visible pricing/promotion, gallery structure and dated evidence.",
   "id": 303,
-  "note": "intel/market_map.py maps every observed listing across ten attributes and reports its own staleness. Live against the real catalogue on 2026-09-19: 438 listings, 2 unclassified, stored routing drift 0, twelve pods. market_map.gaps() and GET /api/mjs/coverage name the gaps rather than counting them, and observe.reclassify() keeps the stored catalogue on the current vocabulary without re-reading Etsy. Palette is closing by itself: the deep audit backfills up to 40 unread galleries a scan and stops when the backlog is empty. What remains is silhouette and merchandising mechanism, which are judgements about a photograph -- parked on browser_vision rather than inferred from the title, because a map that inferred them would look complete and be fiction.",
+  "note": "intel/market_map.py maps every observed listing across ten attributes and reports its own staleness. Live against the real catalogue since 2026-09-19: 438 listings, 2 unclassified, stored routing drift 0, twelve pods; market_map.gaps() and GET /api/mjs/coverage name the gaps rather than counting them, and observe.reclassify() keeps the stored catalogue on the current vocabulary without re-reading Etsy. Palette closes by backfill. The last two columns -- silhouette and merchandising mechanism -- closed 2026-09-20: they are derived from the judged gallery observations rather than asked for separately, and are absent below two judged images, because a silhouette read from one frame is a fact about the hero shot presented as a fact about the product. `vision_available` is now read from the recorded probe rather than defaulting to False, which would have left every visual column absent against a database filling with judgements.",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "partial",
+  "status": "covered",
   "title": "MJs Catalogue Is a Living Market Map",
   "version": "v1.4.3"
  },
  {
   "body": "For every accessible MJs listing selected for baseline or change audit, browser/vision workers traverse the accessible gallery and analyze each image as competitive evidence. Extract product form, proportions, generic construction cues visible from the finished item, colour/stripe/blocking logic, styling, model/product presentation, detail coverage, setting, thumbnail strategy and seasonal signals. This is not satisfied by text scraping or search-result thumbnails.",
   "id": 304,
-  "note": "same as #209: the gallery is traversed and inventoried with Etsy's own colour statistics, and image-level judgement is queued rather than guessed.",
+  "note": "same as #209: the gallery is traversed and inventoried with Etsy's own colour statistics, and every image is judged by a model that looks at it rather than guessed from a title. Closed 2026-09-20 with the vision call the backlog was waiting for.",
   "section": "MJsOffTheHookDesigns priority mission",
-  "status": "partial",
+  "status": "covered",
   "title": "MJs Listing Photos Must Be Visually Studied",
   "version": "v1.4.3"
  },

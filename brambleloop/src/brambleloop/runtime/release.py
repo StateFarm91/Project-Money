@@ -2175,7 +2175,7 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     account. Courtesy limits live in the module rather than in configuration.
     """
     from ..core.resilience import PermanentError, TransientError
-    from ..culture import classify, demand, feeds
+    from ..culture import classify, demand, feeds, radar
 
     # Discovery first, so the radar can find what nobody thought to ask about (#133). A
     # hand-written topic list reflects its author rather than the culture, which is the
@@ -2207,7 +2207,11 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
         got = demand.record(ctx.db, reading["article"], signal_key=reading["signal_key"])
         demand_recorded += got.get("recorded", 0)
 
+    # Delivering the findings, not just listing where they could go (#147).
+    routed = radar.route_findings(ctx.db)
+
     ctx.audit("culture.sweep", detail={
+        "routed": routed["recorded"], "routed_skipped": routed["skipped"][:5],
         "source": result["source"], "recorded": result["recorded"],
         "attempted": result["attempted"], "failures": result["failures"][:5],
         "discovered": len(discovered), "placed": len(placed),
@@ -2218,7 +2222,7 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
             "attempted": result["attempted"],
             "failures": len(result["failures"]),
             "discovered": len(discovered), "placed": len(placed),
-            "demand_points": demand_recorded,
+            "demand_points": demand_recorded, "routed": routed["recorded"],
             "channel": result["channel"], "measures": result["measures"]}
 
 

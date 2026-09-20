@@ -56,14 +56,23 @@ def _open_image_generation(db) -> None:
                                         "latency_ms": 900.0})
 
 
-def _open_culture_feed(db) -> None:
-    """Open one gate by making its condition true, which is the only way a gate opens."""
-    from brambleloop.core.models import CultureObservation
+def _open_tester_roster(db) -> None:
+    """A second gate, so a test that completes one requirement still has one to look at."""
+    from brambleloop.core.models import CreatorProfile
 
     with db.session() as s:
-        s.add(CultureObservation(signal_key="test-signal", channel="search",
-                                 observed_on="2026-09-20", interest=1.0,
-                                 source="tests/test_executor.py"))
+        s.add(CreatorProfile(ref="a-tester"))
+
+
+def _open_physical_proof(db) -> None:
+    """Open one gate by making its condition true, which is the only way a gate opens."""
+    from datetime import datetime as _dt
+
+    from brambleloop.core.models import PhysicalTest
+
+    with db.session() as s:
+        s.add(PhysicalTest(product_slug="a-sample", version="1", tester_ref="t",
+                           completed_at=_dt.now(timezone.utc), passed=True))
 
 
 def _synced_with_ready_work() -> Database:
@@ -81,14 +90,21 @@ def _synced_with_ready_work() -> Database:
     So ready work is produced here the way it will actually be produced from now on -- by a
     gate's condition becoming true.
 
-    `culture_feed` rather than a credential on purpose. Its three requirements are all
-    `partial`, so opening it produces ready work and leaves the reconciliation balanced;
-    opening a credential gate instead un-parks requirements still audited `owner_gated`,
-    which is correct behaviour and a state where `balances` is deliberately false.
+    A gate whose requirements are all `partial` on purpose: opening it produces ready work
+    and leaves the reconciliation balanced, where opening a credential gate un-parks
+    requirements still audited `owner_gated` -- correct behaviour, and a state where
+    `balances` is deliberately false.
+
+    It was `culture_feed` for an afternoon, until that gate's three requirements were built
+    and closed, at which point opening it produced no ready work and six tests failed at
+    once. The assertion below said exactly that, which is why it is an assertion and not a
+    comment -- but the lesson is the one directly above, one level up: a fixture borrowed
+    from today's registry is a fixture that expires when the work gets done.
     """
     db = _db()
     E.sync(db, env={})
-    _open_culture_feed(db)
+    _open_physical_proof(db)
+    _open_tester_roster(db)
     E.sync(db, env={})
     assert E.next_ready(db) is not None, (
         "this gate no longer produces ready work; the scenario tests below need one "
@@ -284,6 +300,44 @@ def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
         assert key not in after["parked_by_capability"]
 
 
+def test_a_renamed_gate_re_labels_the_rows_already_parked_on_the_old_one():
+    """Found in production, 2026-09-20, an hour after splitting a gate.
+
+    Parking wrote `parked_on` only when the state changed, so a task already parked kept the
+    key it was parked under. When `browser_vision` became `image_vision` and
+    `rendered_pages`, twenty-two live rows went on naming a gate nothing checks. They would
+    still have un-parked correctly -- the un-park test reads `gate_for`, not the stored label
+    -- so this was a console reporting a capability that no longer exists rather than a stuck
+    queue. A label written once is a label that goes stale without saying so.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildTask
+
+    db = _synced()
+    target = E.queue(db, limit=400)["parked_by_capability"]["rendered_pages"][0]
+    with db.session() as s:
+        task = s.scalar(select(BuildTask).where(BuildTask.requirement_id == target))
+        task.parked_on = "a_gate_that_no_longer_exists"
+
+    E.sync(db, env={})
+
+    with db.session() as s:
+        task = s.scalar(select(BuildTask).where(BuildTask.requirement_id == target))
+        assert task.parked_on == "rendered_pages"
+        assert "moved from a_gate_that_no_longer_exists" in task.parked_reason
+    assert "a_gate_that_no_longer_exists" not in E.queue(db, limit=400)[
+        "parked_by_capability"]
+
+
+def test_every_parked_row_names_a_gate_that_exists():
+    """The invariant the re-labelling protects, stated over the whole queue."""
+    db = _synced()
+    keys = set(E.queue(db, limit=400)["parked_by_capability"])
+    unknown = sorted(keys - set(E.GATE_BY_KEY))
+    assert unknown == [], f"{unknown} name no gate, so nothing will ever open them"
+
+
 def test_a_gate_may_be_satisfied_and_carry_no_requirements():
     """Twice in one day, good news moved a gate and moved no work.
 
@@ -395,7 +449,11 @@ def test_a_completion_needs_evidence_because_it_is_the_loops_own_progress():
                       evidence={"suite": "tests/test_executor.py", "tests": 12,
                                 "commit": "abc1234"})
     assert done["state"] == E.DONE
-    assert E.next_ready(db)["requirement_id"] != target
+    # The property, not the shape. A completed requirement is never what the queue offers
+    # next -- and "there is nothing next" satisfies that as fully as "something else is",
+    # which matters now that the backlog is small enough to empty.
+    nxt = E.next_ready(db)
+    assert nxt is None or nxt["requirement_id"] != target
 
 
 def test_a_released_requirement_is_not_a_finished_one():
@@ -611,7 +669,7 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     # Now a gate's condition becomes true in the database the deployed worker actually
     # reads, and the same silence becomes a stall with exactly one incident behind it.
     before = len(stalls)
-    _open_culture_feed(db)
+    _open_physical_proof(db)
     tick("build-2")
     tick("build-3")
 
