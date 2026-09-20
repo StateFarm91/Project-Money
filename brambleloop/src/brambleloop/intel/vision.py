@@ -294,3 +294,150 @@ def _bill(db, spent: float, judged: int, job_id: int | None) -> None:
                         job_id=job_id,
                         detail={"purpose": "gallery_observation", "images_judged": judged,
                                 "price_basis": "assumed"}))
+
+
+# ---------------------------------------------------------------------------
+# What the judged images are for (#303, #210, #211, #116, #278)
+#
+# Judging images and *using* them are different pieces of work, and the second is where the
+# containment rule is easiest to lose: a summary that carried the depicted subject forward
+# would be a copy assembled one field at a time, however carefully each field was gathered.
+# So everything below is derived from the closed observation vocabulary, which has nowhere to
+# put a motif, and nothing reads a listing title.
+
+
+# The two columns `intel.market_map` calls vision attributes. Each is derived from the
+# observation fields rather than asked for separately: a second question about the same
+# picture is a second bill for an answer already bought.
+SILHOUETTE_FROM = ("shot_type", "product_visibility", "scale_communication")
+MECHANISM_FROM = ("composition", "setting", "model_product_relationship",
+                  "infographic_use", "typography", "emotional_merchandising")
+
+# Below this many judged images for a listing, the derived columns are absent rather than
+# thin. One image is one photographer's decision about one frame, and a silhouette read from
+# it would be a fact about the hero shot presented as a fact about the product.
+MIN_IMAGES_FOR_ATTRIBUTES = 2
+
+
+def observations_for(db, listing_ref: str, *, benchmark_key: str = "") -> list[dict]:
+    """Every recorded judgement about this listing's gallery."""
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkObservation
+    from . import benchmarks
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkObservation).where(
+            BenchmarkObservation.benchmark_key == benchmark_key,
+            BenchmarkObservation.listing_ref == listing_ref,
+            BenchmarkObservation.kind == "gallery_image_observation")))
+    return [(r.detail or {}).get("observation") or {} for r in rows]
+
+
+def derive(observations: list[dict]) -> dict:
+    """The two map columns, or nothing, from what was actually seen.
+
+    Absent rather than partial. A column computed from one image looks the same in the map as
+    one computed from twelve, and the map's whole job is that a cell somebody points at in a
+    planning meeting means what it appears to mean.
+    """
+    if len(observations) < MIN_IMAGES_FOR_ATTRIBUTES:
+        return {}
+
+    def gather(fields):
+        seen: list[str] = []
+        for observation in observations:
+            for field in fields:
+                value = str(observation.get(field) or "").strip()
+                if value and value not in seen:
+                    seen.append(value)
+        return seen
+
+    silhouette = gather(SILHOUETTE_FROM)
+    mechanism = gather(MECHANISM_FROM)
+    out = {}
+    if silhouette:
+        out["silhouette"] = {"from_images": len(observations), "reads": silhouette}
+    if mechanism:
+        out["merchandising_mechanism"] = {"from_images": len(observations),
+                                          "reads": mechanism}
+    return out
+
+
+def attributes_for(db, listing_ref: str, *, benchmark_key: str = "") -> dict:
+    """The vision columns for one listing, derived from judged images or absent."""
+    return derive(observations_for(db, listing_ref, benchmark_key=benchmark_key))
+
+
+def coverage(db, *, benchmark_key: str = "") -> dict:
+    """How much of the catalogue has been looked at, and how much is still queued.
+
+    Reported as a fraction with both numbers, because "vision is available" and "vision has
+    been applied" are different claims and the first is the one a dashboard shows.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing, BenchmarkObservation
+    from ..gateway.anthropic import vision_usable
+    from . import benchmarks
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        audited = len(list(s.scalars(select(BenchmarkListing.listing_ref).where(
+            BenchmarkListing.benchmark_key == benchmark_key,
+            BenchmarkListing.audit_state == "audited"))))
+        judged = {r for (r,) in s.execute(select(BenchmarkObservation.listing_ref).where(
+            BenchmarkObservation.benchmark_key == benchmark_key,
+            BenchmarkObservation.kind == "gallery_image_observation").distinct())}
+
+    return {
+        "capability_proven": vision_usable(db),
+        "listings_audited": audited,
+        "listings_with_a_judged_image": len(judged),
+        "share": round(len(judged) / audited, 4) if audited else 0.0,
+        "pending_images": len(pending(db, benchmark_key, limit=5000)),
+        "note": ("the capability being proven and the catalogue being looked at are "
+                 "different claims, and a dashboard that reports the first is reporting the "
+                 "one that is easy"),
+    }
+
+
+def by_pod(db, *, benchmark_key: str = "") -> dict:
+    """Image evidence gathered per specialist pod (#210), and per-pod honesty about gaps.
+
+    This is what each pod's opportunity map is built from. A pod with no judged images gets
+    an empty map that says so, rather than an empty map that looks like a department with
+    nothing going on in it.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from . import benchmarks
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = [(r.listing_ref, r.pod) for r in s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key))]
+
+    out: dict[str, dict] = {}
+    for ref, pod in rows:
+        bucket = out.setdefault(pod or "unclassified",
+                                {"listings": 0, "judged": 0, "reads": []})
+        bucket["listings"] += 1
+        observations = observations_for(db, ref, benchmark_key=benchmark_key)
+        if observations:
+            bucket["judged"] += 1
+            derived = derive(observations)
+            for value in derived.values():
+                for read in value["reads"]:
+                    if read not in bucket["reads"]:
+                        bucket["reads"].append(read)
+
+    for pod, bucket in out.items():
+        bucket["share"] = round(bucket["judged"] / bucket["listings"], 4)
+        bucket["state"] = (
+            "empty because nothing in this department has been judged yet"
+            if not bucket["judged"] else
+            f"{bucket['judged']} of {bucket['listings']} listings judged")
+    return out

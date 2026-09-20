@@ -2174,16 +2174,51 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     GREEN: a free, keyless, sanctioned read with an identifying user agent, no spend and no
     account. Courtesy limits live in the module rather than in configuration.
     """
-    from ..culture import feeds
+    from ..core.resilience import PermanentError, TransientError
+    from ..culture import classify, demand, feeds
+
+    # Discovery first, so the radar can find what nobody thought to ask about (#133). A
+    # hand-written topic list reflects its author rather than the culture, which is the
+    # opposite of early discovery -- so the day's most-read articles are the candidates and
+    # the fixed list is the floor.
+    discovered: list[str] = []
+    discovery_error = ""
+    try:
+        found = feeds.discover()
+        discovered = [t["article"] for t in found["topics"]]
+    except (PermanentError, TransientError) as exc:
+        discovery_error = str(exc)[:300]
+
+    filed = classify.classify(discovered, db=ctx.db) if discovered else {"filed": {}}
+    # Sensitive topics are dropped here rather than filed and filtered later. The most-read
+    # article on a given day is frequently a death or a disaster, and a radar that carries
+    # those forward as opportunities is a radar nobody should have built.
+    placed = {t: d for t, d in (filed.get("placed") or {}).items()
+              if not classify.sensitive(t)}
 
     topics = feeds.env_override() or feeds.default_articles(ctx.db)
-    result = feeds.sweep(ctx.db, topics)
+    watched = topics + [t for t in placed if t not in topics]
+    result = feeds.sweep(ctx.db, watched[:feeds.MAX_ARTICLES_PER_SWEEP])
+
+    # The marketplace half of #140's two series. Without it `lead_lag` has one series, and
+    # one series cannot lead anything.
+    demand_recorded = 0
+    for reading in result["readings"]:
+        got = demand.record(ctx.db, reading["article"], signal_key=reading["signal_key"])
+        demand_recorded += got.get("recorded", 0)
+
     ctx.audit("culture.sweep", detail={
         "source": result["source"], "recorded": result["recorded"],
-        "attempted": result["attempted"], "failures": result["failures"][:5]})
+        "attempted": result["attempted"], "failures": result["failures"][:5],
+        "discovered": len(discovered), "placed": len(placed),
+        "sensitive_dropped": len(filed.get("sensitive") or []),
+        "discovery_error": discovery_error,
+        "demand_points": demand_recorded})
     return {"ran": True, "recorded": result["recorded"],
             "attempted": result["attempted"],
             "failures": len(result["failures"]),
+            "discovered": len(discovered), "placed": len(placed),
+            "demand_points": demand_recorded,
             "channel": result["channel"], "measures": result["measures"]}
 
 

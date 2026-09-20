@@ -837,6 +837,7 @@ def api_culture() -> dict:
     return {
         "rights": rights.describe(),
         "feed": feeds.state(db),
+        "findings": radar.findings(db),
         "radar": radar.sweep(db, feeds=[feeds.SOURCE_KEY] if feeds.usable(db) else None),
         "owned_territories": translate.owned_territories(),
         "primitives": dict(translate.PRIMITIVES),
@@ -846,6 +847,36 @@ def api_culture() -> dict:
         "note": ("Cultural observation is demand evidence, never source material. A signal "
                  "whose rights are unclear becomes an original concept rather than a dead "
                  "opportunity, which is where the territories this company owns come from."),
+    }
+
+
+@app.get("/api/gallery-intelligence")
+def api_gallery_intelligence() -> dict:
+    """What the judged gallery images have actually taught, per listing and per pod.
+
+    The half of the benchmark mission that was parked behind a browser nobody had bought,
+    and needed a model looking at URLs the sanctioned Etsy endpoint has been returning all
+    along (#209, #304, #303, #210, #211).
+
+    Two claims are kept apart here deliberately. "Vision is available" is about a capability
+    and is true the moment one probe succeeds; "the catalogue has been looked at" is about
+    438 listings and a backlog that drains ten images every four hours. A dashboard that
+    reports the first is reporting the easy one.
+
+    Nothing in the derived columns can carry a depicted subject: they are assembled from a
+    closed observation vocabulary that has nowhere to put a motif, and nothing here reads a
+    listing title.
+    """
+    from ..intel import vision
+
+    return {
+        "coverage": vision.coverage(db),
+        "by_pod": vision.by_pod(db),
+        "derived_columns": {"silhouette": list(vision.SILHOUETTE_FROM),
+                            "merchandising_mechanism": list(vision.MECHANISM_FROM)},
+        "minimum_images_for_a_column": vision.MIN_IMAGES_FOR_ATTRIBUTES,
+        "why_a_minimum": ("a silhouette read from one frame is a fact about the hero shot "
+                          "presented as a fact about the product"),
     }
 
 

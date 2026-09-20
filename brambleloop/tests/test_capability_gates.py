@@ -284,6 +284,87 @@ def test_a_model_answering_the_wrong_question_is_counted_as_a_failure():
     assert "not gallery observation fields" in result["failures"][0]["why"]
 
 
+# ---- what the judged images are then used for -------------------------------
+
+
+def _judged(db, ref, observations):
+    from brambleloop.core.models import BenchmarkObservation
+
+    with db.session() as s:
+        for index, observation in enumerate(observations):
+            s.add(BenchmarkObservation(
+                benchmark_key="mjs_off_the_hook_designs", listing_ref=ref,
+                kind="gallery_image_observation",
+                detail={"image": {"rank": index + 1}, "observation": observation}))
+
+
+def test_a_column_read_from_one_frame_is_absent_rather_than_thin():
+    """A silhouette from a single image is a fact about the hero shot wearing the clothes
+    of a fact about the product, and the map's whole job is that a cell means what it
+    appears to mean."""
+    assert vision.derive([{"shot_type": "flat_lay"}]) == {}
+    two = vision.derive([{"shot_type": "flat_lay", "setting": "kitchen"},
+                         {"shot_type": "in_use"}])
+    assert two["silhouette"]["from_images"] == 2
+    assert "flat_lay" in two["silhouette"]["reads"]
+    assert "kitchen" in two["merchandising_mechanism"]["reads"]
+
+
+def test_the_derived_columns_cannot_carry_a_depicted_subject():
+    """A summary that carried the subject forward would be a copy assembled one field at a
+    time, however carefully each field was gathered (#214, B-473)."""
+    fields = set(vision.SILHOUETTE_FROM) | set(vision.MECHANISM_FROM)
+    assert fields <= set(vision.OBSERVATION_FIELDS)
+    # Nothing in the closed vocabulary is about what the product depicts.
+    assert "motif" not in fields and "subject" not in fields and "design" not in fields
+
+
+def test_capability_proven_and_catalogue_looked_at_are_different_numbers():
+    """A dashboard that reports the first is reporting the easy one."""
+    db = _db()
+    _audited(db, ref="a", urls=("https://i.etsystatic.com/a.jpg",))
+    _audited(db, ref="b", urls=("https://i.etsystatic.com/b.jpg",))
+    _judged(db, "a", [{"shot_type": "flat_lay"}, {"shot_type": "in_use"}])
+    GW.vision_probe(db, provider=_Seeing(["photograph"]))
+
+    cover = vision.coverage(db)
+    assert cover["capability_proven"] is True
+    assert cover["listings_audited"] == 2
+    assert cover["listings_with_a_judged_image"] == 1
+    assert cover["share"] == 0.5
+
+
+def test_a_pod_with_nothing_judged_says_so_rather_than_looking_quiet():
+    """An empty map and a department with nothing going on in it are different states."""
+    db = _db()
+    _audited(db, ref="a", urls=("https://i.etsystatic.com/a.jpg",))
+    got = vision.by_pod(db)
+    assert got["hats"]["judged"] == 0
+    assert "nothing in this department has been judged" in got["hats"]["state"]
+
+
+def test_the_map_reads_vision_from_evidence_rather_than_defaulting_to_false():
+    """It defaulted to False while nothing could look at an image. That was right then, and
+    on the day a probe succeeded it became a map reporting every visual column absent
+    against a database filling with judgements."""
+    from brambleloop.intel import market_map
+
+    db = _db()
+    _audited(db, ref="a", urls=("https://i.etsystatic.com/a.jpg",))
+    _judged(db, "a", [{"shot_type": "flat_lay", "setting": "kitchen"},
+                      {"shot_type": "in_use"}])
+
+    before = market_map.build(db)
+    row = next(r for r in before["rows"] if r["listing_ref"] == "a")
+    assert "silhouette" in row["absent"], "vision is unproven, so the column must be absent"
+
+    GW.vision_probe(db, provider=_Seeing(["photograph"]))
+    after = market_map.build(db)
+    row = next(r for r in after["rows"] if r["listing_ref"] == "a")
+    assert "silhouette" in row["attributes"], row["absent"]
+    assert row["attributes"]["silhouette"]["from_images"] == 2
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

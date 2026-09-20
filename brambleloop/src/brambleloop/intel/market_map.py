@@ -146,7 +146,7 @@ def describe_listing(listing: dict, *, vision_available: bool = False,
                change_state=change_state)
 
 
-def build(db, *, benchmark_key: str | None = None, vision_available: bool = False,
+def build(db, *, benchmark_key: str | None = None, vision_available: bool | None = None,
           now: datetime | None = None) -> dict:
     """The whole map from what has been observed, with its own staleness reported.
 
@@ -156,7 +156,7 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool = Fals
     from sqlalchemy import select
 
     from ..core.models import BenchmarkListing
-    from . import benchmarks
+    from . import benchmarks, vision
 
     # Defaulted from the constant the scanner writes rather than from a short string that
     # looks like it. They disagreed -- the scanner wrote "mjs_off_the_hook_designs" and this
@@ -164,6 +164,13 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool = Fals
     # has been observed" against a database holding 438 of them. A wrong key does not fail;
     # it returns an empty result that is indistinguishable from the truth.
     benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    if vision_available is None:
+        # Read from the evidence rather than defaulted to False. It defaulted to False while
+        # nothing could look at an image, which was right then and became a map reporting
+        # every visual column absent against a database filling with judgements.
+        from ..gateway.anthropic import vision_usable
+
+        vision_available = vision_usable(db)
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
@@ -176,6 +183,11 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool = Fals
             # every audited listing reported its palette absent and the map understated its
             # own completeness. An attribute nobody reads is an attribute nobody collects.
             "palette": (r.detail or {}).get("palette"),
+            # The two vision columns, derived from judged gallery images rather than asked
+            # for a second time. Absent until at least two images of a listing have been
+            # looked at: a silhouette read from one frame is a fact about the hero shot
+            # wearing the clothes of a fact about the product.
+            **vision.attributes_for(db, r.listing_ref, benchmark_key=benchmark_key),
             "observed_on": _aware(r.last_seen).isoformat()
             if getattr(r, "last_seen", None) else "",
         } for r in s.scalars(select(BenchmarkListing).where(

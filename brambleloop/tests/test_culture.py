@@ -346,15 +346,37 @@ def test_one_reading_is_a_level_and_two_are_a_momentum():
     assert m["copycat_multiple"] == 4.0
 
 
+def test_the_lead_lag_default_is_the_channel_the_feed_actually_writes():
+    """The silent zero this would otherwise have become (B-490).
+
+    `lead_lag` defaulted to `culture_channel="search"` while nothing wrote any culture
+    channel at all, so the mismatch was invisible. On the day a feed arrived it would have
+    found no readings and reported "not measurable" against a database full of them -- no
+    error, no failing test, and a string literal written months earlier as the cause. The
+    two constants are asserted equal here so they cannot drift apart again.
+    """
+    import inspect
+
+    from brambleloop.culture import feeds
+
+    default = inspect.signature(radar.lead_lag).parameters["culture_channel"].default
+    assert default == feeds.CHANNEL, (
+        f"lead_lag reads {default!r} and the feed writes {feeds.CHANNEL!r}")
+
+
 def test_lead_lag_names_the_case_where_the_radar_is_reporting_the_news():
     """#140. If culture peaks after demand, entering on the signal is entering at saturation."""
+    from brambleloop.culture import feeds
+
+    culture = feeds.CHANNEL
     db = _db()
     radar.record(db, radar.Signal("cosy-gaming", "a soft aesthetic", "viral_aesthetic",
                                   sources=("trends",)))
     assert radar.lead_lag(db, "cosy-gaming")["measurable"] is False
 
     for on, interest in (("2026-06-01", 0.3), ("2026-07-01", 0.9)):
-        radar.observe(db, "cosy-gaming", channel="search", interest=interest, observed_on=on)
+        radar.observe(db, "cosy-gaming", channel=culture, interest=interest,
+                      observed_on=on)
     for on, interest in (("2026-08-01", 0.4), ("2026-09-01", 0.95)):
         radar.observe(db, "cosy-gaming", channel="etsy", interest=interest, observed_on=on)
 
@@ -366,7 +388,7 @@ def test_lead_lag_names_the_case_where_the_radar_is_reporting_the_news():
     db2 = _db()
     radar.record(db2, radar.Signal("late", "t", "meme", sources=("trends",)))
     for on, interest in (("2026-08-01", 0.3), ("2026-09-01", 0.9)):
-        radar.observe(db2, "late", channel="search", interest=interest, observed_on=on)
+        radar.observe(db2, "late", channel=culture, interest=interest, observed_on=on)
     for on, interest in (("2026-06-01", 0.4), ("2026-07-01", 0.95)):
         radar.observe(db2, "late", channel="etsy", interest=interest, observed_on=on)
     lagging = radar.lead_lag(db2, "late")

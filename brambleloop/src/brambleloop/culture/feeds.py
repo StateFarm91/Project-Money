@@ -304,3 +304,58 @@ def env_override(env: dict[str, str] | None = None) -> list[str]:
     e = env if env is not None else os.environ
     raw = (e.get("BRAMBLELOOP_CULTURE_TOPICS") or "").strip()
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+# ---------------------------------------------------------------------------
+# Discovery (#133): what spiked, rather than what somebody thought to ask about
+#
+# A fixed topic list is a radar that can only find what its author already knew. #133's
+# purpose is *early demand discovery* -- identifying what people are emotionally engaging
+# with before Etsy competition reflects it -- and a list written by hand reflects the author
+# rather than the culture. So the day's most-read articles are the candidate set, and the
+# fixed list becomes the floor rather than the whole of it.
+
+
+# Pages that are not topics. Wikipedia's most-read list is dominated by them, and a radar
+# that reported "Main Page is trending" every day would be ignored by the second week.
+META_PREFIXES: tuple[str, ...] = (
+    "Main_Page", "Special:", "Wikipedia:", "Portal:", "Help:", "Category:", "File:",
+    "Template:", "Talk:", "User:", "-",
+)
+
+# How many of the day's top articles to consider. Deep enough that the list is not just the
+# same handful of perennials, shallow enough to stay inside the courtesy limits.
+DISCOVERY_DEPTH = 60
+
+
+def _is_topic(article: str) -> bool:
+    return bool(article) and not any(article.startswith(p) for p in META_PREFIXES)
+
+
+def discover(*, today: date | None = None, project: str = "en.wikipedia",
+             depth: int = DISCOVERY_DEPTH, get=None) -> dict:
+    """What the world read most on the most recent day the pipeline can answer for.
+
+    One request, not one per topic: the `top` endpoint returns the day's ranking in a single
+    call, which is what makes discovery affordable against a free source this company wants
+    to keep being welcome at.
+    """
+    _, day = window(today)
+    url = (f"{BASE}/top/{project}/all-access/"
+           f"{day.year:04d}/{day.month:02d}/{day.day:02d}")
+    body = (get or _get)(url)
+    items = ((body.get("items") or [{}])[0].get("articles")) or []
+    if not items:
+        raise FeedRefused(
+            f"the top-articles endpoint returned no ranking for {day.isoformat()}. An empty "
+            f"ranking and a day nobody read anything are the same value and different facts")
+
+    ranked = [{"article": i.get("article", ""), "views": int(i.get("views") or 0),
+               "rank": int(i.get("rank") or 0)}
+              for i in items if _is_topic(i.get("article", ""))]
+    return {"day": day.isoformat(), "project": project,
+            "considered": len(items), "topics": ranked[:depth],
+            "source": f"{SOURCE_KEY}:{url}",
+            "note": ("the day's most-read articles, meta pages removed. A radar with a "
+                     "hand-written topic list can only find what its author already knew, "
+                     "which is the opposite of early discovery")}

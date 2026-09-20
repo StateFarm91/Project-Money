@@ -159,7 +159,7 @@ def momentum(db, signal_key: str) -> dict:
 # Lead and lag (#140)
 
 
-def lead_lag(db, signal_key: str, *, culture_channel: str = "search",
+def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
              demand_channel: str = "etsy") -> dict:
     """Does cultural interest move before Etsy demand, or after it?
 
@@ -167,6 +167,12 @@ def lead_lag(db, signal_key: str, *, culture_channel: str = "search",
     topic's cultural peak arrives after its marketplace peak, the radar is reporting the news
     and entering on it is entering at saturation — which is the failure #140 exists to name,
     and it is invisible without both series.
+
+    The culture channel defaults to `reference` rather than `search`, because that is what
+    the connected feed actually writes: Wikimedia pageviews measure how many people looked a
+    topic up. The default said `search` while this function was unreachable for want of a
+    feed, and would have silently found zero culture readings on the day one arrived — a
+    lead-lag model reporting "not measurable" against a database full of measurements.
     """
     series = _series(db, signal_key)
     culture = [p for p in series if p["channel"] == culture_channel]
@@ -337,3 +343,77 @@ def sweep(db, *, feeds: list | None = None) -> dict:
 def ages_out(first_seen: str, *, today: date | None = None) -> timedelta:
     today = today or date.today()
     return timedelta(days=(today - date.fromisoformat(first_seen)).days)
+
+
+# ---------------------------------------------------------------------------
+# Where a finding goes (#147)
+
+
+# Which department a cultural finding is worth telling, and what it changes there. A finding
+# that reaches nobody is a finding nobody acts on, and the failure is silent: the radar looks
+# busy and the catalogue does not move.
+ROUTES: dict[str, str] = {
+    "market_radar": "a rising topic becomes a micro-market worth scoring",
+    "creative": "a topic with clear rights becomes a concept brief rather than a motif",
+    "seo": "the words a topic is discussed in are the words a listing is searched in",
+    "content": "a rising topic is what an owned-audience post is about this week",
+    "seasonal": "a topic peaking before an occasion changes what that occasion leads with",
+    "improvement": "whether the last topic acted on converted is how the weights move",
+}
+
+# What must be true before a finding is routed anywhere. Trending is not permission and it is
+# not commercial relevance; both are separate decisions made elsewhere, and routing a topic
+# does not make either of them.
+ROUTE_REFUSES: tuple[str, ...] = (
+    "a topic flagged sensitive, whatever its momentum",
+    "a topic whose rights are unresolved, which goes to culture.rights and not to creative",
+    "a topic with no momentum reading, since a name is not a signal",
+)
+
+
+def findings(db, *, limit: int = 20) -> dict:
+    """Cultural findings, and the departments each one is worth telling (#147).
+
+    The weight-updating half of #147 -- post-launch outcomes making the radar better at
+    telling useful signals from noise -- needs launches and outcomes, and this company has
+    neither. That half is named as unmeasured rather than approximated with a placeholder
+    weight that would look like learning.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import CultureObservation
+    from . import classify
+
+    with db.session() as s:
+        keys = [k for (k,) in s.execute(
+            select(CultureObservation.signal_key).distinct()
+            .order_by(desc(CultureObservation.signal_key)).limit(limit * 3))]
+
+    out = []
+    for key in keys[:limit]:
+        moment = momentum(db, key)
+        if not moment.get("measurable"):
+            continue
+        lag = lead_lag(db, key)
+        out.append({
+            "signal": key,
+            "momentum": moment,
+            "lead_lag": lag,
+            "sensitive": classify.sensitive(key),
+            "routes_to": ([] if classify.sensitive(key)
+                          else sorted(ROUTES)),
+        })
+
+    return {
+        "findings": out,
+        "routes": dict(ROUTES),
+        "refuses": list(ROUTE_REFUSES),
+        "weights_learn_from": "post-launch outcomes",
+        "weights_measurable": False,
+        "why_weights_are_unmeasured": (
+            "#147 asks that outcomes update the cultural scoring weights so the system gets "
+            "better at telling useful signals from noise. That needs launches and their "
+            "results. Nothing has launched, so the weights are the ones the build started "
+            "with -- said plainly rather than approximated, because a weight that moved for "
+            "no reason looks exactly like a weight that learned"),
+    }

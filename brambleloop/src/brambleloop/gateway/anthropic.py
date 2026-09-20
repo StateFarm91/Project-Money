@@ -64,12 +64,17 @@ ESTIMATE_PADDING = 1.25
 # deploy, never raised silently past this default.
 DEFAULT_MONTHLY_CEILING_CAD = 25.0
 
-# What one gallery image costs to look at, in input tokens. The provider's own rule of thumb
-# is roughly (width x height) / 750, so Etsy's 570-wide gallery variant -- about 570x760 --
-# is near 580. Rounded up, because this number is used to refuse a call before it is made and
-# an optimistic estimate makes a ceiling into a suggestion. Measured usage is what gets
-# billed and what reaches the ledger; this only has to be no smaller than the truth.
-IMAGE_TOKENS_ESTIMATE = 800
+# What one gallery image costs to look at, in input tokens. This number is used to refuse a
+# call before it is made, so it has to be no *smaller* than the truth -- an optimistic
+# estimate turns a ceiling into a suggestion.
+#
+# It was 800, derived from the provider's (width x height) / 750 rule against Etsy's 570-wide
+# gallery variant. The first production probe measured 1,562 input tokens for a thirty-token
+# prompt and one image, because what `observe.py` stores is `il_fullxfull` -- the full-size
+# original, not the thumbnail the arithmetic assumed. So the estimate was under the truth in
+# exactly the direction the comment above said it must never be, and the comment was written
+# by the same hand that got it wrong. Set from the measurement with room above it.
+IMAGE_TOKENS_ESTIMATE = 2000
 
 # One refusal should not lose a batch of observations. Also the practical limit on how much
 # of one listing's gallery is worth judging in a single question.
