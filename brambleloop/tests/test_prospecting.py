@@ -497,6 +497,88 @@ def test_the_expedition_handler_runs_end_to_end_with_arenas_present():
     assert calls["n"] > 0, "the handler never reached the generator"
 
 
+# ---- #104: commercially informed, and the plateau ----------------------------
+
+
+def test_the_existing_catalogue_aims_at_no_proven_market():
+    """Not a criticism of the ideas: the measured consequence of a generator never told
+    where the demand was."""
+    from brambleloop.creative.audit import catalogue_concepts
+    from brambleloop.creative.standard import commercially_informed
+
+    proven = [{"event": "Christmas", "department": "garments"},
+              {"event": "Halloween", "department": "hats"},
+              {"event": "Thanksgiving (CA)", "department": "blankets"}]
+    report = commercially_informed(catalogue_concepts(), proven)
+    assert report["concepts"] == 11
+    assert report["informed"] == 0 and report["share"] == 0.0
+    assert report["unproven"] == 11
+
+
+def test_a_concept_in_a_proven_department_but_the_wrong_occasion_is_not_credited():
+    """Counted separately, because half-aimed is a different thing from aimed."""
+    from brambleloop.creative.standard import commercially_informed
+
+    proven = [{"event": "Christmas", "department": "hats"}]
+    on_target = _concept("a", pod="hats", form="hat", occasion="christmas")
+    off_season = _concept("b", pod="hats", form="hat", occasion="easter")
+    report = commercially_informed([on_target, off_season], proven)
+    assert report["informed"] == 1
+    assert report["in_a_proven_department"] == 1
+    assert {r["aim"] for r in report["rows"]} == {"proven_arena", "proven_department"}
+
+
+def test_a_thousandth_of_movement_is_not_improvement():
+    """`north_star()` calls any rise "improved", which is how a flat line reads as progress
+    for a year."""
+    from brambleloop.creative.standard import plateau
+
+    history = [{"cohort": c, "novelty_distance": v}
+               for c, v in (("a", 0.34), ("b", 0.341), ("c", 0.342))]
+    report = plateau(history, metric="novelty_distance")
+    assert report["verdict"] == "plateau" and report["is_defect"]
+    assert "top-level business defect" in report["reason"]
+
+
+def test_real_movement_is_not_a_plateau():
+    from brambleloop.creative.standard import plateau
+
+    history = [{"cohort": c, "novelty_distance": v}
+               for c, v in (("a", 0.34), ("b", 0.40), ("c", 0.47))]
+    report = plateau(history, metric="novelty_distance")
+    assert report["verdict"] == "moving" and not report["is_defect"]
+
+
+def test_going_backwards_is_also_a_defect():
+    from brambleloop.creative.standard import plateau
+
+    history = [{"cohort": c, "novelty_distance": v}
+               for c, v in (("a", 0.50), ("b", 0.44), ("c", 0.38))]
+    report = plateau(history, metric="novelty_distance")
+    assert report["verdict"] == "declining" and report["is_defect"]
+
+
+def test_not_measuring_is_never_reported_as_flat():
+    """A company that stopped measuring looks exactly like one that stopped improving, and
+    the remedy for each is the opposite of the remedy for the other."""
+    from brambleloop.creative.standard import plateau
+
+    report = plateau([{"cohort": "a", "novelty_distance": 0.34}], metric="novelty_distance")
+    assert report["verdict"] == "unmeasured" and not report["is_defect"]
+    assert "stopped measuring" in report["reason"]
+
+
+def test_a_metric_the_north_star_does_not_carry_is_refused():
+    from brambleloop.creative.standard import StandardRefused, plateau
+
+    try:
+        plateau([], metric="vibes")
+    except StandardRefused as e:
+        assert "not a north-star metric" in str(e)
+    else:
+        raise AssertionError("an invented metric was tracked")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

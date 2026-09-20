@@ -556,7 +556,7 @@ def api_creative_prospects() -> dict:
     reason the blinded run is: a request that spends the model budget should not be one URL
     away.
     """
-    from ..creative import prospecting
+    from ..creative import prospecting, standard
     from ..creative.audit import catalogue_concepts
     from ..gateway import routing
 
@@ -573,6 +573,8 @@ def api_creative_prospects() -> dict:
         "arenas": [a.to_dict() for a in found],
         "plans": plans,
         "engine_gaps": prospecting.engine_gaps(),
+        "commercially_informed": standard.commercially_informed(
+            catalogue, [{"event": a.event, "department": a.pod} for a in found]),
         "saturated_forms": prospecting.saturated_forms(catalogue),
         "history": prospecting.history(db),
         "estimated_cad_per_field": per_field,

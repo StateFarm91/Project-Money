@@ -313,3 +313,122 @@ def north_star(cohorts: dict[str, dict]) -> dict:
                  f"average of everything ever made moves too slowly to show that anything "
                  f"changed, which is indistinguishable from nothing changing."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #104's two remaining clauses
+#
+# "more desirable, distinctive and **commercially informed** than earlier ones", and "if
+# creative capability plateaus, the Improvement Department treats that as a top-level
+# business defect". Desirability is the blinded comparison and distinctiveness is novelty
+# distance; these two were the parts nothing computed.
+
+# A cohort must move by at least this much on a metric to count as having moved at all.
+# Below it, a difference is noise wearing a direction -- and `north_star()` above will call
+# a 0.001 rise "improved", which is how a plateau is reported as progress for a year.
+MEANINGFUL_MOVE = 0.03
+
+# How many consecutive cohorts may fail to move before it is a defect rather than a quiet
+# patch. Two is a pause; three is the shape of a company that has stopped learning.
+PLATEAU_COHORTS = 3
+
+
+def commercially_informed(concepts: list, proven: list[dict]) -> dict:
+    """What share of a field aims at a market the benchmark was observed selling into.
+
+    This is the difference between a concept that is interesting and one that is aimed. The
+    existing catalogue scores near zero against the live matrix, which is not a criticism of
+    the ideas -- it is the measured consequence of a generator that was never told where the
+    demand was.
+
+    `proven` is the matrix's own proven-and-unserved rows, so this cannot drift into an
+    opinion about which markets are good.
+    """
+    if not concepts:
+        return {"concepts": 0, "informed": 0, "share": 0.0,
+                "note": "no concept exists, so nothing is aimed anywhere yet"}
+
+    wanted = {(row["event"], row["department"]) for row in proven}
+    by_pod = {department for _event, department in wanted}
+
+    aimed, near, rows = 0, 0, []
+    for concept in concepts:
+        pod = getattr(concept, "pod", "")
+        occasion = getattr(concept, "occasion", "")
+        # The occasion vocabulary and the matrix's event names are different registers, so
+        # the pod is the part that has to match and the occasion is scored separately.
+        exact = pod in by_pod and any(
+            occasion and occasion.lower() in event.lower() for event, dept in wanted
+            if dept == pod)
+        in_a_proven_department = pod in by_pod
+        aimed += 1 if exact else 0
+        near += 1 if in_a_proven_department and not exact else 0
+        rows.append({"concept": getattr(concept, "key", ""), "pod": pod,
+                     "occasion": occasion,
+                     "aim": "proven_arena" if exact
+                     else "proven_department" if in_a_proven_department else "unproven"})
+
+    return {
+        "concepts": len(concepts),
+        "informed": aimed,
+        "share": round(aimed / len(concepts), 4),
+        "in_a_proven_department": near,
+        "unproven": len(concepts) - aimed - near,
+        "proven_arenas": len(wanted),
+        "rows": rows[:40],
+        "note": ("Aimed at a market somebody observed a competitor selling into, not at a "
+                 "market this system finds plausible. A concept in a proven department but "
+                 "the wrong occasion is counted separately rather than credited (#104)."),
+    }
+
+
+def plateau(history: list[dict], *, metric: str, cohorts: int = PLATEAU_COHORTS) -> dict:
+    """Has creative capability stopped moving? (#104)
+
+    The requirement says a plateau is a **top-level business defect**, not a disappointing
+    quarter, so the answer has to be checkable rather than a judgement somebody can decline
+    to make. Two rules do the work:
+
+      - a move smaller than `MEANINGFUL_MOVE` is not a move. `north_star()` calls any rise
+        "improved", including 0.001, which is how a flat line is reported as progress for a
+        year;
+      - and a metric with no reading is `unmeasured`, never flat. A company that stopped
+        measuring looks exactly like a company that stopped improving, and the remedy for
+        each is the opposite of the remedy for the other.
+    """
+    if metric not in NORTH_STAR:
+        raise StandardRefused(f"{metric!r} is not a north-star metric: {sorted(NORTH_STAR)}")
+
+    readings = [(h["cohort"], h.get(metric)) for h in history]
+    present = [(name, value) for name, value in readings if value is not None]
+    if len(present) < cohorts:
+        return {
+            "metric": metric, "verdict": "unmeasured", "is_defect": False,
+            "readings": len(present), "needs": cohorts,
+            "reason": (f"{len(present)} cohort(s) carry a reading for {metric!r} and a "
+                       f"plateau needs {cohorts}. A company that stopped measuring looks "
+                       f"exactly like one that stopped improving, and the remedy for each "
+                       f"is the opposite of the remedy for the other"),
+        }
+
+    window = present[-cohorts:]
+    moves = [round(window[i + 1][1] - window[i][1], 6) for i in range(len(window) - 1)]
+    meaningful = [m for m in moves if abs(m) >= MEANINGFUL_MOVE]
+    flat = not meaningful
+    declining = all(m <= 0 for m in moves) and any(abs(m) >= MEANINGFUL_MOVE for m in moves)
+
+    return {
+        "metric": metric,
+        "cohorts": [name for name, _ in window],
+        "values": [value for _, value in window],
+        "moves": moves,
+        "threshold": MEANINGFUL_MOVE,
+        "verdict": "plateau" if flat else "declining" if declining else "moving",
+        "is_defect": flat or declining,
+        "reason": (
+            f"{len(window)} consecutive cohorts moved by less than {MEANINGFUL_MOVE} on "
+            f"{metric!r}. #104 makes that a top-level business defect rather than a "
+            f"disappointing quarter" if flat else
+            f"{metric!r} has moved backwards across {len(window)} cohorts" if declining else
+            f"{metric!r} moved by {max(moves, key=abs)} across {len(window)} cohorts"),
+    }
