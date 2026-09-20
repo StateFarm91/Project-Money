@@ -160,3 +160,82 @@ def plan(db, *, event: str, available: tuple[str, ...] = ()) -> dict:
             f"has already paid for its engineering, its physical test and its gates, and a "
             f"seasonal colourway costs a photograph (#292)"),
     }
+
+
+# ---------------------------------------------------------------------------
+# What is actually available today (#292)
+#
+# `plan()` took `available` from its caller, which meant the answer to "what can we do this
+# season" depended on what the caller believed rather than on what the company can do. That
+# is the same shape as a gate reading a configured variable instead of a recorded success:
+# it produces a confident list that nobody checked.
+#
+# So availability is computed from evidence. `search_positioning` became genuinely available
+# on 2026-09-20, when the benchmark credential made a per-occasion buyer-language map
+# readable; the two image moves are still blocked and say what on.
+
+
+def capabilities(db, *, pod: str = "", benchmark_key: str = "") -> dict:
+    """Which of the five moves the company can actually take, and what the rest wait on.
+
+    Each answer is a reading rather than a setting. A move reported available here is one
+    whose prerequisite has been observed to exist, not one somebody enabled.
+    """
+    import os
+
+    from ..commerce import intent
+
+    pool = candidates(db)
+    certified = len(pool["eligible"])
+
+    language = {"measurable": False}
+    if pod:
+        language = intent.arena_language(db, pod=pod, benchmark_key=benchmark_key)
+
+    state: dict[str, dict] = {
+        # Both image moves wait on the same capability, and it is gated rather than absent:
+        # an image-generation key would open them without any further work here.
+        "colourway": {
+            "available": bool(os.environ.get("BRAMBLELOOP_IMAGE_KEY")),
+            "waiting_on": MOVE_NEEDS["colourway"]},
+        "styled_photography": {
+            "available": bool(os.environ.get("BRAMBLELOOP_IMAGE_KEY")),
+            "waiting_on": MOVE_NEEDS["styled_photography"]},
+        # A bundle of one product is a product. Two certified products is the real floor and
+        # it is a count, not a judgement.
+        "bundle": {"available": certified >= 2,
+                   "waiting_on": MOVE_NEEDS["bundle"],
+                   "certified_products": certified},
+        "add_on": {"available": certified >= 2,
+                   "waiting_on": MOVE_NEEDS["add_on"],
+                   "certified_products": certified},
+        "search_positioning": {
+            "available": bool(language.get("measurable")),
+            "waiting_on": MOVE_NEEDS["search_positioning"],
+            "pod": pod or None,
+            "note": ("the buyer-language map became readable on 2026-09-20, when the "
+                     "benchmark credential made a department's observed titles countable"),
+        },
+    }
+    return {
+        "moves": state,
+        "available": tuple(sorted(k for k, v in state.items() if v["available"])),
+        "blocked": {k: v["waiting_on"] for k, v in state.items() if not v["available"]},
+        "note": ("Read rather than set. A move is available because its prerequisite was "
+                 "observed to exist, which is a different claim from somebody having "
+                 "enabled it (#292)."),
+    }
+
+
+def review(db, *, event: str, pod: str = "", benchmark_key: str = "") -> dict:
+    """The periodic inspection #292 asks for, with availability computed rather than passed.
+
+    "Periodically inspect proven evergreen products" is a cadence, not a function somebody
+    remembers to call, and a review that took its own capability list as an argument was
+    only ever as honest as its caller.
+    """
+    state = capabilities(db, pod=pod, benchmark_key=benchmark_key)
+    report = plan(db, event=event, available=state["available"])
+    report["capabilities"] = state
+    report["inspected_pod"] = pod or None
+    return report

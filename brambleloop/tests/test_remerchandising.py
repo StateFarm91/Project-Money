@@ -180,5 +180,71 @@ def _run() -> int:
     return failures
 
 
+# ---- availability is read, not asserted by the caller (#292) -----------------
+
+
+def _lang_db(n=8):
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/cap.sqlite")
+    db.create_all()
+    with db.session() as s:
+        for i in range(n):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=str(i),
+                                   title="Cozy Rustic Crochet Christmas Stocking, Easy",
+                                   pod="stockings"))
+    return db
+
+
+def test_search_positioning_is_available_because_the_language_map_is_readable():
+    """It became possible on 2026-09-20 -- the credential made a department's observed
+    titles countable -- and `plan()` previously took the answer from its caller."""
+    from brambleloop.seasonal import remerchandising
+
+    state = remerchandising.capabilities(_lang_db(), pod="stockings")
+    assert "search_positioning" in state["available"]
+    assert state["moves"]["search_positioning"]["available"] is True
+
+
+def test_a_pod_with_no_readable_language_does_not_claim_the_move():
+    from brambleloop.seasonal import remerchandising
+
+    state = remerchandising.capabilities(_lang_db(), pod="education")
+    assert "search_positioning" not in state["available"]
+    assert "buyer-language map" in state["blocked"]["search_positioning"]
+
+
+def test_the_image_moves_stay_blocked_and_say_what_on():
+    """Gated rather than absent: a key would open both without further work here."""
+    from brambleloop.seasonal import remerchandising
+
+    state = remerchandising.capabilities(_lang_db(), pod="stockings")
+    assert "colourway" in state["blocked"] and "styled_photography" in state["blocked"]
+    assert "image-generation" in state["blocked"]["styled_photography"]
+
+
+def test_a_bundle_of_one_product_is_a_product():
+    """Two certified products is the floor, and it is a count rather than a judgement."""
+    from brambleloop.seasonal import remerchandising
+
+    state = remerchandising.capabilities(_lang_db(), pod="stockings")
+    assert state["moves"]["bundle"]["certified_products"] == 0
+    assert "bundle" not in state["available"]
+
+
+def test_a_review_computes_its_own_capabilities():
+    """A review that took its capability list as an argument was only as honest as its
+    caller -- the same shape as a gate reading a variable instead of a recorded success."""
+    from brambleloop.seasonal import remerchandising
+
+    report = remerchandising.review(_lang_db(), event="Christmas", pod="stockings")
+    assert report["capabilities"]["available"] == ("search_positioning",)
+    assert report["catalogue_growth"] == 0
+
+
 if __name__ == "__main__":
     raise SystemExit(1 if _run() else 0)

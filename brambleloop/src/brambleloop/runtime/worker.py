@@ -249,6 +249,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # run against the CA$25 month -- affordable enough to be a habit, which is the point: a
     # catalogue widens by repeatedly trying somewhere it does not sell, not by one campaign.
     ("arena_expedition", "creative_director", "creative.expedition", 7 * 24 * 60 * 60),
+    # Weekly, and free. #292 asks for evergreen products to be *periodically* inspected for
+    # seasonal re-merchandising, and a review that never runs is the same as one that does
+    # not exist. It reads certified products and an already-observed catalogue, changes no
+    # listing and cannot increment the catalogue by construction.
+    ("remerchandising_review", "listing", "seasonal.remerchandising", 7 * 24 * 60 * 60),
 ]
 
 

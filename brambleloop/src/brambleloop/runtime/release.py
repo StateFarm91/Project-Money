@@ -1572,3 +1572,39 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
             "answered_the_arena": result["answered_the_arena"],
             **({} if attempted else
                {"reason": "every field came back malformed; nothing was proposed or spent"})}
+
+
+@handlers.register("seasonal.remerchandising")
+def handle_remerchandising_review(ctx: JobContext) -> dict:
+    """The periodic inspection #292 asks for, against the nearest priority occasion.
+
+    Weekly. "Periodically inspect proven evergreen products" is a cadence, not a function
+    somebody remembers to call, and a re-merchandising review that never runs is the same as
+    one that does not exist.
+
+    GREEN: it reads certified products, recorded sales and an already-observed benchmark
+    catalogue. It changes no listing, publishes nothing and spends nothing -- and it cannot
+    increment the catalogue by construction, because a re-merchandising move that changed
+    construction, form, rows, stitch counts, gauge or the release hash is refused as a new
+    product wearing a re-merchandising label.
+    """
+    from ..creative import prospecting
+    from ..seasonal import remerchandising
+
+    try:
+        found = prospecting.arenas(ctx.db)
+    except prospecting.NoArenasContradictsEvidence:
+        found = []
+    # The occasion to inspect against is the soonest proven one, because a review aimed at
+    # an occasion nobody is shopping for yet is a report nobody can act on.
+    arena = min(found, key=lambda a: a.days_away) if found else None
+    event = arena.event if arena else "Christmas"
+    pod = arena.pod if arena else ""
+
+    report = remerchandising.review(ctx.db, event=event, pod=pod)
+    ctx.audit("seasonal.remerchandising", detail=report)
+    return {"event": event, "pod": pod or None,
+            "candidates": len(report["candidates"]),
+            "ready_moves": report["ready_moves"],
+            "available": list(report["capabilities"]["available"]),
+            "catalogue_growth": report["catalogue_growth"]}
