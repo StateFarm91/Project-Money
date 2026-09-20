@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 # priced, how much it shows, what it promises, how it is sized.
 FACETS: tuple[str, ...] = (
     "department", "price_band", "gallery_depth", "deliverable_stated",
-    "sizing", "bundle", "seasonal",
+    "sizing", "bundle", "seasonal", "has_video",
 )
 
 # Price bands in CAD. Coarse on purpose -- the question a band answers is "what does a buyer
@@ -120,6 +120,14 @@ def describe(row) -> Candidate:
                    else str(sizing.get("kind") or sizing.get("range") or "stated")),
         "bundle": "bundle" if row.pod == "collections" else "single",
         "seasonal": row.seasonal or "evergreen",
+        # A real difference in what a customer receives, and therefore a real difference in
+        # what a teardown can study: whether the listing ships a video alongside the PDF.
+        # Added 2026-09-20 after the first full run decided eleven of thirteen picks on a
+        # tie-break rather than on information -- once a department was claimed, every other
+        # listing in it was worth exactly the same to the objective, which is the objective
+        # admitting it had run out of things to distinguish.
+        "has_video": ("video" if detail.get("has_video") else
+                      "no_video" if "has_video" in detail else "unknown"),
     }
     return Candidate(
         listing_ref=row.listing_ref, title=row.title or "", pod=row.pod or "unclassified",
@@ -153,6 +161,28 @@ def _new_values(candidate: Candidate, covered: dict) -> dict:
             if value != "unknown" and value not in covered.get(facet, set())}
 
 
+def richness(candidate: Candidate) -> int:
+    """How much a teardown of this listing could observe, for breaking a tie.
+
+    Coverage decides which listing to buy; this decides *which of the equally covering ones*.
+    Without it the tie-break was listing reference, which is deterministic and meaningless:
+    the first full run settled eleven of thirteen picks that way, so within a department the
+    choice was arbitrary and the reason given was "it sorted first".
+
+    A deeper gallery, a video, stated deliverable terms and stated sizing are each more of
+    the customer experience visible on the page -- which is the thing #317 buys these
+    products to study. Counted rather than weighted: the differences are not commensurable
+    and pretending they are would be a second arbitrary choice wearing arithmetic.
+    """
+    facets = candidate.facets
+    score = 0
+    score += {"rich": 2, "moderate": 1}.get(facets.get("gallery_depth"), 0)
+    score += 1 if facets.get("has_video") == "video" else 0
+    score += 1 if facets.get("deliverable_stated") == "stated" else 0
+    score += 1 if facets.get("sizing") not in (None, "unknown") else 0
+    return score
+
+
 def _instead_of(best: Candidate, new: dict, runner_up: Candidate | None,
                 covered: dict, redundant: int, pool_size: int) -> dict:
     """The comparison behind one pick, in the words a reviewer would ask for.
@@ -163,7 +193,7 @@ def _instead_of(best: Candidate, new: dict, runner_up: Candidate | None,
     "are we buying thirteen similar things", and it is a count rather than an assurance.
     """
     if runner_up is None:
-        return {"runner_up": None,
+        return {"runner_up": None, "richness": richness(best),
                 "why": (f"nothing else remained. {redundant} of {pool_size} candidates "
                         f"would have added no facet nothing already covers"),
                 "redundant_candidates": redundant, "pool_considered": pool_size}
@@ -174,14 +204,20 @@ def _instead_of(best: Candidate, new: dict, runner_up: Candidate | None,
     return {
         "runner_up": {"listing_ref": runner_up.listing_ref, "title": runner_up.title,
                       "pod": runner_up.pod, "price_cad": round(runner_up.price_cad, 2),
-                      "would_have_added": alternative},
+                      "would_have_added": alternative,
+                      "richness": richness(runner_up)},
+        "richness": richness(best),
         "why": (
             f"both would have answered {', '.join(same) or 'nothing in common'}; this one "
             f"also answers {', '.join(extra)}"
             if extra else
-            f"the two were level on coverage at {len(new)} new facets, and this one was "
-            f"taken on a stable ordering (department, then listing reference) so the same "
-            f"catalogue produces the same list twice"),
+            f"level on coverage at {len(new)} new facets, and this listing shows more of the "
+            f"customer experience on the page: {richness(best)} against "
+            f"{richness(runner_up)} on gallery depth, video, stated terms and stated sizing"
+            if richness(best) != richness(runner_up) else
+            f"level on coverage at {len(new)} new facets and level on observable depth, so "
+            f"a stable ordering decided it and the same catalogue produces the same list "
+            f"twice"),
         "redundant_candidates": redundant,
         "pool_considered": pool_size,
         "redundancy_note": (
@@ -204,6 +240,8 @@ def _reason(new: dict, candidate: Candidate) -> str:
             "sizing": f"sizing presented as {readable}",
             "bundle": f"a {readable} rather than what is already selected",
             "seasonal": f"a {readable} product's merchandising",
+            "has_video": (f"a listing that ships {readable.replace('_', ' ')}, which changes "
+                          f"what the customer receives"),
         }.get(facet, f"{facet}: {readable}"))
     return "; ".join(parts) or "nothing new"
 
@@ -229,7 +267,11 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
 
     while remaining and len(chosen) < target:
         scored = [(len(_new_values(c, covered)), c) for c in remaining]
-        scored.sort(key=lambda pair: (-pair[0], pair[1].pod, pair[1].listing_ref))
+        # Coverage first, then how much a teardown could actually observe, then a stable
+        # reference so the same catalogue produces the same list twice. The middle term is
+        # the one that was missing.
+        scored.sort(key=lambda pair: (-pair[0], -richness(pair[1]), pair[1].pod,
+                                      pair[1].listing_ref))
         gain, best = scored[0]
         if gain < MIN_NEW_FACETS:
             break

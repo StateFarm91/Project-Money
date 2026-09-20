@@ -204,6 +204,68 @@ def test_the_last_pick_says_nothing_else_remained_rather_than_naming_a_ghost():
     assert "nothing else remained" in out["selected"][0]["chosen_over"]["why"]
 
 
+def test_a_tie_goes_to_the_listing_that_shows_more_of_the_customer_experience():
+    """Found by reading the first full run against the real catalogue: eleven of thirteen
+    picks were settled by a stable sort on listing reference, which is deterministic and
+    meaningless. Once a department was claimed, every other listing in it was worth exactly
+    the same to the objective -- the objective admitting it had run out of things to
+    distinguish.
+
+    The tie it breaks is the late one, and that is the point: early on, a richer listing
+    usually *adds* a facet and wins on coverage. It is once the catalogue's variety is
+    already covered that coverage stops discriminating and everything after it was arbitrary.
+    """
+    db = _db()
+    # Cover every facet value the two hats could differ on, so the hats tie on coverage.
+    _listing(db, "bags", pod="bags", price=18.0, media=11,
+             detail={"has_video": True, "deliverable": {"format": "PDF"}})
+    _listing(db, "blankets", pod="blankets", price=18.0, media=2,
+             detail={"has_video": False, "deliverable": {}})
+    _listing(db, "hat_thin", pod="hats", price=18.0, media=2,
+             detail={"has_video": False, "deliverable": {}})
+    _listing(db, "hat_rich", pod="hats", price=18.0, media=11,
+             detail={"has_video": True, "deliverable": {"format": "PDF"}})
+
+    out = P.select(db, KEY, target=3)
+    hat = next(p for p in out["selected"] if p["pod"] == "hats")
+    assert hat["listing_ref"] == "hat_rich", [p["listing_ref"] for p in out["selected"]]
+    assert "shows more of the customer experience" in hat["chosen_over"]["why"]
+    assert hat["chosen_over"]["richness"] > hat["chosen_over"]["runner_up"]["richness"]
+
+
+def test_richness_counts_rather_than_weights_because_the_parts_are_not_commensurable():
+    """Pretending a video and two extra photographs convert into each other would be a
+    second arbitrary choice wearing arithmetic."""
+    from brambleloop.intel.purchase_selection import Candidate, richness
+
+    bare = Candidate("1", "t", "hats", 10.0, 0, "", "", facets={
+        "gallery_depth": "thin", "has_video": "no_video",
+        "deliverable_stated": "unstated", "sizing": "unknown"})
+    full = Candidate("2", "t", "hats", 10.0, 0, "", "", facets={
+        "gallery_depth": "rich", "has_video": "video",
+        "deliverable_stated": "stated", "sizing": "stated"})
+    assert richness(bare) == 0
+    assert richness(full) == 5
+
+
+def test_video_is_a_facet_because_it_changes_what_the_customer_receives():
+    db = _db()
+    _listing(db, "novideo", pod="hats", price=18.0, media=3,
+             detail={"has_video": False})
+    _listing(db, "video", pod="hats", price=18.0, media=3,
+             detail={"has_video": True})
+    out = P.select(db, KEY, target=2)
+    assert out["selected_count"] == 2, "the second listing must add the video facet"
+    assert "has_video" in out["selected"][1]["new_facets"]
+
+
+def test_an_unread_video_state_is_unknown_rather_than_no_video():
+    db = _db()
+    _listing(db, "unread", pod="hats")
+    unread = P.describe(next(r for r in _rows(db) if r.listing_ref == "unread"))
+    assert unread.facets["has_video"] == "unknown"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
