@@ -1338,6 +1338,27 @@ def api_weekly_evolution() -> dict:
     return weekly.state()
 
 
+@app.get("/api/listing-integrity")
+def api_listing_integrity() -> dict:
+    """Measurements traced, defects named, and the certificate that invalidates itself (#60, #68, #70).
+
+    Every displayed number traces to the geometry object, and the check that matters is the
+    contradiction: two numbers disagreeing about the same axis of the same component is
+    invisible to any check that validates measurements one at a time, and one at a time is
+    how they are usually checked.
+
+    Visual defects get the treatment compiler defects already had -- a reproduction, a
+    fixture, and a recurrence read as a bug in the fixture rather than a second bug in the
+    renderer. And the listing certificate is invalidated by its inputs changing rather than
+    by somebody revoking it, because a revocation step is a step somebody forgets and the
+    forgetting is silent.
+    """
+    from ..publish import defects, dimensions, listing_set
+
+    return {"dimensions": dimensions.state(), "defects": defects.state(),
+            "listing_set": listing_set.state()}
+
+
 @app.get("/api/asset-eligibility")
 def api_asset_eligibility() -> dict:
     """What an asset is made of, what it is for, and the four gates between (#57, #58, #65, #69).

@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 195 | satisfied, with a named test or artefact |
+| covered | 198 | satisfied, with a named test or artefact |
 | partial | 60 | something real exists and is short of the requirement |
-| missing | 9 | nobody has built it |
+| missing | 6 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **69 requirements are executable** (partial +
+as one nobody has written. **66 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 195 of 320 covered is **60.9% complete**, read from the registry rather than
+typed. 198 of 320 covered is **61.9% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `09eef91`: **2,279 tests passing, 0 failing** across
-130 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `e1a1e55`: **2,308 tests passing, 0 failing** across
+131 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -567,6 +567,40 @@ reads the asset-truth verdict *independently* of it. There is no ordering in whi
 disclaimer makes a failing asset exportable. It is required only where the render/photograph
 distinction is material, because labelling a materials list trains buyers to read nothing and
 costs the label its meaning on the frames where it matters. Decisions B-445..B-448.
+
+**#60/#68/#70 — traced numbers, named defects, and a certificate that invalidates itself.**
+`publish/dimensions.py` audits every number on the way *out*. `cir.geometry` was already
+canonical and already refused what it could not measure, and none of that says anything about
+what reached the card — every defect #60 names happens after the measurement is right. The
+check that matters is the third one: **two displayed numbers disagreeing about the same axis
+of the same component**, which is invisible to any check that validates measurements one at a
+time, and one at a time is how measurements are usually checked. The requirement's own
+unexplained 180 cm marker is caught as `untraceable` — not wrong so much as unreadable, and
+unreadable is worse because nobody can disagree with it.
+
+`publish/defects.py` gives visual defects the treatment compiler defects already had. They
+never got it for a nameable reason: a compiler defect is a wrong number and a layout defect is
+a look, so it feels like taste, and taste does not get a fixture — but `layout_qa` measures
+rendered pixels, which makes these reproducible, and anything reproducible can be fixtured. A
+defect with no reproduction is refused; it is a memory, and memories prevent nothing. And a
+**recurrence after a fixture is a bug in the fixture**, not a second bug in the renderer,
+which is what stops a second broken fixture being added instead of the first being widened.
+"Improve monotonically" is implemented as the narrow claim it can support: not that defect
+counts fall — production finds what production finds — but that the set of classes with a
+passing fixture never shrinks.
+
+`publish/listing_set.py` certifies the listing, which is a separate object from the release
+certificate because the two go stale for different reasons: a size card can be quoting
+geometry that has since changed while the pattern's own certificate stays perfectly valid. The
+load-bearing word is **invalidates** — a revocation step is a step somebody forgets, and the
+forgetting is silent, so validity is recomputed from the current inputs rather than read from
+a flag.
+
+**And two more requirements stopped advertising work nobody can start.** #61 leads with
+independent visual review and #64's trigger is a photograph of an object nobody has made.
+Parked on `browser_vision` and a new `physical_proof` gate — which opens on the first
+PhysicalTest row with a completion date, counted rather than read from a flag saying testing
+is set up. Ready fell from 29 to 19. Decisions B-449..B-452.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3698,8 +3732,12 @@ timings, written there by the system rather than by hand.
   lands with recurrence that cannot be declared (green at 2,279). Then #57/#58/#65/#69: asset
   purpose as a second axis orthogonal to medium, one commercial job per frame checked for
   collision rather than similarity, four gates where not_run is not passed, and an honesty
-  label that is never a licence. Registry 195 of 320 covered, 69 executable. Decisions
-  B-404..B-448.
+  label that is never a licence (green at 2,308). Then #60/#68/#70: measurements traced to
+  the geometry object with the two-numbers-disagreeing check, visual defects given the
+  fixtures compiler defects already had, and a listing certificate invalidated by its inputs
+  rather than by being revoked. #61 and #64 parked on browser_vision and a new physical_proof
+  gate; ready fell from 29 to 19. Registry 198 of 320 covered, 66 executable. Decisions
+  B-404..B-452.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

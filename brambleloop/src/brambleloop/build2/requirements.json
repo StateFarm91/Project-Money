@@ -550,20 +550,21 @@
  {
   "body": "Every displayed measurement must trace to one canonical measurement object. Detect contradictory or contextless dimensions such as a finished-size card showing 90×122 cm alongside an unexplained 180 cm marker. Labels must identify width, length, circumference, component, blocked state and size variant where relevant.",
   "id": 60,
-  "note": "geometry.py is the canonical measurement object and refuses what it cannot measure; no cross-frame dimensional consistency auditor",
+  "note": "publish/dimensions.py audits every number on the way out, which is where this requirement's defects live: cir.geometry is already canonical and already refuses what it cannot measure, and geometry being correct says nothing about what reached the card. Three checks. A displayed value with no canonical source is refused -- it came from somewhere nobody can check and is indistinguishable from a correct one. A value with no axis or component is contextless, which is the requirement's own unexplained 180 cm marker: not necessarily wrong, and unreadable, which is worse because nobody can disagree with it. And two displayed numbers giving different values for the same axis, component, blocked state and variant is the contradiction the requirement names -- invisible to any check that validates measurements one at a time, and one at a time is how they are usually checked. Blocked state is required rather than optional: crochet changes size when blocked by more than any tolerance worth stating, so a finished-size claim that does not say which state it describes is ambiguous rather than approximate. Size variant is required only where the product has variants, because demanding the field on a single-size product trains everybody to write n/a and stop reading it.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Dimensional Consistency Auditor",
   "version": "v1.3.3"
  },
  {
   "body": "The system must test whether an image communicates what its caption/title claims. A finished-result frame cannot be only abstract horizontal rows. A chart preview must look like a chart preview. A size card must communicate scale clearly. Use independent visual review plus deterministic metadata assertions; do not rely on the generator grading itself.",
   "id": 61,
-  "note": "visual semantic QA -- does the image communicate its caption's claim",
+  "note": "the deterministic half of this requirement is publish/layout_qa.py (#59), which measures rendered pixels -- flat fabric with no internal contrast, text bands below legible height, ink crossing reserved regions -- and publish/eligibility.py (#57/#65), which refuses a frame whose purpose cannot do its job, so a chart cannot be the finished-result frame. What remains is the clause the requirement leads with: independent visual review, asking whether an image communicates what its caption claims, which needs a vision model looking at the picture. Parked on browser_vision rather than left ready, because a requirement whose only remaining work needs a parked capability belongs with the parked. The requirement's last clause -- do not rely on the generator grading itself -- is already structural: layout_qa reads the rendered image rather than the plan that produced it.",
   "section": "Visual asset production audit",
-  "status": "missing",
+  "status": "partial",
   "title": "Visual Semantic QA",
-  "version": "v1.3.3"
+  "version": "v1.3.3",
+  "parked_on": "browser_vision"
  },
  {
   "body": "The hero's job is desire and instant comprehension, not documentation. It should communicate the expected finished project at search-grid/mobile scale while remaining truthful and policy-compliant. Technical charts, stitch maps and size cards belong later in the listing sequence unless market evidence proves otherwise.",
@@ -586,11 +587,12 @@
  {
   "body": "For products initially marketed with permitted non-physical representations, create an automatic upgrade task when tester/customer physical photography becomes available. Replace or supplement weaker conceptual assets with genuine finished-project proof where rights permit, then measure CTR/conversion impact.",
   "id": 64,
-  "note": "physical proof upgrade path",
+  "note": "the substitution half exists: publish/eligibility.py makes PHYSICAL_PROOF a purpose only a photograph can serve, so an upgrade is a purpose change with a gate behind it rather than a file swap, and publish/listing_set.py invalidates the certificate when the frame set changes. What remains is the trigger, and the trigger is a photograph of an object nobody has made. Parked on the new physical_proof gate, which opens on the first PhysicalTest row with a completion date -- counted rather than read from a flag saying testing is set up, because the intake being built is not the same as a finished object existing, and the second is what a photograph needs.",
   "section": "Visual asset production audit",
-  "status": "missing",
+  "status": "partial",
   "title": "Physical Proof Upgrade Path",
-  "version": "v1.3.3"
+  "version": "v1.3.3",
+  "parked_on": "physical_proof"
  },
  {
   "body": "Every frame has exactly one primary commercial job: DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PATTERN_PREVIEW, PROOF or CROSS_SELL. Frames without a buyer-relevant job are removed. Prevent five technically different images from communicating essentially the same thing.",
@@ -622,9 +624,9 @@
  {
   "body": "Track clipping, confusing dimensions, misleading visualization, weak hero, unreadable chart and redundant frames as named defect classes. Every production-discovered visual defect gets a regression fixture, just like compiler defects. Asset-system quality should improve monotonically rather than rediscovering the same layout failures.",
   "id": 68,
-  "note": "B-084/085/086 became regression fixtures; no named visual defect classes",
+  "note": "publish/defects.py names the six classes the requirement lists and maps each to the checker that finds it, so a class with no detector is visible rather than implied. gates/regression.py already did this for the compiler and visual defects never got the same treatment, for a reason worth naming: a compiler defect is a wrong number and a layout defect is a look, so it feels like taste and taste does not get a fixture -- but layout_qa measures rendered pixels, which makes these reproducible, and anything reproducible can be fixtured. A defect with no artefact that reproduces it is refused, because a defect nobody can reproduce is a memory and memories prevent nothing. The distinction that carries the requirement: a recurrence after a fixture exists is a bug in the fixture rather than a second bug in the renderer -- it is testing something adjacent to what actually broke -- and reporting both as the same thing is how a second broken fixture gets added instead of the first one widened. monotonic() makes 'improve monotonically' checkable as the narrow claim it can support: not that defect counts fall, since production finds what production finds, but that the set of classes with a passing fixture never shrinks.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Creative Defect Feedback Loop",
   "version": "v1.3.3"
  },
@@ -640,9 +642,9 @@
  {
   "body": "Create a listing-set certificate tied to product/version that records the exact approved asset hashes, frame order, measurement sources, provenance, disclosures, QA results and policy version. Any product revision that changes geometry/claims invalidates affected listing assets until re-certified. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.4 - Creative Parity + Model Hard Gate Release-blocking standard: Brambleloop will not accept listing presentation below strong category-matched Etsy benchmarks, and the approved fictional Brambleloop model is mandatory where human modeling is commercially appropriate.",
   "id": 70,
-  "note": "listing set release certificate",
+  "note": "publish/listing_set.py certifies the listing, which is a different object from gates/certificate.py's release certificate and goes stale for a different reason: a size card can be quoting geometry that has since changed while the pattern's own certificate stays perfectly valid. It records the exact asset hashes, frame order, measurement sources, disclosures, gate outcomes and both policy versions. The load-bearing word in the requirement is invalidates: a revocation step is a step somebody forgets and the forgetting is silent, so the certificate stores a fingerprint of the geometry and claims it was issued against and still_valid() recomputes rather than reading a flag -- the same mechanism ops.artefacts uses for derived files and improve.upgrades for promotion evidence, all three asking whether a record still describes the thing it was made from. A geometry change affects the frames quoting measurements; a claims or policy change affects the whole set, because it is not confined to the frames that show numbers. Certifying a set with a gate that never ran is refused, reusing publish.eligibility's rule rather than restating it.",
   "section": "Visual asset production audit",
-  "status": "missing",
+  "status": "covered",
   "title": "Listing Set Release Certificate",
   "version": "v1.3.3"
  },

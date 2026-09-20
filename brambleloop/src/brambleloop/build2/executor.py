@@ -220,6 +220,23 @@ def _etsy_usable(db, env) -> bool:
     return usable(db)
 
 
+def _physical_proof_available(db, env) -> bool:
+    """Whether any completed physical test exists to photograph a finished object from.
+
+    #64's upgrade path triggers on tester or customer photography becoming available, and
+    nobody has crocheted a Brambleloop sample. Counted from completed tests rather than from
+    a flag saying testing is set up: the intake being built is not the same as a finished
+    object existing, and the second is what a photograph needs.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PhysicalTest
+
+    with db.session() as s:
+        rows = list(s.scalars(select(PhysicalTest).limit(50)))
+    return any(row.completed_at is not None for row in rows)
+
+
 def _culture_feed_connected(db, env) -> bool:
     """Whether any cultural signal has actually been observed from a source.
 
@@ -311,7 +328,7 @@ GATES: tuple[Gate, ...] = (
          # left are judgements about a photograph. A requirement whose only remaining work
          # needs a parked capability belongs with the parked, not in a queue advertising
          # work nobody can start.
-         (1, 15, 37, 39, 67, 71, 76, 86, 116, 126, 189, 218, 221, 222, 236, 277, 278,
+         (1, 15, 37, 39, 61, 67, 71, 76, 86, 116, 126, 189, 218, 221, 222, 236, 277, 278,
           281, 303, 304, 315, 320),
          "a browser worker endpoint is configured"),
     Gate("image_generation", "an image-generation capability for the canonical model pack",
@@ -361,6 +378,15 @@ GATES: tuple[Gate, ...] = (
     # number the executor exists to keep honest. No existing gate is right for it either;
     # `benchmark_observation` is about competitor listings and a search-interest feed is not
     # that, and a gate that is nearly right opens on the wrong day.
+    # Added 2026-09-20 alongside culture_feed, and for the same reason: #64's only remaining
+    # work is the trigger, and the trigger is a photograph of an object nobody has made.
+    Gate("physical_proof",
+         "a completed physical test, which needs somebody to crochet a Brambleloop sample "
+         "and photograph it",
+         _physical_proof_available,
+         (64,),
+         "at least one PhysicalTest row has a completion date -- the intake being built is "
+         "not the same as a finished object existing"),
     Gate("culture_feed",
          "a connected source of cultural signal -- search interest, social or trend data -- "
          "which this company has never had",
