@@ -1226,6 +1226,28 @@ def api_seasonal_cycle() -> dict:
     return cycle.run(db, gateway=gateway)
 
 
+@app.get("/api/preproduction")
+def api_preproduction() -> dict:
+    """What a concept post must say, and what it may never imply (#4).
+
+    Nothing is published: no social credential has been granted. The refusals run anyway, so
+    they are tested before the day they matter.
+    """
+    from ..commerce import preproduction
+
+    return {
+        "must_say_it_is_a_concept": list(preproduction.CONCEPT_MARKERS),
+        "refused_because_they_imply_a_purchase": [
+            {"pattern": pattern, "why": why}
+            for pattern, why in preproduction.IMPLIES_AVAILABILITY],
+        "never_fabricated": list(preproduction.NEVER_FABRICATED),
+        "publishing": {"state": "gated", "gated_on": "social_credentials"},
+        "note": ("A picture of a thing that does not exist, posted where people buy things, "
+                 "is a pre-order somebody will try to place. No code path here can author an "
+                 "engagement number."),
+    }
+
+
 @app.get("/api/markets")
 def api_markets() -> dict:
     """The cross-border lens: language, holidays, currency, and what does not differ (#268).

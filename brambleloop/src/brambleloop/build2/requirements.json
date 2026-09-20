@@ -31,11 +31,12 @@
  {
   "body": "Where platform rules permit, test truthful concepts/aesthetics on Pinterest, social and owned channels before expensive engineering. Clearly identify concepts and do not imply an unavailable item is a finished purchasable product. Never use fake Etsy listings, fake purchases or fabricated engagement.",
   "id": 4,
-  "note": "pre-production demand validation on owned channels",
+  "note": "commerce/preproduction.py prepares a concept post and refuses the ways it can go wrong, because the value and the hazard are the same act: a picture of a thing that does not exist, posted where people buy things, is a pre-order somebody will try to place. A post must say it is a concept in the words a scroller reads rather than in a hashtag at the end, and it is checked as meaning rather than as one blessed sentence, since a rule satisfied by an exact string is a rule somebody routes around by writing a different one. Every phrase that promises a purchase is refused -- shop now, get yours, link in bio, pre-order, available now -- and so is a price, because a number with a currency in front of it is an offer and is the most quietly damaging of them. A concept shown with somebody else's photograph is refused at this door as at every other. The prohibition the owner's directive states outright is structural rather than promised: there is no code path in this module that can author an engagement number, interest comes from a named platform or it is reported unmeasured, and a test asserts the absence by reading the source, because 'we would never' is not a control and the whole category does this. The module's own generated copy passes its own gate, which matters -- a module whose output its gate would refuse is one whose gate gets quietly loosened. Remaining and parked: posting needs a social or Pinterest credential nobody has granted, so nothing is published; the refusals run anyway, which means they are tested before the day they matter. /api/preproduction.",
   "section": "Core commercial upgrades",
-  "status": "missing",
+  "status": "partial",
   "title": "Pre-Production Demand Validation",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "browser_vision"
  },
  {
   "body": "Operate two production queues after core QA stabilizes. FAST LANE: lower-complexity Class A/B products such as ornaments, coasters, mug rugs, selected hats, simple decor and suitable simple amigurumi for rapid learning/search coverage. FLAGSHIP LANE: premium blankets, major collections, selected garments and sophisticated seasonal products for authority, content depth and AOV. Both retain all applicable quality gates.",
