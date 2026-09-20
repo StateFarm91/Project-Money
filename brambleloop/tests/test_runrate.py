@@ -212,6 +212,50 @@ def test_both_of_the_ratios_31_names_are_reported_even_when_one_side_is_zero():
     assert len(discovered.actions) > 1, discovered.actions
 
 
+def test_agent_minutes_are_reported_as_well_as_dollars():
+    """#31 asks for agent/API *minutes* and dollar cost. Minutes says whether a thing is slow
+    as well as expensive, and those are not the same complaint.
+
+    The gateway already measured the latency for every response; it was simply not kept, so
+    the minutes half of the requirement had no query behind it.
+    """
+    from brambleloop.core.models import AuditLog, CostEntry
+    from brambleloop.queue.durable import JobQueue
+
+    db = _db()
+    job = JobQueue(db).enqueue("creative_director", "creative.tournament", {})
+    with db.session() as s:
+        s.add(CostEntry(agent="creative_director", job_id=job.id, kind="llm",
+                        amount_cad=0.27, detail={"latency_ms": 42000}))
+        s.add(AuditLog(actor="creative_director", action="creative.tournament",
+                       job_id=job.id, detail={"proposed": 80}))
+
+    row = U.unit_costs(db)["artefacts"]["discovered_concept"]
+    assert row["produced"] == 80, row
+    assert row["runs"] == 1
+    assert row["model_minutes"] == 0.7, row
+    assert row["minutes_each"] == round(0.7 / 80, 3)
+    assert row["cost_each_cad"] == round(0.27 / 80, 4)
+
+
+def test_a_cost_with_no_job_stays_unattributed_rather_than_spread():
+    """Hosting is an operating cost and is not caused by any one artefact.
+
+    Spreading it across artefacts to make the attribution look complete would make every
+    unit cost wrong in the same direction, which is worse than a number that says it does
+    not know.
+    """
+    from brambleloop.core.models import CostEntry
+
+    db = _db()
+    with db.session() as s:
+        s.add(CostEntry(agent="orchestrator", kind="hosting", amount_cad=7.0))
+    out = U.unit_costs(db)
+    assert out["operating_cost_cad"] == 7.0
+    assert out["attributed_cost_cad"] == 0.0
+    assert out["unattributed_cost_cad"] == 7.0
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

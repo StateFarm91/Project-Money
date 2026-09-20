@@ -212,13 +212,15 @@ class ModelGateway:
                     if attempt >= max_attempts_per_provider:
                         break
                     continue
+                elapsed_ms = (time.time() - started) * 1000
                 cost = self._record(prompt, provider, agent, response.input_tokens,
-                                    response.output_tokens, attempt, True, "")
+                                    response.output_tokens, attempt, True, "",
+                                    latency_ms=elapsed_ms)
                 data["_meta"] = {
                     "prompt": prompt.ref, "prompt_sha256": prompt.sha256,
                     "provider": provider.name, "model": provider.model,
                     "cost_cad": round(cost, 6),
-                    "latency_ms": round((time.time() - started) * 1000, 1),
+                    "latency_ms": round(elapsed_ms, 1),
                 }
                 return data
 
@@ -226,7 +228,7 @@ class ModelGateway:
         raise last
 
     def _record(self, prompt, provider, agent: str, in_tok: int, out_tok: int,
-                attempt: int, ok: bool, error: str) -> float:
+                attempt: int, ok: bool, error: str, latency_ms: float = 0.0) -> float:
         cost = (in_tok / 1000 * provider.cost_per_1k_input_cad
                 + out_tok / 1000 * provider.cost_per_1k_output_cad)
         self.calls.append(CallRecord(
@@ -249,8 +251,14 @@ class ModelGateway:
             # indistinguishable from not having run.
             self.registry.record_cost(agent, cost, kind=routing.COST_KIND, tokens_in=in_tok,
                                       tokens_out=out_tok, job_id=self.job_id,
+                                      # #31 asks for agent/API *minutes* as well as
+                                      # dollars. The latency is already measured for the
+                                      # response; persisting it is what makes the minutes
+                                      # half of that requirement a query rather than a
+                                      # number nobody kept.
                                       detail={"prompt": prompt.ref,
-                                              "provider": provider.name})
+                                              "provider": provider.name,
+                                              "latency_ms": round(latency_ms, 1)})
         return cost
 
     def spend_cad(self) -> float:

@@ -217,7 +217,7 @@ PROBE_MODEL = "claude-haiku-4-5-20251001"
 
 
 def probe(db, *, provider: AnthropicProvider | None = None,
-          now: datetime | None = None) -> dict:
+          now: datetime | None = None, job_id: int | None = None) -> dict:
     """Make the smallest possible real call and record whether it worked.
 
     This is the difference between "a key is configured" and "a model provider exists". The
@@ -255,11 +255,17 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                            "output_tokens": response.output_tokens,
                            "cost_cad": cost, "headroom_cad": budget["headroom_cad"]})
             with db.session() as s:
+                # The job that ran the probe, so this cost attributes like every other
+                # one. It was the last model spend reaching the ledger with a null job
+                # (#31), and an unattributed row is indistinguishable from a cost nobody
+                # caused.
                 s.add(CostEntry(agent="gateway", kind=routing.COST_KIND, amount_cad=cost,
+                                job_id=job_id,
                                 tokens_in=response.input_tokens,
                                 tokens_out=response.output_tokens,
                                 detail={"purpose": "model.probe", "model": response.model,
-                                        "price_basis": "assumed"}))
+                                        "price_basis": "assumed",
+                                        "latency_ms": record.get("latency_ms")}))
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action="model.probe", artifact=provider.model,

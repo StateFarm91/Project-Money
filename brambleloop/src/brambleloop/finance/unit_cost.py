@@ -79,7 +79,8 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     with db.session() as s:
-        costs = [(c.agent, c.amount_cad, _aware(c.at), c.job_id)
+        costs = [(c.agent, c.amount_cad, _aware(c.at), c.job_id,
+                  float((c.detail or {}).get("latency_ms") or 0.0))
                  for c in s.scalars(select(CostEntry))]
         actions = [(a.action, _aware(a.at), a.job_id, a.detail or {})
                    for a in s.scalars(select(AuditLog))]
@@ -90,6 +91,13 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
     window_costs = [c for c in costs if c[2] >= since]
     total_cost = sum(c[1] for c in window_costs)
     costed_jobs = {c[3]: c[1] for c in window_costs if c[3] is not None}
+    # #31 asks for agent/API *minutes* as well as dollars, and the gateway persists the
+    # latency it already measured. Minutes per artefact is the number that says whether a
+    # thing is slow as well as expensive, and the two are not the same complaint.
+    job_minutes: dict = {}
+    for entry in window_costs:
+        if entry[3] is not None and entry[4]:
+            job_minutes[entry[3]] = job_minutes.get(entry[3], 0.0) + entry[4] / 60000.0
 
     rows = {}
     attributed = 0.0
@@ -108,9 +116,13 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         else:
             count = len(produced)
         uncosted = sum(1 for a in produced if a[2] is None or a[2] not in costed_jobs)
+        minutes = sum(job_minutes.get(a[2], 0.0) for a in produced
+                      if a[2] is not None)
         rows[artefact.key] = {
             "meaning": artefact.meaning,
             "produced": count,
+            "model_minutes": round(minutes, 3),
+            "minutes_each": (round(minutes / count, 3) if count else None),
             "runs": len(produced) if artefact.count_in_detail else None,
             "direct_cost_cad": round(direct, 4),
             "cost_each_cad": (round(direct / count, 4) if count else None),

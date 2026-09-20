@@ -735,7 +735,7 @@ def handle_model_probe(ctx: JobContext) -> dict:
     """
     from ..gateway import anthropic
 
-    record = anthropic.probe(ctx.db)
+    record = anthropic.probe(ctx.db, job_id=ctx.job.id)
     ctx.audit("model.probe.ok" if record["ok"] else "model.probe.unavailable",
               detail={k: v for k, v in record.items() if k != "key"})
     return record
