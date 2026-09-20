@@ -1,0 +1,155 @@
+"""#300: one seasonal cycle end to end, and the clause that makes it an acceptance test.
+
+The requirement calls itself release-blocking and it ends on an arithmetic comparison --
+*show that the scheduler launched early enough for a customer to make it before the event*.
+A seasonal product that goes live two weeks before Christmas is not slightly late; it is a
+product nobody can finish, and every step before it was wasted.
+
+So these tests are mostly about the ways a cycle can look complete and prove nothing.
+"""
+from __future__ import annotations
+
+import sys
+from datetime import date, timedelta
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.seasonal import cycle  # noqa: E402
+from test_prospecting import _WideGateway, _wide_db  # noqa: E402
+
+TODAY = date(2026, 9, 20)
+
+
+def test_the_cycle_runs_every_link_it_can_and_names_the_ones_it_cannot():
+    out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())
+    states = {s["step"]: s["state"] for s in out["steps"]}
+
+    # Every link the requirement names is present, in order.
+    assert [s["step"] for s in out["steps"]] == [
+        "observe", "classify", "choose_event", "launch_date", "generate",
+        "engineer", "certify", "assets", "search"], states
+
+    for step in ("observe", "classify", "choose_event", "launch_date", "generate",
+                 "engineer", "certify"):
+        assert states[step] == cycle.RAN, (step, out["steps"])
+
+    # And the release chain was run rather than asserted.
+    certified = next(s for s in out["steps"] if s["step"] == "certify")
+    assert certified["evidence"]["granted"] is True
+    assert "reverse" in certified["evidence"]["stages_run"]
+
+
+def test_a_gated_step_is_named_and_never_simulated():
+    """A placeholder product photograph would make this cycle green and prove nothing.
+
+    It is also the exact thing the asset-truth gate exists to refuse one level down, so
+    faking it here would be the system disagreeing with itself in private.
+    """
+    out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())
+    assert out["gated"].get("assets") == "image_generation", out["gated"]
+    assets = next(s for s in out["steps"] if s["step"] == "assets")
+    assert "placeholder" in assets["why"]
+
+
+def test_with_no_generator_the_cycle_stops_and_says_which_capability():
+    """Not a partial pass. A cycle that cannot invent anything has not demonstrated one."""
+    out = cycle.run(_wide_db(), today=TODAY, gateway=None)
+    assert out["gated"].get("generate") == "model_provider", out["gated"]
+    assert out["complete"] is False
+    # The gate that stopped the run, not the first step it stopped: those are consequences
+    # and the gate is the thing somebody can act on.
+    assert out["weakest_link"] == "generate", out["weakest_link"]
+    # The steps after it are absent rather than passing, and absent is reported.
+    reached = {s["step"] for s in out["steps"]}
+    assert "certify" not in reached, reached
+    assert "certify" in out["did_not_reach"], out["did_not_reach"]
+
+
+def test_an_unobserved_benchmark_cannot_start_a_cycle():
+    """The first link is somebody having looked. Nothing downstream can substitute."""
+    db = Database("sqlite://")
+    db.create_all()
+    out = cycle.run(db, today=TODAY, gateway=_WideGateway())
+    assert out["complete"] is False
+    assert out["failed"] == ["observe"], out["failed"]
+    assert "no market signal" in out["steps"][0]["why"]
+
+
+def test_a_launch_date_that_has_passed_cannot_satisfy_launched_early_enough():
+    """The first run of this reported `complete: true` on a launch date twenty days gone.
+
+    The backward chain wanted the product live on 31 August; the cycle measured a buyer's
+    finish date from that, found it comfortable, and called the window met. A date that has
+    passed cannot be launched on, and measuring from one is reporting about a window the
+    company missed.
+    """
+    out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())
+    timing = out["timing"]
+    assert timing["preferred_window_already_passed"] is True, timing
+    assert timing["earliest_possible_launch"] == TODAY.isoformat()
+    # The finish date is measured from a date that can actually be launched on.
+    assert timing["a_buyer_starting_then_finishes"] > timing["earliest_possible_launch"]
+    assert "cannot be launched on" in timing["why"]
+
+
+def test_the_verdict_is_the_weakest_link_rather_than_a_count_of_green_ticks():
+    """A backward-chained schedule is exactly where an average hides a broken link."""
+    out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())
+    assert out["weakest_link"], out
+    if out["failed"]:
+        assert out["complete"] is False
+        assert out["weakest_link"] == out["failed"][0]
+    elif out["customer_can_finish_in_time"] is False:
+        assert out["complete"] is False
+        assert out["weakest_link"] == "timing"
+
+
+def test_a_buyer_who_cannot_finish_in_time_fails_the_cycle_however_green_the_rest():
+    """The clause that makes this release-blocking, checked directly.
+
+    Every other step can be perfect and the cycle still fails, because a product nobody can
+    finish before the occasion is a product that should not have been made for it.
+    """
+    from types import SimpleNamespace
+
+    # Every link present and green, so nothing but the arithmetic can decide this.
+    steps = [cycle.Step(key=key, what="x", state=cycle.RAN)
+             for key in cycle.EXPECTED_STEPS]
+    arena = SimpleNamespace(event="Christmas", pod="hats", days_away=10)
+    launch = SimpleNamespace(
+        preferred_launch=TODAY, effective_make_days=30,
+        assumptions=SimpleNamespace(completion_buffer_days=3))
+    verdict = cycle._verdict(steps, TODAY, arena, launch)
+    assert verdict["customer_can_finish_in_time"] is False, verdict["timing"]
+    assert verdict["complete"] is False
+    assert verdict["weakest_link"] == "timing", verdict
+    assert verdict["timing"]["days_to_spare"] < 0
+
+
+def test_a_cycle_that_completes_says_so_only_when_the_buyer_arithmetic_holds():
+    out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())
+    assert out["customer_can_finish_in_time"] is True, out["timing"]
+    assert out["timing"]["days_to_spare"] >= 0
+    assert out["complete"] is True, out["failed"]
+
+    # And a cycle whose event is too close fails on the same arithmetic rather than on mood.
+    late = cycle.run(_wide_db(), today=date(2026, 10, 30), gateway=_WideGateway())
+    if late["customer_can_finish_in_time"] is False:
+        assert late["complete"] is False
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

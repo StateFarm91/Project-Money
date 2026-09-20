@@ -1206,6 +1206,26 @@ def api_arbitrage(pod: str = "") -> dict:
     return arbitrage.state(db, pod=pod)
 
 
+@app.get("/api/seasonal/cycle")
+def api_seasonal_cycle() -> dict:
+    """One seasonal cycle end to end, with every link's evidence (#300, release-blocking).
+
+    Runs without a model provider too, and says so: the generating step reports gated rather
+    than inventing a placeholder concept, because a cycle that produced nothing and reported
+    itself complete is the failure this endpoint exists to make impossible.
+    """
+    from ..gateway import routing
+    from ..gateway.anthropic import AnthropicProvider
+    from ..gateway.model_gateway import ModelGateway
+    from ..seasonal import cycle
+
+    gateway = None
+    if AnthropicProvider.key():
+        _task, tier = routing.route("concept_generation")
+        gateway = ModelGateway([AnthropicProvider(model=tier.model)])
+    return cycle.run(db, gateway=gateway)
+
+
 @app.get("/api/dependency")
 def api_dependency() -> dict:
     """Which single thing failing would end this company, and whether that is a risk yet.
