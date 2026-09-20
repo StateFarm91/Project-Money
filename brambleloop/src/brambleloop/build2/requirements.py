@@ -58,6 +58,17 @@ class Requirement:
     section: str
     status: str
     note: str
+    # Which owner capability the *remaining* work needs, when a requirement is partial but
+    # everything still owed on it is gated. Empty for the ordinary case.
+    #
+    # This lives here rather than only in the executor's gate table because the two kept
+    # drifting, and always in the same direction. A note would be updated to say "remaining:
+    # waits on image generation" while the executor, which cannot read prose, went on
+    # offering the requirement as the next-highest-value ready work. The queue then
+    # advertises work nobody can start, which is the single number the executor exists to
+    # get right. Writing the gate beside the sentence that states it means the edit that
+    # makes the claim is the edit that parks the task.
+    parked_on: str = ""
 
     @property
     def executable(self) -> bool:
@@ -69,7 +80,8 @@ class Requirement:
 
     def to_dict(self) -> dict:
         return {"id": self.id, "title": self.title, "version": self.version,
-                "section": self.section, "status": self.status, "note": self.note}
+                "section": self.section, "status": self.status, "note": self.note,
+                "parked_on": self.parked_on}
 
 
 @lru_cache(maxsize=1)
@@ -99,6 +111,16 @@ def _validate(reqs: tuple[Requirement, ...]) -> None:
     unexplained = [r.id for r in reqs if not r.note.strip()]
     if unexplained:
         raise ValueError(f"requirements with no note: {unexplained}")
+    # A gate declared on a requirement that is finished, or on one the audit already calls
+    # owner-gated, is a leftover rather than a statement. Both would park something that is
+    # either done or parked by its status anyway, and the stale key would outlive the reason
+    # for it.
+    misplaced = [r.id for r in reqs if r.parked_on and r.status not in EXECUTABLE]
+    if misplaced:
+        raise ValueError(
+            f"requirements gated by parked_on that are not executable work: {misplaced}. "
+            f"parked_on states what the *remaining* work needs; a covered, owner-gated or "
+            f"data-gated requirement has no remaining work for it to describe")
 
 
 def get(requirement_id: int) -> Requirement:

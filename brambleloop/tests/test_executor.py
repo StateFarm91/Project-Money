@@ -517,6 +517,93 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     assert "look identical from outside" in stalls[0].summary
 
 
+# ---- the registry may park its own remainder ------------------------------
+
+
+def test_a_partial_requirement_whose_remainder_is_gated_is_parked_by_its_own_audit():
+    """The note and the parking are one edit, because they used to be two.
+
+    #292 is the case that found this. Its note said every move the build could reach was
+    built and the rest waited on image generation, and the executor -- which cannot read
+    prose -- went on offering it as the single highest-value ready requirement. A queue whose
+    top item cannot be started is the failure this module exists to prevent, and it had it.
+    """
+    gated = E._registry_gates()
+    assert gated, "no requirement declares its own gate; this test proves nothing"
+    for rid, key in gated.items():
+        assert key in E.GATE_BY_KEY, (rid, key)
+        assert reg.get(rid).status in reg.EXECUTABLE, (rid, reg.get(rid).status)
+
+    db = _synced(env={})
+    rows = {r["requirement_id"]: r for r in E.queue(db, limit=400)["ready"]}
+    for rid in gated:
+        assert rid not in rows, f"{rid} declares a gate and is still ready"
+
+
+def test_a_registry_gate_nothing_checks_is_refused_rather_than_silently_parking():
+    """The dangerous direction: parked on a key no gate owns can never un-park.
+
+    That is worse than not parking at all. The requirement leaves the queue and never comes
+    back, and the loop reports itself finished by having lost a requirement rather than by
+    having done it.
+    """
+    real = E._registry_gates
+    E._registry_gates = lambda: {292: "a_capability_nobody_defined"}
+    try:
+        raised = None
+        try:
+            E._validate_gates()
+        except E.ExecutorRefused as e:
+            raised = e
+        assert raised is not None, "a gate nothing checks was accepted"
+        assert "never opens" in str(raised)
+    finally:
+        E._registry_gates = real
+
+
+def test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_one():
+    """Parked here is still parked *on a condition*, not filed away.
+
+    A gate that opens has to return its requirement to the queue with nobody remembering to
+    do it -- the whole reason gates are checked rather than recorded. The registry half must
+    behave identically to the table half or it is a quiet way of dropping work.
+    """
+    gated = [rid for rid, key in E._registry_gates().items()
+             if key == "image_generation"]
+    assert gated, "no registry requirement waits on image generation"
+    shut = _synced(env={})
+    assert E.queue(shut, limit=400)["parked_by_capability"]["image_generation"]
+
+    open_env = {"BRAMBLELOOP_IMAGE_KEY": "set-for-this-test"}
+    E.sync(shut, env=open_env)
+    ready = {r["requirement_id"] for r in E.queue(shut, limit=400)["ready"]}
+    for rid in gated:
+        assert rid in ready, f"{rid} did not come back when its gate opened"
+
+
+def test_a_finished_requirement_cannot_carry_a_gate_for_work_it_no_longer_owes():
+    """parked_on describes the *remainder*. With no remainder it is a leftover key.
+
+    Built from the real registry with one requirement swapped, so the spine and status
+    checks pass and this is the only thing left to fail on -- a hand-rolled one-row registry
+    would trip the spine check first and the test would pass without ever reaching the rule
+    it names.
+    """
+    import dataclasses
+
+    covered = next(r for r in reg.load() if r.status == reg.COVERED)
+    spoiled = tuple(dataclasses.replace(r, parked_on="image_generation")
+                    if r.id == covered.id else r for r in reg.load())
+    raised = None
+    try:
+        reg._validate(spoiled)
+    except ValueError as e:
+        raised = e
+    assert raised is not None, "a gate on finished work was accepted"
+    assert "not executable work" in str(raised), str(raised)
+    assert str(covered.id) in str(raised), str(raised)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

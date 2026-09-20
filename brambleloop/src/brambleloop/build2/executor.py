@@ -205,8 +205,10 @@ class Gate:
         return bool(self.check(db, env))
 
     def to_dict(self, db=None, env=None) -> dict:
+        waiting = sorted({rid for rid, key in gated_requirements().items()
+                          if key == self.key})
         out = {"key": self.key, "what": self.what, "how_it_is_checked": self.how,
-               "requirement_ids": list(self.requirement_ids)}
+               "requirement_ids": waiting}
         if db is not None:
             out["open"] = self.open(db, env)
         return out
@@ -277,9 +279,32 @@ _GATE_FOR_REQUIREMENT: dict[int, str] = {
     rid: g.key for g in GATES for rid in g.requirement_ids}
 
 
+def _registry_gates() -> dict[int, str]:
+    """Gates the registry declares on itself, via each requirement's `parked_on`.
+
+    The audit is where somebody writes "remaining: waits on image generation", so it is also
+    where that sentence should be machine-readable. Keeping the claim and the parking in one
+    edit is the only arrangement under which they cannot disagree.
+    """
+    return {r.id: r.parked_on for r in reg.load() if r.parked_on}
+
+
 def gate_for(requirement_id: int) -> str | None:
-    """Which owner gate this requirement waits on, if any."""
+    """Which owner gate this requirement waits on, if any.
+
+    The registry wins over the table above. The table is the older half and is keyed by whole
+    requirements; `parked_on` is written by whoever last audited the requirement and knows
+    what is actually left of it.
+    """
+    declared = _registry_gates().get(requirement_id)
+    if declared:
+        return declared
     return _GATE_FOR_REQUIREMENT.get(requirement_id)
+
+
+def gated_requirements() -> dict[int, str]:
+    """Every requirement parked on a gate, from both halves. Registry wins on a conflict."""
+    return {**_GATE_FOR_REQUIREMENT, **_registry_gates()}
 
 
 def gate_states(db, env=None) -> dict:
@@ -334,9 +359,20 @@ def _validate_gates() -> None:
             f"condition the code can test, or it falls into the ready list as work nobody "
             f"can do and the queue overstates itself")
     known = {r.id for r in reg.load()}
-    stray = [rid for rid in _GATE_FOR_REQUIREMENT if rid not in known]
+    stray = [rid for rid in gated_requirements() if rid not in known]
     if stray:
         raise ExecutorRefused(f"gates declared for unknown requirements: {stray}")
+    # A registry that names a gate this module does not define would park the requirement on
+    # a key nothing ever checks, so it could never un-park. That is worse than not parking
+    # it: the work would leave the queue and never come back, and the loop would look
+    # finished by losing a requirement rather than by finishing it.
+    unknown = sorted({(rid, key) for rid, key in _registry_gates().items()
+                      if key not in GATE_BY_KEY})
+    if unknown:
+        raise ExecutorRefused(
+            f"registry parks requirements on gates that do not exist: {unknown}. A gate key "
+            f"nothing checks never opens, so the requirement would leave the queue "
+            f"permanently rather than wait in it")
 
 
 def priority_of(requirement) -> float:
