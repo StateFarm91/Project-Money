@@ -316,8 +316,56 @@ live and died at 05:12Z: `creative_director` had permission for `creative.blinde
 push went out before the full suite's result was read, so production found it first. That is
 the wrong order and it is the reason that test was written.
 
+**#7 — what can I use instead, and how much of it.** The first question a pattern buyer asks
+is the one nobody answers, and it is normally answered with a paragraph of confident prose.
+`publish/substitution.py` answers it as arithmetic on the pattern's own gauge and yardage, and
+refuses in three places. Gauge decides which weights substitute, not the name on the band. A
+pattern with no gauge gets no guidance at all. Across fibre classes it gives a direction and
+no number, because how much cotton and acrylic differ per stitch is measured on a swatch.
+
+**I wrote the wrong arithmetic first and the smoke test caught it.** Scaling a pattern's
+yardage by the ratio of two weights' lengths per 100g looks right and is wrong — that ratio
+is about *mass*, not length used. At the same gauge and finished size the stitch count and
+each stitch's yarn path are unchanged, so the metres barely move; what moves is how many balls
+they arrive in. The wrong version gave a 900 m pattern a band of 485–900 m and **would have
+sent a buyer home with half the yarn**. The regression test holds the correction and states
+why the obvious arithmetic is the wrong one, because the next person will have the same idea.
+
+It is rendered into the pattern PDF rather than parked behind an endpoint nothing calls —
+which is the defect this same session spent its morning fixing in `score_market()`.
+
+**And it found something on its first real pattern.** Every CIR this system generates declares
+**worsted acrylic at 16 stitches per 10 cm, and the published band for medium yarn is 11–14**.
+The stated yarn cannot hold the stated gauge. That is all eleven products. The PDF prints the
+inconsistency and tells the buyer to swatch; it does not pick a side, because which number is
+wrong is a swatch's answer and nothing here has swatched. Promoting it from a printed note to
+a release gate would stop the whole catalogue, which is a reason to do it deliberately rather
+than a reason not to. **OWNER-VISIBLE, not owner-blocking.**
+
+**#8 — the proof stack.** Five rungs, each a query against rows: deterministic validation,
+independent reverse compilation, a physical tester's example, a real customer project, a
+repeat purchase. The claim level is the highest **contiguous** rung — a customer photograph
+arriving before any tester made the thing licenses nothing new, and reporting the highest rung
+in isolation is how a listing claims a test nobody ran. `check_claim` is wired into the policy
+gate and into `certify()`, deliberately separate from the existing unsupported-claim patterns:
+those refuse sentences that are never sayable, and "maker tested" is true the day a tester
+finishes one and false the day before. A completed sample that **failed** is evidence and not
+a proof point. Every rung states what it does *not* prove, because a ladder that only says
+what each rung establishes invites the reader to round it up.
+
+The permission half is enforced at provenance: `tester` and `customer` are permitted sources,
+and either without a recorded `consent_ref` is `ASSET_CONSENT_MISSING`. A reference rather
+than a boolean — somebody has to be able to go and look, and absent consent is not implied
+consent. Rungs four and five read False until orders exist and are parked on the `customers`
+gate.
+
+**A remainder that needs orders had nowhere to wait.** `parked_on` covered capabilities
+somebody can grant; #18's remainder needs *orders*, and nothing in the gate table could open
+for that. The `customers` gate is the one entry the owner cannot grant — it counts ledger
+rows, and its test asserts that no environment variable can open it.
+
 Model spend **CA$1.17 of CA$25**. Production verify **12/12 green** at 2026-09-20T05:04Z.
-Suite **1459 passing, 0 failing**.
+Suite **1471 passing, 0 failing** before the proof stack landed.
 
 ## Previously — last completed milestone
 **Discovery produced its first real products, and the headline number needed its caveat.**

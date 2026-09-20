@@ -74,12 +74,35 @@ def check_text(text: str, where: str) -> list[Finding]:
     return out
 
 
-def check_listing(draft: ListingDraft, cir: CIR | None = None) -> list[Finding]:
+def check_proof_claims(text: str, where: str, proof_states: dict | None) -> list[Finding]:
+    """Refuse listing language that claims more proof than the pattern has earned (#8).
+
+    Separate from `_UNSUPPORTED_CLAIM_PATTERNS` because the two answer different questions.
+    Those patterns refuse a sentence that is never sayable -- "guaranteed to fit". This
+    refuses a sentence that is perfectly sayable *later*: "maker tested" is true the day a
+    tester finishes one and false the day before, and no fixed list can tell those apart.
+
+    With no proof position supplied this checks nothing and says nothing, because a listing
+    whose pattern nobody looked up is not thereby proved modest.
+    """
+    if proof_states is None:
+        return []
+    from ..quality.proof import check_claim
+
+    return [Finding(ERROR, "POLICY_PROOF_OVERCLAIM", refusal["why"], where)
+            for refusal in check_claim(text, proof_states)]
+
+
+def check_listing(draft: ListingDraft, cir: CIR | None = None,
+                  proof_states: dict | None = None) -> list[Finding]:
     out: list[Finding] = []
     out += check_text(draft.title, "listing.title")
     out += check_text(draft.description, "listing.description")
+    out += check_proof_claims(draft.title, "listing.title", proof_states)
+    out += check_proof_claims(draft.description, "listing.description", proof_states)
     for t in draft.tags:
         out += check_text(t, f"listing.tag:{t}")
+        out += check_proof_claims(t, f"listing.tag:{t}", proof_states)
 
     if len(draft.title) > 140:
         out.append(Finding(ERROR, "POLICY_TITLE_LENGTH",

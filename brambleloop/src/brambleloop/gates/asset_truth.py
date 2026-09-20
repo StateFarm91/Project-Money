@@ -39,6 +39,10 @@ class Provenance:
     tool: str | None = None          # model / software identifier
     prompt_hash: str | None = None
     notes: str | None = None
+    # Where the permission lives, for a photograph that is somebody else's picture of their
+    # own work (#8). A reference rather than a boolean, because "we have permission" is a
+    # memory and a reference is something a person can go and check.
+    consent_ref: str | None = None
 
     def is_complete(self) -> bool:
         return bool(self.source and self.created_by)
@@ -84,7 +88,14 @@ SIZE_LABELS_CM: dict[str, tuple[float, float]] = {
 
 # The only origins an asset may have. A source outside this set cannot be shown to be the
 # company's own work, and #305 makes that a publication question rather than a filing one.
-PERMITTED_SOURCES: tuple[str, ...] = ("camera", "twin", "generator", "designer")
+PERMITTED_SOURCES: tuple[str, ...] = ("camera", "twin", "generator", "designer",
+                                      "tester", "customer")
+
+# Sources whose imagery belongs to somebody else. #8 permits tester and customer photography
+# "with appropriate permission", and appropriate means recorded: absent consent is not
+# implied consent, and this is the one asset class where getting it wrong is a wrong done to
+# a named person rather than a number being off.
+NEEDS_CONSENT: tuple[str, ...] = ("tester", "customer")
 
 # Phrases that describe taking somebody else's file rather than making one. Matched against
 # the provenance text, which is where the origin is actually stated.
@@ -117,6 +128,14 @@ def check_asset(
             f"provenance source {asset.provenance.source!r} is not one of "
             f"{sorted(PERMITTED_SOURCES)}; an asset whose origin is not one of these cannot "
             f"be shown to be Brambleloop's own work", where))
+    if source in NEEDS_CONSENT and not (asset.provenance.consent_ref or "").strip():
+        out.append(Finding(
+            ERROR, "ASSET_CONSENT_MISSING",
+            f"this image is from a {source} and carries no permission reference. It is "
+            f"their picture of their own work; absent consent is not implied consent, and a "
+            f"reference is what makes the permission checkable rather than remembered",
+            where))
+
     origin_text = " ".join(filter(None, (asset.provenance.source, asset.provenance.tool,
                                          asset.provenance.notes))).lower()
     for marker in _APPROPRIATED:

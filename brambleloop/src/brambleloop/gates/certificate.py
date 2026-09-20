@@ -176,8 +176,23 @@ def certify(
         stages.append("asset_truth")
 
     # 5. Policy.
+    #
+    # The proof position is computed from this run's own stages rather than looked up, which
+    # is not circular: it is the same evidence, and looking it up would read a certificate
+    # this call has not issued yet. Rungs four and five cannot be established here at all --
+    # a customer project is not a thing a release chain knows about -- so they are False, and
+    # a listing claiming them is refused, which is the correct answer while this company has
+    # no customers.
+    proof_states = {
+        "deterministic_validation": result.ok,
+        "independent_reverse_compilation": (
+            result.ok and not any(f.severity == ERROR for f in reverse_findings)),
+        "physical_tester_example": bool(physical_test_passed),
+        "customer_project": False,
+        "repeat_purchase": False,
+    }
     if listing is not None:
-        findings.extend(check_listing(listing, cir))
+        findings.extend(check_listing(listing, cir, proof_states=proof_states))
         findings.extend(check_shape_claims(listing.title, cir, twin, "listing.title"))
         findings.extend(check_technique_claims(listing.title, cir, twin, "listing.title"))
         stages.append("policy")
