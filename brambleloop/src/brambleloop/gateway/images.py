@@ -307,11 +307,14 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
         else:
             record.update({"ok": True, "url_present": bool(got.get("url")),
                            "cad": got.get("cad"), "latency_ms": got.get("latency_ms")})
-            with db.session() as s:
-                s.add(CostEntry(agent="gateway", kind=routing.COST_KIND,
-                                amount_cad=float(got.get("cad") or 0.0), job_id=job_id,
-                                detail={"purpose": PROBE_ACTION, "provider": provider.key,
-                                        "price_basis": "assumed"}))
+            from ..finance import spend_report
+
+            spend_report.record(
+                db, agent="gateway", amount_cad=float(got.get("cad") or 0.0),
+                estimated_cad=provider.cad_per_image, purpose=PROBE_ACTION,
+                provider=provider.key, model=provider.key, department="gateway",
+                job_id=job_id, kind=routing.COST_KIND,
+                detail={"price_basis": "assumed"})
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=PROBE_ACTION,

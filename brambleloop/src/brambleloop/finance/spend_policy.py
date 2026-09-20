@@ -135,6 +135,58 @@ LEVERS: tuple[str, ...] = (
 REFUSED_JUSTIFICATION = "the cheaper option was adequate"
 
 
+# What share of the month one purpose may consume before it has to stop and say so.
+#
+# Not a budget-splitting exercise: only the purposes that can run away have an entry, and
+# the number is a *stop*, not an allowance to reach. Gallery analysis is the live case --
+# measured at CA$0.029 an image, the raised cadence is CA$8.70 a day while the backlog
+# drains, which is CA$260 a month if the queue never empties. The queue does empty, and a
+# capability whose safety depends on an assumption about a queue is a capability with no
+# guard at all.
+#
+# The purpose of the cap is priority order rather than thrift. Product creativity is the
+# owner's first priority and MJs intelligence the second, so a four-day image backlog must
+# not be able to consume the month and leave concept generation refused at the ceiling. When
+# it stops it stops loudly and the work is named as constrained -- which is the escalation
+# path, not a quiet downgrade.
+ALLOCATION: dict[str, float] = {
+    "gallery_observation": 0.40,
+}
+
+
+def may_spend(db, purpose: str, *, now: datetime | None = None) -> dict:
+    """Whether this purpose has room left in its share of the month.
+
+    Returns rather than raises: the caller is a drain loop, and a loop that crashes on a
+    budget boundary loses the work it had already done. It stops, records why, and the
+    reason reaches the owner as constrained work instead of as a smaller number nobody
+    queried.
+    """
+    from . import spend_report
+
+    share = ALLOCATION.get(purpose)
+    if share is None:
+        return {"may_spend": True, "purpose": purpose, "capped": False,
+                "why": "no allocation: this purpose cannot run away on its own"}
+
+    report = spend_report.what_it_bought(db, now=now)
+    spent = float((report["by_purpose"].get(purpose) or {}).get("cad") or 0.0)
+    allowed = round(CEILING_CAD * share, 4)
+    return {
+        "may_spend": spent < allowed,
+        "purpose": purpose,
+        "capped": True,
+        "spent_cad": round(spent, 4),
+        "allowed_cad": allowed,
+        "share_of_ceiling": share,
+        "why": (f"{purpose} has spent CA${spent:.2f} of the CA${allowed:.2f} this month's "
+                f"policy allows it. Stopping here keeps the ceiling available for the "
+                f"priorities above it rather than letting one backlog consume the month"
+                if spent >= allowed else
+                f"CA${round(allowed - spent, 2):.2f} of this purpose's share remains"),
+    }
+
+
 class PolicyRefused(ValueError):
     """A trade the policy does not allow, or an escalation with nothing behind it."""
 
@@ -239,6 +291,11 @@ def state(db=None) -> dict:
         "waste_refused_at_any_budget": dict(WASTE),
         "levers": list(LEVERS),
         "escalate_at_share": ESCALATE_AT_SHARE,
+        "per_purpose_allocation": dict(ALLOCATION),
+        "allocation_is_a_stop_not_an_allowance": (
+            "only purposes that can run away have an entry. The cap exists for priority "
+            "order rather than thrift: a four-day image backlog must not consume the month "
+            "and leave concept generation refused at the ceiling"),
         "infrastructure_is_separate": (
             "recurring infrastructure has its own CA$20 ceiling and is not governed here"),
     }

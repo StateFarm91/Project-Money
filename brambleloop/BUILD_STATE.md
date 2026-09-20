@@ -139,8 +139,15 @@ vision call sites bypassed `routing.TASKS` entirely, running MJs gallery analysi
 cheapest tier while the table declared standard — on the owner's second-highest spending
 priority, for a day (B-515); and two cadence intervals were set by the old ceiling rather
 than by the work (B-516). Gallery analysis is now 25 images every two hours on the standard
-tier: the benchmark's visual evidence closes in four days rather than nineteen, at about
-CA$4.80 a day while the backlog lasts, and it is self-limiting because the queue empties.
+tier: the benchmark's visual evidence closes in four days rather than nineteen.
+
+**Measured on the first run under the new accounting, not estimated:** CA$0.029 an image, so
+about CA$8.70 a day while the backlog drains and CA$33 to finish it. The same run corrected
+the image-token estimate for the third time — 800, then 2,000, now **6,000** from the actual
+bill, having been under the truth twice in the direction that turns a ceiling into a
+suggestion (B-521). Gallery analysis is capped at 40% of the month, and the cap is about
+priority order rather than thrift: a four-day backlog must not consume the ceiling and leave
+concept generation, the owner's first priority, refused (B-522).
 
 Purchasing benchmark patterns and authorising advertising remain consequential spend and stay
 the owner's.
@@ -245,7 +252,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `58109c0`: **2,663 tests passing, 0
+Measured by `./run_tests.sh` on commit `PLACEHOLDER`: **2,667 tests passing, 0
 failing** across 146 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)

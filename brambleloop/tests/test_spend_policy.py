@@ -246,6 +246,44 @@ def test_the_projection_says_it_is_arithmetic_rather_than_a_forecast():
     assert out["burn_rate_cad_per_day"] > 0
 
 
+# ---- one purpose may not consume the month ------------------------------------
+
+
+def test_a_purpose_that_can_run_away_stops_at_its_share():
+    """Priority order rather than thrift: a four-day image backlog must not consume the
+    month and leave concept generation -- the owner's first priority -- refused."""
+    db = _db()
+    allowed = P.CEILING_CAD * P.ALLOCATION["gallery_observation"]
+    R.record(db, agent="market_radar", amount_cad=allowed + 1,
+             purpose="gallery_observation")
+    out = P.may_spend(db, "gallery_observation")
+    assert out["may_spend"] is False
+    assert "keeps the ceiling available for the priorities above it" in out["why"]
+
+
+def test_a_purpose_with_no_allocation_is_not_capped():
+    """Only the purposes that can run away have an entry; a cap on everything would be a
+    budget-splitting exercise rather than a guard."""
+    out = P.may_spend(_db(), "benchmark_challenge")
+    assert out["may_spend"] is True
+    assert out["capped"] is False
+
+
+def test_the_cap_returns_rather_than_raising_because_the_caller_is_a_drain_loop():
+    """A loop that crashes on a budget boundary loses the work it had already done."""
+    out = P.may_spend(_db(), "gallery_observation")
+    assert out["may_spend"] is True
+    assert "remains" in out["why"]
+
+
+def test_stopping_at_the_cap_names_the_constrained_work_rather_than_degrading():
+    """The policy's own rule: do not silently degrade quality to stay inside."""
+    state = P.state()
+    assert "priority order rather than thrift" in \
+        state["allocation_is_a_stop_not_an_allowance"]
+    assert state["per_purpose_allocation"]["gallery_observation"] < 1.0
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

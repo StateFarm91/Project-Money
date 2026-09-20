@@ -2252,6 +2252,7 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
     GREEN: reads observed URLs, spends inside the ceiling, stores observations and never a
     picture or a description of the depicted design.
     """
+    from ..finance import spend_policy
     from ..gateway.anthropic import vision_usable
     from ..intel import benchmarks, vision
 
@@ -2262,6 +2263,18 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                 "reason": ("no vision.probe has succeeded, so nothing has proven it can "
                            "look at an image. The backlog waits rather than filling with "
                            "refusals")}
+
+    # This purpose's share of the month, checked before the batch rather than discovered at
+    # the ceiling. Measured at about CA$0.029 an image, the raised cadence is CA$8.70 a day
+    # while the backlog drains -- fine for four days and CA$260 a month if the queue never
+    # empties, and a capability whose safety depends on an assumption about a queue has no
+    # guard at all.
+    allowance = spend_policy.may_spend(ctx.db, vision.TASK)
+    if not allowance["may_spend"]:
+        ctx.audit("intel.gallery_analysis_capped", detail=allowance)
+        return {"ran": False, "reason": allowance["why"], "allowance": allowance,
+                "constrained": ("benchmark gallery analysis stopped at its share of the "
+                                "month rather than being run on a weaker model")}
 
     result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=GALLERY_BATCH,
                             job_id=ctx.job.id)

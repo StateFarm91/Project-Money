@@ -74,13 +74,26 @@ def _policy_ceiling() -> float:
 # call before it is made, so it has to be no *smaller* than the truth -- an optimistic
 # estimate turns a ceiling into a suggestion.
 #
-# It was 800, derived from the provider's (width x height) / 750 rule against Etsy's 570-wide
-# gallery variant. The first production probe measured 1,562 input tokens for a thirty-token
-# prompt and one image, because what `observe.py` stores is `il_fullxfull` -- the full-size
-# original, not the thumbnail the arithmetic assumed. So the estimate was under the truth in
-# exactly the direction the comment above said it must never be, and the comment was written
-# by the same hand that got it wrong. Set from the measurement with room above it.
-IMAGE_TOKENS_ESTIMATE = 2000
+# Wrong twice in the dangerous direction, and the second time is the instructive one.
+#
+# It was 800, from the provider's (width x height) / 750 rule against Etsy's 570-wide gallery
+# variant. The first production probe measured 1,562 for one image and a thirty-token prompt,
+# because what `observe.py` stores is `il_fullxfull` -- the full-size original, not the
+# thumbnail the arithmetic assumed. Raised to 2,000 from that measurement, which looked like
+# room above it.
+#
+# The first real analysis run then billed 126,518 input tokens for 25 images: about **5,000
+# tokens an image**, two and a half times the corrected figure. A single probe measured one
+# small image and generalised; the catalogue's galleries are larger than the one that
+# happened to be first. Both errors were the same shape -- an estimate derived from a rule
+# or a sample rather than from the workload -- and both went under, which is the direction
+# that turns a ceiling into a suggestion.
+#
+# 6,000 is the measured mean with a fifth above it, and it was found by the
+# reservation-versus-bill reconciliation the owner's spend policy asked for, on the first
+# run after that reconciliation existed. Three ways of being wrong about this number have now
+# been tried; the one that worked was measuring the actual work.
+IMAGE_TOKENS_ESTIMATE = 6000
 
 # One refusal should not lose a batch of observations. Also the practical limit on how much
 # of one listing's gallery is worth judging in a single question.
@@ -353,18 +366,18 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                            "input_tokens": response.input_tokens,
                            "output_tokens": response.output_tokens,
                            "cost_cad": cost, "headroom_cad": budget["headroom_cad"]})
-            with db.session() as s:
-                # The job that ran the probe, so this cost attributes like every other
-                # one. It was the last model spend reaching the ledger with a null job
-                # (#31), and an unattributed row is indistinguishable from a cost nobody
-                # caused.
-                s.add(CostEntry(agent="gateway", kind=routing.COST_KIND, amount_cad=cost,
-                                job_id=job_id,
-                                tokens_in=response.input_tokens,
-                                tokens_out=response.output_tokens,
-                                detail={"purpose": "model.probe", "model": response.model,
-                                        "price_basis": "assumed",
-                                        "latency_ms": record.get("latency_ms")}))
+            # Through the accounting writer, so the probe's spend carries the same six
+            # dimensions as everything else. It wrote a bare CostEntry with the purpose in
+            # a JSON blob, which is how twenty-four of the first twenty-five rows in the
+            # live ledger came back `unattributed`.
+            from ..finance import spend_report
+
+            spend_report.record(
+                db, agent="gateway", amount_cad=cost, estimated_cad=budget["estimate_cad"],
+                purpose="model.probe", provider="anthropic", model=response.model,
+                department="gateway", job_id=job_id, kind=routing.COST_KIND,
+                tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+                detail={"price_basis": "assumed", "latency_ms": record.get("latency_ms")})
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action="model.probe", artifact=provider.model,
@@ -476,14 +489,14 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
                     f"the call succeeded and the model did not describe an image: "
                     f"{answer!r}. A 200 carrying an apology is what a broken vision path "
                     f"looks like from here")
-            with db.session() as s:
-                s.add(CostEntry(agent="gateway", kind=routing.COST_KIND, amount_cad=cost,
-                                job_id=job_id,
-                                tokens_in=response.input_tokens,
-                                tokens_out=response.output_tokens,
-                                detail={"purpose": VISION_PROBE_ACTION,
-                                        "model": response.model,
-                                        "price_basis": "assumed"}))
+            from ..finance import spend_report
+
+            spend_report.record(
+                db, agent="gateway", amount_cad=cost, estimated_cad=budget["estimate_cad"],
+                purpose=VISION_PROBE_ACTION, provider="anthropic", model=response.model,
+                department="gateway", job_id=job_id, kind=routing.COST_KIND,
+                tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+                detail={"price_basis": "assumed"})
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=VISION_PROBE_ACTION,
