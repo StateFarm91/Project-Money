@@ -2161,9 +2161,9 @@
  {
   "body": "Do not make all products compete for 'crochet pattern'. Build clusters around specific intent, recipient, season, technique, object, aesthetic, skill level and use case. Etsy query matching uses titles/tags/descriptions/categories/attributes; maximize relevant coverage without keyword stuffing.",
   "id": 240,
-  "note": "commerce/search.py scores tag coverage and gaps; no query portfolio diversification across intent/recipient/season clusters",
+  "note": "commerce/portfolio.py counts both of #240's failures, and they are opposites, which is the whole difficulty: a catalogue whose listings all reach for one head term has one product's worth of visibility spread across all of them, every one ranked against every other -- and fixing that by loading each listing with every term anybody might type produces the second failure, which platforms demote for. A module counting only one would push the catalogue straight into the other. Concentration is counted per facet using the vocabulary commerce/intent already holds, which is the list of clusters the requirement names. Cannibalisation is counted per pair: two listings whose stated facet values are close to identical are competing for one query rather than covering two, and the second adds no reach, it splits it. Stuffing is counted per listing, and the title and the tags are treated differently on purpose -- marketplace furniture is excluded from the tag count, because a tag set where every slot contains 'crochet' is simply how tags work, and it is deliberately not excluded from the title, because 'Crochet Pattern Crochet Blanket Crochet Throw' is the commonest form of stuffing there is and excluding furniture would make the check blind to the case it exists for. One defect was caught by its own test rather than shipped: a facet stated by a single listing reported 100% concentration and was flagged as crowded, so the least crowded facet in the catalogue was being reported as its most crowded. One listing cannot be ranked against itself, so a sole occupant is now reported as thin coverage. A facet no listing states is absent rather than diverse, because absent is not spread. /api/portfolio.",
   "section": "CA$5K/month scale architecture",
-  "status": "partial",
+  "status": "covered",
   "title": "Query Portfolio Diversification",
   "version": "v1.4.1"
  },

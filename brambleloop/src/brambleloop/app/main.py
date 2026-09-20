@@ -1226,6 +1226,19 @@ def api_seasonal_cycle() -> dict:
     return cycle.run(db, gateway=gateway)
 
 
+@app.get("/api/portfolio")
+def api_portfolio() -> dict:
+    """Whether the catalogue competes with itself, and whether it stuffs to avoid it (#240).
+
+    The two failures are opposites. A catalogue all reaching for one head term ranks its own
+    listings against each other; a catalogue fixing that by loading every term anybody might
+    type gets demoted for it. Both are counted from the listings themselves.
+    """
+    from ..commerce import portfolio
+
+    return portfolio.diversification(db)
+
+
 @app.get("/api/colour")
 def api_colour(pod: str = "") -> dict:
     """Dated palette intelligence, from the colours Etsy publishes for every photograph (#280).
