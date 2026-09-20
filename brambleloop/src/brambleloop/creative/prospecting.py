@@ -1227,6 +1227,7 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     # itself in private. A refusal is caught and *reported* rather than swallowed -- "the
     # field was too narrow to reach stage three" is the finding, and it points at the field
     # rather than at the gate.
+    from .certification import release
     from .funnel import FunnelRefused
     from .prototype import prototype
 
@@ -1279,12 +1280,40 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
             built = attempt
             built["ran"] = True
 
-    final = built["survivors"] if built.get("ran") else developed
+    engineered = built["survivors"] if built.get("ran") else developed
+
+    # Stage five: the release gates, run rather than named. Only attempted when prototype
+    # ran, for the reason prototype is only attempted when proposition ran -- an out-of-order
+    # refusal buries the real finding under a complaint about ordering.
+    shipped: dict = {"ran": False,
+                     "reason": ("prototype did not run, and certifying a pattern nobody "
+                                "compiled is the thing the stage order exists to prevent"
+                                if not built.get("ran") else
+                                "nothing reached the release stage")}
+    if engineered and built.get("ran"):
+        attempt = release(db, engineered)
+        try:
+            advance(run, stage="release",
+                    entrants=[c.concept.key for c in engineered],
+                    survived=[c.concept.key for c in attempt["survivors"]],
+                    killed=attempt["killed"],
+                    examined=len(engineered))
+        except FunnelRefused as e:
+            shipped = {k: v for k, v in attempt.items() if k != "survivors"}
+            shipped["ran"] = False
+            shipped["refused"] = str(e)
+            shipped["survivors"] = engineered
+        else:
+            shipped = attempt
+            shipped["ran"] = True
+
+    final = shipped["survivors"] if shipped.get("ran") else engineered
 
     return {
         "arena": f"{only[0]}/{only[1]}" if only else "",
         "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
         "prototype": {k: v for k, v in built.items() if k != "survivors"},
+        "release": {k: v for k, v in shipped.items() if k != "survivors"},
         "field": {k: v for k, v in drawn.items() if k != "candidates"},
         "rounds": [r.to_dict() for r in run.rounds],
         "survivors": [c.to_dict() for c in final],
@@ -1297,21 +1326,26 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
         "cost_cad": drawn["cost_cad"],
         "stages_run": [r.stage for r in run.rounds],
         "stages_not_run": (([] if proposed.get("ran") else ["proposition"])
-                           + ([] if built.get("ran") else ["prototype"]) + ["release"]),
+                           + ([] if built.get("ran") else ["prototype"])
+                           + ([] if shipped.get("ran") else ["release"])),
         # A stage that did not run always says why, whether the funnel refused it or it had
         # nothing to work on. An empty string here would mean "no reason recorded", which is
         # the one thing a skipped stage must never be able to say.
         "proposition_refused": proposed.get("refused") or proposed.get("reason", ""),
         "prototype_refused": built.get("refused") or built.get("reason", ""),
-        "note": ("Four stages, not five. proposition runs the two of its three checks that "
+        "release_refused": shipped.get("refused") or shipped.get("reason", ""),
+        "note": ("All five stages exist and run when the field reaches them. proposition "
+                 "runs the two of its three checks that "
                  "observation supports -- the family test and whether the concept arrives "
                  "speaking the department's own language -- and names margin as not applied, "
                  "because contribution after fees passes every concept when the marginal "
                  "cost of a digital file is zero and the cost to create it is #31. prototype "
                  "authors a CIR from the concept's form and construction, compiles it and "
                  "asks the twin whether the object it describes is the one that was asked "
-                 "for. release needs the gates, and running it with a placeholder verdict "
-                 "would produce a five-stage funnel that had cut nothing (#3)."),
+                 "for. release presents each survivor to the certificate chain -- quality, "
+                 "asset truth and policy -- and keeps what it grants; a refusal there is the "
+                 "chain working rather than the stage failing, because a tournament that "
+                 "certified its own survivors would be marking its own homework (#3)."),
     }
 
 
