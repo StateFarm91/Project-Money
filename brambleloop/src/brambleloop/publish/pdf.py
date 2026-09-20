@@ -26,6 +26,7 @@ from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
+from . import substitution
 from .charts import (
     ChartSpec, crop_grids, detect_repeat, is_round, render_chart, render_legend,
     render_round_chart,
@@ -278,6 +279,48 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         "above; if your gauge differs, your finished piece will differ by the same "
         "proportion. The stitch counts in this pattern are correct at any gauge -- only the "
         "measurements change.", size=10)
+
+    # -- substituting the yarn (#7) ----------------------------------------
+    #
+    # The first question a buyer asks about a pattern is the one nobody answers: I cannot get
+    # that yarn, what can I use. It is answered here from this pattern's own gauge and
+    # yardage rather than from a paragraph somebody wrote, and where it cannot be answered it
+    # says so instead of offering a plausible number.
+    try:
+        guide = substitution.guidance(cir, twin)
+    except substitution.SubstitutionRefused:
+        guide = None
+    if guide and guide["substitutes"]["weights"]:
+        doc.heading("Substituting the yarn", size=12)
+        names = ", ".join(
+            f"{w['weight'].replace('_', ' ')} (also called {w['also_called'][0]})"
+            for w in guide["substitutes"]["weights"])
+        doc.para(
+            f"Gauge decides this, not the name on the band. Any of these can be worked to "
+            f"this fabric: {names}. Swatch and change hook until your gauge matches -- the "
+            f"gauge is what makes the finished size come out.", size=10)
+        for row in guide["how_much"]:
+            if not row.get("measurable"):
+                continue
+            doc.kv(f"if you use {row['to'].replace('_', ' ')}",
+                   f"about {row['buy_metres']:.0f} m in total "
+                   f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
+                   f"{row['fabric_changes']}")
+        if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
+            # Said out loud rather than quietly corrected. Which number is wrong -- the gauge
+            # or the weight on the band -- is decided by a swatch, and this document has not
+            # seen one. Picking a side here would be inventing a measurement.
+            doc.para(
+                f"Note: the gauge above sits outside the published band for "
+                f"{guide['declared_weight'].replace('_', ' ')} yarn. Swatch before you buy: "
+                f"either this fabric wants a different weight than the one named, or it wants "
+                f"a different hook.", size=9, color=MUTED)
+        doc.para(
+            f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
+            f"Buying exactly enough is how a project ends one row short in a dye lot that has "
+            f"gone. Changing fibre as well -- cotton for acrylic, say -- changes how much "
+            f"yarn each stitch takes by an amount that has to be measured on a swatch, not "
+            f"read off a table.", size=9, color=MUTED)
 
     # -- instructions ------------------------------------------------------
     doc.new_page(head)
