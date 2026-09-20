@@ -1226,6 +1226,30 @@ def api_seasonal_cycle() -> dict:
     return cycle.run(db, gateway=gateway)
 
 
+@app.get("/api/promotion")
+def api_promotion() -> dict:
+    """Whether the catalogue is being conditioned to require discounts (#19).
+
+    The share on sale is countable today. Whether anything still sells at full price needs
+    orders, and is reported unmeasurable rather than assumed: a catalogue with no sales has
+    no full-price sales either, and that is a different finding from one that has stopped
+    having them.
+    """
+    from ..commerce import promotion
+
+    return {
+        "dependence": promotion.dependence(db),
+        "rules": {
+            "max_promotion_days": promotion.MAX_PROMOTION_DAYS,
+            "steep_discount_above": promotion.STEEP_DISCOUNT_ABOVE,
+            "catalogue_dependence_above": promotion.CATALOGUE_DEPENDENCE_ABOVE,
+        },
+        "note": ("Measured on contribution rather than revenue lift. For a digital pattern "
+                 "the two largely agree, and they come apart once the cost to create is "
+                 "amortised over the units it sells (#31)."),
+    }
+
+
 @app.get("/api/dependency")
 def api_dependency() -> dict:
     """Which single thing failing would end this company, and whether that is a risk yet.
