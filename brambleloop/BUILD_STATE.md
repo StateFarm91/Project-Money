@@ -205,6 +205,72 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Discovery that starts from a proven market rather than from what compiles (#104).**
+
+The direction of travel is inverted. Discovery no longer begins with a brief and looks for a
+market; it begins with a market the benchmark has *proven*, in a department this catalogue
+does *not* answer, and asks what would have to be built. Three refusals carry the owner's
+instruction that not every concept may become another throw, runner or garland:
+
+- **The arena picks the form.** An expedition into `hats` produces hats, and the forms it may
+  target are counted from observed listings in that pod — the vocabulary comes from what the
+  market contains, not from what this compiler finds easy.
+- **A form the engine cannot build is an engineering requirement, not a rejection.** Dropping
+  it is exactly how a catalogue converges on flat panels while believing it is being
+  selective.
+- **A saturated form has to earn its place.** Another rectangle throw is not discovery.
+
+Live against the real matrix: **12 proven-and-unserved arenas**. Christmas/garments (140
+listings, 97 days), Thanksgiving/blankets (85, 23 days), Halloween/hats (85, 42 days),
+Christmas/blankets, Christmas/hats, and bags across four occasions.
+
+The gauntlet is deterministic and every gate may empty the field: buildable form →
+adversarial jury → novelty against the catalogue → novelty against its own siblings →
+feasibility, which is marked and never fatal. Siblings are checked pairwise because a field
+can pass every individual gate and still be one idea submitted five times. **An empty field
+is a real answer**, and a better one than a survivor that only survived because the gauntlet
+was loosened until one did.
+
+**Four defects found building it, three of them live.**
+
+1. **Six of twenty-two forms were absent from the buildability map**, `stocking` among them.
+   An absent form has no buildable construction, so the pairing rules silently refused to
+   build a Christmas stocking — a pod the benchmark carries thirteen listings in and the
+   owner names a top priority. A form missing from that table is not unconstrained, it is
+   unbuildable, and nothing said so.
+2. **`arenas()` read `proven_gaps`; the matrix returns `proven_and_unserved`.** Production
+   reported no arenas at all against a matrix holding twenty-seven. Second reader/writer key
+   disagreement of the build, same comfortable failure both times: a wrong key does not
+   raise, it returns empty, and empty is the flattering answer.
+3. **A lane derived from physical size dropped Halloween/hats at 42 days** — a beanie, which
+   is exactly the product the compression doctrine says to reach for as an occasion closes.
+   Size and make time are correlated and not the same thing. Forms now carry a lane *floor*
+   and take the fastest viable lane at or above it.
+4. **A cadence that wrongly said "nothing to do" consumed its window.** `arena_expedition`
+   fired, hit defect 2, reported no arenas, and **completed**. It would have sat idle for
+   seven days after the repair, and the dead-letter re-drive cannot help because the job did
+   not fail. `ops.queue_check` now re-drives both shapes under one bound — once per deployed
+   commit — and `arenas()` raises rather than returning empty when the matrix contradicts
+   observed listings.
+
+**The garment gap is one named primitive, not a vague difficulty.** Joined rounds, increase
+and decrease ops, placed multi-component seams and size grading across a run all exist —
+`cir/grading.py` says in its own docstring that it was written for the garments pod. What is
+missing is **working into part of a previous row**: `Row.into` names a row index and the
+compiler takes that whole row's count, so the armhole division cannot be expressed and a
+cardigan can only ship as a flat panel nobody can wear. That one primitive unblocks
+`top_down_yoke` and `bottom_up`, and with them **140 of the 438 observed listings** — the
+deepest proven-and-unserved arena.
+
+Two new instruments earned their place immediately. `GET /api/queue/dead` groups dead letters
+by failure: the 121 turned out to be 120 Shadow Mode publication refusals working as designed
+plus one real defect. `GET /api/queue/cadences` reports when each cadence last ran and what
+it returned, and found defect 4 in one request — a cadence that completed with nothing to do
+is invisible at queue depth zero and looks exactly like a healthy system.
+
+Model spend: **CA$0.1524 of CA$25**. Suite **1342 passing, 0 failing**.
+
+## Previously — last completed milestone
 **The first blinded run scored 11-1 for this catalogue and was worthless (#94).**
 
 It ran in production for CA$0.1523. Twelve same-pod pairs, position share exactly 0.50,
