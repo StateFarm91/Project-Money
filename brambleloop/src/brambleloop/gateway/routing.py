@@ -112,7 +112,7 @@ TASKS: dict[str, Task] = {
     # which is both cheaper per concept and produces internal variety, because a model asked
     # for five different things at once cannot answer with the same thing five times.
     "concept_generation": Task(
-        "concept_generation", DEEP, 2000, 1600, False,
+        "concept_generation", DEEP, 4000, 1600, False,
         "propose a field of concepts for one form in one proven arena (#104, #106-#115)"),
     "benchmark_challenge": Task(
         "benchmark_challenge", DEEP, 2500, 6000, False,

@@ -424,7 +424,7 @@ class _Gateway:
 
     def complete_json(self, ref, *, agent, values, required=None):
         self.calls += 1
-        assert ref == "creative.concept_field@1"
+        assert ref == P.PROMPT
         # The brief must never leak pattern mechanics into the prompt.
         blob = repr(values).lower()
         assert "stitch count" not in blob and "yardage" not in blob
@@ -704,6 +704,24 @@ def test_with_no_priority_arena_it_is_a_plain_rotation():
              for e in ("Halloween", "Easter")]
     picks = [P.choose(found, cycle=i).event for i in range(4)]
     assert picks == ["Halloween", "Easter", "Halloween", "Easter"]
+
+
+def test_the_prompt_can_hold_the_field_it_asks_for():
+    """A budget too small is not a transient fault; it fails identically every time.
+
+    The first live expedition came back as truncated JSON twice -- the gateway retried, got
+    a second truncation, and the run read like a provider problem. It was a prompt asking
+    for six concepts of nine fields inside 2000 tokens.
+    """
+    from brambleloop.gateway import prompts, routing
+
+    prompt = prompts.get(P.PROMPT)
+    needed = P.FIELD_SIZE * P.TOKENS_PER_CONCEPT + P.JSON_OVERHEAD_TOKENS
+    assert prompt.max_output_tokens >= needed, (prompt.max_output_tokens, needed)
+    # And the budget the ceiling is checked against must match what the prompt may emit,
+    # or the estimate prices a different call from the one being made.
+    task, _tier = routing.route(P.GENERATION_TASK)
+    assert task.max_output_tokens >= prompt.max_output_tokens
 
 
 if __name__ == "__main__":

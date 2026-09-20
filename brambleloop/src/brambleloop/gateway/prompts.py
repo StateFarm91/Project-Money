@@ -141,8 +141,13 @@ BLINDED_APPEAL = register(Prompt(
 # than hoping for them: every field below is a closed vocabulary validated on return, so a
 # model that invents a value produces a structural rejection instead of a plausible-looking
 # concept nothing downstream can check.
+# Version 2 raises the output budget. Version 1 asked for six concepts of nine fields each
+# inside 2000 tokens, and the first live run came back as truncated JSON twice -- the
+# gateway's retry produced a second truncation, because a budget that is too small is not a
+# transient fault. A prompt that asks for more than it allows room for fails every time and
+# reads like a provider problem.
 CONCEPT_FIELD = register(Prompt(
-    name="creative.concept_field", version="1",
+    name="creative.concept_field", version="2",
     system=("You invent crochet product concepts for a premium pattern studio. You are given "
             "one product form, one occasion, one recipient lane and a market that is known to "
             "buy in this department. Propose genuinely different products, not one product "
@@ -170,4 +175,4 @@ CONCEPT_FIELD = register(Prompt(
               "\"function\": \"what it does for the person who owns it\", "
               "\"wow\": \"the physical mechanism that makes it worth looking at twice\"}}]}}"),
     output_schema=("concepts",),
-    max_output_tokens=2000))
+    max_output_tokens=4000))

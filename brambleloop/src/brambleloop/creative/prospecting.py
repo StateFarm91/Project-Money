@@ -601,7 +601,15 @@ def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = Non
 # Generation
 
 GENERATION_TASK = "concept_generation"
+PROMPT = "creative.concept_field@2"
 FIELD_SIZE = 6
+
+# What one concept costs in output tokens: nine fields, one of them a sentence. Measured
+# from the first live run, which truncated at six concepts inside a 2000-token budget.
+# Stated so the prompt's budget can be checked against the field it is asked for, rather
+# than discovered as "the provider returned invalid JSON" twice in a row.
+TOKENS_PER_CONCEPT = 180
+JSON_OVERHEAD_TOKENS = 200
 
 # The occasion each event maps to in the concept vocabulary. An event the vocabulary cannot
 # express is not silently turned into `everyday`, because `everyday` is the value a Christmas
@@ -655,7 +663,7 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
     occasion = occasion_for(slot.arena.event)
     buildable = sorted(FORM_CONSTRUCTIONS.get(slot.form) or CONSTRUCTIONS)
     answer = gateway.complete_json(
-        "creative.concept_field@1", agent=agent,
+        PROMPT, agent=agent,
         values={
             "form": slot.form.replace("_", " "),
             "occasion": slot.arena.event,
