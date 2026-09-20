@@ -2295,20 +2295,22 @@
  {
   "body": "Research whether a recurring pattern club, seasonal collection pass or membership would create genuine customer value and predictable revenue. Do not launch by assumption. Validate demand, support burden, delivery cadence and platform/channel feasibility first.",
   "id": 253,
-  "note": "club research lane, personalization layer, free tool layer",
+  "note": "commerce/club.py holds the instruction not to launch by assumption, and names what the appeal hides. A club is the most attractive thing a small shop can imagine -- predictable revenue, a reason to make things, buyers who have already decided -- and the direction the money flows makes it a liability before it is income: payment for work that does not exist yet, and the only product where failing to deliver costs more than the sale, because the people owed are the ones who liked this shop enough to commit. The four questions are not equal. Demand and support burden need buyers, platform feasibility needs a policy read, but delivery cadence is answerable today from how long this company's own work actually takes -- and it is the one that ends clubs. Month one ships what already existed; month two needs a new pattern, certified, on a date somebody else chose. check_cadence() requires 1.3x headroom, because a club that exactly fits its period has no room for the week somebody is ill and there is always that week. may_launch() separates unanswered from answered no, since neither is a launch and only one of them is a finding. Remaining and parked on the customers gate: three of the four questions need buyers or a credential.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Collection Subscription / Club Research Lane",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "customers"
  },
  {
   "body": "Where technically feasible and commercially valuable, explore controlled customization: colour planners, size selection, initials/names, motif arrangements or printable project variants. Keep canonical pattern truth intact and price/value-test personalization rather than giving away expensive complexity.",
   "id": 254,
-  "note": "club research lane, personalization layer, free tool layer",
+  "note": "products/personalisation.py gives 'keep canonical pattern truth intact' a precise reading in a system where a pattern is a compiled artefact. Every customisation is one of two things: a presentation choice, which changes what the buyer is shown and not what the instructions say -- a colourway, a size from a range the pattern already grades, a large-print or chart-only layout -- leaving the CIR untouched and the certificate covering it; or a construction choice, which changes the instructions and is a new design wearing the old one's name. Letters are stitches: initials change the chart, the counts and the fabric around them, and a name is a different chart for every buyer. A rearranged motif is a different chart and a different fabric at the edges. The failure this prevents is the one every shop makes -- offering custom initials, delivering a hand-edited PDF, and selling it under a certified product's name, so the buyer's copy is the only one nobody checked and the one most likely to be wrong because it is the only one edited by hand. A construction choice is therefore routed rather than refused: it becomes a product, goes through compile, twin, geometry, write, reverse and certificate, and is sold as that. The pricing follows the same line rather than being left to whoever writes the listing: a presentation choice costs nothing per order and charging for it is charging for the listing rather than for work, while a construction choice costs a full chain run per order and giving it away is exactly the expensive complexity the requirement says not to give away. Remaining and parked on live_listings: no customisation can be offered until something is listed.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Personalization / Customization Layer",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "live_listings"
  },
  {
   "body": "Build useful free utilities that attract high-intent makers: yarn/yardage helpers, colour planners, size calculators, project-time estimators, seasonal make-time planners or motif preview tools. Each tool must have a useful standalone purpose and a measured path to relevant Brambleloop products.",
@@ -2323,11 +2325,12 @@
  {
   "body": "Test legitimate referral/share mechanics that encourage customers to show finished projects or share useful products without manipulating reviews. Track attributable new customers and contribution. Never condition support or discounts on positive reviews.",
   "id": 256,
-  "note": "referral research, review-to-conversion learning, customer project gallery",
+  "note": "commerce/referral.py draws the same line this build has drawn twice, arriving from a third direction: a reward is for an action -- showing what you made, however it went, or passing something on -- and never for an outcome statement. The refused phrases are commerce/reviews.py's own, imported rather than listed again, because one list is one rule. The second refusal is about counting: 'tell a friend' produces no evidence, so new customers arrive and whoever likes the programme attributes them to it -- a mechanic that cannot be judged will be judged anyway, favourably, by the person who proposed it, so one without an attributable trigger is refused before it runs rather than argued about afterwards. The third is arithmetic: a reward is a cost per acquired customer and is checked against contribution rather than revenue, because a CA$5 credit against a CA$6 pattern is a customer acquired at a loss that looks like growth in every report stopping at the top line. An unmeasured programme is reported as unmeasured, since it is the one everybody remembers fondly. Remaining and parked on the customers gate: no customer exists to refer anybody.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Product-Led Referral Research",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "customers"
  },
  {
   "body": "Analyze legitimate review themes and star distribution against listing conversion and repeat behavior. Identify what buyers praise, misunderstand or wish existed. Feed findings into product design, PDFs, listing claims and support. Never fabricate, purchase or gate reviews.",

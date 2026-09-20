@@ -26,8 +26,8 @@ readable live at `/api/build2`.
 | status | count | meaning |
 |---|---|---|
 | covered | 182 | satisfied, with a named test or artefact |
-| partial | 59 | something real exists and is short of the requirement |
-| missing | 23 | nobody has built it |
+| partial | 62 | something real exists and is short of the requirement |
+| missing | 20 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
@@ -257,6 +257,31 @@ says absence may not be enforced yet.
 
 The 134 dead letters are all publications refused by shadow mode — the guard working — which
 is what prompted counting deliberate refusals apart from defects (B-374).
+
+**#253/#254/#256 — the club, the customisation and the referral.**
+
+`products/personalisation.py` (#254) gives "keep canonical pattern truth intact" a precise
+reading: every customisation is a **presentation** choice, which changes what the buyer is
+shown, or a **construction** choice, which changes the instructions and is a new design
+wearing the old one's name. Letters are stitches. The failure prevented is the one every shop
+makes — offering custom initials, delivering a hand-edited PDF, selling it under a certified
+product's name — so the buyer's copy is the only one nobody checked, and the one most likely
+to be wrong because it is the only one edited by hand. It is *routed*, not refused: it becomes
+a product and goes through the chain. The pricing follows the same line, because a
+presentation choice costs nothing per order and a construction choice costs a full chain run.
+
+`commerce/club.py` (#253) names what the appeal hides: a club is payment for work that does
+not exist yet — a liability before it is income, and the only product where failing to deliver
+costs more than the sale. Of its four questions, three need buyers or a policy read; **the
+cadence is answerable today and is the one that ends clubs.** Month one ships what already
+existed; month two needs a new pattern, certified, on a date somebody else chose. It requires
+1.3× headroom, because a club that exactly fits its period has no room for the week somebody
+is ill, and there is always that week.
+
+`commerce/referral.py` (#256) draws the same line for a third time — a reward is for an
+action, never an outcome statement — importing the refused phrases from `commerce/reviews.py`
+rather than listing them again. A mechanic nothing can attribute is refused *before* it runs,
+because one that cannot be judged will be judged anyway, favourably, by whoever proposed it.
 
 **#257/#258/#259 — proof, reviews, and the sprint that mostly happens beforehand.**
 
