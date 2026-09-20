@@ -106,6 +106,15 @@ TASKS: dict[str, Task] = {
     "creative_evaluation": Task(
         "creative_evaluation", DEEP, 2000, 4000, False,
         "is this concept commercially desirable and distinctive, or merely correct (#218)"),
+    # The tournament's ideation stage (#3). Cheap tier on purpose, and the requirement says
+    # why: "generate roughly 75-100 **inexpensive** concepts". A hundred concepts at the deep
+    # tier costs about CA$5.70 and is the opposite of what that sentence asks for -- the
+    # whole shape of the funnel is to spend little on a wide field and concentrate cost only
+    # after the field has been cut. Batched twelve at a time, a hundred concepts costs about
+    # CA$0.30.
+    "concept_ideation": Task(
+        "concept_ideation", CHEAP, 4000, 1600, False,
+        "a wide, cheap field for the tournament's ideation stage (#3)"),
     # Discovery into a proven arena. Deep tier on purpose: this is the call that decides
     # what the company tries to sell, and the owner's standing instruction is not to quietly
     # trade creative quality for trivial savings. Batched -- one call proposes a whole field,

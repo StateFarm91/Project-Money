@@ -863,6 +863,93 @@ def test_a_field_the_catalogue_can_judge_reports_the_comparison():
     assert "measured against" in result["survival_rate_means"]
 
 
+# ---- the tournament at its specified scale (#3) ------------------------------
+
+
+class _WideGateway:
+    """A generator that answers with a full batch of parseable concepts."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def complete_json(self, ref, *, agent, values, required=None):
+        self.calls += 1
+        n = int(values["count"])
+        out = []
+        for i in range(n):
+            k = self.calls * 100 + i
+            out.append({
+                "title": f"Piece {k}",
+                "premise": (f"a sculpted winter form number {k} whose ribbed collar stands "
+                            f"upright without stiffener so it keeps its shape on a mantel"),
+                "construction": "in_the_round", "motif": f"motif-{k % 7}",
+                "palette_story": "frost and cranberry",
+                "recipient": ("child", "host", "teen", "new_parent")[k % 4],
+                "occasion": "christmas",
+                "feeling": ("festive", "folkloric", "whimsical", "heirloom")[k % 4],
+                "function": "holds small gifts and stands up on a mantel by itself",
+                "wow": "a collar that stands by itself"})
+        return {"concepts": out}
+
+
+def _wide_db():
+    db = _db()
+    with db.session() as s:
+        for pod, title, n in (("hats", "Cozy Chunky Crochet Beanie Hat Pattern", 40),
+                              ("stockings", "Rustic Crochet Christmas Stocking Pattern", 20),
+                              ("blankets", "Cozy Chunky Crochet Throw Blanket Pattern", 30)):
+            for i in range(n):
+                s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY,
+                                       listing_ref=f"{pod}{i}", title=title, pod=pod))
+    return db
+
+
+def test_a_field_is_drawn_across_arenas_rather_than_within_one():
+    """A field from a single department can only answer "which of these", which is a
+    smaller question than what this company should make next."""
+    report = P.field(_wide_db(), gateway=_WideGateway(), target=80,
+                     today=date(2026, 9, 20))
+    assert report["generated"] == 80
+    assert len(report["pods"]) >= 2, report["pods"]
+    assert report["wide_enough"] is True
+
+
+def test_the_ideation_stage_is_cheap_by_routing_not_by_hope():
+    """#3 says "inexpensive" by name: a hundred concepts at the deep tier spends the saving
+    before the first gate."""
+    from brambleloop.gateway import routing
+
+    cheap = routing.estimate_cad(P.IDEATION_TASK)
+    deep = routing.estimate_cad(P.GENERATION_TASK)
+    assert cheap < deep / 3, (cheap, deep)
+    _task, tier = routing.route(P.IDEATION_TASK)
+    assert tier.key == "cheap"
+
+
+def test_a_tournament_runs_the_stages_it_can_and_names_the_ones_it_cannot():
+    """Running proposition, prototype and release with placeholder verdicts would produce a
+    five-stage funnel that had cut nothing twice."""
+    from brambleloop.creative.audit import catalogue_concepts
+
+    report = P.tournament(_wide_db(), gateway=_WideGateway(), target=80,
+                          today=date(2026, 9, 20), catalogue=catalogue_concepts())
+    assert report["stages_run"] == ["ideation", "research"]
+    assert report["stages_not_run"] == ["proposition", "prototype", "release"]
+    rounds = {r["stage"]: r for r in report["rounds"]}
+    assert rounds["ideation"]["examined"] == rounds["ideation"]["entered"]
+    assert rounds["research"]["killed"] > 0, "the research gate cut nothing from 80"
+
+
+def test_every_kill_cause_reaching_the_funnel_is_in_its_closed_vocabulary():
+    """A cause outside it aggregates to nothing, and the aggregate is the whole value."""
+    from brambleloop.creative.funnel import KILL_CAUSES
+
+    assert set(P.SCREEN_TO_FUNNEL.values()) <= set(KILL_CAUSES)
+    for cause in ("jury", "unbuildable", "too_close_to_a_sibling"):
+        mapped = P.SCREEN_TO_FUNNEL.get(cause, cause)
+        assert mapped in KILL_CAUSES or cause == "jury"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

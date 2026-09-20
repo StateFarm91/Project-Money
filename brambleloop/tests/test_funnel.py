@@ -202,5 +202,59 @@ def _run() -> int:
     return failures
 
 
+# ---- a gate that found nothing wrong is not a gate that did not run ----------
+
+
+def test_a_zero_kill_stage_must_declare_it_examined_every_entrant():
+    """The first real tournament hit this immediately.
+
+    Ideation's gate is structural refusal, and a generator returning well-formed concepts
+    gives it nothing to reject. That is a result, not a stage that did not happen -- but the
+    only honest way to say so is to state that the gate looked at everything.
+    """
+    from brambleloop.creative.funnel import FunnelRefused, Tournament, advance
+
+    entrants = [f"c{i}" for i in range(80)]
+    run = Tournament(opportunity="x")
+    try:
+        advance(run, stage="ideation", entrants=entrants, survived=entrants, killed={})
+    except FunnelRefused as e:
+        assert "declaring how many entrants its gate examined" in str(e)
+    else:
+        raise AssertionError("a stage passed everything without saying it looked")
+
+    round_ = advance(run, stage="ideation", entrants=entrants, survived=entrants,
+                     killed={}, examined=80)
+    assert round_.to_dict()["examined"] == 80
+
+
+def test_a_zero_kill_stage_that_looked_at_only_some_is_refused():
+    """A gate that passed everything has to have looked at everything."""
+    from brambleloop.creative.funnel import FunnelRefused, Tournament, advance
+
+    entrants = [f"c{i}" for i in range(80)]
+    try:
+        advance(Tournament(opportunity="x"), stage="ideation", entrants=entrants,
+                survived=entrants, killed={}, examined=40)
+    except FunnelRefused as e:
+        assert "partly did not happen" in str(e)
+    else:
+        raise AssertionError("a half-applied gate passed a whole stage")
+
+
+def test_declaring_examined_never_excuses_a_stage_that_killed_something_wrongly():
+    """The escape hatch is only for zero kills; every other rule still applies."""
+    from brambleloop.creative.funnel import FunnelRefused, Tournament, advance
+
+    entrants = [f"c{i}" for i in range(80)]
+    try:
+        advance(Tournament(opportunity="x"), stage="ideation", entrants=entrants,
+                survived=entrants[:79], killed={"c79": "not strong enough"}, examined=80)
+    except FunnelRefused as e:
+        assert "not in the vocabulary" in str(e)
+    else:
+        raise AssertionError("an open kill cause passed")
+
+
 if __name__ == "__main__":
     raise SystemExit(1 if _run() else 0)

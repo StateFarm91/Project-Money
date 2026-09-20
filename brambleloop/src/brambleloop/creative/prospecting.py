@@ -620,6 +620,10 @@ def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = Non
 # Generation
 
 GENERATION_TASK = "concept_generation"
+# The tournament's wide first stage uses the same prompt at a cheaper tier. #3 asks for
+# "inexpensive" concepts by name, and the funnel's whole shape is to spend little on a wide
+# field and concentrate cost only after it has been cut.
+IDEATION_TASK = "concept_ideation"
 PROMPT = "creative.concept_field@2"
 FIELD_SIZE = 6
 
@@ -669,7 +673,8 @@ def _brief_for(slot: Slot) -> str:
 
 
 def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
-            agent: str = "creative_director") -> tuple[list[Candidate], list[str]]:
+            agent: str = "creative_director",
+            key_prefix: str = "") -> tuple[list[Candidate], list[str]]:
     """Ask for a field of concepts for one slot, and refuse everything malformed.
 
     Returns the candidates that parsed into valid Concepts and the reasons the rest did not.
@@ -705,7 +710,7 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
         if not isinstance(row, dict):
             refused.append(f"entry {i} is not an object")
             continue
-        key = f"{slot.arena.pod}-{slot.form}-{i}"
+        key = f"{key_prefix}{slot.arena.pod}-{slot.form}-{i}"
         try:
             concept = Concept(
                 key=key,
@@ -964,3 +969,174 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     if position < priority_slots:
         return priority[position % len(priority)]
     return others[(position - priority_slots) % len(others)]
+
+
+# ---------------------------------------------------------------------------
+# The tournament's wide first stage (#3)
+#
+# "Do not fully engineer the first ideas. Generate roughly 75-100 inexpensive concepts ->
+# research about 40 -> develop about 20 -> prototype 10-15 -> release 5-10."
+#
+# The funnel that enforces that shape has existed since Build 2 opened and has never been
+# run at scale, because a wide field needs a model. It needs a *cheap* model: the point of
+# the shape is that engineering cost is concentrated after the field has been cut, and a
+# hundred concepts at the deep tier spends the saving before the first gate.
+
+IDEATION_BATCH = 12
+
+
+def field(db, *, gateway, target: int = 80, today: date | None = None,
+          catalogue: list[Concept] | None = None,
+          agent: str = "creative_director") -> dict:
+    """A wide, cheap field drawn from every reachable proven arena.
+
+    Across arenas rather than within one, because the tournament is choosing what this
+    company should make next and a field drawn from a single department can only answer
+    "which of these garments" -- which is a smaller question than the one #3 asks.
+    """
+    from ..gateway import routing
+
+    found = arenas(db, today=today)
+    reachable: list[Slot] = []
+    for arena in found:
+        plan = slots(arena, catalogue=catalogue, today=today)
+        reachable.extend(plan["slot_objects"])
+    if not reachable:
+        raise ProspectingRefused(
+            "no proven arena has a form that can still be made in time, so a tournament "
+            "field would be drawn from nothing")
+
+    started = routing.spent_this_month(db)
+    candidates: list[Candidate] = []
+    problems: list[str] = []
+    stopped = False
+
+    # Round-robin across slots so the field is wide by construction rather than by luck: a
+    # field that took the first slot to target would be one department again.
+    index = 0
+    while len(candidates) < target:
+        slot = reachable[index % len(reachable)]
+        index += 1
+        if index > len(reachable) * 12:
+            break
+        try:
+            routing.check(db, IDEATION_TASK)
+        except routing.CeilingReached as e:
+            stopped = True
+            problems.append(str(e)[:200])
+            break
+        want = min(IDEATION_BATCH, target - len(candidates))
+        try:
+            batch, refused = propose(slot, gateway=gateway, count=want, agent=agent,
+                                     key_prefix=f"t{index}-")
+        except Exception as e:  # noqa: BLE001 - one failed batch is not a failed field
+            problems.append(f"{slot.form}: {type(e).__name__}: {e}"[:200])
+            continue
+        candidates.extend(batch)
+        problems.extend(refused)
+
+    forms = sorted({c.concept.form for c in candidates})
+    pods_seen = sorted({c.concept.pod for c in candidates})
+    return {
+        "target": target,
+        "generated": len(candidates),
+        "candidates": candidates,
+        "slots": len(reachable),
+        "forms": forms,
+        "pods": pods_seen,
+        "stopped_on_ceiling": stopped,
+        "cost_cad": round(routing.spent_this_month(db) - started, 6),
+        "problems": problems[:12],
+        "wide_enough": len(candidates) >= _ideation_floor(),
+        "ideation_floor": _ideation_floor(),
+        "note": ("Drawn across every reachable proven arena rather than within one. A field "
+                 "from a single department can only answer 'which of these', which is a "
+                 "smaller question than what this company should make next (#3)."),
+    }
+
+
+# Which screen() kill cause is which funnel kill cause. Mapped rather than renamed, because
+# the funnel's vocabulary is closed on purpose -- a cause outside it aggregates to nothing --
+# and the gauntlet's causes are about *why the gate fired*, which is not always the same word.
+SCREEN_TO_FUNNEL: dict[str, str] = {
+    "unbuildable": "unverifiable",
+    "too_close_to_the_catalogue": "sameness",
+    "too_close_to_a_sibling": "sameness",
+    "indistinguishable_from_a_benchmark_listing": "derivative",
+}
+
+
+def tournament(db, *, gateway, target: int = 80, today: date | None = None,
+               catalogue: list[Concept] | None = None,
+               agent: str = "creative_director") -> dict:
+    """A real staged tournament: a wide cheap field, cut by the gates that already exist.
+
+    Only the two stages this system can honestly run today. `ideation` is the structural
+    refusal -- a concept that does not parse into the closed vocabulary never becomes one --
+    and `research` is the jury, the catalogue, the field and the calendar, which is exactly
+    what `funnel.STAGES` says that stage applies.
+
+    The three stages after it are not simulated. `proposition` needs a margin and an unmet
+    angle, `prototype` needs a compile and a twin, `release` needs the gates; running them
+    with placeholder verdicts would produce a five-stage funnel that had cut nothing twice.
+    """
+    from .funnel import Tournament, advance
+
+    drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
+                  agent=agent)
+    candidates = drawn["candidates"]
+    if not candidates:
+        raise ProspectingRefused(
+            "the field is empty, so there is nothing to run a tournament on. "
+            + "; ".join(drawn["problems"][:3]))
+
+    run = Tournament(opportunity=f"proven arenas @ {(today or date.today()).isoformat()}")
+
+    # Ideation: everything that reached a valid Concept survived the structural gate by
+    # definition, and everything that did not never became an entrant. The refused ones are
+    # counted here so the stage has a real kill list rather than a perfect one.
+    malformed = [p for p in drawn["problems"] if ":" in p]
+    entrants = [c.concept.key for c in candidates] + [f"malformed-{i}"
+                                                      for i in range(len(malformed))]
+    advance(run, stage="ideation", entrants=entrants,
+            survived=[c.concept.key for c in candidates],
+            killed={f"malformed-{i}": "unverifiable" for i in range(len(malformed))},
+            # The structural gate runs during generation, on every returned entry. When a
+            # generator returns nothing malformed it rejects nothing, which is a result
+            # rather than a skipped stage.
+            examined=len(entrants))
+
+    screened = screen(candidates, catalogue=catalogue,
+                      benchmark=benchmark_comparables(db),
+                      days_to_event=None)
+    survivors = [c.concept.key for c in screened["survivor_objects"]]
+    killed = {}
+    for candidate in candidates:
+        if not candidate.killed_by:
+            continue
+        cause = candidate.killed_by
+        if cause == "jury" and candidate.findings:
+            cause = candidate.findings[0].critic
+        killed[candidate.concept.key] = SCREEN_TO_FUNNEL.get(cause, cause)
+
+    research = advance(run, stage="research",
+                       entrants=[c.concept.key for c in candidates],
+                       survived=survivors, killed=killed)
+
+    return {
+        "field": {k: v for k, v in drawn.items() if k != "candidates"},
+        "rounds": [r.to_dict() for r in run.rounds],
+        "survivors": [c.to_dict() for c in screened["survivor_objects"]],
+        "survivor_objects": screened["survivor_objects"],
+        "research_kill_rate": research.kill_rate,
+        "causes": screened["causes"],
+        "novelty_measurable": screened["novelty_measurable"],
+        "survival_rate_means": screened["survival_rate_means"],
+        "cost_cad": drawn["cost_cad"],
+        "stages_run": [r.stage for r in run.rounds],
+        "stages_not_run": [s for s in ("proposition", "prototype", "release")],
+        "note": ("Two stages, not five. proposition needs a margin and an unmet angle, "
+                 "prototype needs a compile and a twin, release needs the gates -- and "
+                 "running them with placeholder verdicts would produce a five-stage funnel "
+                 "that had cut nothing twice (#3)."),
+    }

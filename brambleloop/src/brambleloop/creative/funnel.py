@@ -93,6 +93,9 @@ class Round:
     entered: int
     survived: list[str]
     killed: dict[str, str]          # concept key -> kill cause
+    # How many entrants the gate actually looked at. Only meaningful when nothing was
+    # killed, which is the one case where "the stage ran" cannot be inferred from the result.
+    examined: int | None = None
 
     @property
     def kill_rate(self) -> float:
@@ -103,6 +106,7 @@ class Round:
         low, high = stage.target_out
         return {"stage": self.stage, "what": stage.what, "gate": stage.gate,
                 "entered": self.entered, "survived": len(self.survived),
+                "examined": self.examined,
                 "killed": len(self.killed), "kill_rate": self.kill_rate,
                 "target_out": [low, high],
                 "within_target": low <= len(self.survived) <= high,
@@ -132,10 +136,22 @@ class Tournament:
 
 
 def advance(tournament: Tournament, *, stage: str, entrants: list[str],
-            survived: list[str], killed: dict[str, str]) -> Round:
+            survived: list[str], killed: dict[str, str],
+            examined: int | None = None) -> Round:
     """Run one stage, refusing every way the funnel could stop being one.
 
     Refusals rather than warnings throughout. A warned-about funnel is a funnel that ran.
+
+    `examined` is the escape hatch for the one honest case the "killed nothing" rule could
+    not previously tell apart: a gate that ran over every entrant and found nothing wrong.
+    The first real tournament hit it immediately -- the ideation gate is structural refusal,
+    and a generator returning well-formed concepts gives it nothing to reject. That is not a
+    stage that did not happen.
+
+    It is deliberately not a way to pass a stage quietly. A stage declaring it killed nothing
+    must state that its gate examined **every** entrant, and a number short of that is a
+    stage that partly did not happen. The alternative -- relaxing the rule -- is the "tuned
+    until something passed" failure this whole module exists to prevent.
     """
     spec = STAGE_BY_KEY.get(stage)
     if spec is None:
@@ -173,10 +189,17 @@ def advance(tournament: Tournament, *, stage: str, entrants: list[str],
             f"(unaccounted: {missing}; not entrants: {extra}). Survivors plus killed equals "
             f"entrants, or concepts are leaving the funnel quietly")
 
-    if not killed:
+    if not killed and examined is None:
         raise FunnelRefused(
             f"{stage} killed nothing. A kill gate with no kills either had nothing to judge "
-            f"or was not applied, and both mean the stage did not happen")
+            f"or was not applied, and both mean the stage did not happen. A stage that "
+            f"genuinely found nothing wrong says so by declaring how many entrants its gate "
+            f"examined")
+    if not killed and examined != len(entrants):
+        raise FunnelRefused(
+            f"{stage} killed nothing and reports examining {examined} of {len(entrants)} "
+            f"entrants. A gate that passed everything has to have looked at everything; "
+            f"anything less is a stage that partly did not happen")
 
     unknown = sorted({c for c in killed.values() if c not in KILL_CAUSES})
     if unknown:
@@ -186,7 +209,7 @@ def advance(tournament: Tournament, *, stage: str, entrants: list[str],
             f"value of running a tournament rather than choosing")
 
     round_ = Round(stage=stage, entered=len(entrants), survived=list(survived),
-                   killed=dict(killed))
+                   killed=dict(killed), examined=examined)
     tournament.rounds.append(round_)
     return round_
 
