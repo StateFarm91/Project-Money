@@ -233,12 +233,20 @@ class ModelGateway:
             prompt_ref=prompt.ref, prompt_sha256=prompt.sha256, provider=provider.name,
             model=provider.model, agent=agent, input_tokens=in_tok, output_tokens=out_tok,
             cost_cad=cost, attempts=attempt, ok=ok, error=error))
-        if self.registry is not None and cost > 0:
+        if self.registry is not None and (cost > 0 or in_tok or out_tok):
             # Recorded even on the failed attempts that cost money, because a retry storm
             # that bills is exactly what the daily ceiling exists to catch.
             # `routing.COST_KIND`, not "model". These rows are what the monthly ceiling
             # counts, and a gateway writing a kind no ceiling reads is an unbounded budget
             # that reports CA$0.00.
+            #
+            # And recorded when the computed cost is zero but tokens were spent, which is the
+            # condition that hid the worst of it. This used to be `cost > 0`, so a call
+            # mispriced at zero wrote no row at all -- not a zero, *nothing*. A tournament
+            # generated eighty concepts and left no trace in the ledger, and there were no
+            # tokens stored to re-price it from afterwards. A zero-cost row carrying real
+            # token counts is evidence that something is wrong with the price; silence is
+            # indistinguishable from not having run.
             self.registry.record_cost(agent, cost, kind=routing.COST_KIND, tokens_in=in_tok,
                                       tokens_out=out_tok, job_id=self.job_id,
                                       detail={"prompt": prompt.ref,

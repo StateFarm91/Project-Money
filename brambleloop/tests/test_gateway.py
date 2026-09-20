@@ -412,6 +412,43 @@ def test_a_model_cost_is_attributable_to_the_job_that_spent_it():
     assert all(r.job_id == job.id for r in rows), [(r.agent, r.job_id) for r in rows]
 
 
+def test_a_call_priced_at_zero_still_leaves_the_tokens_it_spent():
+    """The condition that hid the price bug, and made it unrecoverable afterwards.
+
+    `_record` wrote a ledger row only when `cost > 0`, so a call mispriced at zero wrote no
+    row at all -- not a zero, nothing. Eighty concepts were generated in production and left
+    no trace, and with no stored tokens there was nothing to re-price the month from once the
+    price was fixed. A zero-cost row carrying real token counts says something is wrong with
+    the price; silence is indistinguishable from not having run.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import CostEntry
+    from brambleloop.gateway.model_gateway import ModelGateway
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/zero.sqlite")
+    db.create_all()
+    registry = Registry(db)
+    registry.seed_defaults()
+
+    # A provider whose prices are zero is exactly what a missing price table entry produced.
+    free = _echo({"names": ["A", "B", "C"]},
+                 cost_per_1k_input_cad=0.0, cost_per_1k_output_cad=0.0)
+    gateway = ModelGateway([free], registry=registry)
+    gateway.complete_json("concept.naming@1", agent="market_radar",
+                          values={"category": "c", "motifs": "m", "season": "s"})
+
+    with db.session() as s:
+        rows = list(s.scalars(select(CostEntry)))
+    assert rows, "a call that billed nothing left no evidence that it happened"
+    assert rows[0].amount_cad == 0.0
+    assert rows[0].tokens_in or rows[0].tokens_out, "the tokens were not kept either"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
