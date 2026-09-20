@@ -26,8 +26,8 @@ readable live at `/api/build2`.
 | status | count | meaning |
 |---|---|---|
 | covered | 182 | satisfied, with a named test or artefact |
-| partial | 56 | something real exists and is short of the requirement |
-| missing | 26 | nobody has built it |
+| partial | 59 | something real exists and is short of the requirement |
+| missing | 23 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
@@ -257,6 +257,35 @@ says absence may not be enforced yet.
 
 The 134 dead letters are all publications refused by shadow mode — the guard working — which
 is what prompted counting deliberate refusals apart from defects (B-374).
+
+**#257/#258/#259 — proof, reviews, and the sprint that mostly happens beforehand.**
+
+`commerce/reviews.py` (#257): the prohibition's third verb is the precise one. *Gating* is
+not buying — it is withholding something the buyer already paid for until they leave a
+rating, and no money moves, which is exactly why it ends up in a support template written by
+a shop that would never buy a review. Eight phrasings are refused by name. The analytical
+half has an arithmetic problem the rule does not: a shop with three reviews has a rating one
+bad day away from 3.7, so the star distribution is **refused below twenty rather than
+caveated** — a caveat is read once and an average is read every week. The useful output is
+the routing: a *misunderstood* theme is usually a missing disclosure, and sending it to the
+design queue rewrites a pattern that was correct.
+
+`commerce/buyer_trust.py` (#258): a gallery entry belongs to a pattern version. A customer's
+photograph of v1.0.0 beside a listing selling v1.2.0 is proof of a *different object*, and it
+is the most believable wrong thing on the page because it is real — so it is marked, not
+removed. The colourway is now required (the yarn already was, at construction). Whether proof
+lifts conversion needs both arms: a gallery added to every listing measures the month it was
+added.
+
+`commerce/first_hundred.py` (#259): read as written, the requirement produces a plan that
+starts on the day of the first sale — the wrong day for four of its five priorities. The
+first buyer either gets the file or does not; a listing is written before anybody reads it;
+prevention that begins after the first sale is not prevention. **Only rapid support genuinely
+needs customers.** So four priorities are checkable today and are not waiting for anybody,
+which matters because the alternative is comfortable: a plan beginning at the first sale lets
+all four sit unfinished while the shop feels prepared. The sprint ends at a hundred — a
+permanent sprint is just how the company works — and it may spend support hours, sample costs
+and a slower release cadence, never the price.
 
 **#249/#250 — the creator portfolio, and the two programmes that must not merge.**
 `growth/creators.py` extended. "Scale high-contribution relationships and stop weak ones" is

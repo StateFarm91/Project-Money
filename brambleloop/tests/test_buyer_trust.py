@@ -167,6 +167,71 @@ def test_a_correction_notice_is_prepared_and_never_sent():
         raise AssertionError("a vague correction notice was prepared")
 
 
+# --- #258: the gallery, and the version an entry belongs to ---------------------------------
+
+def test_a_photograph_of_an_older_version_is_real_and_proof_of_a_different_object():
+    """It is the most believable wrong thing on the page, because it is real."""
+    old = B.record_image("i1", "customer_photo", pattern_version="1.0.0",
+                         consent_basis="written_permission", consent_ref="c-1",
+                         yarn="worsted", colourway="ember")
+    out = B.customer_gallery([old], selling_version="1.2.0")
+    entry = out["entries"][0]
+    assert entry["superseded"] is True
+    assert "proof of a different object" in entry["why"]
+    assert out["usable"] == 0
+
+
+def test_the_colourway_is_what_a_browser_is_choosing_from():
+    """The yarn is already required at construction; nothing had required the colour."""
+    no_colour = B.record_image("i2", "customer_photo", pattern_version="1.2.0",
+                               consent_basis="written_permission", consent_ref="c-2",
+                               yarn="worsted")
+    out = B.customer_gallery([no_colour], selling_version="1.2.0")
+    assert out["entries"][0]["missing_notes"] == ["colourway"]
+    assert out["usable"] == 0
+    assert "colourway" in B.GALLERY_NOTES and "yarn" not in B.GALLERY_NOTES
+
+
+def test_a_complete_current_entry_is_usable_proof():
+    good = B.record_image("i3", "customer_photo", pattern_version="1.2.0",
+                          consent_basis="written_permission", consent_ref="c-3",
+                          yarn="worsted", colourway="soot")
+    out = B.customer_gallery([good], selling_version="1.2.0")
+    assert out["usable"] == 1
+    assert out["entries"][0]["why"] == ""
+
+
+def test_a_record_that_did_not_come_through_record_image_is_still_refused():
+    """A second line rather than the line: record_image already refuses this."""
+    raw = B.ImageRecord("i4", "customer_photo", "1.2.0",
+                        consent_basis="written_permission", yarn="worsted", colourway="soot")
+    out = B.customer_gallery([raw], selling_version="1.2.0")
+    assert [r["ref"] for r in out["refused"]] == ["i4"]
+    assert "most public place to be wrong" in out["refused"][0]["why"]
+
+
+def test_an_empty_gallery_is_empty_rather_than_thin():
+    out = B.customer_gallery([])
+    assert out["entries"] == [] and out["refused"] == []
+    assert "empty rather than thin" in out["note"]
+
+
+def test_a_gallery_added_to_every_listing_measures_the_month_it_was_added():
+    out = B.proof_lift(design="holdout")
+    assert out["measurable"] is False
+    assert "not the gallery" in out["why"]
+
+
+def test_the_design_decides_what_the_lift_may_be_called():
+    causal = B.proof_lift(design="holdout", with_gallery={"conversion": 0.03},
+                          without_gallery={"conversion": 0.02})
+    weak = B.proof_lift(design="pre_post", with_gallery={"conversion": 0.03},
+                        without_gallery={"conversion": 0.02})
+    assert causal["lift"] == 0.5 and causal["causal"] is True
+    assert weak["causal"] is False
+    assert "cannot separate the gallery from the week" in weak["claim"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

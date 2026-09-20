@@ -176,6 +176,92 @@ SURFACES: tuple[str, ...] = ("title", "first_screen", "description", "file")
 TITLE_CRITICAL = "digital_not_finished"
 
 
+# ---------------------------------------------------------------------------
+# #258: the gallery of real finished projects, and the version it belongs to
+
+# A gallery entry is a photograph plus the facts that make it usable as proof. The pattern
+# version is not decoration: a customer's photograph of v1.0.0 shown beside a listing selling
+# v1.2.0 is proof of a different object, and it is the most believable wrong thing on the
+# page because it is real.
+GALLERY_KINDS: tuple[str, ...] = ("tester_photo", "customer_photo")
+
+# What a gallery entry has to carry beyond what `record_image` already requires. The yarn is
+# not on this list because the constructor above already refuses a physical photograph
+# without one; the colourway is, because it is the thing a browser is actually choosing from
+# and nothing has required it until now.
+GALLERY_NOTES: tuple[str, ...] = ("colourway",)
+
+
+def customer_gallery(images: list[ImageRecord], *, selling_version: str = "") -> dict:
+    """The gallery as proof, and which entries are proof of a different object (#258).
+
+    `selling_version` is the version the listing currently sells. An entry against an older
+    version is not removed -- it is real, and it is the strongest kind of evidence this shop
+    can hold -- but it is marked, because the yarn note and the colour note belong to the
+    pattern that was current when the photograph was taken. That marking is the new thing
+    here; the consent check below is a second line rather than the line, since `record_image`
+    already refuses a third-party photograph without a recorded basis and reference, and a
+    record that reaches this function without one was not built through it.
+    """
+    entries, problems = [], []
+    for image in images:
+        if image.kind not in GALLERY_KINDS:
+            continue
+        missing = [n for n in GALLERY_NOTES if not getattr(image, n, "")]
+        superseded = bool(selling_version and image.pattern_version != selling_version)
+        if not image.consent_ref.strip():
+            problems.append({"ref": image.ref, "why": (
+                "no recorded consent reference. A customer's photograph without one is "
+                "somebody's property, and a gallery is the most public place to be wrong "
+                "about that")})
+            continue
+        entries.append({
+            "ref": image.ref, "kind": image.kind,
+            "pattern_version": image.pattern_version,
+            "yarn": image.yarn, "colourway": image.colourway,
+            "missing_notes": missing,
+            "superseded": superseded,
+            "why": ((f"made from {image.pattern_version}, and the listing sells "
+                     f"{selling_version}: real, and proof of a different object")
+                    if superseded else
+                    (f"missing {missing}: evidence that somebody made something, rather than "
+                     f"proof of what this pattern produces in a named yarn")
+                    if missing else ""),
+        })
+    return {
+        "entries": entries,
+        "usable": sum(1 for e in entries if not e["superseded"] and not e["missing_notes"]),
+        "refused": problems,
+        "note": ("no customer or tester photograph exists yet, so this gallery is empty "
+                 "rather than thin" if not entries and not problems else ""),
+    }
+
+
+def proof_lift(*, design: str, with_gallery: dict | None = None,
+               without_gallery: dict | None = None) -> dict:
+    """Whether the gallery improved conversion, or why that cannot be said (#258).
+
+    A gallery added to every listing measures the month it was added. The design decides
+    what may be claimed, and `growth.experiments` already holds which designs carry a causal
+    claim rather than an association.
+    """
+    from ..growth.experiments import CAUSAL_DESIGNS
+
+    causal = design in CAUSAL_DESIGNS
+    if not (with_gallery and without_gallery):
+        return {"measurable": False, "causal": causal,
+                "why": ("both arms are needed: a gallery added to every listing measures the "
+                        "month it was added, not the gallery")}
+    a, b = with_gallery, without_gallery
+    lift = ((a["conversion"] - b["conversion"]) / b["conversion"]) if b["conversion"] else None
+    return {
+        "measurable": True, "causal": causal,
+        "lift": None if lift is None else round(lift, 4),
+        "claim": ("the gallery moved conversion" if causal else
+                  "an association: this design cannot separate the gallery from the week"),
+    }
+
+
 def disclosure_check(present: dict) -> dict:
     """Which purchase-protecting disclosures are in place, and where (#41)."""
     unknown = [k for k in present if k not in REQUIRED_DISCLOSURES]

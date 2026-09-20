@@ -2332,29 +2332,32 @@
  {
   "body": "Analyze legitimate review themes and star distribution against listing conversion and repeat behavior. Identify what buyers praise, misunderstand or wish existed. Feed findings into product design, PDFs, listing claims and support. Never fabricate, purchase or gate reviews.",
   "id": 257,
-  "note": "referral research, review-to-conversion learning, customer project gallery",
+  "note": "commerce/reviews.py reads this shop's own reviews, and the prohibition's third verb is the one worth being precise about. Gating is not buying: it is withholding something the buyer already paid for -- the file, the answer, the fix -- until they leave a rating, and it does not feel like buying a review because no money moves. That is the version a small shop actually commits, usually by accident, in a support template that says 'if this helped, a review would mean a lot' attached to the thing they were owed anyway, so check_support_copy() refuses eight such phrases by name. Nothing in the module writes a review. The analytical half has an arithmetic problem the rule does not: a shop with three reviews has a rating one bad day away from 3.7 and the first handful dominate the average for a year, so the star distribution is refused below twenty rather than reported with a caveat -- a caveat is read once and an average is read every week, and the number would move somebody to redesign a product over one person's experience. Themes stay readable when the average is not, on intel/observe.py's RECURRING_AT. The most useful output is the routing rather than the counting: a theme in the misunderstood category is usually not a product defect but a disclosure missing from the listing, and commerce/buyer_trust.py already holds the list a purchase needs -- routing a misunderstanding to the design queue rewrites a pattern that was correct. Praise routes to listing claims, which may say it because a buyer said it first; a wish routes to product selection. Remaining and parked on the customers gate: this shop has no reviews.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Review-to-Conversion Learning",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "customers"
  },
  {
   "body": "With explicit permission, build a gallery of real customer/tester finished projects linked to exact pattern versions and yarn/colour notes. Use as trust/proof, inspiration and support material. Measure whether proof improves conversion.",
   "id": 258,
-  "note": "referral research, review-to-conversion learning, customer project gallery",
+  "note": "commerce/buyer_trust.py's customer_gallery() adds the thing #258 is actually about: an entry belongs to a pattern version. A customer's photograph of v1.0.0 shown beside a listing selling v1.2.0 is proof of a different object, and it is the most believable wrong thing on the page because it is real -- so it is marked rather than removed, since it is the strongest evidence this shop can hold. The colourway is now required, because it is what a browser is choosing from and nothing had required it; the yarn is not on that list because record_image() already refuses a physical photograph without one, and the gallery's consent check is named as a second line rather than the line for the same reason. proof_lift() refuses to say whether proof improved conversion without both arms -- a gallery added to every listing measures the month it was added -- and growth/experiments.py decides whether the result may be called causal or an association. Remaining and parked on the customers gate: no customer or tester photograph exists, so the gallery is empty rather than thin, and nothing has permission to be shown because nothing has been taken.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "Customer Project Gallery",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "customers"
  },
  {
   "body": "During the first 100 customers, prioritize flawless downloads, rapid support, truthful expectations, defect prevention and post-purchase clarity. Do not sacrifice contribution irrationally, but treat early trust as a compounding asset.",
   "id": 259,
-  "note": "trust sprint, first-100 interviews, purchase-friction audit",
+  "note": "commerce/first_hundred.py reframes the sprint, and the reframing is the work. Read as written the requirement produces a plan that starts on the day of the first sale, and that is the wrong day for four of its five priorities. A flawless download is a property of the delivery path and the first buyer either gets the file or does not; truthful expectations are written into a listing before anybody reads it; defect prevention is the release chain, which runs before a product exists to sell; post-purchase clarity is a page and a file, either written or not. Only rapid support genuinely needs customers, because it is a response time and there is nothing to respond to yet. So four priorities are checkable today and are not waiting for anybody -- which matters because the alternative is comfortable: a plan beginning at the first sale lets all four sit unfinished while the shop feels prepared, and the first hundred customers are the review base, the repeat base and the proof base, each arriving exactly once. The sprint ends at a hundred, stated because a permanent sprint is just how the company works and calling it a sprint is how nobody asks when the extra cost stops. 'Do not sacrifice contribution irrationally' reads specifically: the sprint may spend support hours, sample costs and a slower release cadence, and may not spend the price -- a discount teaches the hundred buyers whose repeat behaviour matters most that the price is negotiable, and they are exactly the cohort the value ladder depends on. Remaining and parked on the customers gate: rapid support has nothing to respond to, and the four that do not need a customer are currently all unready.",
   "section": "CA$5K/month scale architecture",
-  "status": "missing",
+  "status": "partial",
   "title": "New-Shop Trust Sprint",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "customers"
  },
  {
   "body": "Invite a small voluntary sample of legitimate buyers/testers to provide structured feedback on why they clicked, why they bought, what nearly stopped them, pattern clarity and what they want next. No reward is contingent on positive sentiment. Convert responses into hypotheses.",
