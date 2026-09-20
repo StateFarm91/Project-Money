@@ -143,7 +143,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `PLACEHOLDER`: **2,553 tests passing, 0
+Measured by `./run_tests.sh` on commit `c59ebf2`: **2,553 tests passing, 0
 failing** across 143 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
