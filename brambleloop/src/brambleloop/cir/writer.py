@@ -94,6 +94,34 @@ def write_row(
     return line
 
 
+def hold_line(comp: Component, row: Row) -> str:
+    """The division, written where it happens.
+
+    Without this a divided pattern reads "Rnd 24: sc 32 (32 sts)" over a round of 48 and the
+    maker has no idea what became of the other sixteen. The arithmetic would be correct, the
+    twin would agree, and the document would be unfollowable -- the bag-of-pieces failure
+    arriving through shaping rather than through assembly.
+    """
+    taken = [h for h in comp.holds if h.at_row == row.index]
+    if not taken:
+        return ""
+    parts = []
+    for hold in sorted(taken, key=lambda h: h.from_stitch):
+        start, end = hold.spans
+        where = f"sts {start + 1}-{end}"
+        parts.append(f"{hold.count} sts ({where}) for {hold.name.replace('_', ' ')}")
+    return ("Place " + ", and ".join(parts) + " on a stitch holder or waste yarn; "
+            "they are worked separately later.")
+
+
+def resume_line(comp: Component) -> str:
+    """How a held piece starts, said rather than implied."""
+    if not comp.resumes:
+        return ""
+    return (f"Rejoin yarn to the sts held for {comp.resumes.replace('_', ' ')} and work in "
+            f"the round from here.")
+
+
 SPIRAL_LINE = ("Work in a continuous spiral. Do not join the rounds; mark the first stitch "
                "of each round and move the marker up as you go.")
 JOINED_LINE = ("Join each round with a sl st to the first stitch, then ch 1 to begin the "
@@ -198,6 +226,9 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> s
             out.append(f"## {comp.name}{make}")
         if comp.foundation and comp.foundation_kind == "chain":
             out.append(f"Foundation: ch {comp.foundation}.")
+        resumed = resume_line(comp)
+        if resumed:
+            out.append(resumed)
         out.extend(construction_lines(comp))
         # Collapse a repeated row-block into an instruction, the way a real pattern does.
         # Printing all 120 rows of a five-repeat blanket is complete and unusable: a maker
@@ -213,6 +244,9 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> s
             except KeyError:
                 count = None
             out.append(write_row(row, comp, count, terminology, state_color))
+            held = hold_line(comp, row)
+            if held:
+                out.append(held)
             if cycle is not None and row.index == cycle.end:
                 out.append(describe(cycle, comp.rows[-1].index))
         out.append("")

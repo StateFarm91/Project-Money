@@ -104,12 +104,19 @@ class Row:
     into: int | None = None  # row index worked into; default = previous row
     allow_remainder: bool = False
     note: str | None = None
+    # How many of the previous row's stitches this row does not work, because they are on
+    # hold. A yoke worked in rounds splits here: the sleeve stitches wait while the body
+    # continues over the rest. Without it the compiler sees a row consuming 96 of 144 and
+    # calls it an underrun, which is why no garment construction could be expressed.
+    skips: int = 0
 
     def __post_init__(self) -> None:
         if not self.ops:
             raise ValueError(f"row {self.index} has no operations")
         if self.turning_chain < 0:
             raise ValueError(f"row {self.index} turning_chain must be >= 0")
+        if self.skips < 0:
+            raise ValueError(f"row {self.index} skips must be >= 0")
 
 
 @dataclass
@@ -134,6 +141,33 @@ class Material:
     color_id: str | None = None
 
 
+@dataclass(frozen=True)
+class Hold:
+    """Stitches set aside at a row, for another component to resume.
+
+    `at_row` is the row of *this* component whose stitches are held, and `count` is how many.
+    Where they sit is recorded because a sleeve held from the centre back is a different
+    garment from one held from the front, and a pattern that does not say produces a maker
+    guessing -- the failure the Execution Directive forbids, arriving through assembly.
+    """
+
+    name: str
+    at_row: int
+    count: int
+    from_stitch: int = 0
+    note: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.count < 1:
+            raise ValueError(f"hold {self.name!r} must hold at least one stitch")
+        if self.from_stitch < 0:
+            raise ValueError(f"hold {self.name!r} from_stitch must be >= 0")
+
+    @property
+    def spans(self) -> tuple[int, int]:
+        return (self.from_stitch, self.from_stitch + self.count)
+
+
 @dataclass
 class Component:
     """A separately-worked piece (a sleeve, a motif, a granny square).
@@ -150,12 +184,25 @@ class Component:
     foundation_kind: Literal["chain", "magic_ring", "none"] = "chain"
     make: int = 1
     note: str | None = None
+    # Stitches this component sets aside for another component to pick up, and the hold this
+    # component itself starts from. Together they are the armhole division, which is the one
+    # primitive every garment construction needs and the CIR did not have.
+    #
+    # Declared rather than implied, because "place 24 sts on hold for the sleeve" is a
+    # promise, and a promise nobody checks is how a pattern ships with stitches that are
+    # never worked again. The compiler checks that every hold is resumed exactly once and
+    # that the component resuming it starts on exactly that many stitches.
+    holds: list[Hold] = field(default_factory=list)
+    resumes: str | None = None
 
     def __post_init__(self) -> None:
         if self.make < 1:
             raise ValueError(f"component {self.name!r} make must be >= 1")
         if self.foundation < 0:
             raise ValueError(f"component {self.name!r} foundation must be >= 0")
+        names = [h.name for h in self.holds]
+        if len(names) != len(set(names)):
+            raise ValueError(f"component {self.name!r} has duplicate hold names: {names}")
 
 
 SeamMethod = Literal["whipstitch", "slst", "mattress", "sew"]

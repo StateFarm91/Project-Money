@@ -67,8 +67,11 @@ def test_every_concept_construction_either_routes_to_the_compiler_or_is_named():
     assert set(P.ENGINE_ROUTE) == set(CONSTRUCTIONS), (
         set(CONSTRUCTIONS) ^ set(P.ENGINE_ROUTE))
     gaps = P.engine_gaps()
-    assert gaps["needs_engineering"] == ["bottom_up", "top_down_yoke"]
-    assert gaps["routed"] + len(gaps["needs_engineering"]) == len(CONSTRUCTIONS)
+    # Both garment constructions were unblocked on 2026-09-20 by the armhole division, so
+    # every concept construction now routes. If this list grows again, the new entry is a
+    # build item and belongs in the report rather than in a silent refusal to propose.
+    assert gaps["needs_engineering"] == []
+    assert gaps["routed"] == len(CONSTRUCTIONS)
 
 
 def test_the_route_map_cannot_drift_from_what_the_compiler_accepts():
@@ -93,12 +96,12 @@ def test_the_garment_gap_is_one_named_primitive_and_not_a_vague_difficulty():
     from brambleloop.cir.model import Row
 
     gaps = P.engine_gaps()
-    primitive = gaps["missing_primitive"]
-    assert "armhole division" in primitive["name"]
-    # The gap is real: a row names a row index, with no way to name part of it.
+    assert gaps["missing_primitive"] is None
+    closed = {c["name"] for c in gaps["closed_primitives"]}
+    assert any("armhole division" in name for name in closed), closed
+    # And it is closed in the model, not only in the report.
     fields = {f.name for f in dataclasses.fields(Row)}
-    assert "into" in fields
-    assert not any("range" in f or "from_stitch" in f or "held" in f for f in fields), fields
+    assert "skips" in fields
 
 
 def test_the_capabilities_the_engine_already_has_are_not_claimed_as_missing():
@@ -169,13 +172,28 @@ def test_a_saturated_form_does_not_become_another_slot():
 
 
 def test_a_form_the_engine_cannot_build_is_reported_and_not_dropped():
-    """Dropping it is exactly how a catalogue converges on flat panels while feeling picky."""
+    """Dropping it is exactly how a catalogue converges on flat panels while feeling picky.
+
+    Garments are buildable since the armhole division, so the mechanism is exercised against
+    a hypothetical unrouted construction rather than a real one -- the rule has to survive
+    the gap it was written for being closed.
+    """
     plan = P.slots(_arena(pod="garments", forms={"fitted_garment": 141}),
                    viable_lanes=ALL_LANES)
     assert [s["form"] for s in plan["slots"]] == ["fitted_garment"]
-    slot = plan["slots"][0]
-    assert set(slot["needs_engineering"]) == {"top_down_yoke", "bottom_up"}
-    assert plan["engineering_required"] == ["bottom_up", "top_down_yoke"]
+    assert plan["slots"][0]["engine_ready"] is True
+
+    original = dict(P.ENGINE_ROUTE)
+    P.ENGINE_ROUTE["top_down_yoke"] = None
+    try:
+        plan = P.slots(_arena(pod="garments", forms={"fitted_garment": 141}),
+                       viable_lanes=ALL_LANES)
+        assert [s["form"] for s in plan["slots"]] == ["fitted_garment"]
+        assert plan["slots"][0]["needs_engineering"] == ["top_down_yoke"]
+        assert plan["engineering_required"] == ["top_down_yoke"]
+    finally:
+        P.ENGINE_ROUTE.clear()
+        P.ENGINE_ROUTE.update(original)
 
 
 def test_a_form_takes_the_fastest_lane_it_can_honestly_be_made_in():

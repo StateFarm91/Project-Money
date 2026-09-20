@@ -210,6 +210,23 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
         else:
             into_count = available
 
+        # Stitches on hold are not available to this row. Without this the compiler sees a
+        # body round consuming 96 of a 144-stitch yoke and calls it an underrun, which is
+        # why no garment construction could be expressed (B-334).
+        if row.skips:
+            if row.skips >= into_count:
+                findings.append(
+                    Finding(
+                        ERROR,
+                        "SKIPS_EVERYTHING",
+                        f"row holds {row.skips} of {into_count} available stitches, leaving "
+                        f"nothing to work",
+                        comp.name,
+                        row.index,
+                    )
+                )
+            into_count = max(0, into_count - row.skips)
+
         # Row 1 of a flat piece with no foundation has nothing to consume; treat its own
         # production as authoritative rather than inventing a constraint.
         first_freeform = (
@@ -387,10 +404,106 @@ def check_assembly(cir: CIR, findings: list[Finding]) -> None:
             f"not know where the ears go"))
 
 
+def check_holds(cir: CIR, rows: list, findings: list[Finding]) -> None:
+    """The armhole division, checked rather than trusted.
+
+    "Place 24 sts on hold for the sleeve" is a promise, and a promise nobody checks is how a
+    pattern ships with stitches that are never worked again -- a maker reaches the end with
+    live loops and no instruction, which is the bag-of-pieces failure arriving through
+    shaping instead of through assembly.
+
+    Four rules, each against a way a division goes wrong:
+
+      - a hold must name a row that exists, and fit inside it;
+      - two holds on the same row must not overlap;
+      - every hold must be resumed by exactly one component -- an abandoned hold is live
+        stitches nobody comes back for, and two components resuming one hold is the same
+        stitches worked twice;
+      - the resuming component must start on exactly the held count, because a sleeve that
+        picks up 22 of 24 held stitches is a garment with a hole in the armpit.
+    """
+    counts: dict[tuple[str, int], int] = {}
+    for row in rows:
+        counts[(row.component, row.index)] = row.produced
+
+    declared: dict[str, tuple[str, int]] = {}
+    for comp in cir.components:
+        by_row: dict[int, list] = {}
+        for hold in comp.holds:
+            key = (comp.name, hold.at_row)
+            if key not in counts:
+                findings.append(Finding(
+                    ERROR, "HOLD_BAD_ROW",
+                    f"hold {hold.name!r} is taken at row {hold.at_row}, which this component "
+                    f"does not have", comp.name))
+                continue
+            width = counts[key]
+            start, end = hold.spans
+            if end > width:
+                findings.append(Finding(
+                    ERROR, "HOLD_OVERRUN",
+                    f"hold {hold.name!r} takes stitches {start}-{end} of a row that has "
+                    f"{width}", comp.name, hold.at_row))
+                continue
+            for other in by_row.get(hold.at_row, []):
+                a, b = other.spans
+                if start < b and a < end:
+                    findings.append(Finding(
+                        ERROR, "HOLD_OVERLAP",
+                        f"holds {hold.name!r} and {other.name!r} both claim stitches on row "
+                        f"{hold.at_row}; the same stitches cannot be held twice",
+                        comp.name, hold.at_row))
+            by_row.setdefault(hold.at_row, []).append(hold)
+            if hold.name in declared:
+                findings.append(Finding(
+                    ERROR, "HOLD_DUPLICATE",
+                    f"hold {hold.name!r} is declared by more than one component", comp.name))
+                continue
+            declared[hold.name] = (comp.name, hold.count)
+
+    resumed: dict[str, list[str]] = {}
+    for comp in cir.components:
+        if comp.resumes:
+            resumed.setdefault(comp.resumes, []).append(comp.name)
+
+    for name, (owner, count) in declared.items():
+        takers = resumed.get(name, [])
+        if not takers:
+            findings.append(Finding(
+                ERROR, "HOLD_ABANDONED",
+                f"{count} stitches are held as {name!r} and no component resumes them. A "
+                f"maker reaches the end of this pattern with live stitches and no "
+                f"instruction", owner))
+            continue
+        if len(takers) > 1:
+            findings.append(Finding(
+                ERROR, "HOLD_CONTESTED",
+                f"components {sorted(takers)} all resume hold {name!r}; the same stitches "
+                f"cannot be worked twice", owner))
+            continue
+        taker = takers[0]
+        first = next((r for r in rows if r.component == taker), None)
+        if first is None:
+            continue
+        if first.consumed != count:
+            findings.append(Finding(
+                ERROR, "HOLD_MISMATCH",
+                f"component {taker!r} resumes {count} held stitches but its first row works "
+                f"{first.consumed}. A sleeve that picks up the wrong number leaves a hole in "
+                f"the armpit", taker, first.index))
+
+    for comp in cir.components:
+        if comp.resumes and comp.resumes not in declared:
+            findings.append(Finding(
+                ERROR, "HOLD_UNKNOWN",
+                f"component resumes {comp.resumes!r}, which no component holds", comp.name))
+
+
 def compile_cir(cir: CIR) -> CompileResult:
     """Compile and validate a CIR. Never raises on pattern problems -- it reports them."""
     result = CompileResult(cir=cir)
     for comp in cir.components:
         result.rows.extend(compile_component(comp, cir, result.findings))
     check_assembly(cir, result.findings)
+    check_holds(cir, result.rows, result.findings)
     return result
