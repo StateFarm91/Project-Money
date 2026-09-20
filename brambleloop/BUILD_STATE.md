@@ -124,6 +124,62 @@ CA$20/month for recurring infrastructure (about CA$7 used). Gallery analysis of 
 four hours. Purchasing benchmark patterns and authorising advertising remain consequential
 spend and stay the owner's.
 
+### The owner's 2026-09-20 approvals, answered
+
+**1. Browser worker — recommend not buying one yet.** The minimum architecture question turned
+out to be upstream of the cost question. Half of what the old gate held needed no browser at
+all and is done. The other half reads Marketplace Insights, search results and platform
+policy, and those sit behind an edge that deliberately refuses automated clients: re-confirmed
+today, `robots.txt` answers 200 and `/legal/terms` answers 403 to a client identifying itself
+honestly. B-268 already decided that getting past it by pretending to be a browser is evasion,
+and doing that to a marketplace this company intends to sell on trades a small convenience for
+the relationship. So: a Playwright worker inside the existing Railway project would cost about
+**CA$1–3/month** (inside the ceiling) and would most likely return 403s; a hosted browser API
+is **US$50+/month** and buys the same 403 more expensively. The client and its probe are built
+and committed, so the day access exists the capability is one variable away. **No service has
+been provisioned and no spend incurred.** (B-500)
+
+**2. Image generation — one owner action, CA$3.40 first month.** An identity lock (#200) is
+reference conditioning rather than a better prompt, so a provider that cannot take reference
+images cannot satisfy it whatever its output quality. Three candidates priced at
+`/api/image-generation`; recommended **FLUX 2 Pro** at US$0.02/image with up to 8 reference
+images — the cheaper of the two that support conditioning. Workload: 44 one-off images
+(candidate tournament + identity pack) and 80/month (listing creative + anti-drift
+regeneration) = **CA$1.21 one-off, CA$2.19/month, CA$3.40 in the first month**, inside the
+CA$25 model ceiling alongside CA$1.17 of text spend. *Exact action:* create an account at the
+provider, set `BRAMBLELOOP_IMAGE_PROVIDER=flux-2-pro` and `BRAMBLELOOP_IMAGE_KEY` in Railway.
+~10 minutes. The gate opens on a recorded generated image, not on the key being set — and a
+provider refusing #198's brief on content grounds surfaces in its own words rather than as an
+empty gallery. Vision substitution is refused in code (B-484).
+
+**3. Cultural signal source — done, CA$0.** Wikimedia Pageviews: official, free, keyless,
+sanctioned within its documented terms with an identifying user agent. Verified live
+2026-09-20T20:00Z. It measures *reference reading*, not search volume and not purchase intent,
+and is labelled `reference` for that reason — #140 measures the gap between that and
+marketplace demand, so a feed that measured the same thing would have nothing to say (B-483).
+
+**4. Benchmark set — selected, not purchased.** Run against the 438 observed listings at
+`/api/benchmark-selection`. **Ten purchases, CA$212**, cover every facet except three
+departments: `stockings`, `seasonal_gift`, `unclassified`. **Thirteen, CA$268**, cover
+everything — and the CA$56 margin buys stockings and seasonal gifts, which are the two
+departments the current campaign window is aimed at. Every pick names the distinct unknown it
+answers; the selection is deterministic, so it can be reviewed rather than trusted (B-501).
+Files land in the quarantined library, which refuses every reader that is not an analyst and
+stores no competitor text in any table.
+
+**5. Physical sample — parked, and the gate no longer asks the owner to crochet.** Its
+description said "needs somebody to crochet a Brambleloop sample", which put the owner's hands
+in a gate and so into the action list. The condition is unchanged: one completed PhysicalTest.
+Who performs it is a question for the revised risk-based protocol (B-486).
+
+**6. Etsy #268 — nothing sanctioned is missing.** The credential is proven and has been since
+2026-09-19; it read the 438 listings the whole mission runs on. #268 was parked on
+`benchmark_observation`, which that credential *is*, so it was parked behind a condition
+already true. What it needs is a second benchmark shop **outside the United States** — one
+shop's term frequencies are one market's language however many listings they came from. That
+is a choice of shop, on the credential that already exists: no new capability, no spend, and
+nothing for the owner to repeat (B-482).
+
 Listed below in the Execution Directive's format; the live queue is `/api/launch`.
 
 **~~Add credit to the Anthropic account the API key belongs to.~~ DONE 2026-09-19.** Credit
