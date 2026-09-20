@@ -128,6 +128,14 @@ def whose_language_is_this(db, *, benchmark_key: str = "") -> dict:
     points the other way and is easier to miss: the benchmark is a United States shop, so
     every term frequency this system has measured is American, and reading it as Canadian --
     or as global -- is the same mistake with the countries swapped.
+
+    Read from the benchmark's registered market rather than hardcoded to `US`. The first
+    version of this returned `US` for whatever key it was handed, which was correct about
+    the only benchmark that exists and would have been silently wrong about the second one
+    -- a function whose answer does not depend on its argument is an assertion wearing a
+    signature. A benchmark whose market nobody established returns `unstated` and
+    `attributable: False`, because "we do not know whose language this is" is a different
+    answer from "American" and only one of them is true here.
     """
     from sqlalchemy import func, select
 
@@ -139,23 +147,66 @@ def whose_language_is_this(db, *, benchmark_key: str = "") -> dict:
         observed = s.scalar(select(func.count(BenchmarkListing.id)).where(
             BenchmarkListing.benchmark_key == benchmark_key)) or 0
 
+    spec = benchmarks.spec_for(benchmark_key)
+    market = (spec.market if spec else "") or benchmarks.UNSTATED_MARKET
+    named = market != benchmarks.UNSTATED_MARKET
+    describes = next((m.what for m in MARKETS if m.key == market), market)
+
+    if not observed:
+        why = ("no listing has been observed, so there is no language to attribute to any "
+               "market")
+    elif not named:
+        why = (f"{observed} listings observed from a benchmark whose buyer market is not "
+               f"established. The frequencies are real and belong to somebody; which "
+               f"somebody is the part that is missing, and guessing it is the error #268 "
+               f"names")
+    else:
+        why = (f"{observed} listings observed, all from {describes}. Term frequencies drawn "
+               f"from them describe how that market is sold to, not how Canadian buyers "
+               f"search and not how Etsy behaves globally")
+
     return {
         "benchmark": benchmark_key,
         "listings_observed": observed,
-        "describes_market": US,
+        "describes_market": market,
         "measurable": bool(observed),
-        "why": (f"{observed} listings observed, all from a United States shop. Term "
-                f"frequencies drawn from them describe how that market is sold to, not how "
-                f"Canadian buyers search and not how Etsy behaves globally"
-                if observed else
-                "no listing has been observed, so there is no language to attribute to any "
-                "market"),
-        "what_would_fix_it": ("a benchmark in another market, which is an owner decision "
-                              "about which shops to observe rather than a capability"),
+        "attributable": bool(observed) and named,
+        "markets_in_registry": benchmarks.markets_observed(),
+        "why": why,
+        "what_would_fix_it": ("a benchmark in another market, which is a decision about "
+                              "which shops to observe rather than a capability. The Etsy "
+                              "credential that reads this one reads that one too"),
         "not_an_argument_to_ignore_it": (
             "American search behaviour is still the largest Etsy buyer market's, and this "
             "company sells digital files across borders. The finding is that it is labelled "
             "correctly, not that it is worthless"),
+    }
+
+
+def coverage(db) -> dict:
+    """Whether this is a cross-border lens or a single-market lens with a cross-border name.
+
+    The distinction #268 turns on, stated as a count rather than left to a reader. One stated
+    market is one market's language, however many listings it was measured from: 438
+    observations of the same shop do not become two markets by being numerous.
+    """
+    from ..intel import benchmarks
+
+    stated = benchmarks.markets_observed()
+    unstated = [b.key for b in benchmarks.REGISTRY if not b.market]
+    return {
+        "markets_with_a_benchmark": stated,
+        "benchmarks_with_no_stated_market": unstated,
+        "is_cross_border": len(stated) > 1,
+        "why": ("a lens needs two markets to compare. With one, every term frequency this "
+                "system holds describes that market, and the comparison it would make is "
+                "against nothing"
+                if len(stated) <= 1 else
+                f"{len(stated)} markets observed, so frequencies can be attributed and "
+                f"compared rather than pooled"),
+        "what_is_needed": ("one benchmark shop outside the United States, registered with "
+                           "its market and scanned on the existing Etsy credential. No new "
+                           "capability, no spend -- a shop somebody chooses"),
     }
 
 
@@ -169,6 +220,7 @@ def lens(db, *, today: date | None = None, benchmark_key: str = "") -> dict:
             {"market": m.key, "what": m.what, "crochet_terms": m.crochet_terms,
              "currency": m.currency, "notes": m.notes} for m in MARKETS],
         "language": whose_language_is_this(db, benchmark_key=benchmark_key),
+        "coverage": coverage(db),
         "holidays_that_differ": {
             event: holiday_split(event) for event in HOLIDAYS_THAT_DIFFER},
         "currency": {"reporting": REPORTING_CURRENCY,

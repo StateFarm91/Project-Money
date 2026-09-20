@@ -134,7 +134,7 @@ def test_an_unconfigured_integration_is_unknown_rather_than_down():
     """Reporting it as down makes the dashboard red for a decision nobody has made."""
     db = _db()
     readings = {r.signal: r for r in _read(db)}
-    for signal in ("integrations", "browser_vision", "model_gateway"):
+    for signal in ("integrations", "rendered_pages", "model_gateway"):
         assert readings[signal].state == H.UNKNOWN
         assert "a gate rather than a fault" in readings[signal].why
     assert H.verdict(_read(db))["down"] == []

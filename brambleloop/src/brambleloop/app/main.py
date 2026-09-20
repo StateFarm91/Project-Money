@@ -832,11 +832,12 @@ def api_culture() -> dict:
     The rights routing is reported first and unconditionally, because it is the part that
     stops a culture radar becoming a legal problem, and it is invisible in every other view.
     """
-    from ..culture import radar, rapid, rights, score, translate
+    from ..culture import feeds, radar, rapid, rights, score, translate
 
     return {
         "rights": rights.describe(),
-        "radar": radar.sweep(db),
+        "feed": feeds.state(db),
+        "radar": radar.sweep(db, feeds=[feeds.SOURCE_KEY] if feeds.usable(db) else None),
         "owned_territories": translate.owned_territories(),
         "primitives": dict(translate.PRIMITIVES),
         "opportunity_components": score.MEANING,
@@ -846,6 +847,84 @@ def api_culture() -> dict:
                  "whose rights are unclear becomes an original concept rather than a dead "
                  "opportunity, which is where the territories this company owns come from."),
     }
+
+
+@app.get("/api/capabilities/probes")
+def api_capability_probes() -> dict:
+    """What each capability has actually proven, apart from what is configured.
+
+    Three of the build executor's gates used to read an environment variable, and the
+    largest of them -- a browser worker URL -- stood in front of twenty-eight requirements.
+    Set, misconfigured, unreachable and answered-with-a-403 are four states and one string.
+    So each is a recorded successful use now, and this is where the evidence is readable.
+
+    `rendered_pages` is for pages with no sanctioned endpoint: Marketplace Insights, search
+    results, platform policy. Gallery images are deliberately not in that list -- their URLs
+    arrive from the Etsy API and the model looks at them directly, which is why splitting
+    that gate released ten requirements that had been waiting on infrastructure they did not
+    need.
+    """
+    from ..culture import feeds
+    from ..gateway import anthropic as gw
+    from ..intel import browser
+
+    return {
+        "rendered_pages": browser.state(db),
+        "image_vision": {"last_probe": gw.last_vision_probe(db),
+                         "usable": gw.vision_usable(db),
+                         "what_it_is": ("a model looking at the gallery URLs the sanctioned "
+                                        "Etsy endpoint already returns. No browser, and no "
+                                        "spend beyond the monthly model ceiling"),
+                         "image_tokens_estimate": gw.IMAGE_TOKENS_ESTIMATE},
+        "culture_feed": feeds.state(db),
+        "why_probes": ("a credential is not a capability, and neither is a URL. Every gate "
+                       "here reads a row written by something that worked"),
+    }
+
+
+@app.get("/api/benchmark-selection")
+def api_benchmark_selection(target: int = 10) -> dict:
+    """Which benchmark patterns to buy, and the distinct unknown each one answers (#165/#166).
+
+    Not the ten most popular. Popularity is a fact about a listing and this purchase is about
+    the set: in one shop's catalogue the top ten share a department, a price band and a
+    deliverable format, so nine of them answer a question the first already answered. The
+    objective here is coverage of the facets a customer-experience teardown can differ along,
+    picked greedily so a person can check the reasoning before spending real money.
+
+    It stops short of the target when no remaining listing adds anything new, because ten was
+    always an approximation of "enough" and a purchase made to round out a list is a purchase
+    that teaches nothing.
+
+    This buys nothing. It produces a list, its reasons and its expected cost.
+    """
+    from ..intel import benchmarks
+    from ..intel.purchase_selection import SelectionRefused, select
+
+    try:
+        return select(db, benchmarks.MJS_KEY, target=max(1, min(target, 40)))
+    except SelectionRefused as exc:
+        return {"selected": [], "refused": str(exc)}
+
+
+@app.get("/api/image-generation")
+def api_image_generation() -> dict:
+    """The canonical model's generator: the decision, the candidates and the arithmetic.
+
+    Image generation is not image understanding, and the substitution is refused in code
+    rather than discouraged in a note -- the model that can look at a photograph cannot make
+    one, and a system that swapped them would report the model pack as progressing while
+    producing nothing.
+
+    An identity lock (#200) is reference conditioning rather than a better prompt: a prompt
+    describing a face produces a different face every time, within a family. So a provider
+    that cannot take reference images cannot satisfy the requirement whatever its output
+    quality, which is why one candidate here is ruled out on the requirement rather than on
+    taste.
+    """
+    from ..gateway import images
+
+    return images.state(db)
 
 
 @app.get("/api/models")

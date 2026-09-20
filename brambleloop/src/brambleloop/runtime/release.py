@@ -2124,3 +2124,100 @@ def handle_mjs_reviews(ctx: JobContext) -> dict:
     return {"ran": True, "reviews_read": themes["reviews_read"],
             "recurring": len(themes["recurring"]),
             "learning_domains": len(learned.get("recorded") or [])}
+
+
+@handlers.register("ops.capability_probes")
+def handle_capability_probes(ctx: JobContext) -> dict:
+    """Ask each capability whether it still works, and write down the answer.
+
+    Six-hourly. Three of the build executor's gates now read a recorded successful use
+    rather than a configured variable, and this is what records one. The rendered-page
+    worker, the model's eyes and the culture source each fail in ways configuration cannot
+    see: a worker answered with a bot-protection challenge, a vision call that returns a
+    polite apology instead of a description, a free API that rate-limited us.
+
+    Run on a cadence rather than once because a capability proven in March is not a
+    capability. The gate this pattern replaced -- an environment variable holding
+    twenty-eight requirements -- needed nobody to keep checking, which was the fault.
+
+    GREEN by the authority matrix: three reads. The vision probe spends a fraction of a cent
+    and is checked against the monthly ceiling first like every other model call.
+    """
+    from ..culture import feeds
+    from ..gateway import anthropic as gw
+    from ..intel import browser
+
+    results = {
+        "rendered_pages": browser.probe(ctx.db),
+        "image_vision": gw.vision_probe(ctx.db, job_id=ctx.job.id),
+        "culture_feed": feeds.probe(ctx.db),
+    }
+    opened = sorted(k for k, v in results.items() if v.get("ok"))
+    ctx.audit("ops.capability_probes", detail={
+        "results": {k: {"ok": v.get("ok"), "reason": v.get("reason", "")[:200]}
+                    for k, v in results.items()},
+        "working": opened})
+    return {"probed": sorted(results), "working": opened,
+            "note": ("a capability proven once is not a capability. Each of these writes a "
+                     "row a gate reads, and a gate whose evidence has gone stale closes")}
+
+
+@handlers.register("culture.sweep")
+def handle_culture_sweep(ctx: JobContext) -> dict:
+    """Read reference interest for the topics this catalogue is merchandised against (#133).
+
+    Daily. The radar has refused to report trends since it was written, correctly, because a
+    source-less radar reporting nothing looks exactly like a radar with a quiet week. This
+    connects the first of the two series #140 needs; the second is marketplace demand and
+    arrives with listings, which is stated rather than papered over.
+
+    GREEN: a free, keyless, sanctioned read with an identifying user agent, no spend and no
+    account. Courtesy limits live in the module rather than in configuration.
+    """
+    from ..culture import feeds
+
+    topics = feeds.env_override() or feeds.default_articles(ctx.db)
+    result = feeds.sweep(ctx.db, topics)
+    ctx.audit("culture.sweep", detail={
+        "source": result["source"], "recorded": result["recorded"],
+        "attempted": result["attempted"], "failures": result["failures"][:5]})
+    return {"ran": True, "recorded": result["recorded"],
+            "attempted": result["attempted"],
+            "failures": len(result["failures"]),
+            "channel": result["channel"], "measures": result["measures"]}
+
+
+@handlers.register("intel.gallery_analysis")
+def handle_gallery_analysis(ctx: JobContext) -> dict:
+    """Judge a batch of observed gallery images, once the capability has been proven (#209).
+
+    Four-hourly, ten images a run. The backlog is in the hundreds and the constraint is the
+    monthly model ceiling rather than appetite, so this drains rather than sprints -- in
+    listing-recency order, because that is the order commercial value arrives in.
+
+    Refuses to run before a vision probe has succeeded. Writing the call is not the same as
+    the call working, and an analysis run against a broken vision path would record a batch
+    of refusals as though the backlog had been attempted.
+
+    GREEN: reads observed URLs, spends inside the ceiling, stores observations and never a
+    picture or a description of the depicted design.
+    """
+    from ..gateway.anthropic import vision_usable
+    from ..intel import benchmarks, vision
+
+    if not vision_usable(ctx.db):
+        ctx.audit("intel.gallery_analysis_blocked",
+                  detail={"reason": "no vision probe has succeeded"})
+        return {"ran": False,
+                "reason": ("no vision.probe has succeeded, so nothing has proven it can "
+                           "look at an image. The backlog waits rather than filling with "
+                           "refusals")}
+
+    result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=10, job_id=ctx.job.id)
+    ctx.audit("intel.gallery_analysis", detail={
+        "judged": result["judged"], "attempted": result["attempted"],
+        "remaining": result["remaining"], "cost_cad": result["cost_cad"],
+        "failures": result["failures"][:5]})
+    return {"ran": True, "judged": result["judged"], "attempted": result["attempted"],
+            "remaining": result["remaining"], "cost_cad": result["cost_cad"],
+            "failures": len(result["failures"])}

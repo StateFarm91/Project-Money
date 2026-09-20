@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 208 | satisfied, with a named test or artefact |
-| partial | 56 | something real exists and is short of the requirement |
+| covered | 209 | satisfied, with a named test or artefact |
+| partial | 55 | something real exists and is short of the requirement |
 | missing | 0 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **56 requirements are executable** (partial +
+as one nobody has written. **55 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 208 of 320 covered is **65.0% complete**, read from the registry rather than
+typed. 209 of 320 covered is **65.3% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -72,32 +72,47 @@ status `/api/status`, **verification `/api/verify`**.
 
 ## OWNER ACTIONS — now the only remaining lever
 
-**As of 2026-09-20 the build queue is empty: 0 READY, 94 parked, nothing `missing`.** Every
-requirement this build still owes is behind a gate, and a gate opens from demonstrated
-capability rather than from a decision to call it open. That changes what this section is.
-Until today it was a short list beside a long backlog; it is now the whole remaining lever,
-and the honest statement is that no amount of further session time moves the registry.
+**Correction, same day.** An earlier version of this section said the build queue was empty
+at 0 READY. That number was computed in a session container with no Etsy key, no model key
+and no browser URL, so more gates were shut there than in production — where `/api/build`
+showed one ready requirement, #268, un-parked automatically because `benchmark_observation`
+is open there. The executor was right in both places; reporting one environment's answer as
+the build's was not. Gate conditions are environment-dependent by design, which makes *where
+a count was taken* part of the count (B-481).
 
-Of the 56 executable requirements still owed, 34 are downstream of going live at all
-(21 on `customers`, 7 on `owned_surfaces`, 6 on `live_listings`) and cannot be opened by a
-credential — they need real buyers, real owned surfaces and real listings, which is the phase
-decision rather than a configuration. The other 22 are behind capability gates:
+**The gates themselves then changed, and that is the larger finding.** `browser_vision` named
+two capabilities — "rendered-page and image evidence" — and held twenty-eight requirements
+behind the more expensive of them. Ten needed no browser: the sanctioned Etsy endpoint
+`listing_images` has been returning every gallery image's URL since the credential was proven
+on 2026-09-19, and the model that can look at those URLs was credentialed the same day. What
+stood in the way was that nobody had written the call. It is written now
+(`gateway.anthropic.see`, `intel.vision.analyse`), and the gate is split (B-478).
 
-| gate | executable | what opens it |
-|---|---|---|
-| `browser_vision` | 12 | a browser worker endpoint the system can drive |
-| `image_generation` | 4 | an image-generation key |
-| `culture_feed` | 3 | one cultural observation that names its source |
-| `benchmark_purchases` | 1 | one purchased benchmark pattern row (ten for the full set) |
-| `physical_proof` | 1 | one completed PhysicalTest — a Brambleloop sample crocheted and photographed |
-| `benchmark_observation` | 1 | a sanctioned Etsy read that actually succeeded |
+Three gates also opened on environment variables — a browser URL, an image key, an archive
+URL — holding thirty-nine requirements behind conditions a person could satisfy by typing, in
+the one module whose purpose is that the queue cannot overstate itself. All three are now
+recorded successful uses, and a test asserts the property over every gate in the table rather
+than over those three (B-479).
 
-Each of these is counted rather than configured: setting a variable opens nothing, which is
-why none of them can be satisfied from inside a session. Costs are bounded in code already —
-CA$25/month for model spend and CA$20/month for recurring infrastructure, currently about
-CA$7 — and a browser worker or image key that fits inside those ceilings is not new
-consequential spend. Purchasing benchmark patterns and authorising advertising are, and
-neither happens without the owner.
+Where the 55 executable requirements now wait:
+
+| gate | executable | what opens it | cost |
+|---|---|---|---|
+| `rendered_pages` | 12 | a browser worker that actually fetched an Etsy page | see below |
+| `image_generation` | 4 | one image actually generated by a reference-conditioning provider | ~CA$3.40 first month |
+| `culture_feed` | 3 | one cultural observation naming its source — **connected, free** | CA$0 |
+| `image_vision` | 10 | one real gallery image actually judged | inside the CA$25/mo model ceiling |
+| `benchmark_purchases` | 1 | one purchased benchmark pattern row | owner purchase |
+| `physical_proof` | 1 | one completed PhysicalTest, by whoever the protocol says | protocol pending |
+| `second_market_benchmark` | 1 | a benchmark shop outside the US — **a choice, not a credential** | CA$0 |
+| `tester_roster` | 1 | one person who has agreed to test a pattern | outreach |
+| `customers` / `owned_surfaces` / `live_listings` | 22 | going live at all | the phase decision |
+
+Costs are bounded in code: CA$25/month for model spend (CA$1.17 used this month) and
+CA$20/month for recurring infrastructure (about CA$7 used). Gallery analysis of the whole
+438-listing backlog is about CA$7 one-off at ~CA$0.003 an image, draining at 10 images every
+four hours. Purchasing benchmark patterns and authorising advertising remain consequential
+spend and stay the owner's.
 
 Listed below in the Execution Directive's format; the live queue is `/api/launch`.
 
@@ -128,8 +143,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `cc96f34`: **2,523 tests passing, 0
-failing** across 141 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `PLACEHOLDER`: **2,553 tests passing, 0
+failing** across 143 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -3955,6 +3970,39 @@ timings, written there by the system rather than by hand.
   actually be produced from now on -- by a gate's condition becoming true -- and both idle
   states are asserted through the deployed worker: parked-and-silent raises nothing,
   gate-open-and-silent raises exactly one incident across two ticks. B-477.
+- 2026-09-20 owner-approved gate preparations, and two corrections to what was reported
+  earlier the same day. The queue count of 0 READY was taken in a credential-free session
+  container; production had one ready requirement, #268, because `benchmark_observation` is
+  open there. Where a gate count was taken is part of the count (B-481). And #268 turned out
+  to be parked on a gate that was already open -- the Etsy credential it names has been
+  proven by use since 2026-09-19 and read the 438 listings the whole mission runs on. What
+  it waits on is a second market to compare against, which is a choice of shop and not a
+  credential, so `second_market_benchmark` now names it and `commerce.markets` computes the
+  attribution from the benchmark's registered market instead of returning `US` for whatever
+  key it was handed (B-482).
+- The larger finding: **`browser_vision` was two capabilities under one name**, and the
+  cheaper one had been paid for since 2026-09-19. Ten of its twenty-eight requirements
+  needed no browser -- the sanctioned `listing_images` endpoint returns every gallery image's
+  URL and the model that can look at them was already credentialed. Nobody had written the
+  call. It is written (`gateway.anthropic.see`, `intel.vision.analyse`: one image per call,
+  closed answer vocabulary parsed strictly, the depicted subject refused by the system
+  prompt, every failure counted and named), and the gate is split into `image_vision` and
+  `rendered_pages` (B-478). Five notes that justified parking turned out to be a day out of
+  date, having been written before the capability arrived and survived it -- #207 is closed
+  on that basis, having actually run (B-480).
+- **No gate in the executor's table opens on a typed string any more.** Three did, holding
+  thirty-nine requirements behind conditions a person could satisfy by typing: a browser URL,
+  an image key, an archive URL. Each is now a recorded successful use, and the test is stated
+  over every gate that holds requirements rather than over those three (B-479).
+- Owner-approved preparations delivered: the **culture feed is connected** (Wikimedia
+  pageviews -- free, keyless, sanctioned, labelled `reference` reading rather than search
+  interest, because #140 measures the gap between the two); the **image-generation provider
+  decision is worked out** with three priced candidates, reference conditioning as the
+  deciding property and an estimate of CA$3.40 in the first month, with vision substitution
+  refused in code rather than discouraged in a note (B-484); the **benchmark purchase
+  selector** chooses for facet coverage rather than popularity and stops short of ten rather
+  than filling the list (B-485); and the `physical_proof` gate no longer names whose hands
+  do the work (B-486). Decisions B-478..B-486.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

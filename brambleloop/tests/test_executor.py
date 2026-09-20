@@ -38,6 +38,24 @@ def _synced(env: dict | None = None) -> Database:
     return db
 
 
+def _open_image_generation(db) -> None:
+    """Open the image gate by generating an image, with the provider call injected.
+
+    It used to open on `BRAMBLELOOP_IMAGE_KEY` being set. A key that is set, a key for a
+    provider with no price on file, an account with no credit, and a provider that refuses
+    this company's brief on content grounds are four states and one string, and the last is
+    a live possibility for a brief about an attractive adult model.
+    """
+    from brambleloop.gateway import images
+
+    images.probe(
+        db,
+        env={"BRAMBLELOOP_IMAGE_PROVIDER": "flux-2-pro", "BRAMBLELOOP_IMAGE_KEY": "k"},
+        generator=lambda prompt, **kw: {"provider": "flux-2-pro", "cad": 0.0274,
+                                        "url": "https://example.invalid/i.png",
+                                        "latency_ms": 900.0})
+
+
 def _open_culture_feed(db) -> None:
     """Open one gate by making its condition true, which is the only way a gate opens."""
     from brambleloop.core.models import CultureObservation
@@ -221,8 +239,8 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
             "the queue is empty and the parked set does not account for it"
     # Parked, ready and blocked are reported together: a queue showing only ready work looks
     # identical whether fourteen requirements are parked on a browser or none are.
-    assert "browser_vision" in q["parked_by_capability"]
-    assert len(q["parked_by_capability"]["browser_vision"]) >= 10
+    assert "rendered_pages" in q["parked_by_capability"]
+    assert len(q["parked_by_capability"]["rendered_pages"]) >= 10
     assert "reported together" in q["note"]
 
     # The next thing to do is named when there is one, and it is never a parked one. There
@@ -240,19 +258,24 @@ def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
     """The whole reason parking is a checkable condition rather than a note."""
     db = _synced()
     before = E.queue(db)
-    credential = {"BRAMBLELOOP_IMAGE_KEY": "k"}
 
-    # The property is that exactly the requirements parked on the gates this credential opens
+    # The property is that exactly the requirements parked on the gates this evidence opens
     # become ready, and nothing else moves. Stated over whichever gates it opens rather than
     # over a named one, so the test keeps measuring the property when the gates change --
-    # which they have twice in a day.
-    opened = [g.key for g in E.GATES if g.open(db, credential) and not g.open(db, {})]
-    assert opened, "this credential opens nothing, so the test proves nothing"
+    # which they have three times in two days.
+    #
+    # Evidence rather than a credential, since 2026-09-20: no gate in this table opens on a
+    # typed string any more, so what opens one is a recorded successful use. An image
+    # generated is what the image gate reads.
+    _open_image_generation(db)
+    opened = [g.key for g in E.GATES if g.open(db, {})
+              and before["parked_by_capability"].get(g.key)]
+    assert opened, "this evidence opens nothing, so the test proves nothing"
     expected = sorted(
         r for key in opened for r in before["parked_by_capability"].get(key, []))
     assert expected
 
-    result = E.sync(db, env=credential)
+    result = E.sync(db, env={})
     assert sorted(result["unparked"]) == expected
 
     after = E.queue(db)
@@ -269,7 +292,7 @@ def test_a_gate_may_be_satisfied_and_carry_no_requirements():
     credential was approved and verified by use -- and three of those four turned out to be
     waiting on something else again: Marketplace Insights is a Shop Manager surface with no
     endpoint among the nine this application is authorised for, so reading it means reading
-    a rendered page. They are on browser_vision now. The fourth needs orders to measure
+    a rendered page. They are on rendered_pages now. The fourth needs orders to measure
     anything and is data-gated.
 
     Both gates stay, satisfied and carrying nothing, because a gate that has opened is
@@ -283,7 +306,7 @@ def test_a_gate_may_be_satisfied_and_carry_no_requirements():
         assert key not in E.queue(db)["parked_by_capability"]
 
     for requirement_id in (1, 37, 236):
-        assert E.gate_for(requirement_id) == "browser_vision", requirement_id
+        assert E.gate_for(requirement_id) == "rendered_pages", requirement_id
     assert reg.get(235).status == reg.DATA_GATED
 
     assert E.reconciliation(db)["balances"] is True
@@ -307,7 +330,7 @@ def test_a_gate_that_checks_rows_opens_when_the_rows_arrive():
 def test_a_parked_requirement_cannot_be_claimed():
     """Starting work that cannot finish is how a loop looks busy and produces nothing."""
     db = _synced()
-    parked = E.queue(db)["parked_by_capability"]["browser_vision"][0]
+    parked = E.queue(db)["parked_by_capability"]["rendered_pages"][0]
     try:
         E.claim(db, parked, worker="session-1")
     except E.ExecutorRefused as e:
@@ -403,7 +426,7 @@ def test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not(
     with db.session() as s:
         for task in s.scalars(select(BuildTask).where(BuildTask.state == E.READY)):
             task.state = E.PARKED
-            task.parked_on = "browser_vision"
+            task.parked_on = "rendered_pages"
 
     waiting = E.watchdog(db)
     assert waiting["verdict"] == "waiting_on_owner"
@@ -661,8 +684,9 @@ def test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_on
     shut = _synced(env={})
     assert E.queue(shut, limit=400)["parked_by_capability"]["image_generation"]
 
-    open_env = {"BRAMBLELOOP_IMAGE_KEY": "set-for-this-test"}
-    E.sync(shut, env=open_env)
+    # Opened the only way it can be: a real generation recorded.
+    _open_image_generation(shut)
+    E.sync(shut, env={})
     ready = {r["requirement_id"] for r in E.queue(shut, limit=400)["ready"]}
     for rid in gated:
         assert rid in ready, f"{rid} did not come back when its gate opened"

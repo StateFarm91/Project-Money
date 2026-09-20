@@ -36,12 +36,20 @@ DEFAULT_AGENTS: list[dict] = [
                             "ops.continuity", "seasonal.sentinel",
                             "improve.retrospective", "ops.policy_watch", "build.tick",
                             "ops.capacity", "ops.sentinel", "ops.health", "model.probe",
-                            "improve.nightly", "improve.weekly"],
+                            "improve.nightly", "improve.weekly",
+                            # The three gates that stopped reading environment variables
+                            # need something to keep asking whether the capability still
+                            # works. Three reads and a fraction of a cent (B-479).
+                            "ops.capability_probes"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
-                            "mjs.scan", "mjs.reviews", "etsy.probe"],
+                            "mjs.scan", "mjs.reviews", "etsy.probe",
+                            # A free keyless sanctioned read, and the gallery backlog that
+                            # was waiting on a call nobody had written rather than on a
+                            # capability anybody had to buy (B-478, B-483).
+                            "culture.sweep", "intel.gallery_analysis"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
     # The creative side of #94: it judges this catalogue against an observed human one and
     # records the result. It writes no product, publishes nothing and contacts nobody; the

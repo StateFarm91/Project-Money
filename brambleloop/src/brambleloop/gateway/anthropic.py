@@ -64,6 +64,17 @@ ESTIMATE_PADDING = 1.25
 # deploy, never raised silently past this default.
 DEFAULT_MONTHLY_CEILING_CAD = 25.0
 
+# What one gallery image costs to look at, in input tokens. The provider's own rule of thumb
+# is roughly (width x height) / 750, so Etsy's 570-wide gallery variant -- about 570x760 --
+# is near 580. Rounded up, because this number is used to refuse a call before it is made and
+# an optimistic estimate makes a ceiling into a suggestion. Measured usage is what gets
+# billed and what reaches the ledger; this only has to be no smaller than the truth.
+IMAGE_TOKENS_ESTIMATE = 800
+
+# One refusal should not lose a batch of observations. Also the practical limit on how much
+# of one listing's gallery is worth judging in a single question.
+MAX_IMAGES_PER_CALL = 8
+
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 
@@ -197,6 +208,68 @@ class AnthropicProvider:
         except urllib.error.URLError as exc:
             raise TransientError(f"anthropic unreachable: {exc.reason}") from exc
 
+        return self._read(body, started)
+
+    def see(self, system: str, prompt: str, image_urls: list[str], *,
+            max_tokens: int) -> ModelResponse:
+        """The same call with pictures in it. A model with eyes, not a browser.
+
+        This is the half of the old `browser_vision` gate that never needed a browser. The
+        sanctioned Etsy endpoint `listing_images` already returns every gallery image's URL,
+        so the thing standing between this company and image-level competitive evidence was
+        never infrastructure -- it was that nobody had written the call. Conflating the two
+        under one capability name kept twelve requirements parked behind a cloud browser
+        nobody had bought, when what they needed was already paid for.
+
+        The API takes the image by URL, so nothing is downloaded, re-hosted or stored here:
+        the observation is stored and the picture is not, which is also what keeps this on
+        the right side of "never copy a competitor's expression".
+        """
+        import urllib.error
+        import urllib.request
+
+        key = self.key()
+        if not key:
+            raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
+        if not image_urls:
+            raise ProviderUnusable(
+                "a vision call with no image is a text call that thinks it looked at "
+                "something, which is exactly the observation this system refuses to record")
+        if len(image_urls) > MAX_IMAGES_PER_CALL:
+            raise ProviderUnusable(
+                f"{len(image_urls)} images in one call, against a limit of "
+                f"{MAX_IMAGES_PER_CALL}. Batching past this makes one refusal lose every "
+                f"observation in the batch")
+
+        content: list[dict] = [
+            {"type": "image", "source": {"type": "url", "url": url}} for url in image_urls]
+        content.append({"type": "text", "text": prompt})
+
+        payload = json.dumps({
+            "model": self.model, "max_tokens": max_tokens,
+            **({"system": system} if system else {}),
+            "messages": [{"role": "user", "content": content}],
+        }).encode()
+        request = urllib.request.Request(API_URL, data=payload, method="POST")
+        request.add_header("x-api-key", key)
+        request.add_header("anthropic-version", API_VERSION)
+        request.add_header("content-type", "application/json")
+
+        started = time.time()
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                body = json.loads(response.read().decode())
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode(errors="replace")[:400]
+            if exc.code in (429, 500, 502, 503, 529):
+                raise TransientError(f"anthropic {exc.code}: {detail}") from exc
+            raise ProviderUnusable(f"anthropic {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise TransientError(f"anthropic unreachable: {exc.reason}") from exc
+
+        return self._read(body, started)
+
+    def _read(self, body: dict, started: float) -> ModelResponse:
         text = "".join(block.get("text", "") for block in body.get("content", [])
                        if block.get("type") == "text")
         usage = body.get("usage", {})
@@ -271,6 +344,134 @@ def probe(db, *, provider: AnthropicProvider | None = None,
         s.add(AuditLog(actor="orchestrator", action="model.probe", artifact=provider.model,
                        detail=record))
     return record
+
+
+# The probe image and what it asks. A picture whose answer is checkable without a model:
+# a 1x1 PNG is not usable as a URL source, so the probe uses the benchmark's own gallery
+# when one is known and refuses to claim vision otherwise. Set by `vision_probe`.
+VISION_PROBE_PROMPT = (
+    "Answer with one lowercase word and nothing else. Is this image a photograph or a "
+    "diagram? If you cannot see any image at all, answer: none")
+VISION_PROBE_MAX_TOKENS = 8
+VISION_PROBE_MODEL = "claude-haiku-4-5-20251001"
+VISION_PROBE_ACTION = "vision.probe"
+
+
+def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None = None,
+                 now: datetime | None = None, job_id: int | None = None) -> dict:
+    """Look at one real picture and record whether that worked.
+
+    Separate from `probe()` on purpose. A text call succeeding says the account can serve a
+    request; it says nothing about whether this code can put an image in front of the model
+    and get an answer back, and those failed differently in practice -- a URL the provider
+    cannot fetch, an image format it refuses, a payload shape that is subtly wrong. A gate
+    that opened on the text probe would have advertised twelve requirements as startable on
+    the strength of a call that never carried a picture.
+
+    The answer is checked rather than merely received. "none" is the reply this prompt asks
+    for when no image arrived, and a reply of "none" is recorded as a failure with that as
+    the reason -- because a 200 response containing a model's apology is the shape a broken
+    vision path actually takes, and counting it as success is how an empty capability
+    reports itself available.
+    """
+    from ..core.models import AuditLog, CostEntry
+    from . import routing
+
+    provider = provider or AnthropicProvider(model=VISION_PROBE_MODEL)
+    image_url = image_url or _a_known_image(db)
+    record: dict = {"at": (now or datetime.now(timezone.utc)).isoformat(),
+                    "model": provider.model, "ok": False, "reason": "",
+                    "image_url": image_url}
+
+    if not provider.key():
+        record["reason"] = "no ANTHROPIC_API_KEY in this environment"
+    elif not image_url:
+        record["reason"] = (
+            "no image to look at. Nothing has been observed that carries a gallery URL, so "
+            "there is no picture in this system to prove the capability against -- and a "
+            "vision probe with no image is the thing it exists to refuse")
+    else:
+        try:
+            budget = check_budget(
+                db, model=provider.model,
+                input_tokens=len(VISION_PROBE_PROMPT) // 4 + IMAGE_TOKENS_ESTIMATE,
+                max_tokens=VISION_PROBE_MAX_TOKENS, now=now)
+            response = provider.see("", VISION_PROBE_PROMPT, [image_url],
+                                    max_tokens=VISION_PROBE_MAX_TOKENS)
+        except BudgetExceeded as exc:
+            record["reason"] = f"budget: {exc}"
+        except (ProviderUnusable, TransientError) as exc:
+            record["reason"] = str(exc)[:400]
+        else:
+            answer = (response.text or "").strip().lower().strip(".")
+            cost = round(
+                response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+            record.update({"answer": answer,
+                           "input_tokens": response.input_tokens,
+                           "output_tokens": response.output_tokens,
+                           "cost_cad": cost, "headroom_cad": budget["headroom_cad"]})
+            if answer in ("photograph", "diagram"):
+                record["ok"] = True
+            else:
+                record["reason"] = (
+                    f"the call succeeded and the model did not describe an image: "
+                    f"{answer!r}. A 200 carrying an apology is what a broken vision path "
+                    f"looks like from here")
+            with db.session() as s:
+                s.add(CostEntry(agent="gateway", kind=routing.COST_KIND, amount_cad=cost,
+                                job_id=job_id,
+                                tokens_in=response.input_tokens,
+                                tokens_out=response.output_tokens,
+                                detail={"purpose": VISION_PROBE_ACTION,
+                                        "model": response.model,
+                                        "price_basis": "assumed"}))
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=VISION_PROBE_ACTION,
+                       artifact=provider.model, detail=record))
+    return record
+
+
+def _a_known_image(db) -> str:
+    """One gallery image URL this system has actually observed, or "".
+
+    Deliberately reads observed evidence rather than carrying a URL as a constant: a probe
+    against a hardcoded picture proves the provider works and not that it works on the
+    images this company will actually ask it about.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import BenchmarkListing
+
+    with db.session() as s:
+        rows = list(s.scalars(
+            select(BenchmarkListing)
+            .where(BenchmarkListing.audit_state == "audited")
+            .order_by(desc(BenchmarkListing.last_seen)).limit(40)))
+        for row in rows:
+            for url in (row.detail or {}).get("image_urls") or []:
+                if url:
+                    return url
+    return ""
+
+
+def last_vision_probe(db) -> dict | None:
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == VISION_PROBE_ACTION)
+            .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None
+
+
+def vision_usable(db) -> bool:
+    """Whether a real image has actually been looked at. The `image_vision` gate's condition."""
+    state = last_vision_probe(db)
+    return bool(state and state.get("ok"))
 
 
 def last_probe(db) -> dict | None:

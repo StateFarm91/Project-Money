@@ -26,6 +26,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable
 
+# What a benchmark's market reads as when nobody has established it. A word rather than a
+# blank, so the state is sayable.
+UNSTATED_MARKET = "unstated"
+
 MJS_KEY = "mjs_off_the_hook_designs"
 MJS_SHOP = "MJsOffTheHookDesigns"
 
@@ -75,6 +79,11 @@ class BenchmarkSpec:
     reason_for_inclusion: str = ""
     categories: tuple[str, ...] = ()
     platform: str = "etsy"
+    # Which buyer market this shop sells into, as `commerce.markets` names them. Default
+    # empty rather than "US": a benchmark whose market nobody established is not an American
+    # one, and #268's whole finding is that term frequencies get attributed to a market by
+    # assumption. An unstated market makes the attribution refuse rather than guess.
+    market: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -84,6 +93,7 @@ class BenchmarkSpec:
             "mandatory": self.mandatory,
             "reason_for_inclusion": self.reason_for_inclusion,
             "categories": list(self.categories),
+            "market": self.market or UNSTATED_MARKET,
         }
 
 
@@ -98,6 +108,10 @@ MJS = BenchmarkSpec(
         "and top priority (v1.4.3 #301). Not a stand-in for 'proven sellers': this specific "
         "shop, by name."),
     categories=MJS_CATEGORIES,
+    # Established rather than assumed: the shop's own Etsy location is United States, and
+    # every term frequency measured from its 438 listings therefore describes how American
+    # buyers are sold to. See `commerce.markets.whose_language_is_this`.
+    market="US",
 )
 
 # #219: the anchor is not the only teacher. The panel is deliberately empty of invented
@@ -108,6 +122,20 @@ REGISTRY: tuple[BenchmarkSpec, ...] = (MJS,)
 
 def mandatory() -> list[BenchmarkSpec]:
     return [b for b in REGISTRY if b.mandatory]
+
+
+def spec_for(key: str) -> BenchmarkSpec | None:
+    """The registered spec for a benchmark key, or None if nothing registers it."""
+    return next((b for b in REGISTRY if b.key == key), None)
+
+
+def markets_observed() -> list[str]:
+    """Which buyer markets the registry actually covers, ignoring unstated ones.
+
+    #268 needs this: a cross-border lens built on one market is a single-market lens with a
+    cross-border name, and the count of distinct stated markets is what says which it is.
+    """
+    return sorted({b.market for b in REGISTRY if b.market})
 
 
 # ---------------------------------------------------------------------------

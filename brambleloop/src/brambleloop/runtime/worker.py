@@ -295,6 +295,23 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # online means useful work is progressing, not that HTTP returned 200, and the only way
     # to know the difference is to keep asking whether anything was completed.
     ("health_sweep", "orchestrator", "ops.health", 15 * 60),
+    # Six-hourly, free, and the reason it is a cadence rather than a one-off: a capability
+    # that was proven once is not a capability that works. The three probes here answer
+    # whether a rendered page can be fetched, whether a real image can be looked at, and
+    # whether the culture source still returns a series -- and each writes a row the build
+    # executor's gates read. A gate that opened on a configured variable needed nobody to
+    # keep checking, which is exactly what was wrong with it.
+    ("capability_probes", "orchestrator", "ops.capability_probes", 6 * 60 * 60),
+    # Daily. Reference-reading interest for the topics this catalogue is merchandised
+    # against, from Wikimedia's free sanctioned endpoint. Daily rather than hourly because
+    # the pipeline behind it runs two days late and a cultural trend that moves within an
+    # hour is not one; courtesy to a free source is also part of the justification for
+    # using it.
+    ("culture_sweep", "market_radar", "culture.sweep", 24 * 60 * 60),
+    # Four-hourly. Drains the gallery-observation backlog once a vision probe has actually
+    # succeeded, and refuses to run before that. Ten images a run against a backlog in the
+    # hundreds: the ceiling is the constraint, not the appetite.
+    ("gallery_analysis", "market_radar", "intel.gallery_analysis", 4 * 60 * 60),
 ]
 
 # Requirement 179's eight meta-agents, one daily cadence each, generated from the roster so

@@ -62,7 +62,7 @@ SIGNALS: dict[str, str] = {
     "queue_age": "how long the oldest pending job has waited",
     "database": "the store answers and holds the company's memory",
     "integrations": "the external services this system is allowed to reach",
-    "browser_vision": "the rendered-page and image worker pool",
+    "rendered_pages": "a browser worker for pages with no sanctioned endpoint",
     "model_gateway": "a model provider that can serve a request",
     "certificate_freshness": "how long since anything was certified",
     "spend": "the ceilings are on and unbreached",
@@ -236,7 +236,7 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
                                 "the company's memory did not answer"))
 
     for signal, keys in (("integrations", ("ETSY_API_KEY", "ETSY_SHOP_NAME")),
-                         ("browser_vision", ("BRAMBLELOOP_BROWSER_URL",)),
+                         ("rendered_pages", ("BRAMBLELOOP_BROWSER_URL",)),
                          ("model_gateway", ("ANTHROPIC_API_KEY",))):
         present = sorted(k for k in keys if str(env.get(k, "")).strip())
         readings.append(Reading(
@@ -356,7 +356,7 @@ def remediation(db, readings: list[Reading]) -> dict:
         escalations.append({"signal": "worker_heartbeat",
                             "needs": "restart_container",
                             "why": CANNOT_REPAIR["restart_container"]})
-    for signal in ("integrations", "model_gateway", "browser_vision"):
+    for signal in ("integrations", "model_gateway", "rendered_pages"):
         if signal in bad:
             escalations.append({"signal": signal, "needs": "restore_an_integration",
                                 "why": CANNOT_REPAIR["restore_an_integration"]})

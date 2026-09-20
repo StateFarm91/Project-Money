@@ -1,0 +1,175 @@
+"""Ten purchases that answer ten questions, rather than ten copies of one lesson.
+
+#166 is explicit: prefer benchmarks that answer a distinct unknown rather than buying many
+similar products. The obvious selection -- sort by favourites, take ten -- fails that by
+construction, because the ten most popular listings in one shop's catalogue share a
+department, a price band and a deliverable format.
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
+
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.core.models import BenchmarkListing  # noqa: E402
+from brambleloop.intel import purchase_selection as P  # noqa: E402
+
+KEY = "mjs_off_the_hook_designs"
+
+
+def _db() -> Database:
+    db = Database("sqlite://")
+    db.create_all()
+    return db
+
+
+def _listing(db, ref, *, pod="hats", price=8.0, media=3, seasonal="", detail=None):
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key=KEY, listing_ref=ref, title=f"t{ref}",
+                               pod=pod, price_cad=price, media_count=media,
+                               seasonal=seasonal, url=f"https://etsy.test/{ref}",
+                               detail=detail or {}))
+
+
+def test_a_selection_from_nothing_is_refused_rather_than_empty():
+    """A list of guesses with a price on it is worse than no list."""
+    raised = None
+    try:
+        P.select(_db(), KEY)
+    except P.SelectionRefused as exc:
+        raised = exc
+    assert raised is not None
+    assert "nothing has been observed" in str(raised)
+
+
+def test_ten_of_the_same_thing_stops_at_one():
+    """The defect the whole module is for, at its simplest.
+
+    Twelve identical listings answer one question. A selector that returned ten of them
+    would have spent ten times the money on the first one's lesson.
+    """
+    db = _db()
+    for i in range(12):
+        _listing(db, f"same{i}")
+    out = P.select(db, KEY)
+    assert out["selected_count"] == 1, [c["listing_ref"] for c in out["selected"]]
+    assert out["stopped_early"] is True
+    assert "already bought" in out["why_stopped"]
+
+
+def test_popularity_is_not_the_objective():
+    """The rich-gallery listing is picked for being rare, not for being good.
+
+    413 of 438 observed listings carry fewer than five images, so a deep gallery is the
+    scarce thing in this catalogue and therefore the one worth a purchase.
+    """
+    db = _db()
+    for i in range(6):
+        _listing(db, f"thin{i}", media=2)
+    _listing(db, "rich", media=12)
+    out = P.select(db, KEY)
+    refs = [c["listing_ref"] for c in out["selected"]]
+    assert "rich" in refs
+
+
+def test_every_pick_names_the_unknown_it_answers():
+    """#166 asks for the research question beside the cost, generated rather than templated."""
+    db = _db()
+    _listing(db, "a", pod="hats", price=4.0, media=2)
+    _listing(db, "b", pod="blankets", price=25.0, media=10, seasonal="christmas")
+    out = P.select(db, KEY)
+    assert out["selected_count"] == 2
+    for pick in out["selected"]:
+        assert pick["answers"] and pick["answers"] != "nothing new"
+        assert pick["new_facets"], pick
+    joined = " ".join(p["answers"] for p in out["selected"])
+    assert "blankets" in joined
+    assert "over 20" in joined or "10 to 20" in joined
+
+
+def test_the_cost_is_expected_rather_than_quoted():
+    db = _db()
+    _listing(db, "a", pod="hats", price=6.5)
+    _listing(db, "b", pod="bags", price=13.25, media=9)
+    out = P.select(db, KEY)
+    assert out["total_cad"] == 19.75
+    assert "not a quote" in out["currency_note"]
+    assert "consequential spend" in out["not_a_purchase"]
+
+
+def test_the_same_catalogue_selects_the_same_set_twice():
+    """A selection that moves between runs cannot be reviewed, and a person reviews this one."""
+    db = _db()
+    for i in range(20):
+        _listing(db, f"x{i}", pod=["hats", "bags", "blankets", "garments"][i % 4],
+                 price=4.0 + i, media=1 + (i % 11))
+    first = [c["listing_ref"] for c in P.select(db, KEY)["selected"]]
+    second = [c["listing_ref"] for c in P.select(db, KEY)["selected"]]
+    assert first == second
+
+
+def test_an_unread_deliverable_is_unknown_rather_than_unstated():
+    """Buying on that confusion is buying to answer a question nobody asked."""
+    db = _db()
+    _listing(db, "unread")
+    _listing(db, "read", detail={"deliverable": {"format": "PDF"}})
+    unread = P.describe(next(r for r in _rows(db) if r.listing_ref == "unread"))
+    known = P.describe(next(r for r in _rows(db) if r.listing_ref == "read"))
+    assert unread.facets["deliverable_stated"] == "unknown"
+    assert known.facets["deliverable_stated"] == "stated"
+
+
+def _rows(db):
+    from sqlalchemy import select
+
+    with db.session() as s:
+        return list(s.scalars(select(BenchmarkListing)))
+
+
+def test_an_unknown_facet_never_counts_as_coverage():
+    """Otherwise the first purchase 'covers' every question nobody has read the answer to."""
+    db = _db()
+    _listing(db, "a")
+    out = P.select(db, KEY)
+    covered = out["selected"][0]["new_facets"]
+    assert "unknown" not in covered.values()
+
+
+def test_uncovered_facets_are_reported_rather_than_left_implied():
+    """What ten purchases did not buy is part of what ten purchases bought."""
+    db = _db()
+    for i in range(30):
+        _listing(db, f"y{i}", pod=["hats", "bags", "blankets", "garments"][i % 4],
+                 price=[3.0, 8.0, 15.0, 30.0][i % 4], media=1 + (i % 12),
+                 seasonal=["", "christmas", "halloween", ""][i % 4])
+    out = P.select(db, KEY, target=2)
+    assert out["stopped_early"] is False
+    assert out["facets_still_uncovered"], out
+    assert "still uncovered" in out["why_stopped"]
+
+
+def test_full_coverage_says_so_rather_than_claiming_a_gap():
+    """The message beside the list has to have read the list."""
+    db = _db()
+    _listing(db, "a", pod="hats", price=4.0, media=2)
+    _listing(db, "b", pod="bags", price=30.0, media=10, seasonal="christmas")
+    out = P.select(db, KEY, target=2)
+    assert out["facets_still_uncovered"] == {}
+    assert "every facet" in out["why_stopped"]
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

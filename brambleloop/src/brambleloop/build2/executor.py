@@ -237,6 +237,110 @@ def _physical_proof_available(db, env) -> bool:
     return any(row.completed_at is not None for row in rows)
 
 
+def _vision_usable(db, env) -> bool:
+    """Whether a real image has actually been looked at, not whether a key is set.
+
+    The same rule as `_model_usable`, applied to the capability that was hiding behind an
+    environment-variable check. A text call succeeding proves the account serves requests
+    and proves nothing about whether an image can be put in front of the model: a URL the
+    provider cannot fetch, a format it refuses and a payload shape that is subtly wrong all
+    fail here and nowhere else.
+    """
+    from ..gateway.anthropic import vision_usable
+
+    return vision_usable(db)
+
+
+def _rendered_pages_usable(db, env) -> bool:
+    """Whether a rendered page has actually been fetched, not whether a URL is configured.
+
+    `browser_vision` checked `BRAMBLELOOP_BROWSER_URL`, which is the one gate in this table
+    that could be opened by typing -- and it stood in front of twenty-eight requirements.
+    Setting a variable to a worker that is misconfigured, unreachable or refused by Etsy's
+    bot protection would have released every one of them into the ready queue, which is the
+    single failure this module exists to prevent, at the largest scale available in it.
+    """
+    from ..intel.browser import usable
+
+    return usable(db)
+
+
+def _tester_recruited(db, env) -> bool:
+    """Whether anybody has actually joined the tester or creator roster.
+
+    #9 and #250 sat on `browser_vision`, and neither needs a browser: what they wait on is a
+    person agreeing to test a pattern. The note on #250 said so in plain words -- "no tester
+    has been recruited, so nobody has graduated" -- while the gate beside it named a cloud
+    worker pool, so the queue would have released both the day a browser arrived.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CreatorProfile
+
+    with db.session() as s:
+        return bool(s.scalar(select(CreatorProfile.id).limit(1)))
+
+
+def _image_generation_usable(db, env) -> bool:
+    """Whether an image has actually been generated, not whether a key is set.
+
+    Four states and one string: a key that is set, a key for a provider with no price on
+    file, an account with no credit, and a provider that refuses this company's brief on
+    content grounds. The last is a live possibility for #198's brief -- an attractive adult
+    model in editorial styling -- and it must surface as a refusal in the provider's own
+    words rather than as a gallery that stayed empty for reasons nobody wrote down.
+    """
+    from ..gateway.images import usable
+
+    return usable(db)
+
+
+def _offsite_archive_written(db, env) -> bool:
+    """Whether a continuity archive has actually landed outside this provider.
+
+    BRAMBLELOOP_ARCHIVE_URL being set says a person typed a bucket's address. #51 is about
+    surviving the loss of this provider, and a bucket address that is wrong, whose
+    credentials are wrong, or that nothing has ever successfully written to survives nothing.
+    The condition is a recorded successful offsite write.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "continuity.offsite_write").limit(20)))
+    return any((row.detail or {}).get("ok") for row in rows)
+
+
+def _second_market_observed(db, env) -> bool:
+    """Whether any benchmark outside the United States has actually been observed.
+
+    #268 was parked on `benchmark_observation` -- "read-only Etsy API credentials that can
+    actually serve a request" -- and those have existed and been proven since 2026-09-19:
+    the credential read 438 listings from the anchor shop. The gate was open and the
+    requirement sat behind it, which is the mirror image of the failure this module usually
+    catches: not work advertised that nobody can start, but work hidden that anybody could.
+
+    What #268 actually needs is a second market to compare against. One shop's term
+    frequencies are one market's language however many listings they came from, so the
+    condition counts *distinct stated markets with observed listings*, not listings and not
+    credentials. No capability opens it and no spend does; somebody chooses a shop.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..intel import benchmarks
+
+    with db.session() as s:
+        keys = {k for (k,) in s.execute(
+            select(BenchmarkListing.benchmark_key).distinct())}
+
+    markets = {spec.market for key in keys
+               if (spec := benchmarks.spec_for(key)) is not None and spec.market}
+    return len(markets) > 1
+
+
 def _culture_feed_connected(db, env) -> bool:
     """Whether any cultural signal has actually been observed from a source.
 
@@ -320,22 +424,50 @@ GATES: tuple[Gate, ...] = (
          _etsy_usable,
          (),
          "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
-    Gate("browser_vision",
-         "a cloud browser/vision worker pool for rendered-page and image evidence",
-         _env_gate("BRAMBLELOOP_BROWSER_URL"),
-         # 303 joins this list on 2026-09-19. Its API half is complete and live -- 438
-         # listings, 2 unclassified, palette closing on a backfill -- and the two columns
-         # left are judgements about a photograph. A requirement whose only remaining work
-         # needs a parked capability belongs with the parked, not in a queue advertising
-         # work nobody can start.
-         (1, 15, 37, 39, 61, 67, 71, 76, 79, 86, 116, 126, 189, 207, 208, 209, 211, 218, 221,
-          222, 236, 277, 278,
-          281, 303, 304, 315, 320),
-         "a browser worker endpoint is configured"),
-    Gate("image_generation", "an image-generation capability for the canonical model pack",
-         _env_gate("BRAMBLELOOP_IMAGE_KEY"),
+    # `browser_vision` was split on 2026-09-20, and the split is the finding rather than a
+    # tidy-up. One gate named two capabilities -- "rendered-page and image evidence" -- and
+    # held twenty-eight requirements behind the more expensive of them. The image half never
+    # needed a browser: the sanctioned Etsy endpoint `listing_images` has been returning
+    # every gallery image's URL since the credential was proven by use on 2026-09-19, and the
+    # model provider that can look at those URLs was credentialed the same day. What stood
+    # between this company and image-level competitive evidence was that nobody had written
+    # the call, which is not a capability anybody had to buy, and for a day it was
+    # indistinguishable from one because both lived under one name.
+    #
+    # Both halves are now probes rather than variables, which the old gate was not. It read
+    # BRAMBLELOOP_BROWSER_URL -- the only gate in this table openable by typing -- standing
+    # in front of twenty-eight requirements.
+    Gate("image_vision",
+         "a model that can actually look at a picture, over the gallery URLs the sanctioned "
+         "Etsy endpoint already returns",
+         _vision_usable,
+         (61, 79, 116, 208, 209, 210, 211, 278, 303, 304),
+         "a recorded vision.probe judged a real observed image -- and a reply that describes "
+         "no image is recorded as a failure, because a 200 carrying an apology is the shape "
+         "a broken vision path takes"),
+    Gate("rendered_pages",
+         "a browser worker that can fetch an Etsy page as a buyer sees it: Marketplace "
+         "Insights, search results and policy pages have no endpoint among the nine this "
+         "application is authorised for",
+         _rendered_pages_usable,
+         (1, 2, 15, 37, 39, 67, 71, 76, 86, 126, 189, 218, 221, 222, 236, 277, 281, 315,
+          320),
+         "a recorded browser.probe fetched a real rendered page -- a configured worker URL "
+         "is a string, and Etsy answers 403 to a great many of them"),
+    Gate("tester_roster",
+         "one person who has agreed to test a Brambleloop pattern, which needs outreach to "
+         "real people and therefore an exit from shadow mode",
+         _tester_recruited,
+         (9, 250),
+         "at least one CreatorProfile row exists -- counted, because a roster with nobody on "
+         "it is what both of these are actually waiting for"),
+    Gate("image_generation",
+         "an image-generation provider that conditions on reference images, because an "
+         "identity lock is reference conditioning rather than a better prompt",
+         _image_generation_usable,
          (72, 73, 74, 75, 130, 198, 199, 200, 201, 202),
-         "an image-generation key is set"),
+         "a recorded image.probe generated a real image -- and a provider that refuses this "
+         "brief on content grounds is a refusal in its own words, never an empty gallery"),
     Gate("benchmark_purchases", "roughly ten purchased competitor patterns",
          _benchmarks_purchased,
          (165, 166, 168, 317),
@@ -343,9 +475,11 @@ GATES: tuple[Gate, ...] = (
     Gate("offsite_storage",
          "an object-storage bucket and credential outside this provider, so a copy of the "
          "continuity archive survives losing the provider itself",
-         _env_gate("BRAMBLELOOP_ARCHIVE_URL"),
+         _offsite_archive_written,
          (51,),
-         "BRAMBLELOOP_ARCHIVE_URL is set, which only exists once a bucket does"),
+         "a continuity archive has actually been written offsite. A typed bucket address "
+         "that is wrong, or whose credentials are, survives losing this provider exactly as "
+         "well as no bucket at all"),
     # Added 2026-09-20. Several requirements were parked on browser_vision or live_listings
     # because those were the nearest existing keys, and neither is what they actually wait
     # for: a concept post and a free article wait on somewhere of this company's own to
@@ -381,13 +515,33 @@ GATES: tuple[Gate, ...] = (
     # that, and a gate that is nearly right opens on the wrong day.
     # Added 2026-09-20 alongside culture_feed, and for the same reason: #64's only remaining
     # work is the trigger, and the trigger is a photograph of an object nobody has made.
+    # Reworded 2026-09-20. The old text read "needs somebody to crochet a Brambleloop sample
+    # and photograph it", which put the owner's own hands in a gate description and so made
+    # the owner action list ask for something no owner action list should ask for. The
+    # condition is unchanged and stays unchanged: a completed physical test. Who completes it
+    # -- a paid tester, a customer, an independent maker under the revised risk-based
+    # protocol the owner has said is coming in the Final Master -- is a question about the
+    # protocol, and a gate that names one answer forecloses the others.
     Gate("physical_proof",
-         "a completed physical test, which needs somebody to crochet a Brambleloop sample "
-         "and photograph it",
+         "a completed physical test of a Brambleloop pattern by whoever the testing protocol "
+         "says performs one",
          _physical_proof_available,
          (64,),
          "at least one PhysicalTest row has a completion date -- the intake being built is "
-         "not the same as a finished object existing"),
+         "not the same as a finished object existing, and nothing here says whose hands "
+         "finished it"),
+    # #268 moved here from `benchmark_observation` on 2026-09-20. That gate names the Etsy
+    # credential, the credential has been proven by use since 2026-09-19, and the gate was
+    # therefore open -- so the requirement was parked on a condition that was already true,
+    # which is a park that never expires by itself. What it waits on is a second market,
+    # and nothing in this system could have told the difference while the two were conflated.
+    Gate("second_market_benchmark",
+         "a benchmark shop outside the United States, which is a choice of shop rather than "
+         "a credential or a capability",
+         _second_market_observed,
+         (268,),
+         "observed listings exist for two or more distinct stated markets -- one shop's term "
+         "frequencies are one market's language however many listings they came from"),
     Gate("culture_feed",
          "a connected source of cultural signal -- search interest, social or trend data -- "
          "which this company has never had",
