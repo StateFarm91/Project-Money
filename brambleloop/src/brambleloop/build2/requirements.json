@@ -523,18 +523,18 @@
  {
   "body": "The deterministic twin/chart layer produces truthful EVIDENCE ASSETS, not automatically customer-facing sales creative. Create explicit classes: ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION, CONVERSION_CREATIVE and PHYSICAL_PROOF. A technically correct chart cannot be promoted to hero/listing creative merely because it rendered successfully.",
   "id": 57,
-  "note": "AssetClass exists with 5 classes; needs ENGINEERING_EVIDENCE / CUSTOMER_INFORMATION / CONVERSION_CREATIVE / PHYSICAL_PROOF semantics",
+  "note": "publish/eligibility.py adds purpose as a second axis, orthogonal to gates.asset_truth.AssetClass. The requirement's own sentence gives the design away: a technically correct chart cannot be promoted to hero merely because it rendered successfully. Rendering successfully is a fact about the medium; being the hero is a question about the purpose, and nothing held the second. A stitch chart is a DIGITAL_TWIN_RENDER by medium and ENGINEERING_EVIDENCE by purpose, and MEDIUM_PURPOSES says which purposes each medium can support -- the row that matters most being that nothing except a photograph can be PHYSICAL_PROOF, whatever it is labelled, because a label is exactly where that gets claimed.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Separate Evidence Assets from Conversion Assets",
   "version": "v1.3.3"
  },
  {
   "body": "Every asset passes four independent gates before customer use: DATA_TRUTH (values match CIR/gauge/version), LAYOUT_QA (no clipping, overflow, overlap, illegible type or contradictory dimensions), COMMERCIAL_QA (the frame has a defined conversion job and is competitive at mobile/search-grid scale), and POLICY_PROVENANCE (asset type/disclosure/rights satisfy current marketplace rules). Failure at any gate prevents listing export.",
   "id": 58,
-  "note": "check_frame_plan + check_assets cover DATA_TRUTH and some LAYOUT_QA; no COMMERCIAL_QA or POLICY_PROVENANCE gate",
+  "note": "publish/eligibility.py holds all four of DATA_TRUTH, LAYOUT_QA, COMMERCIAL_QA and POLICY_PROVENANCE, and each reports passed, failed or not_run rather than a boolean: a boolean makes a gate that never ran indistinguishable from one that passed, and a listing exported because the commercial check was never wired up is the commonest way an unchecked asset reaches a customer. may_export() requires all four to have run and passed, and refuses two verdicts for one gate because that lets somebody choose which to read. DATA_TRUTH and LAYOUT_QA are the existing gates.asset_truth and publish.layout_qa readings rather than second implementations.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Listing Asset Promotion Gates",
   "version": "v1.3.3"
  },
@@ -595,9 +595,9 @@
  {
   "body": "Every frame has exactly one primary commercial job: DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PATTERN_PREVIEW, PROOF or CROSS_SELL. Frames without a buyer-relevant job are removed. Prevent five technically different images from communicating essentially the same thing.",
   "id": 65,
-  "note": "six frames have roles; not a one-primary-job map with filler removal",
+  "note": "publish/eligibility.py gives each frame exactly one job from the ten the requirement names, and checks the set for job collision rather than image similarity. That is the substance: 'prevent five technically different images from communicating essentially the same thing' is not about pixels, and five genuinely different charts all doing DETAIL is the failure every pixel-level comparison passes. Frame one is the hero and its job is DESIRE, stated rather than derived, so a listing whose first frame documents rather than sells is refused instead of reordered. Missing jobs are listed and not refused -- a small listing does not need all ten, and a shop adding a frame per uncovered job is padding the gallery to satisfy a checklist.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Listing Frame Job Map",
   "version": "v1.3.3"
  },
@@ -631,9 +631,9 @@
  {
   "body": "Internal and customer-facing labeling must distinguish a digital pattern render/chart from a photograph of a physically completed object whenever that distinction is material. Do not use a disclaimer as permission to make a misleading hero; honesty labels complement, not replace, truthful presentation.",
   "id": 69,
-  "note": "B-097 labels generated lifestyle imagery; not generalised",
+  "note": "publish/eligibility.py computes the honesty label from the medium rather than accepting one, because a disclaimer is the cheapest available fix for a truthfulness problem and one somebody writes is one somebody can write differently. It is required only where the render/photograph distinction is material -- DESIRE, DETAIL, PROOF and SCALE -- since labelling a materials list trains buyers to read nothing. The requirement's own sentence, do not use a disclaimer as permission to make a misleading hero, is structural rather than stated: may_export() consults the asset truth verdict independently of the label, so there is no ordering in which the disclaimer helps, and a labelled asset that fails DATA_TRUTH still fails.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Technical Asset Honesty Label",
   "version": "v1.3.3"
  },

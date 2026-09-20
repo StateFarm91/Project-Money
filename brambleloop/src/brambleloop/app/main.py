@@ -1338,6 +1338,26 @@ def api_weekly_evolution() -> dict:
     return weekly.state()
 
 
+@app.get("/api/asset-eligibility")
+def api_asset_eligibility() -> dict:
+    """What an asset is made of, what it is for, and the four gates between (#57, #58, #65, #69).
+
+    `AssetClass` says what an asset is made of. Purpose says what it is allowed to do, and the
+    requirement's own sentence is why both are needed: a technically correct chart cannot be
+    promoted to hero merely because it rendered successfully. Rendering is a fact about the
+    medium; being the hero is a question about the purpose.
+
+    Each frame has exactly one job, and the set is checked for job collision rather than image
+    similarity -- five genuinely different charts all doing DETAIL is the failure every
+    pixel-level comparison passes. Each of the four gates reports passed, failed or not_run,
+    and a gate that never ran has not passed. The honesty label is computed from the medium
+    and is never permission: the truth verdict is consulted independently of it.
+    """
+    from ..publish import eligibility
+
+    return eligibility.state()
+
+
 @app.get("/api/owned-ip")
 def api_owned_ip() -> dict:
     """The characters, motifs and worlds this company owns, and the direction (#146).

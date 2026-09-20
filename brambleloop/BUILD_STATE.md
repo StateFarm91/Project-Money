@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 191 | satisfied, with a named test or artefact |
-| partial | 64 | something real exists and is short of the requirement |
+| covered | 195 | satisfied, with a named test or artefact |
+| partial | 60 | something real exists and is short of the requirement |
 | missing | 9 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **73 requirements are executable** (partial +
+as one nobody has written. **69 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 191 of 320 covered is **59.7% complete**, read from the registry rather than
+typed. 195 of 320 covered is **60.9% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `fff3c60`: **2,249 tests passing, 0 failing** across
-129 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `09eef91`: **2,279 tests passing, 0 failing** across
+130 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -536,6 +536,37 @@ trends is one nobody notices growing.
 The roster is empty, and stays empty. Filling it now with invented names is exactly the
 failure the module refuses; the elements get earned as products are designed.
 Decisions B-441..B-444.
+
+**#57/#58/#65/#69 — what an asset is made of, and what it is allowed to do.**
+`publish/eligibility.py`. `AssetClass` already said what an asset is *made of* — a twin
+render, a photograph, an infographic. #57's own sentence asks something else: *a technically
+correct chart cannot be promoted to hero merely because it rendered successfully.* Rendering
+successfully is a fact about the medium. Being the hero is a question about the purpose, and
+nothing held the second — which is exactly why the only reason a chart ever becomes a hero is
+that it was the asset that finished rendering. Purpose is now a second, orthogonal axis, and
+the row that matters most is that **nothing but a photograph may be `PHYSICAL_PROOF`**,
+whatever it is labelled, because a label is precisely where that gets claimed.
+
+**#65's rule is about jobs, not pixels.** "Prevent five technically different images from
+communicating essentially the same thing" reads like a similarity check, and implemented that
+way it passes the actual failure: five genuinely different charts all doing `DETAIL`. So every
+frame declares one job from the ten named, and two frames sharing a job is the defect. Frame
+one is the hero and its job is `DESIRE`, stated rather than derived — a listing whose first
+frame documents rather than sells has spent the only frame most shoppers see. Missing jobs are
+listed and never refused, because a shop adding a frame per uncovered job is padding the
+gallery to satisfy a checklist.
+
+**Four gates, and the fifth costume.** Each of `DATA_TRUTH`, `LAYOUT_QA`, `COMMERCIAL_QA` and
+`POLICY_PROVENANCE` reports passed, failed or **not_run**, and export requires all four to
+have run *and* passed. A boolean would make a gate nobody wired up indistinguishable from one
+that passed — the same defect as B-278, B-360, B-408 and B-435, in a fifth place.
+
+**And a label is never a licence.** #69 says it outright, so it has to be structural: the
+honesty label is computed from the medium rather than accepted from a caller, and `may_export`
+reads the asset-truth verdict *independently* of it. There is no ordering in which a
+disclaimer makes a failing asset exportable. It is required only where the render/photograph
+distinction is material, because labelling a materials list trains buyers to read nothing and
+costs the label its meaning on the frames where it matters. Decisions B-445..B-448.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3664,8 +3695,11 @@ timings, written there by the system rather than by hand.
   generated from the roster so the three lists cannot drift (green at 2,249). Then the
   culture cluster: a `culture_feed` gate parks #133/#140/#147, which had been reporting
   themselves as ready while their own notes said no feed exists, and #146's owned-IP roster
-  lands with recurrence that cannot be declared. Registry 191 of 320 covered, 73 executable.
-  Decisions B-404..B-444.
+  lands with recurrence that cannot be declared (green at 2,279). Then #57/#58/#65/#69: asset
+  purpose as a second axis orthogonal to medium, one commercial job per frame checked for
+  collision rather than similarity, four gates where not_run is not passed, and an honesty
+  label that is never a licence. Registry 195 of 320 covered, 69 executable. Decisions
+  B-404..B-448.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
