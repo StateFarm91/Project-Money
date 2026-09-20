@@ -271,6 +271,15 @@ interrupt — the runs killed half way are exactly the ones nobody goes back to 
 the call sites would be sixty-four edits that each have to stay correct, and the
 sixty-fifth would leak again. Verified: a run now leaves zero directories behind.
 
+*And the first fix did not work, while the suite was green.* `trap ... EXIT` replaces an
+earlier EXIT trap rather than adding to it, so the `$outdir` trap thirty lines below silently
+discarded the one that removed the run's TMPDIR. Stray directories in `/tmp` went to zero —
+the containment was real — and the run directory itself survived with 342 MB in 399
+subdirectories, so the disk still filled at a third of the rate, on a run that passed 1,995
+tests. It was caught by counting what was left rather than by trusting the change, which is
+this build's recurring defect arriving in a shell script while fixing something else. One
+cleanup function, one trap.
+
 Worth keeping because of what it looked like from inside: eleven red suites, a green run
 twenty minutes earlier, and nothing in the change to blame. The log said `ENOSPC` on every
 single failure, which is the sort of thing that is obvious once read and invisible while
