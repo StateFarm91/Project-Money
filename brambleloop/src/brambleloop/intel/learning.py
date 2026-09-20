@@ -255,8 +255,14 @@ NOT_FEEDABLE: dict[str, str] = {
     "search_behaviour": "nothing has observed this platform's ranking",
     "marketplace_policy": ("ops.policy_watch owns this domain; a second writer would let "
                            "two freshness clocks disagree about one policy"),
-    "customer_pain": ("no customer and no review has been read, and inferring complaints "
-                      "from a competitor's catalogue is inventing them"),
+    # Corrected 2026-09-20. This said no review had been read, which was true when it was
+    # written and is the reason the entry existed -- inferring complaints from a catalogue
+    # *is* inventing them. Reading actual reviews is not inferring, it is observing, and the
+    # distinction is the whole of the difference. `ingest_complaints` fills this domain from
+    # a real read; it stays listed here for when no read has happened yet.
+    "customer_pain": ("no review has been read yet. Inferring complaints from a "
+                      "competitor's catalogue would be inventing them; reading their "
+                      "reviews is observing them, and mjs.reviews does that"),
 }
 
 
@@ -338,3 +344,47 @@ def ingest_benchmark(db, *, benchmark_key: str = "", today: date | None = None) 
                  "into a confident fiction, which is the one thing this radar exists to "
                  "prevent (#98)."),
     }
+
+
+def ingest_complaints(db, *, themes: dict, today: date | None = None,
+                      benchmark_key: str = "") -> dict:
+    """Record recurring complaint themes as a `customer_pain` observation.
+
+    The domain this system previously reported as unfeedable, and correctly: inferring
+    complaints from a catalogue is inventing them. What changed is that reviews are now read,
+    and a counted theme from a real review is an observation.
+
+    Only *recurring* themes are recorded. A theme below the recurrence floor is one
+    customer's bad day, and a radar carrying it would age it for 180 days as though it were a
+    property of the category.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import LearningObservation
+    from . import benchmarks
+
+    today = today or date.today()
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    recurring = themes.get("recurring") or {}
+    if not recurring:
+        return {"recorded": [], "reason": (
+            f"{themes.get('reviews_read', 0)} review(s) read and no theme reached the "
+            f"recurrence floor of {themes.get('recurring_at')}. That is a reading, not a "
+            f"silence: the domain stays unobserved rather than recording 'no complaints'")}
+
+    citation = f"{benchmark_key}:reviews@{today.isoformat()}"
+    with db.session() as s:
+        seen = {(r.domain, r.citation) for r in s.scalars(select(LearningObservation))}
+    if ("customer_pain", citation) in seen:
+        return {"recorded": [], "reason": "already recorded for this reading"}
+
+    top = ", ".join(f"{name} ({n})" for name, n in
+                    sorted(recurring.items(), key=lambda kv: -kv[1])[:4])
+    record(db, domain="customer_pain", source=BENCHMARK_SOURCE, citation=citation,
+           summary=(f"{len(recurring)} complaint theme(s) recur across "
+                    f"{themes.get('reviews_read', 0)} reviews in this category: {top}"),
+           observed_on=today,
+           detail={"recurring": recurring, "reviews_read": themes.get("reviews_read"),
+                   "low_rated_share": themes.get("low_rated_share")})
+    return {"recorded": ["customer_pain"], "citation": citation,
+            "themes": sorted(recurring)}

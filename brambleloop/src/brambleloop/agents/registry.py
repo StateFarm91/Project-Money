@@ -40,7 +40,7 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
-                            "mjs.scan", "etsy.probe"],
+                            "mjs.scan", "mjs.reviews", "etsy.probe"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
     # The creative side of #94: it judges this catalogue against an observed human one and
     # records the result. It writes no product, publishes nothing and contacts nobody; the

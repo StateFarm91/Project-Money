@@ -215,6 +215,13 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 row.audit_state = "audited"
                 detail = dict(row.detail or {})
                 detail["gallery_audited"] = True
+                # Video presence: one of the three weakness signals #2 names that the
+                # observation did not carry. A separate call, taken here because this is
+                # the listing whose gallery is already being read.
+                try:
+                    detail["has_video"] = bool(reader.videos(ref))
+                except ReadFailed:
+                    detail.pop("has_video", None)
                 # Etsy publishes its own per-image colour statistics, so palette evidence is
                 # available with no vision model at all. What it does not give is judgement
                 # about the shot -- that needs the model provider, and until then this is a
@@ -385,3 +392,104 @@ def reclassify(db, *, benchmark_key: str = "", dry_run: bool = False) -> dict:
                  "nothing. A vocabulary improvement that cannot reach the catalogue it was "
                  "drawn from is not an improvement."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Complaint themes (#2's third weakness signal, and #98's customer_pain domain)
+#
+# A review is a buyer describing a problem with a product in this category. That is demand
+# intelligence of the most direct kind available to a shop with no customers of its own, and
+# it is the only honest route to the `customer_pain` domain -- which this system had recorded
+# as unfeedable on the grounds that "inferring complaints from a competitor's catalogue is
+# inventing them". Reading actual reviews is not inferring. It is observing, and the
+# distinction is the whole of the difference.
+#
+# What is stored is a **count per theme**. Never a review's text, never a reviewer, never a
+# quotation. A complaint theme is a fact about this category; a review is somebody's words.
+
+COMPLAINT_THEMES: dict[str, tuple[str, ...]] = {
+    "instructions_unclear": ("confusing", "unclear", "hard to follow", "couldn't follow",
+                             "didn't understand", "poorly written", "vague", "no explanation"),
+    "counts_wrong": ("stitch count", "doesn't add up", "wrong count", "error in row",
+                     "mistake in the pattern", "typo", "errata", "doesn't work out"),
+    "sizing_wrong": ("too small", "too big", "wrong size", "sizing is off",
+                     "didn't fit", "runs small", "runs large"),
+    "yarn_estimate_wrong": ("ran out of yarn", "not enough yarn", "more yarn than",
+                            "yardage", "used way more"),
+    "photos_misleading": ("looks different", "not as pictured", "doesn't look like",
+                          "misleading photo"),
+    "support_slow": ("no response", "never replied", "didn't answer", "waiting for a reply"),
+    "delivery_problem": ("didn't receive", "no download", "couldn't download",
+                         "link didn't work", "never arrived"),
+}
+
+# A theme claimed from fewer reviews than this is one customer's bad day, not a category
+# problem. #2 asks for *recurring* complaints, and the word is doing work.
+RECURRING_AT = 3
+
+
+def complaint_themes(reviews: list[dict]) -> dict:
+    """Count which problems recur, from review text, without storing any of it.
+
+    Deterministic and keyword-based on purpose. A model reading reviews would summarise them,
+    and a summary of somebody's words is a paraphrase of somebody's words -- which is the
+    thing the standing constraint is about. A count of matches is a statistic.
+    """
+    counts: dict[str, int] = {}
+    rated = 0
+    low_rated = 0
+    for review in reviews:
+        text = str(review.get("review") or "").lower()
+        rating = review.get("rating")
+        if isinstance(rating, (int, float)):
+            rated += 1
+            if rating <= 3:
+                low_rated += 1
+        if not text:
+            continue
+        for theme, needles in COMPLAINT_THEMES.items():
+            if any(needle in text for needle in needles):
+                counts[theme] = counts.get(theme, 0) + 1
+
+    recurring = {t: n for t, n in counts.items() if n >= RECURRING_AT}
+    return {
+        "reviews_read": len(reviews),
+        "reviews_rated": rated,
+        "low_rated": low_rated,
+        "low_rated_share": round(low_rated / rated, 3) if rated else None,
+        "themes": dict(sorted(counts.items(), key=lambda kv: -kv[1])),
+        "recurring": dict(sorted(recurring.items(), key=lambda kv: -kv[1])),
+        "recurring_at": RECURRING_AT,
+        "measurable": bool(reviews),
+        "note": ("Counts of classified themes, never a review's text, a reviewer or a "
+                 "quotation. A complaint theme is a fact about this category; a review is "
+                 "somebody's words. A theme below the recurrence floor is one customer's "
+                 "bad day rather than a category problem (#2)."),
+    }
+
+
+def scan_reviews(db, *, shop_name: str = "", reader=None, benchmark_key: str = "",
+                 limit: int = 100) -> dict:
+    """Read the benchmark shop's reviews and record which complaints recur.
+
+    Stored as a `BenchmarkObservation`, so it carries a date and sits with the rest of the
+    mission's evidence rather than in a variable somebody trusts.
+    """
+    from ..core.models import BenchmarkObservation
+
+    shop_name = shop_name or benchmarks.MJS_SHOP
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    reader = reader or PublicReader()
+
+    shop = reader.resolve_shop(shop_name)
+    reviews = reader.reviews(shop.get("shop_id"), limit=limit)
+    themes = complaint_themes(reviews)
+
+    with db.session() as s:
+        s.add(BenchmarkObservation(
+            benchmark_key=benchmark_key, kind="official_api_read",
+            grade="mandated", satisfies_mandate=True,
+            actions=[f"{themes['reviews_read']} reviews read; "
+                     f"{len(themes['recurring'])} recurring complaint theme(s)"],
+            detail={"reviews": themes}))
+    return themes

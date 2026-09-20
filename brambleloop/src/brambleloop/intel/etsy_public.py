@@ -255,6 +255,20 @@ class PublicReader:
         return (self.get("listing_videos",
                          path={"listing_id": listing_id}).get("results") or [])
 
+    def reviews(self, shop_id: int | str, *, limit: int = 100) -> list[dict]:
+        """Buyer reviews of this shop. Already in the sanctioned endpoint allowlist.
+
+        What this is for is the one thing #2 names that nothing could measure: recurring
+        complaints. A review is a buyer describing a problem with a product in this category,
+        which is demand intelligence of the most direct kind available -- and it is the only
+        route to the `customer_pain` learning domain that does not involve having customers.
+
+        What it is never for is reproducing anybody's words. `complaint_themes` below counts
+        classifications, not quotations.
+        """
+        return (self.get("shop_reviews", path={"shop_id": shop_id},
+                         query={"limit": limit}).get("results") or [])
+
     def sections(self, shop_id: int | str) -> list[dict]:
         return (self.get("shop_sections",
                          path={"shop_id": shop_id}).get("results") or [])

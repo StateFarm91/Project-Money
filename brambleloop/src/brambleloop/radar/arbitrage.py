@@ -174,6 +174,33 @@ def rank(scores: list[dict]) -> dict:
     }
 
 
+def _recurring_complaints(db) -> dict:
+    """The newest recorded complaint reading, or an honest statement that none exists.
+
+    Read from a stored observation rather than recomputed, because the reviews behind it are
+    not kept: what is stored is the count, which is the only part this company is entitled to
+    keep and the only part it needs.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import BenchmarkObservation
+
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkObservation)
+                              .order_by(desc(BenchmarkObservation.id)).limit(50)))
+    for row in rows:
+        reading = (row.detail or {}).get("reviews")
+        if reading:
+            return {**reading, "measurable": True,
+                    "observed_at": row.at.isoformat() if getattr(row, "at", None) else ""}
+    return {
+        "measurable": False,
+        "reason": ("no review has been read, so what buyers complain about in this category "
+                   "is unknown. An empty complaint list would read as a category with no "
+                   "complaints, which no category is"),
+    }
+
+
 def weakness_hunt(db, *, pod: str = "") -> dict:
     """Where the incumbents are visibly weak, counted from observed listings.
 
@@ -190,7 +217,9 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         if pod:
             query = query.where(BenchmarkListing.pod == pod)
         listings = [{"ref": r.listing_ref, "title": r.title, "pod": r.pod,
-                     "media_count": r.media_count, "price_cad": r.price_cad}
+                     "media_count": r.media_count, "price_cad": r.price_cad,
+                     "has_video": (r.detail or {}).get("has_video"),
+                     "gallery_audited": bool((r.detail or {}).get("gallery_audited"))}
                     for r in s.scalars(query)]
 
     if not listings:
@@ -204,17 +233,38 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         }
 
     thin = [row for row in listings if row["media_count"] < THIN_MEDIA_BELOW]
+
+    # Video, measured only where a gallery was actually read. A listing nobody audited has
+    # an unknown video state, and counting unknown as "no video" would turn an unfinished
+    # backfill into a competitive weakness.
+    audited = [r for r in listings if r["gallery_audited"] and r["has_video"] is not None]
+    with_video = [r for r in audited if r["has_video"]]
+    video = {
+        "audited": len(audited),
+        "with_video": len(with_video),
+        "share": round(len(with_video) / len(audited), 3) if audited else None,
+        "measurable": bool(audited),
+        "reason": ("no gallery has been audited, so whether these listings carry video is "
+                   "unknown -- which is not the same as no video"
+                   if not audited else ""),
+    }
+
+    complaints = _recurring_complaints(db)
+
     return {
         "measurable": True,
         "listings": len(listings),
         "thin_media": [{"ref": r["ref"], "media_count": r["media_count"]} for r in thin],
         "thin_media_share": round(len(thin) / len(listings), 3),
+        "video": video,
+        "complaints": complaints,
         "signals": WEAKNESS_SIGNALS,
         "note": (f"{len(thin)} of {len(listings)} observed listings carry fewer than "
                  f"{THIN_MEDIA_BELOW} images, which is fewer than a buyer needs to judge a "
-                 f"pattern they will never hold. Video, deliverable clarity and complaint "
-                 f"themes need fields the observation does not yet carry, and are named "
-                 f"rather than scored"),
+                 f"pattern they will never hold. Video and recurring complaints are "
+                 f"measured where they have been observed and report unmeasurable where "
+                 f"they have not; deliverable clarity still needs a field the observation "
+                 f"does not carry, and is named rather than scored"),
     }
 
 

@@ -1608,3 +1608,32 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
             "ready_moves": report["ready_moves"],
             "available": list(report["capabilities"]["available"]),
             "catalogue_growth": report["catalogue_growth"]}
+
+
+@handlers.register("mjs.reviews")
+def handle_mjs_reviews(ctx: JobContext) -> dict:
+    """Read the benchmark shop's reviews and record which complaints recur (#2, #98).
+
+    Weekly. Reviews move slowly and this is the one observation that reaches the
+    `customer_pain` domain without this company having customers.
+
+    GREEN by the authority matrix: a sanctioned read-only call to an endpoint already in the
+    allowlist. Nothing is published, nobody is contacted, and no review text, reviewer or
+    quotation is stored -- what is kept is a count per theme, because a complaint theme is a
+    fact about this category and a review is somebody's words.
+    """
+    from ..intel import learning
+    from ..intel.etsy_public import NotConfigured, ReadFailed
+    from ..intel.observe import scan_reviews
+
+    try:
+        themes = scan_reviews(ctx.db)
+    except (NotConfigured, ReadFailed) as e:
+        ctx.audit("mjs.reviews_blocked", detail={"reason": str(e)[:300]})
+        return {"ran": False, "reason": str(e)[:200]}
+
+    learned = learning.ingest_complaints(ctx.db, themes=themes)
+    ctx.audit("mjs.reviews", detail={"themes": themes, "learning": learned})
+    return {"ran": True, "reviews_read": themes["reviews_read"],
+            "recurring": len(themes["recurring"]),
+            "learning_domains": len(learned.get("recorded") or [])}

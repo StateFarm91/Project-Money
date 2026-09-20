@@ -484,6 +484,14 @@ class _Reader:
         self.image_calls += 1
         return list(self._images)
 
+    def videos(self, listing_ref):
+        # Video presence is one of #2's three weakness signals. A reader that cannot answer
+        # is not the same as a listing with no video, so this double answers "none" rather
+        # than being absent -- an absent method would make the scanner raise, which is the
+        # right behaviour for a real reader that lost the capability.
+        self.video_calls = getattr(self, "video_calls", 0) + 1
+        return list(getattr(self, "_videos", []))
+
 
 def _listing(listing_id, title, price=8.5, favourites=120, modified=1000, **extra):
     return {"listing_id": listing_id, "title": title,

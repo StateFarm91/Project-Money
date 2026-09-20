@@ -226,6 +226,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # by finding an empty catalogue.
     ("etsy_probe", "market_radar", "etsy.probe", 6 * 60 * 60),
     ("mjs_scan", "market_radar", "mjs.scan", 6 * 60 * 60),
+    # Weekly. Reviews move slowly, and this is the one observation that reaches the
+    # customer_pain domain without this company having customers. It keeps counts per theme
+    # and no review text, reviewer or quotation.
+    ("mjs_reviews", "market_radar", "mjs.reviews", 7 * 24 * 60 * 60),
     # Weekly, because a retrospective run daily becomes noise and one run quarterly is
     # archaeology. #100 asks for a cadence; this is the one a human would keep reading.
     ("improvement_retrospective", "orchestrator", "improve.retrospective", 7 * 24 * 60 * 60),
