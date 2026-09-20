@@ -1338,6 +1338,26 @@ def api_weekly_evolution() -> dict:
     return weekly.state()
 
 
+@app.get("/api/seasonal-engine")
+def api_seasonal_engine() -> dict:
+    """A year with many occasions in it, and the constant that says otherwise (#33).
+
+    Priority comes from a score with no favourites: seven factors multiplied rather than
+    averaged, because an occasion with no time remaining scores zero however strong its
+    demand. Evergreen never drops to zero -- a shop entirely inside one festival has nothing
+    to sell in February -- and the floor is subtracted before anything is granted rather than
+    checked afterwards. Squads stand down by arithmetic. Construction primitives and
+    commercial lessons cross seasons; designs do not. A breakout moves allocation and cannot
+    reach a gate.
+
+    `still_to_replace` names what is not done: compression.PRIORITY_PROGRAMMES is still a
+    constant with one festival in it, read by five modules.
+    """
+    from ..seasonal import engine
+
+    return engine.state()
+
+
 @app.get("/api/creative-flow")
 def api_creative_flow() -> dict:
     """Truth to creative, and the listing as a shopper meets it (#63, #66).

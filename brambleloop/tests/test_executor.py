@@ -669,6 +669,61 @@ def test_a_finished_requirement_cannot_carry_a_gate_for_work_it_no_longer_owes()
     assert str(covered.id) in str(raised), str(raised)
 
 
+# ---- a note is not a park -------------------------------------------------
+
+# Phrases that say, in prose, that a requirement is waiting for something that does not
+# exist. Deliberately narrow: each one states a blocker rather than describing remaining
+# work, because "still to build" is ordinary and "needs a credential nobody has" is a park.
+_BLOCKED_PHRASES = (
+    "unrunnable until",
+    "needs a connected",
+    "which this company has never had",
+    "needs the vision capability",
+    "does not exist yet in shadow mode",
+    "no feed is connected",
+)
+
+
+def test_a_requirement_whose_note_says_it_is_blocked_is_parked():
+    """Three times in one session, prose in a note was doing a gate's job.
+
+    #133, #140 and #147 said no cultural feed is connected. #61 and #64 said they needed a
+    vision capability and a photograph of an object nobody has made. #168 said unrunnable
+    until benchmarks are purchased, and #79 said it needed vision. Every one of those notes
+    was accurate, and every one of those requirements sat in the ready queue reporting itself
+    as work somebody could start -- because a note is read by people and the queue reads
+    gates.
+
+    This is the check that would have caught all seven. It is phrase-matching and therefore
+    crude, and crude is the right trade here: a false positive costs a reworded note or a
+    park that should have existed anyway, and a false negative costs the ready count its
+    meaning.
+    """
+    stranded = []
+    for requirement in reg.load():
+        if requirement.status in (reg.COVERED, reg.OWNER_GATED, reg.DATA_GATED):
+            continue
+        if getattr(requirement, "parked_on", None):
+            continue
+        note = (getattr(requirement, "note", "") or "").lower()
+        hit = next((phrase for phrase in _BLOCKED_PHRASES if phrase in note), None)
+        if hit:
+            stranded.append(f"#{requirement.id} says {hit!r} and is not parked")
+    assert not stranded, (
+        "these requirements describe a blocker in prose and advertise themselves as ready "
+        "work: " + "; ".join(stranded))
+
+
+def test_every_parked_requirement_names_a_gate_that_exists():
+    """The other direction: a park onto a gate nothing defines never opens."""
+    unknown = []
+    for requirement in reg.load():
+        key = getattr(requirement, "parked_on", None)
+        if key and key not in E.GATE_BY_KEY:
+            unknown.append(f"#{requirement.id} parked on {key!r}")
+    assert not unknown, unknown
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

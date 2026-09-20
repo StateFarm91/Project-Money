@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `527ea93`: **2,359 tests passing, 0 failing** across
-134 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `e5f74e4`: **2,395 tests passing, 0 failing** across
+136 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -630,6 +630,46 @@ listing underperforms three months later, which is exactly when somebody wants t
 benchmarks are purchased" and #79 said "needs the vision capability", and both sat in the
 ready queue. Parked on `benchmark_purchases` and `browser_vision`. Ready is 15 against 87
 parked, and the number now means what it says. Decisions B-453..B-457.
+
+**#33 — a year with many occasions in it, and the constant that says otherwise.**
+`seasonal/engine.py`. The merge instruction is explicit: *preserve Christmas as the current
+campaign, not the company identity.* And `compression.PRIORITY_PROGRAMMES` is
+`{"Christmas": 0.45}` — a constant naming one occasion, granting it nearly half of engineering
+capacity permanently, read by five modules. **That is the Christmas Strike Team, in code**, and
+no amount of rolling-wave machinery wrapped around it changes what it says.
+
+Priority now comes from a score with no favourites. Seven factors **multiplied, not averaged**,
+because they are conjunctive: an occasion with no time remaining scores zero however strong its
+demand, and an average lets six good factors carry one fatal one — the same reason
+`scale.confidence` takes a minimum over its rungs. A missing factor is refused rather than
+defaulted, because a factor left out of a product is a factor silently set to one, which is the
+most optimistic possible assumption and the one nobody notices making.
+
+**The evergreen floor is the inverse of the priority floor, and nothing had it.**
+`MIN_PRIORITY_SHARE` stops a seasonal programme decaying; nothing stopped evergreen being
+squeezed to zero, and a shop entirely inside Christmas has nothing to sell in February. It is
+subtracted before anything is granted rather than checked afterwards — and that was not
+theoretical: rounding three equal shares independently produced 0.8001 against a pool of 0.8,
+eating the floor from above. Caught by the test that asserted the invariant, fixed by giving
+the remainder to the largest share.
+
+Squads stand down by arithmetic, because nobody stands a team down in a busy week.
+Construction primitives and commercial lessons cross seasons; designs, motifs, colourways and
+copy do not — recolouring last October's product is not the insight, it is the product again.
+And a breakout moves allocation and is *structurally* unable to reach a gate, because
+"emergency" is the word people use when they want to skip a step.
+
+`partial`, and the remaining step is named precisely: migrating those five call sites off the
+constant. A test asserts the constant is still there, so the claim cannot go stale silently.
+
+**And the process failure got a check.** Three times this session prose in a registry note was
+doing a gate's job — the cultural feed, vision, physical proof, purchased benchmarks. Every
+note was accurate; every one of those requirements sat in the ready queue. `test_executor` now
+fails if an unparked requirement's note describes a blocker. It is phrase-matching and crude,
+and crude is the right trade: a false positive costs a reworded note, a false negative costs
+the ready count its meaning. Verified against the live registry rather than assumed — it
+matches four real notes, which pass only because they are now parked.
+Decisions B-458..B-462.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3768,8 +3808,12 @@ timings, written there by the system rather than by hand.
   gate; ready fell from 29 to 19 (green at 2,359). Then #63/#66: creative constrained to a
   subset of truth in one direction, the flow ordered so a brief cannot be a caption, and the
   listing evaluated where it is chosen rather than where it was built. #168 and #79 parked;
-  ready is 15 against 87. Registry 200 of 320 covered, 64 executable. Decisions
-  B-404..B-457.
+  ready is 15 against 87 (green at 2,395). Then #33's seasonal engine: priority from a score
+  with no favourites, an evergreen floor taken before anything is granted, squads that stand
+  down by arithmetic, and a breakout that cannot reach a gate -- left `partial` because the
+  constant it replaces still drives five modules. Plus a test that fails when a note
+  describes a blocker and the requirement is not parked. Registry 200 of 320 covered, 64
+  executable. Decisions B-404..B-462.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
