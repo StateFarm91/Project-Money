@@ -181,13 +181,32 @@ def test_a_dead_letter_is_the_deploys_repair_rather_than_a_timers():
     times a day. A dead letter is fixed by a code change, so the deploy is the trigger."""
     db = _db()
     with db.session() as s:
-        s.add(Job(agent="a", job_type="t", status=JobStatus.DEAD, inputs={}))
+        s.add(Job(agent="a", job_type="t", status=JobStatus.DEAD, inputs={},
+                  last_error="TypeError: something genuinely broke"))
     with db.session() as s:
         out = H.remediation(s, H.read(s, runner_state=_alive(), now=NOW))
     assert out["repaired_here"] == []
     handled = out["repaired_elsewhere"][0]
     assert handled["condition"] == "dead_letters" and handled["repaired_by"] == "deploy"
     assert "nothing has fixed" in handled["how"]
+
+
+def test_a_deliberate_refusal_is_the_guard_working_rather_than_a_backlog():
+    """Production holds 134 dead letters and every one is a publication refused by shadow
+    mode. Reporting those as a repair backlog puts a permanent false number on the console,
+    and a number that is always there is a number nobody reads."""
+    db = _db()
+    with db.session() as s:
+        for i in range(3):
+            s.add(Job(agent="store_operator", job_type="store.publish", status=JobStatus.DEAD,
+                      inputs={}, last_error="refused: shadow mode forbids publication"))
+    with db.session() as s:
+        out = H.remediation(s, H.read(s, runner_state=_alive(), now=NOW))
+    conditions = {h["condition"]: h for h in out["repaired_elsewhere"]}
+    assert conditions["deliberate_refusals"]["count"] == 3
+    assert conditions["deliberate_refusals"]["repaired_by"] == "nothing"
+    assert "the guard working, not a backlog" in conditions["deliberate_refusals"]["how"]
+    assert "dead_letters" not in conditions
 
 
 def test_a_dead_worker_is_escalated_rather_than_restarted():

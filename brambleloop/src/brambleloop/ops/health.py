@@ -319,10 +319,28 @@ def remediation(db, readings: list[Reading]) -> dict:
     bad = {r.signal for r in readings if r.bad}
     handled: list[dict] = []
 
+    # Deliberate refusals and defects are counted apart. Production holds 134 dead letters
+    # and every one of them is a publication refused by shadow mode -- the system working.
+    # Reporting those as a repair backlog would put a permanent false number on the console,
+    # and a number that is always there is a number nobody reads.
+    from ..queue.durable import JobQueue
+
     dead = list(db.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
-    if dead:
-        handled.append({"condition": "dead_letters", "count": len(dead),
-                        "jobs": [j.id for j in dead][:25],
+    refusals, defects = [], []
+    for job in dead:
+        error = (job.last_error or "").lower()
+        (refusals if any(m in error for m in JobQueue.REFUSAL_MARKERS)
+         else defects).append(job)
+    if refusals:
+        handled.append({"condition": "deliberate_refusals", "count": len(refusals),
+                        "repaired_by": "nothing",
+                        "how": ("these are jobs the system refused on purpose -- shadow "
+                                "mode, or a capability nobody has granted. They are the "
+                                "guard working, not a backlog, and re-driving one would be "
+                                "asking the same question and getting the same answer")})
+    if defects:
+        handled.append({"condition": "dead_letters", "count": len(defects),
+                        "jobs": [j.id for j in defects][:25],
                         "repaired_by": "deploy", "how": ALREADY_AUTOMATIC["requeue_dead_letter"]})
 
     if "queue_age" in bad:

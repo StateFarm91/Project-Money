@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 181 | satisfied, with a named test or artefact |
-| partial | 48 | something real exists and is short of the requirement |
-| missing | 35 | nobody has built it |
+| covered | 182 | satisfied, with a named test or artefact |
+| partial | 49 | something real exists and is short of the requirement |
+| missing | 33 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **83 requirements are executable** (partial +
+as one nobody has written. **82 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 181 of 320 covered is **56.6% complete**, read from the registry rather than
+typed. 182 of 320 covered is **56.9% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **1,787 tests passing, 0 failing** across
-107 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `0782969`: **1,817 tests passing, 0 failing** across
+108 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -242,6 +242,47 @@ nothing. It aggregates what the read endpoints already serve, at the same exposu
 no new door; the continuity export and the dead-letter requeue stay behind the operator
 credential. No public marketing site exists or is planned, which is the requirement's other
 half.
+
+**Verified in production on `0782969`, not asserted.** The three new cadences fired and
+completed on the live service within ten minutes of the deploy — `ops.health` (job 1749),
+`ops.sentinel` (1747) and `ops.capacity` (1745) — and the console reports `healthy`, 0
+pending, 134 dead letters.
+
+The sentinel's first real sweep is the evidence that the backlog calibration mattered: it
+found **275 derived artefacts with no provenance row** across the live estate, and raised
+**one** P3 incident carrying that number rather than 275 incidents. Without that decision
+(B-364a) production would now hold 285 open incidents and the ten real ones would be
+unreadable. Nothing was reported stale, nothing was blocked, and `graduation()` correctly
+says absence may not be enforced yet.
+
+The 134 dead letters are all publications refused by shadow mode — the guard working — which
+is what prompted counting deliberate refusals apart from defects (B-374).
+
+**#233/#234 — the ladder, and what a bundle is.** `commerce/ladder.py` names the rungs with
+nothing on them (a buyer who climbs to one arrives and finds nothing) and the steps that are
+too big: a buyer who has spent CA$4 does not next spend CA$20, and a rung five times the last
+one is a missing step wearing a price — invisible in a tier diagram, because both rungs are
+occupied. The discount rule is the requirement's own sentence made mechanical: a tier on sale
+more than a third of its live days has no regular price left, and the flagship is never
+routinely discounted, because it is the one product whose job is to say what this shop is
+worth. `commerce/bundles.py` makes "natural" checkable — same occasion, same yarn weight,
+same collection, same recipient, same room — and delegates *did it work* to the attribution
+engine that already refuses without a baseline, because two answers to one question means the
+flattering one gets quoted.
+
+**#188 — `finance/governor.py`, and the three numbers it refuses to invent.** Cost is
+attributed across the five dimensions the requirement names, and every dollar is either
+attributed or named `unattributed`, with the two summing to the bill or the table being
+refused outright — because an attribution table that sums to less than the invoice is worse
+than none, and the missing spend is always the spend nobody has a story for. The other three
+controls are measurements this company cannot take, and each says so: an anomaly needs
+fourteen days of baseline (a detector with none fires on the first real day of work, teaches
+everybody to ignore it, then never fires again); marginal value has a zero numerator while
+no order is attributed to any spend, and calling that "worthless" would justify cutting the
+spend that has not had time to work; and parallelism cannot be judged from one worker count,
+which answers with whatever was running when somebody asked. The verdict is completions per
+*minute*, not per worker-minute — that always falls when a worker is added, and the question
+is whether the queue drained faster.
 
 ## Previously — last completed milestone
 **Freshness is proved, not assumed — and a trajectory that refuses to state a probability.**
@@ -3179,7 +3220,10 @@ timings, written there by the system rather than by hand.
   which is now a weekly `capacity_review` cadence. Registry 177 of 320 covered, 87
   executable. One gate added (`owned_surfaces`) and #4/#10 re-parked onto it. Then #26's
   trajectory model and #171/#173's artefact provenance and stale-artefact sentinel: 179 of
-  320 covered, 85 executable, 1,787 tests passing. Decisions B-345..B-364.
+  320 covered, 85 executable. Then #183/#185's console and health sweep (1,817 tests
+  passing on `0782969`, deployed and live: production console reports `healthy`, 0 pending,
+  134 dead letters all of which are deliberate shadow-mode refusals) and #188's spend
+  governor: 182 of 320 covered, 82 executable. Decisions B-345..B-373.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

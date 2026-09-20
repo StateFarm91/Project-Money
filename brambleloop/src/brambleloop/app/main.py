@@ -1274,6 +1274,41 @@ def api_portfolio() -> dict:
     return portfolio.diversification(db)
 
 
+@app.get("/api/ladder")
+def api_ladder() -> dict:
+    """The value ladder's rungs, its steps, and what a discount may do to them (#233, #234).
+
+    A price that is on sale a third of the time is not a price -- it is a higher number that
+    appears before the real one. The flagship is the one product whose job is to say what
+    this shop is worth, so it is never routinely discounted. Tier movement, attach rate,
+    contribution and lifetime value all need a customer and are reported as unmeasurable
+    rather than zero.
+    """
+    from ..commerce import bundles, ladder
+
+    out = ladder.state()
+    out["bundles"] = bundles.state()
+    return out
+
+
+@app.get("/api/governor")
+def api_governor(days: int = 30) -> dict:
+    """Central budget control, and the three numbers it refuses to invent (#188).
+
+    Attribution sums to the bill or it is refused: the spend nobody has a story for is
+    exactly the spend worth looking at, so the remainder is named rather than dropped. The
+    anomaly detector has no baseline, marginal value has a zero numerator, and parallelism
+    cannot be judged from one worker count -- each says so rather than producing a number
+    with the right shape and no meaning.
+    """
+    from ..finance import governor
+
+    out = governor.state()
+    with db.session() as session:
+        out["report"] = governor.report(session, days=days)
+    return out
+
+
 @app.get("/api/console")
 def api_console() -> dict:
     """One page's worth of operations, for an owner holding a phone (#183).
