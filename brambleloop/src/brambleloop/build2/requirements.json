@@ -2368,11 +2368,12 @@
  {
   "body": "Track leading indicators before revenue arrives: qualified impressions, CTR, favourites/cart signals where available, conversion, bundle attach, email/content traffic, creator traffic, search trend direction, support defects and release velocity. Avoid declaring success from leading indicators without orders.",
   "id": 263,
-  "note": "the constraint solver and loop registry expose the leading indicators that exist. Remaining: impressions, CTR and favourites, which need the shop.",
+  "note": "the constraint solver and loop registry expose the leading indicators that exist. Remaining and parked on the live_listings gate: impressions, click-through and favourites are facts about a listing somebody can see, and no credential produces them for a listing that was never published. That gate counts an Etsy listing id rather than reading the phase flag, because a phase is a statement of intent and a listing id is a listing.",
   "section": "CA$5K/month scale architecture",
   "status": "partial",
   "title": "Leading Indicator Dashboard",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "live_listings"
  },
  {
   "body": "Each week, identify ONE primary commercial constraint and a small number of secondary constraints. Reallocate experiments/agents toward the constraint with highest expected marginal contribution. Examples: insufficient qualified traffic, weak thumbnail CTR, weak conversion, low AOV, low repeat or product gap.",
@@ -2413,18 +2414,19 @@
  {
   "body": "Where Etsy data and policy permit, distinguish Canada, U.S. and other meaningful buyer markets for terminology, holidays, timing and pricing/currency effects. Do not assume Canadian search behavior represents Etsy globally.",
   "id": 268,
-  "note": "finance/books.py works in CAD with Etsy fees; no cross-border lens or multi-currency normalization",
+  "note": "commerce/markets.py distinguishes Canada, the United States and everywhere else for the two things that are genuinely different for a digital pattern, and states the one that is not. Terminology: a US double crochet is a UK treble, so the same words name different stitches and a pattern that does not say which it uses makes the wrong fabric for the buyers who read it the other way. The writer already emits both; what was missing is which buyer needs which. Holidays: Canadian Thanksgiving is the second Monday of October and American Thanksgiving the fourth Thursday of November -- six weeks apart, different shopping windows, and a product merchandised to one is merchandised away from the other; the calendar this system carries holds the Canadian date, which is correct for this company and incomplete for its market. UK Mothering Sunday is roughly two months before the Canadian and American date. Delivery does not differ at all, and that is stated rather than assumed, because a digital file arriving the same day everywhere is the one cross-border advantage this business has. The requirement's closing instruction is not to assume Canadian search behaviour represents Etsy globally, and the error actually present points the other way, which is easier to miss: the benchmark is a United States shop, so every term frequency this system has measured is American, and reading it as Canadian or as global is the same mistake with the countries swapped. The module labels it rather than discarding it, because American behaviour is still the largest Etsy buyer market's. Pricing and currency are #269. Remaining and parked on benchmark_observation: correcting the label needs a benchmark in another market, which is an owner decision about which shops to observe rather than a capability this build can grant itself. /api/markets.",
   "section": "CA$5K/month scale architecture",
   "status": "partial",
   "title": "Cross-Border Demand Lens",
-  "version": "v1.4.1"
+  "version": "v1.4.1",
+  "parked_on": "benchmark_observation"
  },
  {
   "body": "Normalize product economics into a canonical reporting currency while preserving transaction currency, platform/payment fees, regulatory/currency conversion fees and ad fees. Pricing decisions use net contribution, not sticker price.",
   "id": 269,
-  "note": "scale/target.py normalises Etsy's USD listing fee into CAD at a stated assumed rate and computes contribution after transaction fee, payment processing and refunds. Remaining: preserving transaction currency per order and ad fees, which need real orders.",
+  "note": "finance/currency.py normalises into CAD while preserving the transaction's own currency, and preserving is the word doing the work: converting a USD sale and keeping only the CAD figure destroys the one number that can later be reconciled against a bank statement, and books that cannot be reconciled will be argued with. Every amount carries the currency it happened in, every conversion carries the rate and the date it was taken, and an assumed rate says it is assumed -- a converted figure whose rate is invisible is indistinguishable from a measured one. A currency with no rate on file is refused rather than converted at something plausible. Two fee classes the previous model did not name are now priced: currency conversion, which never appears as a line item and appears instead as a slightly worse rate, and regulatory operating fees charged as a percentage of the order total. Both default to zero and the zero is honest -- they are listed under fees_not_yet_observed, because a margin computed without a fee should say so rather than look like one that included it. Net contribution is returned before the sticker price, which is the requirement's closing sentence made structural rather than remembered. /api/finance.",
   "section": "CA$5K/month scale architecture",
-  "status": "partial",
+  "status": "covered",
   "title": "Currency / Fee Margin Normalization",
   "version": "v1.4.1"
  },

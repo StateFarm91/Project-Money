@@ -617,6 +617,35 @@ def test_a_remainder_that_needs_orders_has_somewhere_to_wait():
         assert rid in ready, f"{rid} did not come back when the first sale landed"
 
 
+def test_a_remainder_that_needs_a_published_listing_has_somewhere_to_wait():
+    """The second gate nobody can grant with a key, and it is not waiting on a stranger.
+
+    Impressions, click-through and favourites are facts about a listing somebody can see.
+    No credential produces them for a listing that was never published, and shadow mode
+    forbids publishing by design -- so the requirement was sitting in the ready queue
+    advertising a measurement that cannot be taken.
+
+    It counts an Etsy listing id rather than reading the phase flag, because a phase is a
+    statement of intent and a listing id is a listing.
+    """
+    from brambleloop.core.models import Listing
+
+    gate = E.GATE_BY_KEY["live_listings"]
+    shut = _db()
+    assert gate.open(shut, {}) is False
+    assert gate.open(shut, {"BRAMBLELOOP_PHASE": "production"}) is False
+
+    with shut.session() as s:
+        s.add(Listing(product_slug="p", version="1.0.0", title="t", description="d",
+                      price_cad=9.0))
+    assert gate.open(shut, {}) is False, "a drafted listing is not a published one"
+
+    with shut.session() as s:
+        s.add(Listing(product_slug="q", version="1.0.0", title="t", description="d",
+                      price_cad=9.0, etsy_listing_id="1234567890"))
+    assert gate.open(shut, {}) is True
+
+
 def test_a_finished_requirement_cannot_carry_a_gate_for_work_it_no_longer_owes():
     """parked_on describes the *remainder*. With no remainder it is a leftover key.
 

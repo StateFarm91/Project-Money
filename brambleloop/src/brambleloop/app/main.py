@@ -1226,6 +1226,19 @@ def api_seasonal_cycle() -> dict:
     return cycle.run(db, gateway=gateway)
 
 
+@app.get("/api/markets")
+def api_markets() -> dict:
+    """The cross-border lens: language, holidays, currency, and what does not differ (#268).
+
+    The requirement warns against assuming Canadian search behaviour is global. The error
+    actually present points the other way: the benchmark is a United States shop, so every
+    term frequency measured here describes that market rather than this company's.
+    """
+    from ..commerce import markets
+
+    return markets.lens(db)
+
+
 @app.get("/api/portfolio")
 def api_portfolio() -> dict:
     """Whether the catalogue competes with itself, and whether it stuffs to avoid it (#240).

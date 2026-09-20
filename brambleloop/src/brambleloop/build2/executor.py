@@ -161,6 +161,27 @@ def _has_customers(db, env) -> bool:
         return bool(s.scalar(select(func.count(LedgerEntry.id))))
 
 
+def _has_live_listing(db, env) -> bool:
+    """At least one listing exists on the marketplace. Counted from its own identifier.
+
+    The second gate in this table nobody can grant by pasting a key, and unlike `customers`
+    it is not waiting on a stranger -- it is waiting on the owner deciding to leave shadow
+    mode. Impressions, click-through and favourites are all facts about a listing somebody
+    can see, and no credential produces them for a listing that was never published.
+
+    Counted rather than read from the phase flag, for the reason every other gate counts
+    something: `BRAMBLELOOP_PHASE=production` is a statement of intent, and an Etsy listing
+    id is a listing.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        return bool(s.scalar(
+            select(Listing.id).where(Listing.etsy_listing_id != "").limit(1)))
+
+
 def _benchmarks_purchased(db, env) -> bool:
     """The owner's ten benchmark patterns, counted rather than asked about."""
     from sqlalchemy import func, select
@@ -288,6 +309,12 @@ GATES: tuple[Gate, ...] = (
          _env_gate("BRAMBLELOOP_ARCHIVE_URL"),
          (51,),
          "BRAMBLELOOP_ARCHIVE_URL is set, which only exists once a bucket does"),
+    Gate("live_listings",
+         "a listing that exists on the marketplace, which shadow mode forbids by design",
+         _has_live_listing,
+         (),
+         "at least one Listing row carries an Etsy listing id -- counted, not read from the "
+         "phase flag, because a phase is a statement of intent and a listing id is a listing"),
     Gate("customers",
          "real orders, which only a buyer can create -- not an owner action, and the reason "
          "this gate is in the same table as the ones that are",
