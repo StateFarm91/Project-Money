@@ -1291,6 +1291,38 @@ def api_rollforward() -> dict:
     return rollforward.state()
 
 
+@app.get("/api/improvement-swarm")
+def api_improvement_swarm() -> dict:
+    """The meta-agents, and the league they argue in front of (#179, #180).
+
+    An improvement swarm graded on changes made will make changes: forty findings, thirty
+    proposals, twelve promotions, and no capability curve anywhere that moved. So a role's
+    score is realised uplift and `proposals_made` is arithmetically unable to reach it. No
+    role both proposes and judges, the cost optimiser may not buy its savings from
+    reliability, and nothing may be traded for deterministic validation.
+
+    The league adds what #180 asked for and #95 had not needed: latency as a fourth axis, a
+    holdout that is never tuned against, a promotion bar that scales with how much was
+    measured, and a rollback target recorded before anybody needs it.
+    """
+    from ..improve import league, roles
+
+    return {
+        **roles.state(),
+        "league": {
+            "axes": {k: v[1] for k, v in league.AXES.items()},
+            "quality_margin": league.QUALITY_MARGIN,
+            "significant_tasks": league.SIGNIFICANT_TASKS,
+            "cost_tolerance": league.COST_TOLERANCE,
+            "latency_tolerance": league.LATENCY_TOLERANCE,
+            "holdout_slip": league.HOLDOUT_SLIP,
+            "note": ("a fixed shared set is overfitted by the league itself, not by any one "
+                     "author: a hundred challengers judged on the same forty tasks are "
+                     "selected for those forty, and nobody ever brought a task of their own"),
+        },
+    }
+
+
 @app.get("/api/calibration")
 def api_calibration() -> dict:
     """Forecast against outcome, and what having been optimistic costs (#262).

@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 184 | satisfied, with a named test or artefact |
-| partial | 65 | something real exists and is short of the requirement |
-| missing | 15 | nobody has built it |
+| covered | 185 | satisfied, with a named test or artefact |
+| partial | 66 | something real exists and is short of the requirement |
+| missing | 13 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **80 requirements are executable** (partial +
+as one nobody has written. **79 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 184 of 320 covered is **57.5% complete**, read from the registry rather than
+typed. 185 of 320 covered is **57.8% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `9e4dcfb`: **2,005 tests passing, 0 failing** across
-118 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `b06537f`: **2,098 tests passing, 0 failing** across
+123 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -361,6 +361,40 @@ decay before it as unobserved, naming what would settle it. Makers do not all wa
 last possible day, but no listing of this shop's has been watched through a season, and a
 decay date taken from a plausible shape is a point estimate presented as a fact. `covered`.
 Decisions B-418..B-421.
+
+**#179/#180 — the agents whose only job is other agents, and the league they argue in front of.**
+`improve/roles.py` names the eight meta-agents #179 lists and enforces the three rules that
+stop such a swarm flattering itself. The requirement's own last clause — *measured by verified
+uplift, not number of changes* — is implemented as arithmetic rather than as a policy:
+`scorecard()` computes from realised uplift alone and `proposals_made` cannot reach it,
+because a swarm graded on changes made will make changes — forty findings, thirty proposals,
+twelve promotions, and no capability curve anywhere that moved, with every number on the way
+pointing upward. The other half matters as much: a rejected proposal scores **zero, never
+negative**, since penalising rejection teaches the swarm to propose only what will obviously
+pass. No role both proposes and judges. The cost optimiser may not buy its savings from
+reliability, the reliability engineer may not buy uptime from contribution, and no role may
+trade deterministic validation at all.
+
+`partial`, and the gap is named rather than counted around: none of the eight has an entry in
+`agents/registry.py`, a job type, a ceiling or a cadence. The roster is a specification of
+roles, not running agents.
+
+**#180** hardened `improve/league.py` rather than adding a second judge beside it. Four things
+it was quietly missing. **The shared set is overfitted by the league itself** — refusing a
+challenger's own tasks stops one author gaming one comparison and does nothing about a hundred
+challengers judged, over a year, against the same forty tasks; a holdout is now carried, never
+tuned against, and winning the tuned set while losing the holdout is refused with that named
+as the reason. **Latency is the fourth axis**, and the one that looks free, because it is
+nobody's line item until a cadence misses its window. **A margin is not a significance test** —
+the bar now scales with how much was measured, since 0.03 on four tasks is a coin and a league
+promoting on coins churns while every report counting promotions calls it progress. **Rollback
+is a recorded target** with a required reason, answerable before it is needed.
+
+Two existing league tests failed against the new bar, and both encoded the old weaker
+standard: a test about how the *cost* bar scales was incidentally testing sample size on a
+four-task fixture. The fixture was widened and the margin scaling given its own tests, rather
+than the new threshold relaxed until the old test passed — which is the obvious move and is
+how a standard quietly reverts. Decisions B-422..B-427.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3467,7 +3501,7 @@ timings, written there by the system rather than by hand.
   passing on `0782969`, deployed and live: production console reports `healthy`, 0 pending,
   134 dead letters all of which are deliberate shadow-mode refusals) and #188's spend
   governor: 182 of 320 covered, 82 executable. Decisions B-345..B-373.
-- 2026-09-20 continued: #172's rebuild graph (`9e4dcfb`, suite green at 2,005 across 118
+- 2026-09-20 continued: #172's rebuild graph (`9e4dcfb`, suite green at 2,005 across 119
   suites, zero leftover directories), then #260/#261 — the first-100 interview instrument and
   the purchase-friction audit. Both land `partial` and parked, #260 on `customers` and #261
   on `live_listings`, and both name the same blind spot: the interview reaches only survivors
@@ -3477,7 +3511,10 @@ timings, written there by the system rather than by hand.
   `scale.confidence` rather than computing a second probability and excludes every period
   today as unexposed, and #267's capacity roll-forward, which holds engineering and marketing
   as separate ledgers because the occasion stops being launchable weeks before it stops being
-  buyable. Registry 184 of 320 covered, 80 executable. Decisions B-404..B-421.
+  buyable. Then #179's meta-agent roster (`partial`: defined and enforced, not yet running
+  agents) and #180's league hardening -- latency as a fourth axis, a holdout never tuned
+  against, a promotion bar that scales with how much was measured, and a recorded rollback
+  target. Registry 185 of 320 covered, 79 executable. Decisions B-404..B-427.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

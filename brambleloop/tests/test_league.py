@@ -18,7 +18,10 @@ sys.path.insert(0, str(ROOT))
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.improve import league as L  # noqa: E402
 
-SHARED = ("summarise_pattern", "write_listing", "answer_support", "name_collection")
+# Large enough to clear #180's significance scaling, so that tests about the cost and
+# reliability bars are testing those bars rather than incidentally testing sample size. The
+# margin scaling has its own tests, in tests/test_league_holdout.py.
+SHARED = tuple(f"task_{i:02d}" for i in range(20))
 
 
 def _db() -> Database:
@@ -180,10 +183,12 @@ def test_a_promotion_passes_the_same_boundary_as_any_other_self_improvement():
     assert allowed["promote"] is True
 
 
-def test_all_three_axes_are_reported_because_a_league_showing_one_picks_the_trade():
+def test_every_axis_is_reported_because_a_league_showing_one_picks_the_trade():
+    """Four since #180: latency joined quality, cost and reliability, and it is the one that
+    looks free, because it is nobody's line item until a cadence misses its window."""
     result = L.compare(_incumbent(), _challenger(), shared_tasks=SHARED)
-    assert set(result["axes"]) == {"quality", "cost_cad", "reliability"}
-    assert set(L.AXES) == {"quality", "cost_cad", "reliability"}
+    assert set(result["axes"]) == {"quality", "cost_cad", "reliability", "latency_s"}
+    assert set(L.AXES) == {"quality", "cost_cad", "reliability", "latency_s"}
 
 
 if __name__ == "__main__":

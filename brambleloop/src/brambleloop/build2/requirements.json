@@ -1621,18 +1621,18 @@
  {
   "body": "Create dedicated meta-agents whose sole job is to improve other agents and departments. Include evaluator, failure-miner, experiment designer, prompt/tool challenger, cost optimizer, reliability engineer, creative critic and cross-department lesson router. Their work is measured by verified uplift, not number of changes.",
   "id": 179,
-  "note": "improvement swarm, agent challenger league",
+  "note": "improve/roles.py names the eight meta-agents the requirement lists and enforces the three rules that stop such a swarm flattering itself. The requirement's own last clause is the danger and is implemented as arithmetic rather than as a policy: scorecard() computes from realised uplift alone and proposals_made cannot reach the score, because a swarm graded on changes made will make changes -- forty findings, thirty proposals, twelve promotions, and no capability curve that moved. A rejected proposal scores zero and never negative, since penalising rejection teaches the swarm to propose only what will obviously pass, and a challenger that proposes only safe changes has stopped being one. No role both proposes and judges. Opposed objectives name what they may not trade: the cost optimiser may not buy savings from reliability, the reliability engineer may not buy uptime from contribution, and no role may trade deterministic validation. Remaining: the roster is a specification of roles rather than running agents -- none of the eight has an entry in agents/registry.py, a job type, a daily ceiling or a cadence, so nothing is executing these rules on a schedule yet. That is what would make this covered, and it is honest to say it has not been done rather than to count the definitions.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
+  "status": "partial",
   "title": "Improvement Swarm",
   "version": "v1.3.9"
  },
  {
   "body": "For important functions, maintain incumbent and challenger configurations. Replay representative historical tasks plus fresh holdouts, compare quality/cost/latency/reliability, and promote only statistically/operationally meaningful improvements. Preserve rollback and prevent test-set overfitting.",
   "id": 180,
-  "note": "improvement swarm, agent challenger league",
+  "note": "improve/league.py was built for #95/#96 and already held most of this: incumbent and challenger configurations, a fixed shared task set, a refusal of any challenger judged on tasks it introduced, cost and reliability as outcomes rather than footnotes, and the reason for every version recorded. #180 added the four things it was quietly missing. Latency is now the fourth axis, and it is the one that looks free because it is nobody's line item until a cadence misses its window. required_margin() scales the promotion bar by how many tasks were measured, because QUALITY_MARGIN on four tasks is a coin and a league promoting on coins churns while every report counting promotions calls it progress. A holdout is carried alongside the shared set and never tuned against -- refusing self-introduced tasks stops one author gaming one comparison and does nothing about the slower version, where a hundred challengers judged over a year against the same forty tasks are selected for those forty and nobody ever brought a task of their own; winning the tuned set while losing the holdout is the signature, and a holdout overlapping the shared set is refused as the same evidence twice. rollback() restores a named previous version with a required reason, and rollback_target() answers what would be restored before anybody needs it, because the moment a rollback is needed is the moment nobody can reconstruct what was running last Tuesday. A comparison with no holdout is reported as tuned_set_only rather than refused: it is a weaker claim, not an invalid one.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
+  "status": "covered",
   "title": "Agent Challenger League",
   "version": "v1.3.9"
  },
