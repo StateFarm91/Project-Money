@@ -1207,11 +1207,12 @@
  {
   "body": "Create a permanent radar that scans current and recurring cultural demand around movies, television, memes, nostalgia eras, seasonal traditions, viral aesthetics, music, sports culture, celebrity-driven aesthetics and internet moments. The purpose is early demand discovery: identify what people are emotionally engaging with before Etsy competition fully reflects it.",
   "id": 133,
-  "note": "culture/radar.py records signals with their protected tokens declared at observation, keeps momentum as a series, and reports honestly that no feed is connected rather than returning an empty trend list",
+  "note": "culture/radar.py records signals with their protected tokens declared at observation, keeps momentum as a series, and reports honestly that no feed is connected rather than returning an empty trend list. Parked on the culture_feed gate: the note above already said no feed is connected, and a note is not a park -- the queue went on reporting this as ready work somebody could start.",
   "section": "Culture & nostalgia opportunity engine",
   "status": "partial",
   "title": "Culture & Nostalgia Radar",
-  "version": "v1.3.7"
+  "version": "v1.3.7",
+  "parked_on": "culture_feed"
  },
  {
   "body": "For every strong signal, decompose the demand into non-protected commercial primitives: emotion, setting, era, humour type, colour language, object category, ritual, character archetype, visual motif class and gifting context. Feed those primitives into Brambleloop's Concept Tournament to invent original crochet products rather than simply reproducing source material.",
@@ -1270,11 +1271,12 @@
  {
   "body": "Measure how Google/social/search interest precedes or follows Etsy demand by topic and season. Learn which cultural signals are useful leading indicators for crochet products so Brambleloop can enter before saturation rather than after competitors dominate.",
   "id": 140,
-  "note": "radar.lead_lag() derives the lead from both series and names the case where the radar is reporting the news. Needs a connected search source and a marketplace source to produce two real series",
+  "note": "radar.lead_lag() derives the lead from both series and names the case where the radar is reporting the news. Needs a connected search source and a marketplace source to produce two real series. Parked on the culture_feed gate, which is what 'needs a connected search source' means in a form the queue can check and un-park by itself.",
   "section": "Culture & nostalgia opportunity engine",
   "status": "partial",
   "title": "Cultural Demand Lead-Lag Model",
-  "version": "v1.3.7"
+  "version": "v1.3.7",
+  "parked_on": "culture_feed"
  },
  {
   "body": "Create a small autonomous cell for time-sensitive cultural opportunities. It may accelerate research, concept tournament, feasibility and creative prototyping, but it cannot bypass CIR, Product Truth, Creative Parity, policy, spend or release gates. Speed comes from prioritization and parallelism, not lower standards.",
@@ -1324,20 +1326,21 @@
  {
   "body": "Use cultural observation as raw material to build Brambleloop-owned recurring characters, motifs, jokes, traditions and collection worlds. The long-term goal is not permanent dependence on external pop culture; it is to develop recognizable original seasonal IP that customers return for.",
   "id": 146,
-  "note": "translate.owned_territories() makes the borrowed/owned split countable across 19 territories. Recurring Brambleloop characters and collection worlds are not built yet",
+  "note": "culture/cast.py holds what translate.owned_territories() could only count. Two refusals carry the requirement. Recurrence cannot be declared: 'customers return for it' is a claim about the second time, so an element is proposed until it has appeared in three releases across two seasons, and there is no status field, flag or argument that promotes it -- a roster that can be populated by writing names in it measures enthusiasm, and eight appearances in one season is a collection rather than IP. And originality is checked on the primitives, never the name: the dangerous failure is not a product that borrows openly, which is routed by culture.rights and recorded as borrowed, but a character with an original name whose design is a recognisable external one -- it looks like an asset, carries the full legal risk of what it resembles, and cannot be defended because nobody wrote down what it was derived from. propose() runs rights.check_free_of over the name, the description and every derived primitive rather than implementing a second containment check, since the more permissive of two would get used. A collection world must answer can_host() for an object category it has never seen; a world that admits nothing is a retrospective label for a bundle, and an undecided category is a decision to make rather than a yes. dependence() refuses a single reading because the requirement's goal is a direction -- not permanent dependence -- and a dependence nobody trends is one nobody notices growing. The roster is empty today, which is the correct state for a company that has released nothing: filling it now with invented names is precisely the failure the module refuses, and the elements will be earned as products are designed rather than batched.",
   "section": "Culture & nostalgia opportunity engine",
-  "status": "partial",
+  "status": "covered",
   "title": "Original Brambleloop Cultural IP",
   "version": "v1.3.7"
  },
  {
   "body": "Culture & Nostalgia Radar findings flow into Market Radar, Creativity, SEO, Content, Seasonal Planning and Improvement Department. Post-launch outcomes update cultural scoring weights so the system becomes better at distinguishing commercially useful cultural signals from noise. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.8 - Competitive Product Teardown Laboratory This upgrade adds a controlled post-purchase benchmark laboratory. Purchased competitor files remain a separate benchmark library; Brambleloop learns abstract customer-experience mechanisms and raises its standards without treating competitor patterns as generation source material.",
   "id": 147,
-  "note": "cultural_territory and cultural_timing route through the lesson bus to creativity, market radar, SEO and portfolio. Post-launch outcomes updating the scoring weights needs launch data that does not exist",
+  "note": "cultural_territory and cultural_timing route through the lesson bus to creativity, market radar, SEO and portfolio. Post-launch outcomes updating the scoring weights needs launch data that does not exist. Parked on the culture_feed gate: the routing into creativity, market radar, SEO and portfolio is built and tested, and what remains -- post-launch outcomes updating the scoring weights -- needs signals to weight before it needs launches to learn from.",
   "section": "Culture & nostalgia opportunity engine",
   "status": "partial",
   "title": "Culture Radar Feeds Continuous Improvement",
-  "version": "v1.3.7"
+  "version": "v1.3.7",
+  "parked_on": "culture_feed"
  },
  {
   "body": "Create a permanent laboratory for purchased competitor benchmark products. Its purpose is to study the post-purchase customer experience and raise Brambleloop's standards, not to reuse competitor pattern expression. Purchased files are external benchmark artifacts with restricted access and provenance.",

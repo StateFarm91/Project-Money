@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 190 | satisfied, with a named test or artefact |
-| partial | 65 | something real exists and is short of the requirement |
+| covered | 191 | satisfied, with a named test or artefact |
+| partial | 64 | something real exists and is short of the requirement |
 | missing | 9 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **74 requirements are executable** (partial +
+as one nobody has written. **73 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 190 of 320 covered is **59.4% complete**, read from the registry rather than
+typed. 191 of 320 covered is **59.7% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,7 +102,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `4725036`: **2,242 tests passing, 0 failing** across
+Measured by `./run_tests.sh` on commit `fff3c60`: **2,249 tests passing, 0 failing** across
 129 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -500,6 +500,42 @@ where imports are read far more often than they are written. It was found by stu
 the other module while tracing a missing handler, not by running the check. Renamed to
 `improve/upgrades.py` across four files. Recorded as B-440, because writing a rule down is
 evidently not the same as following it.
+
+**#146, and three requirements that were reporting themselves as ready work.**
+The culture cluster's registry notes were already honest — #133 said no feed is connected,
+#140 said it needs a connected search source, #147 said it needs launch data. All three sat
+in the **ready queue** anyway. A note is read by people; the queue reads gates, and the ready
+count is the one number the executor exists to keep honest. A `culture_feed` gate now holds
+them, opening on the first `CultureObservation` row that names its source — counted rather
+than configured, because an observation with no source is the same unverifiable thing as no
+observation. Ready fell from 33 to 29 and nothing was lost: the work is parked where it can
+un-park itself.
+
+That leaves **#146**, which was genuinely buildable. `culture/cast.py` holds what
+`translate.owned_territories()` could only count, and two refusals carry the requirement.
+
+**Recurrence cannot be declared.** "Recognisable original IP that customers return for" is a
+claim about the second time, so an element is `proposed` until it has appeared in three
+releases across two seasons — and eight appearances inside one season is still proposed,
+because returning requires having gone away. There is no status field to set, one product
+cannot be counted twice, and a retired element coming back is a new proposal so the roster
+shows somebody decided twice.
+
+**Originality is checked on the primitives, never the name.** The dangerous failure is not a
+product that borrows openly — that path exists and is routed. It is a character with an
+original name whose design is a recognisable external one: it looks like an asset, carries the
+full legal risk of what it resembles, and cannot be defended because nobody wrote down what it
+was derived from. `propose()` scans name, description and every primitive through
+`rights.check_free_of` rather than implementing a second containment test, since two answers
+to "is this token present" means the more permissive one gets used.
+
+A collection world must answer `can_host()` for a category it has never seen, and `dependence()`
+refuses a single reading — "not permanent dependence" is a direction, and a dependence nobody
+trends is one nobody notices growing.
+
+The roster is empty, and stays empty. Filling it now with invented names is exactly the
+failure the module refuses; the elements get earned as products are designed.
+Decisions B-441..B-444.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3625,8 +3661,11 @@ timings, written there by the system rather than by hand.
   both new cadences wired and exercised by the platform suite that runs every cadence for
   real (green at 2,242 across 129 suites on `4725036`). Then #179 closed: the eight
   meta-agents became running agents with their own authority, ceilings and cadences, all
-  generated from the roster so the three lists cannot drift. Registry 190 of 320 covered,
-  74 executable. Decisions B-404..B-440.
+  generated from the roster so the three lists cannot drift (green at 2,249). Then the
+  culture cluster: a `culture_feed` gate parks #133/#140/#147, which had been reporting
+  themselves as ready while their own notes said no feed exists, and #146's owned-IP roster
+  lands with recurrence that cannot be declared. Registry 191 of 320 covered, 73 executable.
+  Decisions B-404..B-444.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

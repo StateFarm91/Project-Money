@@ -220,6 +220,25 @@ def _etsy_usable(db, env) -> bool:
     return usable(db)
 
 
+def _culture_feed_connected(db, env) -> bool:
+    """Whether any cultural signal has actually been observed from a source.
+
+    Counted rather than configured, like every other gate here. A culture radar with no feed
+    and a culture radar with a feed and a quiet week produce the identical empty trend list,
+    and the second reading is the one an absent owner takes from a dashboard -- which is why
+    `culture.radar.sweep` refuses to return one. The gate opens on the first observation that
+    names where it came from, because an observation with no source is the same unverifiable
+    thing as no observation at all.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CultureObservation
+
+    with db.session() as s:
+        rows = list(s.scalars(select(CultureObservation).limit(50)))
+    return any((row.source or "").strip() for row in rows)
+
+
 def _ads_authorised(db, env) -> bool:
     """Advertising authority is a spend limit the owner set, not a sentence in a chat."""
     from sqlalchemy import select
@@ -335,6 +354,20 @@ GATES: tuple[Gate, ...] = (
          (),
          "at least one LedgerEntry row exists -- a recorded money event, counted rather "
          "than a phase flag saying the company is selling"),
+    # Added 2026-09-20. #133, #140 and #147 sat in the ready queue while the thing they wait
+    # for -- a connected cultural signal source -- does not exist, and each of their registry
+    # notes already said so in prose. Prose in a note does not park anything: the queue went
+    # on reporting three requirements as ready work somebody could start, which is the one
+    # number the executor exists to keep honest. No existing gate is right for it either;
+    # `benchmark_observation` is about competitor listings and a search-interest feed is not
+    # that, and a gate that is nearly right opens on the wrong day.
+    Gate("culture_feed",
+         "a connected source of cultural signal -- search interest, social or trend data -- "
+         "which this company has never had",
+         _culture_feed_connected,
+         (133, 140, 147),
+         "at least one CultureObservation row names the source it came from. An observation "
+         "with no source is the same unverifiable thing as no observation"),
     Gate("ad_authority", "an approved advertising budget",
          _ads_authorised,
          (242, 243, 244, 245, 294, 295),

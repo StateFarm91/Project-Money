@@ -1338,6 +1338,26 @@ def api_weekly_evolution() -> dict:
     return weekly.state()
 
 
+@app.get("/api/owned-ip")
+def api_owned_ip() -> dict:
+    """The characters, motifs and worlds this company owns, and the direction (#146).
+
+    Recurrence cannot be declared: an element becomes recurring by having recurred across
+    enough releases and enough seasons, and there is no field that promotes it. Originality
+    is checked over the name, the description and every derived primitive rather than over
+    the name alone, because the failure being guarded is a character with an original name
+    whose design is a recognisable external one -- which looks like an asset and carries the
+    full risk of the thing it resembles.
+
+    `dependence()` refuses to answer from a single reading, because "not permanent dependence
+    on external pop culture" is a direction, and a dependence nobody trends is one nobody
+    notices growing.
+    """
+    from ..culture import cast
+
+    return cast.state()
+
+
 @app.get("/api/freshness")
 def api_freshness() -> dict:
     """How often each department's evidence goes stale, and by which clock (#191).
