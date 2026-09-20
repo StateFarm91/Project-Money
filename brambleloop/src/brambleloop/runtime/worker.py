@@ -196,6 +196,17 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("portfolio_review", "orchestrator", "portfolio.review", 7 * 24 * 60 * 60),
     ("finance_reconcile", "cfo", "finance.reconcile", 24 * 60 * 60),
     ("strategy_review", "orchestrator", "plan.strategy", 30 * 24 * 60 * 60),
+    # Requirement 193. Daily, and deliberately the *minimum* comprehensive sweep rather than
+    # the only way learning happens: it reads, compares and records, and queues nothing that
+    # promotes itself. Its verdict is computed from what each stage read, so a night where
+    # six stages had nothing to read reports `incomplete` instead of success -- which is the
+    # honest reading of a shadow-mode company and the one a "finished without raising" job
+    # would hide.
+    ("nightly_improvement", "orchestrator", "improve.nightly", 24 * 60 * 60),
+    # Requirement 194. Weekly, across the eight domains the requirement names. A domain with
+    # nothing read is `not_audited` rather than clean, because a weekly report of a healthy
+    # business nobody looked at is the same output as one somebody did.
+    ("weekly_evolution", "orchestrator", "improve.weekly", 7 * 24 * 60 * 60),
     # Hourly on purpose: it is the thing that notices a certified product with no listing,
     # which is what a pipeline upgrade leaves behind.
     ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),

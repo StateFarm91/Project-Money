@@ -1720,18 +1720,18 @@
  {
   "body": "Improvement agents may open bounded upgrade proposals/branches, run tests, simulations and shadow deployments, and prepare promotion evidence 24/7. Low-risk pre-authorized changes may auto-promote only within defined governance; higher-risk changes queue a concise owner approval with exact impact, cost and rollback.",
   "id": 190,
-  "note": "autonomous upgrade pipeline",
+  "note": "improve/pipeline.py is the object between the proposal and the promotion; the governance half already existed in improve/tiers.py (classification by touched surface, cooldown, weekly ceiling, evidence per tier) and is not rebuilt. Four rules. Evidence is a recorded run and never a field the proposal sets -- a proposal that runs its own tests and reports them passed has reported an opinion in the shape of a fact, so every piece names the run that produced it. Evidence is about a version: each proposal carries a fingerprint, evidence records the fingerprint it was gathered against, and revising the proposal invalidates it rather than ageing it out -- the failure that only happens to something working around the clock, where the version moves silently under evidence gathered hours earlier. Bounded means declared first and enforced after: a run or promotion naming a surface outside the declared scope is refused, and a surface the tier classifier does not know is refused because it would take no tier and therefore no cooldown at all. And auto-promotion reads the tier, never the proposal's own view of its risk: PRE_AUTHORISED is a constant, may_auto_promote() reads nothing the proposal says about itself, and there is no confidence field to set -- a change that could argue itself into the fast lane is what classification-by-surface prevents, and a confidence field would undo it from the other side. The owner card is refused unless impact, cost and rollback are all exact: 'minimal impact', 'low cost' and 'we can revert' are what an approval queue fills with when nobody checks, and each is individually unactionable. An owner queued before the machine has finished its own checks is being asked to be the check.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
+  "status": "covered",
   "title": "Autonomous Upgrade Pipeline",
   "version": "v1.3.9"
  },
  {
   "body": "Every department defines how often evidence should be reconsidered based on how fast its world changes. Fast-moving market/creative signals can update frequently; stable compiler mathematics need not churn hourly. The orchestrator flags stale learning, stale benchmarks and departments whose capability has not measurably improved over defined periods.",
   "id": 191,
-  "note": "learning freshness SLA",
+  "note": "improve/freshness.py replaces the single thirty-day constant that improve/profiles.py and improve/bus.py each carried -- far too slow for a competitor's catalogue and meaningless for the compiler, which is the arrangement the requirement is written against. Each cell is mapped to a world speed and the interval follows from how fast that world changes when nobody is looking: adversarial 24h, market 72h, operational 168h. The interesting entry has no interval at all. Compiler mathematics does not go stale by the passage of time -- a stitch count right in March is right in September -- so pattern_engineering is answered on a code fingerprint, the same mechanism ops.artefacts uses for derived files; a long interval would have been easier and would report it current for another month after somebody changed the compiler. Second, there are two clocks, because a freshness SLA measured in 'when did we last look' rewards looking: a department re-running a scan hourly and learning nothing scores perfectly on recency, which is the commonest real state of an improvement programme. CHURNING names fresh-and-flat and reports it as a problem. Direction is read against each cell's own polarity, since half these metrics are better when they fall. Never-measured is kept apart from stale: one is instrumented and the other is re-run, and filing them together buries the first under the second. The orchestrator surface arrived with #193: the improve.nightly handler calls sweep() and reports stale, churning and never-measured departments as its bottleneck stage, verified by the platform suite that runs every cadence for real rather than checking it is registered.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
+  "status": "covered",
   "title": "Learning Freshness SLA",
   "version": "v1.3.9"
  },
@@ -1747,18 +1747,18 @@
  {
   "body": "At least once per day, run a broad improvement cycle across departments: ingest new evidence, mine failures, update candidate lessons, run challenger evaluations, identify bottlenecks, queue safe improvements and produce a machine-readable delta. Critical learning can happen sooner; nightly is the minimum comprehensive sweep.",
   "id": 193,
-  "note": "nightly improvement window, weekly deep evolution cycle",
+  "note": "improve/nightly.py plus the improve.nightly cadence and handler. The whole risk in a scheduled sweep is the word 'completed': a job that finishes without raising and writes ok reads identically whether it did the work or skipped every stage, and the comfortable reading is the one believed. So a stage has three outcomes, never two -- ran and found things with the count it read, ran and found nothing which is a real result, or did not run with the reason. A stage that read zero rows reports did_not_run however it describes itself, because finding nothing in nothing has not established that there was nothing to find. The verdict is computed from what each stage returned, so a sweep skipping six of seven stages cannot report success. The delta is machine-readable because the next night reads it: a stage quiet for twenty nights is a different finding from one quiet since yesterday, and quiet_run() reports the run length while refusing to say whether it means clean or broken. Nightly is the minimum sweep and not a monopoly: it queues improvements rather than promoting them, holds no lock on evidence any other cadence writes, and a sweep that owned the learning would make every other path wait a day. On the real empty database the handler reports incomplete and names the five stages with nothing to read, which is the honest output for a shadow-mode company.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
+  "status": "covered",
   "title": "Nightly Autonomous Improvement Window",
   "version": "v1.3.9"
  },
  {
   "body": "Run a deeper weekly audit across product creativity, pattern correctness, competitor intelligence, conversion, ads, support, infrastructure and cost. Re-evaluate department architecture itself: add specialist agents where gaps exist, merge redundant ones, revise metrics, and update the improvement roadmap.",
   "id": 194,
-  "note": "nightly improvement window, weekly deep evolution cycle",
+  "note": "improve/weekly.py plus the improve.weekly cadence and handler. The eight domains the requirement names are audited rather than visited: each carries what it read, a domain with nothing read is not_audited, and the cycle will not call itself complete while one remains -- a weekly report of a clean bill of health across domains nobody looked at is the same output as one somebody did. The architecture half is where the substance is. improve/velocity.py already refuses the add-only review for cadences and experiments, and that argument does not stop at cadences: a review permitted to add specialists and never to merge or retire one grows the org chart every week, one individually defensible step at a time, which is what makes the total indefensible and invisible. Three of the four moves subtract, and a week that only added is asked the same question the STOP list asks. Revising a metric is the dangerous move and has its own rules: a department may never propose the revision of its own success measure, the old metric's history is preserved rather than migrated because a revision that rewrites the past removes the only evidence it was self-serving, and the justification may not be that the old number was unflattering -- ten phrasings of that are refused by name, because the argument has to be about what the metric fails to measure. cycle() runs the proposer check itself rather than trusting the caller, since a rule enforced at one call site is enforced at the call sites somebody thought of.",
   "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-  "status": "missing",
+  "status": "covered",
   "title": "Weekly Deep Evolution Cycle",
   "version": "v1.3.9"
  },

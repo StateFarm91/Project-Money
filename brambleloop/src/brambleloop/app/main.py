@@ -1291,6 +1291,72 @@ def api_rollforward() -> dict:
     return rollforward.state()
 
 
+@app.get("/api/upgrade-pipeline")
+def api_upgrade_pipeline() -> dict:
+    """Bounded upgrade proposals, and the two things they may never prepare (#190).
+
+    Evidence is a recorded run, never a field the proposal sets: a proposal that runs its own
+    tests and reports them passed has reported an opinion in the shape of a fact. And evidence
+    describes a version -- revising a proposal invalidates what was gathered against the old
+    one rather than ageing it out, which is the failure that only happens to something working
+    while nobody watches. Auto-promotion reads the tier and never the proposal's own view of
+    its risk; there is no confidence field to set.
+    """
+    from ..improve import pipeline
+
+    return pipeline.state()
+
+
+@app.get("/api/nightly")
+def api_nightly() -> dict:
+    """The nightly sweep, and the word it is structurally unable to say (#193).
+
+    A stage has three outcomes, never two: ran and found things, ran and found nothing, or
+    did not run. A stage that read zero rows reports did_not_run however it describes itself,
+    because finding nothing in nothing has not established there was nothing to find. The
+    verdict is computed from what each stage returned rather than from this job finishing
+    without raising.
+    """
+    from ..improve import nightly
+
+    return nightly.state()
+
+
+@app.get("/api/weekly-evolution")
+def api_weekly_evolution() -> dict:
+    """The weekly deep cycle, and the review that is only allowed to add (#194).
+
+    Eight domains, audited rather than visited: nothing read is `not_audited`, not clean.
+    Three of the four architecture moves subtract, because a review permitted to add
+    specialists and never to merge or retire one grows the org chart every week, one
+    individually defensible step at a time. A department may never propose the revision of
+    its own success measure, and no revision may be argued from the old number having been
+    unflattering.
+    """
+    from ..improve import weekly
+
+    return weekly.state()
+
+
+@app.get("/api/freshness")
+def api_freshness() -> dict:
+    """How often each department's evidence goes stale, and by which clock (#191).
+
+    A single interval across every department is far too slow for a competitor's catalogue
+    and meaningless for the compiler. Each cell is mapped to how fast its world changes when
+    nobody is looking, and compiler mathematics gets no interval at all -- it goes stale when
+    the code changes, not when the clock runs, so a long interval would report it current for
+    another month after somebody changed the compiler.
+
+    Two clocks, because a freshness SLA measured in "when did we last look" rewards looking.
+    A department re-running a scan hourly and learning nothing is perfectly fresh, and that
+    is the commonest real state of an improvement programme.
+    """
+    from ..improve import freshness
+
+    return freshness.state()
+
+
 @app.get("/api/improvement-swarm")
 def api_improvement_swarm() -> dict:
     """The meta-agents, and the league they argue in front of (#179, #180).

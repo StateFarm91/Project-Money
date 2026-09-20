@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 185 | satisfied, with a named test or artefact |
+| covered | 189 | satisfied, with a named test or artefact |
 | partial | 66 | something real exists and is short of the requirement |
-| missing | 13 | nobody has built it |
+| missing | 9 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **79 requirements are executable** (partial +
+as one nobody has written. **75 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 185 of 320 covered is **57.8% complete**, read from the registry rather than
+typed. 189 of 320 covered is **59.1% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -395,6 +395,82 @@ standard: a test about how the *cost* bar scales was incidentally testing sample
 four-task fixture. The fixture was widened and the margin scaling given its own tests, rather
 than the new threshold relaxed until the old test passed — which is the obvious move and is
 how a standard quietly reverts. Decisions B-422..B-427.
+
+**#191 — two clocks, and the department that is never stale and never moves.**
+`improve/freshness.py`. The requirement says each department decides how often its evidence
+should be reconsidered based on how fast its world changes, and what existed was a single
+thirty-day constant carried separately by `improve/profiles.py` and `improve/bus.py` — far
+too slow for a competitor's catalogue and meaningless for the compiler. Each cell is now
+mapped to a *world speed*: adversarial 24h, market 72h, operational 168h. A cell with no
+declared world raises rather than taking a default, because a default is the single global
+constant coming back.
+
+The entry worth arguing about is the one with **no interval at all**. Compiler mathematics
+does not go stale with time — a stitch count right in March is right in September — so
+`pattern_engineering` is answered on a code fingerprint, the same mechanism `ops.artefacts`
+uses for derived files. A very long interval was the easier choice and is wrong in exactly one
+way: it reports the compiler current for another month after somebody changes it.
+
+**And two clocks, not one.** A freshness SLA measured in "when did we last look" rewards
+looking: a department re-running a scan every hour and learning nothing scores perfectly on
+recency, and that is the commonest real state of an improvement programme — busy, current and
+flat. So evidence age and capability movement are separate readings, and `CHURNING` — fresh
+and going nowhere — is reported as a problem rather than a pass. Direction is read against each
+cell's own polarity, because half these metrics are better when they fall; the first version of
+that test used `finance`, whose metric is forecast *error*, and asserted a rising number was
+healthy. Never-measured is kept apart from stale: one is instrumented, the other re-run.
+
+`partial`, and the gap is the honest one: `sweep()` is tested but nothing calls it on a
+schedule, so nothing is flagged to anybody yet. That arrives with #193's nightly window, and
+claiming the flagging works before a cadence runs it would be capability from configuration.
+Decisions B-428..B-431.
+
+**#190/#193/#194 — the autonomy block, and the fourth costume of the same defect.**
+`improve/pipeline.py` is the object between a proposal and a promotion; the governance half
+already existed in `improve/tiers.py` and is not rebuilt. **Evidence is a recorded run, never
+a field the proposal sets** — a proposal that runs its own tests and reports them passed has
+reported an opinion in the shape of a fact. And **evidence describes a version**: each
+proposal carries a fingerprint, evidence records the fingerprint it ran against, and revising
+the proposal invalidates it rather than ageing it out. That is the failure that only happens
+to something working around the clock, where the content moves silently under evidence
+gathered hours earlier. Auto-promotion reads the tier and never the proposal's own view of its
+risk — there is no confidence field to set, because classification-by-surface exists precisely
+so a change cannot talk its way into a faster lane. The owner card is refused unless impact,
+cost and rollback are each exact; "minimal impact, low cost, we can revert" is what an
+approval queue fills with when nobody checks, and a person reading it has been told nothing
+and will approve it.
+
+`improve/nightly.py`, with the `improve.nightly` cadence and handler. The whole risk in a
+scheduled sweep is the word **completed**: a job that finishes without raising and writes "ok"
+reads identically whether it did the work or skipped every stage, and the comfortable reading
+is the one believed. So a stage has three outcomes and never two — found, found nothing, or
+did not run — and a stage that read zero rows reports `did_not_run` however it describes
+itself, because finding nothing in nothing has not established there was nothing to find. The
+verdict is computed from what each stage returned. **This is the fourth costume of the same
+defect this build keeps meeting**, after a funnel stage that killed nothing (B-278), an
+artefact with no provenance row (B-360) and a buyer journey nobody walked (B-408).
+
+Run against the real database, the handler reports `incomplete` and names the five stages with
+nothing to read. That is the honest output for a shadow-mode company, and exactly what a
+success-on-no-exception job would have hidden.
+
+`improve/weekly.py`, with the `improve.weekly` cadence and handler. Eight domains audited
+rather than visited — nothing read is `not_audited`, and the cycle will not call itself
+complete while one remains. The substance is the architecture review: `improve/velocity.py`
+already refuses the add-only review for cadences, and **that argument does not stop at
+cadences**. A review permitted to add specialists and never to merge or retire one grows the
+org chart every week, one individually defensible step at a time, which is what makes the
+total indefensible and invisible. Three of the four moves subtract. Revising a metric is the
+dangerous one: a department may never propose the revision of its own measure, the old
+metric's history is preserved rather than migrated, and ten phrasings of "the number is
+unfair" are refused by name — because a department that changes its metric after a bad quarter
+has not improved, it has moved the goalposts, and from inside that feels like better
+measurement.
+
+Both handlers are covered by the platform suite's `test_every_scheduled_cadence_survives_actually_being_run`,
+which runs every cadence for real rather than checking one is registered. #191 closes to
+`covered` with them: the nightly sweep is what calls `freshness.sweep()` and reports the stale,
+churning and never-measured departments. Decisions B-432..B-439.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3514,8 +3590,11 @@ timings, written there by the system rather than by hand.
   buyable. Then #179's meta-agent roster (`partial`: defined and enforced, not yet running
   agents) and #180's league hardening -- latency as a fourth axis, a holdout never tuned
   against, a promotion bar that scales with how much was measured, and a recorded rollback
-  target. Registry 185 of 320 covered, 79 executable. Suite green at 2,144 across 125
-  suites on `7855fef`, zero leftover directories. Decisions B-404..B-427.
+  target. Suite green at 2,144 across 125 suites on `7855fef`, zero leftover directories.
+  Then the autonomy block: #191's per-department freshness SLAs (green at 2,168), and
+  #190/#193/#194 -- the upgrade pipeline, the nightly window and the weekly deep cycle, with
+  both new cadences wired and exercised by the platform suite that runs every cadence for
+  real. Registry 189 of 320 covered, 75 executable. Decisions B-404..B-439.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

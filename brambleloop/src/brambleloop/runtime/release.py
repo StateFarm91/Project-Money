@@ -1697,6 +1697,132 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
             "catalogue_growth": report["catalogue_growth"]}
 
 
+@handlers.register("improve.nightly")
+def handle_nightly_improvement(ctx: JobContext) -> dict:
+    """The nightly improvement sweep, whose verdict is computed rather than asserted (#193).
+
+    Seven stages. Each returns what it read and what it found, and a stage that read nothing
+    reports `did_not_run` rather than a clean result -- because finding nothing in nothing has
+    not established that there was nothing to find. A sweep is `complete` only when every
+    stage ran, never because this handler returned without raising.
+
+    In shadow mode several stages genuinely have nothing to read: there are no customers, no
+    live listings and no challenger runs. The delta says so, night after night, and that is
+    the correct output. A sweep that reported success on this state would be describing a
+    company that does not exist.
+
+    GREEN: it reads rows, writes an audit record and queues nothing that promotes itself.
+    """
+    from sqlalchemy import desc, func, select
+
+    from ..core.models import AuditLog, CapabilityPoint, ConfigVersion, Incident, Lesson
+    from ..improve import freshness, nightly
+
+    results = []
+    with ctx.db.session() as session:
+        evidence = session.scalar(select(func.count()).select_from(CapabilityPoint)) or 0
+        results.append(nightly.stage_ran(nightly.INGEST, read=evidence,
+                                         found=evidence))
+
+        incidents = list(session.scalars(select(Incident).where(Incident.resolved.is_(False))))
+        results.append(nightly.stage_ran(nightly.MINE, read=len(incidents),
+                                         found=len(incidents)))
+
+        lessons = list(session.scalars(select(Lesson)))
+        unacted = [row for row in lessons if row.routed_to and not row.acted_on_by]
+        results.append(nightly.stage_ran(nightly.LESSONS, read=len(lessons),
+                                         found=len(unacted)))
+
+        configs = list(session.scalars(select(ConfigVersion)))
+        challengers = [row for row in configs if not row.incumbent]
+        results.append(nightly.stage_ran(nightly.CHALLENGERS, read=len(configs),
+                                         found=len(challengers)))
+
+    sweep = freshness.sweep(ctx.db)
+    stuck = sorted(set(sweep["stale_learning"]) | set(sweep["churning"])
+                   | set(sweep["never_measured"]))
+    results.append(nightly.stage_ran(nightly.BOTTLENECKS,
+                                     read=len(sweep["departments"]), found=len(stuck),
+                                     stale=sweep["stale_learning"],
+                                     churning=sweep["churning"],
+                                     never_measured=sweep["never_measured"]))
+
+    # Queueing is where this sweep deliberately stops. It opens nothing that promotes itself;
+    # #190's pipeline and #178's tiers decide that, and a nightly job that could promote is a
+    # company rewriting itself faster than it can observe the results.
+    results.append(nightly.stage_skipped(
+        nightly.QUEUE,
+        "no safe improvement was queued: bottlenecks here are unmeasured departments, which "
+        "need instrumenting rather than a proposal"
+        if stuck else "nothing was stuck, so there was nothing to queue"))
+
+    previous = None
+    with ctx.db.session() as session:
+        row = session.scalar(select(AuditLog).where(AuditLog.action == "improve.nightly")
+                             .order_by(desc(AuditLog.id)).limit(1))
+        if row is not None:
+            previous = (row.detail or {}).get("delta")
+
+    results.append(nightly.stage_ran(nightly.DELTA, read=len(results), found=len(results)))
+    delta = nightly.delta(results, previous=previous)
+
+    detail = {"verdict": delta["verdict"], "did_not_run": delta["did_not_run"],
+              "total_read": delta["total_read"], "total_found": delta["total_found"],
+              "delta": delta}
+    ctx.audit("improve.nightly", detail=detail)
+    return detail
+
+
+@handlers.register("improve.weekly")
+def handle_weekly_evolution(ctx: JobContext) -> dict:
+    """The weekly deep cycle, and the architecture review that must be able to subtract (#194).
+
+    Eight domains, each audited rather than visited: a domain with nothing read is
+    `not_audited`, and the cycle will not call itself complete while one remains. The
+    architecture half proposes nothing on its own here -- it reports what the freshness sweep
+    and the velocity review found, and a week that only added would be asked why.
+
+    GREEN: it reads rows and writes an audit record.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import CapabilityPoint, Incident, LedgerEntry, SupportCase
+    from ..improve import freshness, weekly
+
+    readings = []
+    with ctx.db.session() as session:
+        points = session.scalar(select(func.count()).select_from(CapabilityPoint)) or 0
+        incidents = session.scalar(select(func.count()).select_from(Incident)) or 0
+        cases = session.scalar(select(func.count()).select_from(SupportCase)) or 0
+        ledger = session.scalar(select(func.count()).select_from(LedgerEntry)) or 0
+
+    sweep = freshness.sweep(ctx.db)
+    stuck = sorted(set(sweep["stale_learning"]) | set(sweep["churning"]))
+
+    # Each domain reports the rows it actually read. Several are zero in shadow mode, and a
+    # zero here reads `not_audited` rather than clean, which is what keeps the weekly report
+    # from describing a healthy business nobody has looked at.
+    for domain, read, found in (
+            ("product_creativity", points, len(stuck)),
+            ("pattern_correctness", points, 0),
+            ("competitor_intelligence", len(sweep["departments"]),
+             len(sweep["stale_learning"])),
+            ("conversion", 0, 0),
+            ("ads", 0, 0),
+            ("support", cases, 0),
+            ("infrastructure", incidents, incidents),
+            ("cost", ledger, 0)):
+        readings.append(weekly.DomainReading(domain=domain, read=read, findings=found))
+
+    cycle = weekly.cycle(readings, [])
+    plan = weekly.roadmap(cycle)
+    detail = {"complete": cycle["complete"], "not_audited": cycle["not_audited"],
+              "total_read": cycle["total_read"], "total_findings": cycle["total_findings"],
+              "roadmap": plan}
+    ctx.audit("improve.weekly", detail=detail)
+    return detail
+
+
 @handlers.register("ops.health")
 def handle_health_sweep(ctx: JobContext) -> dict:
     """The continuous health sweep, and the repairs this system can actually perform (#185).
