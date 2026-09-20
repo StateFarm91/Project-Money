@@ -211,7 +211,7 @@ def _model_state(db) -> dict:
 MODEL_CREDITS = OwnerRequest(
     key="model_credits",
     action=("Add credit to the Anthropic account the API key belongs to. The console's "
-            "smallest top-up is enough to start; the build's own ceiling is CA$25 a month "
+            "smallest top-up is enough to start; the build's own ceiling is CA$100 a month "
             "and is enforced in code, so a larger balance cannot be spent faster than that."),
     reason=("The key you supplied authenticates. The first request it made returned, "
             "verbatim, 'Your credit balance is too low to access the Anthropic API', so the "

@@ -118,11 +118,32 @@ Where the 44 executable requirements now wait:
 | `offsite_storage` | 1 | a continuity archive actually written outside this provider | bucket |
 | `customers` / `owned_surfaces` / `live_listings` | 34 | going live at all | the phase decision |
 
-Costs are bounded in code: CA$25/month for model spend (CA$1.17 used this month) and
-CA$20/month for recurring infrastructure (about CA$7 used). Gallery analysis of the whole
-438-listing backlog is about CA$7 one-off at ~CA$0.003 an image, draining at 10 images every
-four hours. Purchasing benchmark patterns and authorising advertising remain consequential
-spend and stay the owner's.
+### Spend policy, as of 2026-09-20
+
+**QUALITY FIRST. COST SECOND. WASTE NEVER.** The owner raised the combined model, vision and
+image ceiling from CA$25 to **CA$100 a month** and reversed the argument that went with it:
+"the cheaper option is adequate" is no longer a reason, and "the better option costs several
+times more" is no longer an objection when the improvement is commercially meaningful. The
+ceiling is an authority rather than a target; the expectation is that most months cost far
+less. Infrastructure keeps its separate CA$20 ceiling.
+
+The policy lives in `finance/spend_policy.py` as code, with the owner's six priorities and,
+beside each, what may not be traded away for money. `/api/spend-policy` reads it;
+`/api/spend-report` says what the month bought by provider, model, agent, department, product
+and purpose, with the pre-call reservation beside the bill (B-513, B-517).
+
+**What the reconciliation found.** Three things had drifted while nobody was arguing about
+them: the ceiling was written in two modules *and* hardcoded into a `/api/verify` assertion,
+so carrying out the owner's decision would have turned a safety check red (B-514); four
+vision call sites bypassed `routing.TASKS` entirely, running MJs gallery analysis on the
+cheapest tier while the table declared standard — on the owner's second-highest spending
+priority, for a day (B-515); and two cadence intervals were set by the old ceiling rather
+than by the work (B-516). Gallery analysis is now 25 images every two hours on the standard
+tier: the benchmark's visual evidence closes in four days rather than nineteen, at about
+CA$4.80 a day while the backlog lasts, and it is self-limiting because the queue empties.
+
+Purchasing benchmark patterns and authorising advertising remain consequential spend and stay
+the owner's.
 
 ### The owner's 2026-09-20 approvals, answered
 
@@ -224,7 +245,7 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `fcadb7c`: **2,637 tests passing, 0
+Measured by `./run_tests.sh` on commit `PLACEHOLDER`: **2,663 tests passing, 0
 failing** across 146 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
@@ -4113,6 +4134,44 @@ timings, written there by the system rather than by hand.
   executor refuses one on a requirement that is not executable -- which it did, loudly, the
   moment the status changed. The gate stays defined and carries nothing, as the condition
   that would make it executable again (B-508). Decisions B-502..B-508.
+- 2026-09-20, the governing spend policy. The owner raised the combined model ceiling from
+  CA$25 to CA$100 and reversed the argument with it: **QUALITY FIRST, COST SECOND, WASTE
+  NEVER**. The build had followed "start economically" faithfully and the faithfulness had
+  become the problem -- decisions had accumulated whose stated justification was the ceiling
+  rather than the work, each defensible, together a company optimising for cheapness
+  (B-513).
+- Reconciling it found three things that had drifted while nobody was arguing about them.
+  The ceiling was written in two modules *and* hardcoded into a `/api/verify` assertion, so
+  carrying out the owner's decision would have turned a safety check red -- the exact shape
+  of check that file's own comment warns against, three lines above, added by the session
+  that wrote the warning (B-514). Four vision call sites never consulted `routing.TASKS` at
+  all: `intel.vision` built its provider from `VISION_PROBE_MODEL` -- the *probe's* model,
+  chosen because a probe should be the smallest possible real call -- so MJs gallery
+  analysis ran on the cheapest tier while the table declared standard, on the owner's
+  second-highest spending priority (B-515). And two cadence intervals were set by the old
+  ceiling rather than by the work (B-516).
+- Fixed with one ceiling, `provider_for(task)`, three new declared tasks, and two tests
+  stated over the whole codebase: every vision call site names a task in the routing table,
+  and no module outside the gateway names a model string at all. Gallery analysis is now 25
+  images every two hours on the standard tier -- the benchmark's visual evidence closes in
+  four days rather than nineteen -- and it is self-limiting, because a rate that stayed high
+  against an empty queue would be the waste clause rather than the quality one. The blinded
+  creative benchmark went monthly to fortnightly rather than weekly, and the reason is the
+  measurement: the thing it tracks does not move in seven days, so it stops where more
+  frequency would stop adding information rather than where it would start costing money.
+- Spend accounting: provider, model, agent, department, product and purpose are columns
+  rather than JSON keys, with the pre-call reservation beside the bill and under-estimation
+  flagged specifically, because that is the direction where a ceiling is checked against a
+  number smaller than the invoice (B-517). The report covers the calendar month rather than
+  "the month so far" -- its upper bound was `now`, which silently dropped rows timestamped a
+  few seconds ahead of the reader's clock (B-518).
+- The image benchmark now scores twelve judged dimensions, asks gallery consistency once per
+  set, and measures repeatability and latency from data the run already produces (B-519).
+  Inside the deciding margin, repeatability breaks the tie before cost does: both are
+  tie-breaks and only one is about quality (B-520). Judging moved to the deep tier, taking
+  the benchmark from CA$6.19 to **CA$18.55** of the CA$25 authorised -- the judgement decides
+  which provider renders every listing image afterwards, so measuring carefully with a blunt
+  instrument was the one economy that could not be defended. Decisions B-513..B-520.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

@@ -217,17 +217,22 @@ def test_the_ceiling_is_checked_before_the_call_not_after():
     The owner approved a maximum. So the refusal happens while the money is still unspent,
     and there is no override parameter — raising it is an owner decision.
     """
+    from brambleloop.finance.spend_policy import ceiling_cad
+
     db = _db()
-    assert routing.budget(db).remaining_cad == 25.0
+    # Read rather than written. It was `== 25.0`, so raising the ceiling on the owner's
+    # decision left this asserting an amount nothing spends against.
+    assert routing.budget(db).remaining_cad == ceiling_cad()
     routing.check(db, "benchmark_challenge")
 
-    # Spend the month.
-    for _ in range(200):
+    # Spend the month. Enough calls to cross whatever the authorised figure is, rather than
+    # a count chosen against the old one.
+    for _ in range(2000):
         routing.record(db, "benchmark_challenge", agent="quality_director",
                        tokens_in=6000, tokens_out=2500)
 
     state = routing.budget(db)
-    assert state.spent_cad > 25.0 or state.remaining_cad == 0.0
+    assert state.spent_cad > ceiling_cad() or state.remaining_cad == 0.0
     try:
         routing.check(db, "benchmark_challenge")
     except routing.CeilingReached as e:
@@ -262,15 +267,19 @@ def test_a_model_may_never_be_asked_what_the_compiler_answers():
         raise AssertionError("an undeclared task was routed")
 
     # Refusal does not depend on there being budget left.
-    assert routing.budget(db).remaining_cad == 25.0
+    from brambleloop.finance.spend_policy import ceiling_cad
+
+    assert routing.budget(db).remaining_cad == ceiling_cad()
 
 
 def test_work_is_routed_by_what_it_actually_needs():
     """"Start economically. Route tasks by capability/cost."
 
     Reading a title into a category and judging whether a photograph makes a garment look
-    desirable are different questions. Paying the same rate for both is how CA$25 becomes
-    CA$60.
+    desirable are different questions, and they are routed apart because they *are*
+    different questions. Tiering them to save money would be the same table with a worse
+    reason -- and the difference shows on the day the budget rises: a routing built on the
+    shape of the question does not change, and one built on the price does.
     """
     _, cheap = routing.route("listing_classify")
     _, standard = routing.route("gallery_observation")
@@ -342,7 +351,9 @@ def test_the_plan_states_the_ceiling_as_a_maximum_and_names_its_fx_assumption():
     db = _db()
     plan = routing.plan(db)
 
-    assert plan["budget"]["ceiling_cad"] == 25.0
+    from brambleloop.finance.spend_policy import ceiling_cad
+
+    assert plan["budget"]["ceiling_cad"] == ceiling_cad()
     assert "not a target" in plan["budget"]["note"]
     assert "USD" in plan["fx"] and "0.715" in plan["fx"]
     assert set(plan["tasks"]) == set(routing.TASKS)

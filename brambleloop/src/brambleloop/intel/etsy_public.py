@@ -321,7 +321,7 @@ MANDATE_COVERAGE: dict[str, dict] = {
         "gap": "the API gives image URLs and colour statistics, not an opinion about shot "
                "type, composition, styling or thumbnail legibility",
         "alternative": "fetch the public image URL and analyse it with the approved model "
-                       "provider — no browser, no scraping, inside the CA$25 ceiling",
+                       "provider — no browser, no scraping, inside the authorised ceiling",
     },
     "rendered_page_presentation": {
         "requirement": 208, "available": False,

@@ -252,20 +252,27 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # than daily because the interesting event -- a credential arriving -- should not wait
     # until tomorrow to unblock fourteen requirements.
     ("build_tick", "orchestrator", "build.tick", 60 * 60),
-    # Monthly, and the interval is the decision. #94 asks for creative capability tracked
-    # *over time*, and this is the only cadence here that spends real money per run: twelve
-    # judged pairs at the deep tier is about CA$1.55, or 6% of the month's model ceiling.
-    # Weekly would be 27% of it for a number that cannot move that fast, and a measurement
-    # that expensive is one somebody eventually switches off -- which costs more than a
-    # slower measurement that survives.
-    ("blinded_benchmark", "creative_director", "creative.blinded", 30 * 24 * 60 * 60),
+    # Fortnightly. Reconciled 2026-09-20 under the quality-first policy: this was monthly,
+    # and the stated reason was that weekly would be 27% of a CA$25 ceiling. That argument
+    # is gone -- twelve judged pairs at the deep tier is about CA$1.55, which is 1.5% of the
+    # authorised figure now.
+    #
+    # It did not become weekly, and the reason is the measurement rather than the money.
+    # #94 asks for creative capability tracked *over time*, and the thing being tracked does
+    # not move in seven days: sampling faster than the signal changes buys noise and a
+    # larger bill. Fortnightly doubles the resolution where the old interval was genuinely
+    # coarse -- a monthly series takes a quarter to show a trend -- and stops where more
+    # frequency would stop adding information rather than where it would start costing
+    # money.
+    ("blinded_benchmark", "creative_director", "creative.blinded", 14 * 24 * 60 * 60),
     # Weekly. Discovery into a proven arena the catalogue does not answer, rotating through
     # the gaps so breadth accumulates rather than one department deepening. **Measured at
     # CA$1.02** on the first live run -- three slots of six concepts at the deep tier -- not
     # the CA$0.32 estimated before the prompt's output budget was raised to hold a full
-    # field. That is about CA$4.40 a month against a CA$25 ceiling: affordable enough to be
-    # a habit, which is the point, a catalogue widens by repeatedly trying somewhere it does
-    # not sell rather than by one campaign.
+    # field. That is about CA$4.40 a month, and the interval stays weekly on the merits:
+    # a catalogue widens by repeatedly trying somewhere it does not sell rather than by one
+    # campaign, and the constraint on how often that is worth doing is how fast the gap
+    # queue refills, not what it costs.
     ("arena_expedition", "creative_director", "creative.expedition", 7 * 24 * 60 * 60),
     # #3's tournament at the scale the requirement specifies: roughly eighty concepts at the
     # cheap tier, about CA$0.27 a run, against the one arena this cycle's wheel picked. The
@@ -308,10 +315,22 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # hour is not one; courtesy to a free source is also part of the justification for
     # using it.
     ("culture_sweep", "market_radar", "culture.sweep", 24 * 60 * 60),
-    # Four-hourly. Drains the gallery-observation backlog once a vision probe has actually
-    # succeeded, and refuses to run before that. Ten images a run against a backlog in the
-    # hundreds: the ceiling is the constraint, not the appetite.
-    ("gallery_analysis", "market_radar", "intel.gallery_analysis", 4 * 60 * 60),
+    # Two-hourly. Drains the gallery-observation backlog once a vision probe has actually
+    # succeeded, and refuses to run before that.
+    #
+    # Reconciled 2026-09-20. It was ten images every four hours -- sixty a day against a
+    # backlog of eleven hundred, which is nineteen days before the benchmark's visual
+    # evidence is complete, and the reason for the number was the old ceiling. MJs
+    # intelligence is the owner's second spending priority and analysis depth is named as
+    # something not to reduce for cost. Twenty-five images every two hours is three hundred
+    # a day: the backlog closes in four days rather than three weeks, at roughly CA$4.80 a
+    # day while it lasts.
+    #
+    # It is self-limiting, which is what makes the rate safe to raise: once the backlog is
+    # empty the handler judges only new and changed listings, so the standing cost falls to
+    # whatever the benchmark shop publishes. A rate that stayed high against an empty queue
+    # would be the waste clause, not the quality one.
+    ("gallery_analysis", "market_radar", "intel.gallery_analysis", 2 * 60 * 60),
 ]
 
 # Requirement 179's eight meta-agents, one daily cadence each, generated from the roster so

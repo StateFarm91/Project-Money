@@ -45,7 +45,10 @@ REALISM_SYSTEM = (
 
 DESCRIBE_MAX_TOKENS = 500
 REALISM_MAX_TOKENS = 900
-INSPECT_MODEL = "claude-haiku-4-5-20251001"
+# Routed rather than hardcoded. This named the cheap model, which put a release-blocking
+# judgement -- ten physical-realism checks and whether a picture says what its caption claims
+# -- on the tier meant for extraction.
+TASK = "asset_inspection"
 
 # What a description is allowed to be about. Closed for the same reason every other
 # vocabulary here is: an open field accepts "a lovely blanket", and a semantic check whose
@@ -203,15 +206,24 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
     """
     from ..gateway import anthropic as gw
 
-    provider = provider or gw.AnthropicProvider(model=INSPECT_MODEL)
-    out: dict = {"image": image_ref, "described": False, "realism_judged": False}
+    provider = provider or gw.provider_for(TASK)
+    out: dict = {"image": image_ref, "described": False, "realism_judged": False,
+                 "model": provider.model}
+    billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
 
     def _call(system, prompt, max_tokens):
         if db is not None:
-            gw.check_budget(db, model=provider.model,
-                            input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
-                            max_tokens=max_tokens)
-        return provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
+            billed["reserved"] += gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=max_tokens)["estimate_cad"]
+        response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
+        billed["actual"] += round(
+            response.input_tokens * provider.cost_per_1k_input_cad / 1000
+            + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        billed["tokens_in"] += response.input_tokens
+        billed["tokens_out"] += response.output_tokens
+        return response
 
     try:
         described = _call(DESCRIBE_SYSTEM, describe_prompt(), DESCRIBE_MAX_TOKENS)
@@ -233,6 +245,16 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
 
     if out["described"] and claim:
         out["semantic"] = compare(out["description"], claim)
+
+    if db is not None and billed["actual"] > 0:
+        from ..finance import spend_report
+
+        spend_report.record(
+            db, agent="quality_director", amount_cad=billed["actual"],
+            estimated_cad=billed["reserved"], purpose=TASK, provider="anthropic",
+            model=provider.model, department="quality",
+            tokens_in=billed["tokens_in"], tokens_out=billed["tokens_out"],
+            detail={"price_basis": "assumed", "image": image_ref[:120]})
 
     out["note"] = ("an unmade check is unjudged, never a pass. That was true before anything "
                    "could look at a picture and it stays true now: a call that failed leaves "

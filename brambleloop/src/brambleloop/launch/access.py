@@ -82,6 +82,14 @@ class Acceptance:
                 "satisfies_mandate": self.satisfies_mandate, "note": self.note}
 
 
+
+def _authorised_ceiling() -> float:
+    """Read rather than written, so this registry cannot disagree with the policy."""
+    from ..finance.spend_policy import ceiling_cad
+
+    return ceiling_cad()
+
+
 def accept_evidence(kind: str, *, capability_available: bool) -> Acceptance:
     """Grade a piece of benchmark evidence. Never upgrades it.
 
@@ -253,7 +261,7 @@ MODEL_CREDENTIAL = AccessRequest(
     capability="language and vision model access for the agent swarm (#221 image "
                "understanding, #177-194 continuous learning)",
     action=("Set ONE Railway variable on the brambleloop-os service: ANTHROPIC_API_KEY = an "
-            "Anthropic API key. The CA$25 monthly ceiling is already enforced in code — "
+            "Anthropic API key. The monthly ceiling is already enforced in code — "
             "gateway/routing.py refuses a call before making it once the month's ledgered "
             "spend would cross it, and there is no override."),
     purpose=("No provider is configured today, so every agent runs on deterministic code and "
@@ -266,7 +274,7 @@ MODEL_CREDENTIAL = AccessRequest(
                     "bank, no customer and no repository. Spend is metered per agent against "
                     "ceilings that already exist and already halt work when breached."),
     max_cost_cad=25.0,
-    monthly_ceiling_cad=25.0,
+    monthly_ceiling_cad=_authorised_ceiling(),
     minutes=10,
     consequence_of_declining=("The company stays deterministic: correct, cheap, and unable to "
                               "look at a photograph or write in a voice."),

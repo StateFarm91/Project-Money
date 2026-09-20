@@ -136,7 +136,21 @@ class AuditLog(Base):
 
 
 class CostEntry(Base):
-    """Per-agent operating cost, so throughput can be measured in dollars (section 34)."""
+    """Per-agent operating cost, so throughput can be measured in dollars (section 34).
+
+    The five columns below `detail` were added 2026-09-20 on the owner's spend-accounting
+    instruction: track every billable call by provider, model, agent, department, product and
+    purpose. They lived in the JSON blob before, inconsistently and only where somebody
+    remembered, so "what did the money produce" was a question nobody could answer with a
+    query. A dimension that has to be grepped out of a JSON field is a dimension nobody
+    reports on.
+
+    `estimated_cad` is the other half of the same instruction: the pre-call reservation, kept
+    beside what the call actually cost. An estimate nobody compares against the bill is an
+    estimate that can drift by a factor of three and did -- the deep tier was priced at a
+    third of its rate for a whole session, and every ceiling check in that session was
+    computed against the wrong number.
+    """
 
     __tablename__ = "cost_entries"
 
@@ -148,6 +162,12 @@ class CostEntry(Base):
     amount_cad: Mapped[float] = mapped_column(Float, default=0.0)
     tokens_in: Mapped[int] = mapped_column(Integer, default=0)
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    provider: Mapped[str] = mapped_column(String(40), default="", index=True)
+    model: Mapped[str] = mapped_column(String(80), default="", index=True)
+    department: Mapped[str] = mapped_column(String(40), default="", index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    purpose: Mapped[str] = mapped_column(String(60), default="", index=True)
+    estimated_cad: Mapped[float] = mapped_column(Float, default=0.0)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
 
 

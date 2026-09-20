@@ -1,19 +1,22 @@
 """Which model answers which question, and the ceiling that cannot be argued with.
 
-The owner approved one production model provider at a hard **CA$25 per month**, with four
-conditions: route by capability and cost, start economically, cache and reuse analysis, and do
-not treat the ceiling as a target. And one standing rule that outranks all of them — a model
-may never generate canonical crochet pattern content.
+The governing policy lives in `finance.spend_policy` and this module obeys it: **QUALITY
+FIRST, COST SECOND, WASTE NEVER**, under an authorised ceiling that is read from there rather
+than restated here. And one standing rule that outranks everything — a model may never
+generate canonical crochet pattern content.
 
 **The ceiling is arithmetic, not judgement.** `Budget.check()` sums this calendar month's
-`llm` cost entries and refuses a call whose estimate would cross CA$25. It runs *before* the
-request, because a ceiling checked afterwards is a report. There is no override parameter: the
-way past it is the owner raising it, which is an owner action with measured usage attached.
+`llm` cost entries and refuses a call whose estimate would cross the authorised figure. It
+runs *before* the request, because a ceiling checked afterwards is a report. There is no
+override parameter: the way past it is the owner raising it, which is an owner action with
+measured usage attached.
 
-**Routing is by what the task actually needs.** Reading a title into a category is not the same
-question as judging whether a photograph makes a garment look desirable, and paying the same
-rate for both is how a CA$25 month becomes a CA$60 one. Three tiers, cheapest first, and the
-tier is a property of the task rather than of the caller's mood.
+**Routing is by what the task needs, and "needs" is about the answer rather than the bill.**
+Reading a title into a category is not the same question as judging whether a photograph makes
+a garment look desirable; the first is extraction and the second is taste, and they are routed
+apart because they *are* different questions. Tiering them to save money would be the same
+table with a worse reason, and the difference shows up on the day the budget rises: a routing
+built on the shape of the question does not change, and one built on the price does.
 
 **Caching is the biggest lever and it is free.** Competitor evidence is overwhelmingly
 unchanged between runs (#212, #225): a listing whose fingerprint has not moved must never be
@@ -35,9 +38,9 @@ from datetime import datetime, timezone
 # to express the ceiling in the owner's currency. The rate is an assumption and is labelled
 # one: it moves, and a ceiling quoted in CAD against a bill charged in USD has to say so.
 USD_PER_CAD = 0.715
-FX_NOTE = ("model prices are published in USD; the CA$25 ceiling is converted at an assumed "
-           "0.715 USD/CAD and is checked against the converted figure, so a weaker dollar "
-           "spends the ceiling faster rather than silently exceeding it")
+FX_NOTE = ("model prices are published in USD; the ceiling is quoted in CAD, converted at an "
+           "assumed 0.715 USD/CAD and checked against the converted figure, so a weaker "
+           "dollar spends the ceiling faster rather than silently exceeding it")
 
 CHEAP = "cheap"
 STANDARD = "standard"
@@ -124,13 +127,48 @@ TASKS: dict[str, Task] = {
     "listing_mechanisms": Task(
         "listing_mechanisms", CHEAP, 800, 2000, True,
         "extract merchandising mechanisms from listing text — structured reading, not taste"),
+    # Filing a discovered topic into the radar's ten domains. Cheap tier, and the reason is
+    # the question: this is extraction against a closed vocabulary, not taste. The test that
+    # it is the right tier is that the answer would not improve on a stronger model -- the
+    # domains are disjoint and a topic either is a television series or is not.
+    "topic_filing": Task(
+        "topic_filing", CHEAP, 1500, 1200, True,
+        "file discovered cultural topics into the ten mandated domains (#133)"),
     "seasonal_signal": Task(
         "seasonal_signal", CHEAP, 400, 1200, True,
         "classify a trend's half-life and seasonal fit (#290)"),
+    # Standard tier, and the reason is the question rather than the price. Judging what a
+    # photograph does commercially is taste, not extraction -- #209's vocabulary is shot
+    # type, composition, scale communication and emotional merchandising, and a model that
+    # reads a title well is not thereby a model that reads a gallery well.
+    #
+    # Reconciled 2026-09-20: `intel.vision` was calling the cheap tier directly and
+    # bypassing this table entirely, so the declared tier said one thing and the code did
+    # another for a day. MJs intelligence is the owner's second spending priority and
+    # visual-analysis depth is named as something not to reduce for cost, which made the
+    # bypass a policy breach as well as an inconsistency.
     "gallery_observation": Task(
         "gallery_observation", STANDARD, 1200, 3000, True,
         "shot type, composition, styling and thumbnail legibility from a public image URL "
         "(#209) — the part of the mandate the Etsy API cannot answer"),
+    # The construction reading behind #278 and #116: neckline, sleeve treatment, colour
+    # blocking, proportion. Deep tier, because this is the evidence a concept brief is
+    # written from and a misread construction detail becomes a design constraint nobody
+    # questions afterwards.
+    "construction_reading": Task(
+        "construction_reading", DEEP, 700, 2600, True,
+        "how a competitor object is built and presented, never what it depicts (#278, #116)"),
+    # Our own rendered assets, judged before release. Standard rather than cheap: #61 asks
+    # whether an image communicates what its caption claims, which is a judgement, and #79's
+    # ten realism checks are a maker's eye rather than a classifier's.
+    "asset_inspection": Task(
+        "asset_inspection", STANDARD, 900, 2600, False,
+        "describe a rendered Brambleloop asset and judge its physical realism (#61, #79)"),
+    # Choosing the image generator. Deep tier on purpose: this judgement is made a few dozen
+    # times and decides which provider renders every listing image afterwards.
+    "image_benchmark_judging": Task(
+        "image_benchmark_judging", DEEP, 500, 2600, False,
+        "score one rendered candidate image against the visual requirements, blind"),
     "listing_copy": Task(
         "listing_copy", STANDARD, 1500, 2500, False,
         "customer-facing listing copy in the brand voice. Never pattern instructions"),
@@ -167,7 +205,17 @@ PATTERN_TASKS_REFUSED: tuple[str, ...] = (
     "finished_dimensions", "yardage", "gauge", "chart_symbols", "pattern_correction",
 )
 
-MONTHLY_CEILING_CAD = 25.0
+# Read from the policy rather than restated. It was written twice -- here and in the provider
+# gateway -- which is the defect this build keeps naming about prices: a number written twice
+# is a number that will drift, and the one that bills is the one that is true. A test refuses
+# a second literal.
+def _ceiling() -> float:
+    from ..finance.spend_policy import ceiling_cad
+
+    return ceiling_cad()
+
+
+MONTHLY_CEILING_CAD = _ceiling()
 SCOPE = "model_provider"
 
 

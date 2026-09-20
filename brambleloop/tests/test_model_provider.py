@@ -110,7 +110,7 @@ def test_the_ceiling_cannot_be_raised_by_configuration():
     previous = os.environ.get("BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD")
     try:
         os.environ["BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD"] = "500"
-        assert A.monthly_ceiling_cad() == A.DEFAULT_MONTHLY_CEILING_CAD
+        assert A.monthly_ceiling_cad() == A._policy_ceiling()
         os.environ["BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD"] = "5"
         assert A.monthly_ceiling_cad() == 5.0
     finally:
@@ -123,9 +123,15 @@ def test_the_ceiling_cannot_be_raised_by_configuration():
 def test_a_call_that_would_cross_the_ceiling_is_refused_before_it_is_made():
     from brambleloop.core.models import CostEntry
 
+    from brambleloop.finance.spend_policy import ceiling_cad
+
     db = _db()
+    # A cent under the authorised ceiling, read rather than written. It was 24.99 against a
+    # hardcoded 25, so raising the ceiling on the owner's decision would have left this test
+    # passing for the wrong reason: nothing near the new limit, and nothing refused.
     with db.session() as s:
-        s.add(CostEntry(agent="orchestrator", kind="llm", amount_cad=24.99, at=NOW))
+        s.add(CostEntry(agent="orchestrator", kind="llm",
+                        amount_cad=ceiling_cad() - 0.01, at=NOW))
 
     try:
         A.check_budget(db, model="claude-opus-5", input_tokens=1000, max_tokens=4000,

@@ -2226,13 +2226,24 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
             "channel": result["channel"], "measures": result["measures"]}
 
 
+# Images judged per run. Raised from ten on 2026-09-20: see the cadence comment in
+# `runtime.worker` for why the old number was a ceiling decision rather than a depth one.
+GALLERY_BATCH = 25
+
+
 @handlers.register("intel.gallery_analysis")
 def handle_gallery_analysis(ctx: JobContext) -> dict:
     """Judge a batch of observed gallery images, once the capability has been proven (#209).
 
-    Four-hourly, ten images a run. The backlog is in the hundreds and the constraint is the
-    monthly model ceiling rather than appetite, so this drains rather than sprints -- in
-    listing-recency order, because that is the order commercial value arrives in.
+    Two-hourly, twenty-five images a run, in listing-recency order because that is the order
+    commercial value arrives in. It was ten every four hours, set against the old CA$25
+    ceiling, which put the benchmark's visual evidence nineteen days away; the owner's
+    quality-first policy names MJs analysis depth as something not to reduce for cost, so the
+    rate is now set by how fast the evidence is worth having.
+
+    Self-limiting by construction: once the backlog empties this judges only new and changed
+    listings, so the standing cost falls to whatever the benchmark shop publishes. A rate
+    that stayed high against an empty queue would be waste rather than depth.
 
     Refuses to run before a vision probe has succeeded. Writing the call is not the same as
     the call working, and an analysis run against a broken vision path would record a batch
@@ -2252,7 +2263,8 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                            "look at an image. The backlog waits rather than filling with "
                            "refusals")}
 
-    result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=10, job_id=ctx.job.id)
+    result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=GALLERY_BATCH,
+                            job_id=ctx.job.id)
     ctx.audit("intel.gallery_analysis", detail={
         "judged": result["judged"], "attempted": result["attempted"],
         "remaining": result["remaining"], "cost_cad": result["cost_cad"],

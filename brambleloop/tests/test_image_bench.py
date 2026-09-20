@@ -120,9 +120,23 @@ def test_no_measurement_names_nobody_rather_than_falling_back_to_the_cheapest():
 
 def test_a_model_that_cannot_render_crochet_is_out_at_any_price():
     """A generator that fails the fabric floor is not a candidate for a crochet shop."""
-    out = B.decide([_result("flux-2-pro", stitch_fidelity=1, material_truth=1)])
+    out = B.decide([_result("flux-2-pro", stitch_fidelity=1, material_truth=1,
+                            geometry_fidelity=1)])
     assert out["decided"] is False
-    assert "fabric floor" in out["why"]
+    assert "fabric at" in out["why"]
+
+
+def test_a_face_that_does_not_survive_a_regeneration_is_out_however_good_the_rest_is():
+    """#201: identity drift is a failed asset, so the identity floor disqualifies rather
+    than lowering an average -- a catalogue that drifts into somebody else by February is
+    not a catalogue with one weak score."""
+    drifting = _result("flux-2-pro")
+    for score in drifting.scores:
+        score[B.IDENTITY_DIMENSION.key] = 1
+    out = B.decide([drifting])
+    assert out["decided"] is False
+    assert "identity at" in out["why"]
+    assert "drifts into somebody else" in out["why"]
 
 
 def test_quality_decides_when_the_margin_is_wide():
@@ -140,14 +154,57 @@ def test_quality_decides_when_the_margin_is_wide():
     assert "Quality decided and cost did not" in out["why"]
 
 
-def test_cost_breaks_a_tie_and_only_a_tie():
-    """Inside what five samples can separate, the difference is not a finding."""
+def test_repeatability_breaks_a_tie_before_cost_does():
+    """Both are tie-breaks and only one is about quality. A model that is sometimes
+    excellent and sometimes poor is worse to ship with than one that is consistently good:
+    a catalogue goes out weekly and nobody re-rolls the bad frame."""
+    steady = _result("nano-banana-2")                      # every sample identical
+    erratic = _result("flux-2-pro")
+    for index, score in enumerate(erratic.scores):         # same mean, wider spread
+        for key in list(score):
+            score[key] = 4 if index % 2 else 2
+    out = B.decide([erratic, steady])
+    assert out["decided"] is True
+    assert out["winner"] == "nano-banana-2", out["results"]
+    assert "repeatability broke the tie" in out["why"]
+    assert "cost is the last thing consulted" in out["how_ties_break"]
+
+
+def test_cost_breaks_a_tie_only_when_quality_cannot():
+    """Level on score and level on consistency, and only then does the price matter."""
     cheap = _result("flux-2-pro")
     dear = _result("nano-banana-2")
     out = B.decide([dear, cheap])
     assert out["decided"] is True
     assert out["winner"] == "flux-2-pro"
-    assert "Cost broke the tie, and only then" in out["why"]
+    assert "cost broke the tie" in out["why"]
+
+
+def test_repeatability_and_latency_are_measured_rather_than_judged():
+    """A model asked to rate its own consistency is answering a different question."""
+    assert "repeatability" in B.MEASURED_NOT_JUDGED
+    assert "latency_ms" in B.MEASURED_NOT_JUDGED
+    for dimension in B.RUBRIC:
+        assert dimension.key not in B.MEASURED_NOT_JUDGED
+
+    steady, erratic = _result("a"), _result("b")
+    for index, score in enumerate(erratic.scores):
+        for key in list(score):
+            score[key] = 4 if index % 2 else 2
+    assert steady.repeatability() > erratic.repeatability()
+
+
+def test_the_rubric_covers_every_dimension_the_owner_named():
+    """Thirteen were named; the three that are measurements rather than judgements are
+    measured, and the two that are about a set rather than an image are asked once."""
+    keys = {d.key for d in B.RUBRIC}
+    assert {"stitch_fidelity", "material_truth", "geometry_fidelity",
+            "human_photorealism", "hands_and_anatomy", "garment_fit",
+            "text_rendering", "lifestyle_quality"} <= keys
+    assert B.IDENTITY_DIMENSION.key == "identity_match"
+    assert B.GALLERY_DIMENSION.key == "gallery_consistency"
+    assert set(B.MEASURED_NOT_JUDGED) == {"repeatability", "latency_ms",
+                                          "cost_cad_per_image"}
 
 
 def test_the_deciding_margin_is_a_score_and_not_a_dollar_rule():

@@ -5,7 +5,7 @@ per-image colour statistics, which answers palette questions outright. What it c
 whether the shot works: shot type, composition, product visibility, how the model relates to
 the product, how the scale is communicated, whether it reads at thumbnail size.
 
-That needs a model with eyes, and the owner approved one at CA$25 a month. The key is not set
+That needs a model with eyes, and the owner approved one. The key is not set
 yet, so this builds the queue rather than the excuse: every audited gallery becomes pending
 analysis work with a stable identity, and the moment the credential exists the backlog drains
 in cost order. Nothing here invents an observation in the meantime.
@@ -177,7 +177,10 @@ ANALYSIS_SYSTEM = (
     "it rather than guessing."
 )
 
-ANALYSIS_MAX_TOKENS = 700
+# The declared task this analysis routes through. Named once so the tier, the token budget
+# and the ledger's `purpose` cannot disagree about what is being paid for.
+TASK = "gallery_observation"
+ANALYSIS_MAX_TOKENS = 1200
 
 
 def analysis_prompt() -> str:
@@ -234,16 +237,25 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     from ..core.resilience import PermanentError, TransientError
     from ..gateway import anthropic as gw
 
-    provider = provider or gw.AnthropicProvider(model=gw.VISION_PROBE_MODEL)
+    # The declared tier for this task, not a hardcoded cheap model. This called
+    # `VISION_PROBE_MODEL` -- the probe's model, chosen because a probe should be the
+    # smallest possible real call -- which quietly routed the owner's second-highest
+    # spending priority through the cheapest tier while `routing.TASKS` declared `standard`.
+    # A probe's model is not an analysis model, and the two sharing a constant is how the
+    # substitution happened without anybody choosing it.
+    provider = provider or gw.provider_for(TASK)
     queue = pending(db, benchmark_key, limit=limit)
 
     judged, failures, spent = 0, [], 0.0
+    reserved, tokens_in, tokens_out = 0.0, 0, 0
     for item in queue:
+        estimate = 0.0
         try:
-            gw.check_budget(
+            reservation = gw.check_budget(
                 db, model=provider.model,
                 input_tokens=len(analysis_prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
                 max_tokens=ANALYSIS_MAX_TOKENS)
+            estimate = reservation["estimate_cad"]
             response = provider.see(ANALYSIS_SYSTEM, analysis_prompt(), [item.image_url],
                                     max_tokens=ANALYSIS_MAX_TOKENS)
         except gw.BudgetExceeded as exc:
@@ -255,9 +267,13 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             failures.append({"key": item.key, "why": str(exc)[:200]})
             continue
 
-        spent += round(
+        cost = round(
             response.input_tokens * provider.cost_per_1k_input_cad / 1000
             + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        spent += cost
+        reserved += estimate
+        tokens_in += response.input_tokens
+        tokens_out += response.output_tokens
         try:
             observation = parse_observation(response.text)
             record(db, item, observation, env=env)
@@ -266,10 +282,14 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             continue
         judged += 1
 
-    _bill(db, spent, judged, job_id)
+    _bill(db, spent, judged, job_id, provider=provider, reserved=reserved,
+          tokens_in=tokens_in, tokens_out=tokens_out)
     return {
         "benchmark": benchmark_key,
+        "model": provider.model,
+        "tier": TASK,
         "judged": judged,
+        "reserved_cad": round(reserved, 8),
         "attempted": len(queue),
         "remaining": max(len(pending(db, benchmark_key, limit=limit * 20)) - judged, 0),
         "failures": failures,
@@ -282,18 +302,19 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     }
 
 
-def _bill(db, spent: float, judged: int, job_id: int | None) -> None:
-    """One ledger row for the run, or none when nothing was spent."""
+def _bill(db, spent: float, judged: int, job_id: int | None, *, provider,
+          reserved: float = 0.0, tokens_in: int = 0, tokens_out: int = 0) -> None:
+    """One ledger row for the run, with every dimension the spend policy reports by."""
     if spent <= 0:
         return
-    from ..core.models import CostEntry
-    from ..gateway import routing
+    from ..finance import spend_report
 
-    with db.session() as s:
-        s.add(CostEntry(agent="intel", kind=routing.COST_KIND, amount_cad=round(spent, 8),
-                        job_id=job_id,
-                        detail={"purpose": "gallery_observation", "images_judged": judged,
-                                "price_basis": "assumed"}))
+    spend_report.record(
+        db, agent="market_radar", amount_cad=round(spent, 8),
+        estimated_cad=round(reserved, 8), purpose=TASK, provider="anthropic",
+        model=provider.model, department="intel", job_id=job_id,
+        tokens_in=tokens_in, tokens_out=tokens_out,
+        detail={"images_judged": judged, "price_basis": "assumed"})
 
 
 # ---------------------------------------------------------------------------

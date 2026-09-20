@@ -47,7 +47,12 @@ CLASSIFY_SYSTEM = (
 
 MAX_TOPICS_PER_CALL = 40
 CLASSIFY_MAX_TOKENS = 1500
-CLASSIFY_MODEL = "claude-haiku-4-5-20251001"
+# Routed rather than named. Cheap tier is correct here and the reason is the question rather
+# than the price: filing against a closed vocabulary is extraction, and the answer would not
+# improve on a stronger model -- the domains are disjoint and a topic either is a television
+# series or is not. Stated because under a quality-first policy every cheap-tier choice has
+# to survive being asked why.
+TASK = "topic_filing"
 
 
 class ClassificationRefused(ValueError):
@@ -112,20 +117,34 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     if not topics:
         return {"filed": {}, "sensitive": [], "reason": "no topics to file"}
 
-    provider = provider or gw.AnthropicProvider(model=CLASSIFY_MODEL)
+    provider = provider or gw.provider_for(TASK)
     flagged = sorted(t for t in topics if sensitive(t))
+    estimate = 0.0
 
     try:
         if db is not None:
-            gw.check_budget(db, model=provider.model,
-                            input_tokens=len(prompt(topics)) // 4,
-                            max_tokens=CLASSIFY_MAX_TOKENS)
+            estimate = gw.check_budget(
+                db, model=provider.model, input_tokens=len(prompt(topics)) // 4,
+                max_tokens=CLASSIFY_MAX_TOKENS)["estimate_cad"]
         response = provider.complete(CLASSIFY_SYSTEM, prompt(topics),
                                      max_tokens=CLASSIFY_MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
         return {"filed": {}, "sensitive": flagged, "reason": str(exc)[:300],
                 "note": ("nothing was filed and the reason is above. An unfiled topic list "
                          "is not an empty culture")}
+
+    if db is not None:
+        from ..finance import spend_report
+
+        spend_report.record(
+            db, agent="market_radar",
+            amount_cad=round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                             + response.output_tokens * provider.cost_per_1k_output_cad
+                             / 1000, 8),
+            estimated_cad=estimate, purpose=TASK, provider="anthropic",
+            model=provider.model, department="culture",
+            tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+            detail={"topics": len(topics), "price_basis": "assumed"})
 
     filed = parse(response.text, topics)
     placed = {t: d for t, d in filed.items() if d != UNPLACED}

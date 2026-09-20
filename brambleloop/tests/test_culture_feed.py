@@ -211,7 +211,7 @@ def test_filing_is_never_permission():
 
 
 class _FilingProvider:
-    model = C.CLASSIFY_MODEL
+    model = "claude-haiku-4-5"
     cost_per_1k_input_cad = 0.0
     cost_per_1k_output_cad = 0.0
 

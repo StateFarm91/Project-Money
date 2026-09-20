@@ -14,7 +14,8 @@ exists to prevent. So the gate reads a recorded *successful call*, not a variabl
 with nobody having to remember.
 
 **The ceiling is enforced before the call, not discovered on the invoice.** The owner's
-standing ceiling is CA$25 a month. It is checked from CostEntry rows -- the same
+standing ceiling is read from `finance.spend_policy` -- CA$100 a month since
+2026-09-20, raised from CA$25. It is checked from CostEntry rows -- the same
 rows-not-arguments rule used everywhere else -- and the estimate is deliberately pessimistic,
 because a ceiling that relies on an optimistic cost estimate is a ceiling that is crossed
 before anybody notices.
@@ -47,7 +48,7 @@ PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     # Both the alias the router uses and the dated identifier. The router asked for
     # "claude-haiku-4-5", this table only held the dated form, and `.get(model, (0.0, 0.0))`
     # priced every cheap-tier call at nothing: 80 concepts generated, CA$0.00 recorded,
-    # and a CA$25 monthly ceiling that cheap work could never reach.
+    # and a monthly ceiling that cheap work could never reach.
     "claude-haiku-4-5": (1.0, 5.0),
     "claude-haiku-4-5-20251001": (1.0, 5.0),
 }
@@ -60,9 +61,14 @@ USD_TO_CAD = 1.37
 # optimistic estimate is crossed before anybody notices.
 ESTIMATE_PADDING = 1.25
 
-# The owner's standing ceiling. Overridable by environment so it can be lowered without a
-# deploy, never raised silently past this default.
-DEFAULT_MONTHLY_CEILING_CAD = 25.0
+# The owner's standing ceiling, read from the policy rather than restated. It was written
+# here *and* in `routing`, which is the defect this file's own price comment names: a number
+# written twice is a number that will drift. Overridable downward by environment so it can be
+# lowered without a deploy, never raised silently past the authorised figure.
+def _policy_ceiling() -> float:
+    from ..finance.spend_policy import ceiling_cad
+
+    return ceiling_cad()
 
 # What one gallery image costs to look at, in input tokens. This number is used to refuse a
 # call before it is made, so it has to be no *smaller* than the truth -- an optimistic
@@ -92,14 +98,30 @@ class ProviderUnusable(PermanentError):
     """The key authenticates and the account cannot serve a request."""
 
 
+def provider_for(task_key: str, **kw) -> "AnthropicProvider":
+    """A provider on the tier the declared task routes to.
+
+    Added 2026-09-20 when reconciling routing against the owner's quality-first policy.
+    Four call sites were constructing providers with a hardcoded cheap model and never
+    consulting `routing.TASKS` at all -- so the declared tier for gallery observation said
+    `standard` and the code that made the call used `cheap`, for a day, on the owner's
+    second-highest spending priority. A table nothing reads is documentation.
+    """
+    from . import routing
+
+    _, tier = routing.route(task_key)
+    return AnthropicProvider(model=tier.model, **kw)
+
+
 def monthly_ceiling_cad() -> float:
     """The ceiling in force. Environment may lower it; nothing may raise it."""
+    authorised = _policy_ceiling()
     raw = (os.environ.get("BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD") or "").strip()
     try:
-        value = float(raw) if raw else DEFAULT_MONTHLY_CEILING_CAD
+        value = float(raw) if raw else authorised
     except ValueError:
-        return DEFAULT_MONTHLY_CEILING_CAD
-    return min(value, DEFAULT_MONTHLY_CEILING_CAD)
+        return authorised
+    return min(value, authorised)
 
 
 def spent_this_month_cad(db, *, now: datetime | None = None) -> float:

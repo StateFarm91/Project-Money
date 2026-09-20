@@ -132,7 +132,7 @@ def test_the_gate_has_three_outcomes_because_two_would_have_to_lie():
 
 def test_a_failed_call_leaves_every_check_unmade_rather_than_green():
     class _Broken:
-        model = I.INSPECT_MODEL
+        model = "claude-sonnet-5"
         cost_per_1k_input_cad = 0.0
         cost_per_1k_output_cad = 0.0
 
@@ -217,6 +217,44 @@ def test_a_brief_from_one_listing_is_an_instruction_to_make_that_product_again()
     out = REF.brief(db, "garments")
     assert out["usable"] is False
     assert "make that product again" in out["reason"]
+
+
+def test_every_vision_call_site_routes_through_a_declared_task():
+    """The reconciliation the owner's quality-first policy asked for, as a property.
+
+    Four modules constructed a provider with a hardcoded cheap model and never consulted
+    `routing.TASKS` at all -- so the declared tier for gallery observation said `standard`
+    while the code that made the call used `cheap`, on the owner's second-highest spending
+    priority. A table nothing reads is documentation.
+    """
+    from brambleloop.creative import reference
+    from brambleloop.gateway import image_bench, routing
+    from brambleloop.intel import vision
+
+    for module in (I, reference, vision, image_bench):
+        task = getattr(module, "TASK", None) or getattr(module, "JUDGE_TASK", None)
+        assert task, f"{module.__name__} makes vision calls and declares no routed task"
+        assert task in routing.TASKS, f"{module.__name__} routes through undeclared {task!r}"
+
+
+def test_no_module_names_a_model_string_outside_the_routing_table():
+    """A hardcoded model is a routing decision made where nobody looks for one."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "src" / "brambleloop"
+    allowed = {"gateway/routing.py", "gateway/anthropic.py", "gateway/model_gateway.py"}
+    offenders = []
+    for path in root.rglob("*.py"):
+        rel = str(path.relative_to(root))
+        if rel in allowed:
+            continue
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            if re.search(r'["\']claude-(opus|sonnet|haiku)', line):
+                offenders.append(f"{rel}:{number}")
+    assert offenders == [], (
+        f"{offenders} name a model directly. Routing belongs in routing.TASKS, where the "
+        f"tier, the token budget and the ledger's purpose are decided together")
 
 
 if __name__ == "__main__":

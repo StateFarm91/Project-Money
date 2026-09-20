@@ -1009,6 +1009,44 @@ def api_image_generation() -> dict:
     return images.state(db)
 
 
+@app.get("/api/spend-policy")
+def api_spend_policy() -> dict:
+    """The governing model and creative spend policy, and where this month stands.
+
+    QUALITY FIRST. COST SECOND. WASTE NEVER. The three clauses are ordered and the order is
+    the policy: quality decides, cost is the tie-breaker rather than the argument, and waste
+    is refused at any budget because waste is not a saving that was declined -- it is
+    spending with nothing on the other side of it.
+
+    The ceiling is an authority, not a target. What changed on 2026-09-20 is which argument
+    may win, not how much this company intends to spend.
+    """
+    from ..finance import spend_policy
+
+    return spend_policy.state(db)
+
+
+@app.get("/api/spend-report")
+def api_spend_report() -> dict:
+    """What the money bought, by every dimension the owner asked to see it by.
+
+    Provider, model, agent, department, product and purpose, with the pre-call reservation
+    kept beside the bill. An estimate nobody compares against the invoice can drift by a
+    factor of three, and did -- every ceiling check in that session was computed against the
+    wrong number and none of them failed.
+
+    Rows with no recorded dimension are counted under `unattributed` with their dollars
+    intact, because dropping them would show a tidier number that does not match the bill,
+    and the gap would be exactly the spending nobody could account for.
+    """
+    from ..finance import spend_policy, spend_report
+
+    report = spend_report.what_it_bought(db)
+    return {**report,
+            "headroom": spend_policy.headroom(report["spent_cad"]),
+            "escalation": spend_policy.escalation(db)}
+
+
 @app.get("/api/image-benchmark")
 def api_image_benchmark() -> dict:
     """How the generator gets chosen, and why nothing is chosen yet.
@@ -2668,10 +2706,16 @@ def api_verify() -> JSONResponse:
     # it. What is still worth asserting is that the spend it makes possible is bounded.
     from ..gateway.anthropic import monthly_ceiling_cad, spent_this_month_cad
 
+    # The bound is read from the policy rather than written here. It said `<= 25.0`, which
+    # was the authorised figure until the owner raised it on 2026-09-20 -- and a hardcoded
+    # bound in a production assertion is a red light that turns on when an owner decision is
+    # carried out, which is the shape of check this file already warns about directly above.
+    from ..finance.spend_policy import ceiling_cad as authorised_ceiling_cad
+
     ceiling = monthly_ceiling_cad()
     model_spend = spent_this_month_cad(db)
     check("model_spend_within_its_ceiling",
-          ceiling <= 25.0 and model_spend <= ceiling,
+          ceiling <= authorised_ceiling_cad() and model_spend <= ceiling,
           {"providers": available_providers(), "spent_this_month_cad": model_spend,
            "monthly_ceiling_cad": ceiling})
     check("every_agent_has_a_cost_ceiling",

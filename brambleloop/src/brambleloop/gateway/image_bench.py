@@ -33,9 +33,10 @@ from dataclasses import dataclass, field
 
 from ..core.resilience import PermanentError, TransientError
 
-# The owner's benchmark budget, in code rather than in a message. A measurement that can
-# overrun is a measurement somebody stops trusting.
-BENCHMARK_CEILING_CAD = 25.0
+# The owner's benchmark budget, read from the policy rather than restated. A measurement
+# that can overrun is a measurement somebody stops trusting, and an authorised figure written
+# in two files is a figure that will drift.
+from ..finance.spend_policy import BENCHMARK_BUDGET_CAD as BENCHMARK_CEILING_CAD  # noqa: E402
 
 # One render is a sample of a distribution. Five, at five of the six trials, gives each
 # rubric dimension twenty-five observations per model -- enough to separate a model that is
@@ -178,6 +179,9 @@ RUBRIC: tuple[Dimension, ...] = (
               "no repeating texture tile, no impossible seams?"),
     Dimension("material_truth", 79,
               "Does the yarn behave like yarn: drape, weight, how it folds and compresses?"),
+    Dimension("geometry_fidelity", 75,
+              "Is the object's construction geometry coherent -- panels, joins, shaping and "
+              "proportion consistent with something that could be made?"),
     Dimension("finished_result_clarity", 75,
               "Is it immediately obvious what the finished object is?"),
     Dimension("thumbnail_strength", 66,
@@ -190,6 +194,18 @@ RUBRIC: tuple[Dimension, ...] = (
               "setting or the model?"),
     Dimension("physical_plausibility", 79,
               "Would a maker looking at this see anything physically impossible?"),
+    Dimension("human_photorealism", 198,
+              "Where a person is shown, do skin, hair and eyes read as photography rather "
+              "than as rendering? Score 4 and note `not_applicable` if nobody is shown."),
+    Dimension("hands_and_anatomy", 79,
+              "Are hands, fingers and body proportions correct where visible? Hands are "
+              "where generated imagery fails most visibly to a human eye."),
+    Dimension("garment_fit", 75,
+              "Where a garment is worn, does it fit and hang as a real knitted or crocheted "
+              "garment would on that body?"),
+    Dimension("text_rendering", 75,
+              "If any text, label or logo appears, is it correctly formed rather than "
+              "approximated glyphs? Score 4 and note `not_applicable` if no text appears."),
 )
 
 # The identity dimension is scored differently: against a reference rather than on its own,
@@ -199,11 +215,51 @@ IDENTITY_DIMENSION = Dimension(
     "Is this the same person as the reference: same facial geometry, hair, eye colour and "
     "apparent age, with no drift in style?")
 
+# Gallery consistency is a judgement about a *set*, so it cannot be a per-image score. Asked
+# once per model over that model's own renders of the six trials: whether they would read as
+# one shop's gallery rather than six unrelated stock photographs.
+GALLERY_DIMENSION = Dimension(
+    "gallery_consistency", 66,
+    "Would these images read as one Etsy shop's gallery -- consistent light, palette "
+    "discipline and styling language -- rather than as unrelated stock photographs?")
+
+# Two things the owner named that are measured rather than judged, from data the run already
+# produces. A model asked to rate its own consistency would be answering a different question.
+#
+# Repeatability is the spread of a model's own scores across its five samples of the same
+# trial: a model that is sometimes excellent and sometimes poor is worse to ship with than one
+# that is consistently good, because a catalogue is shipped weekly and nobody re-rolls.
+# Latency is recorded per render and reported; it disqualifies nothing on its own, because a
+# slow generator for a weekly batch of gallery images is an inconvenience rather than a fault.
+MEASURED_NOT_JUDGED: dict[str, str] = {
+    "repeatability": ("standard deviation of the model's own overall score across its five "
+                      "samples of each trial, inverted. A model asked to rate its own "
+                      "consistency would be answering a different question"),
+    "latency_ms": ("recorded per render. It disqualifies nothing by itself: a slow generator "
+                   "for a weekly batch of gallery images is an inconvenience, not a fault"),
+    "cost_cad_per_image": "the published rate, used only to break a tie inside the margin",
+}
+
+# The judgement that decides which provider renders every listing image afterwards. Deep
+# tier, declared in `routing.TASKS`: it is made a few dozen times and it is the whole point
+# of spending the benchmark budget, so scoring it on the cheapest model would be measuring
+# carefully with a blunt instrument.
+JUDGE_TASK = "image_benchmark_judging"
+JUDGE_MAX_TOKENS = 500
+
 SCORE_MIN, SCORE_MAX = 0, 4
 
 # A model that cannot render crochet fabric convincingly is not a candidate at any price,
-# whatever it does with lighting. Below this mean on the two fabric dimensions it is out.
+# whatever it does with lighting. Below this mean on the fabric-and-construction dimensions
+# it is out.
 FABRIC_FLOOR = 2.5
+FABRIC_DIMENSIONS: tuple[str, ...] = ("stitch_fidelity", "material_truth",
+                                      "geometry_fidelity")
+
+# An identity that does not survive one regeneration is a failed asset (#201), so the model
+# that renders the canonical woman has to clear this on its own, separately from its total.
+# Below it, a beautiful catalogue drifts into somebody else by February.
+IDENTITY_FLOOR = 3.0
 
 # How much a cost difference is allowed to matter. The owner's instruction, in arithmetic:
 # quality decides unless the quality difference is inside the noise, and then cost breaks the
@@ -250,7 +306,12 @@ def plan() -> dict:
 
     # Judging cost: one vision call per rendered image, at the cheap tier's measured rate.
     judged = per_model * len(keep)
-    judge_cad = round(judged * 0.004, 4)
+    # Read from the routing table rather than written here. It was a literal 0.004, which
+    # was the cheap tier's rate, and judging moved to the deep tier when the policy changed
+    # -- so the plan would have quoted a quarter of what the benchmark now costs.
+    from . import routing
+
+    judge_cad = round(judged * routing.estimate_cad(JUDGE_TASK), 4)
     total = round(render_cad + judge_cad, 4)
 
     if total > BENCHMARK_CEILING_CAD:
@@ -338,6 +399,8 @@ class Result:
     model: str
     scores: list[dict] = field(default_factory=list)
     failures: list[dict] = field(default_factory=list)
+    latencies_ms: list[float] = field(default_factory=list)
+    gallery_consistency: int | None = None
     cad_spent: float = 0.0
 
     def mean(self, key: str) -> float | None:
@@ -348,6 +411,32 @@ class Result:
         means = [self.mean(d.key) for d in RUBRIC]
         present = [m for m in means if m is not None]
         return round(sum(present) / len(present), 3) if present else None
+
+    def repeatability(self) -> float | None:
+        """How consistent this model is with itself, on its own scale.
+
+        Measured rather than judged. A model that is sometimes excellent and sometimes poor
+        is worse to ship with than one that is consistently good: a catalogue goes out weekly
+        and nobody re-rolls the bad frame. Reported as 1 minus the spread, so it reads in the
+        same direction as every other number here -- higher is better.
+        """
+        import statistics
+
+        per_sample = []
+        for score in self.scores:
+            values = [v for k, v in score.items() if k in {d.key for d in RUBRIC}]
+            if values:
+                per_sample.append(sum(values) / len(values))
+        if len(per_sample) < 2:
+            return None
+        spread = statistics.pstdev(per_sample)
+        return round(max(0.0, 1.0 - spread / (SCORE_MAX or 1)), 3)
+
+    def latency_median(self) -> float | None:
+        import statistics
+
+        values = [float(v) for v in self.latencies_ms if v]
+        return round(statistics.median(values), 1) if values else None
 
 
 def decide(results: list[Result]) -> dict:
@@ -368,7 +457,7 @@ def decide(results: list[Result]) -> dict:
 
     rows = []
     for r in scored:
-        fabric = [r.mean("stitch_fidelity"), r.mean("material_truth")]
+        fabric = [r.mean(key) for key in FABRIC_DIMENSIONS]
         fabric_mean = round(sum(f for f in fabric if f is not None)
                             / max(len([f for f in fabric if f is not None]), 1), 3)
         rows.append({
@@ -377,26 +466,46 @@ def decide(results: list[Result]) -> dict:
             "identity_match": r.mean(IDENTITY_DIMENSION.key),
             "cad_per_image": BY_KEY[r.model].cad_per_image if r.model in BY_KEY else None,
             "judged_images": len(r.scores), "failures": len(r.failures),
+            "repeatability": r.repeatability(),
+            "gallery_consistency": r.gallery_consistency,
+            "latency_ms_median": r.latency_median(),
             "meets_fabric_floor": fabric_mean >= FABRIC_FLOOR,
+            "meets_identity_floor": (r.mean(IDENTITY_DIMENSION.key) is None
+                                     or r.mean(IDENTITY_DIMENSION.key) >= IDENTITY_FLOOR),
         })
 
-    qualified = [row for row in rows if row["meets_fabric_floor"]]
+    qualified = [row for row in rows
+                 if row["meets_fabric_floor"] and row["meets_identity_floor"]]
     if not qualified:
         return {"decided": False, "results": rows,
-                "why": (f"no candidate reached the fabric floor of {FABRIC_FLOOR}. A "
-                        f"generator that cannot render crochet convincingly is not a "
-                        f"candidate for a crochet shop at any price")}
+                "why": (f"no candidate cleared both floors -- fabric at {FABRIC_FLOOR} and "
+                        f"identity at {IDENTITY_FLOOR}. A generator that cannot render "
+                        f"crochet convincingly is not a candidate for a crochet shop at any "
+                        f"price, and one whose face does not survive a regeneration produces "
+                        f"a catalogue that drifts into somebody else by February")}
 
     qualified.sort(key=lambda row: (-row["overall"], row["cad_per_image"] or 0.0))
     best = qualified[0]
     contenders = [row for row in qualified
                   if best["overall"] - row["overall"] <= DECIDING_MARGIN]
     if len(contenders) > 1:
-        contenders.sort(key=lambda row: (row["cad_per_image"] or 0.0, -row["overall"]))
+        # Inside the margin, repeatability decides before cost does. Both are tie-breaks and
+        # only one of them is about quality: a model that is sometimes excellent and
+        # sometimes poor is worse to ship with than one that is consistently good, because a
+        # catalogue goes out weekly and nobody re-rolls the bad frame. Cost is the last
+        # thing consulted, which is the policy stated as a sort key.
+        contenders.sort(key=lambda row: (-(row["repeatability"] or 0.0),
+                                         row["cad_per_image"] or 0.0, -row["overall"]))
         winner = contenders[0]
+        beaten = [c["model"] for c in contenders[1:]]
+        decided_on = ("repeatability"
+                      if any((winner["repeatability"] or 0) != (c["repeatability"] or 0)
+                             for c in contenders[1:]) else "cost")
         why = (f"{len(contenders)} candidates finished within {DECIDING_MARGIN} of each "
                f"other, which is inside what {SAMPLES_PER_TRIAL} samples can separate. "
-               f"Cost broke the tie, and only then")
+               f"{decided_on} broke the tie against {beaten}, and only then -- "
+               f"repeatability is consulted before cost because one of them is about "
+               f"quality")
     else:
         winner = best
         why = (f"{winner['model']} scored {winner['overall']} against "
@@ -405,7 +514,12 @@ def decide(results: list[Result]) -> dict:
 
     return {"decided": True, "winner": winner["model"], "why": why,
             "results": rows, "qualified": [row["model"] for row in qualified],
-            "fabric_floor": FABRIC_FLOOR, "deciding_margin": DECIDING_MARGIN}
+            "fabric_floor": FABRIC_FLOOR, "identity_floor": IDENTITY_FLOOR,
+            "deciding_margin": DECIDING_MARGIN,
+            "measured_not_judged": dict(MEASURED_NOT_JUDGED),
+            "how_ties_break": ("repeatability, then cost. Quality decides the ranking and "
+                               "the first tie-break is still a quality property; cost is "
+                               "the last thing consulted")}
 
 
 def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
@@ -428,6 +542,7 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
     results: list[Result] = []
     for candidate in [c for c in CANDIDATES if c.can_hold_an_identity]:
         result = Result(model=candidate.key)
+        rendered_urls: list[str] = []
         for trial in TRIALS:
             for sample in range(SAMPLES_PER_TRIAL):
                 if spent >= BENCHMARK_CEILING_CAD:
@@ -440,11 +555,25 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
                     spent += float(rendered.get("cad") or candidate.cad_per_image)
                     dimensions = ((IDENTITY_DIMENSION,) if trial.needs_reference
                                   else RUBRIC)
+                    result.latencies_ms.append(float(rendered.get("latency_ms") or 0.0))
+                    if rendered.get("url"):
+                        rendered_urls.append(rendered["url"])
                     answer = (judge or _judge)(db, rendered["url"], dimensions)
                     result.scores.append(parse_scores(answer, dimensions))
                 except (PermanentError, TransientError, BenchmarkRefused) as exc:
                     result.failures.append({"trial": trial.key, "sample": sample,
                                             "why": str(exc)[:200]})
+        # One judgement per model about the *set*: gallery consistency cannot be a per-image
+        # score, because six images each individually fine can still read as six unrelated
+        # stock photographs rather than one shop's gallery.
+        if result.scores and rendered_urls:
+            try:
+                answer = (judge or _judge)(db, rendered_urls[0], (GALLERY_DIMENSION,))
+                result.gallery_consistency = parse_scores(
+                    answer, (GALLERY_DIMENSION,))[GALLERY_DIMENSION.key]
+            except (PermanentError, TransientError, BenchmarkRefused) as exc:
+                result.failures.append({"trial": "gallery_consistency",
+                                        "why": str(exc)[:200]})
         result.cad_spent = round(spent, 4)
         results.append(result)
 
@@ -455,13 +584,26 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
 
 
 def _judge(db, image_url: str, dimensions: tuple[Dimension, ...]) -> str:
+    from ..finance import spend_report
     from . import anthropic as gw
 
-    provider = gw.AnthropicProvider(model=gw.VISION_PROBE_MODEL)
-    gw.check_budget(db, model=provider.model,
-                    input_tokens=len(score_prompt(dimensions)) // 4
-                    + gw.IMAGE_TOKENS_ESTIMATE, max_tokens=400)
-    return provider.see("", score_prompt(dimensions), [image_url], max_tokens=400).text
+    provider = gw.provider_for(JUDGE_TASK)
+    estimate = gw.check_budget(
+        db, model=provider.model,
+        input_tokens=len(score_prompt(dimensions)) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+        max_tokens=JUDGE_MAX_TOKENS)["estimate_cad"]
+    response = provider.see("", score_prompt(dimensions), [image_url],
+                            max_tokens=JUDGE_MAX_TOKENS)
+    spend_report.record(
+        db, agent="creative_director",
+        amount_cad=round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                         + response.output_tokens * provider.cost_per_1k_output_cad / 1000,
+                         8),
+        estimated_cad=estimate, purpose=JUDGE_TASK, provider="anthropic",
+        model=provider.model, department="creative",
+        tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+        detail={"price_basis": "assumed"})
+    return response.text
 
 
 def state(db=None) -> dict:

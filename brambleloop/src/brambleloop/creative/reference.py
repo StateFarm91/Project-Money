@@ -65,7 +65,11 @@ READ_SYSTEM = (
 )
 
 READ_MAX_TOKENS = 700
-READ_MODEL = "claude-haiku-4-5-20251001"
+# The declared task, routed rather than hardcoded. This named the cheap model directly, which
+# put the evidence a concept brief is written from on the tier meant for classification --
+# and a misread neckline does not announce itself, it becomes a design constraint nobody
+# questions afterwards.
+TASK = "construction_reading"
 
 # Below this, a primitive set is one listing's habits rather than a market's pattern. The
 # same threshold #215 uses for a mechanism becoming a standard, and for the same reason: a
@@ -130,13 +134,27 @@ def read_listing(image_ref: str, *, db=None, provider=None) -> dict:
     """One construction reading of one competitor image (#278)."""
     from ..gateway import anthropic as gw
 
-    provider = provider or gw.AnthropicProvider(model=READ_MODEL)
+    provider = provider or gw.provider_for(TASK)
+    estimate = 0.0
     if db is not None:
-        gw.check_budget(db, model=provider.model,
-                        input_tokens=len(read_prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
-                        max_tokens=READ_MAX_TOKENS)
+        estimate = gw.check_budget(
+            db, model=provider.model,
+            input_tokens=len(read_prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+            max_tokens=READ_MAX_TOKENS)["estimate_cad"]
     response = provider.see(READ_SYSTEM, read_prompt(), [image_ref],
                             max_tokens=READ_MAX_TOKENS)
+    if db is not None:
+        from ..finance import spend_report
+
+        spend_report.record(
+            db, agent="creative_director",
+            amount_cad=round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                             + response.output_tokens * provider.cost_per_1k_output_cad
+                             / 1000, 8),
+            estimated_cad=estimate, purpose=TASK, provider="anthropic",
+            model=provider.model, department="creative",
+            tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+            detail={"price_basis": "assumed"})
     return parse_reading(response.text)
 
 

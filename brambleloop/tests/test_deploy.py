@@ -233,7 +233,7 @@ def test_the_model_assertion_is_about_spend_rather_than_about_a_key_existing():
     asserting is that the spend a configured provider makes possible stays bounded.
     """
     from brambleloop.core.models import CostEntry
-    from brambleloop.gateway.anthropic import DEFAULT_MONTHLY_CEILING_CAD
+    from brambleloop.finance.spend_policy import ceiling_cad
 
     with _client() as c:
         body = c.get("/api/verify").json()
@@ -242,7 +242,7 @@ def test_the_model_assertion_is_about_spend_rather_than_about_a_key_existing():
     assert "no_model_provider_configured" not in by_name
     assertion = by_name["model_spend_within_its_ceiling"]
     assert assertion["ok"] is True
-    assert assertion["evidence"]["monthly_ceiling_cad"] <= DEFAULT_MONTHLY_CEILING_CAD
+    assert assertion["evidence"]["monthly_ceiling_cad"] <= ceiling_cad()
     assert assertion["evidence"]["spent_this_month_cad"] == 0.0
     # The evidence still names whatever providers are configured, so a reader can see that a
     # key exists without the endpoint calling its existence a failure.
