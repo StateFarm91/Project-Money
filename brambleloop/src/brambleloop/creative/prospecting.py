@@ -66,10 +66,30 @@ ENGINE_ROUTE: dict[str, str | None] = {
     "granny_square": "flat_rows",
     "motif_join": "flat_rows",
     "modular_panels": "flat_rows",
-    # Garment shaping. A yoke is not a rectangle with a hole in it, and pretending otherwise
-    # is how a "cardigan" ships as a flat panel nobody can wear.
+    # Garment shaping. Neither is blocked by rounds or by shaping -- the CIR has both, and
+    # `cir/grading.py` was written for exactly this pod. What is missing is one primitive:
+    # **working into part of a previous row.** `Row.into` names a row index and the compiler
+    # reads that whole row's stitch count, so there is no way to express the armhole
+    # division, where a yoke worked in rounds splits and the sleeve stitches go on hold.
+    # Without it a "cardigan" can only ship as a flat panel nobody can wear.
     "top_down_yoke": None,
     "bottom_up": None,
+}
+
+# The named build item behind those two. Stated once, here, so the engineering gap that
+# blocks the deepest proven arena is a specific thing somebody can implement rather than a
+# vague sense that garments are hard.
+MISSING_PRIMITIVE = {
+    "name": "partial-row work (the armhole division)",
+    "why": ("a top-down yoke is worked in rounds, then split: the sleeve stitches are held "
+            "and the body continues over the rest. Every garment construction needs it"),
+    "shape": ("Row.into names a row index and the compiler takes that row's whole stitch "
+              "count; expressing this needs a stitch range, and the twin and reverse "
+              "compiler need to agree about held stitches"),
+    "unblocks": ("top_down_yoke and bottom_up, and with them the garments pod -- 140 of the "
+                 "438 observed benchmark listings, the deepest proven-and-unserved arena"),
+    "already_present": ("joined rounds, increase and decrease operations, multi-component "
+                        "assembly with placed seams, and size grading across a run"),
 }
 
 # Above this share of the catalogue, a form is not a house style, it is the rut. Matches the
@@ -351,6 +371,7 @@ def engine_gaps() -> dict:
         "needs_engineering": missing,
         "forms_with_no_buildable_construction": unroutable_forms,
         "forms_absent_from_the_buildability_map": unmapped_forms,
+        "missing_primitive": MISSING_PRIMITIVE if missing else None,
         "note": ("A construction with no route is a real thing a maker does that this engine "
                  "has not been taught. Naming it is the useful form; silently never "
                  "proposing products that need it is how the catalogue stayed flat."),

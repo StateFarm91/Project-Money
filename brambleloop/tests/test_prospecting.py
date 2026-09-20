@@ -82,6 +82,38 @@ def test_the_route_map_cannot_drift_from_what_the_compiler_accepts():
         assert route is None or route in P.CIR_CONSTRUCTIONS, construction
 
 
+def test_the_garment_gap_is_one_named_primitive_and_not_a_vague_difficulty():
+    """Rounds, shaping, assembly and grading all exist. One thing does not.
+
+    Claiming less capability than the engine has is as wrong as claiming more: it would send
+    discovery away from the deepest proven arena for a reason that is not true.
+    """
+    import dataclasses
+
+    from brambleloop.cir.model import Row
+
+    gaps = P.engine_gaps()
+    primitive = gaps["missing_primitive"]
+    assert "armhole division" in primitive["name"]
+    # The gap is real: a row names a row index, with no way to name part of it.
+    fields = {f.name for f in dataclasses.fields(Row)}
+    assert "into" in fields
+    assert not any("range" in f or "from_stitch" in f or "held" in f for f in fields), fields
+
+
+def test_the_capabilities_the_engine_already_has_are_not_claimed_as_missing():
+    """grading.py exists and was written for the garments pod; rounds and shaping exist."""
+    import typing
+
+    from brambleloop.cir import grading
+    from brambleloop.cir.model import Construction
+
+    assert "joined_rounds" in typing.get_args(Construction)
+    assert hasattr(grading, "grade") and grading.DEFAULT_RUN[0] == "XS"
+    assert P.ENGINE_ROUTE["in_the_round"] == "joined_rounds"
+    assert P.ENGINE_ROUTE["amigurumi_shaping"] == "spiral_rounds"
+
+
 def test_no_form_is_missing_from_the_buildability_map():
     """A form absent from it is unbuildable, not unconstrained, and nothing said so.
 
