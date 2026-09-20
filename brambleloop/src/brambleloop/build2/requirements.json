@@ -2053,9 +2053,9 @@
  {
   "body": "Every MJs/category pod participates in the continuous-learning architecture from #177-194: maintain category mistakes, new mechanisms, successful Brambleloop responses, failed responses, current benchmarks and challenger strategies. The pod should become measurably more discerning and creative over time.",
   "id": 226,
-  "note": "specialist pod continuous learning",
+  "note": "intel/pod_learning.py supplies the measurement the requirement's last sentence asks for, and that sentence contains a trap: discerning and creative pull against each other. A pod that rejects everything is maximally discerning and contributes nothing; one that accepts everything is maximally generative and worthless. A single score can rise while either collapses, and the one that collapses is whichever the score weights least -- so there are two measures and no function returns one without the other, the same structural move improve.velocity makes for release counts. Discernment is precision against outcomes and explicitly not rejection rate: rejection rate is available immediately and rises whenever a pod is being careful, which is why it gets used, and what it measures is caution. Both directions count, so a pod that never says no reports that, and noes that would have worked are counted. The six record kinds split into learning from failure and learning from success, and a memory collapsed into one is reported as drifting cautious or drifting imitative -- the second being #227's failure arriving through the learning system rather than through a decision. The balance is a direction rather than a target because there is no correct ratio, only a pod that has stopped doing one of them. Pods are deliberately not added to improve.cells.CELLS: a department is a function of this company and a pod is a lens on somebody else's catalogue, and one vocabulary for both would make 'department' mean two things and quietly double every count computed over it. They participate through their own curve on the adversarial freshness clock, taken from improve.freshness rather than restated so the two cannot drift.",
   "section": "Voice session reconciliation (model + MJs)",
-  "status": "missing",
+  "status": "covered",
   "title": "Specialist Pod Continuous Learning",
   "version": "v1.4.0"
  },

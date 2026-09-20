@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 206 | satisfied, with a named test or artefact |
+| covered | 207 | satisfied, with a named test or artefact |
 | partial | 57 | something real exists and is short of the requirement |
-| missing | 1 | nobody has built it |
+| missing | 0 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **58 requirements are executable** (partial +
+as one nobody has written. **57 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 206 of 320 covered is **64.4% complete**, read from the registry rather than
+typed. 207 of 320 covered is **64.7% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `aff0202`: **2,438 tests passing, 0 failing** across
-137 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `647d28d`: **2,480 tests passing, 0 failing** across
+139 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -713,6 +713,38 @@ grading a model on answers it has seen is the natural mistake when the owner's r
 easiest training data to hand.
 
 **One requirement now remains `missing` across all 320.** Decisions B-464..B-468.
+
+**#226 — and nothing is `missing` any more.**
+`intel/pod_learning.py`. The requirement's last sentence — *the pod should become measurably
+more discerning and creative over time* — contains a trap, and it is the one
+`improve/velocity.py` was built against. **Discerning and creative pull against each other.**
+A pod that rejects everything is maximally discerning and contributes nothing; one that
+accepts everything is maximally generative and worthless. A single score can rise while either
+collapses, and the one that collapses is whichever the score happens to weight least — which
+is exactly how a pod becomes very good at saying no. So there are two measures, nothing
+returns one without the other, and a test asserts no single pod score exists anywhere in the
+module.
+
+**Discernment is precision against outcomes, never rejection rate.** Rejection rate is the
+measure that gets used, because it is available the moment a call is made and rises whenever
+the pod is being careful. What it measures is caution. Both directions count: a pod that never
+says no reports that, and noes that would have worked are counted separately, because a pod
+whose every refusal was wrong is expensive in a way precision alone hides.
+
+The six record kinds split into learning from failure and learning from success, and a memory
+collapsed into one is reported as drifting cautious or drifting imitative — the second being
+**#227's failure arriving through the learning system** rather than through a decision anybody
+made. Reported as a direction, never a target: there is no correct ratio, only a pod that has
+stopped doing one of them.
+
+And pods are deliberately *not* added to `improve.cells.CELLS`. The literal reading of
+"participate in the continuous-learning architecture" is to make each pod a department cell,
+which would double CELLS from twelve to twenty-four and quietly double every count computed
+over it — including the freshness sweep and the nightly bottleneck stage. A department is a
+function of this company; a pod is a lens on somebody else's catalogue. Decisions B-469..B-472.
+
+**With #226 closed, no requirement in the 320 is `missing`.** What remains is 57 `partial` —
+things that exist and fall short — plus 56 parked on owner actions and absent data.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to

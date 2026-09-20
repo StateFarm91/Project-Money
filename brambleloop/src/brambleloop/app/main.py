@@ -1338,6 +1338,24 @@ def api_weekly_evolution() -> dict:
     return weekly.state()
 
 
+@app.get("/api/pod-learning")
+def api_pod_learning() -> dict:
+    """Pods that get better, in the two directions that pull against each other (#226).
+
+    "More discerning and more creative" is a trap if it becomes one number. A pod that
+    rejects everything is maximally discerning and contributes nothing; one that accepts
+    everything is generative and worthless, and a single score can rise while either
+    collapses. So there are two measures and nothing returns one alone.
+
+    Discernment is precision against outcomes and explicitly not rejection rate -- rejection
+    rate is available immediately and rises whenever a pod is being careful, which is why it
+    gets used, and what it measures is caution.
+    """
+    from ..intel import pod_learning
+
+    return pod_learning.state()
+
+
 @app.get("/api/elite-panel")
 def api_elite_panel() -> dict:
     """Learning from the best shops without becoming one (#215, #219, #220, #227, #228).
