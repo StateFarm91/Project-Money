@@ -578,9 +578,9 @@
  {
   "body": "Required flow: CIR -> compiled/twin truth -> engineering evidence -> creative brief constrained by truth -> conversion creative -> independent Asset Truth comparison -> layout/commercial/policy gates -> listing export. Creative systems may improve presentation but may never invent motifs, dimensions, texture, construction or included deliverables.",
   "id": 63,
-  "note": "the CIR->twin->evidence half is built; no creative brief or conversion creative stage",
+  "note": "publish/brief.py holds the constraint the flow was missing, and its shape is an asymmetry: creative may select from truth and may never extend it. Showing three of seven stitch types is a photograph of part of a thing and no listing shows everything; showing an eighth is a claim about a pattern that does not contain it, made by an image nobody thought of as a statement. So the brief carries the sets the twin established across all five categories the requirement names -- motifs, dimensions, texture, construction, deliverables -- and the check is subset in one direction. A category the brief is silent about is refused, because silence is a category creative may fill in, which is the opposite of a constraint; an empty allowance is a real constraint and is kept distinct from no entry. The flow is ordered and a skip is refused: a creative brief produced once the conversion creative exists is a caption, which is the same shape as a forecast dated after its period, and an asset-truth comparison run before the creative exists has compared nothing. Going backwards is permitted and reported as restarting rather than continuing, since a defect found at the gates genuinely does send work back to the brief. And the asset-truth comparison is refused when its author made the creative -- the requirement says independent, and the author of a picture has been thinking about what it does well, which is the failure improve.league refuses when a configuration brings its own tasks.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Evidence-to-Creative Pipeline",
   "version": "v1.3.3"
  },
@@ -606,9 +606,9 @@
  {
   "body": "Evaluate every listing set as a shopper actually sees it: search thumbnail, phone gallery, first 3 frames, then full gallery. Store screenshots/renders of these contexts during QA. Optimize title-safe area and visual hierarchy for small screens rather than desktop-only output.",
   "id": 66,
-  "note": "thumbnail evaluated at 2000px search scale; no phone gallery or first-3-frames context renders",
+  "note": "publish/mobile.py evaluates the set in the four contexts the requirement names, in the order a shopper meets them. The premise: a listing is assembled at full size, one frame at a time, by somebody who already knows what the product is, and chosen at 170 pixels in a grid of competitors by somebody who does not -- so a check that runs only at build size runs in a context no shopper is ever in. The first three frames are treated as a context rather than a prefix, which is the substance: most people do not scroll, so those three answer the buying question between them or nothing does, and an excellent gallery below them is invisible. Three frames all doing one job is one frame shown three times; none of them doing DESIRE fails at the only depth most shoppers reach. A thin gallery is reported without being a defect, because two good frames are not a failure and the empty space is still worth seeing. Every context result carries the render that produced it and an unrendered context reads not_rendered rather than passed -- 'we checked the mobile view' is not a finding anybody can revisit when a listing underperforms three months later, which is exactly when somebody wants to.",
   "section": "Visual asset production audit",
-  "status": "partial",
+  "status": "covered",
   "title": "Mobile-First Creative QA",
   "version": "v1.3.3"
  },
@@ -723,11 +723,12 @@
  {
   "body": "Independent visual QA checks stitch-scale plausibility, yarn continuity, edge construction, drape, joins, hands/fingers where present, garment fit, shadows, repeated textures, impossible seams and other synthetic artifacts. Product Truth validates structure; realism QA validates that the customer-facing depiction does not look fake or physically impossible.",
   "id": 79,
-  "note": "ten physical-realism checks, and unmade checks on a generated frame are unjudged rather than assumed fine. Remaining: making them, which needs the vision capability.",
+  "note": "ten physical-realism checks, and unmade checks on a generated frame are unjudged rather than assumed fine. Remaining: making them, which needs the vision capability. Parked on browser_vision rather than left ready, for the reason that gate's own entry gives: a requirement whose only remaining work needs a parked capability belongs with the parked.",
   "section": "Creative parity + model hard gate",
   "status": "partial",
   "title": "Physical Realism and Crochet Plausibility Review",
-  "version": "v1.3.4"
+  "version": "v1.3.4",
+  "parked_on": "browser_vision"
  },
  {
   "body": "Do not fill a gallery to reach an arbitrary image count. Every frame must pass its commercial job and quality gate. A shorter excellent gallery is preferable to a longer gallery containing weak filler; expand only when additional frames answer a buyer question, add proof or increase desire.",
@@ -1527,11 +1528,12 @@
  {
   "body": "Before live Etsy launch, select representative Brambleloop products and compare the full purchase experience against category-matched purchased benchmarks: listing promise, download packaging, PDF, charts, instructions, visual polish, support and perceived value. If Brambleloop is materially inferior on a critical dimension without a deliberate tradeoff, release is blocked for remediation.",
   "id": 168,
-  "note": "pipeline.challenge() compares a product against the best category-matched benchmark on seven critical dimensions and blocks release, and launch readiness carries it as a requirement. Unrunnable until benchmarks are purchased, and products do not yet carry a benchmark category",
+  "note": "pipeline.challenge() compares a product against the best category-matched benchmark on seven critical dimensions and blocks release, and launch readiness carries it as a requirement. Unrunnable until benchmarks are purchased, and products do not yet carry a benchmark category. Parked on the benchmark_purchases gate: the note already said unrunnable until benchmarks are purchased, and a note is not a park.",
   "section": "Competitive product teardown laboratory",
   "status": "partial",
   "title": "Pre-Launch Benchmark Challenge",
-  "version": "v1.3.8"
+  "version": "v1.3.8",
+  "parked_on": "benchmark_purchases"
  },
  {
   "body": "Add an internal question to every teardown and Brambleloop QA: 'After paying, does this feel better than expected?' Measure the mechanisms that create delight: clarity, bonus utility, navigation, polish, support, customization and confidence. Brambleloop should engineer positive surprise without bloating products with useless filler.",

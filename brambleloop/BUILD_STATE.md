@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 198 | satisfied, with a named test or artefact |
-| partial | 60 | something real exists and is short of the requirement |
+| covered | 200 | satisfied, with a named test or artefact |
+| partial | 58 | something real exists and is short of the requirement |
 | missing | 6 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **66 requirements are executable** (partial +
+as one nobody has written. **64 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 198 of 320 covered is **61.9% complete**, read from the registry rather than
+typed. 200 of 320 covered is **62.5% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `e1a1e55`: **2,308 tests passing, 0 failing** across
-131 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `527ea93`: **2,359 tests passing, 0 failing** across
+134 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -601,6 +601,35 @@ independent visual review and #64's trigger is a photograph of an object nobody 
 Parked on `browser_vision` and a new `physical_proof` gate — which opens on the first
 PhysicalTest row with a completion date, counted rather than read from a flag saying testing
 is set up. Ready fell from 29 to 19. Decisions B-449..B-452.
+
+**#63/#66 — the one direction creative may not go, and the context the builder never occupies.**
+`publish/brief.py`. The CIR-to-evidence half of the flow was built; the constraint in the
+middle was not, and its shape is an asymmetry. **Creative may select from truth and may never
+extend it.** A hero showing three of seven stitch types is a photograph of part of a thing —
+no listing shows everything. A hero showing an eighth is a claim about a pattern that does not
+contain it, made by an image nobody thought of as a statement. Subset, one direction, across
+all five categories the requirement names. A category the brief is *silent* about is refused,
+because silence is a category creative may fill in; an empty allowance is a real constraint
+and stays distinct from no entry.
+
+The flow is ordered because a brief produced once the creative exists is a caption — the same
+shape as a forecast dated after its period, arriving for the same reason: the convenient order
+is the wrong one and nothing else notices. Going backwards is permitted and reported as
+*restarting*, since a defect found at the gates genuinely sends work back to the brief.
+
+`publish/mobile.py` evaluates the set where it is chosen rather than where it was built. A
+listing is assembled at full size, one frame at a time, by somebody who already knows what the
+product is; it is chosen at 170 pixels, in a grid of competitors, by somebody who does not.
+**The first three frames are a context, not a prefix** — a phone shows three before anybody
+scrolls, most people do not scroll, and three frames all doing one job is one frame shown
+three times in the only context most shoppers occupy. An unrendered context reads
+`not_rendered`: "we checked the mobile view" is not a finding anybody can revisit when a
+listing underperforms three months later, which is exactly when somebody wants to.
+
+**And prose was doing a gate's job for the third time.** #168 said "unrunnable until
+benchmarks are purchased" and #79 said "needs the vision capability", and both sat in the
+ready queue. Parked on `benchmark_purchases` and `browser_vision`. Ready is 15 against 87
+parked, and the number now means what it says. Decisions B-453..B-457.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3736,8 +3765,11 @@ timings, written there by the system rather than by hand.
   the geometry object with the two-numbers-disagreeing check, visual defects given the
   fixtures compiler defects already had, and a listing certificate invalidated by its inputs
   rather than by being revoked. #61 and #64 parked on browser_vision and a new physical_proof
-  gate; ready fell from 29 to 19. Registry 198 of 320 covered, 66 executable. Decisions
-  B-404..B-452.
+  gate; ready fell from 29 to 19 (green at 2,359). Then #63/#66: creative constrained to a
+  subset of truth in one direction, the flow ordered so a brief cannot be a caption, and the
+  listing evaluated where it is chosen rather than where it was built. #168 and #79 parked;
+  ready is 15 against 87. Registry 200 of 320 covered, 64 executable. Decisions
+  B-404..B-457.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

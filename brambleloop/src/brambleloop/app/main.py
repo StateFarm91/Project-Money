@@ -1338,6 +1338,25 @@ def api_weekly_evolution() -> dict:
     return weekly.state()
 
 
+@app.get("/api/creative-flow")
+def api_creative_flow() -> dict:
+    """Truth to creative, and the listing as a shopper meets it (#63, #66).
+
+    Creative may select from truth and may never extend it. Showing three of seven stitch
+    types is a photograph of part of a thing; showing an eighth is a claim about a pattern
+    that does not contain it, made by an image nobody thought of as a statement. The flow is
+    ordered because a brief produced after the creative is a caption, and the asset-truth
+    comparison is refused when its author made the work.
+
+    And the listing is evaluated where it is chosen rather than where it was built: at 170
+    pixels, in a grid, by somebody who does not yet know what this is. The first three frames
+    are a context rather than a prefix -- most people do not scroll.
+    """
+    from ..publish import brief, mobile
+
+    return {"flow": brief.state(), "mobile": mobile.state()}
+
+
 @app.get("/api/listing-integrity")
 def api_listing_integrity() -> dict:
     """Measurements traced, defects named, and the certificate that invalidates itself (#60, #68, #70).

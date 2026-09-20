@@ -328,7 +328,7 @@ GATES: tuple[Gate, ...] = (
          # left are judgements about a photograph. A requirement whose only remaining work
          # needs a parked capability belongs with the parked, not in a queue advertising
          # work nobody can start.
-         (1, 15, 37, 39, 61, 67, 71, 76, 86, 116, 126, 189, 218, 221, 222, 236, 277, 278,
+         (1, 15, 37, 39, 61, 67, 71, 76, 79, 86, 116, 126, 189, 218, 221, 222, 236, 277, 278,
           281, 303, 304, 315, 320),
          "a browser worker endpoint is configured"),
     Gate("image_generation", "an image-generation capability for the canonical model pack",
@@ -337,7 +337,7 @@ GATES: tuple[Gate, ...] = (
          "an image-generation key is set"),
     Gate("benchmark_purchases", "roughly ten purchased competitor patterns",
          _benchmarks_purchased,
-         (165, 166, 317),
+         (165, 166, 168, 317),
          "at least one BenchmarkProduct row exists -- counted, not asked about"),
     Gate("offsite_storage",
          "an object-storage bucket and credential outside this provider, so a copy of the "
