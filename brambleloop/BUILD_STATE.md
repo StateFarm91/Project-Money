@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 189 | satisfied, with a named test or artefact |
-| partial | 66 | something real exists and is short of the requirement |
+| covered | 190 | satisfied, with a named test or artefact |
+| partial | 65 | something real exists and is short of the requirement |
 | missing | 9 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **75 requirements are executable** (partial +
+as one nobody has written. **74 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 189 of 320 covered is **59.1% complete**, read from the registry rather than
+typed. 190 of 320 covered is **59.4% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on commit `7855fef`: **2,144 tests passing, 0 failing** across
-125 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on commit `4725036`: **2,242 tests passing, 0 failing** across
+129 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -471,6 +471,35 @@ Both handlers are covered by the platform suite's `test_every_scheduled_cadence_
 which runs every cadence for real rather than checking one is registered. #191 closes to
 `covered` with them: the nightly sweep is what calls `freshness.sweep()` and reports the stale,
 churning and never-measured departments. Decisions B-432..B-439.
+
+**#179 closes: the eight roles become running agents.**
+Each meta-agent now has an entry in `agents/registry.py` at GREEN with a CA$0.25 daily
+ceiling, exactly one job type it may run, and a daily cadence. Both lists are *generated from
+the roster* rather than retyped, because two lists of the same eight drift and the drift is
+silent: an agent with no role has authority over nothing, and a role with no agent is a job
+description nobody holds. The agent **is** the role, so `ctx.job.agent` dispatches and a pass
+by an agent that is not a role is refused rather than defaulted to something.
+
+None of them proposes or promotes. Proposing runs through #190's upgrade pipeline and
+promotion through #178's tiers, and a meta-agent that could promote would be the company
+rewriting itself faster than it can observe the results — the failure #178 exists to prevent.
+The ceilings are nominal rather than absent, because a meta-agent able to spend real money
+deciding whether somebody else should have spent money is the wrong shape.
+
+Run against the real database, all eight report `unmeasured` and propose nothing. That is
+asserted by test rather than described: a swarm reporting activity against no rows would be
+reporting on work it invented, which is the specific failure `swarm.next_work` already names
+for ordinary agents and which applies with more force to the agents whose only job is other
+agents.
+
+**And a rule broken two hours after recording it.** #190's module was written as
+`improve/pipeline.py` while `runtime/pipeline.py` already existed — exactly the collision
+B-421 was written to prevent. Nothing would have broken; different packages mean no import
+collision. It would only have meant two unrelated modules answering to one name in a codebase
+where imports are read far more often than they are written. It was found by stumbling into
+the other module while tracing a missing handler, not by running the check. Renamed to
+`improve/upgrades.py` across four files. Recorded as B-440, because writing a rule down is
+evidently not the same as following it.
 
 **A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
 A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
@@ -3594,7 +3623,10 @@ timings, written there by the system rather than by hand.
   Then the autonomy block: #191's per-department freshness SLAs (green at 2,168), and
   #190/#193/#194 -- the upgrade pipeline, the nightly window and the weekly deep cycle, with
   both new cadences wired and exercised by the platform suite that runs every cadence for
-  real. Registry 189 of 320 covered, 75 executable. Decisions B-404..B-439.
+  real (green at 2,242 across 129 suites on `4725036`). Then #179 closed: the eight
+  meta-agents became running agents with their own authority, ceilings and cadences, all
+  generated from the roster so the three lists cannot drift. Registry 190 of 320 covered,
+  74 executable. Decisions B-404..B-440.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

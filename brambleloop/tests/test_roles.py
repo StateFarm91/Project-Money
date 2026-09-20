@@ -225,6 +225,108 @@ def test_state_lists_the_refusals_and_the_modules_it_operates():
     assert "arithmetic impossibility" in out["note"]
 
 
+# ---- the roster is the single source of the eight ------------------------
+
+
+def test_every_role_has_an_agent_and_every_meta_agent_has_a_role():
+    """Two lists of the same eight drift, and the drift is silent: an agent with no role has
+    authority over nothing, and a role with no agent is a job description nobody holds."""
+    from brambleloop.agents.registry import DEFAULT_AGENTS
+
+    declared = {a["name"] for a in DEFAULT_AGENTS
+                if R.ROLE_JOB_TYPE in a.get("allowed_job_types", [])}
+    assert declared == set(R.BY_KEY), declared ^ set(R.BY_KEY)
+
+
+def test_every_role_has_a_cadence_and_the_cadence_names_the_role_as_its_agent():
+    from brambleloop.runtime.worker import CADENCES
+
+    rows = [c for c in CADENCES if c[2] == R.ROLE_JOB_TYPE]
+    assert {c[1] for c in rows} == set(R.BY_KEY)
+    assert len(rows) == len(R.ROLES)
+
+
+def test_the_meta_agents_are_green_and_cheap():
+    """A meta-agent that can spend real money to decide whether somebody else should have
+    spent money is the wrong shape."""
+    from brambleloop.agents.registry import DEFAULT_AGENTS
+    from brambleloop.core.models import Authority
+
+    for entry in DEFAULT_AGENTS:
+        if R.ROLE_JOB_TYPE not in entry.get("allowed_job_types", []):
+            continue
+        assert entry["authority"] == Authority.GREEN, entry["name"]
+        assert entry["daily_cost_ceiling_cad"] <= 0.5, entry["name"]
+
+
+def test_a_meta_agent_may_run_nothing_but_its_own_job_type():
+    from brambleloop.agents.registry import DEFAULT_AGENTS
+
+    for entry in DEFAULT_AGENTS:
+        if R.ROLE_JOB_TYPE not in entry.get("allowed_job_types", []):
+            continue
+        assert entry["allowed_job_types"] == [R.ROLE_JOB_TYPE], entry["name"]
+
+
+def test_every_role_says_what_it_reads():
+    assert set(R.ROLE_READS) == set(R.BY_KEY)
+    for key, reads in R.ROLE_READS.items():
+        assert reads.strip(), key
+
+
+def test_a_pass_by_an_agent_that_is_not_a_role_is_refused():
+    """The agent *is* the role here, so an agent with no role has no rows it answers for."""
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.runtime import release
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/roles.sqlite")
+    db.create_all()
+
+    class Ctx:
+        def __init__(self):
+            self.db = db
+            self.job = type("J", (), {"agent": "orchestrator", "inputs": {}})()
+
+        def audit(self, *a, **k):
+            pass
+
+    try:
+        release.handlers.get(R.ROLE_JOB_TYPE)(Ctx())
+    except ValueError as e:
+        assert "is not a meta-agent role" in str(e)
+    else:  # pragma: no cover
+        raise AssertionError("a non-role agent did a role's work")
+
+
+def test_every_role_reports_unmeasured_on_an_empty_database_rather_than_activity():
+    """A swarm reporting activity against no rows would be reporting on work it invented."""
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.runtime import release
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/roles.sqlite")
+    db.create_all()
+    handler = release.handlers.get(R.ROLE_JOB_TYPE)
+
+    for role in R.ROLES:
+        class Ctx:
+            def __init__(self, key):
+                self.db = db
+                self.job = type("J", (), {"agent": key, "inputs": {}})()
+
+            def audit(self, *a, **k):
+                pass
+
+        out = handler(Ctx(role.key))
+        assert out["role"] == role.key
+        assert out["proposed"] == 0, "a meta-agent proposed something on an empty database"
+        assert out["scorecard"]["reading"] == R.UNMEASURED
+        assert out["scorecard"]["score"] == 0.0
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

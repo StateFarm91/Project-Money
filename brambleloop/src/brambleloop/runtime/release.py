@@ -1697,6 +1697,94 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
             "catalogue_growth": report["catalogue_growth"]}
 
 
+@handlers.register("improve.role_work")
+def handle_role_work(ctx: JobContext) -> dict:
+    """One meta-agent's pass over the rows it answers for (#179).
+
+    The agent *is* the role, so `ctx.job.agent` dispatches. Each pass reads and reports; none
+    of them promotes anything, because proposing runs through #190's pipeline and promotion
+    through #178's tiers, and a meta-agent that could promote would be the company rewriting
+    itself faster than it can observe the results.
+
+    What comes back is a count of rows read and things found, never a count of changes made.
+    On an empty database most of these find nothing and say so, which is the correct output
+    for a company with no customers: a swarm reporting activity here would be reporting on
+    work it invented.
+
+    GREEN: reads rows, writes an audit record, spends nothing.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import (Incident, Job, JobStatus, LedgerEntry, Lesson,
+                               ConfigVersion, ListingAsset)
+    from ..improve import roles
+
+    role_key = ctx.job.agent
+    try:
+        role = roles.role(role_key)
+    except roles.RoleRefused as exc:
+        raise ValueError(
+            f"{role_key!r} ran {roles.ROLE_JOB_TYPE} and is not a meta-agent role. The agent "
+            f"is the role here, so an agent with no role has no rows it answers for") from exc
+
+    read = found = 0
+    with ctx.db.session() as session:
+        if role_key == "evaluator":
+            rows = list(session.scalars(select(ConfigVersion)))
+            read = len(rows)
+            found = sum(1 for r in rows if r.incumbent and not (r.measured_outcome or {}))
+        elif role_key == "failure_miner":
+            incidents = list(session.scalars(
+                select(Incident).where(Incident.resolved.is_(False))))
+            dead = session.scalar(select(func.count()).select_from(Job)
+                                  .where(Job.status == JobStatus.DEAD)) or 0
+            read = len(incidents) + dead
+            found = len(incidents)
+        elif role_key == "lesson_router":
+            lessons = list(session.scalars(select(Lesson)))
+            read = len(lessons)
+            found = sum(1 for r in lessons if r.routed_to and not r.acted_on_by)
+        elif role_key == "prompt_tool_challenger":
+            configs = list(session.scalars(select(ConfigVersion)))
+            read = len(configs)
+            keys = {(r.kind, r.key) for r in configs}
+            challenged = {(r.kind, r.key) for r in configs if not r.incumbent}
+            found = len(keys - challenged)
+        elif role_key == "cost_optimiser":
+            entries = list(session.scalars(select(LedgerEntry)))
+            read = len(entries)
+            found = sum(1 for r in entries if (r.gross_cad or 0) > 0)
+        elif role_key == "reliability_engineer":
+            dead = session.scalar(select(func.count()).select_from(Job)
+                                  .where(Job.status == JobStatus.DEAD)) or 0
+            total = session.scalar(select(func.count()).select_from(Job)) or 0
+            read = total
+            found = dead
+        elif role_key == "creative_critic":
+            assets = list(session.scalars(select(ListingAsset)))
+            read = len(assets)
+            found = sum(1 for r in assets if not r.approved)
+        else:  # experiment_designer
+            # Experiments live in the growth portfolio, which has no rows in shadow mode.
+            read = 0
+            found = 0
+
+    activity = roles.Activity(role_key=role_key, proposals_made=0, proposals_kept=0,
+                              realised_uplift=0.0)
+    card = roles.scorecard(activity)
+    detail = {
+        "role": role_key, "reads": roles.ROLE_READS[role_key],
+        "rows_read": read, "found": found,
+        "measured_by": role.measured_by,
+        "scorecard": card,
+        "proposed": 0,
+        "why": (f"read {read} row(s) and found {found}. This pass reports; proposing runs "
+                f"through the upgrade pipeline and promotion through the tiers"),
+    }
+    ctx.audit("improve.role_work", detail=detail)
+    return detail
+
+
 @handlers.register("improve.nightly")
 def handle_nightly_improvement(ctx: JobContext) -> dict:
     """The nightly improvement sweep, whose verdict is computed rather than asserted (#193).

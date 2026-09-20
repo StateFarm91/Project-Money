@@ -63,7 +63,7 @@ WITHDRAWN = "withdrawn"
 STATES: tuple[str, ...] = (OPEN, GATHERING, READY, QUEUED_FOR_OWNER, PROMOTED, WITHDRAWN)
 
 
-class PipelineRefused(ValueError):
+class UpgradeRefused(ValueError):
     """A proposal grading itself, escaping its scope, or asking for an unactionable approval."""
 
 
@@ -83,15 +83,15 @@ class Evidence:
 
     def __post_init__(self) -> None:
         if self.kind not in tiers.EVIDENCE_KINDS:
-            raise PipelineRefused(
+            raise UpgradeRefused(
                 f"{self.kind!r} is not an evidence kind: {list(tiers.EVIDENCE_KINDS)}")
         if not self.run_ref.strip():
-            raise PipelineRefused(
+            raise UpgradeRefused(
                 f"{self.kind} with no run reference is the proposal's own opinion in the "
                 f"shape of a fact. Evidence names the run that produced it, or it is not "
                 f"evidence")
         if not self.against_fingerprint.strip():
-            raise PipelineRefused(
+            raise UpgradeRefused(
                 "evidence records the version it was gathered against, or it cannot be told "
                 "apart from evidence about a proposal that has since changed")
 
@@ -119,21 +119,21 @@ class Proposal:
         from . import roles
 
         if not self.scope:
-            raise PipelineRefused(
+            raise UpgradeRefused(
                 f"{self.key}: a proposal with no declared scope is not bounded. Without it "
                 f"the scope is whatever the change turned out to touch, decided afterwards")
         unknown = sorted(set(self.scope) - set(tiers.SURFACE_TIER))
         if unknown:
-            raise PipelineRefused(
+            raise UpgradeRefused(
                 f"{self.key}: {unknown} are not surfaces the tier classifier knows: "
                 f"{sorted(tiers.SURFACE_TIER)}. An unclassifiable surface would take no tier "
                 f"and therefore no cooldown, ceiling or evidence requirement")
         role = roles.role(self.author_role)
         if roles.PROPOSE not in role.powers:
-            raise PipelineRefused(
+            raise UpgradeRefused(
                 f"{self.author_role} may not open proposals: {list(role.powers)}")
         if len(self.hypothesis.split()) < 6:
-            raise PipelineRefused(
+            raise UpgradeRefused(
                 f"{self.key}: state what this change is expected to do, in a sentence. A "
                 f"proposal nobody can disagree with cannot be shown to have failed")
 
@@ -158,12 +158,12 @@ def attach(proposal: Proposal, evidence: Evidence, *,
     """Record a result against this proposal, refusing one from outside its bound."""
     outside = sorted(set(touched) - set(proposal.scope))
     if outside:
-        raise PipelineRefused(
+        raise UpgradeRefused(
             f"{proposal.key}: this run touched {outside}, which is outside the declared "
             f"scope {list(proposal.scope)}. A bound that widens to fit what happened is a "
             f"description, not a bound")
     if evidence.against_fingerprint != proposal.fingerprint:
-        raise PipelineRefused(
+        raise UpgradeRefused(
             f"{proposal.key}: evidence was gathered against {evidence.against_fingerprint} "
             f"and the proposal is now {proposal.fingerprint}. A result describes the version "
             f"it ran on, and this one no longer exists")
@@ -279,7 +279,7 @@ def owner_card(proposal: Proposal) -> dict:
             f"machine has finished checking is being asked to be the check")
 
     if problems:
-        raise PipelineRefused(
+        raise UpgradeRefused(
             f"{proposal.key}: this approval card is not actionable -- " + "; ".join(problems))
 
     return {

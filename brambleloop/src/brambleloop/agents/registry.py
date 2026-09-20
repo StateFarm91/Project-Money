@@ -105,6 +105,30 @@ DEFAULT_AGENTS: list[dict] = [
 
 # Capabilities no agent may hold, regardless of registry contents. Belt and braces against a
 # future session widening `allowed_job_types` without thinking.
+# The eight meta-agents of #179, generated from the roster rather than retyped, because two
+# lists of the same eight roles drift and the drift is silent: an agent here with no role in
+# `improve.roles` would have authority over nothing, and a role there with no agent would be
+# a job description nobody holds.
+#
+# All GREEN and all cheap. Each reads the rows it answers for and reports what it found; none
+# of them proposes or promotes, because proposing runs through #190's pipeline and promotion
+# through #178's tiers. The daily ceiling is nominal rather than absent: these are database
+# reads, and a meta-agent that can spend real money to decide whether somebody else should
+# have spent money is the wrong shape.
+def _meta_agents() -> list[dict]:
+    from ..improve.roles import ROLE_JOB_TYPE, ROLES
+
+    return [dict(name=role.key,
+                 description=f"Meta-agent (#179): {role.job}",
+                 allowed_job_types=[ROLE_JOB_TYPE],
+                 authority=Authority.GREEN,
+                 daily_cost_ceiling_cad=0.25)
+            for role in ROLES]
+
+
+DEFAULT_AGENTS.extend(_meta_agents())
+
+
 FORBIDDEN_COMBINATIONS: dict[str, set[str]] = {
     "listing": {"ads.campaign", "ads.adjust"},
     "marketing": {"cir.draft", "cir.revise"},

@@ -297,6 +297,25 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("health_sweep", "orchestrator", "ops.health", 15 * 60),
 ]
 
+# Requirement 179's eight meta-agents, one daily cadence each, generated from the roster so
+# that the roles, the agents and the cadences cannot drift apart. Daily and read-only: each
+# reads the rows it answers for and reports what it found. None proposes or promotes --
+# proposing runs through #190's pipeline and promotion through #178's tiers, and a meta-agent
+# that could promote would be the company rewriting itself faster than it can observe the
+# results, which is the failure #178 exists to prevent.
+#
+# The period is offset per role rather than all landing at once: eight simultaneous scans of
+# the same tables is a thundering herd on a container sized for one worker, and spreading
+# them costs nothing because none of them is urgent.
+def _role_cadences() -> list[tuple[str, str, str, int]]:
+    from ..improve.roles import ROLE_JOB_TYPE, ROLES
+
+    day = 24 * 60 * 60
+    return [(f"role_{role.key}", role.key, ROLE_JOB_TYPE, day) for role in ROLES]
+
+
+CADENCES.extend(_role_cadences())
+
 
 class Scheduler:
     def __init__(self, db: Database):

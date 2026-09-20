@@ -147,6 +147,25 @@ ROLES: tuple[Role, ...] = (
 
 BY_KEY: dict[str, Role] = {r.key: r for r in ROLES}
 
+# The single job type every role runs. One type rather than eight because the work differs by
+# role and not by kind: each of these reads its own rows and reports what it found, and eight
+# job types would be eight handlers doing the same shape of thing with different queries.
+# The *agent* is the role, so `ctx.job.agent` is what dispatches.
+ROLE_JOB_TYPE = "improve.role_work"
+
+# What each role reads when its cadence fires, named here so the handler cannot quietly
+# change what a role is accountable for.
+ROLE_READS: dict[str, str] = {
+    "evaluator": "promotions recorded since the last pass, against the capability curve after",
+    "failure_miner": "open incidents and dead letters, grouped by signature",
+    "experiment_designer": "experiments that have run long enough to have concluded",
+    "prompt_tool_challenger": "configurations with no challenger registered against them",
+    "cost_optimiser": "ledger entries by category against what they returned",
+    "reliability_engineer": "dead letters and failing health signals",
+    "creative_critic": "listing assets refused by the truth gate or the layout check",
+    "lesson_router": "lessons routed and not acted on",
+}
+
 # Things a role's proposal may claim to trade. Closed so that "efficiency" cannot be used to
 # mean whatever the proposal needs it to mean.
 TRADEABLE: tuple[str, ...] = ("cost", "latency", "reliability", "quality", "contribution",
@@ -332,6 +351,8 @@ def state() -> dict:
             "a scorecard computed from proposals made",
         ],
         "never_tradeable": list(NEVER_TRADEABLE),
+        "job_type": ROLE_JOB_TYPE,
+        "reads": dict(ROLE_READS),
         "note": ("measured by verified uplift, not number of changes -- implemented as an "
                  "arithmetic impossibility rather than as a policy"),
     }

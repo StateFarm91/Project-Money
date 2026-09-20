@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.improve import pipeline as P  # noqa: E402
+from brambleloop.improve import upgrades as P  # noqa: E402
 from brambleloop.improve import tiers  # noqa: E402
 
 NOW = datetime(2026, 9, 20, 12, 0, tzinfo=timezone.utc)
@@ -62,7 +62,7 @@ def test_evidence_with_no_run_reference_is_refused():
     p = _proposal()
     try:
         P.Evidence(kind=tiers.BASELINE, run_ref="  ", against_fingerprint=p.fingerprint)
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "opinion in the shape of a fact" in str(e)
     else:  # pragma: no cover
         raise AssertionError("a proposal vouched for itself")
@@ -72,7 +72,7 @@ def test_evidence_of_an_unrecognised_kind_is_refused():
     p = _proposal()
     try:
         P.Evidence(kind="we_tested_it", run_ref="r1", against_fingerprint=p.fingerprint)
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "not an evidence kind" in str(e)
     else:  # pragma: no cover
         raise AssertionError("an invented evidence kind was accepted")
@@ -81,7 +81,7 @@ def test_evidence_of_an_unrecognised_kind_is_refused():
 def test_evidence_must_name_the_version_it_describes():
     try:
         P.Evidence(kind=tiers.BASELINE, run_ref="r1", against_fingerprint="")
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "has since changed" in str(e)
     else:  # pragma: no cover
         raise AssertionError("evidence with no version was accepted")
@@ -110,7 +110,7 @@ def test_stale_evidence_cannot_be_attached_after_the_content_moved():
     p.content = "threshold = 1"
     try:
         P.attach(p, stale)
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "no longer exists" in str(e)
     else:  # pragma: no cover
         raise AssertionError("evidence about a dead version was attached")
@@ -129,7 +129,7 @@ def test_revising_a_proposal_with_no_evidence_yet_says_so():
 def test_a_proposal_with_no_declared_scope_is_not_bounded():
     try:
         _proposal(scope=())
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "decided afterwards" in str(e)
     else:  # pragma: no cover
         raise AssertionError("an unbounded proposal was opened")
@@ -139,7 +139,7 @@ def test_a_run_touching_a_surface_outside_the_scope_is_refused():
     p = _proposal(scope=("weights",))
     try:
         P.attach(p, _evidence(p, tiers.BASELINE), touched=("spend_limit",))
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "a description, not a bound" in str(e)
     else:  # pragma: no cover
         raise AssertionError("the bound widened to fit what happened")
@@ -149,7 +149,7 @@ def test_a_surface_the_classifier_does_not_know_is_refused():
     """An unclassifiable surface would take no tier, and therefore no cooldown at all."""
     try:
         _proposal(scope=("vibes",))
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "no tier" in str(e)
     else:  # pragma: no cover
         raise AssertionError("an unclassifiable surface was accepted")
@@ -167,7 +167,7 @@ def test_a_run_inside_the_scope_is_fine():
 def test_a_judging_role_may_not_open_a_proposal():
     try:
         _proposal(author_role="evaluator")
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "may not open proposals" in str(e)
     else:  # pragma: no cover
         raise AssertionError("the judge opened its own proposal")
@@ -176,7 +176,7 @@ def test_a_judging_role_may_not_open_a_proposal():
 def test_a_hypothesis_nobody_could_disagree_with_is_refused():
     try:
         _proposal(hypothesis="make it better")
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "cannot be shown to have failed" in str(e)
     else:  # pragma: no cover
         raise AssertionError("an undisprovable hypothesis was accepted")
@@ -272,7 +272,7 @@ def test_a_vague_rollback_is_refused():
     _complete(db, p)
     try:
         P.owner_card(p)
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "hope with a plan's grammar" in str(e)
     else:  # pragma: no cover
         raise AssertionError("an unactionable rollback was queued")
@@ -285,7 +285,7 @@ def test_every_vague_word_is_caught():
         _complete(db, p)
         try:
             P.owner_card(p)
-        except P.PipelineRefused:
+        except P.UpgradeRefused:
             continue
         raise AssertionError(f"{word!r} passed as an exact rollback")
 
@@ -296,7 +296,7 @@ def test_an_owner_is_not_asked_to_be_the_check():
     P.attach(p, _evidence(p, tiers.BASELINE))
     try:
         P.owner_card(p)
-    except P.PipelineRefused as e:
+    except P.UpgradeRefused as e:
         assert "being asked to be the check" in str(e)
     else:  # pragma: no cover
         raise AssertionError("an owner was queued before the machine had finished")

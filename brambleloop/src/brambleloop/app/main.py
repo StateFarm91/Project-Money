@@ -1302,9 +1302,9 @@ def api_upgrade_pipeline() -> dict:
     while nobody watches. Auto-promotion reads the tier and never the proposal's own view of
     its risk; there is no confidence field to set.
     """
-    from ..improve import pipeline
+    from ..improve import upgrades
 
-    return pipeline.state()
+    return upgrades.state()
 
 
 @app.get("/api/nightly")
