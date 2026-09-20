@@ -213,6 +213,41 @@ def test_arenas_reads_the_key_the_matrix_actually_returns():
     assert len(found) == min(len(gaps), 12), (len(found), len(gaps))
 
 
+def test_no_gaps_against_observed_listings_is_an_error_not_an_empty_list():
+    """A defect that makes discovery say "nothing to do" must fail, not complete.
+
+    A job that fails is re-driven by the next deploy. A job that succeeds with a false
+    negative consumes its window -- which is exactly what happened: the weekly cadence
+    recorded "no proven-and-unserved arena is observed" as a success and went quiet for
+    seven days while the matrix held twenty-seven.
+    """
+    from brambleloop.seasonal import benchmark_matrix
+
+    db = _db()
+    with db.session() as s:
+        for i in range(3):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"C{i}",
+                                   title="Cozy Crochet Christmas Stocking Pattern",
+                                   pod="stockings"))
+    # Pretend this catalogue answers every department, so the matrix legitimately finds no
+    # gap while still having read listings. That is the exact shape a wrong key produces.
+    everything = {row["event"]: tuple(row["departments"])
+                  for row in benchmark_matrix.coverage_matrix(None)["rows"]}
+    assert benchmark_matrix.matrix(db, covered=everything)["benchmark_observed_listings"] > 0
+
+    try:
+        P.arenas(db, covered=everything)
+    except P.NoArenasContradictsEvidence as e:
+        assert "wrong place" in str(e)
+    else:
+        raise AssertionError("an empty gap list against observed listings passed silently")
+
+
+def test_no_observation_at_all_is_an_empty_list_and_not_an_error():
+    """Nobody has looked is a real state, and the one this rule must not fire on."""
+    assert P.arenas(_db()) == []
+
+
 def test_no_reader_carries_its_own_literal_for_the_proven_gap_key():
     """One constant, because guessing it wrong fails silently and flatteringly."""
     from brambleloop.seasonal import benchmark_matrix

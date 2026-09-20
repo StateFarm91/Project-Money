@@ -1515,11 +1515,15 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway.model_gateway import ModelGateway
 
+    # Deliberately not caught. `NoArenasContradictsEvidence` means the matrix disagrees with
+    # the catalogue of listings behind it, and a defect that makes discovery report "nothing
+    # to do" must fail loudly rather than complete: a job that fails is re-driven by the next
+    # deploy, and a job that succeeds with a false negative consumes its window.
     found = prospecting.arenas(ctx.db)
     if not found:
         ctx.audit("creative.expedition_blocked",
-                  detail={"reason": "no proven-and-unserved arena is currently observed"})
-        return {"ran": False, "reason": "no proven-and-unserved arena is observed"}
+                  detail={"reason": "no benchmark listing has been observed yet"})
+        return {"ran": False, "reason": "no benchmark listing has been observed yet"}
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
     arena = found[week % len(found)]

@@ -157,7 +157,20 @@ class Arena:
                 "benchmark_listings": self.benchmark_listings, "forms": self.forms}
 
 
-def arenas(db, *, today: date | None = None, limit: int = 12) -> list[Arena]:
+class NoArenasContradictsEvidence(RuntimeError):
+    """No proven gaps, against a benchmark that has been observed selling.
+
+    Deliberately an exception rather than an empty list. "No proven-and-unserved arena is
+    observed" is a legitimate state when nobody has looked, and a defect signature when 438
+    listings have been read and the matrix reports twenty-seven gaps -- and the two are
+    indistinguishable from a caller's side. The first version of this returned empty on a
+    wrong dictionary key, the weekly discovery cadence recorded the no-op as a success, and
+    it consumed its window for seven days.
+    """
+
+
+def arenas(db, *, today: date | None = None, limit: int = 12,
+           covered: dict | None = None) -> list[Arena]:
     """Proven-and-unserved pairs, deepest and soonest first, with each pod's real forms.
 
     The ordering is the matrix's own: how many listings the benchmark was observed to carry,
@@ -168,15 +181,23 @@ def arenas(db, *, today: date | None = None, limit: int = 12) -> list[Arena]:
     """
     from ..seasonal import benchmark_matrix
 
-    report = benchmark_matrix.matrix(db, today=today)
+    report = benchmark_matrix.matrix(db, today=today, covered=covered)
     # `proven_and_unserved`, which is the key the matrix returns -- not `proven_gaps`, which
     # is the name of the local variable that builds it. Reading the wrong key here returned
     # an empty list, and an empty list of gaps is indistinguishable from a catalogue that
     # answers every proven market. Production reported "no arenas" against a matrix holding
     # 27 of them, which is the second time today a reader and a writer disagreed about a key
     # and the wrong answer was the comfortable one.
+    gaps = report.get(benchmark_matrix.PROVEN_KEY) or []
+    if not gaps and report.get("benchmark_observed_listings"):
+        raise NoArenasContradictsEvidence(
+            f'the matrix reports no proven-and-unserved department against '
+            f'{report["benchmark_observed_listings"]} observed benchmark listings. Either '
+            f'this catalogue answers every market the benchmark sells in -- which it does '
+            f'not -- or a reader is looking in the wrong place')
+
     out: list[Arena] = []
-    for gap in report.get(benchmark_matrix.PROVEN_KEY, [])[:limit]:
+    for gap in gaps[:limit]:
         out.append(Arena(
             event=gap["event"], pod=gap["department"],
             benchmark_listings=gap["benchmark_listings"] or 0,
