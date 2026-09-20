@@ -368,6 +368,10 @@ def retrospective(db, *, days: int = 7) -> dict:
         "regressed_cells": regressed,
         "unmeasured_cells": unmeasured,
         "lessons_recorded": len(lessons),
+        # #104's clause, run rather than described. A retrospective is where a plateau has
+        # to arrive: it is the weekly moment somebody reads, and a defect that only exists
+        # when queried does not exist.
+        "creative_plateau": capability_plateau(db, cell=CREATIVE_CELL),
         "bottleneck": (regressed[0] if regressed else
                        (unmeasured[0] if unmeasured else None)),
         "honest_note": (
@@ -376,3 +380,112 @@ def retrospective(db, *, days: int = 7) -> dict:
             if unmeasured else
             "Every cell has a measured history, so movement in any of them is checkable."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #104: a plateau is a defect, not a disappointing quarter
+#
+# The requirement is explicit that the Improvement Department *treats* a creative plateau as
+# a top-level business defect. Computing one and leaving it in a report is not treating it as
+# anything -- the whole point of the wording is that it has to arrive where defects arrive,
+# unprompted, and be as awkward as any other defect.
+
+PLATEAU_SIGNATURE = "creative-capability-plateau"
+
+# The cell #104 is about. Named rather than parameterised, because "which capability" is the
+# requirement's answer and not a caller's choice.
+CREATIVE_CELL = "product_creativity"
+
+
+def capability_plateau(db, *, cell: str = CREATIVE_CELL, readings: int = 3) -> dict:
+    """Has this cell's own measured capability stopped moving?
+
+    Reads the capability history the cell already records, and applies the rules from
+    `creative.standard.plateau`: a move below the meaningful threshold is not a move, and a
+    cell with too few readings is `unmeasured` rather than flat. A company that stopped
+    measuring looks exactly like one that stopped improving.
+    """
+    from ..creative.standard import MEANINGFUL_MOVE
+
+    if cell not in BY_KEY:
+        raise ImprovementRefused(f"unknown cell {cell!r}")
+    # `capability_history` is ordered oldest-first and its `limit` takes the *earliest*
+    # rows, so a small limit here would read the cell's first readings forever. Take the
+    # whole history and then the tail, which is the window "has it stopped moving" is about.
+    history = capability_history(db, cell, limit=1000)
+    values = [row["value"] for row in history if row.get("value") is not None]
+    window = values[-readings:]
+
+    if len(window) < readings:
+        return {
+            "cell": cell, "verdict": "unmeasured", "is_defect": False,
+            "readings": len(window), "needs": readings,
+            "reason": (f"{len(window)} capability reading(s) against {readings}. A cell that "
+                       f"stopped being measured is not a cell that stopped improving, and "
+                       f"reporting one as the other sends the remedy in the wrong direction"),
+        }
+
+    moves = [round(window[i + 1] - window[i], 6) for i in range(len(window) - 1)]
+    higher_is_better = BY_KEY[cell].higher_is_better
+    meaningful = [m for m in moves if abs(m) >= MEANINGFUL_MOVE]
+    flat = not meaningful
+    backwards = bool(meaningful) and all(
+        (m <= 0 if higher_is_better else m >= 0) for m in moves)
+
+    return {
+        "cell": cell,
+        "metric": BY_KEY[cell].metric,
+        "values": window,
+        "moves": moves,
+        "threshold": MEANINGFUL_MOVE,
+        "verdict": "plateau" if flat else "declining" if backwards else "moving",
+        "is_defect": flat or backwards,
+        "reason": (
+            f"{readings} consecutive readings of {BY_KEY[cell].metric!r} moved by less than "
+            f"{MEANINGFUL_MOVE}. #104 makes that a top-level business defect rather than a "
+            f"disappointing quarter" if flat else
+            f"{BY_KEY[cell].metric!r} has moved backwards across {readings} readings"
+            if backwards else
+            f"{BY_KEY[cell].metric!r} moved by {max(moves, key=abs)}"),
+    }
+
+
+def raise_plateau_defect(db, *, cell: str = CREATIVE_CELL, readings: int = 3) -> dict:
+    """Open an incident when capability has stopped moving, and close it when it starts.
+
+    Both halves, because a defect that never closes becomes furniture and a company learns to
+    read past it. Idempotent: an open incident with this signature is updated rather than
+    duplicated, so a plateau lasting six weeks is one defect six weeks old and not six.
+
+    It does not halt publication. A plateau is a business defect, not a safety one, and a
+    gate that stops the company shipping because its ideas are not improving fast enough
+    would be the wrong remedy applied with real force.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    state = capability_plateau(db, cell=cell, readings=readings)
+    signature = f"{PLATEAU_SIGNATURE}:{cell}"
+
+    with db.session() as s:
+        existing = s.scalar(select(Incident).where(
+            Incident.signature == signature, Incident.resolved.is_(False)))
+
+        if state["is_defect"]:
+            if existing is None:
+                s.add(Incident(
+                    severity="P2", signature=signature,
+                    summary=(f"Creative capability has stopped moving: {state['reason']}"),
+                    halts_publication=False, detail=state))
+                return {**state, "incident": "opened"}
+            existing.report_count += 1
+            existing.detail = state
+            return {**state, "incident": "still_open",
+                    "reported": existing.report_count}
+
+        if existing is not None:
+            existing.resolved = True
+            existing.detail = state
+            return {**state, "incident": "resolved"}
+    return {**state, "incident": "none"}

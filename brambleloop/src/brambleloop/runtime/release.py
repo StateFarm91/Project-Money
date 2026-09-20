@@ -1062,14 +1062,21 @@ def handle_improvement_retrospective(ctx: JobContext) -> dict:
     GREEN: reads rows and writes an audit record. It changes nothing.
     """
     from ..improve.bus import compounding
-    from ..improve.cells import retrospective
+    from ..improve.cells import raise_plateau_defect, retrospective
 
     report = retrospective(ctx.db)
     report["compounding"] = compounding(ctx.db)
+    # #104: a creative plateau is a top-level business defect, so it opens an incident
+    # rather than appearing in a paragraph. Opened and closed here, because a defect that
+    # never resolves becomes furniture and a company learns to read past it.
+    plateau = raise_plateau_defect(ctx.db)
+    report["creative_plateau"] = plateau
     ctx.audit("improvement.retrospective", detail=report)
     return {"bottleneck": report["bottleneck"],
             "regressed": report["regressed_cells"],
-            "unmeasured": len(report["unmeasured_cells"])}
+            "unmeasured": len(report["unmeasured_cells"]),
+            "creative_plateau": plateau["verdict"],
+            "plateau_incident": plateau["incident"]}
 
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:

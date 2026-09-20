@@ -332,6 +332,118 @@ def test_the_governance_boundary_is_stated_where_the_owner_can_read_it():
     assert "cheapest way to improve any of them" in described["why"]
 
 
+# ---- #104: a plateau is a defect, not a disappointing quarter ----------------
+
+
+def _cap_db():
+    import tempfile
+
+    from brambleloop.core.db import Database
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/plateau.sqlite")
+    db.create_all()
+    return db
+
+
+def test_a_cell_with_too_few_readings_is_unmeasured_not_flat():
+    """A cell that stopped being measured is not a cell that stopped improving, and
+    reporting one as the other sends the remedy in the wrong direction."""
+    from brambleloop.improve import cells
+
+    state = cells.capability_plateau(_cap_db())
+    assert state["verdict"] == "unmeasured" and not state["is_defect"]
+
+
+def test_a_flat_capability_history_opens_an_incident():
+    from brambleloop.improve import cells
+
+    db = _cap_db()
+    for value in (0.20, 0.201, 0.202):
+        cells.record_capability(db, cells.CREATIVE_CELL, value, sample=11)
+    result = cells.raise_plateau_defect(db)
+    assert result["verdict"] == "plateau" and result["is_defect"]
+    assert result["incident"] == "opened"
+
+
+def test_a_plateau_lasting_six_weeks_is_one_defect_and_not_six():
+    """A defect that duplicates itself weekly is a defect nobody can act on."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Incident
+    from brambleloop.improve import cells
+
+    db = _cap_db()
+    for value in (0.20, 0.201, 0.202):
+        cells.record_capability(db, cells.CREATIVE_CELL, value, sample=11)
+    cells.raise_plateau_defect(db)
+    again = cells.raise_plateau_defect(db)
+    assert again["incident"] == "still_open" and again["reported"] == 2
+    with db.session() as s:
+        assert len(list(s.scalars(select(Incident)))) == 1
+
+
+def test_the_incident_closes_when_capability_starts_moving_again():
+    """A defect that never resolves becomes furniture and a company reads past it."""
+    from brambleloop.improve import cells
+
+    db = _cap_db()
+    for value in (0.20, 0.201, 0.202):
+        cells.record_capability(db, cells.CREATIVE_CELL, value, sample=11)
+    cells.raise_plateau_defect(db)
+    cells.record_capability(db, cells.CREATIVE_CELL, 0.40, sample=11)
+    recovered = cells.raise_plateau_defect(db)
+    assert recovered["verdict"] == "moving"
+    assert recovered["incident"] == "resolved"
+
+
+def test_capability_going_backwards_is_also_a_defect():
+    from brambleloop.improve import cells
+
+    db = _cap_db()
+    for value in (0.50, 0.42, 0.33):
+        cells.record_capability(db, cells.CREATIVE_CELL, value, sample=11)
+    result = cells.raise_plateau_defect(db)
+    assert result["verdict"] == "declining" and result["is_defect"]
+
+
+def test_the_plateau_reads_the_newest_readings_and_not_the_oldest():
+    """`capability_history` is oldest-first and its limit takes the earliest rows, so a
+    careless window reads a cell's first three readings forever."""
+    from brambleloop.improve import cells
+
+    db = _cap_db()
+    for value in (0.10, 0.101, 0.102, 0.30, 0.55, 0.80):
+        cells.record_capability(db, cells.CREATIVE_CELL, value, sample=11)
+    state = cells.capability_plateau(db)
+    assert state["values"] == [0.30, 0.55, 0.80], state["values"]
+    assert state["verdict"] == "moving"
+
+
+def test_a_plateau_never_halts_publication():
+    """A business defect, not a safety one: stopping the company shipping because its ideas
+    are not improving fast enough is the wrong remedy applied with real force."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Incident
+    from brambleloop.improve import cells
+
+    db = _cap_db()
+    for value in (0.20, 0.201, 0.202):
+        cells.record_capability(db, cells.CREATIVE_CELL, value, sample=11)
+    cells.raise_plateau_defect(db)
+    with db.session() as s:
+        incident = s.scalar(select(Incident))
+        assert incident.halts_publication is False
+
+
+def test_the_retrospective_carries_the_plateau():
+    """A defect that only exists when queried does not exist."""
+    from brambleloop.improve import cells
+
+    db = _cap_db()
+    assert "creative_plateau" in cells.retrospective(db)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
