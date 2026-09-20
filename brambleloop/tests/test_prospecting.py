@@ -664,16 +664,20 @@ def test_an_expedition_says_it_is_not_a_tournament():
 
 
 def _wheel(today=date(2026, 9, 20), cycles=20):
-    found = [P.Arena(event=e, pod=p, benchmark_listings=n, days_away=d, forms={})
-             for e, p, n, d in [("Christmas", "garments", 140, 96),
-                                ("Mother's Day", "garments", 140, 231),
-                                ("Thanksgiving (CA)", "blankets", 85, 22),
-                                ("Halloween", "hats", 85, 41),
-                                ("Christmas", "blankets", 85, 96),
-                                ("Christmas", "hats", 85, 96),
-                                ("Halloween", "bags", 17, 41),
-                                ("Christmas", "bags", 17, 96),
-                                ("Easter", "bags", 17, 196)]]
+    # Real forms, because `choose()` now skips an arena nothing can be made in. An arena
+    # with no forms is unreachable by definition, and a wheel built from empty ones was
+    # testing the rotation against a set that could never be picked.
+    found = [P.Arena(event=e, pod=p, benchmark_listings=n, days_away=d, forms=f)
+             for e, p, n, d, f in [
+                 ("Christmas", "garments", 140, 96, {"fitted_garment": 57}),
+                 ("Mother's Day", "garments", 140, 231, {"fitted_garment": 57}),
+                 ("Thanksgiving (CA)", "blankets", 85, 22, {"rectangle_throw": 61}),
+                 ("Halloween", "hats", 85, 41, {"hat": 38}),
+                 ("Christmas", "blankets", 85, 96, {"rectangle_throw": 61}),
+                 ("Christmas", "hats", 85, 96, {"hat": 38}),
+                 ("Halloween", "bags", 17, 41, {"bag": 3}),
+                 ("Christmas", "bags", 17, 96, {"bag": 3}),
+                 ("Easter", "bags", 17, 196, {"bag": 3})]]
     return [P.choose(found, cycle=i, today=today) for i in range(cycles)]
 
 
@@ -696,6 +700,14 @@ def test_the_priority_programme_sweeps_its_departments_rather_than_repeating_one
     assert len({a.pod for a in picks}) == 4, {a.pod for a in picks}
 
 
+def test_an_arena_nothing_can_be_made_in_never_reaches_the_wheel():
+    """Thanksgiving blankets at 22 days and Halloween bags at 41 are both unreachable, and
+    the deterministic wheel would otherwise re-pick one every retry of its cycle."""
+    picked = {(a.event, a.pod) for a in _wheel()}
+    assert ("Thanksgiving (CA)", "blankets") not in picked
+    assert ("Halloween", "bags") not in picked
+
+
 def test_everything_else_still_gets_a_turn():
     """A reservation is a share, not an exclusion."""
     picks = _wheel()
@@ -709,7 +721,8 @@ def test_the_schedule_is_reproducible():
 
 
 def test_with_no_priority_arena_it_is_a_plain_rotation():
-    found = [P.Arena(event=e, pod="bags", benchmark_listings=5, days_away=40, forms={})
+    found = [P.Arena(event=e, pod="bags", benchmark_listings=5, days_away=120,
+                     forms={"bag": 3})
              for e in ("Halloween", "Easter")]
     picks = [P.choose(found, cycle=i).event for i in range(4)]
     assert picks == ["Halloween", "Easter", "Halloween", "Easter"]
@@ -771,6 +784,35 @@ def test_a_run_that_proposed_nothing_and_spent_nothing_reports_that_it_did_not_r
     assert result["ran"] is False, result
     assert result["proposed"] == 0
     assert "malformed" in result["reason"]
+
+
+def test_an_arena_with_no_reachable_form_is_skipped_rather_than_picked():
+    """Live defect: the wheel picked Halloween/bags at 42 days and burned the slot.
+
+    A bag's fastest honest lane is SHORT and only QUICK was open, so the expedition returned
+    "no slot survives" on every retry that cycle. The wheel is deterministic in the cycle
+    number, so a dead arena stays picked until the cycle turns.
+    """
+    found = [
+        P.Arena(event="Halloween", pod="bags", benchmark_listings=17, days_away=41,
+                forms={"bag": 3, "basket": 3}),
+        P.Arena(event="Christmas", pod="hats", benchmark_listings=85, days_away=96,
+                forms={"hat": 38}),
+    ]
+    picked = {P.choose(found, cycle=i, today=date(2026, 9, 20)).event for i in range(8)}
+    assert picked == {"Christmas"}, picked
+
+
+def test_no_reachable_arena_at_all_is_a_statement_about_the_calendar():
+    """Not about the catalogue, and not a silent empty pick."""
+    found = [P.Arena(event="Halloween", pod="bags", benchmark_listings=17, days_away=41,
+                     forms={"bag": 3})]
+    try:
+        P.choose(found, cycle=0, today=date(2026, 9, 20))
+    except P.ProspectingRefused as e:
+        assert "about the calendar" in str(e)
+    else:
+        raise AssertionError("a dead arena was picked")
 
 
 if __name__ == "__main__":

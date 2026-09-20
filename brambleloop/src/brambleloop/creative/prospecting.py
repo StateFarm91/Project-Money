@@ -899,6 +899,18 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     if not found:
         raise ProspectingRefused("nothing to choose from")
 
+    # An arena with no viable slot is dead for this cycle, and picking it burns the slot: the
+    # wheel is deterministic in the cycle number, so every retry re-picks the same dead arena
+    # until the cycle turns. Production picked Halloween/bags at 42 days -- a bag's fastest
+    # honest lane is SHORT and only QUICK was open -- and returned "no slot survives" on every
+    # attempt. Reachability is checked here rather than discovered downstream.
+    reachable = [a for a in found if slots(a, today=today)["slots"]]
+    if not reachable:
+        raise ProspectingRefused(
+            f"none of {len(found)} proven arena(s) has a form that can still be made in time. "
+            f"That is a statement about the calendar, not about the catalogue")
+    found = reachable
+
     priority = [a for a in found if a.event in PRIORITY_PROGRAMMES]
     others = [a for a in found if a.event not in PRIORITY_PROGRAMMES]
     if not priority or not others:
