@@ -266,6 +266,49 @@ def test_an_unread_video_state_is_unknown_rather_than_no_video():
     assert unread.facets["has_video"] == "unknown"
 
 
+def test_popularity_breaks_a_tie_inside_a_department_and_never_chooses_the_set():
+    """The distinction that makes this not the popularity sort the module refuses.
+
+    Popularity as the *set* objective buys ten similar things, which is the whole reason
+    coverage decides. Popularity inside a department the set has already decided to cover
+    changes nothing about diversity: it picks the most instructive exemplar of a slot chosen
+    on other grounds, and a department's strongest seller is the customer experience most
+    worth studying.
+
+    Added after a live run where observable depth discriminated once in thirteen -- nearly
+    every listing in the real catalogue carries ten images, Etsy's gallery cap, so a richness
+    tie-break is close to constant there.
+    """
+    db = _db()
+    _listing(db, "quiet", pod="hats", price=18.0, media=10,
+             detail={"num_favorers": 11})
+    _listing(db, "loved", pod="hats", price=18.0, media=10,
+             detail={"num_favorers": 980})
+    out = P.select(db, KEY, target=1)
+    assert out["selected"][0]["listing_ref"] == "loved"
+    assert "its own market rewarded most" in out["selected"][0]["chosen_over"]["why"]
+
+    # And it does not reorder departments: coverage still decides which slots exist.
+    db2 = _db()
+    _listing(db2, "loved_hat", pod="hats", price=18.0, media=10,
+             detail={"num_favorers": 980})
+    _listing(db2, "quiet_bag", pod="bags", price=40.0, media=2,
+             detail={"num_favorers": 1})
+    picked = {p["pod"] for p in P.select(db2, KEY, target=2)["selected"]}
+    assert picked == {"hats", "bags"}, "popularity displaced a department"
+
+
+def test_an_unobserved_favourite_count_is_zero_and_loses_a_tie_rather_than_winning_one():
+    """A listing nobody has audited has no favourites recorded, and absent must not read as
+    popular."""
+    db = _db()
+    _listing(db, "unread", pod="hats", price=18.0, media=10)
+    _listing(db, "read", pod="hats", price=18.0, media=10,
+             detail={"num_favorers": 5})
+    out = P.select(db, KEY, target=1)
+    assert out["selected"][0]["listing_ref"] == "read"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

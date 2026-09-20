@@ -74,10 +74,12 @@ class Candidate:
     seasonal: str
     url: str
     facets: dict = field(default_factory=dict)
+    favourites: int = 0
 
     def to_dict(self) -> dict:
         return {"listing_ref": self.listing_ref, "title": self.title, "pod": self.pod,
                 "price_cad": round(self.price_cad, 2), "media_count": self.media_count,
+                "favourites": self.favourites,
                 "url": self.url, "facets": dict(self.facets)}
 
 
@@ -132,7 +134,8 @@ def describe(row) -> Candidate:
     return Candidate(
         listing_ref=row.listing_ref, title=row.title or "", pod=row.pod or "unclassified",
         price_cad=float(row.price_cad or 0.0), media_count=int(row.media_count or 0),
-        seasonal=row.seasonal or "", url=row.url or "", facets=facets)
+        seasonal=row.seasonal or "", url=row.url or "", facets=facets,
+        favourites=int(detail.get("num_favorers") or 0))
 
 
 def candidates(db, benchmark_key: str, *, departments: list[str] | None = None,
@@ -215,9 +218,14 @@ def _instead_of(best: Candidate, new: dict, runner_up: Candidate | None,
             f"customer experience on the page: {richness(best)} against "
             f"{richness(runner_up)} on gallery depth, video, stated terms and stated sizing"
             if richness(best) != richness(runner_up) else
-            f"level on coverage at {len(new)} new facets and level on observable depth, so "
-            f"a stable ordering decided it and the same catalogue produces the same list "
-            f"twice"),
+            f"level on coverage at {len(new)} new facets and level on observable depth; "
+            f"this listing carries {best.favourites} favourites against "
+            f"{runner_up.favourites}, so the department's slot went to the exemplar its own "
+            f"market rewarded most"
+            if best.favourites != runner_up.favourites else
+            f"level on coverage at {len(new)} new facets, on observable depth and on "
+            f"favourites, so a stable ordering decided it and the same catalogue produces "
+            f"the same list twice"),
         "redundant_candidates": redundant,
         "pool_considered": pool_size,
         "redundancy_note": (
@@ -267,11 +275,23 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
 
     while remaining and len(chosen) < target:
         scored = [(len(_new_values(c, covered)), c) for c in remaining]
-        # Coverage first, then how much a teardown could actually observe, then a stable
-        # reference so the same catalogue produces the same list twice. The middle term is
-        # the one that was missing.
-        scored.sort(key=lambda pair: (-pair[0], -richness(pair[1]), pair[1].pod,
-                                      pair[1].listing_ref))
+        # Coverage, then observable depth, then how strongly the market rewarded it, then a
+        # stable reference so the same catalogue produces the same list twice.
+        #
+        # The third term is *not* the popularity sort this module exists to refuse, and the
+        # distinction is worth stating because it looks like one. Popularity as the set
+        # objective buys ten similar things. Popularity as a tie-break inside a department
+        # this set has already decided to cover changes nothing about diversity -- it picks
+        # the most instructive exemplar of a slot already chosen on other grounds, and the
+        # department's strongest seller is the customer experience most worth studying.
+        #
+        # It was added after a live run in which observable depth discriminated once in
+        # thirteen: nearly every listing in this catalogue carries ten images, which is
+        # Etsy's gallery cap, so `gallery_depth` is "rich" almost everywhere and a richness
+        # tie-break is nearly constant on the real data. A mechanism that cannot separate the
+        # cases it was written for is not a mechanism.
+        scored.sort(key=lambda pair: (-pair[0], -richness(pair[1]), -pair[1].favourites,
+                                      pair[1].pod, pair[1].listing_ref))
         gain, best = scored[0]
         if gain < MIN_NEW_FACETS:
             break
