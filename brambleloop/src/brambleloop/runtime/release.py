@@ -1697,6 +1697,49 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
             "catalogue_growth": report["catalogue_growth"]}
 
 
+@handlers.register("ops.sentinel")
+def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
+    """The permanent sentinel #173 asks for, against the artefacts that actually exist.
+
+    Hourly. It compares every recorded artefact against the fingerprints the system holds
+    now, and it also accounts for the artefacts that exist downstream with no provenance row
+    at all -- because a sweep of the instrumented estate is not a sweep of the estate, and an
+    artefact nobody fingerprinted has no mismatch to report.
+
+    A mismatch raises a blocking incident against the product's own slug, which is the flag
+    the publish path already consults, and asks for a rebuild. An absence raises a
+    non-blocking one and joins the instrumentation backlog: blocking on absence today would
+    halt the whole catalogue over instrumentation nobody fitted, which is a different problem
+    from a stale artefact. `provenance.graduation()` says when that backlog is closed.
+
+    GREEN: it reads records, writes incidents and audit rows, changes no artefact and spends
+    nothing.
+    """
+    from ..ops import artefacts as provenance
+
+    with ctx.db.session() as session:
+        current = provenance.current_from_db(session)
+        expected = provenance.expected_from_db(session)
+        report = provenance.sweep(session, current=current, expected=expected)
+        gate = provenance.graduation(session, current=current, expected=expected)
+
+    detail = {
+        "checked": report["checked"], "fresh": report["fresh"],
+        "stale": report["stale"], "unproven": report["unproven"],
+        "publication_blocked": report["publication_blocked"],
+        "rebuild": report["rebuild"],
+        "may_enforce_unproven": gate["may_enforce_unproven"],
+    }
+    ctx.audit("ops.sentinel", detail=detail)
+
+    # A stale artefact is re-derivable, so the sentinel asks for the rebuild rather than
+    # only reporting it. The rebuild is the existing chain stage; nothing new publishes.
+    for slug in report["rebuild"]:
+        ctx.enqueue("listing", "chain.rebuild", {"product_slug": slug},
+                    idempotency_key=f"sentinel-rebuild:{slug}:{current.get(f'cir:{slug}', '')}")
+    return detail
+
+
 @handlers.register("ops.capacity")
 def handle_capacity_review(ctx: JobContext) -> dict:
     """This week's allocation, recorded rather than remembered (#30, #5).

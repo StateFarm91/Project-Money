@@ -25,17 +25,17 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 177 | satisfied, with a named test or artefact |
-| partial | 51 | something real exists and is short of the requirement |
-| missing | 36 | nobody has built it |
+| covered | 179 | satisfied, with a named test or artefact |
+| partial | 50 | something real exists and is short of the requirement |
+| missing | 35 | nobody has built it |
 | owner_gated | 38 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 18 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **87 requirements are executable** (partial +
+as one nobody has written. **85 requirements are executable** (partial +
 missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 177 of 320 covered is **55.3% complete**, read from the registry rather than
+typed. 179 of 320 covered is **55.9% complete**, read from the registry rather than
 estimated.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
@@ -102,8 +102,8 @@ Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog �
 scatter canonical strategy across chat.
 
 ## Honest status — what actually exists
-Measured by `./run_tests.sh` on the current head: **1,236 tests passing, 0 failing** across
-80 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+Measured by `./run_tests.sh` on the current head: **1,787 tests passing, 0 failing** across
+107 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
 predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
 541 across 26 suites, at commit `d5168c0`.)
 
@@ -206,6 +206,51 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Freshness is proved, not assumed — and a trajectory that refuses to state a probability.**
+
+**#171/#173 — every derived artefact tied to its evidence, and a sentinel that can stop a
+publication.** `ops/artefacts.py`. The chain already fingerprinted the three things it had
+been burned by; what did not exist was the general statement. Every artefact class the
+requirement names now records the fingerprints of what it was made from, and the rule that
+answers the requirement's own sentence — *a stable slug must never make stale output appear
+current* — is that **an artefact with no provenance row is unproven, never fresh**. It has
+no mismatch to report, so a sweep comparing only recorded rows calls the estate clean and
+leaves every un-instrumented file looking current.
+
+The sentinel is hourly, and three things make it real rather than decorative:
+
+- Its block is the existing `halts_publication` flag that `runtime/pipeline.py` already
+  consults, and the test asserts the publish path **refuses** rather than asserting a row
+  was written. A block that is only a row is a claim about a block.
+- It enqueues the existing `chain.rebuild` for each stale product, so the deterministic
+  rebuild is triggered rather than recommended.
+- It can clear. An artefact whose upstreams match again resolves its own incident, because
+  a sentinel that can only add incidents halts the company the first time anything is
+  rebuilt.
+
+A mismatch and an absence are graded differently, on the requirement's own wording — it
+blocks on *any mismatch*. An absence is a backlog: blocking on it the first time this ran
+would have halted the whole catalogue over instrumentation nobody had fitted. `graduation()`
+states the condition for enforcing absence as a count, not a judgement. Both of #173's named
+test conditions are exercised: deliberate stale-data injection, and a restart through a new
+`Database` against the same file.
+
+**#26 — a trajectory made of assumptions, labelled as one.** `scale/trajectory.py`. The
+requirement's last sentence governs the module rather than being appended to it: **no
+function returns a bare probability**, because a number detaches from its provenance the
+moment somebody writes it in a summary. Below a 60% observed share the run is named an
+assumption space and states no probability at all — today that share is zero. The output
+that *is* useful with no data is the sensitivity ranking: it does not say what will happen,
+it says which assumption the answer is hostage to, which is the one thing worth going and
+measuring. The seed is the date, because the first thing anybody does with a nightly number
+is compare it to last night's.
+
+*A process note worth keeping:* `ops/artefacts.py` was first written as `ops/provenance.py`,
+beside the existing `radar/provenance.py`, and its test file overwrote
+`tests/test_provenance.py` — 161 lines of #38/#50 coverage, recovered from git rather than
+from memory. The near-duplicate name was the whole cause (B-364).
+
+## Previously — last completed milestone
 **The commercial spine: two production queues, a creator roster, offers, baselines,
 experiment memory, the free-to-paid funnel and where the week goes.**
 
@@ -3094,8 +3139,9 @@ timings, written there by the system rather than by hand.
   roster, #10 free-to-paid funnel, #13 offer engineering, #14 conversion baselines, #16
   listing-test memory, #22 bestseller replication and #30 capacity allocation, the last of
   which is now a weekly `capacity_review` cadence. Registry 177 of 320 covered, 87
-  executable. One gate added (`owned_surfaces`) and #4/#10 re-parked onto it. Decisions
-  B-345..B-357.
+  executable. One gate added (`owned_surfaces`) and #4/#10 re-parked onto it. Then #26's
+  trajectory model and #171/#173's artefact provenance and stale-artefact sentinel: 179 of
+  320 covered, 85 executable, 1,787 tests passing. Decisions B-345..B-364.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

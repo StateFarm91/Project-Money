@@ -275,6 +275,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # company. A module nobody calls is exactly "whatever was easiest to pick up", so the
     # allocation is a cadence for the same reason the re-merchandising review is one.
     ("capacity_review", "orchestrator", "ops.capacity", 7 * 24 * 60 * 60),
+    # Hourly, and free. #173 asks for a *permanent* sentinel: a stale artefact under a stable
+    # slug looks current to everything that reads it, so the only thing that finds it is
+    # something that keeps looking. Hourly rather than daily because the window between a
+    # design changing and its PDF being served is the whole exposure.
+    ("stale_artefact_sentinel", "orchestrator", "ops.sentinel", 60 * 60),
 ]
 
 

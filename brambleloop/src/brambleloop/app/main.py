@@ -1274,6 +1274,49 @@ def api_portfolio() -> dict:
     return portfolio.diversification(db)
 
 
+@app.get("/api/provenance")
+def api_provenance() -> dict:
+    """What every derived artefact was made from, and what the sentinel found (#171, #173).
+
+    A stable slug must never make stale output appear current, so freshness is proved rather
+    than assumed: an artefact with no provenance row is unproven, not fresh. A mismatch is a
+    proven defect and blocks the product's publication through the flag the publish path
+    already consults; an absence is a backlog, counted and never called fresh.
+    """
+    from ..ops import artefacts as provenance
+
+    out = provenance.state()
+    with db.session() as session:
+        current = provenance.current_from_db(session)
+        expected = provenance.expected_from_db(session)
+        verdicts = provenance.check(session, current=current, expected=expected)
+        out["graduation"] = provenance.graduation(session, current=current,
+                                                  expected=expected)
+    out["estate"] = {
+        "checked": len(verdicts),
+        "fresh": sum(1 for v in verdicts if v.state == provenance.FRESH),
+        "stale": sum(1 for v in verdicts if v.state == provenance.STALE),
+        "unproven": sum(1 for v in verdicts if v.state == provenance.UNPROVEN),
+    }
+    return out
+
+
+@app.get("/api/trajectory")
+def api_trajectory() -> dict:
+    """The scenario model's terms, and why it states no probability tonight (#26).
+
+    A Monte Carlo over inputs nobody has measured produces a distribution of assumptions to
+    four decimal places with a histogram, which is what makes it persuasive. No term of this
+    model has been observed, so the run refuses and names the primary constraint instead --
+    "nobody is arriving" does not need a simulation.
+    """
+    from ..scale import trajectory
+
+    out = trajectory.state()
+    out["tonight"] = trajectory.nightly(None)
+    return out
+
+
 @app.get("/api/allocation")
 def api_allocation() -> dict:
     """Where the week goes, and why the default is not more engineering (#30).

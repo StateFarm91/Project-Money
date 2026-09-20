@@ -1077,3 +1077,31 @@ class ListingMemory(Base):
     note: Mapped[str] = mapped_column(Text, default="")
 
     __table_args__ = (UniqueConstraint("test_key", "idea", name="uq_listing_memory_test"),)
+
+
+class ArtefactProvenance(Base):
+    """One derived artefact, tied to fingerprints of the evidence that made it (#171).
+
+    `inputs` maps an upstream reference ("cir:hex-coaster") to the fingerprint it held when
+    this artefact was built. A fingerprint rather than a version string: a version string
+    compares equal to itself forever, which is exactly how a rebuilt design keeps its old
+    PDF under the same stable slug.
+
+    The absence of a row here is meaningful and is the point of the table. An artefact with
+    no provenance has no mismatch to report, so a sweep that only compares recorded rows
+    would call it fresh -- which is why `provenance.check` takes the list of artefacts known
+    to exist and reports the ones with no row as unproven.
+    """
+
+    __tablename__ = "artefact_provenance"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artefact_class: Mapped[str] = mapped_column(String(40), index=True)
+    artefact_key: Mapped[str] = mapped_column(String(200), index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    inputs: Mapped[dict] = mapped_column(JSON, default=dict)
+    chain_version: Mapped[str] = mapped_column(String(20), default="")
+    built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("artefact_class", "artefact_key",
+                                       name="uq_artefact_provenance"),)
