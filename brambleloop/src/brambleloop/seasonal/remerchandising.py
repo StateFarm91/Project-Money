@@ -234,8 +234,140 @@ def review(db, *, event: str, pod: str = "", benchmark_key: str = "") -> dict:
     remembers to call, and a review that took its own capability list as an argument was
     only ever as honest as its caller.
     """
+    from ..creative.audit import concept_from_design
+    from ..products.builder import CATALOGUE
+
     state = capabilities(db, pod=pod, benchmark_key=benchmark_key)
     report = plan(db, event=event, available=state["available"])
     report["capabilities"] = state
     report["inspected_pod"] = pod or None
+
+    # Concrete pairs rather than a `bundle: available` flag. The form and lane of each
+    # certified product are read from the design it was built from, so a pair is never made
+    # from a guessed form.
+    forms, lanes = {}, {}
+    for design in CATALOGUE.values():
+        concept = concept_from_design(design)
+        forms[concept.key] = concept.form
+        lanes[concept.key] = concept.make_lane
+    report["bundles"] = bundle_pairs(db, forms=forms, lanes=lanes)
     return report
+
+
+# ---------------------------------------------------------------------------
+# A bundle opportunity is a pair, not a checkbox (#292)
+#
+# `moves_for` reported `bundle: available` once two certified products existed, which is
+# true and useless: it says the company *could* bundle something without saying what with
+# what. The requirement asks for inspection of opportunities, and an opportunity a reader
+# cannot act on is a checkbox.
+
+# Forms that genuinely sit together in one purchase, as a room or an outfit rather than as a
+# discount. Each pair is a reason somebody buys both, and the reason is stated because a
+# bundle whose logic nobody can say is a discount with extra steps.
+COMPLEMENTS: tuple[tuple[str, str, str], ...] = (
+    ("rectangle_throw", "pillow", "the two objects a sofa is dressed with"),
+    ("rectangle_throw", "coaster", "a whole living-room surface, blanket and table"),
+    ("runner", "coaster", "one table, dressed"),
+    ("runner", "pillow", "a dining room and the chairs in it"),
+    ("wall_hanging", "pillow", "two soft-furnishing gestures in one room"),
+    ("garland", "ornament", "one tree, or one mantel, finished"),
+    ("garland", "stocking", "a mantel dressed for the occasion"),
+    ("stocking", "ornament", "the two things a Christmas mantel carries"),
+    ("hat", "scarf", "the pair a person puts on together"),
+    ("hat", "bag", "an outfit's accessories"),
+    ("fitted_garment", "hat", "a garment and the accessory that finishes it"),
+    ("draped_garment", "bag", "a garment and the accessory that finishes it"),
+    ("toy", "flat_panel", "a soft toy and the mat it belongs on"),
+)
+
+COMPLEMENT_BY_PAIR: dict[frozenset, str] = {
+    frozenset({a, b}): why for a, b, why in COMPLEMENTS}
+
+
+class PairRefused(RemerchandisingRefused):
+    """A bundle that is one product twice, or a pair with no reason to exist."""
+
+
+def pair_reason(form_a: str, form_b: str) -> str:
+    """Why a buyer would want these two together, or a refusal.
+
+    Two rules. A product cannot be bundled with itself in a different colour -- that is the
+    catalogue-inflation move this whole module exists to refuse, wearing a bundle label. And
+    a pair with no stated reason is refused rather than allowed with a blank: "these two
+    happen to both exist" is not a reason, and a bundle built on it is a discount.
+    """
+    if form_a == form_b:
+        raise PairRefused(
+            f"two {form_a}s is one product offered twice. A buyer who wanted two would buy "
+            f"two; a bundle has to be two different things")
+    why = COMPLEMENT_BY_PAIR.get(frozenset({form_a, form_b}))
+    if not why:
+        raise PairRefused(
+            f"no stated reason a buyer wants a {form_a} and a {form_b} in one purchase. "
+            f"'Both exist' is not a reason, and a bundle built on it is a discount")
+    return why
+
+
+def bundle_pairs(db, *, forms: dict[str, str] | None = None,
+                 lanes: dict[str, str] | None = None) -> dict:
+    """Concrete bundle and add-on proposals across the certified catalogue.
+
+    `forms` and `lanes` map slug to form and make lane; where a product's form is unknown the
+    product is reported as unpairable rather than paired on a guess, because a bundle built
+    from a guessed form is a bundle nobody checked.
+
+    An add-on is the same pairing seen from the other end: the cheaper, faster half offered
+    beside the slower one. It is reported separately because it is a different offer, not a
+    different bundle.
+    """
+    from ..creative.family import LANE_ORDER
+
+    pool = candidates(db)
+    eligible = pool["eligible"]
+    forms = forms or {}
+    lanes = lanes or {}
+
+    known = [c for c in eligible if forms.get(c["slug"])]
+    unpairable = [c["slug"] for c in eligible if not forms.get(c["slug"])]
+
+    pairs: list[dict] = []
+    for i, first in enumerate(known):
+        for second in known[i + 1:]:
+            try:
+                why = pair_reason(forms[first["slug"]], forms[second["slug"]])
+            except PairRefused:
+                continue
+            lane_a = lanes.get(first["slug"], "")
+            lane_b = lanes.get(second["slug"], "")
+            add_on = ""
+            if lane_a in LANE_ORDER and lane_b in LANE_ORDER and lane_a != lane_b:
+                # The faster half is the add-on: a small make offered beside a longer one is
+                # an easy yes, and the same two products offered the other way round is a
+                # bigger commitment wearing a smaller label.
+                add_on = (first["slug"] if LANE_ORDER.index(lane_a) < LANE_ORDER.index(lane_b)
+                          else second["slug"])
+            pairs.append({
+                "products": [first["slug"], second["slug"]],
+                "forms": [forms[first["slug"]], forms[second["slug"]]],
+                "why": why,
+                "add_on": add_on or None,
+                "proven": bool(first["proven"] and second["proven"]),
+            })
+
+    return {
+        "certified": len(eligible),
+        "pairable": len(known),
+        "unpairable": unpairable,
+        "pairs": pairs,
+        "add_ons": [p for p in pairs if p["add_on"]],
+        "proof_measurable": pool["proof_measurable"],
+        "catalogue_growth": 0,
+        "note": ("Every pair states why a buyer wants both, because a bundle whose logic "
+                 "nobody can say is a discount with extra steps. A product is never bundled "
+                 "with itself in another colour -- that is the catalogue-inflation move this "
+                 "module exists to refuse, wearing a bundle label. 'Proven' stays false "
+                 "until both halves have sold" if pairs else
+                 "no two certified products complement each other, which is a statement "
+                 "about how narrow this catalogue is rather than about bundling"),
+    }

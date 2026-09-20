@@ -246,5 +246,104 @@ def test_a_review_computes_its_own_capabilities():
     assert report["catalogue_growth"] == 0
 
 
+# ---- a bundle opportunity is a pair, not a checkbox (#292) -------------------
+
+
+def _certified_db(rows):
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import PatternVersion, Product
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/pairs.sqlite")
+    db.create_all()
+    with db.session() as s:
+        for i, slug in enumerate(rows, start=1):
+            s.add(Product(id=i, slug=slug, title=slug))
+            s.add(PatternVersion(product_id=i, version="1.0", certified=True, cir_json={}))
+    return db
+
+
+def test_a_product_is_never_bundled_with_itself_in_another_colour():
+    """The catalogue-inflation move this module exists to refuse, wearing a bundle label."""
+    from brambleloop.seasonal import remerchandising
+
+    try:
+        remerchandising.pair_reason("coaster", "coaster")
+    except remerchandising.PairRefused as e:
+        assert "one product offered twice" in str(e)
+    else:
+        raise AssertionError("a product was bundled with itself")
+
+
+def test_a_pair_with_no_stated_reason_is_refused():
+    """"Both exist" is not a reason, and a bundle built on it is a discount."""
+    from brambleloop.seasonal import remerchandising
+
+    try:
+        remerchandising.pair_reason("coaster", "stocking")
+    except remerchandising.PairRefused as e:
+        assert "is not a reason" in str(e)
+    else:
+        raise AssertionError("a bundle was proposed with no logic")
+
+
+def test_every_proposed_pair_says_why_a_buyer_wants_both():
+    from brambleloop.seasonal import remerchandising
+
+    db = _certified_db(["throw", "mat", "orn", "gar"])
+    forms = {"throw": "rectangle_throw", "mat": "coaster", "orn": "ornament",
+             "gar": "garland"}
+    lanes = {"throw": "LONG", "mat": "QUICK", "orn": "QUICK", "gar": "SHORT"}
+    report = remerchandising.bundle_pairs(db, forms=forms, lanes=lanes)
+    assert report["pairs"], "no pair was proposed from four complementary products"
+    assert all(p["why"] for p in report["pairs"])
+    assert report["catalogue_growth"] == 0
+
+
+def test_the_add_on_is_the_faster_half():
+    """A small make beside a longer one is an easy yes; the other way round is a bigger
+    commitment wearing a smaller label."""
+    from brambleloop.seasonal import remerchandising
+
+    db = _certified_db(["throw", "mat"])
+    report = remerchandising.bundle_pairs(
+        db, forms={"throw": "rectangle_throw", "mat": "coaster"},
+        lanes={"throw": "LONG", "mat": "QUICK"})
+    assert report["pairs"][0]["add_on"] == "mat"
+
+
+def test_a_product_whose_form_is_unknown_is_never_paired_on_a_guess():
+    from brambleloop.seasonal import remerchandising
+
+    db = _certified_db(["throw", "mystery"])
+    report = remerchandising.bundle_pairs(db, forms={"throw": "rectangle_throw"},
+                                          lanes={"throw": "LONG"})
+    assert report["unpairable"] == ["mystery"]
+    assert report["pairs"] == []
+
+
+def test_proven_stays_false_until_both_halves_have_sold():
+    from brambleloop.seasonal import remerchandising
+
+    db = _certified_db(["throw", "mat"])
+    report = remerchandising.bundle_pairs(
+        db, forms={"throw": "rectangle_throw", "mat": "coaster"},
+        lanes={"throw": "LONG", "mat": "QUICK"})
+    assert report["pairs"][0]["proven"] is False
+    assert report["proof_measurable"] is False
+
+
+def test_a_catalogue_with_no_complements_says_that_about_itself():
+    """A statement about how narrow the catalogue is, rather than about bundling."""
+    from brambleloop.seasonal import remerchandising
+
+    db = _certified_db(["a", "b"])
+    report = remerchandising.bundle_pairs(db, forms={"a": "coaster", "b": "stocking"},
+                                          lanes={"a": "QUICK", "b": "SHORT"})
+    assert report["pairs"] == []
+    assert "how narrow this catalogue is" in report["note"]
+
+
 if __name__ == "__main__":
     raise SystemExit(1 if _run() else 0)
