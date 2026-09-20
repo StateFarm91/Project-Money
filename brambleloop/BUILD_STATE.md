@@ -205,6 +205,82 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**The tournament runs at scale, the scorer was finally fed, and the queue's top item was
+work nobody could start.**
+
+**#3 — the tournament at its specified size.** The requirement asks for roughly 75-100
+*inexpensive* concepts cut by five kill gates. Generating a hundred at the deep tier costs
+about CA$2.52, which contradicts the requirement's own word: the funnel's shape is to spend
+little across a wide field and concentrate cost only after it is cut. A cheap-tier
+`concept_ideation` task now does 100 concepts for about **CA$0.27**, and cheapness is a
+routing fact a test asserts rather than an intention. `field()` fills the field by
+round-robin across reachable proven arenas so breadth is structural, and `tournament()` runs
+the real funnel stages — two of them. It names the three it cannot run: proposition needs a
+margin and an unmet angle, prototype needs a compile and a twin, release needs the gates, and
+running them with placeholder verdicts would produce a five-stage funnel that had cut nothing
+twice. First run at scale: **80 generated, ideation examined 80 and killed 0, research killed
+78 — 58 sameness, 20 unverifiable.**
+
+The first attempt was refused by the funnel's own rule that *a stage killing nothing did not
+happen*. The honest fix was not to weaken it but to let a zero-kill stage prove itself:
+`advance()` now takes `examined`, and a stage that killed nothing must declare its gate saw
+every entrant. A count short of that is refused as a stage that partly did not happen.
+
+It is now a weekly cadence (`product_tournament`) against the one arena this cycle's wheel
+picks — one arena rather than twelve, because a field spread across every department puts two
+or three concepts against each and cannot support a comparison against anything. The wheel
+reserves 45% of its slots for Christmas, so the priority programme gets depth rather than a
+turn: **9 of the next 20 cycles are Christmas**, starting with Christmas/garments at 96 days
+against 140 observed MJs listings and no Brambleloop garment at all.
+
+**#2 — the scorer had never been called with anything.** `score_market()` was correct
+arithmetic that had never produced a number about this business, which is the same defect as
+a credential nobody has used. `score_observed()` now feeds it the four dimensions first-party
+observation genuinely supports — demand from observed favourites, the opening in the
+incumbents' offers from the weakness hunt, what the market charges from observed prices, and
+machine-verifiability from the share of a department's observed forms the compiler can build.
+That is **52% of the weight**, above the floor and comparable across departments because
+every department is scored from the same source. Demand and price are each a department's
+median against the strongest department *in the one catalogue observed*, and say so wherever
+they surface. Listing density stays unmeasured rather than being taken from a single shop's
+shelf space.
+
+**#2's deliverable clarity closed, and with it the requirement's own eight-item list.** The
+note said it needed "a field the observation does not carry" — true of the stored row, not of
+the payload. Every catalogue page was already arriving with each listing's description and
+nothing was reading it. `intel/deliverable.py` reads it once, in memory, and stores eight
+booleans: whether the listing states its format, delivery, extent, contents, stitch terms,
+finished size, yarn and hook. **The facts are kept and the seller's words are not**, on the
+same rule the review reader follows. Limited sizes and weak bundles closed with it; a size
+letter is read only from a clause that says "size", because a bare `s`, `m` or `l` is one of
+the commonest characters in a pattern listing and a matcher that read "1200 m" of yarn as a
+size range would manufacture the weakness it was written to find. The two the requirement
+names that no text can answer — branding coherence and whether the styling looks like this
+year — are reported under `needs_vision` rather than dropped so the list could be called
+complete, and **#2 is parked on `browser_vision`**.
+
+The reading reaches unchanged listings, which is the gallery backlog's lesson applied before
+it could repeat: a reading attached to the new-or-changed branch describes the shop's recent
+edits and nothing else. It costs no extra request, so the whole map closes on one scan.
+
+**The queue's top item was unstartable.** #292's own note said every re-merchandising move
+this build can reach was built and the rest waits on image generation — and the executor,
+which cannot read prose, went on offering it as the single highest-value READY requirement.
+Hand-maintaining a second list of gated requirements inside `executor.py` is what let the two
+drift, always in the same direction. The registry now declares its own gate:
+`Requirement.parked_on` sits beside the sentence that states it and is written in the same
+edit. A gate the registry names that no `Gate` defines is refused, because a key nothing
+checks never opens and the requirement would leave the queue permanently rather than wait in
+it. **Ready 90 → 88, parked 40 → 42.**
+
+**`mjs.reviews` ran for the first time: 100 reviews read, 0 recurring complaint themes.**
+Zero is a finding, not an absence — a shop with a hundred reviews and no complaint reaching
+the floor of three is a strong incumbent, and the honest reading of the arbitrage opening
+here is that it is not going to come from their customer service.
+
+Model spend **CA$1.17 of CA$25**. Production verify **12/12 green** at 2026-09-20T05:04Z.
+
+## Previously — last completed milestone
 **Discovery produced its first real products, and the headline number needed its caveat.**
 
 At **2026-09-20T04:02Z** the weekly expedition ran live for the first time: **Mother's Day /

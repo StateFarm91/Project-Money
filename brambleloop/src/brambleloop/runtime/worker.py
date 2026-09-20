@@ -256,6 +256,14 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # a habit, which is the point, a catalogue widens by repeatedly trying somewhere it does
     # not sell rather than by one campaign.
     ("arena_expedition", "creative_director", "creative.expedition", 7 * 24 * 60 * 60),
+    # #3's tournament at the scale the requirement specifies: roughly eighty concepts at the
+    # cheap tier, about CA$0.27 a run, against the one arena this cycle's wheel picked. The
+    # expedition asks what we could make for an occasion; this asks whether there is a
+    # Brambleloop answer to a proven arena we have no answer to, with a field wide enough
+    # that the answer is not an artefact of the sample. Weekly and offset from the
+    # expedition by running on the same wheel position, so the two land on the same arena and
+    # the deep handful can be read against the wide field.
+    ("product_tournament", "creative_director", "creative.tournament", 7 * 24 * 60 * 60),
     # Weekly, and free. #292 asks for evergreen products to be *periodically* inspected for
     # seasonal re-merchandising, and a review that never runs is the same as one that does
     # not exist. It reads certified products and an already-observed catalogue, changes no

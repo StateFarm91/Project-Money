@@ -1195,7 +1195,7 @@ def api_model_probe() -> dict:
 
 
 @app.get("/api/arbitrage")
-def api_arbitrage() -> dict:
+def api_arbitrage(pod: str = "") -> dict:
     """What this company can currently score about a micro-market, and what the rest needs.
 
     An unmeasured dimension leaves the arithmetic and is named. Filling it with a neutral
@@ -1203,7 +1203,20 @@ def api_arbitrage() -> dict:
     """
     from ..radar import arbitrage
 
-    return arbitrage.state(db)
+    return arbitrage.state(db, pod=pod)
+
+
+@app.get("/api/arbitrage/departments")
+def api_arbitrage_departments() -> dict:
+    """Every observed department scored, and the four dimensions observation supports.
+
+    The scorer run rather than available. Listing density, season timing, differentiation,
+    support burden and expected contribution stay named and empty: one catalogue is not a
+    market, an occasion has to be chosen, and the last two need orders.
+    """
+    from ..radar import arbitrage
+
+    return arbitrage.score_observed(db)
 
 
 @app.get("/api/breakthrough")

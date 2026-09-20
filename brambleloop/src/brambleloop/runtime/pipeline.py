@@ -614,6 +614,10 @@ def handle_heartbeat(ctx: JobContext) -> dict:
 WORK_COUNTERS: tuple[str, ...] = (
     "proposed", "survivors", "judged", "requeued", "recadenced", "new", "reclassified",
     "inspected", "moved", "enqueued", "listings_known", "dead_letters",
+    # A tournament that generated eighty concepts and kept none of them did its job. Reading
+    # only `survivors` would call the most informative possible result a no-op and re-drive
+    # it, which would pay for the same answer again.
+    "generated", "reviews_read",
 )
 
 

@@ -228,6 +228,22 @@ def _read(words: frozenset[str], phrase: str,
     return ""
 
 
+def form_of(listing: dict) -> str:
+    """Just the product form a listing's title states, or "" when it states none.
+
+    Separate from `from_listing` because the two questions have different standards of
+    evidence. A blinded comparison needs a whole card -- a listing missing a feeling cannot
+    be described without inventing one, and an invented field on one side is a tell. Counting
+    what forms a department contains needs only the form, and refusing to count a plainly
+    titled "Ribbed Cardigan Crochet Pattern" because its title has no mood word does not make
+    the count more careful, it makes it wrong: the department loses a cardigan it demonstrably
+    contains, and the pod reports as having no readable forms at all.
+    """
+    title = str(listing.get("title") or "")
+    words, phrase = pods.signals(title)
+    return _read(words, phrase, _FORM_WORDS)
+
+
 def from_listing(listing: dict) -> Card:
     """Their side, from observed catalogue facts and nothing protected.
 

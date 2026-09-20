@@ -1511,6 +1511,87 @@ def handle_creative_blinded(ctx: JobContext) -> dict:
             "gateway_spend_cad": gateway.spend_cad()}
 
 
+TOURNAMENT_ACTION = "creative.tournament"
+
+
+@handlers.register("creative.tournament")
+def handle_creative_tournament(ctx: JobContext) -> dict:
+    """#3's staged tournament, run at its specified scale against one proven arena.
+
+    The expedition asks "what could we make for this occasion" with a handful of deep
+    concepts. This asks the harder question the owner put: **is there a Brambleloop answer to
+    a proven arena we have no answer to at all**, and it asks it with a field wide enough
+    that the answer is not an artefact of the sample.
+
+    Three things make the number mean something this time.
+
+    **The field is wide and cheap.** Roughly eighty concepts at the cheap tier, about CA$0.27,
+    because the funnel's whole shape is to spend little across a wide field and concentrate
+    cost after it has been cut. Eighty deep-tier concepts would cost nine times as much to
+    learn the same thing.
+
+    **It is one arena, not twelve.** A field spread across every department puts two or three
+    concepts against each of them, which cannot support a comparison against anything.
+    Breadth comes from the wheel moving the arena between cycles -- and the wheel reserves
+    45% of its slots for Christmas, so the priority programme gets depth rather than a turn.
+
+    **The gauntlet has something to fire on.** Our catalogue has no garments, so novelty
+    against *us* is automatic and `sameness` cannot fire -- which is why the first
+    expedition survived 18 of 18 and why that number meant "we have never made one of these"
+    rather than "these are good". Screening against the benchmark's own listings is the half
+    that can fail, and in a proven arena there are enough of them for it to.
+
+    GREEN: reads observed listings and its own history, bounds spend before every batch,
+    writes one row. Publishes nothing, contacts nobody. A tournament that survives nothing is
+    stored exactly like one that survives ten.
+    """
+    from ..core.models import utcnow
+    from ..creative import prospecting
+    from ..creative.audit import catalogue_concepts
+    from ..gateway import routing
+    from ..gateway.anthropic import AnthropicProvider
+    from ..gateway.model_gateway import ModelGateway
+
+    found = prospecting.arenas(ctx.db)
+    if not found:
+        return {"ran": False, "reason": "no benchmark listing has been observed yet"}
+
+    week = int(utcnow().timestamp() // (7 * 24 * 3600))
+    arena = prospecting.choose(found, cycle=week)
+
+    _task, tier = routing.route(prospecting.IDEATION_TASK)
+    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry)
+    catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
+
+    try:
+        result = prospecting.tournament(
+            ctx.db, gateway=gateway, catalogue=catalogue,
+            only=(arena.event, arena.pod))
+    except prospecting.ProspectingRefused as e:
+        ctx.audit("creative.tournament_blocked",
+                  detail={"arena": arena.to_dict(), "reason": str(e)[:400]})
+        return {"ran": False, "arena": f"{arena.event}/{arena.pod}",
+                "reason": str(e)[:200]}
+
+    with ctx.db.session() as s:
+        from ..core.models import AuditLog
+        s.add(AuditLog(actor="creative_director", action=TOURNAMENT_ACTION,
+                       artifact=f"{arena.event}/{arena.pod}",
+                       detail={k: v for k, v in result.items()
+                               if k not in ("survivor_objects",)}))
+
+    generated = result["field"]["generated"]
+    attempted = generated > 0 or result["cost_cad"] > 0
+    return {"ran": attempted, "arena": f"{arena.event}/{arena.pod}",
+            "generated": generated, "survivors": len(result["survivors"]),
+            "research_kill_rate": result["research_kill_rate"],
+            "causes": result["causes"], "cost_cad": result["cost_cad"],
+            "novelty_measurable": result["novelty_measurable"],
+            "stages_run": result["stages_run"],
+            **({} if attempted else
+               {"reason": "every batch came back malformed; nothing was generated or spent"})}
+
+
 @handlers.register("creative.expedition")
 def handle_creative_expedition(ctx: JobContext) -> dict:
     """Discovery into one proven-and-unserved arena (#104).

@@ -26,6 +26,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..intel import deliverable, pods
+
 MEASURED, UNMEASURED = "measured", "unmeasured"
 
 # Two markets may only be ranked against each other when their measured weight is within
@@ -76,6 +78,20 @@ WEAKNESS_SIGNALS: dict[str, str] = {
     "unclear_deliverable": "the listing does not say what arrives, which is the most "
                            "preventable refund in the category",
     "complaints": "recurring complaints in the reviews about the same thing",
+    "limited_sizes": "a garment or hat graded to two sizes or fewer, which most of the "
+                     "people who wanted it cannot make",
+    "no_bundle": "a department where almost nothing is sold as a set, so the buyer who "
+                 "wants two has to buy twice",
+}
+
+# The two weaknesses the requirement names that no amount of text can answer. Kept in the
+# vocabulary rather than dropped, because a list quietly shortened to what is measurable
+# today is how a requirement gets reported as met.
+NEEDS_VISION: dict[str, str] = {
+    "weak_branding": "whether the shop and its listings read as one coherent thing, which "
+                     "is a judgement about rendered pages and photographs",
+    "stale_aesthetics": "whether the styling looks like this year, which is a judgement "
+                        "about photographs",
 }
 
 # Fewer images than this and a buyer cannot judge a pattern they will never hold.
@@ -219,6 +235,8 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         listings = [{"ref": r.listing_ref, "title": r.title, "pod": r.pod,
                      "media_count": r.media_count, "price_cad": r.price_cad,
                      "has_video": (r.detail or {}).get("has_video"),
+                     "deliverable": (r.detail or {}).get("deliverable"),
+                     "size_range": (r.detail or {}).get("size_range"),
                      "gallery_audited": bool((r.detail or {}).get("gallery_audited"))}
                     for r in s.scalars(query)]
 
@@ -251,6 +269,40 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
 
     complaints = _recurring_complaints(db)
 
+    # What the listing says arrives, read from the description during the scan and stored as
+    # facts rather than text. Listings nobody has read are excluded by summarise(), for the
+    # reason video is: our unread backlog is not their weakness.
+    clarity = deliverable.summarise([r["deliverable"] for r in listings])
+    unclear_refs = sorted(
+        r["ref"] for r in listings
+        if deliverable.unclear(r["deliverable"]) is True)
+
+    # Size range, asked only of the departments where size is a variable. A blanket has
+    # dimensions, not sizes, and counting it as one size would invent a weakness.
+    sized = [r for r in listings if r["size_range"]]
+    stated_sizes = [r for r in sized if r["size_range"]["stated"]]
+    sizes = {
+        "measurable": bool(sized),
+        "sized_listings": len(sized),
+        "stated": len(stated_sizes),
+        "silent": len(sized) - len(stated_sizes),
+        "limited": sum(1 for r in stated_sizes if r["size_range"]["limited"]),
+        "threshold": deliverable.LIMITED_SIZES_AT_OR_BELOW,
+        "reason": ("no observed listing is in a department where size is a variable, so a "
+                   "size range is not a weakness this catalogue can have"
+                   if not sized else ""),
+    }
+
+    # Bundles, read from the incumbent's own title: a listing that counts its patterns is
+    # selling a set. A department where nothing does is one where the buyer who wants two
+    # has to buy twice, which is an opening rather than a fact about us.
+    bundled = [r for r in listings if pods.counts_its_own_patterns(r["title"])]
+    bundles = {
+        "measurable": True,
+        "bundled": len(bundled),
+        "share": round(len(bundled) / len(listings), 3),
+    }
+
     return {
         "measurable": True,
         "listings": len(listings),
@@ -258,20 +310,229 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         "thin_media_share": round(len(thin) / len(listings), 3),
         "video": video,
         "complaints": complaints,
+        "deliverable": {**clarity, "refs": unclear_refs[:50]},
+        "sizes": sizes,
+        "bundles": bundles,
         "signals": WEAKNESS_SIGNALS,
+        "needs_vision": NEEDS_VISION,
         "note": (f"{len(thin)} of {len(listings)} observed listings carry fewer than "
                  f"{THIN_MEDIA_BELOW} images, which is fewer than a buyer needs to judge a "
                  f"pattern they will never hold. Video and recurring complaints are "
                  f"measured where they have been observed and report unmeasurable where "
-                 f"they have not; deliverable clarity still needs a field the observation "
-                 f"does not carry, and is named rather than scored"),
+                 f"they have not. Deliverable clarity is now read too: "
+                 f"{clarity.get('unclear', 0)} of {clarity.get('read', 0)} descriptions "
+                 f"read state fewer than "
+                 f"{int(deliverable.UNCLEAR_BELOW * 100)}% of the facts that apply to them, "
+                 f"and a description nobody has read is excluded rather than counted "
+                 f"unclear"),
     }
 
 
-def state(db) -> dict:
-    """What this company can currently score, and what each missing dimension waits on."""
-    hunt = weakness_hunt(db)
+# ---------------------------------------------------------------------------
+# Scoring from what has actually been observed
+#
+# score_market() is a pure function and was never called with anything. A scorer nobody feeds
+# is the same defect as a credential nobody has used: the capability is present, the
+# arithmetic is right, and it has never once produced a number about this business. What
+# follows feeds it the four dimensions first-party observation genuinely supports, leaves the
+# other five named and empty, and says plainly which shop's catalogue every number came from.
+
+# The dimensions an observed benchmark catalogue can honestly fill.
+OBSERVED_DIMENSIONS = ("demand", "offer_quality", "price_and_aov", "verifiability")
+
+# Below this many observed listings a department's medians are one or two sellers' decisions
+# rather than a department, and normalising them against other pods gives them a weight they
+# have not earned.
+MIN_LISTINGS_TO_SCORE = 5
+
+
+def _median(values: list[float]) -> float:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if not ordered:
+        return 0.0
+    if len(ordered) % 2:
+        return float(ordered[middle])
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _relative(value: float, ceiling: float) -> float | None:
+    """A pod's value against the strongest pod observed. None when there is no ceiling.
+
+    Relative on purpose, and named as such everywhere it surfaces. There is no absolute
+    scale for "how much demand" that this company has access to, and inventing one would be
+    the neutral-default failure wearing a different hat.
+    """
+    if ceiling <= 0:
+        return None
+    return max(0.0, min(1.0, value / ceiling))
+
+
+def _opportunity(hunt: dict) -> float | None:
+    """How weak the incumbents are here, oriented so that weaker is a higher number.
+
+    `offer_quality` is a lower-is-better dimension and score_market() takes values already
+    oriented, so what is passed is the opening, not the quality. Only the signals that were
+    actually measurable contribute; a signal nobody could read leaves this average rather
+    than entering it as zero weakness, which would read as a strong incumbent.
+    """
+    openings: list[float] = []
+    if hunt.get("listings"):
+        openings.append(hunt["thin_media_share"])
+    clarity = hunt.get("deliverable") or {}
+    if clarity.get("measurable"):
+        openings.append(clarity["unclear_share"])
+    video = hunt.get("video") or {}
+    if video.get("measurable") and video.get("share") is not None:
+        openings.append(1.0 - video["share"])
+    sizes = hunt.get("sizes") or {}
+    if sizes.get("measurable") and sizes.get("stated"):
+        openings.append(sizes["limited"] / sizes["stated"])
+    bundles = hunt.get("bundles") or {}
+    if bundles.get("measurable"):
+        openings.append(1.0 - bundles["share"])
+    if not openings:
+        return None
+    return round(sum(openings) / len(openings), 4)
+
+
+def _buildable_share(db, pod: str, benchmark_key: str) -> float | None:
+    """The share of this department's observed forms the compiler can actually build.
+
+    `verifiability` asks whether a pattern here can be machine-checked, and the honest
+    answer is a property of the forms this department contains, read from listings somebody
+    observed rather than from a table of what a hat pod is.
+    """
+    from ..creative.family import FORM_CONSTRUCTIONS
+    from ..creative.prospecting import arena_forms
+
+    forms = arena_forms(db, pod, benchmark_key=benchmark_key)
+    counts = forms.get("forms") or {}
+    total = sum(counts.values())
+    if not total:
+        return None
+    buildable = sum(n for form, n in counts.items() if FORM_CONSTRUCTIONS.get(form))
+    return round(buildable / total, 4)
+
+
+def score_observed(db, *, benchmark_key: str = "") -> dict:
+    """Score every observed department on the dimensions observation supports.
+
+    This is #2's scoring half actually run, rather than available. Four of the nine
+    dimensions are filled -- demand, the opening in the incumbents' offers, what the market
+    charges, and whether the construction can be machine-checked -- which is 52% of the
+    weight, above the floor and comparable across departments because every department is
+    scored from the same source. The other five are named: listing density needs more than
+    one catalogue, season timing belongs to a chosen occasion, differentiation is a claim
+    about us rather than them, and the last two need orders.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..intel import benchmarks
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = [{"pod": r.pod, "price_cad": r.price_cad,
+                 "favourites": (r.detail or {}).get("num_favorers")}
+                for r in s.scalars(select(BenchmarkListing).where(
+                    BenchmarkListing.benchmark_key == benchmark_key))]
+
+    by_pod: dict[str, list[dict]] = {}
+    for row in rows:
+        if row["pod"]:
+            by_pod.setdefault(row["pod"], []).append(row)
+
+    eligible = {pod: rs for pod, rs in by_pod.items()
+                if len(rs) >= MIN_LISTINGS_TO_SCORE}
+    too_thin = sorted(pod for pod in by_pod if pod not in eligible)
+    if not eligible:
+        return {
+            "benchmark": benchmark_key, "scored": [], "ranking": None,
+            "measurable": False,
+            "reason": (f"no observed department carries {MIN_LISTINGS_TO_SCORE} listings, so "
+                       f"every median would be one or two sellers' decisions rather than a "
+                       f"department"),
+            "departments_too_thin_to_score": too_thin,
+        }
+
+    raw: dict[str, dict] = {}
+    for pod, rs in eligible.items():
+        favourites = [float(r["favourites"]) for r in rs if r["favourites"] is not None]
+        prices = [float(r["price_cad"]) for r in rs if r["price_cad"]]
+        raw[pod] = {
+            "listings": len(rs),
+            "median_favourites": _median(favourites) if favourites else None,
+            "median_price_cad": round(_median(prices), 2) if prices else None,
+            "opportunity": _opportunity(weakness_hunt(db, pod=pod)),
+            "buildable_share": _buildable_share(db, pod, benchmark_key),
+        }
+
+    favourite_ceiling = max((v["median_favourites"] or 0.0) for v in raw.values())
+    price_ceiling = max((v["median_price_cad"] or 0.0) for v in raw.values())
+
+    scored = []
+    for pod in sorted(raw):
+        measured = raw[pod]
+        values: dict[str, float] = {}
+        if measured["median_favourites"] is not None:
+            demand = _relative(measured["median_favourites"], favourite_ceiling)
+            if demand is not None:
+                values["demand"] = demand
+        if measured["median_price_cad"] is not None:
+            price = _relative(measured["median_price_cad"], price_ceiling)
+            if price is not None:
+                values["price_and_aov"] = price
+        if measured["opportunity"] is not None:
+            values["offer_quality"] = measured["opportunity"]
+        if measured["buildable_share"] is not None:
+            values["verifiability"] = measured["buildable_share"]
+        card = score_market(pod, values=values)
+        card["observed"] = measured
+        scored.append(card)
+
+    # The ranking is refused rather than caveated when the departments were scored at
+    # different confidences -- the existing rule, reported here as data because this is an
+    # endpoint and an exception would read as an outage.
+    ranking, refused = None, ""
+    try:
+        ranking = rank(scored)
+    except ArbitrageRefused as e:
+        refused = str(e)
+
     return {
+        "benchmark": benchmark_key,
+        "measurable": True,
+        "scored": scored,
+        "ranking": ranking,
+        "ranking_refused": refused,
+        "departments_too_thin_to_score": too_thin,
+        "relative_to": {
+            "median_favourites": favourite_ceiling,
+            "median_price_cad": price_ceiling,
+            "what_this_means": ("demand and price are each a department's median against the "
+                                "strongest department in the one catalogue observed. There is "
+                                "no absolute scale for either that this company can reach, "
+                                "and inventing one would be the neutral-default failure "
+                                "wearing a different hat"),
+        },
+        "note": ("Scored from one benchmark catalogue. That is first-party evidence about "
+                 "where a proven seller concentrates and what it charges, and it is not the "
+                 "whole market -- which is why listing density stays unmeasured rather than "
+                 "being taken from a single shop's shelf space"),
+    }
+
+
+def state(db, *, pod: str = "") -> dict:
+    """What this company can currently score, and what each missing dimension waits on.
+
+    `pod` narrows the weakness hunt to one department, which is how it is actually used: a
+    weakness averaged over twelve departments is nobody's opening. The dimensions themselves
+    are the same either way.
+    """
+    hunt = weakness_hunt(db, pod=pod)
+    return {
+        "pod": pod,
         "dimensions": [{"dimension": d.key, "what": d.what, "weight": d.weight,
                         "needs": d.needs} for d in DIMENSIONS],
         "weakness_hunt": hunt,

@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from . import benchmarks, coverage, mission, pods
+from . import benchmarks, coverage, deliverable, mission, pods
 from .etsy_public import NotConfigured, PublicReader, ReadFailed
 
 # Fields that decide whether a listing has *commercially* changed. Deliberately not every
@@ -50,6 +50,9 @@ class ScanResult:
     deep_audited: list[str] = field(default_factory=list)
     # Galleries read to close the backlog rather than because the listing moved.
     backfilled: list[str] = field(default_factory=list)
+    # Unchanged listings whose description was read for the first time (#2). Separate from
+    # `backfilled` because it costs no request: the description came with the catalogue page.
+    deliverable_backfilled: list[str] = field(default_factory=list)
     images_inspected: int = 0
     pods_notified: set = field(default_factory=set)
     gaps_opened: list[str] = field(default_factory=list)
@@ -68,6 +71,7 @@ class ScanResult:
                 "unchanged_skipped": self.unchanged,
                 "withdrawn_since_last_scan": len(self.withdrawn),
                 "galleries_backfilled": len(self.backfilled),
+                "descriptions_read_for_the_first_time": len(self.deliverable_backfilled),
             },
             "changes": ([{"listing_ref": ref, "what": "new listing"}
                          for ref in self.new_listings]
@@ -150,6 +154,23 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 result.unchanged += 1
                 row = s.merge(row)
                 row.last_seen = now
+                # A new reading of a field already in this payload must reach the listings
+                # that did not change, or it only ever describes the shop's recent edits.
+                # This is what the gallery backlog taught: a reading attached to the
+                # new-or-changed branch covered 25 of 438 listings and had no path to the
+                # rest. Unlike the gallery this costs nothing -- the description arrived with
+                # the catalogue page -- so the whole map closes on the next scan.
+                if "deliverable" not in (row.detail or {}):
+                    facts = deliverable.read(listing)
+                    sizes = deliverable.size_range(listing, pod=row.pod)
+                    filled = dict(row.detail or {})
+                    if facts is not None:
+                        filled["deliverable"] = facts
+                    if sizes is not None:
+                        filled["size_range"] = sizes
+                    if filled != (row.detail or {}):
+                        row.detail = filled
+                        result.deliverable_backfilled.append(ref)
                 continue
 
             row.title = title
@@ -166,6 +187,16 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                           "num_favorers": listing.get("num_favorers"),
                           "who_made": listing.get("who_made"),
                           "when_made": listing.get("when_made")}
+            # #2's last unmeasured weakness: whether the listing says what arrives. The
+            # description is already in this payload and nothing was reading it. It is read
+            # here and discarded with the payload -- what is stored is the fact set, which is
+            # a fact about a category, not the seller's copy.
+            facts = deliverable.read(listing)
+            if facts is not None:
+                row.detail["deliverable"] = facts
+            sizes = deliverable.size_range(listing, pod=pod)
+            if sizes is not None:
+                row.detail["size_range"] = sizes
             result.pods_notified.add(pod)
 
     # -- the deep audit: what moved first, then the backlog (#208, #212, #303) ----

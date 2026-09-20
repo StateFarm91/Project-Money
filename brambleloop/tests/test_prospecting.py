@@ -557,6 +557,106 @@ def test_the_expedition_handler_runs_end_to_end_with_arenas_present():
     assert calls["n"] > 0, "the handler never reached the generator"
 
 
+def test_the_tournament_handler_runs_end_to_end_and_names_its_arena():
+    """The same lesson as the expedition handler: exercise the half that does the work.
+
+    A cadence test that passes on an empty database returns before the handler picks an
+    arena, routes a tier, assembles a catalogue or stores a row -- every line that has ever
+    broken in production.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import AuditLog
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.release import TOURNAMENT_ACTION, handle_creative_tournament
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    Registry(db).seed_defaults()
+    with db.session() as s:
+        for i in range(8):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"H{i}",
+                                   title="Cozy Chunky Crochet Beanie Hat Pattern",
+                                   pod="hats"))
+    q = JobQueue(db)
+    ctx = JobContext(job=q.enqueue("creative_director", "creative.tournament", {}),
+                     db=db, queue=q, registry=Registry(db), phase=None)
+
+    calls = {"n": 0}
+
+    motifs = ("lantern", "acorn", "moth", "ember", "thistle", "shutter",
+              "keyhole", "pinecone", "chimney", "birch", "hearth", "harvest")
+
+    def _concepts(self, ref, *, agent, values, required=None):
+        calls["n"] += 1
+        # Returns the size actually asked for. A double that returns one concept per batch
+        # starves the field below the funnel's floor, and the test then passes or fails on
+        # the double's arithmetic rather than the handler's.
+        want = int(values.get("count") or 1)
+        return {"concepts": [{
+            "title": f"{motifs[i % len(motifs)].title()} Brim Beanie {calls['n']}-{i}",
+            "premise": (f"a beanie whose folded brim stands proud of the crown so the "
+                        f"silhouette reads as a {motifs[i % len(motifs)]} from across a "
+                        f"room"),
+            "construction": "in_the_round", "motif": motifs[i % len(motifs)],
+            "palette_story": "ember and soot", "recipient": "child",
+            "occasion": "halloween", "feeling": "folkloric",
+            "function": "keeps a child warm and findable after dark",
+            "wow": "a brim engineered to hold its own shape"} for i in range(want)]}
+
+    from brambleloop.gateway import model_gateway
+    saved = model_gateway.ModelGateway.complete_json
+    model_gateway.ModelGateway.complete_json = _concepts
+    try:
+        result = handle_creative_tournament(ctx)
+    finally:
+        model_gateway.ModelGateway.complete_json = saved
+
+    assert result["ran"] is True, result
+    assert "/" in result["arena"], result
+    assert result["generated"] > 0, "the handler never produced a concept"
+    assert result["stages_run"] == ["ideation", "research"], result["stages_run"]
+    assert calls["n"] > 0
+
+    # The run is on the record whatever it concluded, which is the only way the history is
+    # evidence rather than a highlight reel.
+    with db.session() as s:
+        rows = [r for r in s.scalars(__import__("sqlalchemy").select(AuditLog))
+                if r.action == TOURNAMENT_ACTION]
+    assert len(rows) == 1, rows
+    assert rows[0].artifact == result["arena"]
+
+
+def test_a_tournament_that_kept_nothing_is_not_a_job_that_did_nothing():
+    """The most informative possible result must not read as a no-op and be paid for twice.
+
+    `did_no_work` re-drives a completed job whose every work counter is zero, which is how a
+    cadence that quietly failed gets a second chance. A tournament that generated eighty
+    concepts and killed all eighty is the opposite of that: it is the run that taught the
+    most, and re-driving it would buy the same answer again.
+    """
+    from brambleloop.runtime.pipeline import did_no_work
+
+    assert did_no_work({"ran": True, "generated": 80, "survivors": 0}) is False
+    assert did_no_work({"ran": True, "generated": 0, "survivors": 0}) is True
+
+
+def test_narrowing_to_an_arena_the_evidence_does_not_name_is_refused():
+    """`only` must not be able to invent the market the field is drawn from."""
+    db = _db()
+    with db.session() as s:
+        for i in range(8):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"H{i}",
+                                   title="Cozy Chunky Crochet Beanie Hat Pattern",
+                                   pod="hats"))
+    raised = None
+    try:
+        P.field(db, gateway=None, only=("Diwali", "kitchen_bath"))
+    except P.ProspectingRefused as e:
+        raised = e
+    assert raised is not None, "an unproven arena was accepted"
+    assert "not a proven-and-unserved arena" in str(raised)
+
+
 # ---- #104: commercially informed, and the plateau ----------------------------
 
 

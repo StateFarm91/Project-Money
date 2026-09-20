@@ -139,14 +139,18 @@ def arena_forms(db, pod: str, *, benchmark_key: str = "") -> dict:
     counts: dict[str, int] = {}
     unreadable = 0
     for row in rows:
-        try:
-            card = blinded.from_listing({
-                "listing_ref": row.listing_ref, "title": row.title, "pod": row.pod,
-                "product_type": row.product_type, "price_cad": row.price_cad})
-        except (blinded.Unreadable, blinded.NotComparable):
+        # Only the form, not a whole comparison card. A card needs a feeling as well, and a
+        # listing with no mood word in its title is perfectly readable as a cardigan -- it is
+        # just not describable as an opponent. Reading the form through the card was costing
+        # whole departments: every garments listing in a plainly-titled pod read as
+        # unreadable and the pod reported as containing no forms at all.
+        form = blinded.form_of({
+            "listing_ref": row.listing_ref, "title": row.title, "pod": row.pod,
+            "product_type": row.product_type, "price_cad": row.price_cad})
+        if not form:
             unreadable += 1
             continue
-        counts[card.form] = counts.get(card.form, 0) + 1
+        counts[form] = counts.get(form, 0) + 1
 
     return {
         "pod": pod,
@@ -986,17 +990,31 @@ IDEATION_BATCH = 12
 
 
 def field(db, *, gateway, target: int = 80, today: date | None = None,
-          catalogue: list[Concept] | None = None,
+          catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
           agent: str = "creative_director") -> dict:
     """A wide, cheap field drawn from every reachable proven arena.
 
     Across arenas rather than within one, because the tournament is choosing what this
     company should make next and a field drawn from a single department can only answer
     "which of these garments" -- which is a smaller question than the one #3 asks.
+
+    `only` narrows the draw to one (event, pod). That is a deliberately different question --
+    "is there a Brambleloop answer to *this* proven arena" -- and the breadth then comes from
+    the wheel rotating the arena between cycles rather than from one field spanning
+    everything. Depth within an arena is what makes a benchmark comparison possible at all:
+    a field spread over twelve departments puts two or three concepts against each of them.
     """
     from ..gateway import routing
 
     found = arenas(db, today=today)
+    if only is not None:
+        event, pod = only
+        found = [a for a in found if a.event == event and a.pod == pod]
+        if not found:
+            raise ProspectingRefused(
+                f"{event}/{pod} is not a proven-and-unserved arena today. Narrowing a field "
+                f"to an arena the evidence does not name would be inventing the market it "
+                f"was supposed to draw from")
     reachable: list[Slot] = []
     for arena in found:
         plan = slots(arena, catalogue=catalogue, today=today)
@@ -1067,7 +1085,7 @@ SCREEN_TO_FUNNEL: dict[str, str] = {
 
 
 def tournament(db, *, gateway, target: int = 80, today: date | None = None,
-               catalogue: list[Concept] | None = None,
+               catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
                agent: str = "creative_director") -> dict:
     """A real staged tournament: a wide cheap field, cut by the gates that already exist.
 
@@ -1083,14 +1101,15 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     from .funnel import Tournament, advance
 
     drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
-                  agent=agent)
+                  only=only, agent=agent)
     candidates = drawn["candidates"]
     if not candidates:
         raise ProspectingRefused(
             "the field is empty, so there is nothing to run a tournament on. "
             + "; ".join(drawn["problems"][:3]))
 
-    run = Tournament(opportunity=f"proven arenas @ {(today or date.today()).isoformat()}")
+    where = f"{only[0]}/{only[1]}" if only else "proven arenas"
+    run = Tournament(opportunity=f"{where} @ {(today or date.today()).isoformat()}")
 
     # Ideation: everything that reached a valid Concept survived the structural gate by
     # definition, and everything that did not never became an entrant. The refused ones are
@@ -1124,6 +1143,7 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
                        survived=survivors, killed=killed)
 
     return {
+        "arena": f"{only[0]}/{only[1]}" if only else "",
         "field": {k: v for k, v in drawn.items() if k != "candidates"},
         "rounds": [r.to_dict() for r in run.rounds],
         "survivors": [c.to_dict() for c in screened["survivor_objects"]],
