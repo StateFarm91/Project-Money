@@ -1206,21 +1206,202 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
                        entrants=[c.concept.key for c in candidates],
                        survived=survivors, killed=killed)
 
+    # Stage three, on the survivors research kept. The stage's own floor is not pre-checked
+    # here: `advance` owns it, and asking permission first would be the funnel agreeing with
+    # itself in private. A refusal is caught and *reported* rather than swallowed -- "the
+    # field was too narrow to reach stage three" is the finding, and it points at the field
+    # rather than at the gate.
+    from .funnel import FunnelRefused
+
+    kept = screened["survivor_objects"]
+    proposed: dict = {"ran": False, "reason": "research left nothing to develop"}
+    if kept:
+        attempt = proposition(db, kept, pod=kept[0].concept.pod)
+        try:
+            advance(run, stage="proposition",
+                    entrants=[c.concept.key for c in kept],
+                    survived=[c.concept.key for c in attempt["survivors"]],
+                    killed=attempt["killed"],
+                    examined=len(kept))
+        except FunnelRefused as e:
+            proposed = {k: v for k, v in attempt.items() if k != "survivors"}
+            proposed["ran"] = False
+            proposed["refused"] = str(e)
+            proposed["survivors"] = kept
+        else:
+            proposed = attempt
+            proposed["ran"] = True
+
+    final = proposed["survivors"] if proposed.get("ran") else kept
+
     return {
         "arena": f"{only[0]}/{only[1]}" if only else "",
+        "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
         "field": {k: v for k, v in drawn.items() if k != "candidates"},
         "rounds": [r.to_dict() for r in run.rounds],
-        "survivors": [c.to_dict() for c in screened["survivor_objects"]],
-        "survivor_objects": screened["survivor_objects"],
+        "survivors": [c.to_dict() for c in final],
+        "survivor_objects": final,
+        "research_survivors": [c.to_dict() for c in screened["survivor_objects"]],
         "research_kill_rate": research.kill_rate,
         "causes": screened["causes"],
         "novelty_measurable": screened["novelty_measurable"],
         "survival_rate_means": screened["survival_rate_means"],
         "cost_cad": drawn["cost_cad"],
         "stages_run": [r.stage for r in run.rounds],
-        "stages_not_run": [s for s in ("proposition", "prototype", "release")],
-        "note": ("Two stages, not five. proposition needs a margin and an unmet angle, "
-                 "prototype needs a compile and a twin, release needs the gates -- and "
-                 "running them with placeholder verdicts would produce a five-stage funnel "
-                 "that had cut nothing twice (#3)."),
+        "stages_not_run": ([] if proposed.get("ran") else ["proposition"]) + [
+            "prototype", "release"],
+        "proposition_refused": proposed.get("refused", ""),
+        "note": ("Three stages, not five. proposition runs the two of its three checks that "
+                 "observation supports -- the family test and whether the concept arrives "
+                 "speaking the department's own language -- and names margin as not applied, "
+                 "because contribution after fees passes every concept when the marginal "
+                 "cost of a digital file is zero and the cost to create it is #31. prototype "
+                 "needs a CIR authored and a twin run; release needs the gates. Running "
+                 "either with a placeholder verdict would produce a five-stage funnel that "
+                 "had cut nothing twice (#3)."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The proposition stage (#3, stage three)
+#
+# The funnel's own words for this gate: "does it seed a family, does it have an unmet angle,
+# does the margin survive". Two of those three are computable from what this company has
+# observed, and the third is not, so the third is named and not applied. A stage that quietly
+# scored the half it could not measure would be the neutral-default failure at a different
+# altitude, and this funnel refuses that shape everywhere else.
+
+# A word used by more than this share of a department's observed listings is that
+# department's own language, not an angle. Matched to the fatigue threshold, because it is
+# the same judgement about the same kind of evidence.
+CROWDED_TERM_SHARE = 0.34
+
+PROPOSITION_CHECKS: dict[str, str] = {
+    "family": "does the hero seed a coherent family, or would the family be forced (#111)",
+    "angle": "is the concept's own language already this department's language",
+    "margin": "does the contribution survive platform fees at a plausible price",
+}
+
+
+def _crowded_terms(db, pod: str, *, benchmark_key: str = "") -> dict:
+    """Words this department already says about itself, with the share of listings saying it.
+
+    Read from observed titles. Marketplace furniture -- "pattern", "pdf", "crochet" -- is
+    excluded by `arena_language` before it gets here, because those words describe nothing
+    and every listing carries them: counting them would make every concept crowded.
+    """
+    from ..commerce.intent import arena_language
+
+    language = arena_language(db, pod=pod, benchmark_key=benchmark_key)
+    if not language.get("measurable"):
+        return {"measurable": False, "reason": language.get("reason", ""), "terms": {}}
+    terms: dict[str, float] = {}
+    for rows in (language.get("by_facet") or {}).values():
+        for row in rows:
+            terms[row["word"]] = max(terms.get(row["word"], 0.0), row["share"])
+    for row in language.get("unclassified") or []:
+        terms[row["word"]] = max(terms.get(row["word"], 0.0), row["share"])
+    return {"measurable": True, "listings": language["listings"], "terms": terms}
+
+
+def angle_verdict(concept: Concept, crowded: dict) -> dict:
+    """Whether this concept arrives speaking the department's own language.
+
+    Deliberately one-sided. A concept whose distinctive words are all above the crowding
+    share is arriving as one more of what is already there, and that is a kill. A concept
+    whose words do not appear at all is *not* thereby proved to have found an opening -- an
+    absent word is absence of evidence, and the standing rule here is that absent is not
+    inferred. So this gate can refuse and cannot endorse, and says which it did.
+    """
+    if not crowded.get("measurable"):
+        return {"crowded": False, "measurable": False, "words": [],
+                "why": crowded.get("reason", "the department's language has not been read")}
+    words = [w for w in (concept.motif, concept.function, concept.feeling) if w]
+    tokens = sorted({t for word in words for t in str(word).lower().split()
+                     if len(t) >= 3})
+    if not tokens:
+        return {"crowded": False, "measurable": True, "words": [],
+                "why": "the concept states no distinctive word to check"}
+    shares = {t: crowded["terms"].get(t) for t in tokens}
+    observed = {t: v for t, v in shares.items() if v is not None}
+    if not observed:
+        return {"crowded": False, "measurable": True, "words": tokens, "shares": {},
+                "why": ("none of this concept's words appears in the department's observed "
+                        "titles, which is absence of evidence rather than evidence of an "
+                        "opening")}
+    crowded_now = {t: v for t, v in observed.items() if v > CROWDED_TERM_SHARE}
+    return {
+        "crowded": len(crowded_now) == len(observed),
+        "measurable": True,
+        "words": tokens,
+        "shares": observed,
+        "why": (f"every word of this concept that the department uses at all is used by more "
+                f"than {CROWDED_TERM_SHARE:.0%} of its listings: {sorted(crowded_now)}"
+                if len(crowded_now) == len(observed) and crowded_now else
+                "at least one of this concept's words is not this department's own language"),
+    }
+
+
+def proposition(db, survivors: list[Candidate], *, pod: str,
+                benchmark_key: str = "") -> dict:
+    """Stage three: develop the research survivors, and cut the ones that cannot carry.
+
+    Runs the two checks that are computable from observation and names the third.
+
+    **Family (#111)** is deterministic and already built: `family_test` asks whether the
+    hero's construction reaches enough roles, including a cheap one, or whether the
+    collection would have to be forced after the hero exists -- which is exactly when the
+    answer is always yes.
+
+    **Angle** is one-sided on purpose. It refuses a concept arriving in the department's own
+    vocabulary, and it does not endorse one whose words simply do not appear: an absent word
+    is absence of evidence.
+
+    **Margin is not applied.** The contribution after platform fees is computable and would
+    pass every concept, because the marginal cost of a digital file is zero -- what decides a
+    pattern's margin is the cost to create it, and that is #31, which does not exist yet.
+    Applying the half that always passes and calling the gate "margin" would report a check
+    that ran and decided nothing, which is the shape this funnel refuses everywhere else.
+    """
+    from ..commerce.pricing import contribution
+    from .family import family_test
+
+    crowded = _crowded_terms(db, pod, benchmark_key=benchmark_key)
+    kept: list[Candidate] = []
+    killed: dict[str, str] = {}
+    detail: dict[str, dict] = {}
+
+    for candidate in survivors:
+        concept = candidate.concept
+        fam = family_test(concept)
+        angle = angle_verdict(concept, crowded)
+        detail[concept.key] = {"family": fam["verdict"], "angle": angle}
+        if not fam["seeds_a_family"]:
+            killed[concept.key] = "no_family"
+            candidate.killed_by = "no_family"
+            candidate.detail = fam["note"][:400]
+            continue
+        if angle["crowded"]:
+            killed[concept.key] = "saturation"
+            candidate.killed_by = "saturation"
+            candidate.detail = angle["why"][:400]
+            continue
+        kept.append(candidate)
+
+    return {
+        "checks": PROPOSITION_CHECKS,
+        "applied": ["family", "angle"],
+        "not_applied": {
+            "margin": ("contribution after platform fees is computable and would pass every "
+                       "concept, because a digital file has no marginal cost. What decides a "
+                       "pattern's margin is the cost to create it, which is #31 and does not "
+                       "exist. A check that always passes is not a gate"),
+        },
+        "margin_shape": contribution(9.0, 1),
+        "language": {"measurable": crowded.get("measurable", False),
+                     "listings": crowded.get("listings"),
+                     "why": crowded.get("reason", "")},
+        "survivors": kept,
+        "killed": killed,
+        "detail": detail,
     }

@@ -1588,6 +1588,9 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
             "causes": result["causes"], "cost_cad": result["cost_cad"],
             "novelty_measurable": result["novelty_measurable"],
             "stages_run": result["stages_run"],
+            "stages_not_run": result["stages_not_run"],
+            "proposition_refused": result["proposition_refused"],
+            "research_survivors": len(result["research_survivors"]),
             **({} if attempted else
                {"reason": "every batch came back malformed; nothing was generated or spent"})}
 

@@ -278,7 +278,46 @@ Zero is a finding, not an absence — a shop with a hundred reviews and no compl
 the floor of three is a strong incumbent, and the honest reading of the arbitrage opening
 here is that it is not going to come from their customer service.
 
+**Fifty-eight sameness deaths were one brief asked twelve times.** Reading the first
+tournament's 78 kills as a harsh jury would have been the comfortable conclusion and it is
+not what happened. Within one slot the pod, form and occasion are already identical, so a
+pair only clears the novelty floor when its motif, recipient *and* function all differ — and
+one brief does not produce that. The brief now varies per concept: #106's nine named pairs
+crossed with #107's nine transformation patterns give **81 structurally distinct questions**,
+walked with a stride co-prime to both factors so consecutive concepts never share a pairing,
+and continued across batches so a slot visited seven times asks eighty-four questions rather
+than the same twelve seven times. Every cross is still built through `cross()`, so #106's
+near-synonym and one-dimension refusals apply: the variety is generated and it is still
+checked.
+
+Underneath it, a determinism defect. The pairing was chosen with `hash((pod, form))`, which
+Python salts per process, while the docstring promised the same arena always asks the same
+question. **The brief was silently different on every worker restart**, which makes any
+comparison between two runs unreadable — the field moved and nothing recorded that it had. It
+is a blake2b digest now, with a test that spawns three interpreters under different seeds.
+
+**The proposition stage runs.** Two of its three checks are computable from observation. The
+family test (#111) asks whether the hero's construction reaches enough roles including a
+cheap one, or whether the collection would have to be forced after the hero exists — which is
+exactly when the answer is always yes. The angle check is one-sided on purpose: it refuses a
+concept whose every word the department uses at all is used by more than 34% of its listings,
+and it does **not** endorse one whose words simply do not appear, because an absent word is
+absence of evidence. **Margin is named as not applied rather than run.** Contribution after
+platform fees passes every concept — a digital file has no marginal cost — and what decides a
+pattern's margin is the cost to create it, which is #31 and does not exist. A check that
+always passes is not a gate. A proposition stage fed below its floor of 35 is refused by the
+funnel and the refusal is *reported*, because "research left too few to reach stage three" is
+a finding about the field, not about the gate.
+
+**A cadence its agent may not run dead-letters on its first fire.** `product_tournament` went
+live and died at 05:12Z: `creative_director` had permission for `creative.blinded` and
+`creative.expedition` and not for `creative.tournament`.
+`test_every_scheduled_cadence_can_actually_run` exists for exactly this and caught it — the
+push went out before the full suite's result was read, so production found it first. That is
+the wrong order and it is the reason that test was written.
+
 Model spend **CA$1.17 of CA$25**. Production verify **12/12 green** at 2026-09-20T05:04Z.
+Suite **1459 passing, 0 failing**.
 
 ## Previously — last completed milestone
 **Discovery produced its first real products, and the headline number needed its caveat.**

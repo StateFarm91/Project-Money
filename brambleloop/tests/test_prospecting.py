@@ -583,6 +583,111 @@ def test_generated_variety_is_still_checked_rather_than_assumed():
         assert not any(pair <= family for family in _FAMILIES), (a, b)
 
 
+# ---- the proposition stage ---------------------------------------------------
+
+
+def _survivor(key: str, **over):
+    from brambleloop.creative.prospecting import Candidate
+
+    arena = P.Arena(event="Halloween", pod=over.get("pod", "hats"), days_away=41,
+                    benchmark_listings=85, forms={over.get("form", "hat"): 38})
+    slot = P.slots(arena)["slot_objects"][0]
+    base = dict(key=key, title="Lantern Brim Beanie",
+                premise=("a beanie whose folded brim stands proud of the crown so the "
+                         "silhouette reads as a lantern from across a room"),
+                pod="hats", form="hat", construction="in_the_round", motif="lantern",
+                palette_story="ember and soot", recipient="child", occasion="halloween",
+                feeling="folkloric", function="warmth", make_lane="QUICK",
+                provenance="test")
+    base.update(over)
+    return Candidate(concept=Concept(**base), slot=slot)
+
+
+def test_the_angle_gate_refuses_and_does_not_endorse():
+    """One-sided on purpose: absent is not inferred.
+
+    A concept arriving in the department's own vocabulary is one more of what is already
+    there, and that is a kill. A concept whose words do not appear in the department at all
+    has not thereby been shown to have found an opening -- that is absence of evidence, and
+    endorsing on it would be the same mistake as a novelty gate measured against an empty
+    catalogue.
+    """
+    crowded = {"measurable": True, "listings": 80,
+               "terms": {"lantern": 0.9, "warmth": 0.8, "folkloric": 0.7}}
+    verdict = P.angle_verdict(_survivor("a").concept, crowded)
+    assert verdict["crowded"] is True, verdict
+    assert "more than 34%" in verdict["why"]
+
+    unseen = {"measurable": True, "listings": 80, "terms": {"snowflake": 0.9}}
+    quiet = P.angle_verdict(_survivor("b").concept, unseen)
+    assert quiet["crowded"] is False, quiet
+    assert "absence of evidence" in quiet["why"]
+
+    # And a department nobody has read cannot convict anybody.
+    unread = P.angle_verdict(_survivor("c").concept,
+                             {"measurable": False, "reason": "not read"})
+    assert unread["crowded"] is False
+    assert unread["measurable"] is False
+
+
+def test_margin_is_named_as_not_applied_rather_than_run_as_a_check_that_always_passes():
+    """The requirement's own gate names three checks. Two are computable and one is not.
+
+    Contribution after platform fees passes every concept, because a digital file has no
+    marginal cost -- what decides a pattern's margin is the cost to create it, which is #31
+    and does not exist. Running the half that always passes and calling the gate "margin"
+    would report a check that ran and decided nothing, which is the shape this funnel refuses
+    everywhere else.
+    """
+    db = _db()
+    out = P.proposition(db, [_survivor("a")], pod="hats")
+    assert set(out["checks"]) == {"family", "angle", "margin"}
+    assert out["applied"] == ["family", "angle"]
+    assert "margin" in out["not_applied"]
+    assert "#31" in out["not_applied"]["margin"]
+    # The arithmetic is present and is not being passed off as a gate.
+    assert out["margin_shape"]["contribution_cad"] > 0
+
+
+def test_a_proposition_stage_fed_below_its_floor_is_reported_not_skipped():
+    """Two survivors is not a selection, and the funnel is right to refuse it.
+
+    The finding is the field, not the gate: "research left too few to reach stage three"
+    points at a brief that produced siblings. Swallowing the refusal and quietly running the
+    stage anyway would turn the one honest signal into a passing number.
+    """
+    from brambleloop.creative.funnel import STAGE_BY_KEY, FunnelRefused, Tournament, advance
+
+    run = Tournament(opportunity="test")
+    advance(run, stage="ideation", entrants=[f"k{i}" for i in range(80)],
+            survived=[f"k{i}" for i in range(80)], killed={}, examined=80)
+    advance(run, stage="research", entrants=[f"k{i}" for i in range(80)],
+            survived=["k0", "k1"], killed={f"k{i}": "sameness" for i in range(2, 80)})
+
+    raised = None
+    try:
+        advance(run, stage="proposition", entrants=["k0", "k1"], survived=["k0"],
+                killed={"k1": "no_family"})
+    except FunnelRefused as e:
+        raised = e
+    assert raised is not None, "a two-concept selection was accepted"
+    assert str(STAGE_BY_KEY["proposition"].floor_in) in str(raised)
+
+
+def test_a_concept_that_cannot_seed_a_family_is_cut_before_engineering():
+    """#111's whole point: after engineering the answer is always yes."""
+    db = _db()
+    lone = _survivor("lone", form="stocking", construction="flat_rows")
+    out = P.proposition(db, [lone], pod="stockings")
+    from brambleloop.creative.family import family_test
+
+    if not family_test(lone.concept)["seeds_a_family"]:
+        assert out["killed"]["lone"] == "no_family", out
+        assert lone.killed_by == "no_family"
+    else:
+        assert "lone" not in out["killed"], out
+
+
 # ---- the handler itself ------------------------------------------------------
 
 
