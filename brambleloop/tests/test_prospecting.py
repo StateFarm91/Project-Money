@@ -310,6 +310,17 @@ def test_no_reader_carries_its_own_literal_for_the_proven_gap_key():
 # ---- the gauntlet -----------------------------------------------------------
 
 
+def _listing(ref: str, title: str, pod: str, price: float = 8.0) -> dict:
+    return {"listing_ref": ref, "title": title, "pod": pod, "product_type": "6343",
+            "price_cad": price}
+
+
+def _slot_for(form: str) -> P.Slot:
+    return P.Slot(arena=_arena(pod="stockings", forms={form: 13}), form=form,
+                  make_lane="QUICK", benchmark_examples=13,
+                  constructions=("in_the_round",), engine_ready=True, needs_engineering=())
+
+
 def _candidate(key, **kw) -> P.Candidate:
     slot = P.Slot(arena=_arena(), form=kw.get("form", "hat"), make_lane="SHORT",
                   benchmark_examples=40, constructions=("in_the_round",),
@@ -358,6 +369,46 @@ def test_a_gauntlet_that_passes_most_of_what_enters_says_so():
         varied.append(_candidate(f"v-{i}", form=form, construction=construction, motif=motif))
     result = P.screen(varied, min_novelty=0.0)
     assert result["gauntlet_suspicious"] is (result["survival_rate"] > 0.60)
+
+
+def test_a_concept_indistinguishable_from_a_listing_is_refused():
+    """Entering their arena is allowed; arriving as one of their listings is not.
+
+    The jury's `derivative` critic reads `ctx.benchmark`, and screen() never passed it — so
+    the one check guarding against copying the shop this mission is built around never
+    fired. Silently.
+    """
+    from brambleloop.creative import blinded
+
+    listing = blinded.from_listing(_listing(
+        "1", "Cozy Crochet Christmas Stocking Pattern", "stockings"))
+    ours = _concept("x", pod="stockings", form=listing.form,
+                    occasion=listing.occasion, feeling=listing.feeling,
+                    construction="in_the_round")
+    ours = Concept(**{**ours.__dict__, "recipient": listing.recipient})
+    result = P.screen([P.Candidate(concept=ours, slot=_slot_for("stocking"))],
+                      benchmark=[listing])
+    assert result["causes"] == {"indistinguishable_from_a_benchmark_listing": 1}
+    assert result["benchmark_compared"] == 1
+
+
+def test_the_benchmark_check_states_its_own_limit():
+    """A title-level check that implied it caught borrowed execution would be worse than none."""
+    result = P.screen([], benchmark=[])
+    assert "benchmark_purchases gate" in result["benchmark_check_strength"]
+
+
+def test_entering_the_same_arena_with_a_different_idea_is_allowed():
+    """#215 and #306 are explicit: cardigans are not owned by anybody."""
+    from brambleloop.creative import blinded
+
+    listing = blinded.from_listing(_listing(
+        "1", "Cozy Crochet Christmas Stocking Pattern", "stockings"))
+    different = _concept("y", pod="stockings", form="stocking", occasion="christmas",
+                         feeling="whimsical", construction="in_the_round")
+    result = P.screen([P.Candidate(concept=different, slot=_slot_for("stocking"))],
+                      benchmark=[listing])
+    assert "indistinguishable_from_a_benchmark_listing" not in result["causes"]
 
 
 # ---- the expedition ---------------------------------------------------------

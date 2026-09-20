@@ -431,7 +431,58 @@ class Candidate:
         }
 
 
+def benchmark_cards(db, *, pod: str = "", benchmark_key: str = "") -> list:
+    """Observed listings as comparable cards, for the "is this theirs?" check.
+
+    Deliberately cards rather than concepts. A `Concept` carries construction, motif and
+    function, none of which a title states, and inventing them to make `distance()` work
+    would produce a derivative check measuring fabricated fields. So the comparison runs on
+    the five things both sides genuinely state, and its limit is reported rather than
+    implied: this catches a concept indistinguishable from a listing on everything visible
+    from outside. Catching a borrowed *execution* needs a product in hand, which is the
+    `benchmark_purchases` gate.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from . import blinded
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        query = select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key)
+        if pod:
+            query = query.where(BenchmarkListing.pod == pod)
+        rows = list(s.scalars(query))
+
+    out = []
+    for row in rows:
+        try:
+            out.append(blinded.from_listing({
+                "listing_ref": row.listing_ref, "title": row.title, "pod": row.pod,
+                "product_type": row.product_type, "price_cad": row.price_cad}))
+        except (blinded.Unreadable, blinded.NotComparable):
+            continue
+    return out
+
+
+def _matches_a_listing(concept: Concept, cards: list) -> str:
+    """The listing this concept is indistinguishable from, on everything either side states."""
+    from . import blinded
+
+    try:
+        ours = blinded.from_concept(concept)
+    except Exception:  # noqa: BLE001 - an unmappable concept simply cannot be compared
+        return ""
+    mine = ours.presented()
+    for card in cards:
+        if card.presented() == mine:
+            return card.ref
+    return ""
+
+
 def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = None,
+           benchmark: list | None = None,
            days_to_event: int | None = None, min_novelty: float = MIN_NOVELTY) -> dict:
     """Run the gauntlet. Order matters: cheap structural refusals before the expensive jury.
 
@@ -459,6 +510,14 @@ def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = Non
             candidate.detail = (
                 f"{concept.construction!r} does not build a {concept.form!r}: "
                 f"{sorted(allowed)}")
+            continue
+        twin_ref = _matches_a_listing(concept, benchmark or [])
+        if twin_ref:
+            candidate.killed_by = "indistinguishable_from_a_benchmark_listing"
+            candidate.detail = (
+                f"listing {twin_ref} states the same pod, form, occasion, recipient and "
+                f"feeling. Entering their arena is allowed; arriving as one of their "
+                f"listings is not")
             continue
         verdict = judge(concept, Context(catalogue=catalogue, techniques=1,
                                          days_to_event=days_to_event))
@@ -512,6 +571,11 @@ def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = Non
         "causes": dict(sorted(causes.items(), key=lambda kv: -kv[1])),
         "gauntlet_suspicious": rate > SUSPICIOUS_SURVIVAL,
         "min_novelty": min_novelty,
+        "benchmark_compared": len(benchmark or []),
+        "benchmark_check_strength": (
+            "title-level: it catches a concept indistinguishable from an observed listing "
+            "on everything either side states. Catching a borrowed execution needs a "
+            "product in hand, which is the benchmark_purchases gate"),
         "note": ("An empty field is a real answer: it says this system could not yet invent "
                  "something worth selling here. It is a better answer than a survivor that "
                  "only survived because the gauntlet was loosened until one did."),
@@ -663,7 +727,9 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
         candidates.extend(field_)
         refusals.extend(refused)
 
-    result = screen(candidates, catalogue=catalogue, days_to_event=arena.days_away)
+    result = screen(candidates, catalogue=catalogue,
+                    benchmark=benchmark_cards(db, pod=arena.pod),
+                    days_to_event=arena.days_away)
     forms = sorted({c.concept.form for c in result["survivor_objects"]})
     return {
         "arena": arena.to_dict(),
