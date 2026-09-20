@@ -1226,6 +1226,30 @@ def api_seasonal_cycle() -> dict:
     return cycle.run(db, gateway=gateway)
 
 
+@app.get("/api/owned")
+def api_owned() -> dict:
+    """Which flagships have an owned acquisition counterpart, and the CASL rules on sending.
+
+    The email path is governed by Canada's Anti-Spam Legislation, and the rules are enforced
+    in code rather than described in a policy: a comment in a detail dictionary does not stop
+    a send (#20).
+    """
+    from ..growth import owned
+
+    return {
+        "counterparts": owned.counterparts(db),
+        "owned_share": owned.owned_share(db),
+        "casl": {
+            "bases": owned.BASES,
+            "implied_lifetime_days": owned.IMPLIED_LIFETIME_DAYS,
+            "required_in_every_message": list(owned.REQUIRED_IN_EVERY_MESSAGE),
+            "unsubscribe_must_work_for_days": owned.UNSUBSCRIBE_VALID_DAYS,
+            "screen_not_clearance": ("these are the rules a careful sender follows, encoded "
+                                     "so a send cannot skip them. Not legal advice"),
+        },
+    }
+
+
 @app.get("/api/promotion")
 def api_promotion() -> dict:
     """Whether the catalogue is being conditioned to require discounts (#19).

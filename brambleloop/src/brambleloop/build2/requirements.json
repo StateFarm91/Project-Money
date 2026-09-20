@@ -178,11 +178,12 @@
  {
   "body": "Every flagship should have an owned acquisition counterpart: SEO article/tutorial, Pinterest cluster, video where useful and consented email path. Track assisted conversions. Reduce long-term dependence on Etsy for every visit.",
   "id": 20,
-  "note": "content ecosystem exists per product; no owned-audience compounding",
+  "note": "growth/owned.py turns #20's email clause from a comment into a control. growth/content.py already carried the right sentence -- express consent required before this is ever sent -- in a detail dictionary, and a comment does not stop a send. CASL governs every commercial electronic message this company will ever send, so the rules are code that refuses: a consent has a named basis, a date and a recorded source, and one with no source cannot be checked by anybody later, which is the only thing that makes it a record rather than an assertion. Express consent lasts until it is withdrawn and withdrawal is final. Implied consent expires on its own -- two years from a purchase, six months from an enquiry -- and that is the part that catches careful senders out, because nothing about an address changes on the day it runs out and a list that is not checking simply carries on. Identification and an unsubscribe are conditions of sending rather than good manners, so a message missing either is refused before it reaches an inbox, and the unsubscribe has to keep working for 60 days and be actioned within 10 business days. The module says plainly that passing the screen is not clearance, which is the wording culture/rights.py uses for the same reason. counterparts() reports which certified products have an owned channel and which have none, because a report listing what exists is an inventory and the useful half is the work; an empty coverage report is not full coverage. owned_share() feeds the traffic_source axis of the anti-fragility rule (#29). Remaining and data-gated: assisted conversions and the owned share itself need visits, and are reported unmeasurable with the reason rather than as zero, because a company with no traffic has no marketplace dependence either and that is not the finding anybody wants recorded. /api/owned.",
   "section": "Core commercial upgrades",
   "status": "partial",
   "title": "Owned-Audience Compounding",
-  "version": "v1.3"
+  "version": "v1.3",
+  "parked_on": "customers"
  },
  {
   "body": "Start with small legitimate collaborations and disclosed affiliate arrangements where appropriate. Measure attributable traffic, conversion, usable proof assets and support impact before scaling creator spend.",
