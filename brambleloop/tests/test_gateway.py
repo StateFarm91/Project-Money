@@ -303,6 +303,115 @@ def _run_scripted(responses: dict[str, dict]):
     return eval_mod.run_evals(ModelGateway([provider]))
 
 
+def test_every_tier_routes_to_a_model_the_billing_table_prices():
+    """The two tables cannot drift, because there is only one of them now.
+
+    Found in production: the cheap tier routed to "claude-haiku-4-5" and the billing table
+    held only "claude-haiku-4-5-20251001", so `PRICES.get(model, (0.0, 0.0))` priced every
+    cheap call at nothing. A tournament generated eighty concepts and recorded CA$0.00, and
+    the CA$25 monthly ceiling could never be reached by cheap work -- an unbounded budget
+    that reports zero.
+    """
+    from brambleloop.gateway import routing
+    from brambleloop.gateway.anthropic import PRICES_USD_PER_MTOK
+
+    for key, tier in routing.TIERS.items():
+        assert tier.model in PRICES_USD_PER_MTOK, (key, tier.model)
+        assert tier.usd_per_1m_input > 0, key
+        assert tier.usd_per_1m_output > 0, key
+
+
+def test_the_estimate_and_the_bill_are_the_same_price():
+    """Routing used to restate the prices and the two disagreed by a factor of three.
+
+    This file said the deep tier cost USD 5/25 per million tokens; the provider billed 15/75.
+    Every estimate in the system was a third of the truth, and the first live expedition --
+    estimated at CA$0.15 a field -- cost CA$1.02. An estimate wrong in the cheap direction is
+    worse than no estimate, because it is the number a budget decision gets made on.
+    """
+    from brambleloop.gateway import routing
+    from brambleloop.gateway.anthropic import USD_TO_CAD, AnthropicProvider
+
+    for key, tier in routing.TIERS.items():
+        provider = AnthropicProvider(model=tier.model)
+        # The provider prices per 1k tokens in CAD; the tier per 1M in USD. Same number.
+        billed_in = provider.cost_per_1k_input_cad * 1000 / USD_TO_CAD
+        billed_out = provider.cost_per_1k_output_cad * 1000 / USD_TO_CAD
+        assert abs(billed_in - tier.usd_per_1m_input) < 0.01, (key, billed_in)
+        assert abs(billed_out - tier.usd_per_1m_output) < 0.01, (key, billed_out)
+
+
+def test_a_model_with_no_price_is_refused_rather_than_billed_at_zero():
+    """"An unpriced call is an unbounded one" was already written, in one of two code paths.
+
+    `_cost_for` raised for an unpriced model. `AnthropicProvider.__post_init__` silently
+    defaulted to (0.0, 0.0) -- and the gateway used the silent one. Two code paths for one
+    rule, and the quiet one wins by default.
+    """
+    from brambleloop.gateway.anthropic import AnthropicProvider, BudgetExceeded
+
+    raised = None
+    try:
+        AnthropicProvider(model="claude-something-nobody-priced")
+    except BudgetExceeded as e:
+        raised = e
+    assert raised is not None, "an unpriced model was constructed and would bill at zero"
+    assert "unbounded" in str(raised)
+
+
+def test_an_unpriced_tier_cannot_produce_an_estimate():
+    """An estimate for a model nobody can bill is a guess wearing a decimal point."""
+    from brambleloop.gateway import routing
+
+    stray = routing.Tier("stray", "claude-not-in-the-table", vision=True, use_for="test")
+    raised = None
+    try:
+        stray.cost_cad(1000, 1000)
+    except routing.UnpricedTier as e:
+        raised = e
+    assert raised is not None
+    assert "does not price" in str(raised)
+
+
+def test_a_model_cost_is_attributable_to_the_job_that_spent_it():
+    """#31: without a job id every cost is unattributed and every artefact looks like a floor.
+
+    `registry.record_cost` always accepted a job id; the gateway simply never passed one, so
+    `unit_costs()` could match no cost to the audit row that produced a pattern or a listing.
+    The ratios were correct arithmetic over an empty attribution the whole time.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import CostEntry
+    from brambleloop.gateway.model_gateway import ModelGateway
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/attrib.sqlite")
+    db.create_all()
+    registry = Registry(db)
+    registry.seed_defaults()
+
+    # A real job row: CostEntry.job_id is a foreign key, which is itself the guarantee that
+    # an attributed cost points at work that actually happened rather than at a number.
+    from brambleloop.queue.durable import JobQueue
+
+    job = JobQueue(db).enqueue("market_radar", "radar.scan", {})
+
+    priced = _echo({"names": ["A", "B", "C"]},
+                   cost_per_1k_input_cad=0.01, cost_per_1k_output_cad=0.05)
+    gateway = ModelGateway([priced], registry=registry, job_id=job.id)
+    gateway.complete_json("concept.naming@1", agent="market_radar",
+                          values={"category": "c", "motifs": "m", "season": "s"})
+
+    with db.session() as s:
+        rows = list(s.scalars(select(CostEntry)))
+    assert rows, "no cost was recorded at all"
+    assert all(r.job_id == job.id for r in rows), [(r.agent, r.job_id) for r in rows]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

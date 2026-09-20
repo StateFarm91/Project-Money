@@ -44,14 +44,45 @@ STANDARD = "standard"
 DEEP = "deep"
 
 
+class UnpricedTier(ValueError):
+    """A tier whose model the billing table does not price."""
+
+
 @dataclass(frozen=True)
 class Tier:
+    """A model tier. Its prices are read from the table that bills, never restated here.
+
+    They used to be restated, and the two disagreed: this file said the deep tier cost
+    USD 5/25 per million tokens while the provider billed 15/75. Every estimate in the system
+    was therefore a third of the truth, and the first live expedition -- estimated at CA$0.15
+    a field -- cost CA$1.02. An estimate that is wrong in the cheap direction is worse than no
+    estimate: it is the number a budget decision gets made on.
+    """
+
     key: str
     model: str
-    usd_per_1m_input: float
-    usd_per_1m_output: float
     vision: bool
     use_for: str
+
+    @property
+    def _prices(self) -> tuple[float, float]:
+        from .anthropic import PRICES_USD_PER_MTOK
+
+        prices = PRICES_USD_PER_MTOK.get(self.model)
+        if prices is None:
+            raise UnpricedTier(
+                f"tier {self.key!r} routes to {self.model!r}, which the billing table does "
+                f"not price. An estimate for a model nobody can bill is a guess, and the "
+                f"call it authorises is unbounded")
+        return prices
+
+    @property
+    def usd_per_1m_input(self) -> float:
+        return self._prices[0]
+
+    @property
+    def usd_per_1m_output(self) -> float:
+        return self._prices[1]
 
     def cost_cad(self, tokens_in: int, tokens_out: int) -> float:
         usd = (tokens_in / 1_000_000 * self.usd_per_1m_input
@@ -61,13 +92,13 @@ class Tier:
 
 TIERS: dict[str, Tier] = {
     CHEAP: Tier(
-        CHEAP, "claude-haiku-4-5", 1.00, 5.00, vision=True,
+        CHEAP, "claude-haiku-4-5", vision=True,
         use_for="classification, extraction and routing — high volume, low judgement"),
     STANDARD: Tier(
-        STANDARD, "claude-sonnet-5", 2.00, 10.00, vision=True,
+        STANDARD, "claude-sonnet-5", vision=True,
         use_for="image-level observation and listing copy — judgement at volume"),
     DEEP: Tier(
-        DEEP, "claude-opus-5", 5.00, 25.00, vision=True,
+        DEEP, "claude-opus-5", vision=True,
         use_for="creative evaluation and the benchmark challenge — where being wrong is "
                 "expensive and the call is made a handful of times"),
 }

@@ -1494,7 +1494,8 @@ def handle_creative_blinded(ctx: JobContext) -> dict:
     # model answers which question and prices it; a handler picking its own would make the
     # ceiling's estimate a guess about a different call than the one being made.
     _task, tier = routing.route(blinded.TASK)
-    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry)
+    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
+                           job_id=ctx.job.id)
 
     concepts = catalogue_concepts()
     try:
@@ -1560,7 +1561,8 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     arena = prospecting.choose(found, cycle=week)
 
     _task, tier = routing.route(prospecting.IDEATION_TASK)
-    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry)
+    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
+                           job_id=ctx.job.id)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
 
     try:
@@ -1632,7 +1634,8 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     arena = prospecting.choose(found, cycle=week)
 
     _task, tier = routing.route(prospecting.GENERATION_TASK)
-    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry)
+    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
+                           job_id=ctx.job.id)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
 
     try:

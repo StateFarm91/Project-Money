@@ -39,6 +39,7 @@ and then reports honestly how little survived.
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -1023,14 +1024,29 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
                        lane_states(soonest.days_away, today=today or date.today()))
     share = max(held.get("share", 0.0), MIN_PRIORITY_SHARE)
 
-    # A twenty-slot wheel, `share` of it belonging to the priority programme. Deterministic
-    # in the cycle number so the schedule is inspectable rather than emergent.
-    wheel = 20
-    priority_slots = max(1, round(share * wheel))
+    # A wheel no longer than the programme's own runway, with its slots *spread* rather than
+    # blocked at the front.
+    #
+    # Both halves of that were wrong, and production showed it. The wheel was twenty slots
+    # with the first nine reserved, and the position was `cycle % 20` where `cycle` is a week
+    # number counted from the Unix epoch -- so where the turn started was arbitrary. The
+    # first live tournament landed at a non-priority position with Christmas 96 days out:
+    # thirteen cycles of runway left and the next Christmas slot eight cycles away. A
+    # reservation that a phase offset can push outside the runway is not a reservation.
+    #
+    # So the turn is capped at the runway, and the priority slots are distributed across it
+    # by the same integer-error rule a line-drawing algorithm uses. Whatever the phase, the
+    # gap between two priority cycles is at most one more than the share implies, and the
+    # programme cannot be starved by where the epoch happened to fall.
+    runway_cycles = max(1, int(math.ceil(soonest.days_away / 7.0)))
+    wheel = max(2, min(20, runway_cycles))
+    priority_slots = max(1, min(wheel - 1, round(share * wheel)))
     position = cycle % wheel
-    if position < priority_slots:
-        return priority[position % len(priority)]
-    return others[(position - priority_slots) % len(others)]
+    taken = (position * priority_slots) // wheel
+    is_priority = ((position + 1) * priority_slots) // wheel > taken
+    if is_priority:
+        return priority[taken % len(priority)]
+    return others[(position - taken) % len(others)]
 
 
 # ---------------------------------------------------------------------------

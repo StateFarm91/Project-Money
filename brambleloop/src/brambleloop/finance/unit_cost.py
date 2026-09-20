@@ -20,17 +20,46 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-# The artefacts #31 asks for a unit cost on. Each maps to the audit action that marks one
-# being produced, so the count comes from the trail rather than from a table somebody updates.
-ARTEFACTS: dict[str, tuple[str, str]] = {
-    "concept": ("concept.scored", "a concept that reached a score"),
-    "validated_pattern": ("gate.certified", "a pattern that passed the full gate chain"),
-    "pdf": ("publish.document", "a rendered pattern document"),
-    "listing": ("listing.drafted", "a listing draft ready for review"),
-    "visual_asset": ("asset.rendered", "a rendered listing image"),
-    "support_case": ("support.answered", "a customer question answered"),
-    "acquired_customer": ("ledger.sale", "a customer who paid"),
-}
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Artefact:
+    """One thing #31 wants a unit cost on, and how to count it from the audit trail.
+
+    `actions` is a tuple because one artefact can be produced by more than one kind of work:
+    a concept arrives from scoring, from a discovery expedition and from a tournament, and
+    picking one action would quietly cost only the concepts that came the way somebody
+    happened to list first.
+
+    `count_in_detail` is the other half. Most audit rows are one row per artefact; a
+    discovery run is a single row that produced eighty concepts, and counting it as one
+    concept would report a field of eighty at eighty times its real unit cost -- an error
+    that makes discovery look catastrophically expensive and would be read as a reason to
+    stop doing it.
+    """
+
+    key: str
+    actions: tuple[str, ...]
+    meaning: str
+    count_in_detail: str | None = None
+
+
+ARTEFACTS: tuple[Artefact, ...] = (
+    Artefact("concept", ("concept.scored",), "a concept that reached a score"),
+    Artefact("discovered_concept", ("creative.expedition", "creative.tournament"),
+             "a concept invented against a proven market arena",
+             count_in_detail="proposed"),
+    Artefact("validated_pattern", ("gate.certified",),
+             "a pattern that passed the full gate chain"),
+    Artefact("pdf", ("publish.document",), "a rendered pattern document"),
+    Artefact("listing", ("listing.drafted",), "a listing draft ready for review"),
+    Artefact("visual_asset", ("asset.rendered",), "a rendered listing image"),
+    Artefact("support_case", ("support.answered",), "a customer question answered"),
+    Artefact("acquired_customer", ("ledger.sale",), "a customer who paid"),
+)
+
+ARTEFACT_BY_KEY: dict[str, Artefact] = {a.key: a for a in ARTEFACTS}
 
 
 def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
@@ -52,7 +81,8 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
     with db.session() as s:
         costs = [(c.agent, c.amount_cad, _aware(c.at), c.job_id)
                  for c in s.scalars(select(CostEntry))]
-        actions = [(a.action, _aware(a.at), a.job_id) for a in s.scalars(select(AuditLog))]
+        actions = [(a.action, _aware(a.at), a.job_id, a.detail or {})
+                   for a in s.scalars(select(AuditLog))]
         contribution = s.scalar(select(func.coalesce(
             func.sum(LedgerEntry.gross_cad - LedgerEntry.fees_cad
                      - LedgerEntry.refunds_cad - LedgerEntry.expense_cad), 0.0))) or 0.0
@@ -63,20 +93,30 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
 
     rows = {}
     attributed = 0.0
-    for key, (action, meaning) in ARTEFACTS.items():
-        produced = [a for a in actions if a[0] == action and a[1] >= since]
-        direct = sum(costed_jobs.get(a[2], 0.0) for a in produced if a[2] is not None)
+    seen_jobs: set[int] = set()
+    for artefact in ARTEFACTS:
+        produced = [a for a in actions if a[0] in artefact.actions and a[1] >= since]
+        # A job's cost is attributed once. Two artefacts sharing a job -- a run that both
+        # proposed concepts and drafted a listing -- would otherwise each claim the whole
+        # cost, and the total attributed would exceed what was spent.
+        direct = sum(costed_jobs.get(a[2], 0.0) for a in produced
+                     if a[2] is not None and a[2] not in seen_jobs)
+        seen_jobs.update(a[2] for a in produced if a[2] is not None)
         attributed += direct
-        uncosted = sum(1 for a in produced
-                       if a[2] is None or a[2] not in costed_jobs)
-        rows[key] = {
-            "meaning": meaning,
-            "produced": len(produced),
+        if artefact.count_in_detail:
+            count = sum(int(a[3].get(artefact.count_in_detail) or 0) for a in produced)
+        else:
+            count = len(produced)
+        uncosted = sum(1 for a in produced if a[2] is None or a[2] not in costed_jobs)
+        rows[artefact.key] = {
+            "meaning": artefact.meaning,
+            "produced": count,
+            "runs": len(produced) if artefact.count_in_detail else None,
             "direct_cost_cad": round(direct, 4),
-            "cost_each_cad": (round(direct / len(produced), 4) if produced else None),
+            "cost_each_cad": (round(direct / count, 4) if count else None),
             "produced_by_uncosted_work": uncosted,
-            "note": (f"{uncosted} of {len(produced)} were produced by work with no recorded "
-                     f"cost, so the figure above is a floor"
+            "note": (f"{uncosted} of {len(produced)} runs were produced by work with no "
+                     f"recorded cost, so the figure above is a floor"
                      if uncosted else ""),
         }
 

@@ -283,9 +283,16 @@ def test_work_is_routed_by_what_it_actually_needs():
             < routing.estimate_cad("gallery_observation")
             < routing.estimate_cad("benchmark_challenge"))
 
-    # The release-blocking judgement gets the best model, and it is still affordable: the
-    # ceiling buys hundreds of them, which is the point of routing the cheap work away.
-    assert 25.0 / routing.estimate_cad("benchmark_challenge") > 100
+    # The release-blocking judgement gets the best model, and it is still affordable -- the
+    # ceiling buys dozens a month against a company that releases a handful of patterns.
+    #
+    # This number used to read "> 100" and it passed on a price that was a third of the real
+    # one: routing restated the deep tier at USD 5/25 per million tokens while the provider
+    # billed 15/75. The estimates are read from the billing table now, so CA$25 buys about 64
+    # of these rather than the 192 this test used to believe. A budget assertion that passes
+    # on the wrong price is worse than no budget assertion, because it is the number somebody
+    # decides on.
+    assert 25.0 / routing.estimate_cad("benchmark_challenge") > 50
     assert 25.0 / routing.estimate_cad("listing_classify") > 1000
 
     # Every declared task has a vision-capable tier, since gallery work is the whole mandate.

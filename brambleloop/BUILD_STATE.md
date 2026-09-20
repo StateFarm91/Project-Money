@@ -364,8 +364,54 @@ somebody can grant; #18's remainder needs *orders*, and nothing in the gate tabl
 for that. The `customers` gate is the one entry the owner cannot grant — it counts ledger
 rows, and its test asserts that no environment variable can open it.
 
+## The first tournament at scale, and the three price tables underneath it
+
+**2026-09-20T06:04Z, job 1718, Mother's Day / garments: 80 generated → research kept 45 →
+proposition kept 11.** Research's kill rate went from 0.975 to 0.438, inside the
+requirement's 35–45 target for that stage. The 58 sameness deaths in the first run really
+were one brief asked twelve times, and the per-concept invention crosses fixed it. Three of
+five stages ran; `proposition_refused` is empty, so stage three cleared its floor of 35
+legitimately.
+
+**It also reported `cost_cad: 0.0` for eighty concepts, and the month's spend did not move.**
+That is not possible, and chasing it found three price tables that disagreed.
+
+- The cheap tier routes to `claude-haiku-4-5`; the billing table held only
+  `claude-haiku-4-5-20251001`. `PRICES.get(model, (0.0, 0.0))` priced **every cheap-tier call
+  at nothing**, so the CA$25 monthly ceiling could never be reached by cheap work — an
+  unbounded budget reporting zero, the same defect class as the `kind="model"` versus
+  `kind="llm"` bug from the same night.
+- `AnthropicProvider.__post_init__` defaulted an unknown model to zero while `_cost_for`, ten
+  lines below, raised saying *"an unpriced call is an unbounded one"*. **Two code paths for
+  one rule, and the silent one was the one the gateway used.**
+- Routing restated the deep tier at USD 5/25 per million tokens; the provider bills 15/75.
+  **Every estimate in the system was a third of the truth** — which is why the first
+  expedition, estimated at CA$0.15 a field, cost CA$1.02.
+
+One price table now. Routing reads it rather than restating it, an unpriced model is refused
+at construction, and a test locks the tables together. **CA$25 buys about 64 release-blocking
+blinded comparisons a month, not the 192 a passing test used to believe** — the assertion was
+corrected, not the price.
+
+**The wheel could starve its own priority programme.** The run picked Mother's Day, not
+Christmas — correctly per the schedule, and that is the bug. Twenty slots with the first nine
+reserved, positioned by a week number counted from the Unix epoch, so the phase was
+arbitrary: it landed at a non-priority position with Christmas 96 days out, thirteen cycles of
+runway left and the next Christmas slot eight cycles away. **A reservation a phase offset can
+push outside the runway is not a reservation.** The turn is capped at the runway now and the
+slots are spread across it, so the worst wait for a Christmas cycle from *any* phase is 2
+instead of 8.
+
+**#31's attribution closed.** `registry.record_cost` always accepted a job id; `ModelGateway`
+never passed one, so every model cost reached the ledger with a null job and `unit_costs()`
+could match none of them to the artefact that caused them. Correct arithmetic over an empty
+attribution — the same shape as a scorer nobody feeds. An artefact can now be produced by
+several actions, and one whose count lives in the row is counted from the row: a discovery
+run is one audit entry that produced eighty concepts, and calling it one concept would report
+a field at eighty times its unit cost, which reads as a reason to stop doing discovery.
+
 Model spend **CA$1.17 of CA$25**. Production verify **12/12 green** at 2026-09-20T05:04Z.
-Suite **1471 passing, 0 failing** before the proof stack landed.
+Suite **1481 passing, 0 failing** before this batch.
 
 ## Previously — last completed milestone
 **Discovery produced its first real products, and the headline number needed its caveat.**

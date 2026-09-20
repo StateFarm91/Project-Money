@@ -37,9 +37,18 @@ from .model_gateway import ModelResponse
 
 # Published list prices, USD per million tokens, read 2026-09-19. An assumption, labelled as
 # one on every row it produces.
+# The one price table. `routing.Tier` used to restate these and the two disagreed by a factor
+# of three on the deep tier, so every estimate in the system was a third of what the call
+# actually billed -- the expedition estimated CA$0.15 and cost CA$1.02. A price restated in a
+# second place is a price that will drift, and the one that bills is the one that is true.
 PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-opus-5": (15.0, 75.0),
     "claude-sonnet-5": (3.0, 15.0),
+    # Both the alias the router uses and the dated identifier. The router asked for
+    # "claude-haiku-4-5", this table only held the dated form, and `.get(model, (0.0, 0.0))`
+    # priced every cheap-tier call at nothing: 80 concepts generated, CA$0.00 recorded,
+    # and a CA$25 monthly ceiling that cheap work could never reach.
+    "claude-haiku-4-5": (1.0, 5.0),
     "claude-haiku-4-5-20251001": (1.0, 5.0),
 }
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -138,7 +147,17 @@ class AnthropicProvider:
     cost_per_1k_output_cad: float = field(default=0.0)
 
     def __post_init__(self) -> None:
-        in_usd, out_usd = PRICES_USD_PER_MTOK.get(self.model, (0.0, 0.0))
+        # Refused rather than defaulted to zero. `_cost_for` below already says it -- "an
+        # unpriced call is an unbounded one" -- and this path silently disagreed with it,
+        # which is how a model the price table did not know billed CA$0.00 against a ceiling
+        # that counts dollars. Two code paths for one rule, and the silent one was the one
+        # the gateway actually used.
+        prices = PRICES_USD_PER_MTOK.get(self.model)
+        if prices is None:
+            raise BudgetExceeded(
+                f"{self.model!r} has no price on file, so what it spends cannot be counted "
+                f"against the ceiling. An unpriced call is an unbounded one")
+        in_usd, out_usd = prices
         self.cost_per_1k_input_cad = round(in_usd / 1000 * USD_TO_CAD, 8)
         self.cost_per_1k_output_cad = round(out_usd / 1000 * USD_TO_CAD, 8)
 

@@ -134,9 +134,19 @@ class CallRecord:
 
 class ModelGateway:
     def __init__(self, providers: list[Provider], registry: Registry | None = None,
-                 breaker_threshold: int = 3, breaker_reset_seconds: float = 30.0):
+                 breaker_threshold: int = 3, breaker_reset_seconds: float = 30.0,
+                 job_id: int | None = None):
+        """`job_id` is what makes a cost attributable to the artefact it produced (#31).
+
+        Without it every model cost lands in the ledger with a null job, `unit_costs()` can
+        match none of them to the audit row that made a pattern or a listing, and every
+        artefact reports a cost *floor* while the money is real and counted. The ratios were
+        correct arithmetic over an empty attribution the whole time -- the same shape as a
+        scorer nobody feeds.
+        """
         self.providers = list(providers)
         self.registry = registry
+        self.job_id = job_id
         self.breakers = {
             p.name: CircuitBreaker(name=p.name, threshold=breaker_threshold,
                                    reset_after_seconds=breaker_reset_seconds)
@@ -230,7 +240,7 @@ class ModelGateway:
             # counts, and a gateway writing a kind no ceiling reads is an unbounded budget
             # that reports CA$0.00.
             self.registry.record_cost(agent, cost, kind=routing.COST_KIND, tokens_in=in_tok,
-                                      tokens_out=out_tok,
+                                      tokens_out=out_tok, job_id=self.job_id,
                                       detail={"prompt": prompt.ref,
                                               "provider": provider.name})
         return cost

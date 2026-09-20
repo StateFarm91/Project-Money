@@ -583,6 +583,66 @@ def test_generated_variety_is_still_checked_rather_than_assumed():
         assert not any(pair <= family for family in _FAMILIES), (a, b)
 
 
+def test_the_reservation_cannot_be_phase_shifted_out_of_its_own_runway():
+    """Production showed this on the first live tournament.
+
+    The wheel was twenty slots with the first nine reserved for the priority programme, and
+    the position was `cycle % 20` where the cycle is a week counted from the Unix epoch -- so
+    where the turn started was arbitrary. The run landed at a non-priority position with
+    Christmas 96 days out: thirteen cycles of runway left and the next Christmas slot eight
+    cycles away. A reservation a phase offset can push outside the runway is not a
+    reservation.
+
+    The turn is capped at the runway now and the priority slots are spread across it, so the
+    wait for a priority cycle is bounded from *every* phase rather than from a lucky one.
+    """
+    from datetime import date
+
+    today = date(2026, 9, 20)
+    found = [
+        P.Arena(event="Christmas", pod="garments", days_away=96, benchmark_listings=140,
+                forms={"fitted_garment": 57}),
+        P.Arena(event="Christmas", pod="blankets", days_away=96, benchmark_listings=85,
+                forms={"rectangle_throw": 61}),
+        P.Arena(event="Halloween", pod="hats", days_away=41, benchmark_listings=85,
+                forms={"hat": 38}),
+        P.Arena(event="Mother's Day", pod="garments", days_away=231,
+                benchmark_listings=140, forms={"fitted_garment": 57}),
+    ]
+    turn = [P.choose(found, cycle=c, today=today).event for c in range(14)]
+    assert "Christmas" in turn, turn
+
+    # From any starting phase, a Christmas cycle is at most a couple of weeks away. Under the
+    # old block-at-the-front wheel this reached eight.
+    waits = []
+    for start in range(len(turn)):
+        n = 0
+        while turn[(start + n) % len(turn)] != "Christmas":
+            n += 1
+        waits.append(n)
+    assert max(waits) <= 3, (max(waits), turn)
+
+    # And the share is still roughly the reservation rather than everything.
+    share = turn.count("Christmas") / len(turn)
+    assert 0.3 <= share <= 0.6, (share, turn)
+
+
+def test_the_schedule_is_still_reproducible_after_the_spread():
+    """Deterministic in the cycle number: a change in the answer is a change in the evidence."""
+    from datetime import date
+
+    found = [
+        P.Arena(event="Christmas", pod="garments", days_away=96, benchmark_listings=140,
+                forms={"fitted_garment": 57}),
+        P.Arena(event="Halloween", pod="hats", days_away=41, benchmark_listings=85,
+                forms={"hat": 38}),
+    ]
+    today = date(2026, 9, 20)
+    first = [P.choose(found, cycle=c, today=today).pod for c in range(10)]
+    again = [P.choose(found, cycle=c, today=today).pod for c in range(10)]
+    assert first == again
+
+
 # ---- the proposition stage ---------------------------------------------------
 
 
@@ -977,12 +1037,20 @@ def test_christmas_gets_the_share_the_compression_engine_reserves_for_it():
 
     Discovery is engineering capacity, so it obeys the reservation the compression engine
     already holds rather than a second number invented here.
+
+    Not exact equality any more, and the reason is the fix that came after it. The turn is
+    capped at the programme's own runway so a phase offset cannot push the reservation
+    outside it -- Christmas at 96 days is fourteen weekly cycles, and 45% of fourteen is 6.3
+    slots. There is no such thing as three tenths of a cycle, so the share lands near the
+    reservation rather than on it, and rounding it up to reach the exact number would take
+    capacity the programme was not given.
     """
     from brambleloop.seasonal.compression import PRIORITY_PROGRAMMES
 
     picks = _wheel()
     christmas = sum(1 for a in picks if a.event == "Christmas")
-    assert round(christmas / len(picks), 2) == PRIORITY_PROGRAMMES["Christmas"]
+    held = PRIORITY_PROGRAMMES["Christmas"]
+    assert abs(christmas / len(picks) - held) <= 0.06, (christmas, len(picks), held)
 
 
 def test_the_priority_programme_sweeps_its_departments_rather_than_repeating_one():
