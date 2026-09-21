@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v6-targeted-bust-revision-measured-against-the-approved-body"
+PACK_VERSION = "v7-readable-decline-words-and-a-controlled-validation-frame"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -56,6 +56,11 @@ STRESS_SCENES: tuple[tuple[str, str], ...] = tuple(
 # measurement decided by luck. Bounded at three because a fourth is evidence that the prompt
 # is wrong rather than the sample, and the pack says so instead of paying for more.
 TORSO_ATTEMPTS = 3
+
+# How many scenes have to show a face that matches. More than one, because a single
+# agreeing frame is a coincidence with a verdict attached; not all of them, because a scene
+# that photographs her from across a room is not a failure of identity.
+MIN_FACE_SCENES = 2
 
 
 class PackRefused(ValueError):
@@ -309,10 +314,22 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                     revision=revision, coherence=coherent, provider=provider, spent=spent)
 
 
+# Words an observer uses when it is declining to answer. Matched as substrings, because
+# the live answer was "unmeasurable (garment structure and fit obscure natural shape)" and
+# an exact-match test read that as a reading. The torso retry therefore never fired, the
+# chest was pinned from the full-length frame instead, and the one frame built to make the
+# chest readable was allowed to fail at its only job -- the same shape as every string
+# comparison this build has had to fix.
+_DECLINES: tuple[str, ...] = (
+    "unmeasurable", "unclear", "unknown", "obscure", "not visible", "cannot", "can't",
+    "not assessable", "indeterminate", "n/a",
+)
+
+
 def _readable(value) -> bool:
     """Whether an observation actually states the dimension rather than declining to."""
-    return bool(value) and str(value).strip().lower() not in (
-        "", identity.UNMEASURABLE, "unclear", "unknown", "obscured", "not visible")
+    text = str(value or "").strip().lower()
+    return bool(text) and not any(word in text for word in _DECLINES)
 
 
 def _pin(seen: dict[str, dict]) -> dict:
@@ -450,6 +467,8 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
     required_ok = all(v["verdict"] == "pass" for v in required.values())
     rendered = [s for s in scenes if s.get("rendered")]
     drifted_scenes = [s["scene"] for s in rendered if s["morphology"] == "fail"]
+    face_drifted = [s["scene"] for s in rendered if s["face"] == "fail"]
+    face_matched = [s["scene"] for s in rendered if s["face"] == "pass"]
 
     # Which of chest, torso and waist the close-fitting frame could actually read. The
     # owner asked for one frame that exposes all three together, because a set in which
@@ -473,9 +492,16 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
         "every_scene_rendered": {
             "met": bool(rendered) and len(rendered) == len(STRESS_SCENES),
             "detail": f"{len(rendered)} of {len(STRESS_SCENES)}"},
+        # Held where it could be seen, and seen in more than one scene. Requiring every
+        # scene to read the face is the floor-nothing-can-clear mistake again: one of the
+        # five is a full-length editorial in which the face is forty pixels tall, and
+        # calling that a failure of facial identity would be a statement about framing.
         "facial_identity_held": {
-            "met": face_floor == "pass",
-            "detail": f"face floor: {face_floor}"},
+            "met": not face_drifted and len(face_matched) >= MIN_FACE_SCENES,
+            "detail": (f"drifted in {face_drifted}" if face_drifted else
+                       f"matched in {len(face_matched)} of {len(rendered)} scenes "
+                       f"({', '.join(face_matched) or 'none'}); floor reads {face_floor} "
+                       f"because at least one scene could not see her face")},
         "no_morphology_drift_anywhere": {
             "met": not drifted_scenes,
             "detail": (f"drifted in {drifted_scenes}" if drifted_scenes

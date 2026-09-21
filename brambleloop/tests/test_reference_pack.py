@@ -401,13 +401,67 @@ def test_the_reference_bridge_counts_as_continuity_evidence():
     assert drifted["bust"]["verdict"] == "fail"
 
 
-def test_a_fit_frame_exists_because_the_owners_scenes_all_hide_the_chest():
-    """The commercial case and the measurement case are the same case here."""
+def test_the_validation_frame_is_controlled_rather_than_commercial():
+    """It was dressed in a close-fitting crocheted top, and crochet is textured and open.
+
+    The judge read the chest as "unmeasurable (garment structure and fit obscure natural
+    shape)" and the one frame whose job was to make chest, torso and waist readable
+    together failed at it. The product belongs in the four commercial scenes; this frame
+    exists to be measurable.
+    """
     keys = [k for k, _ in brief.STRESS_SCENES]
-    assert "fitted_garment_close" in keys
-    prompt = dict(brief.STRESS_SCENES)["fitted_garment_close"].lower()
-    assert "bust" in prompt and "waist" in prompt
-    assert "nothing draped" in prompt
+    assert brief.FIT_VALIDATION_SCENE in keys
+    prompt = dict(brief.STRESS_SCENES)[brief.FIT_VALIDATION_SCENE].lower()
+    for needed in ("chest", "torso length", "waist", "plain close-fitting"):
+        assert needed in prompt, needed
+    assert "crochet" not in prompt, "the validation frame is wearing the product again"
+    assert "open-work" in prompt
+
+
+def test_a_decline_with_a_reason_is_still_a_decline():
+    """The live answer was "unmeasurable (garment structure and fit obscure natural shape)"
+    and an exact-match readability test read it as a reading.
+
+    So the torso retry never fired, the chest was pinned from the full-length frame
+    instead, and the frame built to make the chest readable was allowed to fail at its only
+    job -- the same shape as every string comparison this build has had to fix.
+    """
+    assert rp._readable("unmeasurable (garment structure and fit obscure natural shape)") \
+        is False
+    assert rp._readable("cannot be assessed from this angle") is False
+    assert rp._readable("narrow, defined waistline visible above waistband") is True
+    assert rp._readable("") is False
+    assert rp._readable(None) is False
+
+
+def test_a_face_the_camera_was_too_far_away_to_see_is_not_a_failure_of_identity():
+    """One of the five scenes is a full-length editorial. Requiring every scene to read the
+    face is the floor-nothing-can-clear mistake, met from the same side as before."""
+    import tempfile
+
+    def far_away(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if reference_ref in _approved_refs():
+            out["bust"] = identity.DRIFT
+            return out
+        far_away.seen = getattr(far_away, "seen", 0) + 1
+        if far_away.seen == 3:  # the first scene's face comparison
+            for d in identity.FACE_DIMENSIONS:
+                out[d] = identity.UNMEASURABLE
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=far_away)
+
+    assert package["face_floor"] == "unverifiable"
+    held = package["approval_conditions"]["facial_identity_held"]
+    assert held["met"] is True, held
+    assert "matched in" in held["detail"]
+
+    # A face that actually drifted still fails, which is the whole point.
+    with tempfile.TemporaryDirectory() as tmp:
+        _, drifted = _build(Path(tmp), compare=_compare(face=identity.DRIFT))
+    assert drifted["approval_conditions"]["facial_identity_held"]["met"] is False
 
 
 def test_a_face_match_above_a_changed_chest_fails():

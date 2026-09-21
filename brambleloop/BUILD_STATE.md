@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,859 tests passing, 0 failing**.
+  **2,868 tests passing, 0 failing**.
 - **OWNER ACTION REQUIRED — the Anthropic API balance is spent.** Discovered 2026-09-21
   19:21Z when the revised reference pack rendered its images and died at the first vision
   call. Action: add credit at console.anthropic.com -> Plans & Billing. Why: every judging

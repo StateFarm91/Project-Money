@@ -44,6 +44,8 @@ CAPABILITIES: tuple[tuple[str, str], ...] = (
     ("derived_standards", "evidence-backed Pattern Engineering and Pattern Presentation "
                           "standards are derived"),
     ("provenance", "provenance is preserved for every learned principle"),
+    ("end_to_end_proof", "the whole chain has actually been driven, on real documents, "
+                         "and reports what it read"),
 )
 
 
@@ -107,6 +109,14 @@ def check(db=None) -> dict:
     # it was written, and this is true now or it says so now.
     proof = reader.self_test()
     callers = retrieve_callers()
+
+    # The owner's instruction before CA$292: *run the laboratory against Brambleloop's own
+    # available patterns as a proof fixture and report what it actually read and compared.*
+    # A readiness table whose rows each say "the code imports" is exactly what that refuses,
+    # so the whole chain runs here on four real documents and this reports its stages.
+    from . import proof_run
+
+    end_to_end = proof_run.run(db)
     listings = _rows(db, BenchmarkListing)
     findings = _rows(db, TeardownFinding)
 
@@ -195,6 +205,25 @@ def check(db=None) -> dict:
                          "text that reads like a competitor's instructions rather than an "
                          "observation about them"),
         },
+    }
+
+    # The end-to-end run is its own gate, and it blocks the purchase like any capability.
+    # A laboratory whose parts each work and whose chain has never been driven is a set of
+    # parts.
+    results["end_to_end_proof"] = {
+        "ready": bool(end_to_end.get("proven")),
+        "evidence": (
+            f"{len(end_to_end.get('documents') or [])} Brambleloop documents rendered, "
+            f"filed and driven through the whole chain: "
+            f"{sum(d['pages'] for d in end_to_end.get('documents') or [])} pages read, "
+            f"{sum(len(d['analysis_observed']) for d in end_to_end.get('documents') or [])} "
+            f"dimension observations, "
+            f"{len([s for s in (end_to_end.get('stages') or {}).values() if s['ran']])} of "
+            f"{len(end_to_end.get('stages') or {})} stages run"),
+        "stages": end_to_end.get("stages"),
+        "documents": end_to_end.get("documents"),
+        "what_it_does_not_prove": end_to_end.get("what_it_is_not"),
+        "blocks_purchase": not end_to_end.get("proven"),
     }
 
     blocking = [k for k, v in results.items() if v.get("blocks_purchase")]

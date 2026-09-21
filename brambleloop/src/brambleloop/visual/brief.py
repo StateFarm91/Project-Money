@@ -330,12 +330,20 @@ STRESS_SCENES: tuple[tuple[str, str], ...] = (
     # the rule correctly reports as unmeasurable. A set with no frame in which fit through
     # the bust is readable also fails the product: a buyer choosing a fitted crocheted
     # garment is buying exactly that.
+    # A *validation* frame, so it is controlled rather than commercial. The first version
+    # dressed it in a close-fitting crocheted top, and crochet fabric is textured and open:
+    # the judge read the chest as "unmeasurable (garment structure and fit obscure natural
+    # shape)" and the one frame whose job was to make chest, torso and waist readable
+    # together failed at it. The product belongs in the four commercial scenes; this frame
+    # exists to be measurable.
     ("fitted_garment_close",
-     "Waist-up photograph in a close-fitting hand-crocheted fine-gauge top, standing "
-     "squarely facing the camera in soft daylight against a plain warm background. The "
-     "garment's fit through the shoulders, bust and waist is the subject of the "
-     "photograph and is clearly readable, and her face is fully visible. Nothing draped, "
-     "layered or held in front of the body."),
+     "Waist-up photograph in a plain close-fitting smooth-knit sleeveless top tucked into "
+     "plain fitted trousers, standing squarely facing the camera in even soft daylight "
+     "against a plain warm-grey background, arms relaxed and clear of the body, hair "
+     "behind the shoulders. The natural shape of the chest, the torso length and the waist "
+     "are all clearly and unambiguously readable together, and her face is fully visible "
+     "and evenly lit. Nothing textured, draped, layered, open-work or held in front of "
+     "the body."),
     ("loose_layered_garment",
      "Wearing an oversized loose hand-crocheted oatmeal wool sweater layered over a slim "
      "top, standing, soft window light. The garment is deliberately loose."),
