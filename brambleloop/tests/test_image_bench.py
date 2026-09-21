@@ -854,6 +854,19 @@ def test_the_benchmark_budget_is_cumulative_rather_than_per_run():
     assert B.state(db)["approved_budget_cad"] == B.BENCHMARK_CEILING_CAD
 
 
+def test_the_judge_has_room_to_answer_the_whole_rubric():
+    """At 500 tokens the answer was cut mid-object and refused as "not JSON".
+
+    Correct refusal, wrong cause: sixteen of flux-2-pro's thirty samples died to a token
+    budget set before the rubric grew to twelve dimensions plus a notes map. A complete
+    schedule became an incomplete one, which is not a measurement.
+    """
+    longest = "{" + ", ".join(f'"{d.key}": 3' for d in B.RUBRIC) + ', "notes": {' + \
+              ", ".join(f'"{d.key}": "a short phrase here"' for d in B.RUBRIC) + "}}"
+    # Roughly four characters to the token, with headroom over the worst case.
+    assert B.JUDGE_MAX_TOKENS > len(longest) / 4, (B.JUDGE_MAX_TOKENS, len(longest))
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

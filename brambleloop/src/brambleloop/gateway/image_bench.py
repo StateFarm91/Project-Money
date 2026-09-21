@@ -251,7 +251,12 @@ MEASURED_NOT_JUDGED: dict[str, str] = {
 # of spending the benchmark budget, so scoring it on the cheapest model would be measuring
 # carefully with a blunt instrument.
 JUDGE_TASK = "image_benchmark_judging"
-JUDGE_MAX_TOKENS = 500
+# Measured against real answers 2026-09-21, not guessed. At 500 the judge's JSON was cut
+# mid-object -- twelve dimensions plus a `notes` map does not fit -- and every truncated
+# answer was correctly refused as "not JSON" and recorded as a failed sample. Sixteen of
+# flux-2-pro's thirty samples died that way, which is a complete schedule turned into an
+# incomplete one by a token budget set before the rubric grew.
+JUDGE_MAX_TOKENS = 900
 
 SCORE_MIN, SCORE_MAX = 0, 4
 
