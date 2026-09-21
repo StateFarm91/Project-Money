@@ -313,6 +313,36 @@ def test_the_stress_test_covers_materially_different_situations():
     assert brief.HARD_FLOORS == ("facial_identity", "whole_person_morphology")
 
 
+def test_a_corrected_brief_is_not_locked_out_by_the_hours_idempotency_key():
+    """The deploy-time enqueue is keyed on the brief, because the work is.
+
+    This is the defect that kept the corrected tournament from running: two deploys in one
+    hour, an idempotency key made only of the hour, and the second deploy -- the one
+    carrying the corrected presentation -- enqueued nothing. The endpoint then reported the
+    corrected tournament as "not yet run", which was true and unactionable.
+    """
+    from datetime import datetime, timezone
+
+    from brambleloop.runtime import release
+    from brambleloop.visual import tournament
+
+    now = datetime(2026, 9, 21, 13, 40, tzinfo=timezone.utc)
+    before = release.tournament_boot_key(now)
+    assert release.tournament_boot_key(now) == before, "the same brief must not re-enqueue"
+
+    original = tournament.PRESENTATION_VERSION
+    try:
+        tournament.PRESENTATION_VERSION = original + "-corrected"
+        assert release.tournament_boot_key(now) != before
+    finally:
+        tournament.PRESENTATION_VERSION = original
+
+    # The hour stays in the key, so a run that fails is retried rather than locked out for
+    # the life of the brief.
+    later = datetime(2026, 9, 21, 14, 0, tzinfo=timezone.utc)
+    assert release.tournament_boot_key(later) != before
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

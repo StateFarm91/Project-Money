@@ -2599,6 +2599,21 @@ def _brief_fingerprint() -> str:
     return hashlib.sha256(material.encode()).hexdigest()[:16]
 
 
+def tournament_boot_key(now) -> str:
+    """The idempotency key a deploy uses to enqueue the canonical-model tournament.
+
+    It carries the brief fingerprint because that is what the work is keyed on. A key made
+    only of the hour guards the clock instead, and the difference showed up the first time a
+    corrected brief was deployed twice in one hour: the second deploy found the hour's key
+    already spent, enqueued nothing, and the endpoint went on reporting that the corrected
+    tournament had not run.
+
+    The hour stays in the key so a run that fails is retried next hour rather than locked out
+    for the life of the brief.
+    """
+    return f"boot-tourney-{_brief_fingerprint()}-{now:%Y%m%d%H}"
+
+
 def _tournament_on_file(db) -> dict | None:
     """A completed tournament for the brief as it now stands, if there is one."""
     from sqlalchemy import desc, select

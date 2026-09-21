@@ -101,14 +101,21 @@ def _startup() -> None:
     # so this runs once per brief rather than once per deploy -- a changed direction renders
     # a new field, an unchanged one does nothing. Bounded by the same idempotency and by the
     # handler's own spend check.
+    #
+    # The idempotency key carries the brief fingerprint, not only the hour. An hour-only key
+    # guards the clock while the work is keyed on the brief, and the two disagree exactly
+    # when it matters: a corrected brief deployed in the same hour as the previous one found
+    # the hour's key already spent, enqueued nothing, and reported "not yet run" until the
+    # hour turned. The hour stays in the key so a failed attempt retries rather than being
+    # locked out for the life of the brief.
     try:
-        from ..runtime.release import _tournament_on_file
+        from ..runtime.release import _tournament_on_file, tournament_boot_key
         from ..gateway import images as _img2
 
         if _img2.available() and _tournament_on_file(db) is None:
             JobQueue(db).enqueue(
                 "creative_director", "creative.model_tournament", {},
-                idempotency_key=f"boot-tourney-{utcnow():%Y%m%d%H}")
+                idempotency_key=tournament_boot_key(utcnow()))
     except (DuplicateJob, Exception):  # noqa: BLE001 - never block a boot
         pass
 
