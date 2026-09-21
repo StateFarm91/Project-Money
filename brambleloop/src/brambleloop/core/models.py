@@ -322,6 +322,30 @@ class Motif(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class ModelIdentity(Base):
+    """One canonical-model candidate, or the frozen canonical pack (#200).
+
+    Durable because the identity lock is a promise across seasons: a pack held in memory is
+    a pack that is gone after the next deploy, and a canonical model who disappears on a
+    redeploy is not locked to anything.
+    """
+
+    __tablename__ = "model_identities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    # candidate | canonical | retired. Only the owner moves a row to canonical.
+    state: Mapped[str] = mapped_column(String(20), default="candidate", index=True)
+    version: Mapped[int] = mapped_column(Integer, default=0)
+    fields: Mapped[dict] = mapped_column(JSON, default=dict)
+    approved_by_owner_at: Mapped[str] = mapped_column(String(40), default="")
+    # Where the face lives. Reference conditioning needs the bytes, so a pack whose images
+    # are gone is a pack that cannot lock anything.
+    image_refs: Mapped[list] = mapped_column(JSON, default=list)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class ListingAsset(Base):
     """One image in a listing's ordered frame plan (section 7)."""
 

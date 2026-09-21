@@ -362,6 +362,31 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Heartbeat 2026-09-21T08:15Z — the identity gate had no callers.**
+
+`visual/identity.py` was complete, correct and **invoked by nothing anywhere in the
+codebase**. A grep for every one of its functions returned nothing outside the module. It
+would have gone on being right and unconsulted while the first model-bearing listing shipped
+past it — which is exactly the case #201 exists for.
+
+Two joins were missing and only those two were built (B-555):
+
+- **Persistence** — `model_identities` holds candidates and the frozen pack, because a pack
+  held in memory is gone after the next deploy, and a canonical model who disappears on a
+  redeploy is not locked to anything. `select_canonical` still refuses without the owner, and
+  refuses a second selection as the redesign it is.
+- **The release join** — `model_registry.gate_frames` is called from the listing-image build
+  and its verdict is in `blocking`. With no canonical pack, every model-bearing frame is
+  blocked. That is correct rather than inconvenient: unverifiable is not a pass. Frames
+  carrying no model are not examined at all, so today's product-only catalogue is untouched
+  and the gate bites on the day the first model frame is built.
+
+`#200 Permanent Identity Lock` and `#201 Model Anti-Drift Release Gate` are the two `partial`
+requirements this closes. `/api/model-identity` reports the state from rows.
+
+Suite green at **2,755 across 150 suites**. `/api/verify` 12/12.
+
+## Previously — last completed milestone
 **2026-09-21T07:00Z — the image gate opened on demonstrated capability, twelve requirements
 unparked, and both reachable candidates are measured.**
 

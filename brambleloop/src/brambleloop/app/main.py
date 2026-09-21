@@ -1087,6 +1087,20 @@ def api_spend_report() -> dict:
             "escalation": spend_policy.escalation(db)}
 
 
+@app.get("/api/model-identity")
+def api_model_identity() -> dict:
+    """The canonical model: what is selected, what is only a candidate, and what blocks.
+
+    Nothing is selected, and nothing will select itself. The design has always said so; what
+    was missing until 2026-09-21 was anything that read it -- `visual/identity.py` had no
+    callers anywhere in the codebase, so a correct gate sat unconsulted while the first
+    model-bearing listing would have shipped past it.
+    """
+    from ..visual import model_registry
+
+    return model_registry.state(db)
+
+
 @app.get("/api/image-benchmark")
 def api_image_benchmark() -> dict:
     """How the generator gets chosen, and why nothing is chosen yet.

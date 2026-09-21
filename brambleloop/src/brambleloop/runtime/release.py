@@ -173,7 +173,18 @@ def handle_assets_build(ctx: JobContext) -> dict:
               if twin.width_cm and twin.height_cm else None)
     hero = thumb_mod.evaluate_thumbnail(frames[0].image, text_pt_on_canvas=0.056 * 2000,
                                         canvas_px=2000, subject_aspect=aspect)
-    blocking = structural + [str(f) for f in truth if f.is_error] + hero.problems
+    # #201: a model-bearing frame whose identity cannot be verified does not ship. Today no
+    # frame carries the model, so this is `not_applicable` and changes nothing -- which is
+    # the point of wiring it now rather than on the day the first model frame is built, when
+    # the temptation to let it through is at its highest.
+    from ..visual import model_registry
+
+    identity_gate = model_registry.gate_frames(ctx.db, [
+        {"role": f.role, "has_model": bool(getattr(f, "has_model", False)),
+         "image_ref": ""} for f in frames])
+
+    blocking = (structural + [str(f) for f in truth if f.is_error] + hero.problems
+                + list(identity_gate["blocking"]))
 
     stored_frames = []
     for frame in frames:
@@ -187,6 +198,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
     ctx.audit("assets.listing_images_built" if not blocking else "assets.listing_images_blocked",
               artifact=f"{slug}@{version}",
               detail={"frames": len(frames), "blocking": blocking[:5],
+                      "identity_gate": {k: identity_gate[k]
+                                        for k in ("checked", "verdict") if k in identity_gate},
                       "hero_thumbnail": hero.to_dict()})
     if blocking:
         # A listing whose imagery misrepresents the pattern does not proceed to pricing. The
