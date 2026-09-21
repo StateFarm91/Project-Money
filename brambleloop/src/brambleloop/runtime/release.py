@@ -2413,11 +2413,20 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
     # project denied access on 2026-09-21 -- would otherwise re-queue this job for ever.
     from ..gateway import images
 
-    measured_now = {r["model"] for r in (result.get("reused") or [])} | {
-        row["model"] for row in (decision.get("results") or []) if row.get("overall")}
+    # Progress means a *stored* measurement, which means a complete schedule. Computing it
+    # from the run's own results instead put this job in a paid loop: a candidate that
+    # scored but did not finish its schedule counted as progress, was never stored, so the
+    # outstanding set never shrank and the job re-queued itself every few minutes at about
+    # CA$1.85 a time. A follow-up condition that cannot become false is a spend with no
+    # stopping rule.
+    from ..gateway import image_bench
+
+    measured_now = {c.key for c in image_bench.CANDIDATES
+                    if c.can_hold_an_identity
+                    and image_bench.stored_result(ctx.db, c) is not None}
     credentialled = set(images.available(dict(os.environ)))
     outstanding = credentialled - measured_now
-    progressed = bool(measured_now) and not result.get("reused_everything")
+    progressed = bool(measured_now - {r["model"] for r in (result.get("reused") or [])})
     if outstanding and progressed and result.get("ran"):
         ctx.enqueue("creative_director", "creative.image_benchmark",
                     {"because": sorted(outstanding)},

@@ -821,8 +821,22 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                 result.failures.append({"trial": "gallery_consistency",
                                         "why": str(exc)[:200]})
         result.cad_spent = round(spent, 4)
+        complete = len(result.scores) >= expected_samples()
         if result.scores and generator is None:
             _store(db, result, candidate)
+        if result.scores and not complete:
+            # An incomplete schedule is not a measurement, and the rule has to hold for the
+            # decision as well as for storage or the two disagree. It did disagree, live:
+            # gpt-image-2 was named winner on a schedule too short to store, so the run that
+            # crowned it could not remember doing so. `teardown.audits` already refuses this
+            # by name -- scoring part of a schedule lets the run that looked at less
+            # outrank the run that looked at all of it.
+            unmeasured.append({
+                "model": candidate.key,
+                "why": (f"{len(result.scores)} of {expected_samples()} samples scored. An "
+                        f"incomplete schedule is not a measurement"),
+                "failures": result.failures[:3]})
+            continue
         if not result.scores:
             # Nothing scored, so nothing was measured -- whether the account could not pay,
             # the credential was rejected or every render failed. A candidate with an empty
