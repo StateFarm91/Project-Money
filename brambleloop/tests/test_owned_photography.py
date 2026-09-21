@@ -147,6 +147,31 @@ def test_a_product_whose_listing_needs_the_model_is_refused_rather_than_shot_wit
     assert "not approved" in record["why"]
 
 
+def test_the_provider_is_named_rather_than_left_to_a_variable_nobody_set():
+    """The first live run of this job died inside the gateway for exactly this.
+
+    `images.generate` without a provider falls back to `BRAMBLELOOP_IMAGE_PROVIDER`, which
+    nobody has set, so it resolved to None and the call failed with an AttributeError deep
+    in the request builder. The benchmark already measured which model renders listing
+    imagery; using its leader is what that measurement was for.
+    """
+    import ast
+
+    tree = ast.parse((ROOT / "src/brambleloop/publish/owned_photography.py").read_text())
+    calls = [n for n in ast.walk(tree)
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+             and n.func.attr == "generate"]
+    assert calls, "nothing generates an image here any more"
+    for call in calls:
+        assert "provider_key" in {kw.arg for kw in call.keywords}, ast.dump(call)[:120]
+
+    # And with nothing able to render, it declines rather than crashing.
+    cir, twin = _subject()
+    record = op.make(_db(), cir, twin)
+    assert record["made"] is False
+    assert "no verified image provider" in record["why"]
+
+
 def test_the_seasonal_cycle_reports_the_asset_rather_than_rendering_one():
     """A report that spent money every time somebody opened an endpoint would spend money
     to answer a question about the past -- and the endpoint sweep walks every GET route."""

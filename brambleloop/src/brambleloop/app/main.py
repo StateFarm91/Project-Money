@@ -190,6 +190,19 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "model_reference_pack", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # And one owned product image per certified release. Idempotent by product and version
+    # inside the handler, so a deploy re-attempts a render that failed and does nothing at
+    # all once a release has its picture.
+    try:
+        from ..gateway import images as _img4
+
+        _boot_enqueue("owned_photography", when=bool(_img4.usable(db)),
+                      agent="publishing", job_type="assets.owned_photography",
+                      key=f"boot-owned-asset-{build_identity().get('commit_short', 'dev')}")
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "owned_photography", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     runner.start(db)
 
 

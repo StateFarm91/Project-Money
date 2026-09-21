@@ -94,7 +94,8 @@ def prompt_for(cir, twin, *, occasion: str = "") -> str:
 
 
 def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
-         work_dir: str | None = None, generator=None, inspector=None) -> dict:
+         work_dir: str | None = None, provider_key: str = "", generator=None,
+         inspector=None) -> dict:
     """Render one owned product image and judge it. Returns a record, never an assertion."""
     from ..gateway import images
     from ..visual import inspect as inspection_mod
@@ -107,10 +108,25 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
 
     prompt = prompt_for(cir, twin, occasion=occasion)
     claim = claim_for(cir, twin)
+
+    # Named explicitly, because `generate` without one falls back to
+    # `BRAMBLELOOP_IMAGE_PROVIDER` -- a variable nobody has set, which is how the first live
+    # run of this job died inside the gateway with `'NoneType' object has no attribute
+    # 'account'`. The benchmark already decided which model renders listing imagery; using
+    # its measured leader is what that measurement was for.
+    from ..visual import tournament
+
+    provider = provider_key or tournament.preferred_provider(db, env)
+    if not provider and generator is None:
+        return {"made": False, "slug": cir.slug,
+                "why": ("no verified image provider is available in this environment. The "
+                        "capability probe records what can render; nothing can")}
+
     try:
         render = (generator(prompt, env=env, size="1024x1024", reference_urls=None)
                   if generator else
-                  images.generate(prompt, env=env, size="1024x1024", work_dir=work_dir))
+                  images.generate(prompt, env=env, provider_key=provider,
+                                  size="1024x1024", work_dir=work_dir))
     except Exception as exc:  # noqa: BLE001 - a refusal is a record, not a crash
         return {"made": False, "slug": cir.slug, "prompt": prompt,
                 "why": f"{type(exc).__name__}: {exc}"[:300]}
