@@ -2547,7 +2547,7 @@ def api_seasonal_transform() -> dict:
 
 
 @app.get("/api/seasonal/remerchandising")
-def api_seasonal_remerchandising(event: str = "Christmas") -> dict:
+def api_seasonal_remerchandising(event: str = "Christmas", pod: str = "") -> dict:
     """Existing certified products that could be sold into a season, and what each move needs.
 
     Re-merchandising never increments the catalogue, and "proven" is a claim about sales this
@@ -2555,7 +2555,7 @@ def api_seasonal_remerchandising(event: str = "Christmas") -> dict:
     """
     from ..seasonal import remerchandising
 
-    return remerchandising.plan(db, event=event)
+    return remerchandising.plan(db, event=event, pod=pod)
 
 
 @app.get("/api/seasonal/fastlane")

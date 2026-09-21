@@ -139,8 +139,19 @@ def check_move(*, move: str, changes: tuple[str, ...]) -> dict:
                      "apparent breadth of a collection all at once")}
 
 
-def plan(db, *, event: str, available: tuple[str, ...] = ()) -> dict:
-    """Every re-merchandising opportunity for one occasion, with proof stated as it is."""
+def plan(db, *, event: str, available: tuple[str, ...] | None = None,
+         pod: str = "", benchmark_key: str = "") -> dict:
+    """Every re-merchandising opportunity for one occasion, with proof stated as it is.
+
+    Availability is computed unless a caller insists otherwise. It used to default to the
+    empty tuple, so the endpoint -- which passed nothing -- reported every move unavailable
+    whatever the company could actually do, and went on reporting it after the capability
+    arrived. `capabilities()` was written to stop a review taking its capability list from
+    its caller; `plan()` was never wired to it, which left the same defect one layer up
+    with the fix sitting next to it.
+    """
+    if available is None:
+        available = tuple(capabilities(db, pod=pod, benchmark_key=benchmark_key)["available"])
     pool = candidates(db)
     rows = [{"slug": c["slug"], "title": c["title"], "proven": c["proven"],
              "moves": moves_for(c, available=available)}

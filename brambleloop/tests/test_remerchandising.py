@@ -259,6 +259,33 @@ def test_the_image_moves_read_a_recorded_generation_rather_than_a_variable():
             raise AssertionError("the capability is read from the environment again")
 
 
+def test_the_plan_computes_availability_rather_than_being_told():
+    """The same defect as the one below, one layer up, with the fix sitting next to it.
+
+    `plan()` defaulted `available` to the empty tuple, so the endpoint -- which passed
+    nothing -- reported every move unavailable whatever the company could do, and went on
+    reporting it after the capability arrived. `capabilities()` exists precisely so a review
+    does not take its capability list from its caller.
+    """
+    from brambleloop.gateway import images
+    from brambleloop.seasonal import remerchandising
+
+    db = _lang_db()
+    assert remerchandising.plan(db, event="Christmas")["available_moves"] == []
+
+    original = images.usable
+    images.usable = lambda _db: True
+    try:
+        opened = remerchandising.plan(db, event="Christmas")
+    finally:
+        images.usable = original
+    assert opened["available_moves"] == ["colourway", "styled_photography"]
+
+    # A caller may still force a set; that is what the tests below do.
+    assert remerchandising.plan(db, event="Christmas", available=("bundle",))[
+        "available_moves"] == ["bundle"]
+
+
 def test_a_bundle_of_one_product_is_a_product():
     """Two certified products is the floor, and it is a count rather than a judgement."""
     from brambleloop.seasonal import remerchandising
