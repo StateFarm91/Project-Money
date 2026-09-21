@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v2-owner-candidate-three-frame-reference"
+PACK_VERSION = "v3-required-evidence-counts-the-bridge"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -274,26 +274,39 @@ def _floor(scenes: list[dict], group: str) -> str:
     return "pass"
 
 
-def _required_evidence(scenes: list[dict]) -> dict:
-    """Whether chest/bust and torso were actually evidenced somewhere in the set.
+def _required_evidence(scenes: list[dict], bridge: dict | None = None) -> dict:
+    """Whether chest/bust and torso were actually evidenced somewhere in the pack.
 
     The owner named these as explicit hard floors. A set in which every scene happened to
     hide the chest is not a set that proved chest continuity -- it is a set that never
     looked, and the honest word for that is `unverifiable` rather than a pass earned by the
     other six dimensions.
+
+    The torso-to-full-length comparison counts as evidence, and leaving it out was a real
+    mistake rather than conservatism: those are two separately generated photographs of the
+    same woman, compared dimension by dimension, which is precisely the continuity test
+    being asked for. The first run of the three-frame pack had `bust: match` and `torso:
+    match` on that comparison and reported both as unproven, because the check was reading
+    only the four garment scenes -- in which a crocheted sweater and a winter scarf hide the
+    chest exactly as the owner's rule says they should.
     """
+    measurements: list[tuple[str, dict]] = [
+        (s["scene"], s.get("dimensions") or {}) for s in scenes if s.get("rendered")]
+    if bridge:
+        measurements.append(("reference:torso_to_full_length", bridge))
+
     out: dict[str, dict] = {}
     for dimension in identity.REQUIRED_MEASURABLE["morphology"]:
-        matched = [s["scene"] for s in scenes if s.get("rendered")
-                   and (s.get("dimensions") or {}).get(dimension) == identity.MATCH]
-        drifted = [s["scene"] for s in scenes if s.get("rendered")
-                   and (s.get("dimensions") or {}).get(dimension) == identity.DRIFT]
+        matched = [name for name, dims in measurements
+                   if dims.get(dimension) == identity.MATCH]
+        drifted = [name for name, dims in measurements
+                   if dims.get(dimension) == identity.DRIFT]
         out[dimension] = {
             "verdict": ("fail" if drifted else "pass" if matched else "unverifiable"),
             "matched_in": matched, "drifted_in": drifted,
             "why": ("" if matched and not drifted else
                     "drifted where it was readable" if drifted else
-                    "no scene in the set showed it clearly enough to judge, so continuity "
+                    "nothing in the pack showed it clearly enough to judge, so continuity "
                     "here is unproven rather than proven"),
         }
     return out
@@ -302,9 +315,10 @@ def _required_evidence(scenes: list[dict]) -> dict:
 def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list[str],
              required_unpinned: list[str], bridges: dict, coherence: dict, provider: str,
              spent: float) -> dict:
+    bridges = bridges or {}
     face_floor = _floor(scenes, "face")
     body_floor = _floor(scenes, "morphology")
-    required = _required_evidence(scenes)
+    required = _required_evidence(scenes, bridges.get("body_torso_to_full_length"))
     required_ok = all(v["verdict"] == "pass" for v in required.values())
     rendered = [s for s in scenes if s.get("rendered")]
 

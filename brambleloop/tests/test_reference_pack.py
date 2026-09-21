@@ -177,6 +177,44 @@ def test_the_bridge_is_checked_where_the_answer_is_readable():
     assert package["reference_frames_are_the_same_woman"]["verdict"] == "pass"
 
 
+def test_the_reference_bridge_counts_as_continuity_evidence():
+    """Two separately generated photographs of the same woman, compared dimension by
+    dimension, is the continuity test -- not a lesser form of it.
+
+    The first three-frame run had `bust: match` and `torso: match` on the torso-to-
+    full-length comparison and reported both as unproven, because the check read only the
+    four garment scenes. In those the chest is genuinely hidden by a crocheted sweater and a
+    winter scarf, which the rule correctly calls unmeasurable -- so the pack could never be
+    approvable no matter how well the identity held.
+    """
+    scenes = [{"scene": "winter_seasonal", "rendered": True,
+               "dimensions": {"bust": identity.UNMEASURABLE,
+                              "torso": identity.UNMEASURABLE}}]
+    bridge = {"bust": identity.MATCH, "torso": identity.MATCH}
+
+    without = rp._required_evidence(scenes)
+    assert without["bust"]["verdict"] == "unverifiable"
+
+    with_bridge = rp._required_evidence(scenes, bridge)
+    assert with_bridge["bust"]["verdict"] == "pass"
+    assert with_bridge["torso"]["matched_in"] == ["reference:torso_to_full_length"]
+
+    # And drift anywhere still fails, including on the bridge: the reference frames
+    # disagreeing about the chest is the worst version of this, not an exempt one.
+    drifted = rp._required_evidence(scenes, {"bust": identity.DRIFT,
+                                             "torso": identity.MATCH})
+    assert drifted["bust"]["verdict"] == "fail"
+
+
+def test_a_fit_frame_exists_because_the_owners_scenes_all_hide_the_chest():
+    """The commercial case and the measurement case are the same case here."""
+    keys = [k for k, _ in brief.STRESS_SCENES]
+    assert "fitted_garment_close" in keys
+    prompt = dict(brief.STRESS_SCENES)["fitted_garment_close"].lower()
+    assert "bust" in prompt and "waist" in prompt
+    assert "nothing draped" in prompt
+
+
 def test_a_face_match_above_a_changed_chest_fails():
     """The failure the owner named, as the test that has to keep failing."""
     import tempfile

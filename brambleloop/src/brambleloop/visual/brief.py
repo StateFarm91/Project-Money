@@ -263,6 +263,18 @@ STRESS_SCENES: tuple[tuple[str, str], ...] = (
      "Wearing a close-fitting hand-crocheted cream wool cardigan, buttoned, three-quarter "
      "length editorial photograph in soft daylight. The garment's fit through the shoulders, "
      "bust and waist is clearly readable."),
+    # Added 2026-09-21 after the first three-frame pack. The four scenes the owner listed
+    # are the real commercial world -- a loose sweater, a winter scarf, a seated lifestyle
+    # frame -- and in every one of them the chest and torso are genuinely obscured, which
+    # the rule correctly reports as unmeasurable. A set with no frame in which fit through
+    # the bust is readable also fails the product: a buyer choosing a fitted crocheted
+    # garment is buying exactly that.
+    ("fitted_garment_close",
+     "Waist-up photograph in a close-fitting hand-crocheted fine-gauge top, standing "
+     "squarely facing the camera in soft daylight against a plain warm background. The "
+     "garment's fit through the shoulders, bust and waist is the subject of the "
+     "photograph and is clearly readable, and her face is fully visible. Nothing draped, "
+     "layered or held in front of the body."),
     ("loose_layered_garment",
      "Wearing an oversized loose hand-crocheted oatmeal wool sweater layered over a slim "
      "top, standing, soft window light. The garment is deliberately loose."),
