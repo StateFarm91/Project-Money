@@ -197,6 +197,28 @@ PHYSICAL_SAMPLE = OwnerRequest(
     blocks="calibrated yardage claims and any fitted garment",
 )
 
+# The owner parked this on 2026-09-20 and again on 2026-09-21: "remain parked -- do not
+# require me personally to crochet a sample". So the requirement stays unmet and stays
+# blocking, and the *request* is withdrawn from the queue, which are different things. A
+# queue that keeps asking for the one thing its reader has twice said no to is a queue that
+# teaches its reader to stop opening it, and the standing instruction is explicit: do not ask
+# for an action already answered.
+#
+# `PHYSICAL_SAMPLE` is kept rather than deleted because the park is a decision that can be
+# reversed, and the wording it would be reversed to should not have to be rewritten from
+# memory on the day somebody changes their mind.
+PHYSICAL_SAMPLE_PARKED = {
+    "parked_by": "owner",
+    "on": "2026-09-20",
+    "restated": "2026-09-21",
+    "decision": ("the owner will not be the one who crochets the calibration sample. The "
+                 "requirement is unchanged and still blocks calibrated yardage and every "
+                 "fitted garment; what is withdrawn is the ask"),
+    "the_other_way_through": ("a pattern tester who has agreed to make one. That is the "
+                              "`tester_roster` gate, and it is outreach rather than an owner "
+                              "action"),
+}
+
 
 def _model_state(db) -> dict:
     """What the model provider's situation is, without importing it at module load."""
@@ -229,17 +251,20 @@ MODEL_CREDITS = OwnerRequest(
 
 BENCHMARK_PURCHASES = OwnerRequest(
     key="benchmark_challenge",
-    action=("Buy about ten representative competitor patterns across the pods we intend to "
-            "compete in -- a mix of price points, at least two that look premium -- and drop "
-            "each purchase in its own folder under the benchmark library path. Nothing needs "
-            "describing: intake reads the filenames."),
+    action=("Buy the selected MJs benchmark patterns -- the current set and its cost are at "
+            "/api/benchmark-selection, chosen for coverage of the facets a customer-"
+            "experience teardown can differ along rather than by popularity -- then open "
+            "/ops/teardown on a phone, tap each pick and choose the downloaded files. Zips "
+            "go in as they downloaded. Nothing needs renaming, sorting or describing."),
     reason=("#168 blocks a live launch until a representative Brambleloop product has been "
             "compared, dimension by dimension, against the best category-matched product a "
             "customer could buy instead. Without a purchased benchmark that comparison cannot "
             "be made, and an unrun challenge is not a pass -- it is the one check that would "
             "catch us shipping something a buyer would rate below what they already own."),
-    max_cost_cad=120.0,
-    minutes=45,
+    # The owner approved CA$300 on 2026-09-20 and the selector spends CA$292 of it within
+    # that ceiling. The figure was CA$120 and an estimate; it is now the cost of a named set.
+    max_cost_cad=300.0,
+    minutes=30,
     consequence_of_delay=("The pre-launch challenge stays unrunnable, so the first honest "
                           "comparison against a paid competitor happens in a buyer's "
                           "downloads folder."),
@@ -455,8 +480,10 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         key="physical_calibration",
         description="at least one physical sample has calibrated the yardage estimate",
         ready=bool(physical_done), blocked_by=None if physical_done else BLOCKED_OWNER,
-        evidence={"completed_tests": len(physical_done)},
-        owner_request=None if physical_done else PHYSICAL_SAMPLE))
+        evidence={"completed_tests": len(physical_done),
+                  **({} if physical_done else {"owner_parked": PHYSICAL_SAMPLE_PARKED})},
+        # Never the owner's ask any more, only ever unmet. See PHYSICAL_SAMPLE_PARKED.
+        owner_request=None))
 
     out.append(Requirement(
         key="brand_clearance",

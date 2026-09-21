@@ -1179,6 +1179,26 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                               blocks=request.blocks))
             queued.append(request.key)
 
+        # Close what is no longer asked for. Without this the queue only ever grows: a
+        # request stops being generated the moment its requirement is satisfied, but the row
+        # it created stays open forever, so the owner opens the queue and is asked again for
+        # the Etsy shop that exists, the developer app that is working and the model key that
+        # is spending money. The owner's standing instruction is "do not ask me to repeat an
+        # action already completed", and production was breaking it in four of ten rows.
+        #
+        # Guarded, because "not requested" and "not assessed" look identical from here. An
+        # assessment that produced no requests at all is far more likely to be an assessment
+        # that failed than a company with nothing left for its owner to do, and closing the
+        # whole queue on that would destroy the record of what was asked.
+        closed: list[str] = []
+        if requests:
+            wanted = {r.key for r in requests}
+            for key, row in open_actions.items():
+                if key in wanted:
+                    continue
+                row.done = True
+                closed.append(key)
+
     ctx.audit("launch.assessed", detail={
         "ready": readiness.ready,
         "ours_to_do": [r.key for r in readiness.buildable],
@@ -1187,9 +1207,11 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         "owner_actions_added": len(queued),
         "owner_actions_queued": queued,
         "owner_actions_restated": restated,
+        "owner_actions_closed": closed,
         "capabilities_unavailable": access.unmet_report()["unmet_capabilities"]})
 
     return {"ready": readiness.ready, "owner_actions_added": len(queued),
+            "owner_actions_closed": closed,
             "outstanding": [r.key for r in readiness.outstanding]}
 
 

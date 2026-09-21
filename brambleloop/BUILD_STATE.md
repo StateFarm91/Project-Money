@@ -362,6 +362,43 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**Heartbeat 2026-09-21T00:30Z — the owner queue was asking for four finished things.**
+
+Production held ten open owner actions. Four were done: the Etsy shop that exists, the
+developer app that is working, the model key that has spent CA$2.66, and a benchmark
+purchase superseded by the approved CA$300 selection. A fifth asked the owner to crochet a
+calibration sample, which they have parked twice.
+
+The cause is one missing half of a loop. `launch.readiness` adds an action and restates its
+figure, and never closes one. A request stops being generated the moment its requirement is
+satisfied — but the row it created stays open for ever, so the queue only grows and its
+oldest entries are the ones most likely to be finished. The owner's standing instruction is
+"do not ask me to repeat an action already completed", and the live queue was breaking it on
+four rows in ten (B-531).
+
+Actions no longer requested now close themselves, guarded: an assessment that produced *no*
+requests is far more likely to have failed than to describe a company with nothing left for
+its owner to do, and closing the whole queue on that would destroy the record of what was
+asked.
+
+Two rows were stale rather than finished. The physical sample is withdrawn from the queue and
+recorded as **parked by the owner**, with the requirement unchanged and still blocking
+calibrated yardage and every fitted garment — the ask is withdrawn, not the requirement, and
+the other way through is a pattern tester rather than the owner (B-532). The benchmark
+purchase asked for "about ten" patterns into "its own folder under the benchmark library
+path" at CA$120: there is no folder on a phone, the set is chosen rather than approximated,
+and it now points at `/api/benchmark-selection` and `/ops/teardown` at the approved CA$300
+(B-533).
+
+Also confirmed live rather than assumed this heartbeat: `/api/verify` 12 of 12; the gallery
+drain is running and on schedule (1,048 images pending, ~CA$0.034 an image observed against
+CA$0.029 estimated, within the 40% allocation); 134 dead letters are all publication
+refusals and **zero are defects**; the off-site archive records a configuration failure
+rather than a stale success.
+
+Suite green at **2,714 across 149 suites**.
+
+## Previously — last completed milestone
 **The three practical gates, built as far as they go without the owner's credentials.**
 
 ### Off-site storage — built, tested, unconfigured, and honest about it

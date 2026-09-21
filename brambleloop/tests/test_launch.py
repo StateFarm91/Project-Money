@@ -134,7 +134,13 @@ def test_nothing_blocked_on_build_is_ever_sent_to_the_owner():
 
 
 def test_a_completed_physical_test_clears_its_requirement():
-    """The one owner action the system can watch being satisfied."""
+    """The one requirement the system can watch being satisfied.
+
+    It used to clear an owner action too. The owner has since parked that ask twice -- they
+    will not be the one who crochets the sample -- so the request is already withdrawn and
+    the queue does not move. The requirement still clears, which is the part that was ever
+    about evidence.
+    """
     db = _db()
     _stock(db)
     before = assess(db, phase="shadow")
@@ -146,7 +152,7 @@ def test_a_completed_physical_test_clears_its_requirement():
                            passed=True, measured={"grams": 180}))
     after = assess(db, phase="shadow")
     assert next(r for r in after.requirements if r.key == "physical_calibration").ready
-    assert len(after.owner_requests()) == len(before.owner_requests()) - 1
+    assert len(after.owner_requests()) == len(before.owner_requests())
 
 
 def test_shadow_mode_can_never_be_launch_ready():
@@ -370,6 +376,101 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
     fee = [a for a in after if a.requirement_key == "listing_fees"]
     assert len(fee) == 1, [f.action[:60] for f in fee]
     assert fee[0].action != stale_fee, "the adopted row kept its stale figure"
+
+def test_an_owner_action_whose_requirement_is_satisfied_closes_itself():
+    """The queue only ever grew, and production was asking for four finished things.
+
+    A request stops being generated the moment its requirement is met -- but the row it
+    created stayed open forever. On 2026-09-21 the live queue held ten actions, four of
+    which were done: the Etsy shop that exists, the developer app that is working, the model
+    key that is spending money, and a benchmark purchase superseded by an approved CA$300
+    selection. The owner's standing instruction is "do not ask me to repeat an action
+    already completed", and the queue was breaking it on four rows out of ten.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
+    from brambleloop.runtime.worker import Worker
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/close.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    _stock(db)
+
+    def run_readiness(key: str) -> None:
+        JobQueue(db).enqueue("orchestrator", "launch.readiness", {}, idempotency_key=key)
+        worker = Worker(db, "close-worker")
+        for _ in range(200):
+            if not worker.run_once():
+                break
+
+    run_readiness("close-1")
+    with db.session() as s:
+        # A row for a requirement this assessment does not ask about: the shape of every
+        # action whose capability arrived after it was queued.
+        s.add(OwnerAction(requirement_key="a_requirement_since_satisfied",
+                          action="Do the thing that is now done", reason="it was needed"))
+
+    run_readiness("close-2")
+    with db.session() as s:
+        stale = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "a_requirement_since_satisfied"))
+        still_open = [a.requirement_key for a in s.scalars(
+            select(OwnerAction).where(OwnerAction.done == False))]  # noqa: E712
+
+    assert stale.done is True, "an action nobody is asking for any more stayed open"
+    assert still_open, "closing swept the queue instead of the satisfied row"
+    assert "a_requirement_since_satisfied" not in still_open
+
+
+def test_the_owner_is_not_asked_to_crochet_the_calibration_sample():
+    """Parked twice by the owner. The requirement stands; the ask is withdrawn.
+
+    These are different claims and the honest state needs both: yardage is still an
+    uncalibrated estimate and still blocks every fitted garment, and the owner has said
+    twice that they will not be the one who makes the sample. A queue that keeps asking
+    teaches its reader to stop opening it.
+    """
+    import tempfile
+
+    from brambleloop.launch import readiness as rd
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/park.sqlite")
+    db.create_all()
+    _stock(db)
+
+    report = rd.assess(db, phase="shadow", providers=[], storage_durable=False)
+    physical = next(r for r in report.requirements if r.key == "physical_calibration")
+
+    assert physical.ready is False                 # unmet, and still blocking
+    assert physical.blocked_by == rd.BLOCKED_OWNER
+    assert physical.evidence["owner_parked"]["parked_by"] == "owner"
+    assert "tester_roster" in physical.evidence["owner_parked"]["the_other_way_through"]
+    assert not any(o.key == "physical_calibration" for o in report.owner_requests())
+
+
+def test_the_benchmark_purchase_ask_points_at_the_selection_and_the_upload_page():
+    """It asked for "about ten" into "its own folder under the benchmark library path".
+
+    There is no folder on a phone, the set is chosen rather than approximated, and the
+    approved figure is CA$300 rather than the CA$120 this was estimated at before the
+    catalogue existed.
+    """
+    from brambleloop.launch.readiness import BENCHMARK_PURCHASES
+
+    assert BENCHMARK_PURCHASES.max_cost_cad == 300.0
+    assert "/ops/teardown" in BENCHMARK_PURCHASES.action
+    assert "/api/benchmark-selection" in BENCHMARK_PURCHASES.action
+    assert "folder" not in BENCHMARK_PURCHASES.action
+    assert "about ten" not in BENCHMARK_PURCHASES.action
+
 
 if __name__ == "__main__":
     fails = 0
