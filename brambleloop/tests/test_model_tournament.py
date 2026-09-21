@@ -189,6 +189,53 @@ def test_a_finalist_who_keeps_her_face_and_loses_her_body_fails():
     assert out["clears_both_floors"] is False
 
 
+def test_a_hidden_waist_is_unverifiable_rather_than_a_failed_finalist():
+    """Treating `unverifiable` as `fail` disqualified every finalist on a loose sweater.
+
+    A woman who is perfectly consistent wherever she can be seen was reported as drifted.
+    The owner's rule is that an obscured proportion never passes; it does not say it fails.
+    Not chosen, not condemned, and short of the evidence a permanent identity deserves.
+    """
+    db = _db()
+    finalist = {"key": "cand-00", "image_ref": "/tmp/ref.png", "provider": "gpt-image-2"}
+    seen: list[str] = []
+
+    def render(prompt, *, env=None, size=None, reference_urls=None, **kw):
+        seen.append(prompt)
+        return {"provider": "gpt-image-2", "image_ref": f"/tmp/scene-{len(seen)}.png",
+                "url": "", "cad": 0.04, "latency_ms": 1.0}
+
+    def observer(_d, reference, ref):
+        base = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if ref == "/tmp/scene-2.png":        # one scene hides the body
+            base.update({d: identity.UNMEASURABLE for d in identity.MORPHOLOGY_DIMENSIONS})
+        return base
+
+    out = tournament.stress_test(
+        db, finalist, generator=render, observer=observer,
+        reference_observer=lambda _d, ref: {d: "described"
+                                            for d in identity.DRIFT_DIMENSIONS})
+    assert out["face_floor"] == "pass"
+    assert out["morphology_floor"] == "unverifiable"     # not "fail"
+    assert out["clears_both_floors"] is False            # and still not chosen
+    assert out["morphology_readable_scenes"], out
+    assert out["morphology_drifted_scenes"] == []
+
+
+def test_real_drift_still_fails_rather_than_reading_as_unverifiable():
+    db = _db()
+    finalist = {"key": "cand-00", "image_ref": "/tmp/ref.png", "provider": "gpt-image-2"}
+    out = tournament.stress_test(
+        db, finalist, generator=_render,
+        observer=lambda _d, a, b: {**{d: identity.MATCH
+                                      for d in identity.DRIFT_DIMENSIONS},
+                                   "hips": identity.DRIFT},
+        reference_observer=lambda _d, ref: {d: "described"
+                                            for d in identity.DRIFT_DIMENSIONS})
+    assert out["morphology_floor"] == "fail"
+    assert out["morphology_drifted_scenes"]
+
+
 def test_a_finalist_who_holds_the_whole_person_clears_both_floors():
     db = _db()
     finalist = {"key": "cand-00", "image_ref": "/tmp/ref.png", "provider": "gpt-image-2"}

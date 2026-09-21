@@ -34,6 +34,11 @@ from ..core.resilience import PermanentError, TransientError
 from . import brief, identity, model_registry
 
 TOURNAMENT_ACTION = "model.tournament"
+
+# Bumped when the *package* changes rather than the brief: a run whose finalists carry no
+# retrievable images, or whose floors were labelled before `unverifiable` was distinguished
+# from `fail`, cannot be presented and is not comparable to one that can.
+PRESENTATION_VERSION = "v2-images-kept-and-three-valued-floors"
 CANDIDATE_ACTION = "model.candidate"
 
 JUDGE_TASK = "image_benchmark_judging"
@@ -384,8 +389,28 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
         })
 
     rendered = [s for s in scenes if s.get("rendered")]
-    face_ok = all(s["face"] == "pass" for s in rendered)
-    body_ok = all(s["morphology"] == "pass" for s in rendered)
+
+    def _floor(group: str) -> str:
+        """Three-valued, because `unverifiable` is not `fail`.
+
+        The owner's rule is that an obscured proportion never *passes*. It does not say it
+        fails, and treating it as failure disqualified every finalist on the strength of a
+        loose sweater -- a woman who is perfectly consistent wherever she can be seen was
+        being reported as drifted. What a hidden waist means is that nobody looked, and the
+        honest verdict for a finalist measured only where the clothing allowed is
+        `unverifiable`: not chosen, not condemned, and short of the evidence a permanent
+        brand identity deserves.
+        """
+        if any(s[group] == "fail" for s in rendered):
+            return "fail"
+        if not rendered or any(s[group] == "unverifiable" for s in rendered):
+            return "unverifiable"
+        return "pass"
+
+    face_floor = _floor("face")
+    body_floor = _floor("morphology")
+    face_ok = face_floor == "pass"
+    body_ok = body_floor == "pass"
     return {
         "finalist": finalist["key"], "usable": True, "provider": provider,
         "reference_image": reference,
@@ -397,8 +422,12 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
         "scenes": scenes, "scenes_rendered": len(rendered),
         "scenes_expected": len(brief.STRESS_SCENES) - 1,
         "complete": len(rendered) == len(brief.STRESS_SCENES) - 1,
-        "face_floor": "pass" if face_ok else "fail",
-        "morphology_floor": "pass" if body_ok else "fail",
+        "face_floor": face_floor,
+        "morphology_floor": body_floor,
+        "morphology_readable_scenes": [s["scene"] for s in rendered
+                                       if s["morphology"] == "pass"],
+        "morphology_drifted_scenes": [s["scene"] for s in rendered
+                                      if s["morphology"] == "fail"],
         # Both, independently. The first reference-conditioned trial held a face across a
         # regeneration and changed the chest, and a blended score would have called that a
         # good result.

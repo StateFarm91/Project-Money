@@ -2593,7 +2593,8 @@ def _brief_fingerprint() -> str:
 
     from ..visual import brief, tournament
 
-    material = json.dumps({"brief": brief.state(), "seeds": list(tournament.SEED_NOTES)},
+    material = json.dumps({"brief": brief.state(), "seeds": list(tournament.SEED_NOTES),
+                           "presentation": tournament.PRESENTATION_VERSION},
                           sort_keys=True)
     return hashlib.sha256(material.encode()).hexdigest()[:16]
 
