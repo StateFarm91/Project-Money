@@ -1,0 +1,173 @@
+"""A styled product image the company owns, and the rules that keep it honest.
+
+Requirements 292 and 300 both ended at the same wall: a certified seasonal product with no
+picture of the finished object. The capability exists now. What these tests protect is the
+difference between having a picture and claiming to have made the thing in it.
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
+
+from brambleloop.cir.compiler import compile_cir  # noqa: E402
+from brambleloop.cir.twin import build_twin  # noqa: E402
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.products.builder import for_slug  # noqa: E402
+from brambleloop.publish import owned_photography as op  # noqa: E402
+from brambleloop.visual import inspect as inspect_mod  # noqa: E402
+
+
+def _db() -> Database:
+    db = Database("sqlite://")
+    db.create_all()
+    return db
+
+
+def _subject(slug: str = "cloudline-baby-blanket"):
+    cir = for_slug(slug)
+    return cir, build_twin(cir, compile_cir(cir))
+
+
+def _generator(tmp: Path):
+    def generate(prompt, *, env=None, size="1024x1024", reference_urls=None):
+        path = tmp / "asset.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        return {"image_ref": str(path), "provider": "gpt-image-2", "cad": 0.04}
+    return generate
+
+
+def _inspector(**overrides):
+    def inspect(image_ref, *, db=None, claim=None):
+        out = {
+            "image": image_ref, "described": True, "realism_judged": True,
+            "description": {"finished_or_in_progress": "finished", "chart_or_diagram": False,
+                            "human_present": False, "clarity": "clear", "object_count": "1",
+                            "third_party_marks": []},
+            "realism": {k: True for k in inspect_mod.REALISM_CHECKS},
+            "realism_unjudged": [],
+        }
+        out.update(overrides)
+        if claim:
+            out["semantic"] = inspect_mod.compare(out["description"], claim)
+        return out
+    return inspect
+
+
+def _make(tmp: Path, **kw):
+    cir, twin = _subject()
+    return op.make(_db(), cir, twin, generator=_generator(tmp),
+                   inspector=_inspector(**kw.pop("inspection", {})), **kw)
+
+
+def test_the_prompt_is_derived_from_the_certified_pattern():
+    """A prompt somebody typed is a second, unvalidated description of the product."""
+    cir, twin = _subject()
+    prompt = op.prompt_for(cir, twin, occasion="Christmas")
+    for name in cir.colors:
+        assert name in prompt, name
+    assert f"{twin.width_cm:.0f} by {twin.height_cm:.0f} cm" in prompt
+    assert "blanket" in prompt
+    # The hex codes the twin renders with describe nothing to a generator or to a reader.
+    assert "#" not in prompt
+    # And nothing that would put somebody else's mark, or a person, in the frame.
+    assert "no logos" in prompt and "No people" in prompt
+
+
+def test_it_is_an_illustration_and_it_says_so_everywhere():
+    """This company has not photographed a made item, and must never imply that it has."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record = _make(Path(tmp))
+    assert record["generated"] is True
+    assert record["disclosed_as_illustration"] is True
+    assert "Not a photograph of a made item" in record["disclosure"]
+    assert "fabricated proof" in record["never_a_photograph"]
+
+
+def test_a_picture_that_does_not_show_what_the_pattern_says_is_not_usable():
+    """The describer never sees the claim; the comparison is deterministic code."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record = _make(Path(tmp), inspection={"description": {
+            "finished_or_in_progress": "in progress", "chart_or_diagram": False,
+            "human_present": False, "clarity": "clear", "object_count": "1"}})
+    assert record["verdict"] == "blocked"
+    assert record["usable_as_listing_asset"] is False
+
+
+def test_an_unmade_realism_check_is_not_a_pass():
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record = _make(Path(tmp), inspection={
+            "realism_judged": False, "realism": {},
+            "realism_unjudged": sorted(inspect_mod.REALISM_CHECKS)})
+    assert record["verdict"] == "unjudged"
+    assert record["usable_as_listing_asset"] is False
+
+
+def test_a_clean_render_becomes_a_usable_asset_and_is_kept_by_digest():
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record = _make(Path(tmp))
+    assert record["verdict"] == "clear"
+    assert record["usable_as_listing_asset"] is True
+    assert record["image"]["url"].startswith("/api/model-tournament/image/")
+    assert record["spent_cad"] == 0.04
+
+
+def test_a_product_whose_listing_needs_the_model_is_refused_rather_than_shot_without_her():
+    """The canonical model is built and unapproved, so a model-bearing frame is blocked.
+
+    A product-first form does not wait on her -- #204 says a clean product-only hero
+    outsells a modelled one for exactly these forms -- and a garment does.
+    """
+    import dataclasses
+
+    cir, twin = _subject()
+    # The same certified object under a garment's slug: the form is what decides, and a
+    # cardigan's listing has to answer a question only a body can answer.
+    garment = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
+    assert op.needs_no_model(cir) is True
+    assert op.needs_no_model(garment) is False
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record = op.make(_db(), garment, twin, generator=_generator(Path(tmp)),
+                         inspector=_inspector())
+    assert record["made"] is False
+    assert "not approved" in record["why"]
+
+
+def test_the_seasonal_cycle_reports_the_asset_rather_than_rendering_one():
+    """A report that spent money every time somebody opened an endpoint would spend money
+    to answer a question about the past -- and the endpoint sweep walks every GET route."""
+    import ast
+
+    tree = ast.parse((ROOT / "src/brambleloop/seasonal/cycle.py").read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in ("generate", "make"):
+            raise AssertionError("the cycle renders an image while reporting")
+    source = (ROOT / "src/brambleloop/seasonal/cycle.py").read_text()
+    assert "last_asset" in source
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

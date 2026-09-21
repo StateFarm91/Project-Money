@@ -2598,6 +2598,79 @@ def handle_model_tournament(ctx: JobContext) -> dict:
             "spent_cad": package["spent_cad"], "selected": None}
 
 
+@handlers.register("assets.owned_photography")
+def handle_owned_photography(ctx: JobContext) -> dict:
+    """Render one owned product image for a certified product, and judge it.
+
+    A job rather than an endpoint, for the reason the benchmark learned the hard way: a GET
+    that spends money is a GET that spends money every time a test sweep walks the routes.
+    The seasonal cycle reads what this produced; it does not produce it.
+
+    Idempotent by product and version: an asset already made for this release is not remade,
+    so the cadence costs nothing after the first run and a new release gets its own picture.
+    """
+    import os
+    import tempfile
+
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+    from ..gateway import images
+    from ..products.builder import for_slug
+    from ..publish import owned_photography
+
+    if not images.usable(ctx.db):
+        return {"ran": False, "reason": ("image generation has not been demonstrated in "
+                                         "this environment, so there is nothing to render "
+                                         "with. `ops.capability_probes` records it")}
+
+    slug = ctx.job.inputs.get("slug") or _representative_slug(ctx.db)
+    if not slug:
+        return {"ran": False, "reason": "no certified product to photograph"}
+
+    cir = for_slug(slug)
+    if cir is None:
+        return {"ran": False, "reason": f"no CIR for {slug!r}"}
+
+    existing = owned_photography.last_asset(ctx.db, slug=slug)
+    if existing and existing.get("version") == cir.version:
+        return {"ran": False, "reason": "this release already has an owned asset",
+                "verdict": existing.get("verdict"), "slug": slug}
+
+    result = compile_cir(cir)
+    if not result.ok:
+        return {"ran": False, "reason": f"{slug} does not compile, so there is nothing true "
+                                        f"to photograph"}
+
+    record = owned_photography.make(
+        ctx.db, cir, build_twin(cir, result),
+        occasion=ctx.job.inputs.get("occasion", ""),
+        env=dict(os.environ),
+        work_dir=ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="owned-asset-"))
+    ctx.audit(owned_photography.ACTION, detail=record)
+    return {"ran": True, "slug": slug, "made": record.get("made"),
+            "verdict": record.get("verdict"), "why": record.get("why"),
+            "usable_as_listing_asset": record.get("usable_as_listing_asset"),
+            "spent_cad": record.get("spent_cad", 0.0)}
+
+
+def _representative_slug(db) -> str:
+    """The certified product an owned asset is worth making for first."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+
+    with db.session() as s:
+        rows = [p.slug for p in s.scalars(select(Product).order_by(Product.id))]
+    from ..publish import owned_photography
+    from ..products.builder import for_slug
+
+    for slug in rows:
+        cir = for_slug(slug)
+        if cir is not None and owned_photography.needs_no_model(cir):
+            return slug
+    return rows[0] if rows else ""
+
+
 @handlers.register("creative.model_reference_pack")
 def handle_model_reference_pack(ctx: JobContext) -> dict:
     """Build the reference pack from the owner's candidate and stop before freezing it.

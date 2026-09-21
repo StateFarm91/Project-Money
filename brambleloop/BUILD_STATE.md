@@ -4631,6 +4631,18 @@ timings, written there by the system rather than by hand.
   for, an approval condition nothing could satisfy, an hour-long idempotency lockout, a
   stale replica answering about a different pack, and a frame whose verdict turned on
   sampling luck (B-573..B-579). Total spend across all five: about CA$2.50.
+- 2026-09-21 heartbeat: #292 and #300 un-parked and their imagery halves built. Both were
+  gated on `BRAMBLELOOP_IMAGE_KEY`, a variable that stopped existing when credentials moved
+  to per-account keys, so a capability proven in production for a day read as absent and the
+  check could no longer come true (B-581). `publish/owned_photography.py` makes the missing
+  asset: a styled illustration of the finished object, generated from the certified CIR,
+  described by a model that never sees the claim, compared deterministically, gated on three
+  verdicts, and disclosed as generated everywhere it appears (B-582). It runs as a daily job,
+  idempotent per release; the seasonal cycle reports what exists rather than rendering.
+- The test runner now discovers its suites. The hand-maintained list was three files out of
+  date, so two mornings' work was green without being run by the full suite -- both passed
+  directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
+  **2,828 tests passing, 0 failing**.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

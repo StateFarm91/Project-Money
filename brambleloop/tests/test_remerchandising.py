@@ -218,13 +218,45 @@ def test_a_pod_with_no_readable_language_does_not_claim_the_move():
     assert "buyer-language map" in state["blocked"]["search_positioning"]
 
 
-def test_the_image_moves_stay_blocked_and_say_what_on():
-    """Gated rather than absent: a key would open both without further work here."""
+def test_the_image_moves_read_a_recorded_generation_rather_than_a_variable():
+    """The defect this check exists to catch, found live on 2026-09-21.
+
+    Both image moves were gated on `BRAMBLELOOP_IMAGE_KEY` -- a variable that stopped
+    existing when credentials moved to one key per provider account. So a capability that
+    had been rendering in production for a day read as absent here, and two requirements
+    stayed parked on it. The familiar defect with an extra turn of the screw: the
+    configuration the gate read had been renamed out from under it, so the condition could
+    no longer come true at all.
+    """
+    from brambleloop.gateway import images
     from brambleloop.seasonal import remerchandising
 
-    state = remerchandising.capabilities(_lang_db(), pod="stockings")
+    db = _lang_db()
+    state = remerchandising.capabilities(db, pod="stockings")
     assert "colourway" in state["blocked"] and "styled_photography" in state["blocked"]
     assert "image-generation" in state["blocked"]["styled_photography"]
+
+    original = images.usable
+    images.usable = lambda _db: True
+    try:
+        opened = remerchandising.capabilities(db, pod="stockings")
+    finally:
+        images.usable = original
+    assert "colourway" in opened["available"]
+    assert "styled_photography" in opened["available"]
+    assert "recorded successful image generation" in \
+        opened["moves"]["colourway"]["evidence"]
+
+    # And the module reads no environment variable for this any more -- parsed rather than
+    # grepped, because the comment recording the defect contains the string that describes
+    # it, and a check that cannot tell a call from a sentence about a call reports the
+    # thing it exists to detect.
+    import ast
+
+    tree = ast.parse((ROOT / "src/brambleloop/seasonal/remerchandising.py").read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in ("environ", "getenv"):
+            raise AssertionError("the capability is read from the environment again")
 
 
 def test_a_bundle_of_one_product_is_a_product():

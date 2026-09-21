@@ -51,20 +51,20 @@ trap _brambleloop_cleanup EXIT INT TERM
 
 # Canonical order. This is the order results are printed in, cheapest first, so a failure in
 # the CIR engine is visible at the top of the log rather than buried.
-SUITES=(
-  tests/test_compiler.py tests/test_reverse.py tests/test_rowcycle.py
-  tests/test_geometry.py tests/test_division.py tests/test_substitution.py tests/test_prototype.py tests/test_value_stack.py tests/test_twin.py tests/test_grading.py
-  tests/test_platform.py tests/test_gates.py tests/test_proof.py tests/test_radar.py tests/test_arbitrage.py tests/test_provenance.py tests/test_gateway.py tests/test_model_provider.py
-  tests/test_intel.py tests/test_learning.py tests/test_complaints.py tests/test_deliverable.py tests/test_response.py tests/test_mission.py tests/test_pods_routing.py tests/test_teardown.py tests/test_teardown_audits.py tests/test_culture.py tests/test_cast.py tests/test_creative.py tests/test_blinded.py tests/test_prospecting.py tests/test_invention.py tests/test_seasonal_transform.py tests/test_breakthrough.py tests/test_universe.py tests/test_family.py tests/test_funnel.py tests/test_certification.py tests/test_improve.py tests/test_league.py tests/test_league_holdout.py tests/test_roles.py tests/test_freshness.py tests/test_upgrades.py tests/test_nightly.py tests/test_weekly.py tests/test_roi.py tests/test_tiers.py tests/test_profiles.py tests/test_growth.py tests/test_owned.py tests/test_swarm.py tests/test_visual.py tests/test_layout_qa.py tests/test_eligibility.py tests/test_dimensions.py tests/test_defects.py tests/test_listing_set.py tests/test_brief.py tests/test_mobile.py tests/test_engine.py tests/test_panel.py tests/test_veto.py tests/test_pod_learning.py tests/test_mechanisms.py tests/test_capability_gates.py tests/test_purchase_selection.py tests/test_culture_feed.py tests/test_visual_inspection.py tests/test_image_bench.py tests/test_spend_policy.py tests/test_intake.py tests/test_offsite.py tests/test_model_identity.py tests/test_model_tournament.py tests/test_teardown_readiness.py
-  tests/test_etsy.py tests/test_brand.py tests/test_takeover.py tests/test_moat.py tests/test_commerce.py tests/test_intent.py tests/test_portfolio.py tests/test_preproduction.py tests/test_lanes.py tests/test_creators.py tests/test_listing_tests.py tests/test_benchmarks.py tests/test_offers.py tests/test_free_to_paid.py tests/test_replication.py tests/test_allocation.py tests/test_trajectory.py tests/test_artefacts.py tests/test_health.py tests/test_governor.py tests/test_ladder.py tests/test_clusters.py tests/test_pins.py tests/test_video.py tests/test_tools.py tests/test_reviews.py tests/test_first_hundred.py tests/test_personalisation.py tests/test_club.py tests/test_rebuild_graph.py tests/test_friction.py tests/test_interviews.py tests/test_departments.py
-  tests/test_buyer_trust.py tests/test_trust.py tests/test_quality.py tests/test_physical.py tests/test_finance.py tests/test_currency.py tests/test_commercial_truth.py tests/test_promotion.py
-  tests/test_leadtime.py tests/test_uncertainty.py tests/test_depth.py tests/test_compression.py tests/test_seasonal_cycle.py tests/test_colour.py tests/test_benchmark_matrix.py tests/test_collections.py tests/test_teams.py tests/test_fastlane.py tests/test_rollforward.py tests/test_remerchandising.py tests/test_model_access.py tests/test_etsy_capability.py tests/test_scale.py tests/test_discipline.py tests/test_dependency.py tests/test_runrate.py tests/test_calibration.py
-  tests/test_launch.py tests/test_access.py tests/test_platform_policy.py
-  tests/test_shadow.py
-  tests/test_persistence.py tests/test_continuity.py tests/test_chaos.py tests/test_deploy.py
-  tests/test_product_run.py tests/test_products.py tests/test_texture.py
-  tests/test_accessibility.py tests/test_build2.py tests/test_executor.py tests/test_acceptance_gates.py
-)
+# Discovered rather than listed.
+#
+# This was a hand-maintained array, and on 2026-09-21 it was three suites out of date: two
+# test files written that morning -- for the teardown reader and the canonical reference
+# pack -- were not in it, so "the suite is green" was true and did not include the code it
+# was written for. A list somebody has to remember to update is a list that is wrong
+# exactly when new work lands, which is the moment the check matters most. The glob has the
+# property the endpoint walk already has: a new suite is covered the moment it exists.
+SUITES=()
+while IFS= read -r f; do SUITES+=("$f"); done < <(ls tests/test_*.py | sort)
+if [ "${#SUITES[@]}" -lt 100 ]; then
+  echo "only ${#SUITES[@]} suites found; the discovery is not working" >&2
+  exit 1
+fi
 
 # Scheduling order is not the printing order. These six are the ones that take minutes, and
 # a suite that takes six minutes and starts last sets the floor for the entire run, so they

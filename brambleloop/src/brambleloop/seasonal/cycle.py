@@ -196,12 +196,41 @@ def run(db, *, today: date | None = None, gateway=None,
 
     # 8. Assets this company owns ----------------------------------------------
     assets = add("assets", "publishable visual assets Brambleloop made itself")
-    assets.state = GATED
-    assets.gated_on = "image_generation"
-    assets.why = ("chart and schematic assets render from the certified CIR today; "
-                  "photographic and styled imagery needs the image-generation capability. "
-                  "Rendering a placeholder and calling it a product photograph is the one "
-                  "thing the asset-truth gate exists to refuse")
+    from ..gateway import images as _images
+    from ..publish import owned_photography
+
+    owned = owned_photography.last_asset(db)
+    if not _images.usable(db):
+        assets.state = GATED
+        assets.gated_on = "image_generation"
+        assets.why = ("chart and schematic assets render from the certified CIR today; "
+                      "a styled image of the finished object needs the image-generation "
+                      "capability, and no successful generation is on file. Rendering a "
+                      "placeholder and calling it a product photograph is the one thing "
+                      "the asset-truth gate exists to refuse")
+    elif owned is None:
+        # Read rather than rendered: a report that generated an image every time somebody
+        # opened an endpoint would spend money to answer a question about the past.
+        assets.state = GATED
+        assets.gated_on = "owned_photography_job"
+        assets.why = ("image generation is proven and no owned asset has been rendered "
+                      "yet. `assets.owned_photography` runs daily and makes one per "
+                      "release; this step reports what exists rather than making it")
+    elif owned.get("usable_as_listing_asset"):
+        assets.state = RAN
+        assets.evidence = {
+            "slug": owned.get("slug"), "form": owned.get("form"),
+            "image": (owned.get("image") or {}).get("url"),
+            "verdict": owned.get("verdict"),
+            "disclosed_as_illustration": owned.get("disclosed_as_illustration"),
+            "disclosure": owned.get("disclosure"),
+            "charts_and_schematics": "rendered deterministically from the certified CIR"}
+    else:
+        assets.state = FAILED
+        assets.evidence = {"slug": owned.get("slug"), "verdict": owned.get("verdict")}
+        assets.why = (f"an owned asset was rendered and did not clear the asset-truth "
+                      f"gate: {owned.get('why', '')[:160]}. An asset that failed its "
+                      f"checks is not an asset")
 
     # 9. Search and ads ---------------------------------------------------------
     search = add("search", "search coverage prepared, and paid media named as gated")

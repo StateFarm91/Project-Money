@@ -249,6 +249,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # without anything changing except the date. The first run of this engine found that the
     # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand
     # once a quarter is how a company misses Christmas too.
+    # Daily and free after the first run: an asset already made for a release is not
+    # remade, so this costs one image the day a release first gets one and nothing after.
+    ("owned_photography", "publishing", "assets.owned_photography", 24 * 60 * 60),
     ("seasonal_sentinel", "orchestrator", "seasonal.sentinel", 24 * 60 * 60),
     # Six-hourly, matching the radar scan. #313 wants frequent lightweight checks once a
     # baseline exists, and the fingerprint makes an unchanged catalogue nearly free -- but

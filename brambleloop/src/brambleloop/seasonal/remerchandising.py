@@ -181,9 +181,8 @@ def capabilities(db, *, pod: str = "", benchmark_key: str = "") -> dict:
     Each answer is a reading rather than a setting. A move reported available here is one
     whose prerequisite has been observed to exist, not one somebody enabled.
     """
-    import os
-
     from ..commerce import intent
+    from ..gateway import images
 
     pool = candidates(db)
     certified = len(pool["eligible"])
@@ -192,15 +191,26 @@ def capabilities(db, *, pod: str = "", benchmark_key: str = "") -> dict:
     if pod:
         language = intent.arena_language(db, pod=pod, benchmark_key=benchmark_key)
 
+    # Both image moves wait on the same capability, read from evidence: a recorded
+    # successful generation, not a variable.
+    #
+    # This asked `os.environ.get("BRAMBLELOOP_IMAGE_KEY")` until 2026-09-21, and that
+    # variable stopped existing when credentials moved to one key per provider account. So
+    # a capability that had been rendering in production for a day read as absent here, and
+    # two requirements stayed parked on it -- the familiar defect (a gate reading
+    # configuration rather than demonstrated capability) with an extra twist: the
+    # configuration it read had been renamed out from under it, so the check could no
+    # longer come true at all.
+    can_render = images.usable(db)
     state: dict[str, dict] = {
-        # Both image moves wait on the same capability, and it is gated rather than absent:
-        # an image-generation key would open them without any further work here.
         "colourway": {
-            "available": bool(os.environ.get("BRAMBLELOOP_IMAGE_KEY")),
-            "waiting_on": MOVE_NEEDS["colourway"]},
+            "available": can_render,
+            "waiting_on": MOVE_NEEDS["colourway"],
+            "evidence": "a recorded successful image generation (ops.capability_probes)"},
         "styled_photography": {
-            "available": bool(os.environ.get("BRAMBLELOOP_IMAGE_KEY")),
-            "waiting_on": MOVE_NEEDS["styled_photography"]},
+            "available": can_render,
+            "waiting_on": MOVE_NEEDS["styled_photography"],
+            "evidence": "a recorded successful image generation (ops.capability_probes)"},
         # A bundle of one product is a product. Two certified products is the real floor and
         # it is a count, not a judgement.
         "bundle": {"available": certified >= 2,

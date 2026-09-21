@@ -101,7 +101,11 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["gate.policy"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="publishing", description="Renders the PDF, charts and listing assets",
-         allowed_job_types=["assets.build", "assets.render"], authority=Authority.GREEN,
+         allowed_job_types=["assets.build", "assets.render",
+                            # A styled image of the finished object, generated from the
+                            # certified CIR and disclosed as an illustration (#292, #300).
+                            "assets.owned_photography"],
+         authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
          allowed_job_types=["launch.plan", "marketing.schedule", "content.draft"],
