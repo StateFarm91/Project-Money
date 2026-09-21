@@ -57,10 +57,20 @@ def _inspector(**overrides):
     return inspect
 
 
+def _motif(**overrides):
+    """A motif judge that sees the chart's own pattern unless told otherwise."""
+    answer = {"repeating_unit_shape": "diamond outline lattice", "repeats_across": 14,
+              "colour_arrangement": "two colours alternating", "same_pattern_as_chart": True,
+              "fabric_readable": True}
+    answer.update(overrides)
+    return lambda image_ref, chart_ref: answer
+
+
 def _make(tmp: Path, **kw):
     cir, twin = _subject()
     return op.make(_db(), cir, twin, generator=_generator(tmp),
-                   inspector=_inspector(**kw.pop("inspection", {})), **kw)
+                   inspector=_inspector(**kw.pop("inspection", {})),
+                   motif_judger=kw.pop("motif_judger", _motif()), **kw)
 
 
 def test_the_prompt_is_derived_from_the_certified_pattern():
@@ -112,15 +122,7 @@ def test_an_unmade_realism_check_is_not_a_pass():
     assert record["usable_as_listing_asset"] is False
 
 
-def test_a_clean_render_is_kept_and_is_still_not_a_listing_image():
-    """Every check that exists passed, and one that does not exist yet is the point.
-
-    The first live render was a clean, believable crocheted blanket in the right two
-    colours, worked in a checkerboard -- while the certified pattern makes a diamond
-    lattice. Nothing caught it, because the describer's vocabulary is closed and has no
-    field for the motif. A picture whose fabric is not the fabric is the refund a buyer
-    opens after making it, so the asset is evidence to look at rather than a listing image.
-    """
+def test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image():
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -128,9 +130,37 @@ def test_a_clean_render_is_kept_and_is_still_not_a_listing_image():
     assert record["verdict"] == "clear"
     assert record["image"]["url"].startswith("/api/model-tournament/image/")
     assert record["spent_cad"] == 0.04
+    assert record["motif_verified"] is True
+    assert record["usable_as_listing_asset"] is True
+
+
+def test_the_checkerboard_that_started_this_is_blocked():
+    """The live failure, as the test that keeps it failing.
+
+    A clean, believable crocheted blanket in the right two colours, on the right surface,
+    in the right light -- worked in a checkerboard, while the certified pattern makes a
+    diamond lattice on a nine-stitch repeat. Everything else about it was right, which is
+    why nothing caught it.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record = _make(Path(tmp), motif_judger=_motif(
+            repeating_unit_shape="solid square", repeats_across=8))
+    assert record["verdict"] == "clear", "the asset-truth checks still pass, as they did"
     assert record["motif_verified"] is False
     assert record["usable_as_listing_asset"] is False
-    assert "not the fabric" in record["usable_why"]
+    assert record["motif"]["verdict"] == "mismatch"
+
+
+def test_fabric_nobody_could_see_blocks_too_and_says_what_it_needs():
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record = _make(Path(tmp), motif_judger=_motif(fabric_readable=False))
+    assert record["motif"]["verdict"] == "unmeasurable"
+    assert record["usable_as_listing_asset"] is False
+    assert "closer" in record["motif"]["why"]
 
 
 def test_the_prompt_states_the_patterns_own_motif():

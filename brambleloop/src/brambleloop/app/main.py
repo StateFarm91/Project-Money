@@ -1254,6 +1254,19 @@ def api_model_tournament() -> dict:
     }
 
 
+@app.get("/api/funding")
+def api_funding() -> dict:
+    """Three facts that must never be merged: the internal budget, the provider accounts,
+    and whether a call actually works.
+
+    On the day this was written each was right about something different: CA$55 of the
+    monthly ceiling free, US$10 of credit reported added, and every call refused.
+    """
+    from ..ops import provider_accounts
+
+    return provider_accounts.reconcile(db)
+
+
 @app.get("/api/model-pack")
 def api_model_pack() -> dict:
     """The canonical reference pack built from the owner's candidate, and its measurements.

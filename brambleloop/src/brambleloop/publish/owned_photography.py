@@ -33,7 +33,7 @@ ACTION = "assets.owned_photography"
 # reason every other versioned thing in this build learned the hard way: an asset made by a
 # method that has since been corrected is not the asset the corrected method would make, and
 # reading it as "already done" is how a correction never runs.
-METHOD_VERSION = "v2-motif-stated-and-fidelity-unverified"
+METHOD_VERSION = "v3-motif-checked-against-the-chart"
 
 # The disclosure that travels with the asset. #79's rule, carried as data rather than left
 # to whoever writes the listing to remember.
@@ -117,7 +117,7 @@ def motif_sentence(cir) -> str:
 
 def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
          work_dir: str | None = None, provider_key: str = "", generator=None,
-         inspector=None) -> dict:
+         inspector=None, motif_judger=None) -> dict:
     """Render one owned product image and judge it. Returns a record, never an assertion."""
     from ..gateway import images
     from ..visual import inspect as inspection_mod
@@ -170,6 +170,14 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
     inspected = (inspector or inspection_mod.inspect_image)(image_ref, db=db, claim=claim)
     verdict = inspection_mod.gate(inspected)
 
+    # Does the fabric in the picture work the pattern the buyer will make? Asked against the
+    # chart, which renders from the same verified data as the written instructions, rather
+    # than against a sentence -- a generator that produced squares will happily be told they
+    # are diamonds.
+    from . import motif_fidelity
+
+    motif = motif_fidelity.check(db, image_ref, cir, twin, judger=motif_judger)
+
     from ..visual import tournament
 
     return {
@@ -193,21 +201,16 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
         "verdict": verdict["verdict"],
         "why": verdict["why"],
         "motif_claimed": motif_sentence(cir),
-        # Stated rather than assumed. The describer's vocabulary is closed -- deliberately,
-        # so a semantic check cannot be satisfied by "a lovely blanket" -- and it has no
-        # field for which stitch motif the fabric is worked in. So the picture is asked for
-        # the motif and nothing yet confirms it got it, which is a gap this names instead of
-        # papering over. Until something can check it, the asset is evidence the owner can
-        # look at rather than a listing image.
-        "motif_verified": False,
-        "motif_why": ("nothing can yet confirm that the depicted stitch pattern is this "
-                      "pattern's motif. The first render was a checkerboard where the CIR "
-                      "makes a diamond lattice, and no check caught it"),
-        "usable_as_listing_asset": False,
-        "usable_why": ("the asset-truth checks pass and motif fidelity is unverified, so "
-                       "this is not yet a listing image. A picture whose fabric is not the "
-                       "fabric is the refund a buyer opens after making it"
-                       if verdict["verdict"] == "clear" else verdict["why"]),
+        "motif": motif,
+        "motif_verified": motif["verdict"] == motif_fidelity.MATCH,
+        "motif_why": motif["why"],
+        "usable_as_listing_asset": (verdict["verdict"] == "clear"
+                                    and motif["verdict"] == motif_fidelity.MATCH),
+        "usable_why": (
+            "every asset-truth check passed and the fabric works the chart's pattern"
+            if verdict["verdict"] == "clear" and motif["verdict"] == motif_fidelity.MATCH
+            else f"motif: {motif['why']}" if verdict["verdict"] == "clear"
+            else verdict["why"]),
         "spent_cad": round(spent, 4),
         "never_a_photograph": (
             "this is a generated illustration of the certified object and is disclosed as "

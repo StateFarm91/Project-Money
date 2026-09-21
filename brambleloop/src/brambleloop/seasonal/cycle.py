@@ -217,17 +217,18 @@ def run(db, *, today: date | None = None, gateway=None,
                       "yet. `assets.owned_photography` runs daily and makes one per "
                       "release; this step reports what exists rather than making it")
     elif owned.get("verdict") == "clear" and not owned.get("motif_verified"):
-        # Rendered, and every check that exists passed -- and nothing can yet confirm that
-        # the fabric in the picture is this pattern's fabric. The first render was a clean
-        # checkerboard where the CIR makes a diamond lattice, so this is a real gap with a
-        # name rather than a ready asset.
-        assets.state = GATED
-        assets.gated_on = "motif_fidelity_check"
+        # Rendered, every asset-truth check passed, and the fabric is not the pattern's
+        # fabric -- or could not be seen well enough to tell. Both block a customer-facing
+        # asset; the difference is that one needs a different render and the other needs a
+        # closer frame, and the record says which.
+        assets.state = FAILED
+        assets.gated_on = ""
         assets.evidence = {
             "slug": owned.get("slug"), "form": owned.get("form"),
             "image": (owned.get("image") or {}).get("url"),
             "verdict": owned.get("verdict"),
             "motif_claimed": owned.get("motif_claimed"),
+            "motif_verdict": (owned.get("motif") or {}).get("verdict"),
             "disclosed_as_illustration": owned.get("disclosed_as_illustration"),
             "charts_and_schematics": "rendered deterministically from the certified CIR"}
         assets.why = owned.get("motif_why", "")

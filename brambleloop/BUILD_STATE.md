@@ -4642,13 +4642,15 @@ timings, written there by the system rather than by hand.
   The first live asset rendered, passed every existing check and depicted a
   checkerboard where the pattern makes a diamond lattice: **motif fidelity is not
   yet checkable**, so it is named as a gate rather than waved through, and the
-  asset is evidence to look at rather than a listing image (B-585).
+  asset is evidence to look at rather than a listing image (B-585). **Closed
+  2026-09-21**: the fabric is now compared against the deterministically rendered
+  chart, and a mismatch or an unreadable fabric blocks the asset (B-591).
   `/api/seasonal/remerchandising` computes its own availability now, rather than
   defaulting to "nothing works" because its caller passed nothing (B-583).
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,844 tests passing, 0 failing**.
+  **2,856 tests passing, 0 failing**.
 - **OWNER ACTION REQUIRED — the Anthropic API balance is spent.** Discovered 2026-09-21
   19:21Z when the revised reference pack rendered its images and died at the first vision
   call. Action: add credit at console.anthropic.com -> Plans & Billing. Why: every judging
