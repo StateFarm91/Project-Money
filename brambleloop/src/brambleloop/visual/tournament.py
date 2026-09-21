@@ -245,7 +245,8 @@ def generate_candidates(db, *, count: int = DEFAULT_CANDIDATES, env: dict | None
                 db, [ref], SCREEN_SYSTEM, screen_prompt(), SCREEN_MAX_TOKENS)))(db, ref)
             screened = parse_screen(answer)
         except (PermanentError, TransientError, TournamentRefused, ValueError) as exc:
-            failures.append({"candidate": key, "why": str(exc)[:200]})
+            failures.append({"candidate": key, "stage": "render" if "render" in locals()
+                             else "screen", "why": f"{type(exc).__name__}: {str(exc)[:220]}"})
             continue
 
         row = {"key": key, "seed_note": note, "image_ref": ref,

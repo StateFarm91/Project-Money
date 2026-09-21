@@ -2531,9 +2531,17 @@ def handle_model_tournament(ctx: JobContext) -> dict:
     field = tournament.generate_candidates(
         ctx.db, count=ctx.job.inputs.get("count") or tournament.DEFAULT_CANDIDATES,
         env=env, work_dir=work)
-    if not field.get("ran"):
-        ctx.audit("model.tournament_blocked", detail=field)
-        return field
+    if not field.get("ran") or not field.get("candidates"):
+        # A field of nothing is recorded with its reasons rather than returned quietly. The
+        # first live run produced no candidates and the only trace was a job-completed
+        # count; why every render or screen failed was not readable from anywhere.
+        detail = {**field, "brief_fingerprint": _brief_fingerprint(), "finalists": [],
+                  "clear_both_floors": [],
+                  "why_empty": ("no candidate survived generation and screening. The "
+                                "per-candidate reasons are in `failures`")}
+        ctx.audit(tournament.TOURNAMENT_ACTION, detail=detail)
+        return {"ran": bool(field.get("ran")), "candidates": 0,
+                "failures": field.get("failures", [])[:5]}
 
     finalists = field["candidates"][:brief.TARGET_FINALISTS]
     results = [tournament.stress_test(ctx.db, f, env=env, work_dir=work) for f in finalists]
@@ -2603,6 +2611,11 @@ def _tournament_on_file(db) -> dict | None:
                              .where(AuditLog.action == tournament.TOURNAMENT_ACTION)
                              .order_by(desc(AuditLog.id)).limit(20)):
             detail = row.detail or {}
-            if detail.get("brief_fingerprint") == want and detail.get("finalists"):
+            # Not `and detail.get("finalists")`. A tournament that ran and produced nothing
+            # is a different fact from one that never ran, and reading an empty finalist
+            # list as "not yet run" hid exactly that: the job completed, the audit row was
+            # written, and the endpoint reported it had not happened -- so the reason it
+            # produced nothing was unreachable from outside the database.
+            if detail.get("brief_fingerprint") == want:
                 return detail
     return None
