@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v11-the-retry-builds-on-its-best-attempt-not-on-the-body-it-is-revising"
+PACK_VERSION = "v12-an-insisting-retry-also-changes-the-hand-that-renders-it"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -272,9 +272,21 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
             insist = torso_attempts > 2
             anchor = (frames["torso_fit_reference"]["image_ref"] if insist
                       else approved_torso)
+            # An insisting retry changes the hand as well as the anchor. Eleven torso
+            # renders across v9, v10 and v11 all reported the chest unchanged, on one
+            # provider, and "the same model declines this edit" is the one explanation
+            # those eleven cannot distinguish from "the instruction is wrong". The pack's
+            # provider is the benchmark's leader at *holding an identity across frames*,
+            # which is a different question from applying a targeted edit to one.
+            #
+            # Safe for the same reason the anchor change is safe: every frame is measured
+            # against the approved body and the approved face afterwards, so a provider
+            # that produces a different woman fails the floors rather than being trusted.
+            # Cheaper, too -- flux-2-pro renders at CA$0.027 against CA$0.041.
+            hand = _alternate_provider(db, env, provider) if insist else provider
             render = _render(
                 f"{torso_prompt} {brief.revision_clause(insist=insist)}",
-                provider=provider,
+                provider=hand,
                 references=[anchor, frames["neutral_portrait"]["image_ref"]],
                 env=env, work_dir=work_dir, generator=generator)
         except (PermanentError, TransientError):
@@ -415,6 +427,21 @@ def _provisional(observed: dict) -> identity.ReferencePack:
               for d in identity.DRIFT_DIMENSIONS}
     return identity.ReferencePack(version=0, fields=fields,
                                   approved_by_owner_at="not yet -- awaiting owner approval")
+
+
+def _alternate_provider(db, env: dict | None, current: str) -> str:
+    """A second identity-capable renderer to try when the first will not make the change.
+
+    Falls back to `current` when there is no second one available, because a retry on a
+    provider that does not exist is a render that does not happen, reported as an attempt
+    that did.
+    """
+    from ..gateway import image_bench, images
+
+    available = [c.key for c in image_bench.CANDIDATES
+                 if c.can_hold_an_identity and c.key in set(images.available(env))]
+    others = [k for k in available if k != current]
+    return others[0] if others else current
 
 
 def _revision_check(db, compare, torso: str, full_length: str,

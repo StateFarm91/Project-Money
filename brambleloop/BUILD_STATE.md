@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,896 tests passing, 0 failing**.
+  **2,897 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4706,9 +4706,20 @@ timings, written there by the system rather than by hand.
   far plus the approved portrait instead of restarting from the body it is trying to
   revise. Safe because the measurement does not move with it: the final frame is still
   compared against the approved body, so a retry that drifted the waist to get there still
-  fails `nothing_else_changed` (B-603). **The pack is not ready for owner approval, nothing
-  is frozen, and nothing is owner-approved.** Spend on the model work so far is about
-  CA$2 per run against a month-to-date CA$47 of the CA$100 ceiling.
+  fails `nothing_else_changed` (B-603).
+- v11 ran clean on everything except the one thing: **eight of nine conditions met** --
+  all thirteen dimensions pinned, reference frames coherent, facial identity held in 5 of
+  5, no morphology drift, chest and torso evidenced, nothing else changed -- and
+  `the_bust_actually_changed: match` again. That is **eleven torso renders across three
+  code versions**, through a clearer instruction, a selection rule that prefers the changed
+  frame, and a conditioning ratchet. All eleven came from one provider, and "this model
+  declines this edit" is the one explanation eleven samples from one provider cannot
+  distinguish from "the instruction is wrong". v12 renders the insisting attempt on the
+  next identity-capable provider: the pack's provider won the benchmark at *holding an
+  identity across frames*, which is a different question from applying a targeted edit to
+  one image, and the benchmark never measured the second (B-604). **The pack is not ready
+  for owner approval, nothing is frozen, and nothing is owner-approved.** Spend is about
+  CA$2 per run; month-to-date CA$48.19 of the CA$100 ceiling.
 - **The maturity ladder's first production reading**: of 222 requirements the registry
   calls covered, 158 are implemented, tested and deployed; **42 reach production-observed**
   -- a job actually ran, finished, left an append-only audit row, and did so within the

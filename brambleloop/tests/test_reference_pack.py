@@ -491,6 +491,23 @@ def test_an_insisting_retry_builds_on_its_best_attempt_rather_than_the_approved_
         "identity must still be anchored by the approved face"
 
 
+def test_an_insisting_retry_changes_the_hand_as_well_as_the_anchor():
+    """Eleven torso renders across three versions all reported the chest unchanged, and
+    every one of them came from the same provider. "This model declines this edit" is the
+    one explanation those eleven cannot distinguish from "the instruction is wrong", so
+    the insisting retry tries a second identity-capable renderer. Safe for the same reason
+    the anchor change is: every frame is measured against the approved body and the
+    approved face afterwards, so a provider that returns a different woman fails the
+    floors rather than being trusted."""
+    both = {"BRAMBLELOOP_IMAGE_KEY_OPENAI": "x", "BRAMBLELOOP_IMAGE_KEY_BFL": "y"}
+    assert rp._alternate_provider(None, both, "gpt-image-2") == "flux-2-pro"
+    assert rp._alternate_provider(None, both, "flux-2-pro") != "flux-2-pro"
+    # With only one provider it returns the one it has: a retry on a renderer that does
+    # not exist is a render that never happens, reported as an attempt that did.
+    only = {"BRAMBLELOOP_IMAGE_KEY_OPENAI": "x"}
+    assert rp._alternate_provider(None, only, "gpt-image-2") == "gpt-image-2"
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 
