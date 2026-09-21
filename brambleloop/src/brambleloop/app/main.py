@@ -1191,10 +1191,11 @@ def api_model_pack() -> dict:
     Images are served by the existing digest route, so this is a package that can actually
     be looked at rather than a list of paths into a container's `/tmp`.
     """
-    from ..runtime.release import _pack_on_file
+    from ..runtime.release import _candidate_fingerprint, _pack_attempts, _pack_on_file
     from ..visual import brief, reference_pack
 
     package = _pack_on_file(db)
+    attempts = _pack_attempts(db)
     return {
         "candidate": {
             "given_at": brief.CANDIDATE_GIVEN_AT,
@@ -1203,7 +1204,10 @@ def api_model_pack() -> dict:
         },
         "plan": reference_pack.plan(db),
         "pack": package,
+        "candidate_fingerprint": _candidate_fingerprint(),
+        "attempts": attempts,
         "state": ("awaiting owner approval" if package else
+                  "attempted and unfinished" if attempts else
                   "not yet built for this candidate"),
         "frozen": False,
     }

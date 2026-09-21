@@ -2695,6 +2695,32 @@ def pack_boot_key(now) -> str:
     return f"boot-pack-{_candidate_fingerprint()}-{now:%Y%m%d%H}"
 
 
+def _pack_attempts(db, limit: int = 5) -> list[dict]:
+    """The recent pack builds, successful or not.
+
+    Reported because the endpoint that showed only successes could not tell "never ran"
+    from "ran and could not finish" -- which is the same defect the tournament endpoint had
+    and the same one `_pack_on_file`'s own comment warns about, one layer up.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..visual import reference_pack
+
+    out: list[dict] = []
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog)
+                             .where(AuditLog.action == reference_pack.PACK_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(limit)):
+            detail = row.detail or {}
+            out.append({"at": str(row.created_at), "built": detail.get("built"),
+                        "stage": detail.get("stage"), "why": detail.get("why"),
+                        "pack_version": detail.get("pack_version"),
+                        "candidate_fingerprint": detail.get("candidate_fingerprint"),
+                        "spent_cad": detail.get("spent_cad")})
+    return out
+
+
 def _pack_on_file(db) -> dict | None:
     """A completed pack for the candidate as it now stands, if there is one."""
     from sqlalchemy import desc, select
