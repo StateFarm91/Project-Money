@@ -48,15 +48,17 @@ BOOT_ENQUEUES: list[dict] = []
 
 
 def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
-                  because: str = "") -> dict:
+                  because: str = "", inputs: dict | None = None) -> dict:
     """Enqueue one boot job and record the outcome rather than swallowing it."""
     record = {"name": name, "job_type": job_type, "key": key, "outcome": "", "detail": ""}
+    payload = dict(inputs or {})
+    if because:
+        payload["because"] = because
     try:
         if not when:
             record["outcome"] = "not needed"
         else:
-            job = JobQueue(db).enqueue(agent, job_type, {"because": because} if because else {},
-                                       idempotency_key=key)
+            job = JobQueue(db).enqueue(agent, job_type, payload, idempotency_key=key)
             record["outcome"] = "enqueued"
             record["detail"] = f"job {job.id}"
     except DuplicateJob as e:
@@ -161,10 +163,13 @@ def _startup() -> None:
         from ..runtime.release import _pack_on_file, pack_boot_key
         from ..gateway import images as _img3
 
+        from ..visual import reference_pack as _pack
+
         needed = bool(_img3.available()) and _pack_on_file(db) is None
         _boot_enqueue("model_reference_pack", when=needed, agent="creative_director",
                       job_type="creative.model_reference_pack",
-                      key=pack_boot_key(utcnow()))
+                      key=pack_boot_key(utcnow()),
+                      inputs={"pack_version": _pack.PACK_VERSION})
     except Exception as e:  # noqa: BLE001 - never block a boot
         BOOT_ENQUEUES.append({"name": "model_reference_pack", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})

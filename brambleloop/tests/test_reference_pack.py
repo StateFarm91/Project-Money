@@ -300,6 +300,31 @@ def test_bust_and_torso_are_required_rather_than_counted():
     assert "hard-floor dimensions" in out["reason"]
 
 
+def test_a_job_asking_for_a_newer_pack_than_this_build_makes_fails_rather_than_answering():
+    """A rolling deploy runs two commits at once and the queue does not care which one.
+
+    Observed live: the boot enqueue of the corrected pack was picked up by a replica still
+    running the previous build, which computed the *old* fingerprint, found the old pack,
+    reported "already built" and left the corrected pack unrun with its key spent. Every
+    word of that answer was true and it was about a different question.
+    """
+    from brambleloop.runtime import release
+
+    class _Ctx:
+        db = None
+        job = type("J", (), {"inputs": {"pack_version": "v99-from-the-future"}})()
+
+        def audit(self, *a, **k):  # pragma: no cover - must not be reached
+            raise AssertionError("it answered instead of standing aside")
+
+    try:
+        release.handle_model_reference_pack(_Ctx())
+    except RuntimeError as e:
+        assert "another replica" in str(e)
+    else:
+        raise AssertionError("a stale build answered for a pack it cannot produce")
+
+
 def test_the_tournament_does_not_run_once_the_owner_has_chosen_a_candidate():
     """Rendering twenty more women answers a question the owner has answered."""
     assert brief.owner_candidate_supplied() is True

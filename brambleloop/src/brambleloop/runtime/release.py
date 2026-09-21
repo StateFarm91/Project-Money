@@ -2614,6 +2614,19 @@ def handle_model_reference_pack(ctx: JobContext) -> dict:
     from ..finance import spend_policy
     from ..visual import reference_pack
 
+    # A rolling deploy runs two commits at once, and the queue does not care which replica
+    # picks a job up. The boot enqueue stamps the version it wanted; a replica still running
+    # the previous build would otherwise consume the key, compute the *old* fingerprint,
+    # find the old pack, report "already built" and leave the corrected pack unrun with its
+    # key spent -- which is what happened at 16:12, invisibly, because the answer it gave
+    # was a true sentence about a different question.
+    wanted = ctx.job.inputs.get("pack_version")
+    if wanted and wanted != reference_pack.PACK_VERSION:
+        raise RuntimeError(
+            f"this job asked for pack {wanted!r} and this build produces "
+            f"{reference_pack.PACK_VERSION!r}. Failing so another replica takes it, rather "
+            f"than answering about a pack nobody asked for")
+
     allowance = spend_policy.may_spend(ctx.db, "model_reference_pack")
     if not allowance["may_spend"]:
         ctx.audit("model.reference_pack_capped", detail=allowance)
