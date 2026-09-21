@@ -238,7 +238,7 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # benchmark costs nothing to re-check and an unsettled one is picked up within hours of
     # a credential arriving or a method changing. Weekly was chosen before reuse existed,
     # and it left a half-measured benchmark sitting for seven days.
-    ("image_benchmark", "creative_director", "creative.image_benchmark", 6 * 60 * 60),
+    ("image_benchmark", "creative_director", "creative.image_benchmark", 60 * 60),
     # Daily, because a launch date that was comfortable in September is missed in October
     # without anything changing except the date. The first run of this engine found that the
     # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand

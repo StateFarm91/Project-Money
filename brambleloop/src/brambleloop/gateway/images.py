@@ -773,17 +773,27 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
         provider = None
         record["reason"] = str(exc)[:400]
 
+    if provider is None:
+        # No provider named, but a credential may still exist for one. The capability this
+        # gate describes is "this company can generate an image", and any provider that
+        # renders proves it -- the same fix `configured` already needed. Requiring
+        # BRAMBLELOOP_IMAGE_PROVIDER meant two working providers could not open the gate.
+        candidates = available(e)
+        provider = BY_KEY.get(candidates[0]) if candidates else None
+        if provider is not None:
+            record["reason"] = ""
+
     if provider is None and not record["reason"]:
-        record["reason"] = f"no {PROVIDER_VAR} in this environment"
-    elif provider is not None and not api_key(e):
-        record["reason"] = f"no {KEY_VAR} in this environment"
+        record["reason"] = (f"no {PROVIDER_VAR} and no per-account key in this environment")
+    elif provider is not None and not key_for(provider.key, e):
+        record["reason"] = f"no credential for {provider.key}"
         record["provider"] = provider.key
     elif provider is not None:
         record["provider"] = provider.key
         try:
             got = (generator or generate)(
                 "A plain grey fabric swatch on a white background, product photograph.",
-                env=e, size="1024x1024")
+                env=e, size="1024x1024", provider_key=provider.key)
         except (PermanentError, TransientError) as exc:
             record["reason"] = str(exc)[:400]
         else:
