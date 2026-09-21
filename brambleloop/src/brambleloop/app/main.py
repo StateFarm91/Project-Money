@@ -74,6 +74,29 @@ def _startup() -> None:
     except (DuplicateJob, Exception):  # noqa: BLE001 - a probe must never block a boot
         pass
 
+    # And finish an unsettled benchmark on the same principle. A credentialled candidate
+    # with no scores on file is work the hourly cadence will do eventually; a deploy is a
+    # cheaper moment to do it, and observations now persist per trial so an interrupted run
+    # resumes rather than restarting. Bounded three ways: idempotent by the hour, refused by
+    # the cumulative authorization inside the handler, and only enqueued when a candidate is
+    # actually outstanding.
+    try:
+        from ..gateway import image_bench as _bench
+        from ..gateway import images as _img
+
+        if _bench.spent_to_date(db) < _bench.BENCHMARK_CEILING_CAD:
+            outstanding = [c.key for c in _bench.CANDIDATES
+                           if c.can_hold_an_identity
+                           and c.key in set(_img.available())
+                           and _bench.stored_result(db, c) is None]
+            if outstanding:
+                JobQueue(db).enqueue(
+                    "creative_director", "creative.image_benchmark",
+                    {"because": outstanding},
+                    idempotency_key=f"boot-bench-{utcnow():%Y%m%d%H}")
+    except (DuplicateJob, Exception):  # noqa: BLE001 - never block a boot
+        pass
+
     runner.start(db)
 
 
