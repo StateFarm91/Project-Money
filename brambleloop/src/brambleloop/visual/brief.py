@@ -192,15 +192,23 @@ PRESERVE_THROUGH_REVISION: tuple[str, ...] = (
 )
 
 
-def revision_clause() -> str:
+def revision_clause(*, insist: bool = False) -> str:
     """The instruction that makes a revision targeted rather than a new woman.
 
     Said to the generator in the same breath as the change, because the obvious way to
     satisfy "fuller bust" is to make the whole person larger, and a face match would not
     catch it. The reference images are passed alongside: this describes what to change
     about the woman in them, not who to make.
+
+    `insist` is for a retry that has already measured the previous attempt as unchanged.
+    Reference conditioning is a strong anchor and a textual delta is a weak one, so a
+    generator handed the pre-revision body reproduces the pre-revision chest -- three
+    attempts in a row did. Escalating only after a measured failure keeps it a response to
+    evidence rather than a louder first ask, and the owner's bounds are repeated in the
+    same sentence rather than relaxed to get a result: still natural, still proportionate,
+    still nothing else about her.
     """
-    return (
+    clause = (
         "This is the same woman as the reference images, with one deliberate change: her "
         "chest is fuller -- clearly and visibly fuller than in the reference, naturally "
         "shaped, and in proportion to her lean athletic frame rather than exaggerated. "
@@ -208,6 +216,14 @@ def revision_clause() -> str:
         "colouring, the same apparent age, the same complexion, the same height, the same "
         "shoulder width, the same torso length, the same narrow waist, the same hips and "
         "the same limb proportions. She is not heavier, not broader and not more muscular.")
+    if not insist:
+        return clause
+    return clause + (
+        " A previous attempt reproduced the reference chest unchanged, which is the one "
+        "outcome this render must not repeat: the difference in bust fullness has to be "
+        "immediately obvious side by side with the reference. Apply the whole of that "
+        "difference to the bust alone -- still natural, still proportionate to a lean "
+        "athletic frame, never exaggerated -- and change nothing else about her at all.")
 
 
 def approved_portrait() -> str:

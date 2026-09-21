@@ -397,6 +397,67 @@ def test_hair_that_actually_changed_still_fails_the_revision():
     assert thin["revision"]["also_moved"] == ["hair"]
 
 
+def test_the_torso_retry_chooses_on_the_revision_and_not_only_on_clarity():
+    """What the v9 run exposed once its own reporting was honest.
+
+    Three torso frames were rendered with the revision clause on them, the clearest was
+    kept, and the revision was never part of the choice -- so a frame that did carry the
+    change could be rendered and then discarded for a clearer one that did not. The pack
+    then reported `the_bust_actually_changed: match` with no way to tell whether the
+    generator had ever complied or whether the selection had thrown the compliance away.
+
+    Readability still wins first: an unreadable frame cannot evidence a change at all,
+    which is the rung below. Among equally readable frames, the one that carried the
+    instruction wins.
+    """
+    import tempfile
+
+    rendered: list[str] = []
+
+    def picky(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if reference_ref in _approved_refs():
+            # Renders 0 and 1 are the first torso and full-length frames; the torso
+            # retries are 2 and 3. Only the second retry actually moved the bust. The
+            # first two torso frames are perfectly readable and perfectly unchanged,
+            # which is the case that was silently winning.
+            if candidate_ref in rendered and rendered.index(candidate_ref) >= 3:
+                out["bust"] = identity.DRIFT
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Generator(Path(tmp))
+
+        def watched(*a, **kw):
+            out = gen(*a, **kw)
+            rendered.append(out["image_ref"])
+            return out
+
+        package = rp.build(_db(), work_dir=tmp, generator=watched,
+                           observer=lambda db, ref: _seen(),
+                           comparer=picky, hair_comparer=_never_asked)
+
+    assert package["revision"]["changed"] is True
+    assert package["approval_conditions"]["the_bust_actually_changed"]["met"] is True
+    torso = next(f for f in package["reference_frames"]
+                 if f["frame"] == "torso_fit_reference")
+    assert torso["attempts"] > 1, "the loop stopped on a readable frame that had not changed"
+
+
+def test_the_retry_only_insists_after_it_has_measured_a_failure():
+    """Escalation is a response to evidence, not a louder first ask -- and it repeats the
+    owner's bounds rather than relaxing them to get a result. The owner asked for a change
+    that is clearly visible *and* natural and proportionate; a retry that bought the first
+    half by dropping the second would be answering a question nobody asked."""
+    plain = brief.revision_clause()
+    insisted = brief.revision_clause(insist=True)
+    assert plain in insisted and len(insisted) > len(plain)
+    for bound in ("still natural", "still proportionate", "never exaggerated",
+                  "change nothing else about her"):
+        assert bound in insisted
+    assert "reproduced the reference chest unchanged" in insisted
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 

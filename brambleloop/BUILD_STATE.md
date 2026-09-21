@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,892 tests passing, 0 failing**.
+  **2,894 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4684,8 +4684,20 @@ timings, written there by the system rather than by hand.
   state one. v9 fixes both: the revised dimension is `unmeasurable` when no frame could
   state it (not a pass, and not a finding that the revision failed), and the hair question
   needs no `drift`, two of three positively read, and an arrangement difference that
-  actually explains the flagged drift (B-600). **The pack is not ready for owner approval
-  and nothing is frozen.** The v9 run is what the owner will be shown.
+  actually explains the flagged drift (B-600).
+- The v9 run was the first with honest reporting, and it produced a real finding: **eight
+  of nine conditions met** -- all five scenes rendered, facial identity held in 5 of 5, no
+  morphology drift anywhere, chest and torso both evidenced, all thirteen dimensions
+  pinned, the reference frames coherent, a close-fitting frame reading chest/torso/waist
+  together, and hair no longer flagged at all. The ninth: **the bust did not change.**
+  `the_bust_actually_changed: match` against the approved body, with the bust readable, so
+  this is the generator not applying the revision rather than the measurement failing to
+  see it. The retry loop could not have told anyone either way: three frames were rendered
+  with the revision clause on them and the clearest was kept, with the revision never part
+  of the choice. v10 selects on `(readable, changed)` in that order, raises the attempt
+  budget to four, and escalates the clause only after measuring a failure -- repeating the
+  owner's bounds rather than relaxing them (B-602). **The pack is not ready for owner
+  approval, nothing is frozen, and nothing is owner-approved.**
 - 2026-09-21, **the executor and the registry were disagreeing in production and nothing
   was reading the check that says so.** Nine requirements' notes read "needs an image
   generation capability *and owner identity selection*"; only the first half was a gate, so

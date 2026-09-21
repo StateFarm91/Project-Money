@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v9-a-verdict-needs-a-frame-that-could-state-it"
+PACK_VERSION = "v10-the-retry-chooses-on-the-revision-it-was-asked-for"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -55,7 +55,11 @@ STRESS_SCENES: tuple[tuple[str, str], ...] = tuple(
 # turned on whether one generation happened to frame her closely enough, which is a
 # measurement decided by luck. Bounded at three because a fourth is evidence that the prompt
 # is wrong rather than the sample, and the pack says so instead of paying for more.
-TORSO_ATTEMPTS = 3
+# Raised from three when the loop gained a second thing to satisfy. Three attempts chose
+# on readability alone; with the revision in the choice as well, a budget that was already
+# being spent entirely on clarity has nothing left for compliance. Each attempt is a render
+# and two judgements, about CA$0.26.
+TORSO_ATTEMPTS = 4
 
 # How many scenes have to show a face that matches. More than one, because a single
 # agreeing frame is a coincidence with a verdict attached; not all of them, because a scene
@@ -221,17 +225,39 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     # failed render rather than a fact about her, so it is rendered again -- the pack is a
     # permanent brand identity and it should not turn on whether one generation happened to
     # frame her closely enough.
+    torso_ref_initial = frames["torso_fit_reference"]["image_ref"]
     torso_attempts = 1
     required = identity.REQUIRED_MEASURABLE["morphology"]
     torso_prompt = dict(brief.REFERENCE_FRAMES)["torso_fit_reference"]
-    while (torso_attempts < TORSO_ATTEMPTS
-           and any(not _readable(seen["torso_fit_reference"].get(d)) for d in required)):
+    approved_torso = brief.approved_reference("torso_fit_reference")
+
+    def _score(reading: dict) -> int:
+        return sum(1 for d in required if _readable(reading.get(d)))
+
+    def _changed(ref: str) -> tuple[bool, dict]:
+        """Did this candidate frame actually move the revised dimension?
+
+        Asked inside the loop rather than only at the end, because the loop was selecting
+        on the wrong thing. Three frames were rendered with the revision clause on them,
+        the best-readable one was kept, and the revision was never part of the choice --
+        so a run could render a frame that did carry the change and then discard it for a
+        clearer one that did not. The v9 run did exactly that: bust readable, bust
+        unchanged, and no way to tell whether the generator had ever complied.
+        """
+        answer = compare(db, approved_torso, ref)
+        return answer.get(brief.REVISED_DIMENSION) == identity.DRIFT, answer
+
+    best_changed, best_answer = _changed(torso_ref_initial)
+    best = (_score(seen["torso_fit_reference"]), best_changed)
+    torso_revision = best_answer
+    while torso_attempts < TORSO_ATTEMPTS and best != (len(required), True):
         torso_attempts += 1
         try:
-            render = _render(f"{torso_prompt} {brief.revision_clause()}", provider=provider,
-                             references=[brief.approved_reference("torso_fit_reference"),
-                                         frames["neutral_portrait"]["image_ref"]],
-                             env=env, work_dir=work_dir, generator=generator)
+            render = _render(
+                f"{torso_prompt} {brief.revision_clause(insist=torso_attempts > 2)}",
+                provider=provider,
+                references=[approved_torso, frames["neutral_portrait"]["image_ref"]],
+                env=env, work_dir=work_dir, generator=generator)
         except (PermanentError, TransientError):
             break
         spent += float(render.get("cad") or 0.0)
@@ -239,14 +265,17 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
         reading = observe(db, ref)
         if reading.get("error"):
             continue
-        # Kept only if it reads more of the required dimensions than what it replaces: a
-        # retry that loses the torso to gain the chest is not an improvement.
-        def _score(r: dict) -> int:
-            return sum(1 for d in required if _readable(r.get(d)))
-
-        if _score(reading) > _score(seen["torso_fit_reference"]):
+        changed, answer = _changed(ref)
+        # Readability first, then the revision. An unreadable frame cannot evidence a
+        # change at all -- that is the v9 lesson -- so a clearer frame still wins, and
+        # among equally readable ones the one that carried the instruction wins.
+        candidate = (_score(reading), changed)
+        if candidate > best:
+            best = candidate
+            torso_revision = answer
             frames["torso_fit_reference"] = {
-                "frame": "torso_fit_reference", "image_ref": ref, "image": tournament._keep(ref),
+                "frame": "torso_fit_reference", "image_ref": ref,
+                "image": tournament._keep(ref),
                 "provider": render.get("provider") or provider, "attempts": torso_attempts}
             seen["torso_fit_reference"] = reading
     frames["torso_fit_reference"]["attempts"] = torso_attempts
@@ -274,7 +303,8 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     unpinned = [d for d in identity.DRIFT_DIMENSIONS
                 if str(observed.get(d, "")).strip().lower() in ("", identity.UNMEASURABLE)]
     revision = _revision_check(db, compare, torso, full_length,
-                               hair_comparer=hair_comparer, unpinned=unpinned)
+                               hair_comparer=hair_comparer, unpinned=unpinned,
+                               torso_against_approved=torso_revision)
     required_unpinned = [d for d in identity.REQUIRED_MEASURABLE["morphology"]
                          if d in unpinned]
 
@@ -369,7 +399,8 @@ def _provisional(observed: dict) -> identity.ReferencePack:
 
 
 def _revision_check(db, compare, torso: str, full_length: str,
-                    *, hair_comparer=None, unpinned: list[str] | None = None) -> dict:
+                    *, hair_comparer=None, unpinned: list[str] | None = None,
+                    torso_against_approved: dict | None = None) -> dict:
     """The revised body against the approved body, dimension by dimension.
 
     `unpinned` is the list of dimensions the pack's own observation could not state, and it
@@ -382,8 +413,13 @@ def _revision_check(db, compare, torso: str, full_length: str,
     about the measurement.
     """
     against = {
-        "torso_fit_reference": compare(db, brief.approved_reference("torso_fit_reference"),
-                                       torso),
+        # Handed in by the retry loop, which already asked this question of every candidate
+        # frame in order to choose between them. Asking it again here is the same judgement
+        # bought twice, and two answers to one question is how a report disagrees with
+        # itself over sampling noise.
+        "torso_fit_reference": (
+            torso_against_approved if torso_against_approved is not None
+            else compare(db, brief.approved_reference("torso_fit_reference"), torso)),
         "full_length_standing": compare(
             db, brief.approved_reference("full_length_standing"), full_length),
     }
