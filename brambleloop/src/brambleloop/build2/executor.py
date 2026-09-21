@@ -296,21 +296,20 @@ def _image_generation_usable(db, env) -> bool:
 
 
 def _offsite_archive_written(db, env) -> bool:
-    """Whether a continuity archive has actually landed outside this provider.
+    """Whether a continuity archive has actually made the whole round trip.
 
     BRAMBLELOOP_ARCHIVE_URL being set says a person typed a bucket's address. #51 is about
     surviving the loss of this provider, and a bucket address that is wrong, whose
     credentials are wrong, or that nothing has ever successfully written to survives nothing.
-    The condition is a recorded successful offsite write.
+
+    Stronger than a successful write, since 2026-09-20: the recorded condition is export,
+    encrypt, upload, read back, decrypt, verify the digest and restore into a scratch
+    database. An upload that succeeded and a restore proven separately are two facts about
+    two different objects, and a backup nobody has restored is a hope.
     """
-    from sqlalchemy import select
+    from ..core.offsite import usable
 
-    from ..core.models import AuditLog
-
-    with db.session() as s:
-        rows = list(s.scalars(select(AuditLog).where(
-            AuditLog.action == "continuity.offsite_write").limit(20)))
-    return any((row.detail or {}).get("ok") for row in rows)
+    return usable(db)
 
 
 def _second_market_observed(db, env) -> bool:

@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 from datetime import timedelta, timezone
 
-from fastapi import FastAPI, Header
+from fastapi import FastAPI, Header, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import func, select
 
@@ -3111,3 +3111,219 @@ Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
 {rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
       [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet.")}
 </main></body></html>"""
+
+
+# ---------------------------------------------------------------------------
+# Off-provider archive and the phone's route into the quarantined library
+
+
+@app.get("/api/offsite")
+def api_offsite() -> dict:
+    """Whether a copy of this company exists somewhere losing this provider would not reach.
+
+    Reports the last real round trip rather than whether the variables are set. A typed
+    bucket address that is wrong survives provider loss exactly as well as no bucket at all,
+    which is why the gate reads export-upload-read-back-decrypt-restore and not a string.
+    """
+    from ..core import offsite
+
+    return offsite.state(db)
+
+
+@app.post("/api/offsite/archive")
+def api_offsite_archive(authorization: str = Header(default="")) -> JSONResponse:
+    """Run the archive round trip now. Authenticated, because it writes.
+
+    Exposed so the first archive after the credential is set does not have to wait for the
+    daily cadence: the gate that opens on it is holding real work.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..core import offsite
+
+    record = offsite.archive(db)
+    return JSONResponse(record, status_code=200 if record.get("ok") else 502)
+
+
+@app.get("/api/teardown/intake")
+def api_teardown_intake_plan(authorization: str = Header(default="")) -> JSONResponse:
+    """The approved benchmark set with each pick's arrival state. Authenticated.
+
+    Behind the operator credential not because the list is secret -- `/api/benchmark-selection`
+    is open -- but because this one is the upload page's own state, and an upload page whose
+    inventory anybody can read is one whose inventory anybody is looking at.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..teardown import intake
+
+    return JSONResponse(intake.plan(db))
+
+
+@app.post("/api/teardown/intake")
+async def api_teardown_intake(request: Request,
+                              authorization: str = Header(default="")) -> JSONResponse:
+    """Receive one purchase's files and generate everything derivable from them (#170).
+
+    Multipart: `listing_ref` and one or more `files`. Nothing else is asked for, because
+    everything else is already in the catalogue row that justified the purchase -- the
+    seller, the department, the price, the promise and the recorded reason. A system that
+    makes somebody retype what it stored is a system abandoned around purchase four.
+
+    Zips are expanded here. Files are hashed, classified, manifested, audited against what
+    the listing promised, and mirrored to the off-provider archive. The reply says whether
+    that mirror happened, because on this host an upload that was not mirrored is a purchase
+    that will have to be made again.
+
+    The form is parsed manually rather than through `UploadFile` parameters so that a missing
+    `python-multipart` is a 503 naming the dependency rather than an import-time crash of the
+    whole application.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..teardown.intake import IntakeRefused, receive
+
+    try:
+        form = await request.form()
+    except Exception as exc:  # noqa: BLE001 - a missing parser and a bad body are both 400s
+        return JSONResponse({"error": f"could not read the upload: {exc}"}, status_code=400)
+
+    listing_ref = str(form.get("listing_ref") or "").strip()
+    if not listing_ref:
+        return JSONResponse({"error": "which pick this is (listing_ref) is the one thing "
+                                      "intake cannot infer"}, status_code=400)
+
+    uploads: list[tuple[str, bytes]] = []
+    for item in form.getlist("files"):
+        name = getattr(item, "filename", "") or ""
+        if not name or not hasattr(item, "read"):
+            continue
+        uploads.append((name, await item.read()))
+    if not uploads:
+        return JSONResponse({"error": "no files were attached"}, status_code=400)
+
+    paid = form.get("paid_cad")
+    try:
+        result = receive(db, listing_ref, uploads,
+                         paid_cad=float(paid) if paid not in (None, "") else None)
+    except IntakeRefused as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+    Registry(db).audit("orchestrator", "teardown.intake_received",
+                       detail={"ref": result["ref"], "files": result["file_count"],
+                               "durable": result["durable"]})
+    return JSONResponse(result)
+
+
+@app.get("/ops/teardown", response_class=HTMLResponse)
+def ops_teardown_page() -> HTMLResponse:
+    """The phone page: paste the operator token once, tap a pick, choose files.
+
+    Served without authentication because it contains no data -- every row on it is fetched
+    with the token the browser holds. Deliberately one file, no build step and no framework:
+    this is opened on a phone, months from now, by somebody who has just paid for thirteen
+    patterns and wants them filed.
+    """
+    return HTMLResponse(_TEARDOWN_PAGE)
+
+
+_TEARDOWN_PAGE = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brambleloop benchmark intake</title>
+<style>
+ :root{color-scheme:light dark}
+ body{font:16px/1.5 system-ui,-apple-system,sans-serif;margin:0;padding:16px;
+      max-width:720px;margin-inline:auto}
+ h1{font-size:1.25rem;margin:0 0 4px}
+ .sub{opacity:.7;font-size:.85rem;margin:0 0 16px}
+ .warn{background:#fff4e5;color:#7a4b00;border-radius:8px;padding:10px 12px;font-size:.85rem;
+       margin-bottom:12px}
+ .pick{border:1px solid rgba(128,128,128,.35);border-radius:10px;padding:12px;margin-bottom:10px}
+ .pick h2{font-size:.98rem;margin:0 0 4px}
+ .meta{font-size:.8rem;opacity:.75;margin:0 0 8px}
+ .done{opacity:.55}
+ .badge{font-size:.72rem;border-radius:999px;padding:2px 8px;border:1px solid currentColor}
+ input[type=password],input[type=file]{width:100%;box-sizing:border-box;padding:10px;
+   border-radius:8px;border:1px solid rgba(128,128,128,.5);background:transparent;color:inherit}
+ button{padding:10px 14px;border-radius:8px;border:0;background:#3c5a3f;color:#fff;
+   font-size:.9rem;width:100%;margin-top:8px}
+ .msg{font-size:.82rem;margin-top:8px;white-space:pre-wrap}
+ a{color:inherit}
+</style></head><body>
+<h1>Benchmark intake</h1>
+<p class="sub">Tap a pick, choose the files Etsy gave you. Zips are fine. Nothing needs
+renaming, sorting or describing.</p>
+<div id="auth"><p class="sub">Operator token (stored on this phone only):</p>
+<input type="password" id="token" autocomplete="off" placeholder="BRAMBLELOOP_OPS_TOKEN">
+<button onclick="save()">Remember and load</button></div>
+<div id="status" class="msg"></div>
+<div id="picks"></div>
+<script>
+const T=()=>localStorage.getItem('bl_ops')||'';
+function save(){localStorage.setItem('bl_ops',document.getElementById('token').value.trim());load();}
+function H(){return {'Authorization':'Bearer '+T()};}
+async function load(){
+  const s=document.getElementById('status'); s.textContent='Loading…';
+  let r; try{ r=await fetch('/api/teardown/intake',{headers:H()}); }
+  catch(e){ s.textContent='Could not reach the server: '+e; return; }
+  if(r.status===401){ s.textContent='That token was rejected.'; return; }
+  if(r.status===503){ s.textContent='No operator token is set on the server, so this page is closed.'; return; }
+  const d=await r.json();
+  document.getElementById('auth').style.display='none';
+  s.textContent='';
+  if(d.durable && !d.durable.configured){
+    const w=document.createElement('div'); w.className='warn';
+    w.textContent='Off-site archive not configured yet — '+d.durable.warning;
+    document.getElementById('picks').before(w);
+  }
+  if(d.refused){ s.textContent=d.refused; return; }
+  s.textContent=d.received+' of '+d.set_size+' received · expected CA$'+d.expected_cost_cad;
+  const box=document.getElementById('picks'); box.innerHTML='';
+  for(const p of d.picks) box.appendChild(card(p));
+}
+function card(p){
+  const el=document.createElement('div'); el.className='pick'+(p.received?' done':'');
+  const h=document.createElement('h2'); h.textContent=p.title||p.listing_ref; el.appendChild(h);
+  const m=document.createElement('p'); m.className='meta';
+  m.textContent='CA$'+p.price_cad+' · '+p.department+' · '+(p.received?p.files+' files received':p.answers||'');
+  el.appendChild(m);
+  if(p.url){const a=document.createElement('a');a.href=p.url;a.target='_blank';a.textContent='open the listing';a.className='meta';el.appendChild(a);}
+  const f=document.createElement('input'); f.type='file'; f.multiple=true; el.appendChild(f);
+  const b=document.createElement('button'); b.textContent=p.received?'Add more files':'Upload';
+  const out=document.createElement('div'); out.className='msg';
+  b.onclick=async()=>{
+    if(!f.files.length){out.textContent='Choose the files first.';return;}
+    b.disabled=true; out.textContent='Uploading '+f.files.length+' file(s)…';
+    const fd=new FormData(); fd.append('listing_ref',p.listing_ref);
+    for(const file of f.files) fd.append('files',file);
+    try{
+      const r=await fetch('/api/teardown/intake',{method:'POST',headers:H(),body:fd});
+      const d=await r.json();
+      out.textContent = r.ok
+        ? d.file_count+' filed · '+d.promise_audit.verdict+(d.durable?' · archived off-site':' · NOT yet archived off-site')
+        : ('Refused: '+(d.error||r.status));
+      if(r.ok) setTimeout(load,1200);
+    }catch(e){ out.textContent='Upload failed: '+e; }
+    b.disabled=false;
+  };
+  el.appendChild(b); el.appendChild(out); return el;
+}
+if(T()) load();
+</script></body></html>
+"""

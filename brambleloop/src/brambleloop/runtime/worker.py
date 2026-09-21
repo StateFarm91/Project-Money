@@ -222,6 +222,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirement 51. Daily, and it proves the restore rather than only writing the export --
     # a backup nobody has restored is a hope, not a continuity plan.
     ("continuity_proof", "orchestrator", "ops.continuity", 24 * 60 * 60),
+    # Requirement 51's other half, and a separate job on purpose: `ops.continuity` proves the
+    # export restores, this proves a copy of it is somewhere that losing this hosting
+    # provider does not take with it. One job reporting one verdict would let a healthy local
+    # restore stand in for an archive that was never written.
+    ("offsite_archive", "orchestrator", "ops.offsite_archive", 24 * 60 * 60),
     # Daily, because a launch date that was comfortable in September is missed in October
     # without anything changing except the date. The first run of this engine found that the
     # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand

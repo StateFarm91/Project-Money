@@ -40,7 +40,11 @@ DEFAULT_AGENTS: list[dict] = [
                             # The three gates that stopped reading environment variables
                             # need something to keep asking whether the capability still
                             # works. Three reads and a fraction of a cent (B-479).
-                            "ops.capability_probes"],
+                            "ops.capability_probes",
+                            # The off-provider half of #51. Separate from `ops.continuity`
+                            # because a local restore proving out is not an archive existing
+                            # anywhere this provider's failure would not reach (B-524).
+                            "ops.offsite_archive"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",

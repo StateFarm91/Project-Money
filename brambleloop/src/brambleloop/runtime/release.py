@@ -2285,3 +2285,55 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
     return {"ran": True, "judged": result["judged"], "attempted": result["attempted"],
             "remaining": result["remaining"], "cost_cad": result["cost_cad"],
             "failures": len(result["failures"])}
+
+
+@handlers.register("ops.offsite_archive")
+def handle_offsite_archive(ctx: JobContext) -> dict:
+    """Write the day's archive off this hosting provider, and prove it restores.
+
+    Requirement 51's second half. `ops.continuity` proves the export restores; this proves a
+    copy of it exists somewhere that losing Railway does not take with it. They are separate
+    jobs because they answer separate questions, and a single job reporting one verdict would
+    let a healthy local restore stand in for an archive that was never written.
+
+    An unconfigured destination is recorded as a failed archive, not skipped. The gate reads
+    these rows: a job that returned early on a missing variable would leave the last row
+    saying `ok` from whenever the credential last worked, which is the shape of defect this
+    build keeps finding.
+
+    GREEN by the authority matrix: it reads the database, writes one object to a bucket the
+    owner provisioned, and reads it back. No publication, no model spend, no customer
+    contact.
+    """
+    import tempfile
+
+    from ..core import offsite
+
+    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="offsite-")
+    record = offsite.archive(ctx.db, work_dir=work)
+
+    pruned: dict = {"skipped": "the archive did not complete, so nothing was aged out"}
+    if record.get("ok"):
+        # Only after a good write. Pruning on the day the upload failed would remove the
+        # oldest copy at exactly the moment the newest one does not exist.
+        pruned = offsite.prune(ctx.db)
+
+    ctx.audit("offsite.archived" if record.get("ok") else "offsite.failed",
+              detail={"ok": record.get("ok"), "stage": record.get("stage"),
+                      "reason": record.get("reason", "")[:300],
+                      "key": record.get("key", ""),
+                      "rows_restored": record.get("rows_restored"),
+                      "pruned": pruned.get("deleted")})
+
+    if not record.get("ok") and offsite.configured():
+        # Configured and failing is an incident; unconfigured is a gate the owner has not
+        # opened yet and is already reported as an owner action.
+        from ..core.models import Incident
+
+        with ctx.db.session() as s:
+            s.add(Incident(kind="offsite_archive_failed", severity="high",
+                           summary=f"off-provider archive failed at {record.get('stage')}",
+                           detail={"reason": record.get("reason", "")[:400]}))
+
+    return {"ok": bool(record.get("ok")), "stage": record.get("stage"),
+            "reason": record.get("reason", "")[:300], "pruned": pruned}
