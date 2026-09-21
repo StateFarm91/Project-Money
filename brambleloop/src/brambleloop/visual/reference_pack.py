@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v12-an-insisting-retry-also-changes-the-hand-that-renders-it"
+PACK_VERSION = "v13-the-retry-keeps-the-evidence-it-was-throwing-away"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -250,6 +250,18 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     best_changed, best_answer = _changed(torso_ref_initial)
     best = (_score(seen["torso_fit_reference"]), best_changed)
     torso_revision = best_answer
+    # Every attempt, kept or discarded, with what it scored and who rendered it.
+    #
+    # Twelve torso renders across four versions reported the chest unchanged and not one
+    # of them left a trace: the pack recorded how many attempts were made and which frame
+    # won, and nothing about the ones that lost. So "the second provider did not help"
+    # and "the second provider raised and the loop broke" produced identical output, and
+    # `attempts: 3` out of a budget of four could mean either. A loop that spends money
+    # and discards the result of the spending is the cheapest kind of blindness to fix.
+    attempt_log: list[dict] = [{
+        "attempt": 1, "provider": provider, "anchor": "the approved body",
+        "insisted": False, "readable_required": best[0],
+        "changed": best_changed, "kept": True}]
     while torso_attempts < TORSO_ATTEMPTS and best != (len(required), True):
         torso_attempts += 1
         try:
@@ -289,18 +301,33 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                 provider=hand,
                 references=[anchor, frames["neutral_portrait"]["image_ref"]],
                 env=env, work_dir=work_dir, generator=generator)
-        except (PermanentError, TransientError):
+        except (PermanentError, TransientError) as exc:
+            attempt_log.append({
+                "attempt": torso_attempts, "provider": hand,
+                "anchor": "its own best frame" if insist else "the approved body",
+                "insisted": insist, "kept": False,
+                "failed": f"the render was refused: {str(exc)[:160]}"})
             break
         spent += float(render.get("cad") or 0.0)
         ref = render.get("image_ref") or ""
         reading = observe(db, ref)
         if reading.get("error"):
+            attempt_log.append({
+                "attempt": torso_attempts, "provider": hand,
+                "anchor": "its own best frame" if insist else "the approved body",
+                "insisted": insist, "kept": False,
+                "failed": f"it rendered but could not be read: {reading['error'][:160]}"})
             continue
         changed, answer = _changed(ref)
         # Readability first, then the revision. An unreadable frame cannot evidence a
         # change at all -- that is the v9 lesson -- so a clearer frame still wins, and
         # among equally readable ones the one that carried the instruction wins.
         candidate = (_score(reading), changed)
+        attempt_log.append({
+            "attempt": torso_attempts, "provider": hand,
+            "anchor": "its own best frame" if insist else "the approved body",
+            "insisted": insist, "readable_required": candidate[0],
+            "changed": changed, "kept": candidate > best})
         if candidate > best:
             best = candidate
             torso_revision = answer
@@ -310,6 +337,13 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                 "provider": render.get("provider") or provider, "attempts": torso_attempts}
             seen["torso_fit_reference"] = reading
     frames["torso_fit_reference"]["attempts"] = torso_attempts
+    frames["torso_fit_reference"]["attempt_log"] = attempt_log
+    frames["torso_fit_reference"]["what_the_log_is_for"] = (
+        "a rendered frame, what it scored and whether it was kept -- for every attempt, "
+        "not only the winner. An attempt that was refused by its provider and an attempt "
+        "that rendered and did not help used to produce the same line in this report, "
+        "which made a retry budget that stopped early indistinguishable from one that "
+        "was spent")
 
     torso = frames["torso_fit_reference"]["image_ref"]
     observed = _pin(seen)

@@ -508,6 +508,56 @@ def test_an_insisting_retry_changes_the_hand_as_well_as_the_anchor():
     assert rp._alternate_provider(None, only, "gpt-image-2") == "gpt-image-2"
 
 
+def test_a_refused_render_and_an_unhelpful_one_are_told_apart():
+    """The loop was spending money and discarding the result of the spending.
+
+    Twelve torso renders across four versions reported the chest unchanged and not one
+    left a trace: the pack recorded how many attempts were made and which frame won, and
+    nothing about the ones that lost. So "the second provider did not help" and "the
+    second provider raised and the loop stopped" produced identical output, and an
+    attempt count below the budget could mean either.
+    """
+    import tempfile
+
+    from brambleloop.core.resilience import TransientError
+
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Generator(Path(tmp))
+        calls = {"n": 0}
+
+        def breaks_on_the_insisting_attempt(*a, **kw):
+            calls["n"] += 1
+            if calls["n"] == 4:                     # torso, full-length, retry, retry
+                raise TransientError("the provider refused this brief")
+            return gen(*a, **kw)
+
+        _, package = _build_with(tmp, breaks_on_the_insisting_attempt)
+
+    torso = next(f for f in package["reference_frames"]
+                 if f["frame"] == "torso_fit_reference")
+    log = torso["attempt_log"]
+    assert len(log) >= 2
+    refused = [row for row in log if "refused" in str(row.get("failed", ""))]
+    assert refused, "a refused render left no trace"
+    assert refused[0]["kept"] is False
+    # Every row says who rendered it and what it was anchored on, so a provider that
+    # never helps is visible as a provider rather than as a missing attempt. (The key is
+    # empty here because no image credential is set in the suite; the point under test is
+    # that the field is written for every attempt, including the ones that failed.)
+    for row in log:
+        assert "provider" in row
+        assert row["anchor"] in ("the approved body", "its own best frame")
+    # The insisting attempt is the one that changed both the anchor and the hand.
+    assert any(row["insisted"] and row["anchor"] == "its own best frame" for row in log)
+
+
+def _build_with(tmp: str, generator):
+    package = rp.build(_db(), work_dir=tmp, generator=generator,
+                       observer=lambda db, ref: _seen(bust=identity.UNMEASURABLE),
+                       comparer=_revision(), hair_comparer=_never_asked)
+    return generator, package
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 

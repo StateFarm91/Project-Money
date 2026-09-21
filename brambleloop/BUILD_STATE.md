@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,897 tests passing, 0 failing**.
+  **2,898 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4717,9 +4717,22 @@ timings, written there by the system rather than by hand.
   distinguish from "the instruction is wrong". v12 renders the insisting attempt on the
   next identity-capable provider: the pack's provider won the benchmark at *holding an
   identity across frames*, which is a different question from applying a targeted edit to
-  one image, and the benchmark never measured the second (B-604). **The pack is not ready
-  for owner approval, nothing is frozen, and nothing is owner-approved.** Spend is about
-  CA$2 per run; month-to-date CA$48.19 of the CA$100 ceiling.
+  one image, and the benchmark never measured the second (B-604).
+- v12 ran, and the frame it kept was from the incumbent provider at attempt 3 of a budget
+  of 4 -- which could mean the second provider did not help, or that it was refused and
+  the loop stopped. **The pack could not say which, and had not been able to for four
+  versions.** Twelve torso renders left no trace beyond a count and a winner, so each
+  round of debugging was guesswork where reading would have done. v13 logs every attempt:
+  its provider, its anchor, what it scored, whether it was kept, and — separately — whether
+  it was refused, rendered-but-unreadable, or read and unhelpful (B-605). It changes no
+  floor and costs nothing.
+- **Where the canonical model stands: eight of nine approval conditions met, repeatedly.**
+  Facial identity holds in 5 of 5 scenes, no morphology drifts anywhere, chest and torso
+  are both evidenced, a close-fitting frame reads chest/torso/waist together, and nothing
+  the owner asked to preserve has moved. The ninth condition — the bust actually changing
+  against the approved body — has read `match` on every run. **The pack is not ready for
+  owner approval, nothing is frozen, and nothing is owner-approved.** Spend is about CA$2
+  per run; month-to-date CA$48.19 of the CA$100 ceiling.
 - **The maturity ladder's first production reading**: of 222 requirements the registry
   calls covered, 158 are implemented, tested and deployed; **42 reach production-observed**
   -- a job actually ran, finished, left an append-only audit row, and did so within the
