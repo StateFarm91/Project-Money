@@ -196,14 +196,39 @@ REFERENCE_FRAMES: tuple[tuple[str, str], ...] = (
      "background. Relaxed natural expression, direct gaze, hair worn down and away from the "
      "face, simple plain crew-neck top, no jewellery, no makeup beyond natural. The face is "
      "unobstructed and evenly lit."),
+    # The bridge frame, and the one the first pack was missing. A portrait shows a face and
+    # no body; a full-length shows a body and a face too small to read. Neither can answer
+    # the owner's two required dimensions -- chest and torso -- so the first build measured
+    # bust in one scene of four and torso in none, and was correctly unapprovable. This
+    # frame is deliberately built to be readable on exactly those two, while still showing a
+    # face the judge can match: it is what joins the portrait to the full-length.
+    ("torso_fit_reference",
+     "Waist-up photograph from mid-thigh to the top of the head, standing squarely facing "
+     "the camera in even, soft daylight against a plain warm-grey background. Wearing a "
+     "plain close-fitting sleeveless top tucked into plain fitted trousers, arms relaxed "
+     "and clear of the body, hair behind the shoulders. Shoulder width, chest and bust "
+     "proportion, torso length and waist are all clearly and unambiguously readable, and "
+     "her face is fully visible and evenly lit. Nothing loose, draped, layered or held in "
+     "front of the body."),
     ("full_length_standing",
-     "Full-length standing photograph, head to feet entirely in frame, even soft daylight "
-     "against a plain warm-grey background. Standing straight and relaxed, arms at her "
-     "sides and clear of the torso, facing the camera. Wearing a plain fitted sleeveless "
-     "top and plain fitted trousers so that stature, shoulder width, torso length, bust, "
-     "waist, hips and limb proportions are all clearly readable. No loose or draped "
-     "clothing, no crop, nothing obscuring the silhouette."),
+     "Full-length standing photograph, head to feet entirely in frame and filling the full "
+     "height of the picture, even soft daylight against a plain warm-grey background. "
+     "Standing straight and relaxed, arms at her sides and clear of the torso, facing the "
+     "camera. Wearing a plain fitted sleeveless top and plain fitted trousers so that "
+     "stature, shoulder width, torso length, bust, waist, hips and limb proportions are all "
+     "clearly readable. No loose or draped clothing, no crop, nothing obscuring the "
+     "silhouette, and no empty space above her head or below her feet."),
 )
+
+# Which reference frame is authoritative for which drift dimension. A frame is asked only
+# what it is in a position to know: the portrait cannot answer for hips, and a full-length
+# standing shot at 1024 pixels cannot answer for the chest, which is exactly why the first
+# build's own reference came back with `bust: unmeasurable` pinned into the pack.
+FRAME_AUTHORITY: dict[str, tuple[str, ...]] = {
+    "neutral_portrait": ("face", "hair", "eyes", "age", "stylisation"),
+    "torso_fit_reference": ("bust", "torso", "waist", "shoulders", "build"),
+    "full_length_standing": ("stature", "hips", "limbs", "build", "shoulders"),
+}
 
 
 # What she is for. The order is the owner's.

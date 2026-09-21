@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v1-owner-candidate-two-frame-reference"
+PACK_VERSION = "v2-owner-candidate-three-frame-reference"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -62,7 +62,7 @@ def plan(db=None, env: dict | None = None) -> dict:
     # Two observations of the reference frames, one identity comparison between them, and
     # two comparisons per scene: the face against the portrait and the body against the
     # full-length.
-    judgements = 2 + 1 + 2 * len(STRESS_SCENES)
+    judgements = len(brief.REFERENCE_FRAMES) + 2 + 2 * len(STRESS_SCENES)
     judge_rate = routing.estimate_cad(tournament.JUDGE_TASK)
     render_cad = round(renders * per_image, 4)
     judge_cad = round(judgements * judge_rate, 4)
@@ -134,11 +134,19 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     spent = 0.0
     frames: dict[str, dict] = {}
     for key, prompt in brief.REFERENCE_FRAMES:
-        # The portrait conditions on the owner's concept; the full-length conditions on the
-        # concept *and* the portrait just produced, so the body frame is the same woman
-        # rather than a second interpretation of the same description.
-        references = [concept] if key == "neutral_portrait" else [
-            frames["neutral_portrait"]["image_ref"], concept]
+        # Each frame conditions on the owner's concept and on the frames already produced,
+        # so the three are one woman rather than three interpretations of one description.
+        # The full-length conditions on the torso frame rather than the portrait: it is the
+        # body that has to carry across, and the portrait has none to carry.
+        references = {
+            "neutral_portrait": [concept],
+            "torso_fit_reference": [frames.get("neutral_portrait", {}).get("image_ref", ""),
+                                    concept],
+            "full_length_standing": [
+                frames.get("torso_fit_reference", {}).get("image_ref", ""),
+                frames.get("neutral_portrait", {}).get("image_ref", "")],
+        }[key]
+        references = [r for r in references if r]
         try:
             render = _render(brief.base_prompt() + " " + prompt, provider=provider,
                              references=references, env=env, work_dir=work_dir,
@@ -155,38 +163,44 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                     "spent_cad": round(spent, 4), "pack_version": PACK_VERSION}
 
     portrait = frames["neutral_portrait"]["image_ref"]
+    torso = frames["torso_fit_reference"]["image_ref"]
     full_length = frames["full_length_standing"]["image_ref"]
 
-    face_seen = observe(db, portrait)
-    body_seen = observe(db, full_length)
-    if face_seen.get("error") or body_seen.get("error"):
-        return {"built": False, "stage": "observe",
-                "why": face_seen.get("error") or body_seen.get("error"),
-                "spent_cad": round(spent, 4), "pack_version": PACK_VERSION}
+    seen = {key: observe(db, frames[key]["image_ref"]) for key, _ in brief.REFERENCE_FRAMES}
+    for key, reading in seen.items():
+        if reading.get("error"):
+            return {"built": False, "stage": f"observe:{key}", "why": reading["error"],
+                    "spent_cad": round(spent, 4), "pack_version": PACK_VERSION}
 
-    # Is the full-length frame the same woman as the portrait? If the body reference drifted
-    # from the face reference, the pack is already two people and nothing downstream of it
-    # means anything.
-    coherence = compare(db, portrait, full_length)
-    coherent = identity.drift_check(
-        _merge(coherence, coherence), _provisional(face_seen, body_seen))
+    observed = _pin(seen)
 
-    observed = {**{d: body_seen.get(d) for d in identity.MORPHOLOGY_DIMENSIONS},
-                **{d: face_seen.get(d) for d in identity.FACE_DIMENSIONS}}
-    pack = _provisional(face_seen, body_seen)
+    # Are the three frames one woman? The torso frame is the bridge and is checked both
+    # ways: its face against the portrait, and the full-length's body against it. Checking
+    # the full-length's *face* against the portrait is what the previous build did, and it
+    # answered `unverifiable` every time for the obvious reason -- a face thirty pixels tall
+    # cannot be matched, and calling the pack incoherent on that is a fault in the question.
+    face_bridge = compare(db, portrait, torso)
+    body_bridge = compare(db, torso, full_length)
+    pack = _provisional(observed)
+    coherent = identity.drift_check(_merge(face_bridge, body_bridge), pack)
     unpinned = [d for d in identity.DRIFT_DIMENSIONS
                 if str(observed.get(d, "")).strip().lower() in ("", identity.UNMEASURABLE)]
+    required_unpinned = [d for d in identity.REQUIRED_MEASURABLE["morphology"]
+                         if d in unpinned]
 
     scenes: list[dict] = []
     for key, prompt in STRESS_SCENES:
         try:
             render = _render(prompt, provider=provider,
-                             references=[portrait, full_length], env=env, work_dir=work_dir,
-                             generator=generator)
+                             references=[portrait, torso, full_length], env=env,
+                             work_dir=work_dir, generator=generator)
             spent += float(render.get("cad") or 0.0)
             ref = render.get("image_ref") or ""
             against_face = compare(db, portrait, ref)
-            against_body = compare(db, full_length, ref)
+            # The body is compared against the torso frame, which is the reference that can
+            # actually answer for the chest and the torso -- the two dimensions the owner
+            # named as hard floors, and the two the full-length frame reads as unmeasurable.
+            against_body = compare(db, torso, ref)
             verdict = identity.drift_check(_merge(against_face, against_body), pack)
         except (PermanentError, TransientError) as exc:
             scenes.append({"scene": key, "rendered": False, "why": str(exc)[:200]})
@@ -205,16 +219,47 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
         })
 
     return _package(frames, scenes, observed=observed, unpinned=unpinned,
+                    required_unpinned=required_unpinned, bridges={
+                        "face_portrait_to_torso": face_bridge,
+                        "body_torso_to_full_length": body_bridge},
                     coherence=coherent, provider=provider, spent=spent)
 
 
-def _provisional(face_seen: dict, body_seen: dict) -> identity.ReferencePack:
+def _pin(seen: dict[str, dict]) -> dict:
+    """One observation of the whole woman, each dimension taken from the frame that can see it.
+
+    `FRAME_AUTHORITY` says which frame answers for which dimension, and anything a frame
+    reads as unmeasurable falls through to the next frame that has an opinion. The previous
+    build pinned the body from the full-length frame alone and wrote `bust: unmeasurable`
+    into the pack -- a reference that cannot state a dimension cannot be drifted from on it,
+    so the floor was unpassable before a scene was rendered.
+    """
+    def readable(value) -> bool:
+        return bool(value) and str(value).strip().lower() not in (
+            "", identity.UNMEASURABLE, "unclear", "unknown", "obscured", "not visible")
+
+    out: dict[str, str] = {}
+    for frame, dimensions in brief.FRAME_AUTHORITY.items():
+        for d in dimensions:
+            if d not in out and readable((seen.get(frame) or {}).get(d)):
+                out[d] = seen[frame][d]
+    for d in identity.DRIFT_DIMENSIONS:
+        if d in out:
+            continue
+        for frame, _ in brief.REFERENCE_FRAMES:
+            value = (seen.get(frame) or {}).get(d)
+            if readable(value):
+                out[d] = value
+                break
+        else:
+            out[d] = identity.UNMEASURABLE
+    return out
+
+
+def _provisional(observed: dict) -> identity.ReferencePack:
     """The pack as it stands before the owner approves it. Version 0, deliberately."""
-    fields = {}
-    for d in identity.FACE_DIMENSIONS:
-        fields[identity.DIMENSION_FIELD[d]] = face_seen.get(d) or "described"
-    for d in identity.MORPHOLOGY_DIMENSIONS:
-        fields[identity.DIMENSION_FIELD[d]] = body_seen.get(d) or "described"
+    fields = {identity.DIMENSION_FIELD[d]: observed.get(d) or "described"
+              for d in identity.DRIFT_DIMENSIONS}
     return identity.ReferencePack(version=0, fields=fields,
                                   approved_by_owner_at="not yet -- awaiting owner approval")
 
@@ -255,7 +300,8 @@ def _required_evidence(scenes: list[dict]) -> dict:
 
 
 def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list[str],
-             coherence: dict, provider: str, spent: float) -> dict:
+             required_unpinned: list[str], bridges: dict, coherence: dict, provider: str,
+             spent: float) -> dict:
     face_floor = _floor(scenes, "face")
     body_floor = _floor(scenes, "morphology")
     required = _required_evidence(scenes)
@@ -270,6 +316,13 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
         "reference_frames": [frames[k] for k, _ in brief.REFERENCE_FRAMES if k in frames],
         "reference_observation": observed,
         "unpinned_dimensions": unpinned,
+        "required_dimensions_unpinned": required_unpinned,
+        "reference_bridges": {
+            "face_portrait_to_torso": {d: bridges["face_portrait_to_torso"].get(d)
+                                       for d in identity.FACE_DIMENSIONS},
+            "body_torso_to_full_length": {d: bridges["body_torso_to_full_length"].get(d)
+                                          for d in identity.MORPHOLOGY_DIMENSIONS},
+        },
         "reference_frames_are_the_same_woman": {
             "verdict": coherence["verdict"],
             "face": coherence["face"].get("verdict"),
@@ -293,7 +346,7 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
         "ready_for_owner_approval": bool(
             rendered and len(rendered) == len(STRESS_SCENES)
             and face_floor == "pass" and body_floor == "pass" and required_ok
-            and coherence["verdict"] != "fail"),
+            and not required_unpinned and coherence["verdict"] != "fail"),
         "spent_cad": round(spent, 4),
         "decision": "owner",
         "nothing_is_frozen": (

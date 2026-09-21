@@ -68,12 +68,15 @@ def _build(tmp: Path, *, observe=None, compare=None):
     return gen, package
 
 
-def test_the_reference_is_two_frames_and_the_body_frame_sees_the_body(tmp_path=None):
-    """The defect the first pack could not survive: a cropped reference.
+def test_the_reference_is_three_frames_and_each_answers_what_it_can_see(tmp_path=None):
+    """Two defects of one shape: a reference that cannot state what it is trusted for.
 
-    Every tournament finalist was measured against a head-and-shoulders portrait, so
-    stature, torso, bust, waist and hips were unmeasurable on the reference itself. A floor
-    that can only return `unverifiable` is not a floor.
+    The tournament measured every finalist against a head-and-shoulders portrait, so the
+    body was unmeasurable by construction. The first pack added a full-length frame and
+    pinned the body from it -- and a standing figure at 1024 pixels reads `bust:
+    unmeasurable`, so the chest went into the pack as a dimension nothing could drift from.
+    The torso frame is the bridge: close enough to read the chest, wide enough to read the
+    torso, and with a face the judge can still match.
     """
     import tempfile
 
@@ -81,27 +84,97 @@ def test_the_reference_is_two_frames_and_the_body_frame_sees_the_body(tmp_path=N
         gen, package = _build(Path(tmp))
 
     frames = [f["frame"] for f in package["reference_frames"]]
-    assert frames == ["neutral_portrait", "full_length_standing"]
+    assert frames == ["neutral_portrait", "torso_fit_reference", "full_length_standing"]
 
-    full_length_prompt = gen.calls[1]["prompt"]
+    torso_prompt = gen.calls[1]["prompt"].lower()
+    for readable in ("bust", "torso length", "waist", "close-fitting"):
+        assert readable in torso_prompt, readable
+    assert "nothing loose" in torso_prompt
+
+    full_length_prompt = gen.calls[2]["prompt"]
     assert "full-length" in full_length_prompt.lower()
     assert "head to feet" in full_length_prompt.lower()
     for readable in ("stature", "shoulder width", "torso length", "bust", "waist", "hips"):
         assert readable in full_length_prompt.lower(), readable
 
 
-def test_every_scene_is_conditioned_on_both_reference_frames():
+def test_every_scene_is_conditioned_on_all_three_reference_frames():
     """An identity lock is reference conditioning, not a better description."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
         gen, package = _build(Path(tmp))
 
-    portrait, full_length = gen.calls[0]["image_ref"], gen.calls[1]["image_ref"]
+    portrait, torso, full_length = (c["image_ref"] for c in gen.calls[:3])
     assert gen.calls[0]["refs"] == [brief.candidate_reference()]
     assert gen.calls[1]["refs"] == [portrait, brief.candidate_reference()]
-    for call in gen.calls[2:]:
-        assert call["refs"] == [portrait, full_length], call["prompt"][:40]
+    # The full-length conditions on the torso frame rather than the portrait: it is the body
+    # that has to carry across, and the portrait has none to carry.
+    assert gen.calls[2]["refs"] == [torso, portrait]
+    for call in gen.calls[3:]:
+        assert call["refs"] == [portrait, torso, full_length], call["prompt"][:40]
+
+
+def test_each_dimension_is_pinned_from_the_frame_that_can_see_it():
+    """The pack's own defect, made into a test.
+
+    The first build pinned the body from the full-length frame, which read the chest as
+    unmeasurable -- so `bust` went into the reference pack as the word "unmeasurable", and a
+    dimension a reference cannot state is a dimension nothing can drift from. The chest now
+    comes from the torso frame, and if no frame can state a required dimension the pack says
+    so rather than pinning the absence.
+    """
+    import tempfile
+
+    def observer(db, ref):
+        # The full-length render is the third call, so its file is render-2.png. It sees
+        # stature and not the chest, exactly as the live one did.
+        if ref.endswith("render-2.png"):
+            return _seen(bust=identity.UNMEASURABLE, torso=identity.UNMEASURABLE,
+                         stature="average to tall")
+        if ref.endswith("render-1.png"):
+            return _seen(bust="moderate and naturally full", torso="long, narrow waist",
+                         stature=identity.UNMEASURABLE)
+        return _seen()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), observe=observer)
+
+    observed = package["reference_observation"]
+    assert observed["bust"] == "moderate and naturally full"
+    assert observed["torso"] == "long, narrow waist"
+    assert observed["stature"] == "average to tall"
+    assert package["required_dimensions_unpinned"] == []
+
+
+def test_a_required_dimension_no_frame_can_state_stops_the_pack():
+    """Not approvable, and not quietly passed by the six dimensions that were readable."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp),
+                            observe=lambda db, ref: _seen(bust=identity.UNMEASURABLE))
+
+    assert package["required_dimensions_unpinned"] == ["bust"]
+    assert package["ready_for_owner_approval"] is False
+
+
+def test_the_bridge_is_checked_where_the_answer_is_readable():
+    """The previous build asked whether a thirty-pixel face matched a portrait.
+
+    It answered `unverifiable` every time, which is a fault in the question rather than a
+    finding about the pack. The face is now bridged portrait-to-torso, where the face is
+    large, and the body torso-to-full-length, where the body is.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp))
+
+    bridges = package["reference_bridges"]
+    assert set(bridges["face_portrait_to_torso"]) == set(identity.FACE_DIMENSIONS)
+    assert set(bridges["body_torso_to_full_length"]) == set(identity.MORPHOLOGY_DIMENSIONS)
+    assert package["reference_frames_are_the_same_woman"]["verdict"] == "pass"
 
 
 def test_a_face_match_above_a_changed_chest_fails():
