@@ -404,5 +404,31 @@ def test_a_catalogue_with_no_complements_says_that_about_itself():
     assert "how narrow this catalogue is" in report["note"]
 
 
+def test_a_move_nobody_asked_about_is_unmeasurable_rather_than_unavailable():
+    """The endpoint had been reporting a capability the company has as one it lacks.
+
+    The buyer-language map is per-occasion. `/api/seasonal/remerchandising` passed no pod
+    by default, so `search_positioning` came back `available: False, waiting_on: the
+    buyer-language map` -- which reads as "we do not have the map" when the truth is that
+    nobody named an occasion to read it for. A verdict computed from a question nobody
+    asked, and the weekly cadence had been passing a pod the whole time, so the two views
+    of one capability disagreed and the human-readable one was the wrong half.
+    """
+    db = _db()
+    silent = R.capabilities(db)
+    assert silent["moves"]["search_positioning"]["available"] is False
+    assert silent["moves"]["search_positioning"]["measurable"] is False
+    assert "search_positioning" in silent["unmeasurable"]
+    assert "search_positioning" not in silent["blocked"]
+    assert "no pod was named" in silent["unmeasurable"]["search_positioning"]
+
+    asked = R.capabilities(db, pod="hats")
+    assert asked["moves"]["search_positioning"]["measurable"] is True
+    # Asked and genuinely absent is a block, which is a different row to act on.
+    assert ("search_positioning" in asked["blocked"]
+            or "search_positioning" in asked["available"])
+    assert "search_positioning" not in asked["unmeasurable"]
+
+
 if __name__ == "__main__":
     raise SystemExit(1 if _run() else 0)

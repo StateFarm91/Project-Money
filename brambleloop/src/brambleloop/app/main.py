@@ -2579,7 +2579,24 @@ def api_seasonal_remerchandising(event: str = "Christmas", pod: str = "") -> dic
     Re-merchandising never increments the catalogue, and "proven" is a claim about sales this
     company cannot make yet -- so candidates are eligible rather than proven, on every row.
     """
+    from ..creative import prospecting
     from ..seasonal import remerchandising
+
+    # Default to the same occasion the weekly cadence inspects -- the soonest proven arena
+    # -- rather than to no occasion at all. The buyer-language map is per-occasion, so a
+    # request that names none was reporting `search_positioning` as unavailable when the
+    # truth was that nobody had looked. The cadence had always passed a pod; the endpoint
+    # never did, so the two views of one capability disagreed and the human-readable one
+    # was the wrong half (#292).
+    if not pod:
+        try:
+            found = prospecting.arenas(db)
+        except prospecting.NoArenasContradictsEvidence:
+            found = []
+        if found:
+            soonest = min(found, key=lambda a: a.days_away)
+            pod = soonest.pod
+            event = event or soonest.event
 
     return remerchandising.plan(db, event=event, pod=pod)
 

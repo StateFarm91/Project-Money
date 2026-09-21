@@ -198,9 +198,15 @@ def capabilities(db, *, pod: str = "", benchmark_key: str = "") -> dict:
     pool = candidates(db)
     certified = len(pool["eligible"])
 
-    language = {"measurable": False}
-    if pod:
-        language = intent.arena_language(db, pod=pod, benchmark_key=benchmark_key)
+    # Asked, or not asked. The distinction is the whole reason this is three-valued: the
+    # buyer-language map is per-occasion, so with no pod named nobody looked -- and
+    # reporting that as `available: False, waiting_on: the buyer-language map` says the
+    # company lacks a capability it has had since 2026-09-20. `/api/seasonal/remerchandising`
+    # passed no pod by default and had been printing exactly that, which is a verdict
+    # computed from a question nobody asked.
+    asked = bool(pod)
+    language = (intent.arena_language(db, pod=pod, benchmark_key=benchmark_key) if asked
+                else {"measurable": False})
 
     # Both image moves wait on the same capability, read from evidence: a recorded
     # successful generation, not a variable.
@@ -231,17 +237,27 @@ def capabilities(db, *, pod: str = "", benchmark_key: str = "") -> dict:
                    "waiting_on": MOVE_NEEDS["add_on"],
                    "certified_products": certified},
         "search_positioning": {
-            "available": bool(language.get("measurable")),
-            "waiting_on": MOVE_NEEDS["search_positioning"],
+            "available": asked and bool(language.get("measurable")),
+            "measurable": asked,
+            "waiting_on": (MOVE_NEEDS["search_positioning"] if asked else
+                           "an occasion to read it for -- no pod was named, so nobody "
+                           "looked. This is unmeasurable, not unavailable"),
             "pod": pod or None,
             "note": ("the buyer-language map became readable on 2026-09-20, when the "
                      "benchmark credential made a department's observed titles countable"),
         },
     }
+    unmeasurable = {k: v["waiting_on"] for k, v in state.items()
+                    if not v["available"] and v.get("measurable") is False}
     return {
         "moves": state,
         "available": tuple(sorted(k for k, v in state.items() if v["available"])),
-        "blocked": {k: v["waiting_on"] for k, v in state.items() if not v["available"]},
+        # Blocked means the prerequisite was looked for and is not there. A move nobody
+        # asked about is not blocked, and folding the two together is how a report says
+        # "the company cannot do this" when it means "nobody named an occasion".
+        "blocked": {k: v["waiting_on"] for k, v in state.items()
+                    if not v["available"] and k not in unmeasurable},
+        "unmeasurable": unmeasurable,
         "note": ("Read rather than set. A move is available because its prerequisite was "
                  "observed to exist, which is a different claim from somebody having "
                  "enabled it (#292)."),

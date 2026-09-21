@@ -946,7 +946,7 @@ def test_owner_approval_is_a_gate_rather_than_a_sentence_in_a_note():
     """
     assert "canonical_model" in E.GATE_BY_KEY
     waiting = sorted(E.GATE_BY_KEY["canonical_model"].requirement_ids)
-    assert waiting == [72, 73, 74, 75, 130, 200, 201, 202]
+    assert waiting == [72, 73, 74, 75, 130, 199, 200, 201, 202]
     for rid in waiting:
         assert E.gate_for(rid) == "canonical_model"
 

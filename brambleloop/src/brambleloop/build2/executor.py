@@ -483,7 +483,11 @@ GATES: tuple[Gate, ...] = (
          "an image-generation provider that conditions on reference images, because an "
          "identity lock is reference conditioning rather than a better prompt",
          _image_generation_usable,
-         (198, 199),
+         # Carries no owner-gated requirement of its own any more, and is kept for the
+         # reason `etsy_shop` is kept: a gate that has opened is evidence. #199 moved to
+         # `canonical_model` because its body ends "Owner selects the final identity" --
+         # the tournament half ran and was presented, and the selection half is a decision.
+         (),
          "a recorded image.probe generated a real image -- and a provider that refuses this "
          "brief on content grounds is a refusal in its own words, never an empty gallery"),
     # The half of the model gate that was written in prose and never in code. Every one of
@@ -496,7 +500,7 @@ GATES: tuple[Gate, ...] = (
          "the owner's approval of a canonical model identity, which is a decision rather "
          "than a capability -- no amount of rendering produces it",
          _canonical_model_approved,
-         (72, 73, 74, 75, 130, 200, 201, 202),
+         (72, 73, 74, 75, 130, 199, 200, 201, 202),
          "a ModelIdentity row is canonical with an owner approval timestamp. `select` "
          "refuses to promote a candidate without one, so a better picture cannot make "
          "this true"),
