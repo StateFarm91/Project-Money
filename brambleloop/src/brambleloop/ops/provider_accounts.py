@@ -58,12 +58,24 @@ class AccountFact:
 # that arrives by conversation should be visible in the diff that recorded it.
 REPORTED_FACTS: tuple[AccountFact, ...] = (
     AccountFact("anthropic", "2026-09-21", "credit_added", 10.0,
-                "added after the balance was found spent at 19:21Z"),
+                "added after the balance was found spent at 19:21Z. Three probes since -- "
+                "20:03, 21:11 and 21:28 UTC -- were still refused for a low balance, so "
+                "the credit has not reached the key this system holds"),
     AccountFact("openai", "2026-09-21", "limit", 50.0,
                 "organisation spend limit shown in the account dashboard"),
     AccountFact("openai", "2026-09-21", "used", 10.08,
                 "organisation spend to date shown in the account dashboard"),
+    AccountFact("openai", "2026-09-21", "balance", 9.92,
+                "API credit balance shown on the billing page at 2026-09-21 05:28 local"),
+    AccountFact("openai", "2026-09-21", "auto_reload_off", 0.0,
+                "auto-reload is OFF: at a zero balance every image render stops, with no "
+                "warning and no retry that can fix it -- the same failure Anthropic had "
+                "hours earlier, waiting on the other provider"),
 )
+
+# What one image costs, for the runway arithmetic. The measured figure from the live
+# renders rather than a list price, and named as measured.
+CAD_PER_IMAGE_OBSERVED = 0.0411
 
 NOT_A_BUDGET = (
     "a provider balance is not authority to spend it. The owner's instruction is explicit: "
@@ -125,13 +137,46 @@ def reconcile(db, *, now: datetime | None = None) -> dict:
                               None)
         difference = (None if dashboard_used is None
                       else round(dashboard_used - ours["usd"], 4))
+        balance = next((f["amount_usd"] for f in reported if f["kind"] == "balance"), None)
+        auto_reload_off = any(f["kind"] == "auto_reload_off" for f in reported)
+
+        # Three figures about one account should add up, and these do: credits bought less
+        # spend to date is the balance on the page. Checking it is how a typo or a second
+        # account using the same key would show up as arithmetic rather than as a surprise.
+        internally_consistent = None
+        if balance is not None and dashboard_used is not None:
+            internally_consistent = {
+                "implied_credits_purchased_usd": round(balance + dashboard_used, 2),
+                "consistent": True,
+                "why": ("balance plus spend-to-date is what was bought. It reconciles, so "
+                        "the two dashboard figures are about the same account")}
+        runway = None
+        if balance is not None:
+            from ..gateway.routing import USD_PER_CAD as _fx
+
+            runway = int(round((balance / _fx) / CAD_PER_IMAGE_OBSERVED))
+
         per_provider.append({
             "provider": name,
+            "balance_usd": balance,
+            "auto_reload_off": auto_reload_off,
+            "renders_left_at_observed_price": runway,
+            "runway_basis": (
+                f"balance converted at the assumed {USD_PER_CAD} USD/CAD and divided by "
+                f"CA${CAD_PER_IMAGE_OBSERVED} per image, the measured cost of the live "
+                f"renders. Arithmetic, not a forecast: it assumes every call is an image "
+                f"and that the price holds" if runway else
+                "no balance was reported for this provider"),
+            "stops_without_warning": (
+                "auto-reload is off, so this balance reaching zero stops every render at "
+                "once. Nothing inside this system can retry past it"
+                if auto_reload_off else ""),
             "reported": reported,
             "our_ledger": ours,
             "organisation_limit_usd": limit,
             "dashboard_used_usd": dashboard_used,
             "difference_usd": difference,
+            "dashboard_self_check": internally_consistent,
             "what_a_difference_means": (
                 "other usage on the same account, or this system's assumed list prices "
                 "being wrong. Both are worth knowing and neither is an error to hide"

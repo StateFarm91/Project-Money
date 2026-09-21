@@ -83,6 +83,44 @@ def test_the_dashboard_figure_is_reconciled_against_our_own_ledger():
     assert "assumed list prices" in openai["our_ledger"]["price_basis"]
 
 
+def test_the_openai_dashboard_figures_reconcile_with_each_other():
+    """Balance plus spend-to-date is what was bought, and it comes to twenty dollars.
+
+    Checking it is how a typo, or a second account sharing the key, shows up as arithmetic
+    rather than as a surprise three weeks later.
+    """
+    out = pa.reconcile(_db())
+    openai = next(p for p in out["provider_accounts"] if p["provider"] == "openai")
+    assert openai["balance_usd"] == 9.92
+    assert openai["dashboard_self_check"]["implied_credits_purchased_usd"] == 20.0
+    assert openai["dashboard_self_check"]["consistent"] is True
+    # The organisation limit is a cap, not the money: US$50 allowed, US$20 bought.
+    assert openai["organisation_limit_usd"] == 50.0
+
+
+def test_a_balance_with_auto_reload_off_is_reported_as_a_cliff():
+    """Anthropic did this hours earlier: every call stops at once, and nothing inside this
+    system can retry past it."""
+    out = pa.reconcile(_db())
+    openai = next(p for p in out["provider_accounts"] if p["provider"] == "openai")
+    assert openai["auto_reload_off"] is True
+    assert "stops every render at once" in openai["stops_without_warning"]
+    # And the runway is arithmetic from the measured price, named as arithmetic.
+    assert openai["renders_left_at_observed_price"] == 338
+    assert "not a forecast" in openai["runway_basis"]
+
+
+def test_the_anthropic_row_records_that_the_credit_has_not_arrived():
+    """The owner reported adding it; three probes since were refused for a low balance.
+    Both facts are kept, because the report is evidence of a dashboard and the probe is
+    evidence of a call."""
+    out = pa.reconcile(_db())
+    anthropic = next(p for p in out["provider_accounts"] if p["provider"] == "anthropic")
+    added = next(f for f in anthropic["reported"] if f["kind"] == "credit_added")
+    assert added["amount_usd"] == 10.0
+    assert "has not reached the key" in added["note"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
