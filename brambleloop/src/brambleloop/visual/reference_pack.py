@@ -125,6 +125,19 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     Returns the package the owner is shown. Freezes nothing, stores nothing as canonical,
     and is explicit about every dimension it could not read.
     """
+    from ..ops import funding
+
+    held = funding.blocked(db)
+    if held.get("blocked") and generator is None:
+        # The revised pack rendered eight images at CA$0.08 and died at the first vision
+        # call, twice, because the balance was spent both times. Rendering again before the
+        # judge can run would spend the same money for the same nothing.
+        return {"built": False, "stage": "funding",
+                "why": ("the model provider's balance is spent, so nothing rendered now "
+                        "could be measured. " + held["why_this_stops_spending"]),
+                "waiting_on": "model_provider_balance",
+                "spent_cad": 0.0, "pack_version": PACK_VERSION}
+
     provider = tournament.preferred_provider(db, env)
     if not provider and generator is None:
         # No credentialled image provider in this environment. Refused rather than attempted:

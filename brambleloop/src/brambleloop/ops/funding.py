@@ -104,3 +104,58 @@ def note(db, text: str) -> dict:
             blocks="all model judgement: identity measurement, asset truth, gallery analysis"))
 
     return {"raised": True, "provider": provider, "requirement_key": REQUIREMENT_KEY}
+
+
+def blocked(db) -> dict:
+    """Whether a provider balance is currently known to be spent.
+
+    Read from the open owner action rather than from the six-hourly probe, because the
+    probe is the stale half of this pair: the balance emptied at 19:21 and the last
+    successful probe was 12:00, so `usable()` said yes for seven hours after the money ran
+    out. The owner action is the fresher fact and it is the one a person clears.
+    """
+    if db is None:
+        return {"blocked": False}
+
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == REQUIREMENT_KEY,
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"blocked": False}
+        return {"blocked": True, "since": str(getattr(row, "raised_at", "") or ""),
+                "action": row.action,
+                "why_this_stops_spending": (
+                    "rendering an asset whose truth check cannot run is spending money to "
+                    "produce something unusable. The render is prepaid elsewhere and would "
+                    "succeed; what it produces could not be judged, disclosed or shipped")}
+
+
+def cleared(db) -> dict:
+    """Close the action when a real call succeeds again.
+
+    The other direction of the same staleness. An owner action that stays open after the
+    owner has done the thing is how a queue stops being read -- and this one is cleared by
+    evidence rather than by somebody ticking it: a probe that actually got an answer.
+    """
+    if db is None:
+        return {"cleared": False}
+
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == REQUIREMENT_KEY,
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"cleared": False, "reason": "nothing was open"}
+        row.done = True
+        s.flush()
+    return {"cleared": True, "requirement_key": REQUIREMENT_KEY,
+            "by": "a real model call succeeded, so the balance is no longer the blocker"}

@@ -4648,7 +4648,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,840 tests passing, 0 failing**.
+  **2,843 tests passing, 0 failing**.
 - **OWNER ACTION REQUIRED — the Anthropic API balance is spent.** Discovered 2026-09-21
   19:21Z when the revised reference pack rendered its images and died at the first vision
   call. Action: add credit at console.anthropic.com -> Plans & Billing. Why: every judging
@@ -4658,7 +4658,9 @@ timings, written there by the system rather than by hand.
   covers the remaining pack validations and weeks of routine judging. Minutes: 5.
   Consequence of delay: the revised canonical-model pack cannot be validated or presented,
   and no generated asset can be checked. This is not the monthly ceiling, which stands at
-  about CA$45 of CA$100 (B-588).
+  about CA$45 of CA$100 (B-588). While it is spent, image renders that cannot be
+  checked are refused rather than paid for, and the action closes itself when a
+  real call next succeeds (B-589).
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

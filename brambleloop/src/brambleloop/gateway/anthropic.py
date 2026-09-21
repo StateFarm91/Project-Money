@@ -358,6 +358,9 @@ def probe(db, *, provider: AnthropicProvider | None = None,
             # The provider's own words. A key that authenticates and an account that cannot
             # serve a request are different failures, and only the message distinguishes them.
             record["reason"] = str(exc)[:400]
+            from ..ops import funding
+
+            record["funding"] = funding.note(db, record["reason"])
         else:
             cost = round(
                 response.input_tokens * provider.cost_per_1k_input_cad / 1000
@@ -378,6 +381,13 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                 department="gateway", job_id=job_id, kind=routing.COST_KIND,
                 tokens_in=response.input_tokens, tokens_out=response.output_tokens,
                 detail={"price_basis": "assumed", "latency_ms": record.get("latency_ms")})
+
+            # A call that got an answer is evidence the balance is no longer the blocker,
+            # which is the only honest way to close an owner action about money: by the
+            # thing working again rather than by somebody ticking it.
+            from ..ops import funding
+
+            record["funding"] = funding.cleared(db)
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action="model.probe", artifact=provider.model,

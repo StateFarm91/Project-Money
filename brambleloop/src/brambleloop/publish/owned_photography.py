@@ -122,6 +122,18 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
     from ..gateway import images
     from ..visual import inspect as inspection_mod
 
+    from ..ops import funding
+
+    held = funding.blocked(db)
+    if held.get("blocked") and generator is None:
+        # Rendering is prepaid at a different provider and would succeed. What it produced
+        # could not be described, compared, gated or disclosed -- so this is money spent to
+        # make something unusable, and the honest thing is to wait.
+        return {"made": False, "slug": cir.slug,
+                "why": ("the model provider's balance is spent, so an asset rendered now "
+                        "could not be checked. " + held["why_this_stops_spending"]),
+                "waiting_on": "model_provider_balance"}
+
     if not needs_no_model(cir):
         return {"made": False, "slug": cir.slug,
                 "why": (f"{form_of(cir)!r} is a form whose listing needs the canonical "

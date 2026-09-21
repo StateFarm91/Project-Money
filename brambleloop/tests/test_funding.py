@@ -82,6 +82,63 @@ def test_a_handler_that_completed_honestly_still_reaches_the_queue():
     assert len(_actions(db)) == 1
 
 
+def test_a_spent_balance_stops_the_spending_it_cannot_check():
+    """Rendering is prepaid elsewhere and would succeed. That is the trap.
+
+    The revised pack rendered eight images at CA$0.08 and died at the first vision call,
+    twice. Money spent to produce something that cannot be described, compared, gated or
+    disclosed is money spent on nothing.
+    """
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.products.builder import for_slug
+    from brambleloop.publish import owned_photography
+    from brambleloop.visual import reference_pack
+
+    db = _db()
+    funding.note(db, LIVE)
+    assert funding.blocked(db)["blocked"] is True
+
+    cir = for_slug("cloudline-baby-blanket")
+    record = owned_photography.make(db, cir, build_twin(cir, compile_cir(cir)))
+    assert record["made"] is False
+    assert record["waiting_on"] == "model_provider_balance"
+
+    pack = reference_pack.build(db)
+    assert pack["built"] is False
+    assert pack["stage"] == "funding"
+    assert pack["spent_cad"] == 0.0
+
+
+def test_the_action_is_closed_by_the_thing_working_rather_than_by_a_tick():
+    """The other direction of the same staleness: an owner action that stays open after the
+    owner has done the thing is how a queue stops being read."""
+    db = _db()
+    funding.note(db, LIVE)
+    assert funding.blocked(db)["blocked"] is True
+
+    assert funding.cleared(db)["cleared"] is True
+    assert funding.blocked(db)["blocked"] is False
+    # Idempotent: nothing to close is not an error.
+    assert funding.cleared(db)["cleared"] is False
+
+
+def test_the_probe_is_the_thing_that_closes_it():
+    """Because the probe is the smallest real call there is, and a real call succeeding is
+    exactly the evidence that the balance is no longer the blocker."""
+    import ast
+
+    from brambleloop.gateway import anthropic as gw
+
+    tree = ast.parse((ROOT / "src/brambleloop/gateway/anthropic.py").read_text())
+    probe = next(n for n in ast.walk(tree)
+                 if isinstance(n, ast.FunctionDef) and n.name == "probe")
+    called = {n.func.attr for n in ast.walk(probe)
+              if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)}
+    assert {"note", "cleared"} <= called, called
+    assert gw.usable is not None
+
+
 def test_the_worker_checks_both_outputs_and_exceptions():
     import ast
 
