@@ -699,6 +699,60 @@ def test_changing_the_method_invalidates_every_stored_score():
         B.METHOD_VERSION = original
 
 
+def test_a_candidate_failing_permanently_stops_rather_than_failing_thirty_times():
+    """The Google project denied access would otherwise make thirty identical calls a run.
+
+    One permanent error can be about one brief -- a content refusal is a fact about the
+    prompt. Three in a row is the account, the credential or the endpoint.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.resilience import PermanentError
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    calls = {"n": 0}
+
+    def _render(prompt, **kw):
+        calls["n"] += 1
+        raise PermanentError("403 PERMISSION_DENIED: your project has been denied access")
+
+    out = B.run(db, generator=_render, judge=lambda *a, **k: "", env={})
+    per_candidate = calls["n"] / max(len([c for c in B.CANDIDATES
+                                          if c.can_hold_an_identity]), 1)
+    assert per_candidate <= B.PERMANENT_FAILURES_BEFORE_STOPPING, calls
+    assert out["unmeasured"], out
+    assert any("consecutive permanent failures" in u["why"] for u in out["unmeasured"])
+
+
+def test_one_permanent_failure_does_not_condemn_a_candidate():
+    """A content refusal on a single brief is not an account problem."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.resilience import PermanentError
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    state = {"n": 0}
+
+    def _render(prompt, *, env=None, size=None, reference_urls=None, **kw):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise PermanentError("content refusal on this brief")
+        return {"provider": "x", "image_ref": f"/tmp/{state['n']}.png", "url": "",
+                "cad": 0.02, "latency_ms": 5.0}
+
+    out = B.run(db, generator=_render, judge=lambda _db, shown, dims: json.dumps(
+        {d.key: 4 for d in dims}), env={})
+    # It kept going and produced a full schedule despite the first refusal.
+    assert state["n"] > B.PERMANENT_FAILURES_BEFORE_STOPPING
+    assert out["decision"]["decided"] in (True, False)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

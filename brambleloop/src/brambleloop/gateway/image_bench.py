@@ -508,6 +508,9 @@ METHOD_VERSION = "v2-reference-conditioned"
 # positional: reordering TRIALS must not silently change what the identity lock locks to.
 CANONICAL_TRIAL = "model_identity"
 
+# How many permanent failures in a row mean the candidate rather than the brief.
+PERMANENT_FAILURES_BEFORE_STOPPING = 3
+
 
 def rubric_fingerprint(candidate: Candidate) -> str:
     """What a stored result was measured under, so a stale one is never reused.
@@ -735,6 +738,7 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
         # reference is not a weak test -- it is a different test, of whether the model can
         # invent the same stranger twice from a description.
         reference: str = ""
+        consecutive = 0
         for trial in TRIALS:
             if stopped:
                 break
@@ -791,6 +795,20 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                 except (PermanentError, TransientError, BenchmarkRefused) as exc:
                     result.failures.append({"trial": trial.key, "sample": sample,
                                             "why": str(exc)[:200]})
+                    # A content refusal can be about one brief, so a single permanent error
+                    # does not condemn a candidate. Three in a row is the account, the
+                    # credential or the endpoint -- the shape of the Google project denied
+                    # access on 2026-09-21, which would otherwise make thirty identical
+                    # failing calls every time this cadence fires.
+                    consecutive = consecutive + 1 if isinstance(exc, PermanentError) else 0
+                    if consecutive >= PERMANENT_FAILURES_BEFORE_STOPPING:
+                        stopped = {"model": candidate.key,
+                                   "why": (f"{consecutive} consecutive permanent failures, "
+                                           f"which is the account rather than the brief: "
+                                           f"{str(exc)[:200]}")}
+                        break
+                else:
+                    consecutive = 0
         # One judgement per model about the *set*: gallery consistency cannot be a per-image
         # score, because six images each individually fine can still read as six unrelated
         # stock photographs rather than one shop's gallery.

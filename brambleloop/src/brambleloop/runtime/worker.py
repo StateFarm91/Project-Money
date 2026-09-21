@@ -233,7 +233,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # itself moved. It is on a cadence because the alternative was an endpoint needing a
     # credential nobody in a session holds, and a benchmark that only runs when somebody
     # remembers to press something is a benchmark that runs once.
-    ("image_benchmark", "creative_director", "creative.image_benchmark", 7 * 24 * 60 * 60),
+    # Six-hourly rather than weekly, and that is not a cost decision: a candidate already
+    # measured under the current method is reused rather than re-rendered, so a settled
+    # benchmark costs nothing to re-check and an unsettled one is picked up within hours of
+    # a credential arriving or a method changing. Weekly was chosen before reuse existed,
+    # and it left a half-measured benchmark sitting for seven days.
+    ("image_benchmark", "creative_director", "creative.image_benchmark", 6 * 60 * 60),
     # Daily, because a launch date that was comfortable in September is missed in October
     # without anything changing except the date. The first run of this engine found that the
     # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand
