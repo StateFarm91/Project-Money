@@ -47,9 +47,23 @@ app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 BOOT_ENQUEUES: list[dict] = []
 
 
+# How long a boot job waits before it may run.
+#
+# A deploy rolls: for a minute or two the old container is still serving and still draining
+# the queue, so a job created by the new container's startup is most likely to be taken by
+# the old one -- which is exactly what happened to the corrected reference pack, three
+# attempts in two minutes, all of them by the build the correction was replacing, and then
+# a dead letter. The delay is not a fix for the mismatch (the version stamp is); it is what
+# stops the mismatch consuming the job's attempts before the rollout has finished.
+BOOT_JOB_DELAY_SECONDS = 90
+
+
 def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
-                  because: str = "", inputs: dict | None = None) -> dict:
+                  because: str = "", inputs: dict | None = None,
+                  delay_seconds: int = BOOT_JOB_DELAY_SECONDS) -> dict:
     """Enqueue one boot job and record the outcome rather than swallowing it."""
+    from datetime import timedelta
+
     record = {"name": name, "job_type": job_type, "key": key, "outcome": "", "detail": ""}
     payload = dict(inputs or {})
     if because:
@@ -58,7 +72,9 @@ def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
         if not when:
             record["outcome"] = "not needed"
         else:
-            job = JobQueue(db).enqueue(agent, job_type, payload, idempotency_key=key)
+            job = JobQueue(db).enqueue(
+                agent, job_type, payload, idempotency_key=key,
+                run_after=utcnow() + timedelta(seconds=delay_seconds))
             record["outcome"] = "enqueued"
             record["detail"] = f"job {job.id}"
     except DuplicateJob as e:
