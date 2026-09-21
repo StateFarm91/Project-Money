@@ -396,7 +396,20 @@ CA$0.029 estimated, within the 40% allocation); 134 dead letters are all publica
 refusals and **zero are defects**; the off-site archive records a configuration failure
 rather than a stale success.
 
-Suite green at **2,714 across 149 suites**.
+**And the image-provider action list was checked against the providers' own pricing pages
+rather than against memory.** Three things were wrong. Google AI Studio was listed as free
+and cardless, first in the queue because it was the easy one — but Nano Banana 2's image
+output reads "Not available" under Free Tier, so that key would have authenticated and
+refused to render (B-534). Nano Banana was priced at US$0.063, roughly Google's 1K figure,
+while the benchmark renders it at 2048px, which is US$0.101 — an estimate for a rendering
+nobody was going to make, understating the dearest candidate by 60% (B-535). And Imagen 4 is
+no longer listed on that page at all, so its row left the provider table and survives only as
+the recorded requirement-based exclusion (B-536).
+
+All three sign-ups need a payment method. The benchmark now plans at **CA$20.11** of the
+approved CA$25.
+
+Suite green at **2,716 across 149 suites**.
 
 ## Previously — last completed milestone
 **The three practical gates, built as far as they go without the owner's credentials.**

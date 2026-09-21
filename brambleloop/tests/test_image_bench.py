@@ -306,7 +306,6 @@ def test_each_candidate_is_rendered_by_its_own_provider_not_the_configured_one()
     env = {I.key_var("google"): "g", I.key_var("bfl"): "b", I.key_var("openai"): "o",
            I.PROVIDER_VAR: "flux-2-pro", I.KEY_VAR: "general"}
     assert I.key_for("nano-banana-2", env) == "g"
-    assert I.key_for("imagen-4-standard", env) == "g"   # one account, two candidates
     assert I.key_for("gpt-image-2", env) == "o"
     assert I.key_for("seedream-v5-lite", env) == ""     # no key, and no borrowing one
 
@@ -338,9 +337,12 @@ def test_the_credential_plan_counts_sign_ups_rather_than_models():
 
     plan = I.credential_plan({})
     google = next(a for a in plan["actions"] if a["account"] == "google")
-    assert google["unlocks_count"] == 2
-    assert google["needs_card"] is False
-    assert plan["actions"][0]["account"] == "google"     # free first
+    assert google["unlocks"] == ["nano-banana-2"]
+    # Corrected 2026-09-21: Nano Banana 2's image output is not available on Google's free
+    # tier, so a key created without billing renders nothing. "Free to create" and "free to
+    # use" are different claims and this table gave the owner the wrong one.
+    assert google["needs_card"] is True
+    assert "not available on the free tier" in google["how"]
     # A candidate that cannot be reached from Canada is named, not silently absent.
     assert any(u["account"] == "volcengine" for u in plan["unreachable"])
     assert "seedream-v5-lite" in plan["still_unmeasured_after"]
@@ -351,7 +353,7 @@ def test_an_account_already_held_is_not_asked_for_again():
 
     plan = I.credential_plan({I.key_var("google"): "g"})
     assert not any(a["account"] == "google" for a in plan["actions"])
-    assert set(plan["have"]) == {"nano-banana-2", "imagen-4-standard"}
+    assert set(plan["have"]) == {"nano-banana-2"}
 
 
 def test_a_leader_chosen_over_candidates_nobody_rendered_is_not_a_lock():
@@ -367,6 +369,31 @@ def test_a_complete_run_locks():
     out = B.decide([_result("flux-2-pro")], unmeasured=[])
     assert out["locked"] is True
     assert out["provisional"] is False
+
+
+def test_no_candidate_carries_a_price_for_a_model_that_cannot_be_bought():
+    """Imagen 4 left Google's Gemini API pricing page; its row left the provider table.
+
+    A provider table is what the generator can be *pointed at*. A row for a model nobody
+    sells is a row that will one day be selected, and it would fail as a credential problem
+    rather than as what it is.
+    """
+    from brambleloop.gateway import images as I
+
+    assert "imagen-4-standard" not in I.BY_KEY
+    assert all(p.account for p in I.PROVIDERS)
+    # It survives where it is a decision rather than an endpoint.
+    assert "imagen-4-ultra" in B.BY_KEY
+    assert not B.BY_KEY["imagen-4-ultra"].can_hold_an_identity
+
+
+def test_the_nano_banana_price_is_the_one_for_the_size_it_is_rendered_at():
+    """0.063 was nearer Google's 1K figure; this candidate is benchmarked at 2K."""
+    from brambleloop.gateway import images as I
+
+    assert B.BY_KEY["nano-banana-2"].resolution == "2048"
+    assert B.BY_KEY["nano-banana-2"].usd_per_image == 0.101
+    assert I.BY_KEY["nano-banana-2"].usd_per_image == 0.101
 
 
 if __name__ == "__main__":

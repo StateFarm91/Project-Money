@@ -92,12 +92,18 @@ CANDIDATES: tuple[Candidate, ...] = (
     Candidate("gpt-image-2", "OpenAI GPT Image 2", 0.030, 16,
               "highest blind-human-vote arena score among general image models as of "
               "September 2026; sixteen reference images per call"),
-    Candidate("nano-banana-2", "Google Gemini 3.1 Flash Image (Nano Banana 2)", 0.063, 5,
+    Candidate("nano-banana-2", "Google Gemini 3.1 Flash Image (Nano Banana 2)", 0.101, 5,
               "fine-grained fabric and material texture at up to 4K; feature consistency "
-              "maintained across up to five characters", resolution="2048"),
+              "maintained across up to five characters. US$0.101 is the 2048px figure read "
+              "from Google's pricing page 2026-09-21, which is the size this benchmark "
+              "renders at; the 0.063 it replaced was nearer the 1K price",
+              resolution="2048"),
     Candidate("imagen-4-ultra", "Google Imagen 4 Ultra", 0.054, 0,
               "the most photorealistic output available; skin, fabric, lighting and "
-              "reflections hardest to distinguish from a photograph"),
+              "reflections hardest to distinguish from a photograph. Excluded on the "
+              "requirement, and as of 2026-09-21 no longer listed on Google's Gemini API "
+              "pricing page either -- the price here is the last one read and is kept only "
+              "so the exclusion stays a recorded decision rather than a deletion"),
 )
 
 BY_KEY: dict[str, Candidate] = {c.key: c for c in CANDIDATES}

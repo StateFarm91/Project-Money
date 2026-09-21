@@ -96,22 +96,27 @@ PROVIDERS: tuple[ImageProvider, ...] = (
         "scale", account="openai"),
     ImageProvider(
         "nano-banana-2", "Google Gemini 3.1 Flash Image (Nano Banana 2)",
-        "https://generativelanguage.googleapis.com/v1beta/models", 0.063, True, 5,
+        "https://generativelanguage.googleapis.com/v1beta/models", 0.101, True, 5,
         "fine-grained fabric and material texture at up to 4K and feature consistency across "
         "characters. The most expensive candidate that can hold an identity, and the "
-        "benchmark exists to find out whether that buys anything on crochet",
+        "benchmark exists to find out whether that buys anything on crochet. "
+        "US$0.101 read from Google's own pricing page 2026-09-21: image output is billed at "
+        "US$60 per million tokens and a 2048px image is 1,680 of them. The table said 0.063, "
+        "which is nearer the 1K figure (1,120 tokens, US$0.067) -- and this candidate is "
+        "benchmarked at 2K, so the estimate was for a rendering nobody was going to do",
         account="google"),
     ImageProvider(
         "seedream-v5-lite", "ByteDance Seedream v5.0 Lite",
         "https://ark.cn-beijing.volces.com/api/v3/images/generations", 0.026, True, 4,
         "production-quality output at 2048px, between FLUX and GPT Image on price",
         account="volcengine"),
-    ImageProvider(
-        "imagen-4-standard", "Google Imagen 4 Standard",
-        "https://generativelanguage.googleapis.com/v1beta/models", 0.04, False, 0,
-        "best photorealism of the three and no reference conditioning on this tier, so it "
-        "cannot hold an identity across a season -- listed to be ruled out on the "
-        "requirement rather than on taste", account="google"),
+    # Imagen 4 was here, listed to be ruled out on the requirement rather than on taste: no
+    # reference conditioning, so #200 and #201 are unmeetable by it whatever its
+    # photorealism. It is removed rather than re-priced because on 2026-09-21 it no longer
+    # appears on Google's Gemini API pricing page at all. A provider table is what the
+    # generator can be *pointed at*, and a row for a model that cannot be bought is a row
+    # that will one day be selected. The exclusion itself is kept in `image_bench.CANDIDATES`,
+    # where it is a recorded decision rather than an endpoint.
 )
 
 BY_KEY: dict[str, ImageProvider] = {p.key: p for p in PROVIDERS}
@@ -131,13 +136,21 @@ ACCOUNTS: dict[str, dict] = {
     "google": {
         "name": "Google AI Studio",
         "where": "https://aistudio.google.com/apikey",
-        "needs_card": False,
+        # Corrected 2026-09-21 against Google's own pricing page. The key is free to create
+        # and this said so and stopped there, which made it the first and easiest action in
+        # the owner's list. But Nano Banana 2's image output reads "Not available" under Free
+        # Tier: generation is paid-tier only, so a key created without billing produces a
+        # refusal rather than an image. "Free to create" and "free to use" are different
+        # claims and the owner was given the wrong one.
+        "needs_card": True,
         "reachable": True,
-        "minutes": 2,
+        "minutes": 4,
         "how": ("sign in with the Google account already on the phone, tap Get API key, "
-                "tap Create API key, copy it"),
-        "why_first": ("free to create and it is the only account that unlocks two "
-                      "candidates, one of them the texture-strongest one"),
+                "create the key in a project with billing enabled -- image output is not "
+                "available on the free tier -- and copy it"),
+        "why_first": ("the texture-strongest candidate, and the one the benchmark exists to "
+                      "test: it is also the dearest, so whether 4K fabric detail is worth "
+                      "five times FLUX's price is exactly the question"),
     },
     "bfl": {
         "name": "Black Forest Labs",
