@@ -63,6 +63,15 @@ class ImageProvider:
     # counted models rather than accounts would ask for five sign-ups to reach five
     # candidates when three reach four of them.
     account: str = ""
+    # The exact identifier on the wire, and which API dialect to speak. These exist because
+    # the first version of `generate` sent one invented body -- `{"prompt", "size"}` with a
+    # bearer token -- to every provider's base endpoint, on the reasoning that the
+    # differences "are not worth an abstraction nobody has exercised". The moment a real key
+    # existed the reasoning collapsed: Google wants `x-goog-api-key`, a `:generateContent`
+    # suffix, a `contents` array and an `imageConfig`, and would have refused that body under
+    # any billing arrangement. An abstraction nobody has exercised is not thin, it is untested.
+    model: str = ""
+    dialect: str = ""
 
     @property
     def cad_per_image(self) -> float:
@@ -87,13 +96,13 @@ PROVIDERS: tuple[ImageProvider, ...] = (
         "https://api.bfl.ai/v1/flux-2-pro", 0.02, True, 8,
         "cheapest of the candidates that conditions on reference images, which is what an "
         "identity lock actually is. Eight references is more than a canonical face pack "
-        "needs", account="bfl"),
+        "needs", account="bfl", model="flux-2-pro", dialect="bfl"),
     ImageProvider(
         "gpt-image-2", "OpenAI GPT Image 2 at 1024px",
         "https://api.openai.com/v1/images/generations", 0.03, True, 16,
         "strongest prompt adherence of the three and the most reference images; half again "
         "the price of FLUX per image, which matters at catalogue scale and not at pack "
-        "scale", account="openai"),
+        "scale", account="openai", model="gpt-image-2", dialect="openai"),
     ImageProvider(
         "nano-banana-2", "Google Gemini 3.1 Flash Image (Nano Banana 2)",
         "https://generativelanguage.googleapis.com/v1beta/models", 0.101, True, 5,
@@ -104,12 +113,12 @@ PROVIDERS: tuple[ImageProvider, ...] = (
         "US$60 per million tokens and a 2048px image is 1,680 of them. The table said 0.063, "
         "which is nearer the 1K figure (1,120 tokens, US$0.067) -- and this candidate is "
         "benchmarked at 2K, so the estimate was for a rendering nobody was going to do",
-        account="google"),
+        account="google", model="gemini-3.1-flash-image", dialect="google"),
     ImageProvider(
         "seedream-v5-lite", "ByteDance Seedream v5.0 Lite",
         "https://ark.cn-beijing.volces.com/api/v3/images/generations", 0.026, True, 4,
         "production-quality output at 2048px, between FLUX and GPT Image on price",
-        account="volcengine"),
+        account="volcengine", model="seedream-5-0-lite", dialect="openai"),
     # Imagen 4 was here, listed to be ruled out on the requirement rather than on taste: no
     # reference conditioning, so #200 and #201 are unmeetable by it whatever its
     # photorealism. It is removed rather than re-priced because on 2026-09-21 it no longer
@@ -368,19 +377,198 @@ def monthly_estimate_cad(provider: ImageProvider) -> dict:
     }
 
 
-def generate(prompt: str, *, reference_urls: list[str] | None = None,
-             env: dict[str, str] | None = None, size: str = "1024x1024",
-             provider_key: str | None = None, timeout: float = 120.0) -> dict:
-    """Ask the configured provider for one image. Raises rather than returning nothing.
+class QuotaUnavailable(PermanentError):
+    """The account cannot pay for this call. Not a rate limit, and not a content refusal.
 
-    The request is deliberately thin and provider-shaped at one place: every candidate here
-    takes a prompt, an optional set of reference images and a size, and the differences
-    between their payloads are not worth an abstraction nobody has exercised. When a provider
-    is actually chosen this is where its exact body goes, and the probe below is what proves
-    the body is right rather than plausible.
+    Two live responses on 2026-09-21 made the case for a separate class:
+
+    Google answered 429 `generate_content_free_tier_requests, limit: 0`. A rate limit says
+    "slower"; a free-tier limit of zero says "not on this plan". Both arrive as 429 and only
+    one is worth retrying, and the generic mapping would have had the queue back off and
+    retry a request that could never succeed, reporting a transient outage the whole time.
+
+    Black Forest Labs answered 402 `Insufficient credits`. That fell through to
+    `ImagesRefused`, whose message says a content refusal "is a fact about the brief rather
+    than the wiring" -- so the audit log would have recorded the provider declining to
+    render a crochet basket on content grounds, when the actual fact was an empty balance.
+    A wrong diagnosis in the log is worse than none, because somebody acts on it: the answer
+    to a content refusal is a new brief, and the answer to this is a top-up.
     """
+
+
+# What a 429 body says when the answer is "not on this plan" rather than "slower". Matched
+# on the provider's own words because there is no status code for the difference.
+_PERMANENT_QUOTA: tuple[str, ...] = (
+    "limit: 0", "free_tier", "free tier", "billing details", "check your plan",
+    "exceeded your current quota", "insufficient_quota", "billing_hard_limit_reached",
+)
+
+
+def _is_permanent_quota(detail: str) -> bool:
+    low = (detail or "").lower()
+    return any(marker.lower() in low for marker in _PERMANENT_QUOTA)
+
+
+# Size on the wire. Google names sizes; the others take pixels. Kept as a translation rather
+# than as a string the caller is trusted to get right per provider.
+def _pixels(size: str) -> int:
+    try:
+        return int(str(size).lower().split("x")[0])
+    except (ValueError, IndexError):
+        return 1024
+
+
+def _google_tier(size: str) -> str:
+    px = _pixels(size)
+    return "4K" if px >= 3072 else "2K" if px >= 1536 else "1K"
+
+
+def _request_for(provider: ImageProvider, key: str, prompt: str,
+                 reference_urls: list[str] | None, size: str) -> tuple[str, dict, bytes]:
+    """The URL, headers and body this provider actually accepts.
+
+    Verified against the live API for `google` on 2026-09-21: the auth header, the
+    `:generateContent` suffix, the `contents` shape and `imageConfig` are what the endpoint
+    answered 200 to for model listing and 429-with-a-quota-reason for generation, which is
+    the response of an endpoint that understood the request. The other two dialects are
+    written from their published documentation and are **unverified** -- no key for either
+    exists yet, and the probe is what will prove them rather than this comment.
+    """
+    refs = list(reference_urls or [])
+    if provider.dialect == "google":
+        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{provider.model}:generateContent")
+        parts: list[dict] = [{"text": prompt}]
+        for ref in refs:
+            # Reference conditioning is what an identity lock is (#200). Google takes the
+            # bytes inline, so a reference has to be readable from here.
+            parts.append({"inlineData": {"mimeType": "image/png",
+                                         "data": _inline_reference(ref)}})
+        body = {
+            "contents": [{"parts": parts}],
+            "generationConfig": {"responseModalities": ["IMAGE"],
+                                 "imageConfig": {"imageSize": _google_tier(size)}},
+        }
+        return url, {"x-goog-api-key": key}, json.dumps(body).encode()
+
+    if provider.dialect == "bfl":
+        # Black Forest Labs is a submit-then-poll API: the POST returns a job, not a picture.
+        # Unverified; `generate` polls because a synchronous read of this endpoint would
+        # return a job id and `_first_image` would call it an answer without an image.
+        px = _pixels(size)
+        body = {"prompt": prompt, "width": px, "height": px,
+                **({"image_prompt": refs[0]} if refs else {})}
+        return provider.endpoint, {"x-key": key}, json.dumps(body).encode()
+
+    # OpenAI-shaped, which Volcano Engine also speaks. Unverified.
+    body = {"model": provider.model, "prompt": prompt, "size": size, "n": 1,
+            **({"image": refs} if refs else {})}
+    return provider.endpoint, {"authorization": f"Bearer {key}"}, json.dumps(body).encode()
+
+
+def _inline_reference(reference: str) -> str:
+    """A reference image as base64, from a local file. Never fetched from the network."""
+    import base64
+    from pathlib import Path
+
+    path = Path(reference)
+    if not path.is_file():
+        raise ImagesRefused(
+            f"{reference!r} is not a file on this disk. A reference image that resolves to "
+            f"nothing would be sent as a conditioning signal that conditions on nothing, "
+            f"and the identity lock would silently become a prompt")
+    return base64.standard_b64encode(path.read_bytes()).decode()
+
+
+def _parse_image(provider: ImageProvider, body: dict) -> tuple[str, str, str]:
+    """(url, base64, mime) from one provider's answer. Exactly one of url/base64 is set."""
+    if provider.dialect == "google":
+        for candidate in body.get("candidates") or []:
+            for part in (candidate.get("content") or {}).get("parts") or []:
+                inline = part.get("inlineData") or part.get("inline_data")
+                if inline and inline.get("data"):
+                    return "", inline["data"], inline.get("mimeType") or "image/png"
+        return "", "", ""
+
+    for container in (body.get("data"), body.get("images"), body.get("output"),
+                      body.get("result")):
+        for item in container or []:
+            if isinstance(item, str) and item.startswith("http"):
+                return item, "", ""
+            if isinstance(item, dict):
+                if item.get("url"):
+                    return str(item["url"]), "", ""
+                if item.get("b64_json"):
+                    return "", str(item["b64_json"]), "image/png"
+    sample = body.get("result") if isinstance(body.get("result"), dict) else {}
+    if sample.get("sample"):
+        return str(sample["sample"]), "", ""
+    return str(body.get("url") or ""), "", ""
+
+
+def _post(url: str, headers: dict, payload: bytes, *, label: str,
+          timeout: float) -> dict:
     import urllib.error
     import urllib.request
+
+    request = urllib.request.Request(url, data=payload, method="POST")
+    request.add_header("content-type", "application/json")
+    for name, value in headers.items():
+        request.add_header(name, value)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:500]
+        if exc.code == 402 or (exc.code == 429 and _is_permanent_quota(detail)):
+            raise QuotaUnavailable(
+                f"{label} {exc.code}: {detail}. This is the account's balance or plan "
+                f"rather than traffic or the brief, so it is neither retried nor recorded "
+                f"as a content refusal. The answer is a top-up, not a new prompt") from exc
+        if exc.code in (429, 500, 502, 503, 504):
+            raise TransientError(f"{label} {exc.code}: {detail}") from exc
+        # A content refusal is permanent and is a fact about the brief rather than the
+        # wiring. It must surface as a refusal with the provider's words, not as an empty
+        # gallery somebody later explains as a rendering bug.
+        raise ImagesRefused(f"{label} {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise TransientError(f"{label} unreachable: {exc.reason}") from exc
+
+
+def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
+    import urllib.error
+    import urllib.request
+
+    request = urllib.request.Request(url, method="GET")
+    for name, value in headers.items():
+        request.add_header(name, value)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        raise TransientError(f"{label} poll {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise TransientError(f"{label} poll unreachable: {exc.reason}") from exc
+
+
+BFL_POLL_SECONDS = 2.0
+BFL_POLL_ATTEMPTS = 60
+
+
+def generate(prompt: str, *, reference_urls: list[str] | None = None,
+             env: dict[str, str] | None = None, size: str = "1024x1024",
+             provider_key: str | None = None, work_dir: str | None = None,
+             timeout: float = 120.0) -> dict:
+    """Ask one provider for one image. Raises rather than returning nothing.
+
+    Returns `image_ref`: whatever the judge can be handed, which is a URL when the provider
+    gives one and a path on this disk when it returns the bytes inline. Google returns
+    inline base64 and never a URL, so a caller that only read `url` would treat every
+    successful Google render as an answer with no picture in it.
+    """
+    import base64
+    import tempfile
+    from pathlib import Path
 
     e = env if env is not None else os.environ
     # `provider_key` is how the benchmark asks for a specific candidate. Without it this
@@ -401,49 +589,72 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
             f"key. This is the state the gate describes rather than a failure to retry")
 
-    payload = json.dumps({
-        "prompt": prompt, "size": size,
-        **({"reference_images": list(reference_urls)} if reference_urls else {}),
-    }).encode()
-    request = urllib.request.Request(provider.endpoint, data=payload, method="POST")
-    request.add_header("content-type", "application/json")
-    request.add_header("authorization", f"Bearer {key}")
-
+    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size)
     started = time.time()
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            body = json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")[:400]
-        if exc.code in (429, 500, 502, 503, 504):
-            raise TransientError(f"{provider.key} {exc.code}: {detail}") from exc
-        # A content refusal is permanent and is a fact about the brief rather than the
-        # wiring. It must surface as a refusal with the provider's words, not as an empty
-        # gallery somebody later explains as a rendering bug.
-        raise ImagesRefused(f"{provider.key} {exc.code}: {detail}") from exc
-    except urllib.error.URLError as exc:
-        raise TransientError(f"{provider.key} unreachable: {exc.reason}") from exc
+    body = _post(url, headers, payload, label=provider.key, timeout=timeout)
 
-    url = _first_image(body)
-    if not url:
+    if provider.dialect == "bfl" and body.get("polling_url"):
+        # Submit-then-poll. A job id is not a picture, and returning one as though it were
+        # is how a benchmark scores sixty identical acknowledgements.
+        poll = str(body["polling_url"])
+        for _ in range(BFL_POLL_ATTEMPTS):
+            body = _get(poll, headers, label=provider.key, timeout=timeout)
+            status = str(body.get("status") or "").lower()
+            if status in ("ready", "succeeded", "complete", "completed"):
+                break
+            if status in ("error", "failed", "content_moderated",
+                          "request_moderated"):
+                raise ImagesRefused(f"{provider.key} returned {status}: "
+                                    f"{json.dumps(body)[:300]}")
+            time.sleep(BFL_POLL_SECONDS)
+        else:
+            raise TransientError(
+                f"{provider.key} did not finish within "
+                f"{int(BFL_POLL_ATTEMPTS * BFL_POLL_SECONDS)}s")
+
+    image_url, b64, mime = _parse_image(provider, body)
+    if not image_url and not b64:
         raise ImagesRefused(
             f"{provider.key} answered without an image. A 200 with no picture in it is what "
             f"a content refusal and a wrong payload shape both look like from here")
-    return {"provider": provider.key, "url": url, "size": size,
+
+    # Every render is written to this disk, whether it arrived as bytes or as a link.
+    #
+    # The link case is the one that had to be learned. Black Forest Labs returns a presigned
+    # URL that expires about ten minutes after it is issued -- measured 2026-09-21: issued
+    # 01:47Z, `se=2026-09-21T01:57:00Z`. Passing that along works for a benchmark that
+    # judges immediately and fails quietly everywhere else: a model whose thirty renders
+    # take longer than the expiry loses its earliest images before they are scored, and the
+    # canonical identity pack of #200 -- the frozen reference every future listing is
+    # conditioned on -- cannot be a set of links that stop resolving over lunch. A reference
+    # that expires is not a lock.
+    root = Path(work_dir or tempfile.mkdtemp(prefix="generated-"))
+    root.mkdir(parents=True, exist_ok=True)
+    if b64:
+        raw = base64.b64decode(b64)
+    else:
+        import urllib.request
+
+        try:
+            with urllib.request.urlopen(image_url, timeout=timeout) as response:
+                raw = response.read()
+                mime = mime or response.headers.get("content-type", "")
+        except Exception as exc:  # noqa: BLE001 - a link that will not fetch is no image
+            raise ImagesRefused(
+                f"{provider.key} returned a link that could not be fetched: {exc}. A "
+                f"presigned URL is only an image while it lasts") from exc
+
+    suffix = ".jpg" if "jpeg" in mime else ".webp" if "webp" in mime else ".png"
+    path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
+    Path(path).write_bytes(raw)
+
+    return {"provider": provider.key, "url": image_url, "path": path,
+            "image_ref": path, "bytes": len(raw),
+            # Reported rather than assumed: the first version defaulted this to image/png
+            # and said so about a JPEG that BFL had plainly labelled.
+            "mime": mime or "", "size": size,
             "cad": provider.cad_per_image,
             "latency_ms": round((time.time() - started) * 1000, 2)}
-
-
-def _first_image(body: dict) -> str:
-    for container in (body.get("data"), body.get("images"), body.get("output")):
-        for item in container or []:
-            if isinstance(item, str) and item.startswith("http"):
-                return item
-            if isinstance(item, dict):
-                for field in ("url", "image_url", "b64_json"):
-                    if item.get(field):
-                        return str(item[field])
-    return str(body.get("url") or "")
 
 
 def probe(db, *, env: dict[str, str] | None = None, generator=None,

@@ -257,6 +257,44 @@ def test_no_module_names_a_model_string_outside_the_routing_table():
         f"tier, the token budget and the ledger's purpose are decided together")
 
 
+def test_somebody_elses_brand_in_the_frame_blocks_the_asset():
+    """Found in the first image this company ever generated, 2026-09-21.
+
+    GPT Image 2 was asked for a crochet basket beside a linen armchair. It produced a
+    beautiful styled scene in which the basket holds a stack of magazines, and the top one
+    carries the KINFOLK masthead, legibly, in the middle of the frame. Nothing in the
+    pipeline would have objected: `text_present` was already a description field and the
+    honest answer was `true`, which is a fact about the picture rather than a problem with
+    it.
+
+    It is a problem with it, and not one the caption can fix: a real mark in a listing
+    photograph is wrong even when the caption describes it accurately. It arrived unasked
+    for, on the first attempt, from the strongest prompt-adherence model in the set.
+    """
+    clean = {k: True for k in I.REALISM_CHECKS}
+    blocked = I.gate({"description": {"third_party_marks": ["KINFOLK magazine masthead"]},
+                      "realism": clean})
+    assert blocked["verdict"] == "blocked"
+    assert blocked["third_party_marks"] == ["KINFOLK magazine masthead"]
+    assert "no right to" in blocked["why"]
+
+
+def test_a_frame_with_no_marks_is_not_blocked_for_them():
+    clean = {k: True for k in I.REALISM_CHECKS}
+    for answer in ("none", "None", "", "unclear", []):
+        out = I.gate({"description": {"third_party_marks": answer}, "realism": clean})
+        assert out["verdict"] == "clear", (answer, out)
+        assert out["third_party_marks"] == []
+
+
+def test_the_describer_is_asked_about_props_not_only_the_product():
+    """The Kinfolk masthead was on a prop. A question about the product would have missed it."""
+    prompt = I.describe_prompt()
+    assert "third_party_marks" in prompt
+    assert "props" in prompt
+    assert "masthead" in prompt
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -7,6 +7,7 @@ a budget, or by scoring a partial rubric and averaging the gaps away.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -394,6 +395,97 @@ def test_the_nano_banana_price_is_the_one_for_the_size_it_is_rendered_at():
     assert B.BY_KEY["nano-banana-2"].resolution == "2048"
     assert B.BY_KEY["nano-banana-2"].usd_per_image == 0.101
     assert I.BY_KEY["nano-banana-2"].usd_per_image == 0.101
+
+
+# ---------------------------------------------------------------------------
+# What two real keys taught, 2026-09-21. Every case below is a live response.
+
+
+def test_each_provider_gets_the_body_its_api_actually_accepts():
+    """One invented body was sent to every provider, on the reasoning that the differences
+    "are not worth an abstraction nobody has exercised". The first real key collapsed it.
+
+    Google wants `x-goog-api-key`, a `:generateContent` suffix, a `contents` array and an
+    `imageConfig`; it would have refused `{"prompt", "size"}` with a bearer token under any
+    billing arrangement. An abstraction nobody has exercised is not thin, it is untested.
+    """
+    from brambleloop.gateway import images as I
+
+    url, headers, body = I._request_for(
+        I.BY_KEY["nano-banana-2"], "K", "a crochet basket", None, "2048x2048")
+    assert url.endswith("/models/gemini-3.1-flash-image:generateContent")
+    assert headers == {"x-goog-api-key": "K"}       # not Authorization: Bearer
+    sent = json.loads(body)
+    assert sent["contents"][0]["parts"][0]["text"] == "a crochet basket"
+    assert sent["generationConfig"]["responseModalities"] == ["IMAGE"]
+    assert sent["generationConfig"]["imageConfig"]["imageSize"] == "2K"
+
+    # Verified live: this path, this header and this body earned a 402 rather than a 404,
+    # 401 or 422, which is an endpoint that understood the request and wanted money.
+    url, headers, body = I._request_for(
+        I.BY_KEY["flux-2-pro"], "K", "a crochet basket", None, "1024x1024")
+    assert url == "https://api.bfl.ai/v1/flux-2-pro"
+    assert headers == {"x-key": "K"}
+    assert json.loads(body)["width"] == 1024
+
+
+def test_googles_size_names_are_translated_rather_than_passed_through():
+    from brambleloop.gateway import images as I
+
+    assert I._google_tier("1024x1024") == "1K"
+    assert I._google_tier("2048x2048") == "2K"
+    assert I._google_tier("4096x4096") == "4K"
+
+
+def test_an_inline_image_is_found_because_google_never_returns_a_url():
+    """`_first_image` looked only for URLs. Google returns base64 under `inlineData`, so a
+    successful render would have been reported as an answer with no picture in it."""
+    from brambleloop.gateway import images as I
+
+    body = {"candidates": [{"content": {"parts": [
+        {"inlineData": {"mimeType": "image/png", "data": "QUJD"}}]}}]}
+    url, b64, mime = I._parse_image(I.BY_KEY["nano-banana-2"], body)
+    assert url == "" and b64 == "QUJD" and mime == "image/png"
+
+
+def test_an_empty_balance_is_not_recorded_as_a_content_refusal():
+    """Black Forest Labs answered 402 `Insufficient credits`.
+
+    That fell through to `ImagesRefused`, whose message says a content refusal is a fact
+    about the brief rather than the wiring -- so the log would have said the provider
+    declined to render a crochet basket on content grounds. A wrong diagnosis is worse than
+    none, because somebody acts on it: a content refusal is answered with a new brief and
+    this is answered with a top-up.
+    """
+    from brambleloop.core.resilience import PermanentError, TransientError
+    from brambleloop.gateway import images as I
+
+    assert issubclass(I.QuotaUnavailable, PermanentError)
+    assert not issubclass(I.QuotaUnavailable, TransientError)
+    # Google's shape, verified live: a 429 that cannot be waited out.
+    assert I._is_permanent_quota(
+        "Quota exceeded for metric: generate_content_free_tier_requests, limit: 0")
+    # And an ordinary rate limit still is one.
+    assert not I._is_permanent_quota("Too many requests, please slow down")
+
+
+def test_a_candidate_that_cannot_pay_is_unmeasured_rather_than_failed_thirty_times():
+    """Thirty identical failure rows are one fact rendered as a measurement."""
+    from brambleloop.core.db import Database
+    from brambleloop.gateway import images as I
+
+    db = Database("sqlite://")
+    db.create_all()
+
+    def _broke(*a, **kw):
+        raise I.QuotaUnavailable("flux-2-pro 402: Insufficient credits")
+
+    out = B.run(db, generator=_broke, judge=lambda *a, **kw: "", env={})
+    assert out["ran"] is True
+    keys = {u["model"] for u in out["unmeasured"]}
+    assert keys, out["unmeasured"]
+    assert all("402" in u["why"] for u in out["unmeasured"])
+    assert out["decision"]["decided"] is False
 
 
 if __name__ == "__main__":

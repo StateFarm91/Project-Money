@@ -605,7 +605,10 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
             continue
         result = Result(model=candidate.key)
         rendered_urls: list[str] = []
+        stopped: dict | None = None
         for trial in TRIALS:
+            if stopped:
+                break
             for sample in range(SAMPLES_PER_TRIAL):
                 if spent >= BENCHMARK_CEILING_CAD:
                     result.failures.append({"trial": trial.key, "why": "benchmark ceiling"})
@@ -623,10 +626,21 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
                     dimensions = ((IDENTITY_DIMENSION,) if trial.needs_reference
                                   else RUBRIC)
                     result.latencies_ms.append(float(rendered.get("latency_ms") or 0.0))
-                    if rendered.get("url"):
-                        rendered_urls.append(rendered["url"])
-                    answer = (judge or _judge)(db, rendered["url"], dimensions)
+                    # Whatever the judge can be handed: a URL when the provider gives one,
+                    # a path on this disk when it returns the bytes inline. Google never
+                    # returns a URL, so reading only `url` would have treated every
+                    # successful Google render as an answer with no picture in it.
+                    ref = rendered.get("image_ref") or rendered.get("url") or ""
+                    if ref:
+                        rendered_urls.append(ref)
+                    answer = (judge or _judge)(db, ref, dimensions)
                     result.scores.append(parse_scores(answer, dimensions))
+                except images.QuotaUnavailable as exc:
+                    # Not this trial's failure: the account cannot render at all. Recording
+                    # it thirty times would fill the failure list with one fact and leave a
+                    # candidate looking like it had been measured and lost.
+                    stopped = {"model": candidate.key, "why": str(exc)[:300]}
+                    break
                 except (PermanentError, TransientError, BenchmarkRefused) as exc:
                     result.failures.append({"trial": trial.key, "sample": sample,
                                             "why": str(exc)[:200]})
@@ -642,6 +656,11 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
                 result.failures.append({"trial": "gallery_consistency",
                                         "why": str(exc)[:200]})
         result.cad_spent = round(spent, 4)
+        if stopped and not result.scores:
+            # Nothing was rendered, so there is nothing to score. Unmeasured, with the
+            # provider's own reason attached.
+            unmeasured.append(stopped)
+            continue
         results.append(result)
 
     return {"ran": True, "spent_cad": round(spent, 4),

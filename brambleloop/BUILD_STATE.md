@@ -362,6 +362,50 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**2026-09-21T01:50Z — the first images this company has ever generated, and the four
+defects that only a real key could show.**
+
+The owner supplied Google, Black Forest Labs and OpenAI credentials. **FLUX 2 Pro and GPT
+Image 2 both rendered.** Google's key authenticates and lists models, and every
+`generateContent` call — text as well as image — returns **403 "Your project has been denied
+access"**, which is a Google-side restriction on that project rather than a billing tier or a
+request-shape problem. All three keys are set on Railway; the image-generation gate stays shut
+because it is a probe, and one of the three cannot render.
+
+Four defects, none of which any amount of reading could have found:
+
+**The benchmark would have sent one invented body to every provider.** `generate` posted
+`{"prompt", "size"}` with a bearer token to each provider's base endpoint, on the stated
+reasoning that the differences "are not worth an abstraction nobody has exercised". Google
+wants `x-goog-api-key`, a `:generateContent` suffix, a `contents` array and an `imageConfig`,
+and would have refused that body under any billing arrangement. An abstraction nobody has
+exercised is not thin, it is untested (B-537).
+
+**An empty balance was being recorded as a content refusal.** Google answered 429 `limit: 0`
+and BFL answered 402 `Insufficient credits`. The first would have been retried for ever as a
+transient outage; the second fell through to a refusal path whose own message says the
+provider objected to the brief — so the log would have said a crochet basket was declined on
+content grounds. A content refusal is answered with a new brief and an empty balance with a
+top-up, so a wrong diagnosis is worse than none (B-538).
+
+**A presigned link is only an image while it lasts.** BFL's URL expires about ten minutes
+after it is issued — measured, 01:47Z issue against `se=01:57:00Z`. The canonical identity
+pack of #200 cannot be a set of links that stop resolving over lunch. Every render is written
+to disk now, which also fixes the mirror-image defect: Google and OpenAI return inline base64
+and never a URL, and the old parser looked only for URLs (B-539).
+
+**And the first generated image carried somebody else's trademark.** GPT Image 2 was asked for
+a basket beside a linen armchair; it produced a styled scene in which the basket holds
+magazines, the top one carrying the **KINFOLK masthead**, legibly, centre frame. Nothing would
+have objected — `text_present` was already a field and `true` was the honest answer, which is
+a fact about the picture rather than a problem with it. It is a problem with it, and not one a
+caption can fix. Unasked for, first attempt, from the strongest prompt-adherence model in the
+set. `third_party_marks` is now a description field and blocks the asset, and the describer is
+asked about **props** specifically, because that is where it was (B-540).
+
+Suite green at **2,724 across 149 suites**.
+
+## Previously — last completed milestone
 **Heartbeat 2026-09-21T00:30Z — the owner queue was asking for four finished things.**
 
 Production held ten open owner actions. Four were done: the Etsy shop that exists, the

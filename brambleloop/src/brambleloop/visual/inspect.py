@@ -56,7 +56,26 @@ TASK = "asset_inspection"
 DESCRIPTION_FIELDS: tuple[str, ...] = (
     "object_shown", "object_count", "finished_or_in_progress", "human_present",
     "text_present", "chart_or_diagram", "dominant_colours", "clarity",
+    # Added 2026-09-21 from an actual render. The first image this company ever generated
+    # through GPT Image 2 was a beautiful styled scene of a crochet basket holding a stack
+    # of magazines, and the top one carried the KINFOLK masthead, legibly, in the centre of
+    # the frame. Nothing in the pipeline would have objected: `text_present` was already a
+    # field and the answer would have been `true`, which is a fact about the picture rather
+    # than a problem with it.
+    #
+    # It is a problem with it. A third party's mark in a listing photograph is a listing
+    # that uses somebody's brand to sell something they have nothing to do with, and this
+    # company's own non-negotiables already forbid the same thing in words. It only ever
+    # appeared in imagery once imagery could be generated, and it arrived on the first try,
+    # unasked for, from the strongest prompt-adherence model in the set -- which is the
+    # argument for checking rather than for trusting the brief.
+    "third_party_marks",
 )
+
+# Marks block a release on their own, whatever the caption says. Unlike the contradictions
+# below, this is not a disagreement between picture and claim: a real brand in the frame is
+# wrong even when the caption describes it accurately.
+MARKS_NONE = ("none", "no", "false", "unclear", "")
 
 
 class InspectionRefused(ValueError):
@@ -69,7 +88,10 @@ def describe_prompt() -> str:
         + "\n".join(f"- {f}" for f in DESCRIPTION_FIELDS)
         + "\n\n`object_count` is an integer. `finished_or_in_progress` is one of: finished, "
           "in_progress, unclear. `human_present`, `text_present` and `chart_or_diagram` are "
-          "true or false. `clarity` is one of: clear, ambiguous, unreadable. Every other "
+          "true or false. `clarity` is one of: clear, ambiguous, unreadable. "
+          "`third_party_marks` lists any real brand name, logo, masthead, book or magazine "
+          "title, or other identifiable third-party mark legible anywhere in the frame, "
+          "including on props -- answer `none` only if there are none. Every other "
           "value is one short phrase. Omit nothing; use `unclear` where you cannot tell.")
 
 
@@ -277,6 +299,16 @@ def apply_to_frame(frame, inspection: dict) -> None:
         frame.readable_at_grid = description["clarity"] != "unreadable"
 
 
+def marks_found(description: dict) -> list[str]:
+    """Any identifiable third-party mark the describer reported. See DESCRIPTION_FIELDS."""
+    raw = (description or {}).get("third_party_marks")
+    if raw is None:
+        return []
+    items = raw if isinstance(raw, list) else [raw]
+    return [str(m).strip() for m in items
+            if str(m).strip().lower() not in MARKS_NONE]
+
+
 def gate(inspection: dict) -> dict:
     """Whether this asset may be released, from what was actually judged.
 
@@ -289,16 +321,20 @@ def gate(inspection: dict) -> dict:
     unjudged = list(inspection.get("realism_unjudged") or [])
     semantic = inspection.get("semantic") or {}
     problems = semantic.get("problems") or []
+    marks = marks_found(inspection.get("description") or {})
 
-    if failed or problems:
+    if failed or problems or marks:
         return {"verdict": "blocked", "failed_realism": failed,
                 "semantic_problems": problems,
-                "why": ("artefacts a maker sees instantly, or a picture that does not show "
-                        "what its caption promises. Either is worse than an obviously "
-                        "illustrated image")}
+                "third_party_marks": marks,
+                "why": ("artefacts a maker sees instantly, a picture that does not show "
+                        "what its caption promises, or somebody else's brand in the frame. "
+                        "The first two are worse than an obviously illustrated image; the "
+                        "third is using a mark this company has no right to")}
     if unjudged:
         return {"verdict": "unjudged", "unmade": unjudged,
                 "why": ("these checks were not made. Unmade is not passed, and a generated "
                         "frame with unmade realism checks does not ship")}
     return {"verdict": "clear", "failed_realism": [], "semantic_problems": [],
+            "third_party_marks": [],
             "why": "every check was made and every check passed"}
