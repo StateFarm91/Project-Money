@@ -86,12 +86,28 @@ def _revision(**overrides):
     return comparer
 
 
-def _build(tmp: Path, *, observe=None, compare=None):
+def _build(tmp: Path, *, observe=None, compare=None, hair=None):
     gen = _Generator(tmp)
     package = rp.build(_db(), work_dir=str(tmp), generator=gen,
                        observer=observe or (lambda db, ref: _seen()),
-                       comparer=compare or _compare())
+                       comparer=compare or _compare(),
+                       hair_comparer=hair or _never_asked)
     return gen, package
+
+
+def _never_asked(db, reference_ref, candidate_ref):  # pragma: no cover - must not be reached
+    raise AssertionError("the hair question was asked when hair did not move")
+
+
+def _hair(**overrides):
+    """The narrower hair question: colour, length and cut, separately from arrangement."""
+    out = {"colour": identity.MATCH, "length": identity.MATCH, "cut": identity.MATCH}
+    out.update(overrides)
+    def comparer(db, reference_ref, candidate_ref):
+        return {"same_hair": all(v == identity.MATCH for v in out.values()),
+                "verdicts": out, "arrangement_differs": True,
+                "note": "same hair, worn differently"}
+    return comparer
 
 
 def test_the_reference_is_three_frames_and_the_portrait_is_carried(tmp_path=None):
@@ -296,6 +312,58 @@ def test_a_preserved_dimension_nothing_could_read_is_not_counted_as_unchanged():
     assert "waist" not in package["revision"]["also_moved"]
     assert "reported here rather than counted as unchanged" in \
         package["revision"]["unreadable_is_not_preserved"]
+
+
+def test_hair_worn_up_is_not_a_different_woman():
+    """The defect the first real revision run exposed, in production, against real images.
+
+    Eight of nine approval conditions met and the ninth was `nothing_else_changed: ['hair']`
+    -- with the before and after showing identical colour, length and cut, worn up in the
+    approved references and down in the revised ones. The pack's single `hair` dimension
+    conflates who she is with how it was arranged that day, and the brief itself says she
+    wears it both ways. A floor that fails a revision for doing what the brief permits is
+    not a floor, it is a coin toss.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=_revision(hair=identity.DRIFT),
+                            hair=_hair())
+    assert package["revision"]["also_moved"] == []
+    assert package["revision"]["hair"]["same_hair"] is True
+    assert package["revision"]["hair"]["arrangement_differs"] is True
+    assert package["approval_conditions"]["nothing_else_changed"]["met"] is True
+    assert package["ready_for_owner_approval"] is True
+
+
+def test_hair_that_actually_changed_still_fails_the_revision():
+    """The narrower question has to be able to say no, or it is an excuse rather than a
+    check. Cutting or recolouring her is a redesign, which is the thing the owner ruled
+    out: a targeted morphology revision, not a different woman."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=_revision(hair=identity.DRIFT),
+                            hair=_hair(colour=identity.DRIFT))
+    assert package["revision"]["also_moved"] == ["hair"]
+    assert package["approval_conditions"]["nothing_else_changed"]["met"] is False
+    assert package["ready_for_owner_approval"] is False
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, cut = _build(Path(tmp), compare=_revision(hair=identity.DRIFT),
+                        hair=_hair(length=identity.UNMEASURABLE))
+    # Unmeasurable is not a pass here either: an unreadable answer leaves `hair` moved.
+    assert cut["revision"]["also_moved"] == ["hair"]
+
+
+def test_the_hair_question_is_only_asked_when_hair_moved():
+    """It costs a vision call. A second opinion solicited on every dimension that already
+    agreed is how a check becomes a way of paying to be told yes."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=_revision())   # _never_asked would raise
+    assert package["revision"]["hair"] is None
 
 
 def test_one_close_fitting_frame_must_read_chest_torso_and_waist_together():

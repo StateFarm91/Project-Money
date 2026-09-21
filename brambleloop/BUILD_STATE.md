@@ -4651,18 +4651,28 @@ timings, written there by the system rather than by hand.
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
   **2,868 tests passing, 0 failing**.
-- **OWNER ACTION REQUIRED — the Anthropic API balance is spent.** Discovered 2026-09-21
-  19:21Z when the revised reference pack rendered its images and died at the first vision
-  call. Action: add credit at console.anthropic.com -> Plans & Billing. Why: every judging
-  and vision call goes through Anthropic -- identity measurement, asset truth, MJs gallery
-  analysis. Image rendering is prepaid at OpenAI and Black Forest Labs and continues, which
-  is why renders succeed and the checks on them do not. Maximum cost: your choice; CA$25
-  covers the remaining pack validations and weeks of routine judging. Minutes: 5.
-  Consequence of delay: the revised canonical-model pack cannot be validated or presented,
-  and no generated asset can be checked. This is not the monthly ceiling, which stands at
-  about CA$45 of CA$100 (B-588). While it is spent, image renders that cannot be
-  checked are refused rather than paid for, and the action closes itself when a
-  real call next succeeds (B-589).
+- **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
+  again. The owner added US$10 and the console showed a balance, but a screenshot is a
+  claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
+  production call on the same credential Brambleloop actually uses, which returned
+  `ok=True` at 21:37:52Z, and `funding.cleared` closed the owner action on that result
+  rather than on the picture (B-588, B-589). While it was spent, image renders that could
+  not be checked were refused rather than paid for, which is why nothing shipped
+  unmeasured during the outage.
+- 2026-09-21 night, **the bust revision executed and the pack is at v8**. v6 (CA$0.2877)
+  produced the revision the owner asked for: measured against the *approved* body, the bust
+  reads `drift` and stature, shoulders, waist, hips, torso and limbs all read `match` --
+  a targeted morphology revision rather than a larger woman, which is the only check that
+  can tell those apart. v7 (CA$0.3288) met **eight of the nine** approval conditions and
+  failed the ninth on `nothing_else_changed: ['hair']`, with the before and after showing
+  identical hair colour, length and cut, worn up in the approved references and down in
+  the revised ones. The pack carried one `hair` dimension that conflated who she is with
+  how it was arranged, and the brief itself says she wears it both ways: a floor that fails
+  a revision for doing what it was told is the same defect as one nothing can fail. v8 asks
+  a narrower second question -- colour, length and cut separately from arrangement -- only
+  when `hair` moves, and drops it from `also_moved` only when all three come back `match`;
+  a recolour, a cut, or an unreadable answer all still fail (B-597). **Nothing is frozen and
+  nothing is owner-approved.** The v8 run is what the owner is shown.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

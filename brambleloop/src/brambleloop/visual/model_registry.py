@@ -293,6 +293,89 @@ def compare_identity(db, reference_ref: str, candidate_ref: str, *, provider=Non
 # The gate (#201)
 
 
+HAIR_SYSTEM = (
+    "You are comparing the hair of one woman in two photographs. Hair identity and hair "
+    "styling are different things: the colour, the length and the cut are who she is, and "
+    "whether it is up or down, tied back or loose, is how it was arranged that day. A "
+    "woman with her hair up is not a different woman."
+)
+
+HAIR_MAX_TOKENS = 300
+
+
+def hair_prompt() -> str:
+    return (
+        "Both images show the same woman on different occasions.\n\n"
+        "Answer as JSON with exactly these keys:\n"
+        '  "colour": "match", "drift" or "unmeasurable" -- the hair colour, including any '
+        "highlights or depth of tone\n"
+        '  "length": "match", "drift" or "unmeasurable" -- how long the hair is when it '
+        "hangs loose. Judge the hair, not the arrangement: hair worn up is not shorter\n"
+        '  "cut": "match", "drift" or "unmeasurable" -- the cut, including any fringe or '
+        "layering\n"
+        '  "arrangement_differs": true or false -- whether it is simply worn differently '
+        "(up versus down, tied versus loose)\n"
+        '  "note": one short sentence on what you saw\n'
+    )
+
+
+def compare_hair(db, reference_ref: str, candidate_ref: str, *, provider=None) -> dict:
+    """Is this the same hair, separately from how it was arranged?
+
+    Asked because the revision check flagged `hair` as changed between the approved body
+    references and the revised ones, and the pictures show why: the colour, the length and
+    the cut are identical and it is up in one pair and down in the other. The owner's
+    preserve list says hair and colouring, and the brief itself says she wears it up or
+    down -- so conflating styling with identity would fail a revision for doing what the
+    brief allows. One dimension, one question, because this is the only dimension in the
+    pack where the arrangement is a legitimate degree of freedom.
+    """
+    import json
+
+    from ..finance import spend_report
+    from ..gateway import anthropic as gw
+
+    provider = provider or gw.provider_for(TASK)
+    try:
+        response = provider.see(HAIR_SYSTEM, hair_prompt(),
+                                [reference_ref, candidate_ref], max_tokens=HAIR_MAX_TOKENS)
+    except (PermanentError, TransientError) as exc:
+        return {"error": str(exc)[:200]}
+
+    if db is not None:
+        cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                     + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        spend_report.record(
+            db, agent="creative_director", amount_cad=cost, estimated_cad=cost,
+            purpose=TASK, provider="anthropic", model=provider.model,
+            department="creative", tokens_in=response.input_tokens,
+            tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
+
+    import re
+
+    match = re.search(r"\{.*\}", response.text or "", re.S)
+    if not match:
+        return {"error": "no JSON in the hair comparison"}
+    try:
+        parsed = json.loads(match.group(0))
+    except ValueError as exc:
+        return {"error": f"the hair comparison could not be read: {exc}"[:200]}
+
+    verdicts = {k: str(parsed.get(k, identity.UNMEASURABLE)).strip().lower()
+                for k in ("colour", "length", "cut")}
+    same = all(v == identity.MATCH for v in verdicts.values())
+    return {
+        "same_hair": same,
+        "verdicts": verdicts,
+        "arrangement_differs": bool(parsed.get("arrangement_differs")),
+        "note": str(parsed.get("note") or "")[:240],
+        "why_this_is_asked": (
+            "hair identity and hair styling are different things, and the pack's single "
+            "`hair` dimension conflates them. A woman with her hair up is not a different "
+            "woman, and the brief says she wears it both ways"),
+    }
+
+
 def gate_frames(db, frames: list[dict], *, observer=None) -> dict:
     """Block model-bearing frames whose identity cannot be verified.
 

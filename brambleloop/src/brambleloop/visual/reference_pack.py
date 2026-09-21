@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v7-readable-decline-words-and-a-controlled-validation-frame"
+PACK_VERSION = "v8-hair-identity-separated-from-hair-styling"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -124,7 +124,7 @@ def _merge(face_from: dict, body_from: dict) -> dict:
 
 
 def build(db, *, env: dict | None = None, work_dir: str | None = None,
-          generator=None, observer=None, comparer=None) -> dict:
+          generator=None, observer=None, comparer=None, hair_comparer=None) -> dict:
     """Render the reference frames and the stress set, and measure what held.
 
     Returns the package the owner is shown. Freezes nothing, stores nothing as canonical,
@@ -271,7 +271,8 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     # the face still matches, nothing drifted against a pack built from the new body, and
     # the chest is duly fuller. So the revised references are compared against the approved
     # ones, where a bigger waist is a `drift` and shows up as what it is.
-    revision = _revision_check(db, compare, torso, full_length)
+    revision = _revision_check(db, compare, torso, full_length,
+                               hair_comparer=hair_comparer)
     unpinned = [d for d in identity.DRIFT_DIMENSIONS
                 if str(observed.get(d, "")).strip().lower() in ("", identity.UNMEASURABLE)]
     required_unpinned = [d for d in identity.REQUIRED_MEASURABLE["morphology"]
@@ -367,7 +368,8 @@ def _provisional(observed: dict) -> identity.ReferencePack:
                                   approved_by_owner_at="not yet -- awaiting owner approval")
 
 
-def _revision_check(db, compare, torso: str, full_length: str) -> dict:
+def _revision_check(db, compare, torso: str, full_length: str,
+                    *, hair_comparer=None) -> dict:
     """The revised body against the approved body, dimension by dimension."""
     against = {
         "torso_fit_reference": compare(db, brief.approved_reference("torso_fit_reference"),
@@ -390,7 +392,21 @@ def _revision_check(db, compare, torso: str, full_length: str) -> dict:
     moved = sorted(d for d, v in preserved.items() if v == identity.DRIFT)
     unreadable = sorted(d for d, v in preserved.items() if v == identity.UNMEASURABLE)
 
+    # Hair is the one preserved dimension where the arrangement is a legitimate degree of
+    # freedom -- the brief says she wears it up or down -- and the pack's single `hair`
+    # dimension conflates colour, length and cut with styling. The first revision was
+    # flagged for it, and the pictures showed identical hair worn up in one pair and down
+    # in the other. So when hair moves it is asked one narrower question, and only a real
+    # change to colour, length or cut counts against the revision.
+    hair = None
+    if "hair" in moved:
+        ask = hair_comparer or model_registry.compare_hair
+        hair = ask(db, brief.approved_reference("torso_fit_reference"), torso)
+        if hair.get("same_hair"):
+            moved = [d for d in moved if d != "hair"]
+
     return {
+        "hair": hair,
         "dimension": brief.REVISED_DIMENSION,
         "changed": revised == identity.DRIFT,
         "revised_verdict": revised,
