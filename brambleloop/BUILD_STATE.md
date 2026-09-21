@@ -4639,12 +4639,16 @@ timings, written there by the system rather than by hand.
   described by a model that never sees the claim, compared deterministically, gated on three
   verdicts, and disclosed as generated everywhere it appears (B-582). It runs as a daily job,
   idempotent per release; the seasonal cycle reports what exists rather than rendering.
+  The first live asset rendered, passed every existing check and depicted a
+  checkerboard where the pattern makes a diamond lattice: **motif fidelity is not
+  yet checkable**, so it is named as a gate rather than waved through, and the
+  asset is evidence to look at rather than a listing image (B-585).
   `/api/seasonal/remerchandising` computes its own availability now, rather than
   defaulting to "nothing works" because its caller passed nothing (B-583).
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,830 tests passing, 0 failing**.
+  **2,831 tests passing, 0 failing**.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

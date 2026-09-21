@@ -29,6 +29,12 @@ from __future__ import annotations
 
 ACTION = "assets.owned_photography"
 
+# The rendering method. Part of what makes an existing asset count as current, for the
+# reason every other versioned thing in this build learned the hard way: an asset made by a
+# method that has since been corrected is not the asset the corrected method would make, and
+# reading it as "already done" is how a correction never runs.
+METHOD_VERSION = "v2-motif-stated-and-fidelity-unverified"
+
 # The disclosure that travels with the asset. #79's rule, carried as data rather than left
 # to whoever writes the listing to remember.
 DISCLOSURE = ("AI-assisted illustration of the finished object, generated from this "
@@ -86,11 +92,27 @@ def prompt_for(cir, twin, *, occasion: str = "") -> str:
                      f"not a costume." if occasion else "")
     return (
         f"A finished hand-crocheted {form_of(cir)} in {colours}, photographed alone on a "
-        f"plain warm neutral surface in soft natural daylight.{size} The crochet fabric's "
-        f"stitch texture is clearly visible and the piece lies as real crocheted fabric "
-        f"lies.{occasion_line} No people, no hands, no text, no logos, no brand marks, no "
-        f"packaging. The object is the entire subject of the frame."
+        f"plain warm neutral surface in soft natural daylight.{size} {motif_sentence(cir)} "
+        f"The crochet fabric's stitch texture is clearly visible and the piece lies as real "
+        f"crocheted fabric lies.{occasion_line} No people, no hands, no text, no logos, no "
+        f"brand marks, no packaging. The object is the entire subject of the frame."
     )
+
+
+def motif_sentence(cir) -> str:
+    """The fabric's own motif, stated rather than left to the generator.
+
+    The first render of this asset was a clean, believable crocheted blanket in the right
+    two colours -- worked in a checkerboard, while the certified pattern makes a diamond
+    lattice. A listing image whose fabric is not the fabric is the refund a buyer opens
+    after making it, and it is the same failure as a beauty image with guessed
+    instructions: the picture and the pattern describing different objects.
+    """
+    note = (cir.designer_notes or "").strip()
+    first = note.split(".")[0].strip() if note else ""
+    return (f"The fabric is worked in this pattern's own motif: {first}."
+            if first else
+            "The fabric is a plain single-colour crochet fabric with no motif.")
 
 
 def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
@@ -142,6 +164,7 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
         "made": True,
         "slug": cir.slug,
         "version": cir.version,
+        "method_version": METHOD_VERSION,
         "form": form_of(cir),
         "occasion": occasion or None,
         "prompt": prompt,
@@ -157,7 +180,22 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
                         "semantic", "description_error", "realism_error")},
         "verdict": verdict["verdict"],
         "why": verdict["why"],
-        "usable_as_listing_asset": verdict["verdict"] == "clear",
+        "motif_claimed": motif_sentence(cir),
+        # Stated rather than assumed. The describer's vocabulary is closed -- deliberately,
+        # so a semantic check cannot be satisfied by "a lovely blanket" -- and it has no
+        # field for which stitch motif the fabric is worked in. So the picture is asked for
+        # the motif and nothing yet confirms it got it, which is a gap this names instead of
+        # papering over. Until something can check it, the asset is evidence the owner can
+        # look at rather than a listing image.
+        "motif_verified": False,
+        "motif_why": ("nothing can yet confirm that the depicted stitch pattern is this "
+                      "pattern's motif. The first render was a checkerboard where the CIR "
+                      "makes a diamond lattice, and no check caught it"),
+        "usable_as_listing_asset": False,
+        "usable_why": ("the asset-truth checks pass and motif fidelity is unverified, so "
+                       "this is not yet a listing image. A picture whose fabric is not the "
+                       "fabric is the refund a buyer opens after making it"
+                       if verdict["verdict"] == "clear" else verdict["why"]),
         "spent_cad": round(spent, 4),
         "never_a_photograph": (
             "this is a generated illustration of the certified object and is disclosed as "
@@ -181,6 +219,8 @@ def last_asset(db, *, slug: str = "") -> dict | None:
         for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
                              .order_by(desc(AuditLog.id)).limit(20)):
             detail = row.detail or {}
-            if detail.get("made") and (not slug or detail.get("slug") == slug):
+            if (detail.get("made")
+                    and detail.get("method_version") == METHOD_VERSION
+                    and (not slug or detail.get("slug") == slug)):
                 return detail
     return None

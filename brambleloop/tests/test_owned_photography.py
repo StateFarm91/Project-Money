@@ -112,15 +112,31 @@ def test_an_unmade_realism_check_is_not_a_pass():
     assert record["usable_as_listing_asset"] is False
 
 
-def test_a_clean_render_becomes_a_usable_asset_and_is_kept_by_digest():
+def test_a_clean_render_is_kept_and_is_still_not_a_listing_image():
+    """Every check that exists passed, and one that does not exist yet is the point.
+
+    The first live render was a clean, believable crocheted blanket in the right two
+    colours, worked in a checkerboard -- while the certified pattern makes a diamond
+    lattice. Nothing caught it, because the describer's vocabulary is closed and has no
+    field for the motif. A picture whose fabric is not the fabric is the refund a buyer
+    opens after making it, so the asset is evidence to look at rather than a listing image.
+    """
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
         record = _make(Path(tmp))
     assert record["verdict"] == "clear"
-    assert record["usable_as_listing_asset"] is True
     assert record["image"]["url"].startswith("/api/model-tournament/image/")
     assert record["spent_cad"] == 0.04
+    assert record["motif_verified"] is False
+    assert record["usable_as_listing_asset"] is False
+    assert "not the fabric" in record["usable_why"]
+
+
+def test_the_prompt_states_the_patterns_own_motif():
+    cir, twin = _subject()
+    assert "diamond lattice" in op.prompt_for(cir, twin).lower()
+    assert "9-stitch repeat" in op.prompt_for(cir, twin)
 
 
 def test_a_product_whose_listing_needs_the_model_is_refused_rather_than_shot_without_her():
