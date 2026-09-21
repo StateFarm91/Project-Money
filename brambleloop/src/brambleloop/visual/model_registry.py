@@ -363,11 +363,35 @@ def compare_hair(db, reference_ref: str, candidate_ref: str, *, provider=None) -
 
     verdicts = {k: str(parsed.get(k, identity.UNMEASURABLE)).strip().lower()
                 for k in ("colour", "length", "cut")}
-    same = all(v == identity.MATCH for v in verdicts.values())
+    arrangement_differs = bool(parsed.get("arrangement_differs"))
+    # Three conditions, and the middle one is the fix for the first live run of this check.
+    # Requiring all three to read `match` made the question unanswerable in exactly the
+    # situation it exists for: the approved reference wears her hair up, and length is
+    # unmeasurable from a bun by construction. The observer said so -- colour match, cut
+    # match, length unmeasurable, "pulled up into a bun ... the color and highlight pattern
+    # match" -- and the check called that a different woman. A floor that a bun can never
+    # clear is the same defect as one nothing can fail.
+    #
+    # So: nothing may read `drift`, at least two of the three must be positively readable
+    # as `match`, and the arrangement must actually differ. The last is the discipline --
+    # the narrower question has to *explain* the flagged drift, not merely fail to find
+    # one. Identical arrangement with hair still reading as changed is unexplained, and
+    # unexplained is not styling.
+    no_drift = identity.DRIFT not in verdicts.values()
+    readable = sum(1 for v in verdicts.values() if v == identity.MATCH)
+    same = no_drift and readable >= 2 and arrangement_differs
     return {
         "same_hair": same,
+        "same_hair_needed": {
+            "nothing_reads_drift": no_drift,
+            "at_least_two_of_three_read_match": readable >= 2,
+            "the_arrangement_actually_differs": arrangement_differs,
+            "why": ("length is unmeasurable from a bun by construction, so demanding three "
+                    "matches makes this unanswerable exactly when it is needed. Two "
+                    "positive reads and no drift is evidence; the arrangement difference "
+                    "is what makes it an explanation rather than a shrug")},
         "verdicts": verdicts,
-        "arrangement_differs": bool(parsed.get("arrangement_differs")),
+        "arrangement_differs": arrangement_differs,
         "note": str(parsed.get("note") or "")[:240],
         "why_this_is_asked": (
             "hair identity and hair styling are different things, and the pack's single "

@@ -935,6 +935,66 @@ def test_every_parked_requirement_names_a_gate_that_exists():
     assert not unknown, unknown
 
 
+def test_owner_approval_is_a_gate_rather_than_a_sentence_in_a_note():
+    """The defect this gate was written for, caught in production a day after it started.
+
+    Nine requirements' notes read "needs an image generation capability *and owner identity
+    selection*". Only the first half was written as a gate, so the moment image generation
+    started working all nine un-parked into the ready queue -- work nobody can start,
+    advertised as ready, which is the one number this module exists to get right. A prose
+    condition is not a gate no matter how clearly it is written.
+    """
+    assert "canonical_model" in E.GATE_BY_KEY
+    waiting = sorted(E.GATE_BY_KEY["canonical_model"].requirement_ids)
+    assert waiting == [72, 73, 74, 75, 130, 200, 201, 202]
+    for rid in waiting:
+        assert E.gate_for(rid) == "canonical_model"
+
+    db = _synced({"BRAMBLELOOP_IMAGE_KEY_OPENAI": "set"})
+    ready = {r["requirement_id"] for r in E.queue(db)["ready"]}
+    assert not ready & set(waiting)
+    assert E.reconciliation(db)["owner_gated_but_ready"] == []
+
+
+def test_a_rendered_pack_does_not_open_the_owner_approval_gate():
+    """The gate has to be unsatisfiable by more work. `canonical_pack` reads the one slot
+    `select` refuses to write without an approval timestamp, so a better picture cannot
+    make it true -- which is the whole point of a decision gate as against a capability."""
+    from brambleloop.visual import identity, model_registry
+
+    db = _db()
+    assert E._canonical_model_approved(db, {}) is False
+
+    model_registry.record_candidate(
+        db, "brambleloop-canonical",
+        fields={f: "described" for f in identity.IDENTITY_FIELDS},
+        image_refs=["rendered.png"])
+    assert E._canonical_model_approved(db, {}) is False, \
+        "a rendered candidate is not an approval"
+
+    try:
+        model_registry.select_canonical(db, "brambleloop-canonical", owner_approved=False)
+    except (model_registry.RegistryRefused, identity.IdentityRefused):
+        pass
+    else:                                                    # pragma: no cover
+        raise AssertionError("select_canonical promoted without the owner")
+    assert E._canonical_model_approved(db, {}) is False
+
+    model_registry.select_canonical(db, "brambleloop-canonical", owner_approved=True)
+    assert E._canonical_model_approved(db, {}) is True, \
+        "the gate must actually open once the owner approves, or it is a wall"
+
+
+def test_the_reconciliation_is_actually_called_by_the_report():
+    """It was written, tested, and read by nothing -- this build's most familiar failure,
+    committed by the module whose docstring names it. While nobody called it, nine
+    owner-gated requirements sat in the production ready list for a day."""
+    db = _synced({})
+    report = E.report(db, env={})
+    assert "reconciliation" in report
+    assert report["reconciliation"]["balances"] is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

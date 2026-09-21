@@ -99,13 +99,20 @@ def _never_asked(db, reference_ref, candidate_ref):  # pragma: no cover - must n
     raise AssertionError("the hair question was asked when hair did not move")
 
 
-def _hair(**overrides):
-    """The narrower hair question: colour, length and cut, separately from arrangement."""
+def _hair(*, arrangement_differs: bool = True, **overrides):
+    """The narrower hair question, answered the way the live one answers it.
+
+    Deliberately runs the real verdict rule rather than a hand-set boolean: a double that
+    decided `same_hair` for itself could not have caught the bun.
+    """
     out = {"colour": identity.MATCH, "length": identity.MATCH, "cut": identity.MATCH}
     out.update(overrides)
+
     def comparer(db, reference_ref, candidate_ref):
-        return {"same_hair": all(v == identity.MATCH for v in out.values()),
-                "verdicts": out, "arrangement_differs": True,
+        no_drift = identity.DRIFT not in out.values()
+        readable = sum(1 for v in out.values() if v == identity.MATCH)
+        return {"same_hair": no_drift and readable >= 2 and arrangement_differs,
+                "verdicts": out, "arrangement_differs": arrangement_differs,
                 "note": "same hair, worn differently"}
     return comparer
 
@@ -336,6 +343,37 @@ def test_hair_worn_up_is_not_a_different_woman():
     assert package["ready_for_owner_approval"] is True
 
 
+def test_a_bun_is_not_a_haircut():
+    """The first live run of the hair check failed on its own floor.
+
+    The approved reference wears her hair up, and length is unmeasurable from a bun by
+    construction. The observer said exactly that -- colour match, cut match, length
+    unmeasurable, "pulled up into a bun ... the color and highlight pattern match" -- and
+    demanding three matches called that a different woman. A floor a bun can never clear
+    is the same defect as one nothing can fail, one costume over.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=_revision(hair=identity.DRIFT),
+                            hair=_hair(length=identity.UNMEASURABLE))
+    assert package["revision"]["also_moved"] == []
+    assert package["approval_conditions"]["nothing_else_changed"]["met"] is True
+
+
+def test_hair_that_moved_with_no_change_of_arrangement_is_unexplained():
+    """The discipline that stops the narrower question becoming an excuse. It has to
+    *explain* the flagged drift, not merely fail to find one: identical styling with the
+    hair still reading as changed is unexplained, and unexplained is not styling."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=_revision(hair=identity.DRIFT),
+                            hair=_hair(arrangement_differs=False))
+    assert package["revision"]["also_moved"] == ["hair"]
+    assert package["ready_for_owner_approval"] is False
+
+
 def test_hair_that_actually_changed_still_fails_the_revision():
     """The narrower question has to be able to say no, or it is an excuse rather than a
     check. Cutting or recolouring her is a redesign, which is the thing the owner ruled
@@ -350,10 +388,41 @@ def test_hair_that_actually_changed_still_fails_the_revision():
     assert package["ready_for_owner_approval"] is False
 
     with tempfile.TemporaryDirectory() as tmp:
-        _, cut = _build(Path(tmp), compare=_revision(hair=identity.DRIFT),
-                        hair=_hair(length=identity.UNMEASURABLE))
-    # Unmeasurable is not a pass here either: an unreadable answer leaves `hair` moved.
-    assert cut["revision"]["also_moved"] == ["hair"]
+        _, thin = _build(Path(tmp), compare=_revision(hair=identity.DRIFT),
+                         hair=_hair(length=identity.UNMEASURABLE,
+                                    cut=identity.UNMEASURABLE))
+    # One readable match is not evidence of the same hair. A bun costs the length and
+    # nothing else, so two of three stays reachable; one of three means the question was
+    # not actually answered, and unanswered is not a pass.
+    assert thin["revision"]["also_moved"] == ["hair"]
+
+
+def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
+    """The contradiction the first v9 run was built to stop, seen in production.
+
+    Three torso frames in a row came back with `bust: unmeasurable`, and the comparison of
+    those same frames against the approved body returned `bust: match` -- so the pack
+    reported that the revision had not changed the bust, on the strength of two images
+    neither of which could state a bust. "It did not change" and "nothing here could see
+    it" are different findings with different fixes, and printing the first when the second
+    is true sends the next run after the generator instead of after the frame.
+    """
+    import tempfile
+
+    def cannot_see_the_chest(db, ref):
+        return _seen(bust=identity.UNMEASURABLE)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), observe=cannot_see_the_chest,
+                            compare=_revision())
+    assert package["revision"]["no_frame_could_state_it"] is True
+    assert package["revision"]["revised_verdict"] == identity.UNMEASURABLE
+    assert package["revision"]["changed"] is False
+    condition = package["approval_conditions"]["the_bust_actually_changed"]
+    assert condition["met"] is False
+    assert "nothing to compare" in condition["detail"]
+    assert "is not a pass" in condition["detail"]
+    assert package["ready_for_owner_approval"] is False
 
 
 def test_the_hair_question_is_only_asked_when_hair_moved():

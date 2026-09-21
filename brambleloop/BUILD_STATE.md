@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,868 tests passing, 0 failing**.
+  **2,891 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4673,6 +4673,52 @@ timings, written there by the system rather than by hand.
   when `hair` moves, and drops it from `also_moved` only when all three come back `match`;
   a recolour, a cut, or an unreadable answer all still fail (B-597). **Nothing is frozen and
   nothing is owner-approved.** The v8 run is what the owner is shown.
+- 2026-09-21 night, **the v8 pack ran in production and failed honestly, twice over.** The
+  hair separation worked as designed and then failed on its own floor: the approved
+  reference wears her hair up, length is unmeasurable from a bun by construction, and
+  demanding three `match` verdicts called that a different woman -- the observer's own note
+  read "pulled up into a bun ... the color and highlight pattern match". Worse, three torso
+  frames in a row came back with `bust: unmeasurable` while the comparison of those same
+  frames against the approved body returned `bust: match`, so the pack reported that the
+  revision had not changed the bust on the strength of two images neither of which could
+  state one. v9 fixes both: the revised dimension is `unmeasurable` when no frame could
+  state it (not a pass, and not a finding that the revision failed), and the hair question
+  needs no `drift`, two of three positively read, and an arrangement difference that
+  actually explains the flagged drift (B-600). **The pack is not ready for owner approval
+  and nothing is frozen.** The v9 run is what the owner will be shown.
+- 2026-09-21, **the executor and the registry were disagreeing in production and nothing
+  was reading the check that says so.** Nine requirements' notes read "needs an image
+  generation capability *and owner identity selection*"; only the first half was a gate, so
+  when image generation started working all nine un-parked into the ready queue -- work
+  nobody can start, advertised as ready. A `canonical_model` gate now reads the one slot
+  `select_canonical` refuses to write without the owner, so no amount of rendering opens
+  it. And `reconciliation()`, which states the invariant that nothing owner-gated is ever
+  ready, had tests and no callers: it is now in `report()` and in `/api/build` (B-599).
+- 2026-09-21 night, **the coverage percentage got a ladder under it**. `covered` means
+  somebody read the spec line, read the module, and judged that the module satisfies it --
+  a real judgement, and rung one and a half of six. 222 of those reported as "69.4%
+  complete" was this build's most flattering number, and the owner named the gap exactly: a
+  requirement is not complete merely because code exists. `build2/maturity.py` measures
+  implemented -> tested -> deployed -> exercised -> evidenced -> production-observed from
+  evidence, at `/api/build2/maturity`, and never reads the registry's own status: a ladder
+  that consulted the claim it is testing would be measuring the claim against itself. The
+  job-type map is parsed out of `runtime/release.py` rather than declared. Unmeasurable is
+  its own column and is never a pass -- 64 requirements were audited in prose that names no
+  module, and most modules are libraries no job type reaches, so calling either "not
+  exercised" would invent failures out of the measurement's blind spot. Locally: 158 of 222
+  reach `tested`, 64 are unreadable, and `deployed` and above are unmeasurable by
+  construction, because an import that succeeds on a laptop is rung one wearing rung
+  three's name. Production is where the top four rungs get their answer (B-598).
+- 2026-09-21, **the MJs teardown laboratory is proven end to end in production, on real
+  documents.** Before asking for the CA$292 purchase, it was run against four of
+  Brambleloop's own patterns as a proof fixture: 26 pages read through the quarantine,
+  every page yielding text, 63 dimension observations, 8 of 8 stages driven, 12 listing
+  claims extracted, 8 settled against the documents and 4 left unverifiable. Two things it
+  is honest about rather than quiet about: `construction_to_object` returned
+  `unverifiable` for all four, and `assembly` appears in no Brambleloop document because
+  this catalogue is flat and seamless -- so that path is decided, not exercised. The
+  readiness verdict is READY and nothing blocks the purchase, which remains the owner's
+  decision and has not been made.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

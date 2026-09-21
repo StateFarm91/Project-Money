@@ -295,6 +295,25 @@ def _image_generation_usable(db, env) -> bool:
     return usable(db)
 
 
+def _canonical_model_approved(db, env) -> bool:
+    """Whether the owner has actually approved a canonical model, not whether one rendered.
+
+    Nine requirements said it in prose and no gate said it in code. Their notes all read
+    "needs an image generation capability *and owner identity selection*", and only the
+    first half was checkable -- so the moment image generation started working, nine
+    owner-gated requirements un-parked into the ready queue, which is the queue advertising
+    work nobody can start. That is the single number this module exists to get right, and
+    it had been wrong since the image gate opened.
+
+    `canonical_pack` reads the one slot nothing can write without the owner: `select`
+    refuses to promote a candidate without an approval timestamp, so this cannot be made
+    true by rendering a better picture.
+    """
+    from ..visual import model_registry
+
+    return model_registry.canonical_pack(db) is not None
+
+
 def _offsite_archive_written(db, env) -> bool:
     """Whether a continuity archive has actually made the whole round trip.
 
@@ -464,9 +483,23 @@ GATES: tuple[Gate, ...] = (
          "an image-generation provider that conditions on reference images, because an "
          "identity lock is reference conditioning rather than a better prompt",
          _image_generation_usable,
-         (72, 73, 74, 75, 130, 198, 199, 200, 201, 202),
+         (198, 199),
          "a recorded image.probe generated a real image -- and a provider that refuses this "
          "brief on content grounds is a refusal in its own words, never an empty gallery"),
+    # The half of the model gate that was written in prose and never in code. Every one of
+    # these requirements' notes said "needs an image generation capability *and owner
+    # identity selection*"; only the first half was checkable, so all nine un-parked into
+    # the ready queue the moment images started working. The tournament and the aesthetic
+    # direction stay on `image_generation` above, because rendering a field is exactly what
+    # they needed and both have happened.
+    Gate("canonical_model",
+         "the owner's approval of a canonical model identity, which is a decision rather "
+         "than a capability -- no amount of rendering produces it",
+         _canonical_model_approved,
+         (72, 73, 74, 75, 130, 200, 201, 202),
+         "a ModelIdentity row is canonical with an owner approval timestamp. `select` "
+         "refuses to promote a candidate without one, so a better picture cannot make "
+         "this true"),
     Gate("benchmark_purchases", "roughly ten purchased competitor patterns",
          _benchmarks_purchased,
          (165, 166, 168, 317),
@@ -1086,6 +1119,11 @@ def report(db, *, env: dict[str, str] | None = None) -> dict:
     snapshot = queue(db)
     return {
         "queue": snapshot,
+        # `reconciliation` was written, tested and then called by nothing -- the build's own
+        # most familiar failure, committed by the module whose docstring names it. It states
+        # the invariant that nothing owner-gated is ever ready, and while nobody read it,
+        # nine owner-gated requirements sat in the ready list in production for a day.
+        "reconciliation": reconciliation(db),
         "watchdog": watchdog(db),
         "gates": gate_states(db, env),
         "capabilities": access.statuses(env),

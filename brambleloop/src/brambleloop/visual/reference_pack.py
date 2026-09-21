@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v8-hair-identity-separated-from-hair-styling"
+PACK_VERSION = "v9-a-verdict-needs-a-frame-that-could-state-it"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -271,10 +271,10 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     # the face still matches, nothing drifted against a pack built from the new body, and
     # the chest is duly fuller. So the revised references are compared against the approved
     # ones, where a bigger waist is a `drift` and shows up as what it is.
-    revision = _revision_check(db, compare, torso, full_length,
-                               hair_comparer=hair_comparer)
     unpinned = [d for d in identity.DRIFT_DIMENSIONS
                 if str(observed.get(d, "")).strip().lower() in ("", identity.UNMEASURABLE)]
+    revision = _revision_check(db, compare, torso, full_length,
+                               hair_comparer=hair_comparer, unpinned=unpinned)
     required_unpinned = [d for d in identity.REQUIRED_MEASURABLE["morphology"]
                          if d in unpinned]
 
@@ -369,8 +369,18 @@ def _provisional(observed: dict) -> identity.ReferencePack:
 
 
 def _revision_check(db, compare, torso: str, full_length: str,
-                    *, hair_comparer=None) -> dict:
-    """The revised body against the approved body, dimension by dimension."""
+                    *, hair_comparer=None, unpinned: list[str] | None = None) -> dict:
+    """The revised body against the approved body, dimension by dimension.
+
+    `unpinned` is the list of dimensions the pack's own observation could not state, and it
+    is here because the first v8 run produced the contradiction it exists to stop: three
+    torso frames in a row came back with `bust: unmeasurable`, and the comparison of those
+    same frames against the approved body returned `bust: match` -- so the pack reported
+    "the revision did not change the bust" on the strength of two images neither of which
+    could state a bust. That is a verdict computed from absence of evidence, and it is the
+    worst version of it, because it reads as a finding about the generator rather than
+    about the measurement.
+    """
     against = {
         "torso_fit_reference": compare(db, brief.approved_reference("torso_fit_reference"),
                                        torso),
@@ -388,6 +398,15 @@ def _revision_check(db, compare, torso: str, full_length: str,
         return identity.UNMEASURABLE
 
     revised = verdict_for(brief.REVISED_DIMENSION)
+    # Only the revised dimension is overridden this way, and the asymmetry is deliberate.
+    # Here the verdict *is* the floor, so a confident answer with nothing under it decides
+    # the run. For a preserved dimension a comparison's `match` grants nothing -- it only
+    # declines to add the dimension to `also_moved` -- and downgrading those as well would
+    # make the revision unclearable whenever a pose hid a hip, which is the opposite
+    # failure and just as useless.
+    revised_had_no_frame = brief.REVISED_DIMENSION in (unpinned or [])
+    if revised_had_no_frame:
+        revised = identity.UNMEASURABLE
     preserved = {d: verdict_for(d) for d in brief.PRESERVE_THROUGH_REVISION}
     moved = sorted(d for d, v in preserved.items() if v == identity.DRIFT)
     unreadable = sorted(d for d, v in preserved.items() if v == identity.UNMEASURABLE)
@@ -410,6 +429,14 @@ def _revision_check(db, compare, torso: str, full_length: str,
         "dimension": brief.REVISED_DIMENSION,
         "changed": revised == identity.DRIFT,
         "revised_verdict": revised,
+        "no_frame_could_state_it": revised_had_no_frame,
+        "why_an_unstated_dimension_has_no_verdict": (
+            "the comparison answered `match` on a dimension the pack's own observation "
+            "could not state, across three re-rendered torso frames. 'It did not change' "
+            "and 'nothing here could see it' are different findings with different fixes, "
+            "and reporting the first when the second is true sends the next run after the "
+            "generator instead of after the frame"
+            if revised_had_no_frame else ""),
         "preserved": preserved,
         "also_moved": moved,
         "unreadable": unreadable,
@@ -542,7 +569,12 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
     if revision is not None:
         conditions["the_bust_actually_changed"] = {
             "met": bool(revision["changed"]),
-            "detail": f"against the approved body: {revision['revised_verdict']}"}
+            "detail": (
+                f"no reference frame could state the {revision['dimension']}, so there is "
+                f"nothing to compare -- unmeasurable, which is not a pass and is not a "
+                f"finding that the revision failed"
+                if revision.get("no_frame_could_state_it")
+                else f"against the approved body: {revision['revised_verdict']}")}
         conditions["nothing_else_changed"] = {
             "met": not revision["also_moved"],
             "detail": (f"also moved: {revision['also_moved']}" if revision["also_moved"]

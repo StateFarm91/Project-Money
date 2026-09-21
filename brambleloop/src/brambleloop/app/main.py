@@ -2836,6 +2836,23 @@ def api_build2() -> dict:
         "blocked_on_owner": [r.to_dict() for r in reqs.by_status(reqs.OWNER_GATED)],
     }
 
+
+@app.get("/api/build2/maturity")
+def api_build2_maturity(requirement: int | None = None) -> dict:
+    """How far the covered requirements actually got, rung by rung.
+
+    Separate from `/api/build2` because they answer different questions and the coverage
+    percentage was quietly answering both. `covered` is a judgement that the module
+    satisfies the spec line; this is whether that module was ever deployed, run, or seen
+    working against production data.
+    """
+    from ..build2 import maturity, requirements as reqs
+
+    if requirement is not None:
+        return maturity.ladder(db, reqs.get(requirement))
+    return maturity.report(db)
+
+
 @app.get("/api/jobs")
 def api_jobs(limit: int = 50) -> dict:
     with db.session() as s:
