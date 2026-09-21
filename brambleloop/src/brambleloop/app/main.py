@@ -97,6 +97,21 @@ def _startup() -> None:
     except (DuplicateJob, Exception):  # noqa: BLE001 - never block a boot
         pass
 
+    # And the canonical-model tournament, on the same principle. It is keyed on the brief,
+    # so this runs once per brief rather than once per deploy -- a changed direction renders
+    # a new field, an unchanged one does nothing. Bounded by the same idempotency and by the
+    # handler's own spend check.
+    try:
+        from ..runtime.release import _tournament_on_file
+        from ..gateway import images as _img2
+
+        if _img2.available() and _tournament_on_file(db) is None:
+            JobQueue(db).enqueue(
+                "creative_director", "creative.model_tournament", {},
+                idempotency_key=f"boot-tourney-{utcnow():%Y%m%d%H}")
+    except (DuplicateJob, Exception):  # noqa: BLE001 - never block a boot
+        pass
+
     runner.start(db)
 
 
