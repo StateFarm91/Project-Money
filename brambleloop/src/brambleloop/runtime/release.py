@@ -2400,6 +2400,30 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
         "winner": decision.get("winner"),
         "why": str(decision.get("why") or "")[:400],
     })
+    # An incomplete benchmark tries again soon; a complete one waits for the weekly cadence.
+    #
+    # Learned the hard way within an hour of shipping this: a deploy went out while the first
+    # run was working through its second candidate, the container was replaced, and the
+    # durable queue re-drove the job -- which worked only because each candidate's scores are
+    # stored as it finishes. Had it not been, the weekly cadence would have left a half-
+    # measured benchmark sitting for seven days with a winner it must not name.
+    #
+    # The re-enqueue is conditional on *progress*, not on incompleteness. A candidate that
+    # holds a credential and fails every time -- which is exactly the state of the Google
+    # project denied access on 2026-09-21 -- would otherwise re-queue this job for ever.
+    from ..gateway import images
+
+    measured_now = {r["model"] for r in (result.get("reused") or [])} | {
+        row["model"] for row in (decision.get("results") or []) if row.get("overall")}
+    credentialled = set(images.available(dict(os.environ)))
+    outstanding = credentialled - measured_now
+    progressed = bool(measured_now) and not result.get("reused_everything")
+    if outstanding and progressed and result.get("ran"):
+        ctx.enqueue("creative_director", "creative.image_benchmark",
+                    {"because": sorted(outstanding)},
+                    idempotency_key=f"image-benchmark-{sorted(outstanding)}")
+
     return {"ran": result.get("ran"), "spent_cad": result.get("spent_cad"),
             "winner": decision.get("winner"), "locked": decision.get("locked"),
+            "outstanding": sorted(outstanding),
             "unmeasured": [u["model"] for u in result.get("unmeasured") or []]}

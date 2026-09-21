@@ -278,6 +278,9 @@ class BenchmarkRefused(ValueError):
     """A benchmark that would report something it did not measure."""
 
 
+BY_KEY_TRIAL: dict[str, Trial] = {t.key: t for t in TRIALS}
+
+
 def eligible() -> dict:
     """Which candidates can meet the requirements at all, before anything is rendered.
 
@@ -383,9 +386,22 @@ def _credential_state(keep, env: dict | None = None) -> dict:
 
 
 def score_prompt(dimensions: tuple[Dimension, ...] = RUBRIC) -> str:
-    """The judge's question. It never learns which model rendered what."""
+    """The judge's question. It never learns which model rendered what.
+
+    The identity dimension is asked of two pictures rather than one, and the prompt has to
+    say so: a judge shown a reference and a regeneration, told it is looking at "one product
+    image", answers about whichever it looked at last.
+    """
+    pair = any(d.key == IDENTITY_DIMENSION.key for d in dimensions)
+    preamble = (
+        "You are shown TWO images from a crochet pattern shop. The FIRST is the approved "
+        "reference photograph of the shop's model. The SECOND is a new photograph that is "
+        "supposed to show the same woman. Judge the SECOND image, using the FIRST only to "
+        "decide whether it is the same person."
+        if pair else
+        "You are judging one product image for a crochet pattern shop.")
     return (
-        "You are judging one product image for a crochet pattern shop. Score each dimension "
+        preamble + " Score each dimension "
         f"from {SCORE_MIN} (fails completely) to {SCORE_MAX} (could be published as it is). "
         "Reply with a single JSON object mapping each key to an integer, plus a key "
         "`notes` mapping any score below 2 to one short phrase. Nothing else.\n\n"
@@ -479,6 +495,19 @@ class Result:
 
 CANDIDATE_ACTION = "image.benchmark_candidate"
 
+# Bumped when the *method* changes rather than the rubric, which invalidates every stored
+# score. v2, 2026-09-21: the anti-drift trial is now actually given a reference image, and
+# the judge is shown both pictures. Under v1 it was given neither -- the prompt said "the
+# same woman as the reference image" with no reference supplied, and the judge was asked
+# whether two people matched while looking at one photograph. The identity floor was
+# unpassable by construction, which is exactly what the first live run reported: CA$6.40
+# spent and no candidate cleared both floors. A check that cannot pass is not a check.
+METHOD_VERSION = "v2-reference-conditioned"
+
+# Which trial produces the face every later trial is conditioned on. Named rather than
+# positional: reordering TRIALS must not silently change what the identity lock locks to.
+CANONICAL_TRIAL = "model_identity"
+
 
 def rubric_fingerprint(candidate: Candidate) -> str:
     """What a stored result was measured under, so a stale one is never reused.
@@ -491,6 +520,7 @@ def rubric_fingerprint(candidate: Candidate) -> str:
     import hashlib
 
     material = "|".join([
+        METHOD_VERSION,
         candidate.key, candidate.resolution, f"{candidate.usd_per_image}",
         ",".join(d.key for d in RUBRIC), IDENTITY_DIMENSION.key, GALLERY_DIMENSION.key,
         ",".join(t.key for t in TRIALS), str(SAMPLES_PER_TRIAL), str(SCORE_MAX),
@@ -498,8 +528,29 @@ def rubric_fingerprint(candidate: Candidate) -> str:
     return hashlib.sha256(material.encode()).hexdigest()[:16]
 
 
+def expected_samples() -> int:
+    return len(TRIALS) * SAMPLES_PER_TRIAL
+
+
 def _store(db, result: Result, candidate: Candidate) -> None:
+    """Record a measurement, but only a complete one.
+
+    The first live run was interrupted by a deploy after sixteen of thirty samples. Those
+    sixteen were stored, and the next run reused them as though the candidate had been
+    measured -- so one model was ranked on sixteen samples against another's thirty. That is
+    the same fault `teardown.audits` refuses by name: scoring part of a schedule and
+    reporting the mean lets the run that looked at less outrank the run that looked at all
+    of it.
+    """
     from ..agents.registry import Registry
+
+    if len(result.scores) < expected_samples():
+        Registry(db).audit("creative_director", CANDIDATE_ACTION + "_partial", detail={
+            "model": result.model, "scored": len(result.scores),
+            "expected": expected_samples(),
+            "why": ("a partial measurement is not stored, because a reused partial is a "
+                    "candidate ranked on fewer samples than the one it is compared with")})
+        return
 
     Registry(db).audit("creative_director", CANDIDATE_ACTION, detail={
         "model": result.model, "fingerprint": rubric_fingerprint(candidate),
@@ -678,6 +729,12 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
         result = Result(model=candidate.key)
         rendered_urls: list[str] = []
         stopped: dict | None = None
+        # The canonical face this candidate produced, kept so the anti-drift trial can be
+        # conditioned on it. #200 is explicit that an identity lock is reference
+        # conditioning rather than a better prompt, so a drift test run without the
+        # reference is not a weak test -- it is a different test, of whether the model can
+        # invent the same stranger twice from a description.
+        reference: str = ""
         for trial in TRIALS:
             if stopped:
                 break
@@ -686,14 +743,25 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                     result.failures.append({"trial": trial.key, "why": "benchmark ceiling"})
                     continue
                 try:
-                    rendered = (generator(trial.prompt, env=env,
-                                          size=f"{candidate.resolution}x"
-                                               f"{candidate.resolution}")
+                    refs = [reference] if (trial.needs_reference and reference) else None
+                    if trial.needs_reference and not reference:
+                        result.failures.append({
+                            "trial": trial.key, "sample": sample,
+                            "why": ("no canonical render to condition on, so the drift test "
+                                    "would be asking the model to invent the same stranger "
+                                    "twice. Unrun, not failed")})
+                        continue
+                    size = f"{candidate.resolution}x{candidate.resolution}"
+                    # The injected generator gets the reference too. A test double that
+                    # is handed less than the real call is a double that cannot catch the
+                    # real call dropping something -- which is exactly the bug this trial
+                    # had for a day.
+                    rendered = (generator(trial.prompt, env=env, size=size,
+                                          reference_urls=refs)
                                 if generator else
                                 images.generate(trial.prompt, env=env,
                                                 provider_key=candidate.key,
-                                                size=f"{candidate.resolution}x"
-                                                     f"{candidate.resolution}"))
+                                                reference_urls=refs, size=size))
                     spent += float(rendered.get("cad") or candidate.cad_per_image)
                     dimensions = ((IDENTITY_DIMENSION,) if trial.needs_reference
                                   else RUBRIC)
@@ -705,7 +773,14 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                     ref = rendered.get("image_ref") or rendered.get("url") or ""
                     if ref:
                         rendered_urls.append(ref)
-                    answer = (judge or _judge)(db, ref, dimensions)
+                        if trial.key == CANONICAL_TRIAL and not reference:
+                            reference = ref
+                    # The drift question is "is this the same person", which needs both
+                    # pictures. Asking it of one was asking whether a stranger matched a
+                    # photograph nobody had shown the judge.
+                    shown = ([reference, ref] if (trial.needs_reference and reference)
+                             else [ref])
+                    answer = (judge or _judge)(db, shown, dimensions)
                     result.scores.append(parse_scores(answer, dimensions))
                 except images.QuotaUnavailable as exc:
                     # Not this trial's failure: the account cannot render at all. Recording
@@ -721,7 +796,7 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
         # stock photographs rather than one shop's gallery.
         if result.scores and rendered_urls:
             try:
-                answer = (judge or _judge)(db, rendered_urls[0], (GALLERY_DIMENSION,))
+                answer = (judge or _judge)(db, [rendered_urls[0]], (GALLERY_DIMENSION,))
                 result.gallery_consistency = parse_scores(
                     answer, (GALLERY_DIMENSION,))[GALLERY_DIMENSION.key]
             except (PermanentError, TransientError, BenchmarkRefused) as exc:
@@ -748,22 +823,28 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
             "decision": decide(results, unmeasured=unmeasured),
             "unmeasured": unmeasured,
             "reused": reused,
+            "reused_everything": bool(reused) and len(reused) == len(
+                [c for c in CANDIDATES if c.can_hold_an_identity]),
             "reuse_rule": ("a candidate already measured under this exact rubric is not "
                            "re-rendered; change the rubric, the trials, the sample count or "
                            "a resolution and every stored score stops matching"),
             "blind": ("the judge was never told which model rendered which image")}
 
 
-def _judge(db, image_url: str, dimensions: tuple[Dimension, ...]) -> str:
+def _judge(db, images_shown, dimensions: tuple[Dimension, ...]) -> str:
     from ..finance import spend_report
     from . import anthropic as gw
 
     provider = gw.provider_for(JUDGE_TASK)
     estimate = gw.check_budget(
         db, model=provider.model,
-        input_tokens=len(score_prompt(dimensions)) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+        input_tokens=len(score_prompt(dimensions)) // 4
+                     + gw.IMAGE_TOKENS_ESTIMATE * max(
+                         1, len([images_shown] if isinstance(images_shown, str)
+                                else images_shown)),
         max_tokens=JUDGE_MAX_TOKENS)["estimate_cad"]
-    response = provider.see("", score_prompt(dimensions), [image_url],
+    shown = [images_shown] if isinstance(images_shown, str) else list(images_shown)
+    response = provider.see("", score_prompt(dimensions), shown,
                             max_tokens=JUDGE_MAX_TOKENS)
     spend_report.record(
         db, agent="creative_director",
@@ -840,9 +921,26 @@ def _measured_state(db) -> dict:
                 "why_not_measured": "no database was supplied, so nothing was read",
                 "measured_candidates": [], "last_run": None}
 
-    scored = [c.key for c in keep if stored_result(db, c) is not None]
+    rows = {c.key: stored_result(db, c) for c in keep}
+    scored = [k for k, r in rows.items() if r is not None]
     outstanding = [c.key for c in keep if c.key not in scored]
     return {
+        "results": [{
+            "model": k,
+            "overall": r.overall(),
+            "fabric": round(sum(v for v in (r.mean(f) for f in FABRIC_DIMENSIONS)
+                                if v is not None)
+                            / max(len([1 for f in FABRIC_DIMENSIONS
+                                       if r.mean(f) is not None]), 1), 3),
+            "identity_match": r.mean(IDENTITY_DIMENSION.key),
+            "by_dimension": {d.key: r.mean(d.key) for d in RUBRIC},
+            "judged_images": len(r.scores),
+            "repeatability": r.repeatability(),
+            "latency_ms_median": r.latency_median(),
+            "cad_spent": r.cad_spent,
+        } for k, r in rows.items() if r is not None],
+        "method_version": METHOD_VERSION,
+        "samples_expected": expected_samples(),
         "measured": bool(scored),
         "complete": not outstanding,
         "measured_candidates": scored,

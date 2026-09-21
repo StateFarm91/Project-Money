@@ -20,10 +20,14 @@ from brambleloop.gateway import image_bench as B  # noqa: E402
 
 
 def _result(model, **means):
-    """A Result whose every render scored the same, so the mean is the given number."""
+    """A Result whose every render scored the same, so the mean is the given number.
+
+    A full schedule, because a partial one is no longer storable: ranking a model measured
+    on sixteen samples against one measured on thirty is the fault this refuses.
+    """
     r = B.Result(model=model)
     row = {d.key: means.get(d.key, 3) for d in B.RUBRIC}
-    r.scores = [dict(row) for _ in range(5)]
+    r.scores = [dict(row) for _ in range(B.expected_samples())]
     return r
 
 
@@ -608,6 +612,91 @@ def test_without_a_database_measured_is_unknown_rather_than_false():
     out = B.state(None)
     assert out["measured"] is None
     assert "no database" in out["why_not_measured"]
+
+
+# ---------------------------------------------------------------------------
+# What the first live run showed, 2026-09-21: CA$6.40 spent, nothing measurable.
+
+
+def test_the_drift_trial_is_given_a_reference_and_the_judge_is_shown_both():
+    """The identity floor was unpassable by construction.
+
+    `identity_repeat`'s prompt says "the same woman as the reference image" and `run` passed
+    no reference, so the model was asked to invent the same stranger twice. The judge was
+    then asked whether two people matched while being shown one photograph. The first live
+    run spent CA$6.40 and reported that no candidate cleared both floors -- which was true
+    of the test, not of the candidates. A check that cannot pass is not a check.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    seen: list[dict] = []
+    shown: list[list] = []
+
+    def _render(prompt, *, env=None, size=None, provider_key=None, reference_urls=None,
+                **kw):
+        seen.append({"prompt": prompt[:30], "refs": list(reference_urls or [])})
+        return {"provider": provider_key or "x", "image_ref": f"/tmp/{len(seen)}.png",
+                "url": "", "cad": 0.02, "latency_ms": 5.0}
+
+    def _judge(_db, images_shown, dimensions):
+        shown.append(list(images_shown))
+        return json.dumps({d.key: 4 for d in dimensions})
+
+    B.run(db, generator=_render, judge=_judge, env={})
+
+    drift = B.BY_KEY_TRIAL["identity_repeat"]
+    drift_calls = [s for s in seen if s["prompt"].startswith(drift.prompt[:30])]
+    assert drift_calls, "the anti-drift trial never ran"
+    assert all(c["refs"] for c in drift_calls), "rendered with no reference to drift from"
+    # And the judge saw a pair for that trial.
+    assert any(len(s) == 2 for s in shown), "the judge was asked about two people, shown one"
+
+
+def test_the_identity_prompt_tells_the_judge_there_are_two_pictures():
+    """A judge shown a pair and told it is looking at "one product image" answers about
+    whichever it looked at last."""
+    pair = B.score_prompt((B.IDENTITY_DIMENSION,))
+    assert "TWO images" in pair
+    assert "same person" in pair
+    assert "one product image" in B.score_prompt()
+
+
+def test_a_partial_measurement_is_never_stored():
+    """A deploy interrupted the first run after sixteen of thirty samples, and the next run
+    reused them -- ranking one model on sixteen against another's thirty."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+    candidate = B.BY_KEY["flux-2-pro"]
+
+    partial = B.Result(model="flux-2-pro")
+    partial.scores = [{d.key: 3 for d in B.RUBRIC} for _ in range(16)]
+    B._store(db, partial, candidate)
+    assert B.stored_result(db, candidate) is None, "a 16-of-30 measurement was reusable"
+
+    full = B.Result(model="flux-2-pro")
+    full.scores = [{d.key: 3 for d in B.RUBRIC} for _ in range(B.expected_samples())]
+    B._store(db, full, candidate)
+    assert B.stored_result(db, candidate) is not None
+
+
+def test_changing_the_method_invalidates_every_stored_score():
+    """v1 measured drift without a reference. Those numbers answer a different question."""
+    before = B.rubric_fingerprint(B.BY_KEY["flux-2-pro"])
+    original = B.METHOD_VERSION
+    try:
+        B.METHOD_VERSION = "v1-no-reference"
+        assert B.rubric_fingerprint(B.BY_KEY["flux-2-pro"]) != before
+    finally:
+        B.METHOD_VERSION = original
 
 
 if __name__ == "__main__":
