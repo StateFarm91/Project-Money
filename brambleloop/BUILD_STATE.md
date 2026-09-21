@@ -362,6 +362,70 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**2026-09-21T05:15Z — the benchmark ran for real, spent past its budget, and every defect
+it found was in the benchmark. It is stopped at the ceiling and the overrun is recorded.**
+
+### OWNER ACTION REQUIRED — benchmark budget
+
+| | |
+|---|---|
+| **Action** | Decide whether to raise the image-provider benchmark budget above CA$25, or stop and choose from what has been measured |
+| **Why** | The benchmark has spent **CA$31** of an approved **CA$25** and has one of two reachable candidates measured |
+| **What the overrun bought** | Nothing. It went to defects in the benchmark itself, all now fixed |
+| **Maximum cost** | ~CA$10 to finish GPT Image 2's schedule |
+| **Minutes** | 2 |
+| **Consequence of waiting** | The provider choice stays unmade and the twelve requirements behind `image_generation` stay parked |
+
+The job now refuses to start once the cumulative total is reached and raises this itself.
+Two things let an approved figure become CA$31 without anyone crossing a visible line: the
+ceiling was applied per run, so four runs each stayed inside a number approved once; and
+`spent_to_date` counted only the renders while the blind judging — the larger half — bills
+through the model gateway, so it reported CA$7 against a real CA$31 (B-550).
+
+### Verification of the three credentials
+
+| Provider | Verified | Evidence |
+|---|---|---|
+| **BFL FLUX 2 Pro** | **yes** | real renders, reference conditioning proven |
+| **OpenAI GPT Image 2** | **yes** | real renders, identity lock held across a regeneration |
+| **Google Nano Banana 2** | **no** | key authenticates and lists models; every `generateContent` call, text and image, returns 403 "Your project has been denied access" |
+
+All three are installed as Railway service variables and appear nowhere else: a grep of the
+working tree for each finds zero occurrences.
+
+### What the benchmark measured
+
+`flux-2-pro`, complete 30-sample schedule: overall **3.467**, fabric **3.013**, identity
+match **0.8**. It clears the fabric floor of 2.5 and fails the identity floor of 3.0.
+`gpt-image-2` has not completed a schedule. **No winner is locked, and none should be** — a
+leader chosen over candidates nobody could render is a shortlist of one.
+
+### Every defect the run found, all in the benchmark
+
+- **The identity floor was unpassable by construction** — the drift trial ran with no
+  reference image and the judge was shown one picture while being asked whether two people
+  matched (B-542).
+- **OpenAI conditions through `/v1/images/edits`**, multipart, not a field on
+  `/v1/images/generations` (B-545).
+- **Black Forest Labs needed base64**, and was handed the local filesystem path of the
+  canonical render (B-547).
+- **A partial schedule was stored and reused**, ranking one model on sixteen samples against
+  another's thirty (B-543).
+- **The follow-up job could not stop** — progress was read from the run's results while
+  storage required a complete schedule, so it re-queued itself every few minutes at about
+  CA$1.85 a time (B-546).
+- **`JUDGE_MAX_TOKENS` was 500** and the rubric outgrew it, so sixteen of thirty samples died
+  to a truncated JSON answer rather than to a model (B-548).
+- **The live ceiling variable still said CA$25**, five days after the owner raised it to
+  CA$100 (B-548).
+- **Two working providers could not open the image gate**, because the probe resolved its
+  provider through a variable nobody had set (B-549).
+
+**The identity lock then held.** The canonical model rendered through GPT Image 2, and a
+second image conditioned on her — different garment, different season, same face. That is
+#200 and #201 working for the first time in this build.
+
+## Previously — last completed milestone
 **2026-09-21T03:30Z — the benchmark ran for real, and every defect it found was in the
 benchmark.**
 
