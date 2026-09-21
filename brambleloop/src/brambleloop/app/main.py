@@ -37,6 +37,38 @@ db = Database()
 app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 
 
+# What the last boot's enqueues did, readable from /health.
+#
+# All three boot blocks were written as `except (DuplicateJob, Exception): pass`, which is
+# right about never blocking a boot and wrong about everything else: when the reference-pack
+# build silently failed to enqueue across two deploys, there was no way to tell an exception
+# from a duplicate key from a condition that was simply false. A swallowed exception with no
+# trace is the boot-time version of a gate nobody can see refusing.
+BOOT_ENQUEUES: list[dict] = []
+
+
+def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
+                  because: str = "") -> dict:
+    """Enqueue one boot job and record the outcome rather than swallowing it."""
+    record = {"name": name, "job_type": job_type, "key": key, "outcome": "", "detail": ""}
+    try:
+        if not when:
+            record["outcome"] = "not needed"
+        else:
+            job = JobQueue(db).enqueue(agent, job_type, {"because": because} if because else {},
+                                       idempotency_key=key)
+            record["outcome"] = "enqueued"
+            record["detail"] = f"job {job.id}"
+    except DuplicateJob as e:
+        record["outcome"] = "duplicate"
+        record["detail"] = str(e)[:200]
+    except Exception as e:  # noqa: BLE001 - a boot job must never block a boot
+        record["outcome"] = "error"
+        record["detail"] = f"{type(e).__name__}: {e}"[:300]
+    BOOT_ENQUEUES.append(record)
+    return record
+
+
 @app.on_event("startup")
 def _startup() -> None:
     schema_changes = db.create_all()
@@ -129,12 +161,13 @@ def _startup() -> None:
         from ..runtime.release import _pack_on_file, pack_boot_key
         from ..gateway import images as _img3
 
-        if _img3.available() and _pack_on_file(db) is None:
-            JobQueue(db).enqueue(
-                "creative_director", "creative.model_reference_pack", {},
-                idempotency_key=pack_boot_key(utcnow()))
-    except (DuplicateJob, Exception):  # noqa: BLE001 - never block a boot
-        pass
+        needed = bool(_img3.available()) and _pack_on_file(db) is None
+        _boot_enqueue("model_reference_pack", when=needed, agent="creative_director",
+                      job_type="creative.model_reference_pack",
+                      key=pack_boot_key(utcnow()))
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "model_reference_pack", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
 
     runner.start(db)
 
@@ -160,7 +193,10 @@ def health() -> JSONResponse:
         detail = f"{type(e).__name__}: {e}"
     return JSONResponse(
         {"status": "ok" if healthy else "degraded", "version": APP_VERSION, "db": detail,
-         "build": build_identity(), "runner": runner.STATE.to_dict()},
+         "build": build_identity(), "runner": runner.STATE.to_dict(),
+         # What this boot's enqueues actually did. A swallowed exception with no trace is
+         # the boot-time version of a gate nobody can see refusing.
+         "boot_enqueues": list(BOOT_ENQUEUES)},
         status_code=200 if healthy else 503,
     )
 

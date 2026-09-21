@@ -565,9 +565,21 @@ def test_a_readiness_assessment_can_be_started_on_demand_and_is_idempotent_per_m
 
     Keyed to the minute like the chain rebuild, so a burst of clicks collapses into one.
     """
-    with _client() as c:
-        first = c.post("/api/launch-readiness").json()
-        second = c.post("/api/launch-readiness").json()
+    from datetime import datetime, timezone
+
+    # Retried across a minute boundary rather than asserted through one. The key is the
+    # minute, so a pair of calls that straddles :00 legitimately enqueues twice -- and a
+    # test that fails once an hour for a reason that is not a defect is a test people learn
+    # to re-run instead of read.
+    for _ in range(3):
+        started = datetime.now(timezone.utc).minute
+        with _client() as c:
+            first = c.post("/api/launch-readiness").json()
+            second = c.post("/api/launch-readiness").json()
+        if datetime.now(timezone.utc).minute == started:
+            break
+    else:  # pragma: no cover - three consecutive boundary crossings
+        raise AssertionError("could not get two calls inside one minute")
 
     assert first["enqueued"] is True, first
     assert second["enqueued"] is False, second
