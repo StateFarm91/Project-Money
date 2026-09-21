@@ -362,6 +362,48 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**2026-09-21T07:00Z — the image gate opened on demonstrated capability, twelve requirements
+unparked, and both reachable candidates are measured.**
+
+### The benchmark, measured
+
+| model | overall | fabric (floor 2.5) | identity (floor 3.0) | repeatability | median latency |
+|---|---|---|---|---|---|
+| `gpt-image-2` | **3.570** | 3.187 ✅ | **3.0 ✅** | 0.948 | 14.6 s |
+| `flux-2-pro` | 3.467 | 3.013 ✅ | **0.8 ❌** | 0.937 | 9.7 s |
+
+Both on complete thirty-sample schedules. **GPT Image 2 leads and nothing is locked** —
+Google remains an eligible unmeasured candidate, and a leader chosen over candidates nobody
+could render is a shortlist of one.
+
+The benchmark earned its cost here: FLUX's `image_prompt` conditioning does not hold a face
+across a regeneration. No amount of reading a pricing page would have found that, and an
+identity that does not survive a regeneration produces a catalogue that drifts into somebody
+else by February. Quality decided before any tie-break was consulted (B-554).
+
+Unmeasured, with reasons: `nano-banana-2` — Google project denied access, caught by the
+two-image reference probe rather than by a thirty-sample schedule; `seedream-v5-lite` — no
+credential, and Volcano Engine is not practically reachable from Canada.
+
+### Spend
+
+**Benchmark, cumulative lifetime: CA$34.43 of the CA$50 the owner authorized** (inclusive of
+every prior run, including the invalidated ones). **Month-to-date model spend: CA$33.85 of
+CA$100.** The two figures overlap because the blind judging bills through the model gateway.
+
+### The gate opened on evidence
+
+`image_generation` was missing from `ops.capability_probes` entirely, so a capability that had
+been rendering for hours was recorded nowhere and twelve requirements sat parked on the
+absence of a row nobody was writing. The probe now runs in that job and also on deploy when a
+credential is unproven. Verified live: probe ok, provider `flux-2-pro`, `usable: true`, and
+the executor went **0 READY → 12 READY, 79 parked → 67**.
+
+Of the twelve, **eight are `owner_gated` by their own definition** — led by **#198, the
+canonical model's aesthetic direction**, which is the owner's to give and which #199's
+candidate tournament depends on. Four are `partial` and are the autonomous loop's.
+
+## Previously — last completed milestone
 **2026-09-21T05:15Z — the benchmark ran for real, spent past its budget, and every defect
 it found was in the benchmark. It is stopped at the ceiling and the overrun is recorded.**
 
