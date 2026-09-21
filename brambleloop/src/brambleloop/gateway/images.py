@@ -457,8 +457,12 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
         # Unverified; `generate` polls because a synchronous read of this endpoint would
         # return a job id and `_first_image` would call it an answer without an image.
         px = _pixels(size)
+        # `image_prompt` is base64 bytes, not a path. It was being handed the local
+        # filesystem path of the canonical render -- a string BFL cannot resolve, on a disk
+        # it cannot reach -- so the identity trial failed for a second, different reason
+        # after the OpenAI one was fixed, and the candidate's schedule stayed five short.
         body = {"prompt": prompt, "width": px, "height": px,
-                **({"image_prompt": refs[0]} if refs else {})}
+                **({"image_prompt": _inline_reference(refs[0])} if refs else {})}
         return provider.endpoint, {"x-key": key}, json.dumps(body).encode()
 
     if provider.dialect == "openai" and refs:
@@ -694,6 +698,57 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             "mime": mime or "", "size": size,
             "cad": provider.cad_per_image,
             "latency_ms": round((time.time() - started) * 1000, 2)}
+
+
+REFERENCE_PROBE_ACTION = "image.reference_probe"
+
+
+def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
+                    work_dir: str | None = None) -> dict:
+    """Prove this provider will condition on a reference image, for two images.
+
+    Written after a benchmark spent about CA$21 across four runs without completing a single
+    schedule. Both times the cause was the same shape: reference conditioning is the one part
+    of each provider's dialect that cannot be exercised by an ordinary render, it was wrong
+    in a different way for each provider, and the only thing that noticed was the sixth trial
+    of a thirty-sample run. A capability nothing checks until it is expensive to check is one
+    that gets checked expensively.
+    """
+    from ..agents.registry import Registry
+
+    record: dict = {"provider": provider_key, "ok": False, "why": ""}
+    try:
+        first = generate("A plain ceramic mug on a white background, product photograph.",
+                         env=env, provider_key=provider_key, work_dir=work_dir)
+        second = generate("The same mug as the reference image, now on a wooden table.",
+                          env=env, provider_key=provider_key,
+                          reference_urls=[first["image_ref"]], work_dir=work_dir)
+        record.update(ok=True, cad=round(first["cad"] + second["cad"], 6),
+                      bytes=second.get("bytes"))
+    except Exception as exc:  # noqa: BLE001 - every failure means "do not run the schedule"
+        record["why"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+
+    if db is not None:
+        Registry(db).audit("creative_director", REFERENCE_PROBE_ACTION, detail=record)
+    return record
+
+
+def reference_proven(db, provider_key: str) -> bool:
+    """Whether a reference-conditioned render has actually succeeded for this provider."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    if db is None:
+        return False
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog)
+                             .where(AuditLog.action == REFERENCE_PROBE_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(40)):
+            detail = row.detail or {}
+            if detail.get("provider") == provider_key:
+                return bool(detail.get("ok"))
+    return False
 
 
 def probe(db, *, env: dict[str, str] | None = None, generator=None,

@@ -796,6 +796,64 @@ def test_a_reference_that_is_only_a_url_is_refused_for_openai():
     raise AssertionError("a URL was accepted as OpenAI conditioning")
 
 
+def test_reference_conditioning_is_proven_for_two_images_before_thirty_are_spent():
+    """The one part of each dialect an ordinary render never exercises.
+
+    It was wrong in a different way for each provider -- OpenAI needed a different endpoint,
+    BFL needed base64 rather than a filesystem path -- and the only thing that noticed was
+    the sixth trial of a thirty-sample run. About CA$21 across four runs, none completing a
+    schedule. A capability nothing checks until it is expensive to check gets checked
+    expensively.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.gateway import images as I
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    calls = {"n": 0}
+    original = I.generate
+
+    def _broken(prompt, *, reference_urls=None, **kw):
+        calls["n"] += 1
+        if reference_urls:
+            raise I.ImagesRefused("Unknown parameter: 'image'")
+        return {"provider": "flux-2-pro", "image_ref": "/tmp/a.png", "url": "",
+                "cad": 0.02, "latency_ms": 5.0, "bytes": 10}
+
+    I.generate = _broken
+    try:
+        out = B.run(db, judge=lambda *a, **k: "", env={I.key_var("bfl"): "b"})
+    finally:
+        I.generate = original
+
+    assert any("reference conditioning does not work" in u["why"]
+               for u in out["unmeasured"]), out["unmeasured"]
+    # Two images to find out, not a schedule.
+    assert calls["n"] <= 4, calls
+
+
+def test_the_benchmark_budget_is_cumulative_rather_than_per_run():
+    """Four runs each stayed inside a budget the owner approved once."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+    assert B.spent_to_date(db) == 0.0
+
+    Registry(db).audit("creative_director", "image.benchmark",
+                       detail={"spent_cad": 6.40})
+    Registry(db).audit("creative_director", "image.benchmark",
+                       detail={"spent_cad": 1.85})
+    assert B.spent_to_date(db) == 8.25
+    assert B.state(db)["spent_to_date_cad"] == 8.25
+    assert B.state(db)["approved_budget_cad"] == B.BENCHMARK_CEILING_CAD
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

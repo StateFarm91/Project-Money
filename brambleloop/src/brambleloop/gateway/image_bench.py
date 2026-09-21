@@ -723,6 +723,24 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                                "judged_images": len(previous.scores),
                                "cad_spent_then": previous.cad_spent})
                 continue
+        # Two images to prove the provider will condition on a reference, before thirty are
+        # spent finding out it will not. Reference conditioning is the one part of each
+        # dialect an ordinary render never exercises, it was wrong in a different way for
+        # each provider, and the only thing that noticed was the sixth trial of a
+        # thirty-sample run -- about CA$21 across four runs without completing a single
+        # schedule. A capability nothing checks until it is expensive to check is one that
+        # gets checked expensively.
+        if generator is None and candidate.key in have:
+            if not images.reference_proven(db, candidate.key):
+                proof = images.reference_probe(db, candidate.key, env=env)
+                spent += float(proof.get("cad") or 0.0)
+                if not proof.get("ok"):
+                    unmeasured.append({
+                        "model": candidate.key,
+                        "why": (f"reference conditioning does not work for this provider, "
+                                f"so the identity trials cannot run and the schedule cannot "
+                                f"complete: {proof.get('why', '')[:200]}")})
+                    continue
         if generator is None and candidate.key not in have:
             unmeasured.append({
                 "model": candidate.key,
@@ -922,6 +940,36 @@ def state(db=None) -> dict:
     }
 
 
+def spent_to_date(db) -> float:
+    """Every dollar this benchmark has cost across all its runs.
+
+    `BENCHMARK_CEILING_CAD` was being applied per run, so four runs could each stay inside a
+    budget the owner approved once. They did: about CA$21 spent across four runs that
+    completed no schedule at all, every one of them lost to a defect in the benchmark rather
+    than to a candidate. A ceiling that resets is a ceiling that is not one.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    if db is None:
+        return 0.0
+    total = 0.0
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action.in_(
+                ("image.benchmark", CANDIDATE_ACTION, images_reference_action())))):
+            total += float((row.detail or {}).get("spent_cad")
+                           or (row.detail or {}).get("cad_spent")
+                           or (row.detail or {}).get("cad") or 0.0)
+    return round(total, 4)
+
+
+def images_reference_action() -> str:
+    from . import images
+
+    return images.REFERENCE_PROBE_ACTION
+
+
 def last_run(db) -> dict | None:
     """The most recent benchmark job's own record of what it did."""
     from sqlalchemy import desc, select
@@ -973,6 +1021,10 @@ def _measured_state(db) -> dict:
         } for k, r in rows.items() if r is not None],
         "method_version": METHOD_VERSION,
         "samples_expected": expected_samples(),
+        "spent_to_date_cad": spent_to_date(db),
+        "approved_budget_cad": BENCHMARK_CEILING_CAD,
+        "budget_note": ("cumulative across every run, because a ceiling applied per run is "
+                        "a ceiling four runs can each stay inside"),
         "measured": bool(scored),
         "complete": not outstanding,
         "measured_candidates": scored,

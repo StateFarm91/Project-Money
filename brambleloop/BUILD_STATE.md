@@ -362,6 +362,48 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**2026-09-21T03:30Z — the benchmark ran for real, and every defect it found was in the
+benchmark.**
+
+All three image credentials are installed as Railway service variables and appear nowhere
+else: a grep of the working tree for each finds zero occurrences. **FLUX 2 Pro and GPT Image
+2 are verified with real sanctioned generation calls. Google is not** — the key authenticates
+and lists models, and every `generateContent` call, text as well as image, returns 403 "Your
+project has been denied access", which is a Google-side restriction on that project rather
+than a billing tier or a request-shape problem.
+
+The benchmark runs as `creative.image_benchmark` on a six-hourly cadence rather than behind an
+endpoint, because the endpoint needs an operator credential no session holds. Each candidate's
+scores are stored as it finishes, and a candidate already measured under the current method is
+reused rather than re-rendered.
+
+**It ran, and it reported no winner, and it was right to.** The first live run spent CA$6.40
+and said no candidate cleared both floors. That was true of the test:
+
+- **The identity floor was unpassable by construction.** `identity_repeat`'s prompt says "the
+  same woman as the reference image" and `run` passed no reference, so each model was asked to
+  invent the same stranger twice from a description; the judge was then asked whether two
+  people matched while being shown one photograph. #200 is explicit that an identity lock is
+  reference conditioning rather than a better prompt. A check that cannot pass is not a check
+  (B-542).
+- **OpenAI conditions through a different endpoint.** `/v1/images/generations` answered
+  `Unknown parameter: 'image'`. Reference conditioning lives on `/v1/images/edits` as
+  multipart with the reference uploaded as a file. This cost a whole candidate: GPT Image 2
+  rendered twenty-five of thirty samples and failed exactly the five carrying the identity
+  lock (B-545).
+- **A partial schedule was stored and reused**, ranking one model on sixteen samples against
+  another's thirty — the fault `teardown.audits` refuses by name (B-543).
+- **The follow-up job could not stop.** Progress was read from the run's own results while
+  storage required a complete schedule, so a candidate that scored but never finished counted
+  as progress, was never stored, and the job re-queued itself every few minutes at about
+  CA$1.85 a time. A follow-up condition that cannot become false is a spend with no stopping
+  rule. Caught live, mid-spend (B-546).
+
+**The identity lock then held.** The canonical model rendered, and a second image conditioned
+on her — different garment, different season, same face, same eyes, same hair. That is #200
+and #201 working for the first time in this build.
+
+## Previously — last completed milestone
 **2026-09-21T01:50Z — the first images this company has ever generated, and the four
 defects that only a real key could show.**
 
