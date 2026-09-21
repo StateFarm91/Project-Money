@@ -34,6 +34,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from datetime import datetime, timezone
 
 from ..core.resilience import PermanentError, TransientError
@@ -460,10 +461,47 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
                 **({"image_prompt": refs[0]} if refs else {})}
         return provider.endpoint, {"x-key": key}, json.dumps(body).encode()
 
-    # OpenAI-shaped, which Volcano Engine also speaks. Unverified.
-    body = {"model": provider.model, "prompt": prompt, "size": size, "n": 1,
-            **({"image": refs} if refs else {})}
+    if provider.dialect == "openai" and refs:
+        # Reference conditioning is a *different endpoint* on OpenAI, not a field.
+        # `/v1/images/generations` answered `Unknown parameter: 'image'` on 2026-09-21,
+        # which cost the benchmark a whole candidate: GPT Image 2 rendered twenty-five of
+        # thirty samples and failed exactly the five that carry the identity lock, leaving
+        # an incomplete schedule that is not a measurement. Edits is multipart, with the
+        # reference as an uploaded file rather than a JSON value.
+        url = provider.endpoint.replace("/images/generations", "/images/edits")
+        fields = {"model": provider.model, "prompt": prompt, "size": size, "n": "1"}
+        files = [("image[]", Path(r).name, Path(r).read_bytes()) for r in refs
+                 if Path(r).is_file()]
+        if not files:
+            raise ImagesRefused(
+                f"none of {refs} is a file on this disk. OpenAI conditions on uploaded "
+                f"bytes, so a reference that is only a URL conditions on nothing")
+        boundary, body = _multipart(fields, files)
+        return url, {"authorization": f"Bearer {key}",
+                     "content-type": f"multipart/form-data; boundary={boundary}"}, body
+
+    # OpenAI-shaped, which Volcano Engine also speaks.
+    body = {"model": provider.model, "prompt": prompt, "size": size, "n": 1}
     return provider.endpoint, {"authorization": f"Bearer {key}"}, json.dumps(body).encode()
+
+
+def _multipart(fields: dict, files: list[tuple[str, str, bytes]]) -> tuple[str, bytes]:
+    """Encode a multipart/form-data body. Small and local: one caller, one shape."""
+    import mimetypes
+    import uuid
+
+    boundary = f"----brambleloop{uuid.uuid4().hex}"
+    out = bytearray()
+    for name, value in fields.items():
+        out += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n"
+                f"{value}\r\n").encode()
+    for name, filename, payload in files:
+        mime = mimetypes.guess_type(filename)[0] or "image/png"
+        out += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; "
+                f"filename=\"{filename}\"\r\nContent-Type: {mime}\r\n\r\n").encode()
+        out += payload + b"\r\n"
+    out += f"--{boundary}--\r\n".encode()
+    return boundary, bytes(out)
 
 
 def _inline_reference(reference: str) -> str:
@@ -512,7 +550,8 @@ def _post(url: str, headers: dict, payload: bytes, *, label: str,
     import urllib.request
 
     request = urllib.request.Request(url, data=payload, method="POST")
-    request.add_header("content-type", "application/json")
+    if not any(k.lower() == "content-type" for k in headers):
+        request.add_header("content-type", "application/json")
     for name, value in headers.items():
         request.add_header(name, value)
     try:

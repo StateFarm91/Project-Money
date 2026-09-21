@@ -753,6 +753,49 @@ def test_one_permanent_failure_does_not_condemn_a_candidate():
     assert out["decision"]["decided"] in (True, False)
 
 
+def test_openai_conditions_on_a_reference_through_edits_not_generations():
+    """`/v1/images/generations` answered `Unknown parameter: 'image'`, 2026-09-21.
+
+    Reference conditioning is a different endpoint on OpenAI, not a field. The cost was a
+    whole candidate: GPT Image 2 rendered twenty-five of thirty samples and failed exactly
+    the five carrying the identity lock, leaving a schedule too short to be a measurement.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from brambleloop.gateway import images as I
+
+    tmp = Path(tempfile.mkdtemp()) / "ref.png"
+    tmp.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+
+    url, headers, body = I._request_for(
+        I.BY_KEY["gpt-image-2"], "K", "the same woman", [str(tmp)], "1024x1024")
+    assert url.endswith("/v1/images/edits")
+    assert headers["content-type"].startswith("multipart/form-data; boundary=")
+    assert b'name="image[]"' in body
+    assert b"gpt-image-2" in body
+
+    # Without a reference it stays on generations, as JSON.
+    url, headers, body = I._request_for(
+        I.BY_KEY["gpt-image-2"], "K", "a basket", None, "1024x1024")
+    assert url.endswith("/v1/images/generations")
+    assert "content-type" not in headers
+    assert b"image[]" not in body
+
+
+def test_a_reference_that_is_only_a_url_is_refused_for_openai():
+    """It conditions on uploaded bytes, so a link conditions on nothing."""
+    from brambleloop.gateway import images as I
+
+    try:
+        I._request_for(I.BY_KEY["gpt-image-2"], "K", "x",
+                       ["https://example.com/face.png"], "1024x1024")
+    except I.ImagesRefused as exc:
+        assert "conditions on nothing" in str(exc)
+        return
+    raise AssertionError("a URL was accepted as OpenAI conditioning")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
