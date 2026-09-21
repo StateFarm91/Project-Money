@@ -249,6 +249,41 @@ def test_the_plan_spends_against_the_monthly_ceiling_not_the_benchmark_authoriza
     assert "CA$50" in plan["spends_against"]
 
 
+def test_a_finalist_package_can_actually_be_looked_at():
+    """Renders land in a container's /tmp, which is replaced on every deploy.
+
+    A finalist package pointing at those paths is a package nobody can open -- the same
+    defect as the presigned link that expired, one layer up -- and the owner's instruction
+    was to *present* the finalists with their comparison sets.
+    """
+    import tempfile
+    from pathlib import Path as P
+
+    from brambleloop.core.artifacts import ArtifactStore
+
+    tmp = P(tempfile.mkdtemp()) / "render.png"
+    tmp.write_bytes(b"\x89PNG\r\n\x1a\n" + b"portrait-bytes")
+
+    kept = tournament._keep(str(tmp))
+    assert len(kept["sha256"]) == 64
+    assert kept["url"] == f"/api/model-tournament/image/{kept['sha256']}"
+    # And the bytes come back.
+    assert ArtifactStore().get(kept["sha256"]) == tmp.read_bytes()
+
+    # A render that is already gone says so rather than producing a broken reference.
+    assert tournament._keep("/tmp/definitely-not-here.png") == {
+        "missing": "/tmp/definitely-not-here.png"}
+    assert tournament._keep("") == {}
+
+
+def test_the_image_route_is_digest_addressed_and_cannot_be_browsed():
+    source = (ROOT / "src/brambleloop/app/main.py").read_text()
+    block = source[source.index('def api_model_tournament_image'):]
+    block = block[:block.index("@app.get(\"/api/model-tournament\")")]
+    assert "len(sha256) != 64" in block          # a digest, not a path
+    assert "ArtifactMissing" in block            # the bytes may be gone; say so
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

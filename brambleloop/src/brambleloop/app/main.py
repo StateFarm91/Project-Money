@@ -1115,6 +1115,31 @@ def api_teardown_readiness() -> dict:
     return readiness.check(db)
 
 
+@app.get("/api/model-tournament/image/{sha256}")
+def api_model_tournament_image(sha256: str) -> Response:
+    """Serve one tournament render by its content digest.
+
+    Unauthenticated on purpose, and narrowly: these are generated portraits of fictional
+    people made for a brand decision, not customer data, not listing assets and not secrets.
+    The route is digest-addressed, so it cannot be browsed -- you need the hash, and the
+    hash comes from the tournament package.
+
+    It exists because a finalist package that pointed at a container's `/tmp` was a package
+    nobody could look at, and the owner's instruction was to present the finalists.
+    """
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+
+    if not sha256.isalnum() or len(sha256) != 64:
+        return JSONResponse({"error": "not a digest"}, status_code=400)
+    try:
+        payload = ArtifactStore().get(sha256)
+    except ArtifactMissing as exc:
+        # The hash is durable and the bytes are not, which the store says in its own words.
+        return JSONResponse({"error": str(exc)}, status_code=404)
+    return Response(content=payload, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/api/model-tournament")
 def api_model_tournament() -> dict:
     """The canonical-model field, the finalists and their measured identity (#198, #199).

@@ -103,6 +103,35 @@ SEED_NOTES: tuple[str, ...] = (
 DEFAULT_CANDIDATES = brief.TARGET_CANDIDATES[0]
 
 
+def _keep(image_ref: str) -> dict:
+    """Put one render in the artifact store and return how to fetch it again.
+
+    Renders land in a temporary directory on a host whose disk is replaced on every deploy,
+    so a finalist package that referred to them was a package nobody could look at -- the
+    same defect as the presigned link that expired, one layer up. The owner's instruction is
+    to *present* the finalists with their controlled comparison sets, and a set of paths into
+    a container's `/tmp` is not a presentation.
+
+    Digest-addressed, so the reference is the content and two identical renders cost one
+    file. Durability is still the artifact store's problem rather than this module's: within
+    a container's life the bytes are there, and `core.offsite` is what survives the host.
+    """
+    from pathlib import Path
+
+    from ..core.artifacts import ArtifactStore
+
+    if not image_ref:
+        return {}
+    path = Path(image_ref)
+    if not path.is_file():
+        return {"missing": image_ref}
+    mime = ("image/jpeg" if path.suffix.lower() in (".jpg", ".jpeg") else
+            "image/webp" if path.suffix.lower() == ".webp" else "image/png")
+    stored = ArtifactStore().put(f"tournament/{path.name}", path.read_bytes(), mime)
+    return {"sha256": stored.sha256, "bytes": stored.bytes_len, "content_type": mime,
+            "url": f"/api/model-tournament/image/{stored.sha256}"}
+
+
 class TournamentRefused(ValueError):
     """A run that would compare prompts, or build her from somebody's photograph."""
 
@@ -266,6 +295,7 @@ def generate_candidates(db, *, count: int = DEFAULT_CANDIDATES, env: dict | None
             continue
 
         row = {"key": key, "seed_note": note, "image_ref": ref,
+               "image": _keep(ref),
                "provider": render.get("provider") or provider,
                "mean": screened["mean"], "scores": screened["scores"],
                "reads_as_public_figure": screened["reads_as_public_figure"],
@@ -343,7 +373,7 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
             scenes.append({"scene": key, "rendered": False, "why": str(exc)[:200]})
             continue
         scenes.append({
-            "scene": key, "rendered": True, "image_ref": ref,
+            "scene": key, "rendered": True, "image_ref": ref, "image": _keep(ref),
             "provider": render.get("provider") or provider,
             "verdict": verdict["verdict"],
             "face": verdict["face"].get("verdict"),
@@ -358,7 +388,11 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
     body_ok = all(s["morphology"] == "pass" for s in rendered)
     return {
         "finalist": finalist["key"], "usable": True, "provider": provider,
-        "reference_image": reference, "reference_observation": seen,
+        "reference_image": reference,
+        "reference": finalist.get("image") or _keep(reference),
+        "seed_note": finalist.get("seed_note", ""),
+        "screen_mean": finalist.get("mean"),
+        "reference_observation": seen,
         "unpinned_fields": unpinned,
         "scenes": scenes, "scenes_rendered": len(rendered),
         "scenes_expected": len(brief.STRESS_SCENES) - 1,
