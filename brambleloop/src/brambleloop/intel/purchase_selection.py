@@ -272,6 +272,14 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
     covered: dict[str, set] = {facet: set() for facet in FACETS}
     chosen: list[dict] = []
     remaining = list(pool)
+    # Why the loop ended, recorded where it ends rather than inferred afterwards from the
+    # length of the list. The first version inferred it, and on the live catalogue it was
+    # wrong in the direction that costs money: at a CA$300 ceiling the set stopped one pick
+    # short of covering the `education` department, and the report said "no remaining
+    # listing adds a facet nothing selected already covers" -- an information verdict for
+    # what was a budget truncation. A reader deciding whether to raise the ceiling was told
+    # there was nothing left to buy.
+    ended: dict = {"cause": "target_reached", "excluded": None}
 
     while remaining and len(chosen) < target:
         scored = [(len(_new_values(c, covered)), c) for c in remaining]
@@ -294,6 +302,7 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
                                       pair[1].pod, pair[1].listing_ref))
         gain, best = scored[0]
         if gain < MIN_NEW_FACETS:
+            ended["cause"] = "nothing_left_to_learn"
             break
         # An approved budget is a ceiling in code, like every other ceiling here, rather
         # than a number somebody remembers at the till. When the best exemplar of a slot
@@ -301,12 +310,22 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
         # recorded* -- because "we bought the cheaper one" is a decision the owner is
         # entitled to see, not a detail. What the ceiling cost is reported at the end.
         forgone = None
+        new_if_bought = _new_values(best, covered)
         if budget_cad is not None:
             spent_so_far = sum(c["price_cad"] for c in chosen)
             if spent_so_far + best.price_cad > budget_cad:
                 affordable = [(g, c) for g, c in scored
                               if g == gain and spent_so_far + c.price_cad <= budget_cad]
                 if not affordable:
+                    # Out of money, not out of information. The distinction is the whole
+                    # point of reporting a reason: one of these is answered by raising the
+                    # ceiling and the other is not.
+                    ended.update(cause="budget_exhausted", excluded={
+                        "listing_ref": best.listing_ref, "title": best.title,
+                        "pod": best.pod, "price_cad": round(best.price_cad, 2),
+                        "would_have_added": new_if_bought,
+                        "shortfall_cad": round(
+                            spent_so_far + best.price_cad - budget_cad, 2)})
                     break
                 forgone = {"listing_ref": best.listing_ref, "title": best.title,
                            "price_cad": round(best.price_cad, 2),
@@ -355,10 +374,21 @@ def select(db, benchmark_key: str, *, departments: list[str] | None = None,
                           "Taxes, and any sale price on the day of purchase, are not "
                           "included -- this is an expected cost, not a quote"),
         "stopped_early": len(chosen) < target,
+        "stopped_because": ended["cause"],
+        "budget_excluded": ended["excluded"],
         # Computed rather than asserted. The first version of this said "the target was
         # reached with facets still uncovered, listed below" whether or not any were, which
         # is a sentence that describes the list beside it without reading it.
-        "why_stopped": ("no remaining listing adds a facet nothing selected already covers, "
+        "why_stopped": (
+                        f"the approved CA${budget_cad:.2f} was reached with "
+                        f"{len(still_open)} facets still uncovered. The next pick was "
+                        f"{ended['excluded']['title'][:60]!r} at "
+                        f"CA${ended['excluded']['price_cad']:.2f}, CA$"
+                        f"{ended['excluded']['shortfall_cad']:.2f} past the ceiling, and it "
+                        f"was the only thing left that would have taught "
+                        f"{', '.join(f'{k}={v}' for k, v in ended['excluded']['would_have_added'].items())}"
+                        if ended["cause"] == "budget_exhausted" and ended["excluded"] else
+                        "no remaining listing adds a facet nothing selected already covers, "
                         "so a further purchase would buy a lesson already bought"
                         if len(chosen) < target else
                         f"the target of {target} was reached with {len(still_open)} facets "

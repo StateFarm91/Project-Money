@@ -58,13 +58,18 @@ class ImageProvider:
     supports_lock: bool
     reference_images: int
     note: str
+    # Which sign-up this model is bought through. Not the same thing as the model: one
+    # Google AI Studio key covers two of the candidates below, and an owner action list that
+    # counted models rather than accounts would ask for five sign-ups to reach five
+    # candidates when three reach four of them.
+    account: str = ""
 
     @property
     def cad_per_image(self) -> float:
         return round(self.usd_per_image * USD_TO_CAD, 6)
 
     def to_dict(self) -> dict:
-        return {"provider": self.key, "what": self.what,
+        return {"provider": self.key, "what": self.what, "account": self.account,
                 "usd_per_image": self.usd_per_image,
                 "cad_per_image": self.cad_per_image,
                 "supports_identity_lock": self.supports_lock,
@@ -82,32 +87,174 @@ PROVIDERS: tuple[ImageProvider, ...] = (
         "https://api.bfl.ai/v1/flux-2-pro", 0.02, True, 8,
         "cheapest of the candidates that conditions on reference images, which is what an "
         "identity lock actually is. Eight references is more than a canonical face pack "
-        "needs"),
+        "needs", account="bfl"),
     ImageProvider(
         "gpt-image-2", "OpenAI GPT Image 2 at 1024px",
         "https://api.openai.com/v1/images/generations", 0.03, True, 16,
         "strongest prompt adherence of the three and the most reference images; half again "
         "the price of FLUX per image, which matters at catalogue scale and not at pack "
-        "scale"),
+        "scale", account="openai"),
     ImageProvider(
         "nano-banana-2", "Google Gemini 3.1 Flash Image (Nano Banana 2)",
         "https://generativelanguage.googleapis.com/v1beta/models", 0.063, True, 5,
         "fine-grained fabric and material texture at up to 4K and feature consistency across "
         "characters. The most expensive candidate that can hold an identity, and the "
-        "benchmark exists to find out whether that buys anything on crochet"),
+        "benchmark exists to find out whether that buys anything on crochet",
+        account="google"),
     ImageProvider(
         "seedream-v5-lite", "ByteDance Seedream v5.0 Lite",
         "https://ark.cn-beijing.volces.com/api/v3/images/generations", 0.026, True, 4,
-        "production-quality output at 2048px, between FLUX and GPT Image on price"),
+        "production-quality output at 2048px, between FLUX and GPT Image on price",
+        account="volcengine"),
     ImageProvider(
         "imagen-4-standard", "Google Imagen 4 Standard",
         "https://generativelanguage.googleapis.com/v1beta/models", 0.04, False, 0,
         "best photorealism of the three and no reference conditioning on this tier, so it "
         "cannot hold an identity across a season -- listed to be ruled out on the "
-        "requirement rather than on taste"),
+        "requirement rather than on taste", account="google"),
 )
 
 BY_KEY: dict[str, ImageProvider] = {p.key: p for p in PROVIDERS}
+
+
+# The sign-ups behind those models, because the owner action is an account and not a model.
+# `minutes` and `needs_card` are what makes this list orderable on a phone: an account that
+# unlocks two candidates for free and two minutes is not the same ask as one that needs a
+# card and an identity check, and an action list that did not say so would be sorted by
+# whichever provider was typed first.
+#
+# `reachable` is the honest column. Volcano Engine is where Seedream is bought and it wants a
+# mainland Chinese account with phone verification; calling that a two-minute action and
+# leaving it in the list is how a benchmark ends up permanently one candidate short with
+# nobody able to say why.
+ACCOUNTS: dict[str, dict] = {
+    "google": {
+        "name": "Google AI Studio",
+        "where": "https://aistudio.google.com/apikey",
+        "needs_card": False,
+        "reachable": True,
+        "minutes": 2,
+        "how": ("sign in with the Google account already on the phone, tap Get API key, "
+                "tap Create API key, copy it"),
+        "why_first": ("free to create and it is the only account that unlocks two "
+                      "candidates, one of them the texture-strongest one"),
+    },
+    "bfl": {
+        "name": "Black Forest Labs",
+        "where": "https://api.bfl.ai",
+        "needs_card": True,
+        "reachable": True,
+        "minutes": 4,
+        "how": "register, add a card, buy the smallest credit pack, copy the API key",
+        "why_first": ("the cheap candidate the owner refused to lock on price alone. It "
+                      "cannot be ruled in or out without being measured"),
+    },
+    "openai": {
+        "name": "OpenAI platform",
+        "where": "https://platform.openai.com/api-keys",
+        "needs_card": True,
+        "reachable": True,
+        "minutes": 4,
+        "how": ("sign in, add a payment method under Billing, set a low usage limit, "
+                "create a secret key, copy it"),
+        "why_first": ("the strongest prompt adherence of the candidates and the most "
+                      "reference images, which is what an identity lock conditions on"),
+    },
+    "volcengine": {
+        "name": "Volcano Engine (ByteDance)",
+        "where": "https://www.volcengine.com",
+        "needs_card": True,
+        "reachable": False,
+        "minutes": 0,
+        "how": "",
+        "why_first": "",
+        "unreachable_because": (
+            "registration expects a mainland Chinese mobile number and identity "
+            "verification. Listed so the benchmark can report Seedream as unmeasured for a "
+            "named reason rather than leaving a candidate silently absent"),
+    },
+}
+
+
+def key_var(account: str) -> str:
+    """The environment variable holding one account's credential.
+
+    Per account rather than per model, because that is how the credential is actually
+    issued: one Google key renders both Google candidates, and two variables holding the
+    same secret is a secret that gets rotated in one of them.
+    """
+    return f"BRAMBLELOOP_IMAGE_KEY_{account.upper()}"
+
+
+def key_for(provider_key: str, env: dict[str, str] | None = None) -> str:
+    """This provider's credential, or empty.
+
+    Falls back to the single `BRAMBLELOOP_IMAGE_KEY` only when `BRAMBLELOOP_IMAGE_PROVIDER`
+    names this same provider -- so a one-provider environment keeps working with one
+    variable, and a benchmark across four providers cannot accidentally send all four
+    requests with whichever key happened to be in the general slot. That accident would not
+    look like a failure: it would look like four candidates scoring identically.
+    """
+    e = env if env is not None else os.environ
+    provider = BY_KEY.get(provider_key)
+    if provider is None:
+        return ""
+    specific = (e.get(key_var(provider.account)) or "").strip()
+    if specific:
+        return specific
+    if (e.get(PROVIDER_VAR) or "").strip() == provider_key:
+        return (e.get(KEY_VAR) or "").strip()
+    return ""
+
+
+def available(env: dict[str, str] | None = None) -> list[str]:
+    """Which providers this environment holds a credential for. Not which ones work."""
+    return [p.key for p in PROVIDERS if key_for(p.key, env)]
+
+
+def credential_plan(env: dict[str, str] | None = None) -> dict:
+    """The owner actions that would unlock the most candidates for the least phone time.
+
+    Ordered by what each account unlocks rather than by provider name, and it reports what
+    stays unmeasurable afterwards. A plan that listed only what to create would read as
+    though completing it measured everything.
+    """
+    have = set(available(env))
+    todo = []
+    for account, info in ACCOUNTS.items():
+        models = [p for p in PROVIDERS if p.account == account]
+        unlocked = [p.key for p in models if p.key not in have]
+        if not unlocked or not info["reachable"]:
+            continue
+        if any(p.key in have for p in models):
+            continue        # the account exists; its models are already reachable
+        todo.append({
+            "account": account, "name": info["name"], "where": info["where"],
+            "how": info["how"], "minutes": info["minutes"],
+            "needs_card": info["needs_card"],
+            "unlocks": unlocked,
+            "unlocks_count": len(unlocked),
+            "set_variable": key_var(account),
+            "why": info["why_first"],
+        })
+    # Free first, then by how many candidates one sign-up unlocks, then by how long it takes.
+    todo.sort(key=lambda row: (row["needs_card"], -row["unlocks_count"], row["minutes"]))
+
+    unreachable = [{"account": a, "models": [p.key for p in PROVIDERS if p.account == a],
+                    "why": info.get("unreachable_because", "")}
+                   for a, info in ACCOUNTS.items() if not info["reachable"]]
+    return {
+        "have": sorted(have),
+        "actions": todo,
+        "total_minutes": sum(row["minutes"] for row in todo),
+        "unreachable": unreachable,
+        "still_unmeasured_after": sorted(
+            {p.key for p in PROVIDERS if p.key not in have}
+            - {m for row in todo for m in row["unlocks"]}),
+        "note": ("one account can cover more than one candidate, so this counts sign-ups "
+                 "rather than models. Nothing here is a claim that a key works: the probe "
+                 "is what says that"),
+    }
 
 # What the requirements actually need generated, so "how much a month" is answerable before
 # anything is bought rather than after. Counts are this build's estimate and are labelled.
@@ -174,11 +321,18 @@ def api_key(env: dict[str, str] | None = None) -> str:
 
 
 def configured(env: dict[str, str] | None = None) -> bool:
-    """Whether a provider and a key are both named. Deliberately not `usable`."""
+    """Whether any provider has a credential in this environment. Deliberately not `usable`.
+
+    Reads the per-account variables as well as the general slot, because the benchmark can
+    run on a Google key alone and a `configured` that only knew about `BRAMBLELOOP_IMAGE_KEY`
+    would report nothing configured while four candidates were reachable.
+    """
     try:
-        return bool(configured_provider(env)) and bool(api_key(env))
+        if configured_provider(env) and api_key(env):
+            return True
     except ImagesRefused:
-        return False
+        pass
+    return bool(available(env))
 
 
 def monthly_estimate_cad(provider: ImageProvider) -> dict:
@@ -203,7 +357,7 @@ def monthly_estimate_cad(provider: ImageProvider) -> dict:
 
 def generate(prompt: str, *, reference_urls: list[str] | None = None,
              env: dict[str, str] | None = None, size: str = "1024x1024",
-             timeout: float = 120.0) -> dict:
+             provider_key: str | None = None, timeout: float = 120.0) -> dict:
     """Ask the configured provider for one image. Raises rather than returning nothing.
 
     The request is deliberately thin and provider-shaped at one place: every candidate here
@@ -216,13 +370,23 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     import urllib.request
 
     e = env if env is not None else os.environ
-    provider = configured_provider(e)
-    key = api_key(e)
+    # `provider_key` is how the benchmark asks for a specific candidate. Without it this
+    # falls back to whichever provider the environment names, which is right for ordinary
+    # generation and wrong for a comparison: a benchmark that sent every candidate's prompt
+    # to one provider would not fail, it would return five identical-looking scores and call
+    # the cheapest of them a winner.
+    provider = BY_KEY.get(provider_key) if provider_key else configured_provider(e)
+    if provider_key and provider is None:
+        raise ImagesRefused(
+            f"{provider_key!r} has no price on file, so what it spends cannot be checked "
+            f"against the ceiling. Known: {sorted(BY_KEY)}")
+    key = key_for(provider.key, e) if provider else ""
     if provider is None or not key:
+        want = provider.key if provider else "a provider"
         raise ImagesNotConfigured(
-            f"set {PROVIDER_VAR} to one of {sorted(BY_KEY)} and {KEY_VAR} to that "
-            f"provider's key. Neither exists in this environment, which is the state the "
-            f"gate describes rather than a failure to retry")
+            f"no credential for {want}. Set {key_var(provider.account)} if it is named, or "
+            f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
+            f"key. This is the state the gate describes rather than a failure to retry")
 
     payload = json.dumps({
         "prompt": prompt, "size": size,
@@ -355,6 +519,8 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
         "provider": provider.key if provider else None,
         "provider_error": provider_error,
         "key_present": bool(api_key(env)),
+        "credentialled": available(env),
+        "credential_plan": credential_plan(env),
         "last_probe": last,
         "usable": bool(last and last.get("ok")),
         "candidates": [p.to_dict() for p in PROVIDERS],

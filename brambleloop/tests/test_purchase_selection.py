@@ -352,6 +352,53 @@ def test_a_budget_too_small_for_anything_stops_rather_than_overspending():
     assert out["within_budget"] is True
 
 
+def test_a_budget_truncation_is_not_reported_as_having_run_out_of_things_to_learn():
+    """The two reasons a set stops short need different answers from the owner.
+
+    Found on the live catalogue 2026-09-21: at the approved CA$300 the set stopped at twelve
+    with the `education` department uncovered, and the report said no remaining listing added
+    anything new. It was the ceiling, by CA$13, and somebody reading that line to decide
+    whether to raise it was told there was nothing left to buy.
+    """
+    db = _db()
+    _listing(db, "hat", pod="hats", price=20.0)
+    _listing(db, "bag", pod="bags", price=20.0)
+    out = P.select(db, KEY, budget_cad=25.0)
+
+    assert out["selected_count"] == 1
+    assert out["stopped_because"] == "budget_exhausted"
+    excluded = out["budget_excluded"]
+    assert excluded["listing_ref"] == "hat"        # `bag` was taken; `hat` did not fit
+    assert excluded["shortfall_cad"] == 15.0
+    assert excluded["would_have_added"]["department"] == "hats"
+    assert "was reached with" in out["why_stopped"]
+    assert "past the ceiling" in out["why_stopped"]
+    assert "buy a lesson already bought" not in out["why_stopped"]
+
+
+def test_a_set_that_really_did_run_out_says_so_and_names_nothing_excluded():
+    db = _db()
+    _listing(db, "a", pod="hats", price=8.0)
+    _listing(db, "b", pod="hats", price=8.0)
+    out = P.select(db, KEY, target=10, budget_cad=300.0)
+
+    assert out["selected_count"] == 1
+    assert out["stopped_because"] == "nothing_left_to_learn"
+    assert out["budget_excluded"] is None
+    assert "buy a lesson already bought" in out["why_stopped"]
+
+
+def test_a_set_that_reached_its_target_names_neither():
+    db = _db()
+    _listing(db, "a", pod="hats", price=8.0)
+    _listing(db, "b", pod="bags", price=8.0)
+    out = P.select(db, KEY, target=2, budget_cad=300.0)
+
+    assert out["selected_count"] == 2
+    assert out["stopped_because"] == "target_reached"
+    assert out["budget_excluded"] is None
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -292,7 +292,7 @@ def eligible() -> dict:
             "excluded_on": "a requirement, not a score"}
 
 
-def plan() -> dict:
+def plan(env: dict | None = None) -> dict:
     """What the benchmark would render and what it would cost, answerable before any key.
 
     Refuses rather than trimming if the plan exceeds the ceiling: a benchmark that quietly
@@ -338,9 +338,41 @@ def plan() -> dict:
             f"dimension twenty-five observations per model; the budget is better spent on "
             f"repetition than left unspent, and better left unspent than spent past the "
             f"point where more samples change the answer"),
-        "runnable": False,
-        "blocked_on": ("credentials. No provider account exists, and creating one needs a "
-                       "payment method and identity this build may not supply"),
+        **_credential_state(keep, env),
+    }
+
+
+def _credential_state(keep, env: dict | None = None) -> dict:
+    """Which of the eligible candidates could actually be rendered right now.
+
+    `runnable` was a literal `False` with a sentence beside it explaining that no account
+    existed. It was true when it was written. It would have gone on saying so after the
+    accounts were created, which is the defect this build keeps finding in a new costume: a
+    fact recorded once, surviving the world changing.
+    """
+    from . import images
+
+    have = set(images.available(env))
+    ready = [c.key for c in keep if c.key in have]
+    missing = [c.key for c in keep if c.key not in have]
+    plan_ = images.credential_plan(env)
+    return {
+        "runnable": bool(ready),
+        "complete": not missing,
+        "credentialled": ready,
+        "awaiting_credential": missing,
+        "blocked_on": ("" if not missing else
+                       f"credentials for {missing}. "
+                       + "; ".join(f"{a['name']} ({a['minutes']} min"
+                                   + (", card needed)" if a["needs_card"] else ")")
+                                   + f" unlocks {a['unlocks']}"
+                                   for a in plan_["actions"])),
+        "credential_plan": plan_,
+        "a_partial_run_is_not_a_choice": (
+            "a benchmark missing a candidate can report what it measured and must not lock "
+            "a provider. The owner's rule is that the cheap candidate is not chosen because "
+            "it is cheap, and a run where only the cheap candidate had a key would do "
+            "exactly that while looking like a measurement"),
     }
 
 
@@ -439,7 +471,7 @@ class Result:
         return round(statistics.median(values), 1) if values else None
 
 
-def decide(results: list[Result]) -> dict:
+def decide(results: list[Result], *, unmeasured: list[dict] | None = None) -> dict:
     """Name a winner from measured scores, or refuse to name one.
 
     Two refusals worth having. A result set with no scores names nobody, rather than falling
@@ -512,7 +544,19 @@ def decide(results: list[Result]) -> dict:
                f"{qualified[1]['overall'] if len(qualified) > 1 else 'nothing else'}, a "
                f"margin wider than {DECIDING_MARGIN}. Quality decided and cost did not")
 
+    # A candidate nobody could render is not a candidate that lost. While one is missing
+    # this names a leader and refuses to lock, because the owner's rule -- do not settle on
+    # a provider because it is inexpensive -- is broken exactly as thoroughly by a run in
+    # which the dearer candidates had no key as by a decision made from a price list.
+    absent = list(unmeasured or [])
     return {"decided": True, "winner": winner["model"], "why": why,
+            "locked": not absent,
+            "provisional": bool(absent),
+            "unmeasured": absent,
+            "why_not_locked": ("" if not absent else
+                               f"{[a['model'] for a in absent]} went unmeasured for want of "
+                               f"a credential. A leader chosen over candidates nobody could "
+                               f"render is a shortlist of one wearing a result's clothes"),
             "results": rows, "qualified": [row["model"] for row in qualified],
             "fabric_floor": FABRIC_FLOOR, "identity_floor": IDENTITY_FLOOR,
             "deciding_margin": DECIDING_MARGIN,
@@ -540,7 +584,19 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
 
     spent = 0.0
     results: list[Result] = []
+    unmeasured: list[dict] = []
+    have = set(images.available(env))
     for candidate in [c for c in CANDIDATES if c.can_hold_an_identity]:
+        # A candidate with no credential is unmeasured, not beaten. Rendering it through
+        # whichever provider the environment happened to name -- which is what a single
+        # shared key silently did -- would have scored one model five times under five
+        # names and crowned the cheapest of the five identical rows.
+        if generator is None and candidate.key not in have:
+            unmeasured.append({
+                "model": candidate.key,
+                "why": f"no credential. Set {images.key_var(images.BY_KEY[candidate.key].account)}"
+                       if candidate.key in images.BY_KEY else "no credential and no provider entry"})
+            continue
         result = Result(model=candidate.key)
         rendered_urls: list[str] = []
         for trial in TRIALS:
@@ -549,9 +605,14 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
                     result.failures.append({"trial": trial.key, "why": "benchmark ceiling"})
                     continue
                 try:
-                    rendered = (generator or images.generate)(
-                        trial.prompt, env=env, size=f"{candidate.resolution}x"
-                                                    f"{candidate.resolution}")
+                    rendered = (generator(trial.prompt, env=env,
+                                          size=f"{candidate.resolution}x"
+                                               f"{candidate.resolution}")
+                                if generator else
+                                images.generate(trial.prompt, env=env,
+                                                provider_key=candidate.key,
+                                                size=f"{candidate.resolution}x"
+                                                     f"{candidate.resolution}"))
                     spent += float(rendered.get("cad") or candidate.cad_per_image)
                     dimensions = ((IDENTITY_DIMENSION,) if trial.needs_reference
                                   else RUBRIC)
@@ -579,7 +640,8 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
 
     return {"ran": True, "spent_cad": round(spent, 4),
             "ceiling_cad": BENCHMARK_CEILING_CAD,
-            "decision": decide(results),
+            "decision": decide(results, unmeasured=unmeasured),
+            "unmeasured": unmeasured,
             "blind": ("the judge was never told which model rendered which image")}
 
 

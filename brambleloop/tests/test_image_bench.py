@@ -288,6 +288,87 @@ def test_the_whole_price_spread_is_smaller_than_the_decision():
         "to notice that rather than a report somebody writes afterwards")
 
 
+# ---------------------------------------------------------------------------
+# One key per account, and what a benchmark does with the candidates it cannot render
+
+
+def test_each_candidate_is_rendered_by_its_own_provider_not_the_configured_one():
+    """A shared key would have scored one model five times under five names.
+
+    `run` called `images.generate` with no provider, which resolves whatever
+    `BRAMBLELOOP_IMAGE_PROVIDER` names. Every candidate's prompt would have gone to that one
+    provider. It would not have failed: it would have returned five near-identical rows and
+    the tie-break would have handed the decision to the cheapest of them, which is precisely
+    the decision the owner ruled out.
+    """
+    from brambleloop.gateway import images as I
+
+    env = {I.key_var("google"): "g", I.key_var("bfl"): "b", I.key_var("openai"): "o",
+           I.PROVIDER_VAR: "flux-2-pro", I.KEY_VAR: "general"}
+    assert I.key_for("nano-banana-2", env) == "g"
+    assert I.key_for("imagen-4-standard", env) == "g"   # one account, two candidates
+    assert I.key_for("gpt-image-2", env) == "o"
+    assert I.key_for("seedream-v5-lite", env) == ""     # no key, and no borrowing one
+
+
+def test_the_general_key_is_only_borrowed_by_the_provider_it_names():
+    from brambleloop.gateway import images as I
+
+    env = {I.PROVIDER_VAR: "flux-2-pro", I.KEY_VAR: "general"}
+    assert I.key_for("flux-2-pro", env) == "general"
+    assert I.key_for("gpt-image-2", env) == ""
+    assert I.available(env) == ["flux-2-pro"]
+
+
+def test_runnable_is_computed_from_credentials_rather_than_written_false():
+    """It was a literal False. It was true when it was written and would have stayed."""
+    from brambleloop.gateway import images as I
+
+    assert B.plan({})["runnable"] is False
+    assert B.plan({})["complete"] is False
+    with_key = B.plan({I.key_var("bfl"): "b"})
+    assert with_key["runnable"] is True
+    assert with_key["complete"] is False
+    assert "flux-2-pro" in with_key["credentialled"]
+    assert "gpt-image-2" in with_key["awaiting_credential"]
+
+
+def test_the_credential_plan_counts_sign_ups_rather_than_models():
+    from brambleloop.gateway import images as I
+
+    plan = I.credential_plan({})
+    google = next(a for a in plan["actions"] if a["account"] == "google")
+    assert google["unlocks_count"] == 2
+    assert google["needs_card"] is False
+    assert plan["actions"][0]["account"] == "google"     # free first
+    # A candidate that cannot be reached from Canada is named, not silently absent.
+    assert any(u["account"] == "volcengine" for u in plan["unreachable"])
+    assert "seedream-v5-lite" in plan["still_unmeasured_after"]
+
+
+def test_an_account_already_held_is_not_asked_for_again():
+    from brambleloop.gateway import images as I
+
+    plan = I.credential_plan({I.key_var("google"): "g"})
+    assert not any(a["account"] == "google" for a in plan["actions"])
+    assert set(plan["have"]) == {"nano-banana-2", "imagen-4-standard"}
+
+
+def test_a_leader_chosen_over_candidates_nobody_rendered_is_not_a_lock():
+    results = [_result("flux-2-pro")]
+    out = B.decide(results, unmeasured=[{"model": "gpt-image-2", "why": "no credential"}])
+    assert out["decided"] is True
+    assert out["locked"] is False
+    assert out["provisional"] is True
+    assert "shortlist of one" in out["why_not_locked"]
+
+
+def test_a_complete_run_locks():
+    out = B.decide([_result("flux-2-pro")], unmeasured=[])
+    assert out["locked"] is True
+    assert out["provisional"] is False
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
