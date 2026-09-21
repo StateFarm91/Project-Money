@@ -805,9 +805,52 @@ def state(db=None) -> dict:
             "every trial describes an original Brambleloop subject. Benchmarking on a "
             "competitor's product would be commissioning a copy to see how good the copier "
             "is"),
-        "measured": False,
+        **_measured_state(db),
+    }
+
+
+def last_run(db) -> dict | None:
+    """The most recent benchmark job's own record of what it did."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    if db is None:
+        return None
+    with db.session() as s:
+        rows = list(s.scalars(
+            select(AuditLog).where(AuditLog.action.in_(
+                ("image.benchmark", "image.benchmark_blocked", "image.benchmark_capped")))
+            .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None
+
+
+def _measured_state(db) -> dict:
+    """Which candidates have actually been scored, read from the rows rather than asserted.
+
+    `measured` was a literal `False` with a sentence beside it saying no provider account
+    existed. That was true when it was written. Two accounts now render and the sentence
+    would have gone on denying it -- the same defect as `plan()["runnable"]`, in the same
+    module, three days apart, which is how thoroughly a written-down fact resists the world
+    changing.
+    """
+    keep = [c for c in CANDIDATES if c.can_hold_an_identity]
+    if db is None:
+        return {"measured": None,
+                "why_not_measured": "no database was supplied, so nothing was read",
+                "measured_candidates": [], "last_run": None}
+
+    scored = [c.key for c in keep if stored_result(db, c) is not None]
+    outstanding = [c.key for c in keep if c.key not in scored]
+    return {
+        "measured": bool(scored),
+        "complete": not outstanding,
+        "measured_candidates": scored,
+        "awaiting_measurement": outstanding,
+        "last_run": last_run(db),
         "why_not_measured": (
-            "no provider account exists. Creating one needs a payment method and an identity "
-            "this build may not supply, so the measurement is an owner action and the "
-            "benchmark is built and waiting"),
+            "" if not outstanding else
+            f"{outstanding} have no scores on file under the current rubric. A candidate "
+            f"nobody could render is unmeasured rather than beaten, and no winner is locked "
+            f"while one remains"),
     }

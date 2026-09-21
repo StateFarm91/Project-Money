@@ -759,7 +759,7 @@ def state(db, *, env: dict[str, str] | None = None) -> dict:
             "same six Brambleloop trials on every eligible model, five samples each, and "
             "scores them blind against a rubric whose every line cites a requirement. Until "
             "it runs there is no winner, and the cheapest candidate is not a default"),
-        "benchmark": image_bench.state(),
+        "benchmark": image_bench.state(db),
         "workload": WORKLOAD,
         "estimate_per_candidate": {
             p.key: monthly_estimate_cad(p) for p in PROVIDERS if p.supports_lock},

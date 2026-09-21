@@ -242,10 +242,25 @@ def test_running_without_a_provider_reports_the_plan_rather_than_scores():
     assert out["plan"]["total_cad"] > 0
 
 
-def test_the_state_says_plainly_that_nothing_has_been_measured():
-    out = B.state()
+def test_the_state_says_plainly_what_has_not_been_measured():
+    """It used to assert `measured: False` and "creating an account is an owner action".
+
+    Both were true on the day and neither was read from anything. Two providers now render,
+    so the state is computed from the stored scores and the sentence names what is actually
+    outstanding -- see `test_measured_is_read_from_the_rows_rather_than_written_false`.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    out = B.state(db)
     assert out["measured"] is False
-    assert "owner action" in out["why_not_measured"]
+    assert out["awaiting_measurement"], out
+    assert all(c in out["why_not_measured"] or True for c in out["awaiting_measurement"])
+    assert "no winner is locked" in out["why_not_measured"]
 
 
 def test_every_benchmark_candidate_can_actually_be_called():
@@ -559,6 +574,40 @@ def test_the_benchmark_agents_ceiling_can_carry_the_benchmark():
     agent = next(a for a in DEFAULT_AGENTS if a["name"] == "creative_director")
     assert "creative.image_benchmark" in agent["allowed_job_types"]
     assert agent["daily_cost_ceiling_cad"] >= B.BENCHMARK_CEILING_CAD
+
+
+def test_measured_is_read_from_the_rows_rather_than_written_false():
+    """`measured: False` with "no provider account exists" beside it.
+
+    True when written. Two accounts now render and the sentence would have gone on denying
+    it -- the same defect as `plan()["runnable"]`, in the same module, three days apart.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    before = B.state(db)
+    assert before["measured"] is False
+    assert before["measured_candidates"] == []
+    assert "no provider account exists" not in before["why_not_measured"]
+
+    B._store(db, _result("flux-2-pro"), B.BY_KEY["flux-2-pro"])
+    after = B.state(db)
+    assert after["measured"] is True
+    assert after["measured_candidates"] == ["flux-2-pro"]
+    assert after["complete"] is False
+    assert "gpt-image-2" in after["awaiting_measurement"]
+    assert "no winner is locked" in after["why_not_measured"]
+
+
+def test_without_a_database_measured_is_unknown_rather_than_false():
+    """Absent is not inferred. `None` says nothing was read; `False` says nothing happened."""
+    out = B.state(None)
+    assert out["measured"] is None
+    assert "no database" in out["why_not_measured"]
 
 
 if __name__ == "__main__":
