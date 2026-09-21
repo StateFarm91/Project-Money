@@ -64,12 +64,19 @@ PHYSICAL_DIRECTION: dict[str, str] = {
     "build": "lean and athletic, visibly toned rather than soft",
     "shoulders": "straight, moderate width, not broad",
     "torso": "long, narrow waist, flat midriff",
-    # Revised on the owner's instruction of 2026-09-21: "slightly bigger breast". Moderate
-    # rather than small-to-moderate, and still in proportion with a lean athletic frame --
-    # the register stays the brief's, which rules out glamour and exaggeration. This is a
-    # pinned identity dimension rather than a styling choice, which is why it is a number in
-    # the pack and a required hard-floor dimension in the drift check.
-    "bust": "moderate and naturally full, in proportion with a lean athletic frame",
+    # Revised twice on 2026-09-21. First "slightly bigger breast"; then, after seeing the
+    # reference pack, "the torso/full-length reference still reads too small in the bust --
+    # increase it moderately, make the change clearly visible, still natural and
+    # proportionate to her existing lean/athletic frame".
+    #
+    # The second revision is targeted, not a redesign: everything else about her is approved
+    # as the target direction, so the check that matters is that exactly this dimension
+    # changed. `reference_pack` compares the revised references against the approved ones
+    # and requires the bust to have moved and the waist, hips, shoulders, stature, torso,
+    # limbs and build to have stayed -- because the obvious way a generator satisfies
+    # "bigger bust" is by making the whole woman bigger.
+    "bust": ("full and clearly rounded, noticeably fuller than the lean frame would "
+             "suggest, and naturally proportioned to it rather than exaggerated"),
     "hips": "narrow to moderate, close to the waist measurement",
     "limbs": "long, slim, defined",
 }
@@ -163,6 +170,60 @@ def owner_candidate_supplied() -> bool:
     from pathlib import Path
 
     return Path(candidate_reference()).is_file()
+
+
+# The identity the owner approved as the target direction on 2026-09-21, held in the
+# repository rather than in the artifact store.
+#
+# Not a claim that the pack is approved -- it is not, and the owner was explicit that
+# nothing is frozen. It is the face and the body the revision must preserve, kept somewhere
+# durable: the artifact store is a container filesystem, and the portrait presented to the
+# owner returned 404 within the hour, on the deploy after the one that made it. A reference
+# that disappears cannot be preserved against.
+REVISION_GIVEN_AT = "2026-09-21"
+
+REVISED_DIMENSION = "bust"
+
+# What the revision must leave alone, in the owner's own list. These are checked, not hoped
+# for: the revised references are compared against the approved ones dimension by dimension.
+PRESERVE_THROUGH_REVISION: tuple[str, ...] = (
+    "face", "hair", "eyes", "age", "stature", "build", "shoulders", "torso", "waist",
+    "hips", "limbs",
+)
+
+
+def revision_clause() -> str:
+    """The instruction that makes a revision targeted rather than a new woman.
+
+    Said to the generator in the same breath as the change, because the obvious way to
+    satisfy "fuller bust" is to make the whole person larger, and a face match would not
+    catch it. The reference images are passed alongside: this describes what to change
+    about the woman in them, not who to make.
+    """
+    return (
+        "This is the same woman as the reference images, with one deliberate change: her "
+        "chest is fuller -- clearly and visibly fuller than in the reference, naturally "
+        "shaped, and in proportion to her lean athletic frame rather than exaggerated. "
+        "Everything else about her is unchanged: the same face, the same hair and "
+        "colouring, the same apparent age, the same complexion, the same height, the same "
+        "shoulder width, the same torso length, the same narrow waist, the same hips and "
+        "the same limb proportions. She is not heavier, not broader and not more muscular.")
+
+
+def approved_portrait() -> str:
+    """The neutral portrait the owner approved as the target face. Carried, not re-rendered."""
+    from pathlib import Path
+
+    return str(Path(__file__).resolve().parent / "assets" / "identity_portrait.jpg")
+
+
+def approved_reference(frame: str) -> str:
+    """The approved body references, kept for the revision to be measured against."""
+    from pathlib import Path
+
+    names = {"torso_fit_reference": "identity_torso_v5.jpg",
+             "full_length_standing": "identity_full_length_v5.jpg"}
+    return str(Path(__file__).resolve().parent / "assets" / names[frame])
 
 
 def candidate_reference() -> str:
@@ -296,6 +357,11 @@ HARD_FLOORS: tuple[str, ...] = ("facial_identity", "whole_person_morphology")
 # convincing face above a chest that had changed, so a pack that cannot evidence these two
 # has not evidenced the thing that went wrong. `identity.REQUIRED_MORPHOLOGY` enforces it.
 REQUIRED_MORPHOLOGY: tuple[str, ...] = ("bust", "torso")
+
+# The scene that has to expose chest, torso and waist together. The owner's requirement,
+# and the reason it is named rather than left to whichever frame happens to be readable: a
+# set where every frame hides the chest passes every check and proves nothing.
+FIT_VALIDATION_SCENE = "fitted_garment_close"
 STRESS_MEASURES: tuple[str, ...] = HARD_FLOORS + (
     "chest_torso_continuity", "stature_build_continuity",
     "shoulder_waist_hip_continuity", "skin_hair_continuity", "realism",
@@ -362,6 +428,19 @@ def state() -> dict:
         "hard_floors": list(HARD_FLOORS),
         "required_morphology_dimensions": list(REQUIRED_MORPHOLOGY),
         "stress_measures": list(STRESS_MEASURES),
+        "revision": {
+            "given_at": REVISION_GIVEN_AT,
+            "dimension": REVISED_DIMENSION,
+            "preserve": list(PRESERVE_THROUGH_REVISION),
+            "how_it_is_checked": (
+                "the revised references are compared against the approved ones dimension "
+                "by dimension: the bust must have moved and everything else must not. The "
+                "obvious way a generator satisfies 'bigger bust' is by making the whole "
+                "woman bigger, and a face match would not catch it"),
+            "not_approved_yet": (
+                "the owner approved the direction and explicitly did not approve the pack. "
+                "Nothing is frozen, versioned as final, or marked owner-approved"),
+        },
         "owner_candidate": {
             "given_at": CANDIDATE_GIVEN_AT,
             "is": CANDIDATE_IS_OWNER_SUPPLIED,

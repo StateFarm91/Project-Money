@@ -52,10 +52,36 @@ def _seen(**overrides) -> dict:
     return out
 
 
+def _approved_refs() -> set[str]:
+    return {brief.approved_reference("torso_fit_reference"),
+            brief.approved_reference("full_length_standing")}
+
+
 def _compare(**overrides):
+    """A comparer that behaves like a successful revision unless told otherwise.
+
+    Against the *approved* body it reports the bust as changed and everything else as held,
+    which is what a targeted revision looks like. Against the new frames it reports
+    everything matching, which is what identity consistency looks like. Two different
+    questions, and a double that answered both the same way could not tell them apart.
+    """
     def comparer(db, reference_ref, candidate_ref):
         out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if reference_ref in _approved_refs():
+            out["bust"] = identity.DRIFT
+            return out
         out.update(overrides)
+        return out
+    return comparer
+
+
+def _revision(**overrides):
+    """A comparer whose answers *against the approved body* are the ones under test."""
+    def comparer(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if reference_ref in _approved_refs():
+            out["bust"] = identity.DRIFT
+            out.update(overrides)
         return out
     return comparer
 
@@ -68,7 +94,7 @@ def _build(tmp: Path, *, observe=None, compare=None):
     return gen, package
 
 
-def test_the_reference_is_three_frames_and_each_answers_what_it_can_see(tmp_path=None):
+def test_the_reference_is_three_frames_and_the_portrait_is_carried(tmp_path=None):
     """Two defects of one shape: a reference that cannot state what it is trusted for.
 
     The tournament measured every finalist against a head-and-shoulders portrait, so the
@@ -86,12 +112,18 @@ def test_the_reference_is_three_frames_and_each_answers_what_it_can_see(tmp_path
     frames = [f["frame"] for f in package["reference_frames"]]
     assert frames == ["neutral_portrait", "torso_fit_reference", "full_length_standing"]
 
-    torso_prompt = gen.calls[1]["prompt"].lower()
+    # The portrait is carried from the approved asset rather than rendered: the revision
+    # changes one body dimension and must not put an approved face at risk to do it.
+    portrait = [f for f in package["reference_frames"] if f["frame"] == "neutral_portrait"][0]
+    assert portrait["image_ref"] == brief.approved_portrait()
+    assert "carried" in portrait["source"]
+
+    torso_prompt = gen.calls[0]["prompt"].lower()
     for readable in ("bust", "torso length", "waist", "close-fitting"):
         assert readable in torso_prompt, readable
     assert "nothing loose" in torso_prompt
 
-    full_length_prompt = gen.calls[2]["prompt"]
+    full_length_prompt = gen.calls[1]["prompt"]
     assert "full-length" in full_length_prompt.lower()
     assert "head to feet" in full_length_prompt.lower()
     for readable in ("stature", "shoulder width", "torso length", "bust", "waist", "hips"):
@@ -105,13 +137,13 @@ def test_every_scene_is_conditioned_on_all_three_reference_frames():
     with tempfile.TemporaryDirectory() as tmp:
         gen, package = _build(Path(tmp))
 
-    portrait, torso, full_length = (c["image_ref"] for c in gen.calls[:3])
-    assert gen.calls[0]["refs"] == [brief.candidate_reference()]
-    assert gen.calls[1]["refs"] == [portrait, brief.candidate_reference()]
-    # The full-length conditions on the torso frame rather than the portrait: it is the body
-    # that has to carry across, and the portrait has none to carry.
-    assert gen.calls[2]["refs"] == [torso, portrait]
-    for call in gen.calls[3:]:
+    portrait = brief.approved_portrait()
+    torso, full_length = (c["image_ref"] for c in gen.calls[:2])
+    # Each revised frame sees the approved frame it is revising and the approved face it
+    # must keep.
+    assert gen.calls[0]["refs"] == [brief.approved_reference("torso_fit_reference"), portrait]
+    assert gen.calls[1]["refs"] == [torso, brief.approved_reference("full_length_standing")]
+    for call in gen.calls[2:]:
         assert call["refs"] == [portrait, torso, full_length], call["prompt"][:40]
 
 
@@ -127,13 +159,13 @@ def test_each_dimension_is_pinned_from_the_frame_that_can_see_it():
     import tempfile
 
     def observer(db, ref):
-        # The full-length render is the third call, so its file is render-2.png. It sees
-        # stature and not the chest, exactly as the live one did.
-        if ref.endswith("render-2.png"):
+        # render-1 is the full-length: it sees stature and not the chest, exactly as the
+        # live one did. render-0 is the torso frame, which sees the chest.
+        if ref.endswith("render-1.png"):
             return _seen(bust=identity.UNMEASURABLE, torso=identity.UNMEASURABLE,
                          stature="average to tall")
-        if ref.endswith("render-1.png"):
-            return _seen(bust="moderate and naturally full", torso="long, narrow waist",
+        if ref.endswith("render-0.png"):
+            return _seen(bust="full and clearly rounded", torso="long, narrow waist",
                          stature=identity.UNMEASURABLE)
         return _seen()
 
@@ -141,7 +173,7 @@ def test_each_dimension_is_pinned_from_the_frame_that_can_see_it():
         _, package = _build(Path(tmp), observe=observer)
 
     observed = package["reference_observation"]
-    assert observed["bust"] == "moderate and naturally full"
+    assert observed["bust"] == "full and clearly rounded"
     assert observed["torso"] == "long, narrow waist"
     assert observed["stature"] == "average to tall"
     assert package["required_dimensions_unpinned"] == []
@@ -187,12 +219,12 @@ def test_a_torso_frame_that_cannot_read_the_chest_is_rendered_again():
     import tempfile
 
     def observer(db, ref):
-        # render-1 is the torso frame and render-3 is its retry: the first misses the
+        # render-0 is the torso frame and render-2 is its retry: the first misses the
         # chest, the retry finds it.
-        if ref.endswith("render-1.png"):
+        if ref.endswith("render-0.png"):
             return _seen(bust=identity.UNMEASURABLE)
-        if ref.endswith("render-3.png"):
-            return _seen(bust="moderate and naturally full")
+        if ref.endswith("render-2.png"):
+            return _seen(bust="full and clearly rounded")
         return _seen()
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -201,8 +233,8 @@ def test_a_torso_frame_that_cannot_read_the_chest_is_rendered_again():
     torso = [f for f in package["reference_frames"]
              if f["frame"] == "torso_fit_reference"][0]
     assert torso["attempts"] == 2, "it did not re-render the frame that missed its job"
-    assert torso["image_ref"].endswith("render-3.png"), "it kept the frame that missed"
-    assert package["reference_observation"]["bust"] == "moderate and naturally full"
+    assert torso["image_ref"].endswith("render-2.png"), "it kept the frame that missed"
+    assert package["reference_observation"]["bust"] == "full and clearly rounded"
     assert package["unpinned_dimensions"] == []
 
     # And it stops: a pack whose chest is still unreadable after the bound says so rather
@@ -212,6 +244,78 @@ def test_a_torso_frame_that_cannot_read_the_chest_is_rendered_again():
                           observe=lambda db, ref: _seen(bust=identity.UNMEASURABLE))
     assert stuck["unpinned_dimensions"] == ["bust"]
     assert stuck["ready_for_owner_approval"] is False
+
+
+def test_a_revision_that_makes_the_whole_woman_bigger_is_caught():
+    """The check the owner's instruction actually needs.
+
+    "Increase the bust" is satisfied trivially by a larger woman, and every other floor in
+    this module passes her: the face still matches, and nothing drifts against a pack built
+    from the new body. Measuring the revision against the body it revised is the only place
+    a widened waist shows up as one.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, good = _build(Path(tmp), compare=_revision())
+    assert good["revision"]["changed"] is True
+    assert good["revision"]["also_moved"] == []
+    assert good["approval_conditions"]["the_bust_actually_changed"]["met"] is True
+    assert good["approval_conditions"]["nothing_else_changed"]["met"] is True
+    assert good["ready_for_owner_approval"] is True
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, bigger = _build(Path(tmp), compare=_revision(
+            waist=identity.DRIFT, hips=identity.DRIFT))
+    assert bigger["revision"]["also_moved"] == ["hips", "waist"]
+    assert bigger["approval_conditions"]["nothing_else_changed"]["met"] is False
+    assert bigger["ready_for_owner_approval"] is False
+
+
+def test_a_revision_that_did_not_change_anything_is_not_a_revision():
+    """A generator that ignored the instruction returns the same woman, and that is a fail
+    rather than a pass -- the one case where `match` against the old body is wrong."""
+    import tempfile
+
+    def unchanged(db, reference_ref, candidate_ref):
+        return {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=unchanged)
+    assert package["revision"]["changed"] is False
+    assert package["approval_conditions"]["the_bust_actually_changed"]["met"] is False
+    assert package["ready_for_owner_approval"] is False
+
+
+def test_a_preserved_dimension_nothing_could_read_is_not_counted_as_unchanged():
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=_revision(waist=identity.UNMEASURABLE))
+    assert "waist" in package["revision"]["unreadable"]
+    assert "waist" not in package["revision"]["also_moved"]
+    assert "reported here rather than counted as unchanged" in \
+        package["revision"]["unreadable_is_not_preserved"]
+
+
+def test_one_close_fitting_frame_must_read_chest_torso_and_waist_together():
+    """The owner's requirement, and the reason for it: a set in which every frame hides the
+    chest passes every other check and proves nothing."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp))
+    assert package["close_fitting_validation"]["reads"] == ["bust", "torso", "waist"]
+    assert package["approval_conditions"][
+        "a_close_fitting_frame_reads_chest_torso_and_waist"]["met"] is True
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, hidden = _build(Path(tmp), compare=_hide_in_scenes(
+            keep_fit_frame=False, bust=identity.UNMEASURABLE))
+    assert hidden["close_fitting_validation"]["reads"] == []
+    assert hidden["approval_conditions"][
+        "a_close_fitting_frame_reads_chest_torso_and_waist"]["met"] is False
+    assert hidden["ready_for_owner_approval"] is False
 
 
 def test_a_hidden_chest_does_not_stop_approval_and_a_changed_one_does():
@@ -245,14 +349,24 @@ def test_a_hidden_chest_does_not_stop_approval_and_a_changed_one_does():
     assert drifted["ready_for_owner_approval"] is False
 
 
-def _hide_in_scenes(**overrides):
-    """Reference comparisons read everything; scene comparisons hide what a garment hides."""
+def _hide_in_scenes(*, keep_fit_frame: bool = True, **overrides):
+    """Reference comparisons read everything; scene comparisons hide what a garment hides.
+
+    The close-fitting validation frame keeps its chest readable by default, because that is
+    the frame whose entire job is to expose it -- and the owner requires one such frame.
+    """
     seen: list[int] = []
 
     def comparer(db, reference_ref, candidate_ref):
         out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if reference_ref in _approved_refs():
+            out["bust"] = identity.DRIFT
+            return out
         seen.append(1)
-        if len(seen) > 2:  # the two bridges come first
+        # The two bridges come first, then one comparison pair per scene; the fit frame is
+        # the second scene, so its pair is the fifth and sixth calls.
+        is_fit_frame = len(seen) in (5, 6)
+        if len(seen) > 2 and not (keep_fit_frame and is_fit_frame):
             out.update(overrides)
         return out
     return comparer
@@ -440,7 +554,7 @@ def test_the_owners_candidate_is_a_generated_concept_and_the_rules_still_hold():
 
 def test_the_bust_direction_is_the_owners_revision():
     """Recorded as a pinned identity dimension, not left as a styling preference."""
-    assert brief.PHYSICAL_DIRECTION["bust"].startswith("moderate and naturally full")
+    assert brief.PHYSICAL_DIRECTION["bust"].startswith("full and clearly rounded")
     assert "bust" in brief.REQUIRED_MORPHOLOGY
     assert identity.REQUIRED_MEASURABLE["morphology"] == ("bust", "torso")
 

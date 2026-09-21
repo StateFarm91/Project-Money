@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v5-a-reference-frame-that-misses-its-job-is-re-rendered"
+PACK_VERSION = "v6-targeted-bust-revision-measured-against-the-approved-body"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -143,22 +143,40 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
 
     spent = 0.0
     frames: dict[str, dict] = {}
+
+    # The portrait is carried, not re-rendered. The owner approved this face as the target
+    # direction and the revision is about one body dimension, so regenerating her head
+    # would put the approved thing back at risk to change something else. It lives in the
+    # repository because the artifact store is a container filesystem: the portrait
+    # presented to the owner returned 404 within the hour, on the next deploy.
+    carried = brief.approved_portrait()
+    frames["neutral_portrait"] = {
+        "frame": "neutral_portrait", "image_ref": carried,
+        "image": tournament._keep(carried), "provider": "carried",
+        "source": ("carried unchanged from the approved reference pack, not re-rendered. "
+                   "The revision changes one body dimension and must not put an approved "
+                   "face at risk to do it")}
+
     for key, prompt in brief.REFERENCE_FRAMES:
+        if key == "neutral_portrait":
+            continue
         # Each frame conditions on the owner's concept and on the frames already produced,
         # so the three are one woman rather than three interpretations of one description.
         # The full-length conditions on the torso frame rather than the portrait: it is the
         # body that has to carry across, and the portrait has none to carry.
+        # Each revised frame sees the approved frame it is revising and the approved face
+        # it must keep. Conditioning on the body being changed is what makes "fuller chest,
+        # everything else the same" a change rather than a fresh interpretation.
         references = {
-            "neutral_portrait": [concept],
-            "torso_fit_reference": [frames.get("neutral_portrait", {}).get("image_ref", ""),
-                                    concept],
+            "torso_fit_reference": [brief.approved_reference("torso_fit_reference"),
+                                    frames["neutral_portrait"]["image_ref"]],
             "full_length_standing": [
                 frames.get("torso_fit_reference", {}).get("image_ref", ""),
-                frames.get("neutral_portrait", {}).get("image_ref", "")],
+                brief.approved_reference("full_length_standing")],
         }[key]
         references = [r for r in references if r]
         try:
-            render = _render(brief.base_prompt() + " " + prompt, provider=provider,
+            render = _render(f"{prompt} {brief.revision_clause()}", provider=provider,
                              references=references, env=env, work_dir=work_dir,
                              generator=generator)
         except (PermanentError, TransientError) as exc:
@@ -192,8 +210,9 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
            and any(not _readable(seen["torso_fit_reference"].get(d)) for d in required)):
         torso_attempts += 1
         try:
-            render = _render(brief.base_prompt() + " " + torso_prompt, provider=provider,
-                             references=[frames["neutral_portrait"]["image_ref"], concept],
+            render = _render(f"{torso_prompt} {brief.revision_clause()}", provider=provider,
+                             references=[brief.approved_reference("torso_fit_reference"),
+                                         frames["neutral_portrait"]["image_ref"]],
                              env=env, work_dir=work_dir, generator=generator)
         except (PermanentError, TransientError):
             break
@@ -226,6 +245,15 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     body_bridge = compare(db, torso, full_length)
     pack = _provisional(observed)
     coherent = identity.drift_check(_merge(face_bridge, body_bridge), pack)
+
+    # Did the revision change the one dimension it was asked to, and only that one?
+    #
+    # This is the check the owner's instruction actually needs. "Increase the bust" is
+    # satisfied trivially by a larger woman, and every floor in this module would pass her:
+    # the face still matches, nothing drifted against a pack built from the new body, and
+    # the chest is duly fuller. So the revised references are compared against the approved
+    # ones, where a bigger waist is a `drift` and shows up as what it is.
+    revision = _revision_check(db, compare, torso, full_length)
     unpinned = [d for d in identity.DRIFT_DIMENSIONS
                 if str(observed.get(d, "")).strip().lower() in ("", identity.UNMEASURABLE)]
     required_unpinned = [d for d in identity.REQUIRED_MEASURABLE["morphology"]
@@ -265,7 +293,7 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                     required_unpinned=required_unpinned, bridges={
                         "face_portrait_to_torso": face_bridge,
                         "body_torso_to_full_length": body_bridge},
-                    coherence=coherent, provider=provider, spent=spent)
+                    revision=revision, coherence=coherent, provider=provider, spent=spent)
 
 
 def _readable(value) -> bool:
@@ -307,6 +335,48 @@ def _provisional(observed: dict) -> identity.ReferencePack:
               for d in identity.DRIFT_DIMENSIONS}
     return identity.ReferencePack(version=0, fields=fields,
                                   approved_by_owner_at="not yet -- awaiting owner approval")
+
+
+def _revision_check(db, compare, torso: str, full_length: str) -> dict:
+    """The revised body against the approved body, dimension by dimension."""
+    against = {
+        "torso_fit_reference": compare(db, brief.approved_reference("torso_fit_reference"),
+                                       torso),
+        "full_length_standing": compare(
+            db, brief.approved_reference("full_length_standing"), full_length),
+    }
+
+    def verdict_for(dimension: str) -> str:
+        """The strongest thing either comparison could say about this dimension."""
+        seen = [against[f].get(dimension) for f in against]
+        if identity.DRIFT in seen:
+            return identity.DRIFT
+        if identity.MATCH in seen:
+            return identity.MATCH
+        return identity.UNMEASURABLE
+
+    revised = verdict_for(brief.REVISED_DIMENSION)
+    preserved = {d: verdict_for(d) for d in brief.PRESERVE_THROUGH_REVISION}
+    moved = sorted(d for d, v in preserved.items() if v == identity.DRIFT)
+    unreadable = sorted(d for d, v in preserved.items() if v == identity.UNMEASURABLE)
+
+    return {
+        "dimension": brief.REVISED_DIMENSION,
+        "changed": revised == identity.DRIFT,
+        "revised_verdict": revised,
+        "preserved": preserved,
+        "also_moved": moved,
+        "unreadable": unreadable,
+        "per_frame": against,
+        "why_it_is_checked": (
+            "'increase the bust' is satisfied trivially by a larger woman, and every floor "
+            "in this module would pass her: the face still matches and nothing drifts "
+            "against a pack built from the new body. Measuring the revision against the "
+            "body it revised is the only place a widened waist shows up as one"),
+        "unreadable_is_not_preserved": (
+            "a preserved dimension neither comparison could read is reported here rather "
+            "than counted as unchanged"),
+    }
 
 
 def _floor(scenes: list[dict], group: str) -> str:
@@ -359,7 +429,7 @@ def _required_evidence(scenes: list[dict], bridge: dict | None = None) -> dict:
 
 def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list[str],
              required_unpinned: list[str], bridges: dict, coherence: dict, provider: str,
-             spent: float) -> dict:
+             spent: float, revision: dict | None = None) -> dict:
     bridges = bridges or {}
     face_floor = _floor(scenes, "face")
     body_floor = _floor(scenes, "morphology")
@@ -367,6 +437,16 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
     required_ok = all(v["verdict"] == "pass" for v in required.values())
     rendered = [s for s in scenes if s.get("rendered")]
     drifted_scenes = [s["scene"] for s in rendered if s["morphology"] == "fail"]
+
+    # Which of chest, torso and waist the close-fitting frame could actually read. The
+    # owner asked for one frame that exposes all three together, because a set in which
+    # every frame hides the chest is clean and proves nothing.
+    fit_scene = next((s for s in rendered if s["scene"] == brief.FIT_VALIDATION_SCENE), None)
+    fit_dims = (fit_scene or {}).get("dimensions") or {}
+    fit_frame_reads = sorted(d for d in ("bust", "torso", "waist")
+                             if fit_dims.get(d) in (identity.MATCH, identity.DRIFT))
+    if len(fit_frame_reads) < 3:
+        fit_frame_reads = []
 
     # Stated one by one rather than folded into a single boolean, because the single boolean
     # was wrong in a way nobody could see: it required `morphology_floor == "pass"`, which
@@ -396,7 +476,22 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
         "reference_frames_coherent": {
             "met": coherence["verdict"] != "fail",
             "detail": f"portrait/torso/full-length: {coherence['verdict']}"},
+        # The owner's explicit requirement: at least one controlled close-fitting frame has
+        # to expose chest, torso and waist together. Without it the set can be full of
+        # `unmeasurable` and technically clean.
+        "a_close_fitting_frame_reads_chest_torso_and_waist": {
+            "met": bool(fit_frame_reads),
+            "detail": (f"{brief.FIT_VALIDATION_SCENE}: "
+                       f"{fit_frame_reads or 'chest, torso and waist not all readable'}")},
     }
+    if revision is not None:
+        conditions["the_bust_actually_changed"] = {
+            "met": bool(revision["changed"]),
+            "detail": f"against the approved body: {revision['revised_verdict']}"}
+        conditions["nothing_else_changed"] = {
+            "met": not revision["also_moved"],
+            "detail": (f"also moved: {revision['also_moved']}" if revision["also_moved"]
+                       else "every preserved dimension held")}
 
     return {
         "built": True,
@@ -407,6 +502,12 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
         "reference_observation": observed,
         "unpinned_dimensions": unpinned,
         "required_dimensions_unpinned": required_unpinned,
+        "revision": revision,
+        "close_fitting_validation": {
+            "scene": brief.FIT_VALIDATION_SCENE,
+            "reads": fit_frame_reads,
+            "why": ("chest, torso and waist have to be readable together somewhere, or a "
+                    "set in which every frame hides them is clean and proves nothing")},
         "reference_bridges": {
             "face_portrait_to_torso": {d: bridges["face_portrait_to_torso"].get(d)
                                        for d in identity.FACE_DIMENSIONS},
