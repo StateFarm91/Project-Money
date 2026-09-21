@@ -67,7 +67,7 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
     since = now - timedelta(hours=window_hours)
 
     with db.session() as s:
-        jobs = [(j.job_type, _aware(j.finished_at), j.status)
+        jobs = [(j.job_type, _aware(j.finished_at), j.status, j.last_error or "")
                 for j in s.scalars(select(Job).where(Job.finished_at.is_not(None)))
                 if _aware(j.finished_at) >= since]
         scheduler_ticks = [_aware(a.at) for a in s.scalars(select(AuditLog))
@@ -79,13 +79,18 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
 
     unattended = [j for j in jobs if j[0] not in ATTENDED_JOB_TYPES]
     completed = [j for j in unattended if j[2] == JobStatus.DONE]
-    # `store.publish` dead letters are the shadow-mode refusal working, so they are excluded
-    # here rather than only in the condition. Reporting a total that the condition does not
-    # test is how a report says 16 and means 2 -- which is the same class of lie as an
-    # unmeasured rate reported as zero, and it was doing it until production showed it.
-    dead = [j for j in unattended if j[2] == JobStatus.DEAD and j[0] != "store.publish"]
+    # Dead letters that are a refusal working are excluded here rather than only in the
+    # condition. Reporting a total that the condition does not test is how a report says 16
+    # and means 2 -- the same class of lie as an unmeasured rate reported as zero, and it
+    # was doing it until production showed it. `deliberate_refusal` is shared with
+    # `/api/verify`, because two health signals disagreeing about the same row is worse
+    # than either being wrong.
+    from ..queue.durable import deliberate_refusal
+
+    dead = [j for j in unattended
+            if j[2] == JobStatus.DEAD and not deliberate_refusal(j[0], j[3])]
     expected_refusals = [j for j in unattended
-                         if j[2] == JobStatus.DEAD and j[0] == "store.publish"]
+                         if j[2] == JobStatus.DEAD and deliberate_refusal(j[0], j[3])]
 
     active_hours = len({c[1].replace(minute=0, second=0, microsecond=0) for c in completed})
     distinct_types = sorted({c[0] for c in completed})

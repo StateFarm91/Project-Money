@@ -28,6 +28,29 @@ BACKOFF_BASE_SECONDS = 2
 BACKOFF_CAP_SECONDS = 3600
 
 
+# Dead letters that are the system working rather than the system failing.
+#
+# Two of them, and the second one only appeared on 2026-09-21. Shadow mode refusing to
+# publish was always the first. The second is a job standing aside because it was stamped
+# for a build other than the one that claimed it -- a rolling deploy runs two commits at
+# once, and standing aside is how the right one gets the work. Both are refusals; neither
+# is a death anybody needs to explain.
+#
+# Defined once because it is asked in two places, and a value that lives in two places
+# disagrees with itself: `/api/verify` went red for a stand-aside while the autonomy proof
+# counted it correctly, which is one signal contradicting another about the same row.
+DELIBERATE_REFUSAL_TYPES: frozenset[str] = frozenset({"store.publish"})
+
+DELIBERATE_REFUSAL_MARKERS: tuple[str, ...] = ("another replica",)
+
+
+def deliberate_refusal(job_type: str, last_error: str = "") -> bool:
+    """Whether this dead letter is a refusal working rather than a defect."""
+    if job_type in DELIBERATE_REFUSAL_TYPES:
+        return True
+    return any(marker in (last_error or "") for marker in DELIBERATE_REFUSAL_MARKERS)
+
+
 class DuplicateJob(Exception):
     """Raised when an idempotency key already exists. Not an error -- a guarantee working."""
 

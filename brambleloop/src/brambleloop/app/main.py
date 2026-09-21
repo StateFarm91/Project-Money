@@ -3010,14 +3010,31 @@ def api_verify() -> JSONResponse:
         """
         return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
-    unexpected = [j for j in dead if j.job_type != "store.publish"]
+    # A refusal working correctly is not a defect, and there are two of them now. Shadow
+    # mode refusing to publish was always one. The second arrived on 2026-09-21: a job
+    # stamped with the pack version it was enqueued for, picked up by a replica still
+    # running the previous build, standing aside so the right one takes it. The work then
+    # happened -- and this check went red, because a deliberate refusal was being counted
+    # as an unexplained death. A health signal that is red for a non-fault is a health
+    # signal people stop reading, which is the failure this whole endpoint exists against.
+    from ..queue.durable import deliberate_refusal
+
+    def _deliberate(job) -> bool:
+        return deliberate_refusal(job.job_type, job.last_error or "")
+
+    unexpected = [j for j in dead if not _deliberate(j)]
     recent = [j for j in unexpected if _aware(j.finished_at or j.created_at) >= cutoff]
     check("no_unexpected_dead_letters_in_24h", not recent,
           {"recent": sorted({j.job_type for j in recent}),
            "historical_total": len(unexpected),
            "historical_types": sorted({j.job_type for j in unexpected}),
            "expected_publish_refusals":
-               sum(1 for j in dead if j.job_type == "store.publish")})
+               sum(1 for j in dead if j.job_type == "store.publish"),
+           "expected_stand_asides":
+               sum(1 for j in dead if j.job_type != "store.publish" and _deliberate(j)),
+           "what_counts_as_expected": (
+               "shadow mode refusing to publish, and a job standing aside for the build "
+               "that can run it. Both are refusals working; neither is a death to explain")})
 
     passed = all(c["ok"] for c in checks)
     return JSONResponse({"ok": passed, "checks": checks},

@@ -585,6 +585,42 @@ def test_the_proof_counts_the_same_dead_letters_it_tests():
     assert "means what it says" in condition["why"]
 
 
+def test_a_job_standing_aside_for_another_build_is_a_refusal_not_a_death():
+    """The second kind of deliberate dead letter, and it made a health check lie.
+
+    A rolling deploy runs two commits at once. A job stamped for the build that should run
+    it, claimed by the one that should not, fails on purpose so the right replica takes it
+    -- and the work then happens. `/api/verify` counted that as an unexplained death and
+    went red, which is how a health signal stops being read.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.build2 import autonomy
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.queue.durable import deliberate_refusal
+
+    assert deliberate_refusal("store.publish") is True
+    assert deliberate_refusal(
+        "creative.model_reference_pack",
+        "RuntimeError: this job asked for pack 'v6' and this build produces 'v5'. Failing "
+        "so another replica takes it") is True
+    # And an ordinary failure is still an ordinary failure.
+    assert deliberate_refusal("build.tick", "AttributeError: NoneType") is False
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        s.add(Job(agent="creative_director", job_type="creative.model_reference_pack",
+                  status=JobStatus.DEAD, finished_at=now - timedelta(hours=1),
+                  last_error="Failing so another replica takes it"))
+        s.add(Job(agent="orchestrator", job_type="build.tick",
+                  status=JobStatus.DEAD, finished_at=now - timedelta(hours=1),
+                  last_error="AttributeError: NoneType"))
+
+    condition = autonomy.off_device_proof(db)["conditions"]["no_unexpected_dead_letters"]
+    assert condition["types"] == ["build.tick"], condition["types"]
+
+
 def test_the_proof_requires_work_spread_across_the_window_not_a_burst():
     """A container that died after booting completes a burst and then nothing."""
     from brambleloop.build2 import autonomy
