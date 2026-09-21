@@ -2691,8 +2691,18 @@ def _candidate_fingerprint() -> str:
 
 
 def pack_boot_key(now) -> str:
-    """The idempotency key a deploy uses to enqueue the reference-pack build."""
-    return f"boot-pack-{_candidate_fingerprint()}-{now:%Y%m%d%H}"
+    """The idempotency key a deploy uses to enqueue the reference-pack build.
+
+    Keyed on the candidate and the running commit rather than on the hour. The hour looked
+    like the retry mechanism and is really a lockout: a job created under one commit holds
+    that key for the rest of the hour, so the deploy that corrects the method finds the key
+    spent by the run it was correcting -- which is exactly what happened here, twice, first
+    with the tournament and then with this. A deploy is what re-asks the question, and the
+    hourly cadence is what retries a failure; the key does not have to be both.
+    """
+    from ..core.build import identity
+
+    return f"boot-pack-{_candidate_fingerprint()}-{identity().get('commit_short', 'dev')}"
 
 
 def _pack_attempts(db, limit: int = 5) -> list[dict]:
@@ -2763,10 +2773,12 @@ def tournament_boot_key(now) -> str:
     already spent, enqueued nothing, and the endpoint went on reporting that the corrected
     tournament had not run.
 
-    The hour stays in the key so a run that fails is retried next hour rather than locked out
-    for the life of the brief.
+    Keyed on the running commit rather than the hour, for the reason `pack_boot_key` gives:
+    the hour is a lockout dressed as a retry. The hourly cadence is what retries a failure.
     """
-    return f"boot-tourney-{_brief_fingerprint()}-{now:%Y%m%d%H}"
+    from ..core.build import identity
+
+    return f"boot-tourney-{_brief_fingerprint()}-{identity().get('commit_short', 'dev')}"
 
 
 def _tournament_on_file(db) -> dict | None:

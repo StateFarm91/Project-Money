@@ -337,10 +337,21 @@ def test_a_corrected_brief_is_not_locked_out_by_the_hours_idempotency_key():
     finally:
         tournament.PRESENTATION_VERSION = original
 
-    # The hour stays in the key, so a run that fails is retried rather than locked out for
-    # the life of the brief.
+    # The key carries the running commit, not the hour. The hour looked like a retry and was
+    # a lockout: a job created under one commit holds the key for the rest of the hour, so
+    # the deploy that corrects the method finds the key spent by the run it corrects. That
+    # happened twice -- to the tournament, and then to the pack. A deploy re-asks; the
+    # hourly cadence retries.
+    import os
+
+    os.environ["BRAMBLELOOP_COMMIT"] = "deadbeefcafe"
+    try:
+        assert release.tournament_boot_key(now) != before
+        assert release.pack_boot_key(now).endswith("deadbeefcafe")
+    finally:
+        os.environ.pop("BRAMBLELOOP_COMMIT", None)
     later = datetime(2026, 9, 21, 14, 0, tzinfo=timezone.utc)
-    assert release.tournament_boot_key(later) != before
+    assert release.tournament_boot_key(later) == before, "the hour must not change the key"
 
 
 if __name__ == "__main__":
