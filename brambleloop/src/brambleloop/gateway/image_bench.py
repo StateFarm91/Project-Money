@@ -962,10 +962,20 @@ def spent_to_date(db) -> float:
     total = 0.0
     with db.session() as s:
         for row in s.scalars(select(AuditLog).where(AuditLog.action.in_(
-                ("image.benchmark", CANDIDATE_ACTION, images_reference_action())))):
+                ("image.benchmark", images_reference_action())))):
             total += float((row.detail or {}).get("spent_cad")
-                           or (row.detail or {}).get("cad_spent")
                            or (row.detail or {}).get("cad") or 0.0)
+    # Renders are only part of it; the blind judging is the larger half and is billed
+    # through the model gateway, so it is read from the spend ledger by purpose rather than
+    # from this module's own audit rows. Counting only what this module paid for directly
+    # reported CA$7 while the real figure was CA$31.
+    from ..finance import spend_report
+
+    try:
+        by_purpose = (spend_report.what_it_bought(db) or {}).get("by_purpose") or {}
+        total += float((by_purpose.get(JUDGE_TASK) or {}).get("cad") or 0.0)
+    except Exception:  # noqa: BLE001 - a ledger problem must not hide the render total
+        pass
     return round(total, 4)
 
 

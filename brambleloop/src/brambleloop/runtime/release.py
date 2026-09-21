@@ -2380,6 +2380,45 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
     from ..finance import spend_policy
     from ..gateway import image_bench
 
+    # The approved benchmark budget as a stop, not as a number in a report. It was being
+    # applied per run, so four runs each stayed inside a figure the owner approved once and
+    # the cumulative total passed it while every individual run looked compliant.
+    spent = image_bench.spent_to_date(ctx.db)
+    if spent >= image_bench.BENCHMARK_CEILING_CAD:
+        from ..core.models import OwnerAction
+
+        with ctx.db.session() as s:
+            from sqlalchemy import select
+
+            already = s.scalar(select(OwnerAction).where(
+                OwnerAction.requirement_key == "image_benchmark_budget",
+                OwnerAction.done == False))  # noqa: E712
+            if already is None:
+                s.add(OwnerAction(
+                    requirement_key="image_benchmark_budget",
+                    action=("Decide whether to raise the image-provider benchmark budget "
+                            "above CA$%.2f, or to stop the benchmark and choose from what "
+                            "has been measured." % image_bench.BENCHMARK_CEILING_CAD),
+                    reason=("The benchmark has spent CA$%.2f of an approved CA$%.2f and has "
+                            "not finished. The overrun bought no measurement: it went to "
+                            "defects in the benchmark itself -- an identity trial that ran "
+                            "without its reference image, two providers whose reference "
+                            "conditioning was wired wrong, a judge token budget too small "
+                            "for the rubric, and a production ceiling variable still set to "
+                            "CA$25. All are fixed; the runs that hit them are not "
+                            "refundable." % (spent, image_bench.BENCHMARK_CEILING_CAD)),
+                    max_cost_cad=10.0, minutes=2,
+                    consequence_of_delay=("The image-provider choice stays unmade and the "
+                                          "twelve requirements behind it stay parked."),
+                    blocks="the canonical model pack and every listing image"))
+        ctx.audit("image.benchmark_budget_reached", detail={
+            "spent_to_date_cad": spent,
+            "approved_cad": image_bench.BENCHMARK_CEILING_CAD})
+        return {"ran": False, "reason": "the approved benchmark budget is spent",
+                "spent_to_date_cad": spent,
+                "approved_cad": image_bench.BENCHMARK_CEILING_CAD,
+                "owner_action": "image_benchmark_budget"}
+
     allowance = spend_policy.may_spend(ctx.db, image_bench.JUDGE_TASK)
     if not allowance["may_spend"]:
         ctx.audit("image.benchmark_capped", detail=allowance)
