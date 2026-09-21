@@ -4598,6 +4598,19 @@ timings, written there by the system rather than by hand.
   the benchmark from CA$6.19 to **CA$18.55** of the CA$25 authorised -- the judgement decides
   which provider renders every listing image afterwards, so measuring carefully with a blunt
   instrument was the one economy that could not be defended. Decisions B-513..B-520.
+- 2026-09-21, the Teardown Laboratory can read a page. The owner's MJs protocol said not to
+  ask for the CA$292 purchase until the complete intake and analysis path was verified ready,
+  and the honest answer was no: `library.retrieve` -- the quarantine's only sanctioned reader
+  -- was called by nothing at all, so a purchase would have been filed, hashed, manifested and
+  never opened. `teardown/reader.py` is that missing module, built so that nothing leaves it
+  which this repository did not already contain: closed vocabularies and numbers, no code path
+  that emits a substring of the document (B-566). Readiness is now proved by running the whole
+  path against a real Brambleloop PDF on every request rather than by a table of ticks, and the
+  launch assessment withholds the purchase request entirely while the lab is unready (B-567).
+  **The verdict is now READY**; the purchase is the owner's decision, not a blocked build.
+- Pointing that reader at this company's own pattern found the first thing it audited: every
+  Brambleloop pattern shipped with no finishing section. The document ended at the last row --
+  no fastening off, no ends, no blocking -- and now does not (B-568).
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

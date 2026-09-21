@@ -8,3 +8,4 @@ psycopg2-binary>=2.9
 requests>=2.31
 cryptography>=42
 python-multipart>=0.0.9
+pypdf>=4.0

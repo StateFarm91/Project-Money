@@ -10,13 +10,18 @@ absent -- an importable reader, a caller that exists, a table with rows in it --
 by a list somebody keeps up to date. A readiness report maintained by hand is a readiness
 report that says ready.
 
-The uncomfortable answer, on the day this was written: **not ready**. A PDF reader is
-importable and nothing uses it; the library is a quarantine that by design never opens a
-file, and `retrieve()` -- its only sanctioned reader -- is called by nothing. So the gap is a
-module rather than a dependency, and everything downstream of reading a page (the materials,
-the gauge, the construction, the cross-reference against what the listing promised) is a
-schedule waiting for observations nothing produces. The purchase would land, be filed
-correctly, be hashed, be manifested, and then sit there.
+The uncomfortable answer, the day this was written, was **not ready**: a PDF reader was
+importable and nothing used it; `retrieve()` -- the quarantine's only sanctioned reader --
+was called by nothing, so everything downstream of reading a page was a schedule waiting on
+observations nothing produced. The purchase would have landed, been filed, been hashed, been
+manifested, and then sat there.
+
+`teardown/reader.py` is that missing module. So this check no longer asks whether a reader
+exists; it **runs** one. `reader.self_test()` renders a real Brambleloop pattern PDF, files
+it in a temporary library root, reads it back through `retrieve()` with its role refusal
+intact, and puts the result through the whole path -- inventory, the analysis dimensions, the
+promise cross-reference, the construction correspondence. A readiness report that reruns its
+own proof every time it is asked cannot go stale the way a table of ticks does.
 """
 from __future__ import annotations
 
@@ -40,14 +45,6 @@ CAPABILITIES: tuple[tuple[str, str], ...] = (
                           "standards are derived"),
     ("provenance", "provenance is preserved for every learned principle"),
 )
-
-
-def _has_pdf_reader() -> bool:
-    """Whether anything in this environment can open a PDF at all."""
-    import importlib.util
-
-    return any(importlib.util.find_spec(name) is not None
-               for name in ("pypdf", "PyPDF2", "fitz", "pdfplumber", "pdfminer"))
 
 
 def retrieve_callers() -> list[str]:
@@ -103,9 +100,12 @@ def check(db=None) -> dict:
     """Each capability, its verdict and the evidence behind it."""
     from ..core.models import BenchmarkListing, TeardownFinding
 
-    from . import audits, scorecard
+    from . import audits, reader, scorecard
 
-    reader = _has_pdf_reader()
+    # Run the proof rather than describe it. This is the whole difference between this
+    # module and the readiness table it replaced: a tick somebody wrote is true on the day
+    # it was written, and this is true now or it says so now.
+    proof = reader.self_test()
     callers = retrieve_callers()
     listings = _rows(db, BenchmarkListing)
     findings = _rows(db, TeardownFinding)
@@ -124,38 +124,57 @@ def check(db=None) -> dict:
                          "with absence recorded as unknown rather than as false"),
         },
         "pdf_ingestion": {
-            "ready": False,
-            "evidence": (f"a PDF reader is importable ({'pypdf' if reader else 'none'}), and "
-                         f"nothing uses it: library.retrieve -- the quarantine's only "
-                         f"sanctioned reader -- is called by {callers or 'nothing'}. The gap "
-                         f"is a module, not a dependency. The library never opens a file by "
-                         f"design, and that design predates the owner's requirement to "
-                         f"ingest every page"),
-            "reader_importable": reader,
+            "ready": bool(proof.get("ready")),
+            "evidence": (
+                f"reader.read() calls library.retrieve() and is called from "
+                f"{callers or 'nothing'}. The self-test read "
+                f"{proof.get('pages_with_text')} of {proof.get('pages')} pages of a real "
+                f"pattern PDF through the quarantine, found "
+                f"{len(proof.get('sections_found') or [])} of "
+                f"{len(reader.SELF_TEST_SECTIONS)} known sections, and the quarantine still "
+                f"refused pattern generation "
+                f"({proof.get('quarantine_still_refuses_generation')}) and a path escape "
+                f"({proof.get('quarantine_still_refuses_path_escape')})"),
+            "reader_importable": reader.available(),
             "retrieve_callers": callers,
-            "blocks_purchase": True,
+            "self_test": proof,
+            "blocks_purchase": not proof.get("ready"),
         },
         "pattern_analysis": {
-            "ready": False,
-            "evidence": (f"teardown.audits holds {len(audits.SPECS) if hasattr(audits, 'SPECS') else 'the'} "
-                         f"observation schedules and refuses a partial one, but observe() "
-                         f"takes its answers from a caller. Nothing reads a purchased page "
-                         f"to produce them, so the schedules are waiting on a reader that "
-                         f"does not exist"),
-            "blocks_purchase": True,
+            "ready": bool(proof.get("ready")
+                          and proof.get("analysis_dimensions_measured")
+                          == proof.get("analysis_dimensions")),
+            "evidence": (
+                f"reader.analysis() measured "
+                f"{proof.get('analysis_dimensions_measured')} of "
+                f"{proof.get('analysis_dimensions')} of the owner's enumerated dimensions "
+                f"on the self-test document, and reader.architecture_answers() answered "
+                f"{proof.get('architecture_answers')} of the #152 presence schedule, "
+                f"withholding {proof.get('architecture_withheld')}. What is *good* about "
+                f"any of it stays the analyst's judgement through audits.observe(): this "
+                f"reader records structure and does not score"),
+            "blocks_purchase": not proof.get("ready"),
         },
         "promise_cross_reference": {
-            "ready": False,
-            "evidence": ("intake.deliverable_audit compares the listing's promises against "
-                         "delivered *filenames* only, and says so. Comparing them against "
-                         "the instructions needs the instructions read"),
-            "blocks_purchase": True,
+            "ready": bool(proof.get("ready")),
+            "evidence": (
+                f"reader.cross_reference() compares the listing's promises against the "
+                f"document itself rather than against filenames. On the self-test it kept "
+                f"{(proof.get('cross_reference') or {}).get('kept')} and left "
+                f"{(proof.get('cross_reference') or {}).get('unverifiable')} unverifiable "
+                f"-- a PDF cannot settle whether a video was delivered, and saying so is "
+                f"the point. intake.deliverable_audit still answers the filename half"),
+            "blocks_purchase": not proof.get("ready"),
         },
         "construction_to_object": {
-            "ready": False,
-            "evidence": ("nothing relates written construction to the advertised finished "
-                         "object; it is downstream of reading the construction"),
-            "blocks_purchase": True,
+            "ready": bool(proof.get("ready")),
+            "evidence": (
+                f"reader.construction_correspondence() relates the pieces, assembly and "
+                f"size labels a document actually contains to the advertised object, and "
+                f"returned {proof.get('construction_verdict')!r} on the self-test. A "
+                f"seamless construction and an unreadable page both produce "
+                f"`unverifiable`, never `corresponds`"),
+            "blocks_purchase": not proof.get("ready"),
         },
         "cross_set_comparison": {
             "ready": bool(findings),
@@ -194,10 +213,17 @@ def check(db=None) -> dict:
             "audit their filenames and then not read a single page, the money bought a "
             "folder"),
         "what_is_missing": (
-            "a reader. The library is a quarantine that never opens a file, which was the "
-            "right call when nothing was allowed to read one; the owner's protocol now "
-            "requires every page ingested and analysed. retrieve() already exists for "
-            "exactly this -- it refuses every caller that is not an analyst -- so the work "
-            "is an analyst that uses it, page by page, with check_derived refusing "
-            "transcription on every field it records"),
+            "" if not blocking else
+            "the capabilities listed in `blocking`, each with its evidence above"),
+        "empty_rather_than_absent": (
+            "cross_set_comparison and derived_standards are built, exercised and empty: "
+            "they consume findings, and there are no findings because nothing has been "
+            "purchased. They do not block the purchase because the purchase is what fills "
+            "them -- but they are reported unready rather than ticked, because a comparison "
+            "across a set of nothing is not a comparison"),
+        "what_the_reader_will_not_do": (
+            "return text. Every value it produces is a count, a page number, a measured "
+            "number or a key from its own vocabularies, so a purchased pattern cannot reach "
+            "a Brambleloop product through it -- not by policy, by there being no code path "
+            "that emits a substring of the document"),
     }

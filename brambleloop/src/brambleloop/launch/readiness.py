@@ -523,15 +523,36 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         challenge_result = {"verdict": "unavailable", "comparable": False,
                             "blocks_release": True, "product": representative,
                             "category": category, "reason": str(e), "rows": []}
+    # The owner's MJs protocol, enforced rather than remembered: *do not ask me to purchase
+    # the benchmark set until the complete intake and analysis path is verified ready*. So
+    # the purchase request is withheld while our own laboratory cannot read a page. An
+    # unready lab makes this ours to finish, not the owner's to fund -- and the difference
+    # between those two is CA$292 of somebody else's copyrighted work sitting in a folder.
+    from ..teardown import readiness as laboratory
+
+    lab = laboratory.check(db)
+    may_ask = bool(lab["ready_for_purchase"])
+    blocked_by = None
+    owner_request = None
+    if challenge_result["blocks_release"]:
+        if challenge_result["comparable"]:
+            blocked_by = BLOCKED_BUILD
+        elif may_ask:
+            blocked_by, owner_request = BLOCKED_OWNER, BENCHMARK_PURCHASES
+        else:
+            blocked_by = BLOCKED_BUILD
+
     out.append(Requirement(
         key="benchmark_challenge",
         description=("a representative product has beaten, or deliberately traded against, "
                      "the best category-matched purchased benchmark"),
         ready=not challenge_result["blocks_release"],
-        blocked_by=None if not challenge_result["blocks_release"] else (
-            BLOCKED_BUILD if challenge_result["comparable"] else BLOCKED_OWNER),
-        evidence=challenge_result,
-        owner_request=None if challenge_result["comparable"] else BENCHMARK_PURCHASES))
+        blocked_by=blocked_by,
+        evidence={**challenge_result,
+                  "teardown_laboratory": {"ready_for_purchase": may_ask,
+                                          "verdict": lab["verdict"],
+                                          "blocking": lab["blocking"]}},
+        owner_request=owner_request))
 
     # v1.4's additions to the pre-Etsy gate (#54). Each is a thing that is obvious in
     # hindsight and is never on the list the first time: a rollback for the case where the

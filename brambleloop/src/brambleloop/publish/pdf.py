@@ -357,7 +357,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # -- instructions ------------------------------------------------------
     doc.new_page(head)
     doc.heading(f"Instructions ({terminology} terms)")
-    text = write_pattern(cir, result, terminology=terminology)
+    text = write_pattern(cir, result, terminology=terminology,
+                         width_cm=twin.width_cm, height_cm=twin.height_cm)
     for block in text.split("\n"):
         if not block.strip():
             doc.space(2 * mm)

@@ -193,6 +193,49 @@ def assembly_lines(cir: CIR) -> list[str]:
     return out
 
 
+FINISHING_HEADING = "## Finishing"
+
+
+def finishing_lines(cir: CIR, *, width_cm: float | None = None,
+                    height_cm: float | None = None) -> list[str]:
+    """How the work stops being work in progress.
+
+    Every Brambleloop pattern shipped without this, and nobody noticed until the teardown
+    reader -- built to audit somebody else's document -- was pointed at ours and found no
+    finishing section. The last thing the maker was told was the last row. Fastening off,
+    securing the ends and blocking to the stated size are the difference between a finished
+    object and a piece still on the hook, and every benchmark in the category says so.
+
+    Derived, not written: the ends come from the colours the CIR actually uses and the
+    blocking measurements from the twin. Nothing here claims anything about a fibre this
+    schema does not record -- the ball band is cited instead, which is where that fact
+    actually lives.
+    """
+    out = [FINISHING_HEADING,
+           "Fasten off and weave in all ends on the wrong side. Thread each end through at "
+           "least 5 cm of stitches, then back through a few in the opposite direction, so "
+           "it cannot work loose in wear or washing."]
+
+    colours = len(cir.colors or [])
+    if colours > 1:
+        out.append(f"This pattern uses {colours} colours, so there is an end to secure at "
+                   f"every join and every change.")
+
+    if width_cm and height_cm:
+        out.append(f"Block the finished piece to {width_cm:.0f} x {height_cm:.0f} cm: pin "
+                   f"it out damp to those measurements, easing rather than stretching, and "
+                   f"leave it to dry flat. Those are the dimensions this pattern's gauge "
+                   f"produces, so blocking to them is what makes the stated size the size "
+                   f"you get.")
+    else:
+        out.append("Block the finished piece: pin it out damp, easing rather than "
+                   "stretching, and leave it to dry flat.")
+
+    out.append("Check the ball band before blocking with heat or water. Fibres behave "
+               "differently and yours is the one in your hands.")
+    return out
+
+
 def collapses_rows(cir: CIR) -> bool:
     """True when the written pattern will collapse a repeated block into an instruction.
 
@@ -204,7 +247,8 @@ def collapses_rows(cir: CIR) -> bool:
     return any(detect_cycle(c.rows) is not None for c in cir.components)
 
 
-def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> str:
+def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
+                  width_cm: float | None = None, height_cm: float | None = None) -> str:
     """Render the full customer-facing pattern body."""
     out: list[str] = [f"{cir.title}", f"Version {cir.version}", ""]
     if cir.gauge:
@@ -252,5 +296,7 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US") -> s
         out.append("")
 
     out.extend(assembly_lines(cir))
+    out.append("")
+    out.extend(finishing_lines(cir, width_cm=width_cm, height_cm=height_cm))
 
     return "\n".join(out).rstrip() + "\n"
