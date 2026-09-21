@@ -177,6 +177,50 @@ def test_the_bridge_is_checked_where_the_answer_is_readable():
     assert package["reference_frames_are_the_same_woman"]["verdict"] == "pass"
 
 
+def test_a_hidden_chest_does_not_stop_approval_and_a_changed_one_does():
+    """The condition that could never be met, and the one that must never be.
+
+    Approval used to require every scene to read `pass` on morphology -- in a set the owner
+    specified to include a winter coat and a loose sweater. That is a floor nothing could
+    clear, which is the same defect as a floor nothing could fail, met from the other side.
+    What replaced it is stricter where it counts: no drift anywhere, chest and torso
+    evidenced somewhere, every dimension pinned.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, clean = _build(Path(tmp))
+    assert clean["ready_for_owner_approval"] is True
+    assert all(c["met"] for c in clean["approval_conditions"].values())
+
+    # A scene in which the chest is hidden is `unverifiable` and does not block approval,
+    # because the chest was evidenced by the reference bridge.
+    with tempfile.TemporaryDirectory() as tmp:
+        _, hidden = _build(Path(tmp), compare=_hide_in_scenes(bust=identity.UNMEASURABLE))
+    assert hidden["morphology_floor"] == "unverifiable"
+    assert hidden["approval_conditions"]["chest_and_torso_evidenced"]["met"] is True
+    assert hidden["ready_for_owner_approval"] is True
+
+    # A chest that *changed* still fails, which is the whole point.
+    with tempfile.TemporaryDirectory() as tmp:
+        _, drifted = _build(Path(tmp), compare=_compare(bust=identity.DRIFT))
+    assert drifted["approval_conditions"]["no_morphology_drift_anywhere"]["met"] is False
+    assert drifted["ready_for_owner_approval"] is False
+
+
+def _hide_in_scenes(**overrides):
+    """Reference comparisons read everything; scene comparisons hide what a garment hides."""
+    seen: list[int] = []
+
+    def comparer(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        seen.append(1)
+        if len(seen) > 2:  # the two bridges come first
+            out.update(overrides)
+        return out
+    return comparer
+
+
 def test_the_reference_bridge_counts_as_continuity_evidence():
     """Two separately generated photographs of the same woman, compared dimension by
     dimension, is the continuity test -- not a lesser form of it.

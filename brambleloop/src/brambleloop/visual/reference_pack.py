@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v3-required-evidence-counts-the-bridge"
+PACK_VERSION = "v4-approval-conditions-stated-one-by-one"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -321,6 +321,37 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
     required = _required_evidence(scenes, bridges.get("body_torso_to_full_length"))
     required_ok = all(v["verdict"] == "pass" for v in required.values())
     rendered = [s for s in scenes if s.get("rendered")]
+    drifted_scenes = [s["scene"] for s in rendered if s["morphology"] == "fail"]
+
+    # Stated one by one rather than folded into a single boolean, because the single boolean
+    # was wrong in a way nobody could see: it required `morphology_floor == "pass"`, which
+    # requires every scene to be fully readable, in a set the owner specified to include a
+    # winter coat and a loose sweater. That condition could never be met however well the
+    # identity held -- a floor that cannot be cleared is the same defect as one that cannot
+    # fail, met from the other side. What replaces it is stricter about the things that
+    # matter and honest about the thing that does not: no drift anywhere, the two named
+    # dimensions evidenced somewhere, every dimension pinned, the frames coherent.
+    conditions = {
+        "every_scene_rendered": {
+            "met": bool(rendered) and len(rendered) == len(STRESS_SCENES),
+            "detail": f"{len(rendered)} of {len(STRESS_SCENES)}"},
+        "facial_identity_held": {
+            "met": face_floor == "pass",
+            "detail": f"face floor: {face_floor}"},
+        "no_morphology_drift_anywhere": {
+            "met": not drifted_scenes,
+            "detail": (f"drifted in {drifted_scenes}" if drifted_scenes
+                       else "no body dimension drifted in any scene")},
+        "chest_and_torso_evidenced": {
+            "met": required_ok,
+            "detail": {k: v["verdict"] for k, v in required.items()}},
+        "every_dimension_pinned": {
+            "met": not unpinned,
+            "detail": f"unpinned: {unpinned}" if unpinned else "all thirteen pinned"},
+        "reference_frames_coherent": {
+            "met": coherence["verdict"] != "fail",
+            "detail": f"portrait/torso/full-length: {coherence['verdict']}"},
+    }
 
     return {
         "built": True,
@@ -357,10 +388,15 @@ def _package(frames: dict, scenes: list[dict], *, observed: dict, unpinned: list
                                        if s["morphology"] == "pass"],
         "morphology_drifted_scenes": [s["scene"] for s in rendered
                                       if s["morphology"] == "fail"],
-        "ready_for_owner_approval": bool(
-            rendered and len(rendered) == len(STRESS_SCENES)
-            and face_floor == "pass" and body_floor == "pass" and required_ok
-            and not required_unpinned and coherence["verdict"] != "fail"),
+        "approval_conditions": conditions,
+        "ready_for_owner_approval": all(c["met"] for c in conditions.values()),
+        "why_not_every_scene_reads_as_pass": (
+            "a scene whose chest is under a loose crocheted sweater is `unverifiable`, and "
+            "the owner's rule is explicit that it must be. Requiring every scene to read "
+            "`pass` would require a wardrobe nobody sells in -- it is a floor that cannot "
+            "be cleared, which is the same defect as one that cannot fail. What is required "
+            "instead is stated condition by condition above: nothing drifted anywhere, the "
+            "two named dimensions were evidenced somewhere, and every dimension is pinned"),
         "spent_cad": round(spent, 4),
         "decision": "owner",
         "nothing_is_frozen": (
