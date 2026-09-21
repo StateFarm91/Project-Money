@@ -488,6 +488,79 @@ def test_a_candidate_that_cannot_pay_is_unmeasured_rather_than_failed_thirty_tim
     assert out["decision"]["decided"] is False
 
 
+def test_a_candidate_measured_under_this_rubric_is_not_paid_for_twice():
+    """The benchmark is genuinely re-run: credentials arrive weeks apart.
+
+    Without reuse, the run that finally measures the last candidate re-renders and re-judges
+    every candidate already on file -- thirty renders apiece, for no information.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+    candidate = B.BY_KEY["flux-2-pro"]
+
+    assert B.stored_result(db, candidate) is None
+    measured = _result("flux-2-pro")
+    measured.cad_spent = 0.82
+    B._store(db, measured, candidate)
+
+    back = B.stored_result(db, candidate)
+    assert back is not None
+    assert back.model == "flux-2-pro"
+    assert back.overall() == measured.overall()
+    assert back.cad_spent == 0.82
+    # And it belongs to that candidate alone.
+    assert B.stored_result(db, B.BY_KEY["gpt-image-2"]) is None
+
+
+def test_a_candidate_that_scored_nothing_is_unmeasured_rather_than_considered():
+    """A bogus credential produced an empty score list sitting in `results`.
+
+    `decide` filtered it out, so nothing was wrong today. But a candidate that looks
+    considered and was not is one refactor away from being ranked, and the honest place for
+    it is beside the ones nobody could render.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.gateway import images as I
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    out = B.run(db, judge=lambda *a, **k: "", env={I.key_var("bfl"): "not-a-real-key"})
+    assert "flux-2-pro" in {u["model"] for u in out["unmeasured"]}
+    assert out["decision"]["decided"] is False
+    assert out["spent_cad"] == 0.0
+
+
+def test_a_changed_rubric_invalidates_every_stored_measurement():
+    """Two questions cannot be averaged. The fingerprint is what stops it."""
+    before = B.rubric_fingerprint(B.BY_KEY["flux-2-pro"])
+    original = B.SAMPLES_PER_TRIAL
+    try:
+        B.SAMPLES_PER_TRIAL = original + 1
+        assert B.rubric_fingerprint(B.BY_KEY["flux-2-pro"]) != before
+    finally:
+        B.SAMPLES_PER_TRIAL = original
+    assert B.rubric_fingerprint(B.BY_KEY["flux-2-pro"]) == before
+    # And it is per candidate: correcting one model's resolution does not discard the rest.
+    assert (B.rubric_fingerprint(B.BY_KEY["gpt-image-2"])
+            != B.rubric_fingerprint(B.BY_KEY["nano-banana-2"]))
+
+
+def test_the_benchmark_agents_ceiling_can_carry_the_benchmark():
+    """A ceiling that stops the job it was raised for is not a guard."""
+    from brambleloop.agents.registry import DEFAULT_AGENTS
+
+    agent = next(a for a in DEFAULT_AGENTS if a["name"] == "creative_director")
+    assert "creative.image_benchmark" in agent["allowed_job_types"]
+    assert agent["daily_cost_ceiling_cad"] >= B.BENCHMARK_CEILING_CAD
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

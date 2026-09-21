@@ -2359,3 +2359,47 @@ def handle_offsite_archive(ctx: JobContext) -> dict:
 
     return {"ok": bool(record.get("ok")), "stage": record.get("stage"),
             "reason": record.get("reason", "")[:300], "pruned": pruned}
+
+
+@handlers.register("creative.image_benchmark")
+def handle_image_benchmark(ctx: JobContext) -> dict:
+    """Render the same six Brambleloop trials on every credentialled candidate and score
+    them blind (owner decision 2026-09-20: measure before locking a provider).
+
+    Runs on a cadence rather than on a button because the button needs a credential nobody
+    in a session holds, and because the benchmark is genuinely re-runnable: a provider's key
+    arrives weeks after another's, and a candidate already measured under this exact rubric
+    is reused rather than re-rendered. What that leaves is only the new work.
+
+    It refuses to start when the month's allocation is spent rather than running on a
+    cheaper judge, which is the policy stated as code: quality first, cost second, waste
+    never.
+    """
+    import os
+
+    from ..finance import spend_policy
+    from ..gateway import image_bench
+
+    allowance = spend_policy.may_spend(ctx.db, image_bench.JUDGE_TASK)
+    if not allowance["may_spend"]:
+        ctx.audit("image.benchmark_capped", detail=allowance)
+        return {"ran": False, "reason": allowance["why"],
+                "constrained": ("the image-provider benchmark stopped at its share of the "
+                                "month rather than being judged on a weaker model")}
+
+    result = image_bench.run(ctx.db, env=dict(os.environ))
+    decision = result.get("decision") or {}
+    ctx.audit("image.benchmark" if result.get("ran") else "image.benchmark_blocked", detail={
+        "ran": result.get("ran"),
+        "reason": result.get("reason", "")[:300],
+        "spent_cad": result.get("spent_cad"),
+        "reused": result.get("reused"),
+        "unmeasured": result.get("unmeasured"),
+        "decided": decision.get("decided"),
+        "locked": decision.get("locked"),
+        "winner": decision.get("winner"),
+        "why": str(decision.get("why") or "")[:400],
+    })
+    return {"ran": result.get("ran"), "spent_cad": result.get("spent_cad"),
+            "winner": decision.get("winner"), "locked": decision.get("locked"),
+            "unmeasured": [u["model"] for u in result.get("unmeasured") or []]}

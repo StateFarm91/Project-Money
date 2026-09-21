@@ -227,6 +227,13 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # provider does not take with it. One job reporting one verdict would let a healthy local
     # restore stand in for an archive that was never written.
     ("offsite_archive", "orchestrator", "ops.offsite_archive", 24 * 60 * 60),
+    # Weekly, and cheap after the first run: a candidate already measured under this exact
+    # rubric is reused rather than re-rendered, so the recurring cost is whatever changed --
+    # a provider whose credential has just arrived, or every candidate again if the rubric
+    # itself moved. It is on a cadence because the alternative was an endpoint needing a
+    # credential nobody in a session holds, and a benchmark that only runs when somebody
+    # remembers to press something is a benchmark that runs once.
+    ("image_benchmark", "creative_director", "creative.image_benchmark", 7 * 24 * 60 * 60),
     # Daily, because a launch date that was comfortable in September is missed in October
     # without anything changing except the date. The first run of this engine found that the
     # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand

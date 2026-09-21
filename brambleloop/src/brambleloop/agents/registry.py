@@ -63,12 +63,19 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="creative_director",
          description="Blinded creative benchmarking and product discovery (#94, #104, #3)",
          allowed_job_types=["creative.blinded", "creative.expedition",
-                            "creative.tournament"],
+                            "creative.tournament",
+                            # The image-provider benchmark (owner decision 2026-09-20).
+                            # It is the one job here that can spend double figures in a
+                            # sitting, which is why it carries its own daily ceiling below.
+                            "creative.image_benchmark"],
          # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
          # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
          # sum rather than at it, because a ceiling a normal week touches is a ceiling that
          # stops work rather than one that catches a runaway.
-         authority=Authority.GREEN, daily_cost_ceiling_cad=2.5),
+         # Raised from 2.5 for the image benchmark, which is a one-off measurement of up to
+         # CA$25 that the owner approved as a separate budget. A ceiling that stops the very
+         # job it was raised for is the shape of guard this build keeps having to fix.
+         authority=Authority.GREEN, daily_cost_ceiling_cad=28.0),
     dict(name="crochet_engineer", description="Authors CIR from a creative brief",
          allowed_job_types=["cir.draft", "cir.revise"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=4.0),

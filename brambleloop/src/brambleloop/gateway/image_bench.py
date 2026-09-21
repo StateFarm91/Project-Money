@@ -477,6 +477,62 @@ class Result:
         return round(statistics.median(values), 1) if values else None
 
 
+CANDIDATE_ACTION = "image.benchmark_candidate"
+
+
+def rubric_fingerprint(candidate: Candidate) -> str:
+    """What a stored result was measured under, so a stale one is never reused.
+
+    A measurement is only comparable to another taken the same way. If the rubric gains a
+    dimension, the trials change, the sample count moves or a candidate's resolution is
+    corrected, every stored score was produced by a different experiment and reusing it
+    would be averaging two questions.
+    """
+    import hashlib
+
+    material = "|".join([
+        candidate.key, candidate.resolution, f"{candidate.usd_per_image}",
+        ",".join(d.key for d in RUBRIC), IDENTITY_DIMENSION.key, GALLERY_DIMENSION.key,
+        ",".join(t.key for t in TRIALS), str(SAMPLES_PER_TRIAL), str(SCORE_MAX),
+    ])
+    return hashlib.sha256(material.encode()).hexdigest()[:16]
+
+
+def _store(db, result: Result, candidate: Candidate) -> None:
+    from ..agents.registry import Registry
+
+    Registry(db).audit("creative_director", CANDIDATE_ACTION, detail={
+        "model": result.model, "fingerprint": rubric_fingerprint(candidate),
+        "scores": result.scores, "failures": result.failures[:10],
+        "latencies_ms": result.latencies_ms,
+        "gallery_consistency": result.gallery_consistency,
+        "cad_spent": result.cad_spent,
+    })
+
+
+def stored_result(db, candidate: Candidate) -> Result | None:
+    """A previous measurement of this candidate under this exact rubric, if there is one."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    want = rubric_fingerprint(candidate)
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == CANDIDATE_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(50)):
+            detail = row.detail or {}
+            if detail.get("model") != candidate.key or detail.get("fingerprint") != want:
+                continue
+            if not detail.get("scores"):
+                continue
+            return Result(model=candidate.key, scores=list(detail["scores"]),
+                          failures=list(detail.get("failures") or []),
+                          latencies_ms=list(detail.get("latencies_ms") or []),
+                          gallery_consistency=detail.get("gallery_consistency"),
+                          cad_spent=float(detail.get("cad_spent") or 0.0))
+    return None
+
+
 def decide(results: list[Result], *, unmeasured: list[dict] | None = None) -> dict:
     """Name a winner from measured scores, or refuse to name one.
 
@@ -572,7 +628,8 @@ def decide(results: list[Result], *, unmeasured: list[dict] | None = None) -> di
                                "the last thing consulted")}
 
 
-def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
+def run(db, *, generator=None, judge=None, env: dict | None = None,
+        reuse: bool = True) -> dict:
     """Render, judge blind, and report. Refuses to start without a way to render.
 
     The judge never learns which model made an image. A judge told the brand grades the
@@ -591,12 +648,27 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
     spent = 0.0
     results: list[Result] = []
     unmeasured: list[dict] = []
+    reused: list[dict] = []
     have = set(images.available(env))
     for candidate in [c for c in CANDIDATES if c.can_hold_an_identity]:
         # A candidate with no credential is unmeasured, not beaten. Rendering it through
         # whichever provider the environment happened to name -- which is what a single
         # shared key silently did -- would have scored one model five times under five
         # names and crowned the cheapest of the five identical rows.
+        # A candidate already measured under this exact rubric is not re-rendered. The
+        # benchmark exists to be run more than once -- a provider's credential arrives
+        # weeks after another's -- and re-paying for thirty renders of a model whose
+        # scores are already on file buys no information. The fingerprint is what makes
+        # this safe: change the rubric, the trials, the sample count or a candidate's
+        # resolution and nothing stored matches, so everything is measured again.
+        if reuse and generator is None:
+            previous = stored_result(db, candidate)
+            if previous is not None:
+                results.append(previous)
+                reused.append({"model": candidate.key,
+                               "judged_images": len(previous.scores),
+                               "cad_spent_then": previous.cad_spent})
+                continue
         if generator is None and candidate.key not in have:
             unmeasured.append({
                 "model": candidate.key,
@@ -656,10 +728,18 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
                 result.failures.append({"trial": "gallery_consistency",
                                         "why": str(exc)[:200]})
         result.cad_spent = round(spent, 4)
-        if stopped and not result.scores:
-            # Nothing was rendered, so there is nothing to score. Unmeasured, with the
-            # provider's own reason attached.
-            unmeasured.append(stopped)
+        if result.scores and generator is None:
+            _store(db, result, candidate)
+        if not result.scores:
+            # Nothing scored, so nothing was measured -- whether the account could not pay,
+            # the credential was rejected or every render failed. A candidate with an empty
+            # score list sitting in `results` is a candidate that looks considered and was
+            # not, and the only thing standing between that and a winner is `decide`
+            # happening to filter it out.
+            unmeasured.append(stopped or {
+                "model": candidate.key,
+                "why": (result.failures[0]["why"] if result.failures
+                        else "no render succeeded and no reason was recorded")})
             continue
         results.append(result)
 
@@ -667,6 +747,10 @@ def run(db, *, generator=None, judge=None, env: dict | None = None) -> dict:
             "ceiling_cad": BENCHMARK_CEILING_CAD,
             "decision": decide(results, unmeasured=unmeasured),
             "unmeasured": unmeasured,
+            "reused": reused,
+            "reuse_rule": ("a candidate already measured under this exact rubric is not "
+                           "re-rendered; change the rubric, the trials, the sample count or "
+                           "a resolution and every stored score stops matching"),
             "blind": ("the judge was never told which model rendered which image")}
 
 
