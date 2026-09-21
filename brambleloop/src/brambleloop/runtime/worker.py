@@ -78,6 +78,16 @@ class HandlerRegistry:
 handlers = HandlerRegistry()
 
 
+def _note_funding(db, text: str) -> None:
+    """Raise the owner action for a spent provider balance. Never fails a job."""
+    try:
+        from ..ops import funding
+
+        funding.note(db, text)
+    except Exception:  # noqa: BLE001 - telling somebody must never break the telling
+        pass
+
+
 @dataclass
 class WorkerStats:
     claimed: int = 0
@@ -111,6 +121,14 @@ class Worker:
     def stop(self, *_a) -> None:
         self._stopping = True
 
+    def _funding_text(self, value) -> str:
+        import json as _json
+
+        try:
+            return _json.dumps(value, default=str)
+        except Exception:  # noqa: BLE001 # pragma: no cover
+            return str(value)
+
     def run_once(self) -> bool:
         """Claim and run at most one job. Returns False when there was nothing to do."""
         job = self.queue.claim(self.name, self.job_types)
@@ -140,6 +158,11 @@ class Worker:
                          registry=self.agents, phase=self.phase)
         try:
             outputs = handler(ctx) or {}
+            # A handler that caught a spent balance and recorded it honestly still completes,
+            # so the funding check reads the outputs as well as the exceptions. The pack
+            # build did exactly that: `built: false`, the provider's own sentence in `why`,
+            # a green job, and nobody told.
+            _note_funding(self.db, self._funding_text(outputs))
             self.queue.complete(job.id, outputs)
             self.agents.audit(job.agent, f"job.completed:{job.job_type}",
                               artifact=str(outputs.get("artifact") or job.job_type),
@@ -156,6 +179,7 @@ class Worker:
                               phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except Exception as e:  # noqa: BLE001 - a worker must survive any handler
+            _note_funding(self.db, str(e))
             self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}")
             self.agents.audit(job.agent, "job.failed", job_id=job.id, phase=self.phase,
                               detail={"error": str(e)})
