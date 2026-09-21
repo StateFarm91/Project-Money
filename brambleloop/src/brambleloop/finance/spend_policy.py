@@ -53,7 +53,13 @@ ESCALATE_AT_SHARE = 0.80
 # image-provider benchmark. Here rather than in the benchmark module for the same reason the
 # monthly ceiling is here -- owner-authorised money is written once, in the file that says
 # what the authority is, so a second literal cannot drift from it.
-BENCHMARK_BUDGET_CAD = 25.0
+# Cumulative lifetime authorization for the image-provider benchmark, raised from CA$25 by
+# the owner on 2026-09-21 and explicitly *inclusive of everything already spent* across every
+# prior run: rendering, blind judging, retries, re-drives and the experiments that were
+# invalidated when the method was corrected. It is not CA$50 of new spend. The distinction is
+# the whole reason the figure is enforced cumulatively rather than per run -- four runs each
+# stayed inside a CA$25 approved once, which is how CA$25 became CA$31.
+BENCHMARK_BUDGET_CAD = 50.0
 
 # Spend that buys nothing, refused at any budget. Not a cost-saving list: each of these is
 # money with nothing on the other side of it, which is a different thing from money the

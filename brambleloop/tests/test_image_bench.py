@@ -577,7 +577,10 @@ def test_the_benchmark_agents_ceiling_can_carry_the_benchmark():
 
     agent = next(a for a in DEFAULT_AGENTS if a["name"] == "creative_director")
     assert "creative.image_benchmark" in agent["allowed_job_types"]
-    assert agent["daily_cost_ceiling_cad"] >= B.BENCHMARK_CEILING_CAD
+    # Against a full run's cost, not against the lifetime authorization. CA$50 is cumulative
+    # across every run ever made and mostly already spent; the agent's ceiling is daily, and
+    # what a day has to carry is one complete benchmark.
+    assert agent["daily_cost_ceiling_cad"] >= B.plan()["total_cad"]
 
 
 def test_measured_is_read_from_the_rows_rather_than_written_false():
@@ -865,6 +868,55 @@ def test_the_judge_has_room_to_answer_the_whole_rubric():
               ", ".join(f'"{d.key}": "a short phrase here"' for d in B.RUBRIC) + "}}"
     # Roughly four characters to the token, with headroom over the worst case.
     assert B.JUDGE_MAX_TOKENS > len(longest) / 4, (B.JUDGE_MAX_TOKENS, len(longest))
+
+
+def test_an_interrupted_schedule_resumes_instead_of_re_rendering_valid_evidence():
+    """Two runs were lost to a container replacement part-way through, each discarding
+    every sample it had paid for. The owner's instruction after the corrected run was
+    explicit: do not re-render or re-judge valid evidence merely to obtain a clean run.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    Registry(db).seed_defaults()
+    candidate = B.BY_KEY["flux-2-pro"]
+    trial = B.BY_KEY_TRIAL["stitch_truth"]
+
+    assert B.stored_trial(db, candidate, trial) is None
+    scores = [{d.key: 3 for d in B.RUBRIC} for _ in range(B.SAMPLES_PER_TRIAL)]
+    B._store_trial(db, candidate, trial, scores, [12.0] * len(scores), 0.1)
+
+    back = B.stored_trial(db, candidate, trial)
+    assert back is not None and len(back["scores"]) == B.SAMPLES_PER_TRIAL
+    # It belongs to that trial and that candidate alone.
+    assert B.stored_trial(db, candidate, B.BY_KEY_TRIAL["hero_comprehension"]) is None
+    assert B.stored_trial(db, B.BY_KEY["gpt-image-2"], trial) is None
+
+
+def test_the_method_correction_only_invalidates_the_trials_it_touched():
+    """v1 to v2 was entirely about reference conditioning. The five trials that render and
+    judge exactly as they always did keep their observations; re-rendering them would be
+    paying twice for evidence this company already has."""
+    candidate = B.BY_KEY["gpt-image-2"]
+    unaffected = B.BY_KEY_TRIAL["stitch_truth"]
+    affected = B.BY_KEY_TRIAL["identity_repeat"]
+
+    before_un = B.trial_fingerprint(candidate, unaffected)
+    before_aff = B.trial_fingerprint(candidate, affected)
+    original = B.METHOD_VERSION
+    try:
+        B.METHOD_VERSION = "v3-something-else"
+        assert B.trial_fingerprint(candidate, unaffected) == before_un
+        assert B.trial_fingerprint(candidate, affected) != before_aff
+    finally:
+        B.METHOD_VERSION = original
+
+
+def test_the_benchmark_authorization_is_the_raised_cumulative_figure():
+    """CA$50 lifetime, inclusive of everything already spent -- not CA$50 of new spend."""
+    assert B.BENCHMARK_CEILING_CAD == 50.0
 
 
 if __name__ == "__main__":

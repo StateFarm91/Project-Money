@@ -2167,12 +2167,19 @@ def handle_capability_probes(ctx: JobContext) -> dict:
     """
     from ..culture import feeds
     from ..gateway import anthropic as gw
+    from ..gateway import images
     from ..intel import browser
 
     results = {
         "rendered_pages": browser.probe(ctx.db),
         "image_vision": gw.vision_probe(ctx.db, job_id=ctx.job.id),
         "culture_feed": feeds.probe(ctx.db),
+        # `image_generation` was missing from this list, which is why the gate could not
+        # open on its own. The probe existed, the gate read it, and nothing on any cadence
+        # ever called it -- so a capability that had been demonstrably working for hours was
+        # recorded nowhere, and twelve requirements stayed parked on the absence of a row
+        # nobody was writing. A gate that reads evidence needs something that produces it.
+        "image_generation": images.probe(ctx.db, job_id=ctx.job.id),
     }
     opened = sorted(k for k, v in results.items() if v.get("ok"))
     ctx.audit("ops.capability_probes", detail={

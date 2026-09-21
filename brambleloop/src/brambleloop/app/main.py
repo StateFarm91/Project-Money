@@ -57,6 +57,23 @@ def _startup() -> None:
     if benchmark_changes:
         Registry(db).audit("orchestrator", "benchmarks.reconciled",
                            detail={"changes": benchmark_changes[:50]})
+    # Probe now rather than in six hours when a capability is credentialled and unproven.
+    #
+    # The gates read recorded evidence, which is right, and the evidence is written by a
+    # six-hourly job -- so a credential that arrives just after a run leaves real, working
+    # capability invisible for most of a day, with requirements parked on the absence of a
+    # row. A deploy is exactly the moment that is most likely to be true, so a deploy asks.
+    # Idempotent by the day, so a restart loop cannot turn this into a spend.
+    try:
+        from ..gateway import images as _images
+
+        if _images.available() and not _images.usable(db):
+            JobQueue(db).enqueue(
+                "orchestrator", "ops.capability_probes", {},
+                idempotency_key=f"boot-probe-{utcnow():%Y%m%d%H}")
+    except (DuplicateJob, Exception):  # noqa: BLE001 - a probe must never block a boot
+        pass
+
     runner.start(db)
 
 

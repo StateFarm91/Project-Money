@@ -536,6 +536,65 @@ def rubric_fingerprint(candidate: Candidate) -> str:
     return hashlib.sha256(material.encode()).hexdigest()[:16]
 
 
+TRIAL_ACTION = "image.benchmark_trial"
+
+
+def trial_fingerprint(candidate: Candidate, trial: Trial) -> str:
+    """What one trial's samples were measured under.
+
+    Per trial rather than per candidate, and deliberately *not* including METHOD_VERSION for
+    trials the method change did not touch. The v1-to-v2 correction was entirely about
+    reference conditioning: the anti-drift trial ran without its reference and its judge was
+    shown one picture instead of two. The other five trials render and judge exactly as they
+    always did, so their observations stay valid and re-rendering them would be paying again
+    for evidence this company already has.
+    """
+    import hashlib
+
+    judged = ((IDENTITY_DIMENSION.key,) if trial.needs_reference
+              else tuple(d.key for d in RUBRIC))
+    material = "|".join([
+        candidate.key, candidate.resolution, f"{candidate.usd_per_image}",
+        trial.key, trial.prompt, ",".join(judged), str(SCORE_MAX),
+        # Only the reference-conditioned trials depend on the method.
+        METHOD_VERSION if trial.needs_reference else "method-independent",
+    ])
+    return hashlib.sha256(material.encode()).hexdigest()[:16]
+
+
+def _store_trial(db, candidate: Candidate, trial: Trial, scores: list[dict],
+                 latencies: list[float], cad: float) -> None:
+    from ..agents.registry import Registry
+
+    if db is None or not scores:
+        return
+    Registry(db).audit("creative_director", TRIAL_ACTION, detail={
+        "model": candidate.key, "trial": trial.key,
+        "fingerprint": trial_fingerprint(candidate, trial),
+        "scores": scores, "latencies_ms": latencies, "cad_spent": round(cad, 6)})
+
+
+def stored_trial(db, candidate: Candidate, trial: Trial) -> dict | None:
+    """Samples already observed for this trial under a protocol still in force."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    if db is None:
+        return None
+    want = trial_fingerprint(candidate, trial)
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == TRIAL_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(400)):
+            detail = row.detail or {}
+            if (detail.get("model") == candidate.key
+                    and detail.get("trial") == trial.key
+                    and detail.get("fingerprint") == want
+                    and detail.get("scores")):
+                return detail
+    return None
+
+
 def expected_samples() -> int:
     return len(TRIALS) * SAMPLES_PER_TRIAL
 
@@ -708,6 +767,7 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
     results: list[Result] = []
     unmeasured: list[dict] = []
     reused: list[dict] = []
+    resumed: list[dict] = []
     have = set(images.available(env))
     for candidate in [c for c in CANDIDATES if c.can_hold_an_identity]:
         # A candidate with no credential is unmeasured, not beaten. Rendering it through
@@ -762,10 +822,44 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
         # invent the same stranger twice from a description.
         reference: str = ""
         consecutive = 0
+        trial_scores_before = 0
         for trial in TRIALS:
             if stopped:
                 break
-            for sample in range(SAMPLES_PER_TRIAL):
+            # Evidence already gathered for this trial under a protocol still in force is
+            # reused rather than re-rendered. The owner's instruction after the corrected
+            # run: do not re-render or re-judge valid evidence merely to obtain a clean run.
+            done = stored_trial(db, candidate, trial) if generator is None else None
+            already: list[dict] = list(done["scores"][:SAMPLES_PER_TRIAL]) if done else []
+            if already:
+                result.scores.extend(already)
+                result.latencies_ms.extend((done.get("latencies_ms") or [])[:len(already)])
+                resumed.append({"model": candidate.key, "trial": trial.key,
+                                "samples": len(already)})
+            if len(already) >= SAMPLES_PER_TRIAL:
+                continue
+
+            # A resumed canonical trial leaves no face on this disk -- the render was
+            # written to a temporary directory that is long gone -- so the drift trial has
+            # nothing to condition on. One render restores the reference; re-running the
+            # whole canonical trial to get it would be paying five times for one image.
+            if (trial.needs_reference and not reference and generator is None
+                    and spent < BENCHMARK_CEILING_CAD):
+                try:
+                    size = f"{candidate.resolution}x{candidate.resolution}"
+                    face = images.generate(BY_KEY_TRIAL[CANONICAL_TRIAL].prompt, env=env,
+                                           provider_key=candidate.key, size=size)
+                    spent += float(face.get("cad") or candidate.cad_per_image)
+                    reference = face.get("image_ref") or ""
+                except (PermanentError, TransientError) as exc:
+                    result.failures.append({
+                        "trial": trial.key,
+                        "why": f"could not restore the reference face: {str(exc)[:160]}"})
+
+            trial_scores_before = len(result.scores)
+            trial_cad_before = spent
+            trial_latencies_before = len(result.latencies_ms)
+            for sample in range(SAMPLES_PER_TRIAL - len(already)):
                 if spent >= BENCHMARK_CEILING_CAD:
                     result.failures.append({"trial": trial.key, "why": "benchmark ceiling"})
                     continue
@@ -832,6 +926,15 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                         break
                 else:
                     consecutive = 0
+            # Written per trial, so an interrupted schedule resumes where it stopped rather
+            # than starting again. Two runs have now been lost to a container replacement
+            # part-way through, and each one discarded every sample it had paid for.
+            fresh = result.scores[trial_scores_before:]
+            if fresh and generator is None:
+                _store_trial(db, candidate, trial, list(already) + fresh,
+                             result.latencies_ms[trial_latencies_before:],
+                             spent - trial_cad_before)
+
         # One judgement per model about the *set*: gallery consistency cannot be a per-image
         # score, because six images each individually fine can still read as six unrelated
         # stock photographs rather than one shop's gallery.
@@ -878,6 +981,7 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
             "decision": decide(results, unmeasured=unmeasured),
             "unmeasured": unmeasured,
             "reused": reused,
+            "resumed_trials": resumed,
             "reused_everything": bool(reused) and len(reused) == len(
                 [c for c in CANDIDATES if c.can_hold_an_identity]),
             "reuse_rule": ("a candidate already measured under this exact rubric is not "
