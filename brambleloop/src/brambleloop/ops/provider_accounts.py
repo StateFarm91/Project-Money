@@ -58,9 +58,15 @@ class AccountFact:
 # that arrives by conversation should be visible in the diff that recorded it.
 REPORTED_FACTS: tuple[AccountFact, ...] = (
     AccountFact("anthropic", "2026-09-21", "credit_added", 10.0,
-                "added after the balance was found spent at 19:21Z. Three probes since -- "
-                "20:03, 21:11 and 21:28 UTC -- were still refused for a low balance, so "
-                "the credit has not reached the key this system holds"),
+                "added after the balance was found spent at 19:21Z. Three probes at 20:03, "
+                "21:11 and 21:28 UTC were still refused, so this one had not reached the "
+                "key; the owner funded the account again and the 21:37:52 probe succeeded"),
+    AccountFact("anthropic", "2026-09-21", "balance", 19.83,
+                "organisation credits available, from the console at the owner's 21:3xZ "
+                "reading. The 21:37:52 probe is the observed half: a real call with the "
+                "credential Brambleloop uses, answered"),
+    AccountFact("anthropic", "2026-09-21", "used", 20.17,
+                "organisation spend this month, from the console"),
     AccountFact("openai", "2026-09-21", "limit", 50.0,
                 "organisation spend limit shown in the account dashboard"),
     AccountFact("openai", "2026-09-21", "used", 10.08,
