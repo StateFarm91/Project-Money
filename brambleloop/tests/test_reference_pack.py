@@ -177,6 +177,43 @@ def test_the_bridge_is_checked_where_the_answer_is_readable():
     assert package["reference_frames_are_the_same_woman"]["verdict"] == "pass"
 
 
+def test_a_torso_frame_that_cannot_read_the_chest_is_rendered_again():
+    """The frame has one job, and three live builds turned on whether it did it.
+
+    A render in which the chest is not readable is a failed render, not a fact about the
+    woman. Bounded: a fourth attempt would be evidence that the prompt is wrong rather than
+    the sample.
+    """
+    import tempfile
+
+    def observer(db, ref):
+        # render-1 is the torso frame and render-3 is its retry: the first misses the
+        # chest, the retry finds it.
+        if ref.endswith("render-1.png"):
+            return _seen(bust=identity.UNMEASURABLE)
+        if ref.endswith("render-3.png"):
+            return _seen(bust="moderate and naturally full")
+        return _seen()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        gen, package = _build(Path(tmp), observe=observer)
+
+    torso = [f for f in package["reference_frames"]
+             if f["frame"] == "torso_fit_reference"][0]
+    assert torso["attempts"] == 2, "it did not re-render the frame that missed its job"
+    assert torso["image_ref"].endswith("render-3.png"), "it kept the frame that missed"
+    assert package["reference_observation"]["bust"] == "moderate and naturally full"
+    assert package["unpinned_dimensions"] == []
+
+    # And it stops: a pack whose chest is still unreadable after the bound says so rather
+    # than rendering until it gets lucky.
+    with tempfile.TemporaryDirectory() as tmp:
+        _, stuck = _build(Path(tmp),
+                          observe=lambda db, ref: _seen(bust=identity.UNMEASURABLE))
+    assert stuck["unpinned_dimensions"] == ["bust"]
+    assert stuck["ready_for_owner_approval"] is False
+
+
 def test_a_hidden_chest_does_not_stop_approval_and_a_changed_one_does():
     """The condition that could never be met, and the one that must never be.
 

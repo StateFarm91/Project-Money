@@ -40,12 +40,22 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v4-approval-conditions-stated-one-by-one"
+PACK_VERSION = "v5-a-reference-frame-that-misses-its-job-is-re-rendered"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
 STRESS_SCENES: tuple[tuple[str, str], ...] = tuple(
     (k, v) for k, v in brief.STRESS_SCENES if k != "neutral_reference")
+
+
+# How many times the torso frame may be re-rendered when it fails at its one job.
+#
+# That frame exists to make the chest and torso readable. A render in which they are not is
+# a failed render, not a finding about the woman -- and the first three live builds each
+# turned on whether one generation happened to frame her closely enough, which is a
+# measurement decided by luck. Bounded at three because a fourth is evidence that the prompt
+# is wrong rather than the sample, and the pack says so instead of paying for more.
+TORSO_ATTEMPTS = 3
 
 
 class PackRefused(ValueError):
@@ -163,7 +173,6 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                     "spent_cad": round(spent, 4), "pack_version": PACK_VERSION}
 
     portrait = frames["neutral_portrait"]["image_ref"]
-    torso = frames["torso_fit_reference"]["image_ref"]
     full_length = frames["full_length_standing"]["image_ref"]
 
     seen = {key: observe(db, frames[key]["image_ref"]) for key, _ in brief.REFERENCE_FRAMES}
@@ -172,6 +181,40 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
             return {"built": False, "stage": f"observe:{key}", "why": reading["error"],
                     "spent_cad": round(spent, 4), "pack_version": PACK_VERSION}
 
+    # The torso frame has one job. If the chest or the torso came back unreadable, that is a
+    # failed render rather than a fact about her, so it is rendered again -- the pack is a
+    # permanent brand identity and it should not turn on whether one generation happened to
+    # frame her closely enough.
+    torso_attempts = 1
+    required = identity.REQUIRED_MEASURABLE["morphology"]
+    torso_prompt = dict(brief.REFERENCE_FRAMES)["torso_fit_reference"]
+    while (torso_attempts < TORSO_ATTEMPTS
+           and any(not _readable(seen["torso_fit_reference"].get(d)) for d in required)):
+        torso_attempts += 1
+        try:
+            render = _render(brief.base_prompt() + " " + torso_prompt, provider=provider,
+                             references=[frames["neutral_portrait"]["image_ref"], concept],
+                             env=env, work_dir=work_dir, generator=generator)
+        except (PermanentError, TransientError):
+            break
+        spent += float(render.get("cad") or 0.0)
+        ref = render.get("image_ref") or ""
+        reading = observe(db, ref)
+        if reading.get("error"):
+            continue
+        # Kept only if it reads more of the required dimensions than what it replaces: a
+        # retry that loses the torso to gain the chest is not an improvement.
+        def _score(r: dict) -> int:
+            return sum(1 for d in required if _readable(r.get(d)))
+
+        if _score(reading) > _score(seen["torso_fit_reference"]):
+            frames["torso_fit_reference"] = {
+                "frame": "torso_fit_reference", "image_ref": ref, "image": tournament._keep(ref),
+                "provider": render.get("provider") or provider, "attempts": torso_attempts}
+            seen["torso_fit_reference"] = reading
+    frames["torso_fit_reference"]["attempts"] = torso_attempts
+
+    torso = frames["torso_fit_reference"]["image_ref"]
     observed = _pin(seen)
 
     # Are the three frames one woman? The torso frame is the bridge and is checked both
@@ -225,6 +268,12 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                     coherence=coherent, provider=provider, spent=spent)
 
 
+def _readable(value) -> bool:
+    """Whether an observation actually states the dimension rather than declining to."""
+    return bool(value) and str(value).strip().lower() not in (
+        "", identity.UNMEASURABLE, "unclear", "unknown", "obscured", "not visible")
+
+
 def _pin(seen: dict[str, dict]) -> dict:
     """One observation of the whole woman, each dimension taken from the frame that can see it.
 
@@ -234,21 +283,17 @@ def _pin(seen: dict[str, dict]) -> dict:
     into the pack -- a reference that cannot state a dimension cannot be drifted from on it,
     so the floor was unpassable before a scene was rendered.
     """
-    def readable(value) -> bool:
-        return bool(value) and str(value).strip().lower() not in (
-            "", identity.UNMEASURABLE, "unclear", "unknown", "obscured", "not visible")
-
     out: dict[str, str] = {}
     for frame, dimensions in brief.FRAME_AUTHORITY.items():
         for d in dimensions:
-            if d not in out and readable((seen.get(frame) or {}).get(d)):
+            if d not in out and _readable((seen.get(frame) or {}).get(d)):
                 out[d] = seen[frame][d]
     for d in identity.DRIFT_DIMENSIONS:
         if d in out:
             continue
         for frame, _ in brief.REFERENCE_FRAMES:
             value = (seen.get(frame) or {}).get(d)
-            if readable(value):
+            if _readable(value):
                 out[d] = value
                 break
         else:
