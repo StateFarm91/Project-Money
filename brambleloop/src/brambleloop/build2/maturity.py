@@ -439,12 +439,21 @@ def report(db, *, env: dict[str, str] | None = None) -> dict:
             tally[rung][entry["rungs"][rung]["verdict"]] += 1
 
     unreadable = sorted(e["requirement_id"] for e in ladders if not e["modules"])
+    # The one actionable row in the whole table. A requirement whose job type exists and
+    # has never run is a different thing entirely from one no job reaches, and a count
+    # cannot be acted on: reporting "1" and not which one is the same as reporting nothing.
+    never_run = sorted(
+        ((e["requirement_id"], list(e["rungs"][EXERCISED].get("job_types", ())))
+         for e in ladders if e["rungs"][EXERCISED]["verdict"] == NO),
+        key=lambda row: row[0])
     return {
         "covered_by_the_registry": len(covered),
         "rungs": tally,
         "highest_rung_reached": {
             rung: sum(1 for e in ladders if e["reached"] == rung) for rung in RUNGS},
         "no_rung_reached": sum(1 for e in ladders if e["reached"] is None),
+        "registered_but_never_run": [
+            {"requirement": rid, "job_types": list(jobs)} for rid, jobs in never_run],
         "notes_naming_no_module": {
             "count": len(unreadable), "requirements": unreadable[:40],
             "why": ("these were audited in prose that names no module, so the ladder has "

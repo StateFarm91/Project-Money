@@ -237,6 +237,19 @@ def test_the_report_states_what_covered_actually_means():
         assert sum(report["rungs"][rung].values()) == report["covered_by_the_registry"]
 
 
+def test_the_one_actionable_row_is_named_rather_than_counted():
+    """A requirement whose job type exists and has never run is a different thing from one
+    no job reaches, and it is the only row in this table somebody can act on. Reporting
+    "1" without saying which one is the same as reporting nothing."""
+    report = M.report(None)
+    named = report["registered_but_never_run"]
+    assert len(named) == report["rungs"][M.EXERCISED][M.NO]
+    assert named, "with no database nothing has run, so this cannot be empty"
+    for row in named:
+        assert row["job_types"], "a never-run row must name the job type that never ran"
+        assert row["requirement"] in {r.id for r in reg.by_status(reg.COVERED)}
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

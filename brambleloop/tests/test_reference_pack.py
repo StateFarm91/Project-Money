@@ -458,6 +458,39 @@ def test_the_retry_only_insists_after_it_has_measured_a_failure():
     assert "reproduced the reference chest unchanged" in insisted
 
 
+def test_an_insisting_retry_builds_on_its_best_attempt_rather_than_the_approved_body():
+    """What seven renders across two live runs were actually demonstrating.
+
+    Every torso attempt was conditioned on the approved -- pre-revision -- body, and
+    reference conditioning is a far stronger signal than a textual delta, so every attempt
+    reproduced the pre-revision chest. Escalating the words changed nothing, because the
+    words were never the binding constraint. The measurement does not move with the fix:
+    the final frame is still compared against the approved body, so a retry that drifted
+    the waist to get there still fails. The anchor is dropped from the generation, not
+    from the floor.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Generator(Path(tmp))
+        rp.build(_db(), work_dir=tmp, generator=gen,
+                 observer=lambda db, ref: _seen(bust=identity.UNMEASURABLE),
+                 comparer=_revision(), hair_comparer=_never_asked)
+
+    torso_calls = [c for c in gen.calls
+                   if brief.revision_clause() in c["prompt"]]
+    assert len(torso_calls) >= 3, "the retry budget was not spent"
+    approved = brief.approved_reference("torso_fit_reference")
+    # The first retry still starts from the approved body: nothing has been measured as
+    # unchanged yet, so there is nothing better to build on.
+    assert approved in torso_calls[0]["refs"]
+    # Once it insists, it builds on its own best frame instead.
+    assert approved not in torso_calls[-1]["refs"], \
+        "the retry restarted from the body it is trying to revise"
+    assert brief.approved_portrait() in torso_calls[-1]["refs"], \
+        "identity must still be anchored by the approved face"
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 

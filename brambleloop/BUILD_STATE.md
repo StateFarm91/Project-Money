@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,894 tests passing, 0 failing**.
+  **2,896 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4696,8 +4696,26 @@ timings, written there by the system rather than by hand.
   with the revision clause on them and the clearest was kept, with the revision never part
   of the choice. v10 selects on `(readable, changed)` in that order, raises the attempt
   budget to four, and escalates the clause only after measuring a failure -- repeating the
-  owner's bounds rather than relaxing them (B-602). **The pack is not ready for owner
-  approval, nothing is frozen, and nothing is owner-approved.**
+  owner's bounds rather than relaxing them (B-602).
+- v10 ran with four attempts and the escalated clause, and reported the bust unchanged
+  again. **Seven torso renders across v9 and v10 all reproduced the approved chest**, which
+  is a finding rather than bad luck: every one of them was conditioned on `approved_torso`,
+  the pre-revision body, and reference conditioning is a far stronger signal than a textual
+  delta. The escalation was aimed at the wrong thing. v11 makes the retries a ratchet --
+  once an attempt has been measured as unchanged, the next conditions on the best frame so
+  far plus the approved portrait instead of restarting from the body it is trying to
+  revise. Safe because the measurement does not move with it: the final frame is still
+  compared against the approved body, so a retry that drifted the waist to get there still
+  fails `nothing_else_changed` (B-603). **The pack is not ready for owner approval, nothing
+  is frozen, and nothing is owner-approved.** Spend on the model work so far is about
+  CA$2 per run against a month-to-date CA$47 of the CA$100 ceiling.
+- **The maturity ladder's first production reading**: of 222 requirements the registry
+  calls covered, 158 are implemented, tested and deployed; **42 reach production-observed**
+  -- a job actually ran, finished, left an append-only audit row, and did so within the
+  last fourteen days. 116 stop at `deployed` because no registered job type reaches them,
+  which is unreadable rather than unexercised, and 64 were audited in prose that names no
+  module. One requirement has a job type that has never run, and it is named rather than
+  counted.
 - 2026-09-21, **the executor and the registry were disagreeing in production and nothing
   was reading the check that says so.** Nine requirements' notes read "needs an image
   generation capability *and owner identity selection*"; only the first half was a gate, so

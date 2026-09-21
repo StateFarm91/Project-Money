@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v10-the-retry-chooses-on-the-revision-it-was-asked-for"
+PACK_VERSION = "v11-the-retry-builds-on-its-best-attempt-not-on-the-body-it-is-revising"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -253,10 +253,29 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     while torso_attempts < TORSO_ATTEMPTS and best != (len(required), True):
         torso_attempts += 1
         try:
+            # After an attempt has been measured as unchanged, the retry builds on the
+            # best frame so far instead of restarting from the approved body.
+            #
+            # This is what seven renders across v9 and v10 were actually demonstrating.
+            # Every one of them was conditioned on `approved_torso` -- the pre-revision
+            # chest -- and reference conditioning is a far stronger signal than a textual
+            # delta, so every one of them reproduced it. Escalating the words changed
+            # nothing because the words were never the binding constraint. Starting each
+            # attempt from the previous best makes the retries a ratchet rather than seven
+            # independent draws from the same distribution.
+            #
+            # Safe to do because the measurement does not move with it: `_revision_check`
+            # still compares the final frame against the approved body, so a retry that
+            # drifted the waist or the shoulders to get there fails `nothing_else_changed`
+            # exactly as before. The anchor is being dropped from the generation, not from
+            # the floor.
+            insist = torso_attempts > 2
+            anchor = (frames["torso_fit_reference"]["image_ref"] if insist
+                      else approved_torso)
             render = _render(
-                f"{torso_prompt} {brief.revision_clause(insist=torso_attempts > 2)}",
+                f"{torso_prompt} {brief.revision_clause(insist=insist)}",
                 provider=provider,
-                references=[approved_torso, frames["neutral_portrait"]["image_ref"]],
+                references=[anchor, frames["neutral_portrait"]["image_ref"]],
                 env=env, work_dir=work_dir, generator=generator)
         except (PermanentError, TransientError):
             break
