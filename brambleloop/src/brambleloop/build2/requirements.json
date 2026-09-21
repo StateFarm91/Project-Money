@@ -1794,9 +1794,9 @@
   {
     "body": "Owner requirement: develop an ORIGINAL fictional adult Brambleloop model with a highly polished, striking dark-brunette, light-eyed, high-contrast editorial beauty aesthetic, pushed strongly toward the visual qualities the owner associates with Megan Fox while remaining a distinct fictional identity rather than a duplicate of a real person's face. The system must not quietly dilute the requested aesthetic direction into a generic model.",
     "id": 198,
-    "note": "canonical model: needs an image-generation capability and owner identity selection",
+    "note": "Owner aesthetic direction given 2026-09-21 and recorded in visual/brief.py as code rather than chat, because a brief that lives in a conversation is paraphrased differently by whoever writes the next prompt -- and the point of a canonical model is that nothing about her is re-decided per listing. It carries the age band, the seven qualities and the seven things to avoid in the owner's own phrasing, the jobs she does for the product, and the rule that the product stays the hero. Two prohibitions are held separately from taste: no photograph of a real identifiable person is used as a reference or conditioning source, and no candidate that reads as a recognisable public figure is accepted. The direction arrived beside a photograph of a public figure and it was not used -- a persistent commercial brand identity built from somebody's photograph is that person's likeness in commercial use, and it is the celebrity resemblance the direction rules out in the same breath. The direction also settles what #200 and #201 enforce: the canonical identity is the entire woman, a face match never compensates for morphology drift, and an obscured proportion is unmeasurable rather than a pass. /api/model-identity.",
     "section": "Voice session reconciliation (model + MJs)",
-    "status": "owner_gated",
+    "status": "covered",
     "title": "Canonical Fictional Brambleloop Model - Owner Aesthetic Direction",
     "version": "v1.4.0"
   },

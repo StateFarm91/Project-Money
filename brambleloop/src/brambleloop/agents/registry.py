@@ -67,7 +67,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # The image-provider benchmark (owner decision 2026-09-20).
                             # It is the one job here that can spend double figures in a
                             # sitting, which is why it carries its own daily ceiling below.
-                            "creative.image_benchmark"],
+                            "creative.image_benchmark",
+                            # The canonical-model tournament (#199). It renders a field and
+                            # stress-tests finalists; it cannot select one.
+                            "creative.model_tournament"],
          # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
          # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
          # sum rather than at it, because a ceiling a normal week touches is a ceiling that

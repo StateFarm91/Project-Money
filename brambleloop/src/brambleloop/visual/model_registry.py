@@ -35,11 +35,17 @@ from . import identity
 OBSERVE_FIELDS: tuple[str, ...] = identity.DRIFT_DIMENSIONS
 
 TASK = "asset_inspection"
-OBSERVE_MAX_TOKENS = 300
+# Thirteen dimensions and a phrase each. 300 fitted the five face dimensions it was written
+# for; the body half would have been cut off mid-object and refused as unparseable, which is
+# the same defect that cost sixteen benchmark samples.
+OBSERVE_MAX_TOKENS = 700
 
 OBSERVE_SYSTEM = (
     "You are describing one person in a photograph so that the same person can be recognised "
-    "in another photograph. Describe only what is visible. Use short, literal phrases."
+    "in another photograph -- the whole person, not only the face. Describe only what is "
+    "actually visible. Clothing, pose and camera angle change apparent silhouette, so judge "
+    "what the body is rather than what the garment suggests, and when a proportion is "
+    "genuinely obscured say so instead of estimating it."
 )
 
 
@@ -132,11 +138,25 @@ def select_canonical(db, key: str, *, owner_approved: bool) -> identity.Referenc
 
 
 def observe_prompt() -> str:
+    """The observer's question, asked about the whole person and honest about what is hidden.
+
+    The `unmeasurable` instruction is the load-bearing one. A model asked for a waist
+    proportion under a loose cardigan will produce a plausible phrase, that phrase will match
+    or not by accident, and the resulting verdict is a coin toss wearing a measurement's
+    clothes. The first reference-conditioned trial failed precisely here: the face was right,
+    the chest was not, and nothing was looking.
+    """
     return (
-        "Reply with a single JSON object and nothing else, one key per item below, each a "
-        "short literal phrase. If the photograph contains no person, reply exactly "
+        "Reply with a single JSON object and nothing else, one key per item below. Each "
+        "value is a short literal phrase describing what you can actually see, or the exact "
+        'string "unmeasurable" when clothing, pose, crop or angle means you cannot judge it '
+        "honestly. Do not estimate a proportion you cannot see; do not infer the body from "
+        "the garment. If the photograph contains no person, reply exactly "
         '{"no_person": true}.\n\n'
-        + "\n".join(f"- {f}" for f in OBSERVE_FIELDS))
+        "Face and head:\n"
+        + "\n".join(f"- {f}" for f in identity.FACE_DIMENSIONS)
+        + "\n\nWhole-person morphology (the body itself, not the clothing):\n"
+        + "\n".join(f"- {f}" for f in identity.MORPHOLOGY_DIMENSIONS))
 
 
 def observe(db, image_ref: str, *, provider=None) -> dict:

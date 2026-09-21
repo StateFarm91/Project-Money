@@ -1087,6 +1087,39 @@ def api_spend_report() -> dict:
             "escalation": spend_policy.escalation(db)}
 
 
+@app.get("/api/teardown/readiness")
+def api_teardown_readiness() -> dict:
+    """Whether the Teardown Laboratory can receive CA$292 of purchased evidence.
+
+    The owner's instruction was to verify this before asking them to buy. Checked from
+    evidence -- an importable reader, a caller that exists, rows in a table -- rather than
+    from a list somebody maintains, because a readiness report kept by hand says ready.
+    """
+    from ..teardown import readiness
+
+    return readiness.check(db)
+
+
+@app.get("/api/model-tournament")
+def api_model_tournament() -> dict:
+    """The canonical-model field, the finalists and their measured identity (#198, #199).
+
+    Names no winner. Selection is a consequential brand decision and stays the owner's: a
+    candidate that became canonical by topping a table is an identity nobody chose.
+    """
+    from ..runtime.release import _tournament_on_file
+    from ..visual import brief, tournament
+
+    package = _tournament_on_file(db)
+    return {
+        "brief": brief.state(),
+        "plan": tournament.plan(db),
+        "run": package,
+        "state": ("awaiting owner selection" if package else
+                  "not yet run for this brief"),
+    }
+
+
 @app.get("/api/model-identity")
 def api_model_identity() -> dict:
     """The canonical model: what is selected, what is only a candidate, and what blocks.

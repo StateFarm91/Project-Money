@@ -87,21 +87,24 @@ def test_drift_with_no_reference_pack_is_unavailable_and_never_a_pass():
     fields = {f: "described" for f in ident.IDENTITY_FIELDS}
     pack = ident.select(ident.Candidate("c1", fields=fields), owner_approved=True)
 
-    matching = ident.drift_check(
-        {"face": "described", "hair": "described", "eyes": "described",
-         "age": "described", "stylisation": "described"}, pack)
-    assert matching["verdict"] == "pass"
+    # The whole person, because the canonical identity is not a face. An observation that
+    # answers only about the head now leaves morphology unreadable, which is `unverifiable`
+    # rather than a pass -- see test_model_identity.py for the body-drift failure that
+    # forced the distinction.
+    whole = {d: "described" for d in ident.DRIFT_DIMENSIONS}
+    assert ident.drift_check(whole, pack)["verdict"] == "pass"
 
-    drifted = ident.drift_check(
-        {"face": "someone else", "hair": "described", "eyes": "described",
-         "age": "described", "stylisation": "described"}, pack)
+    drifted = ident.drift_check({**whole, "face": "someone else"}, pack)
     assert drifted["verdict"] == "fail"
     assert "face" in drifted["failed"]
     assert "wrong woman" in drifted["reason"]
 
-    # An unmeasured dimension counts as maximum drift rather than being skipped.
+    # An unmeasured dimension is never skipped and never a pass. It is now distinguished
+    # from drift -- the owner's rule is that an obscured proportion is marked unmeasurable
+    # rather than guessed at -- and it still blocks the release.
     partial = ident.drift_check({"face": "described"}, pack)
-    assert partial["verdict"] == "fail"
+    assert partial["verdict"] == "unverifiable"
+    assert partial["blocks_release"] is True
 
 
 def test_the_model_is_not_forced_into_products_that_sell_better_without_her():

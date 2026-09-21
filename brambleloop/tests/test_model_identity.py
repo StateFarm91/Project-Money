@@ -139,9 +139,10 @@ def test_a_matching_face_passes_and_a_drifted_one_blocks():
     M.record_candidate(db, "face-a", fields=fields)
     M.select_canonical(db, "face-a", owner_approved=True)
 
-    same = {"face": fields["facial_geometry"], "hair": fields["hair"],
-            "eyes": fields["eyes"], "age": fields["age_band"],
-            "stylisation": fields["representative_expressions"]}
+    # The whole person, because an observation that answers only about the face now leaves
+    # morphology unmeasurable -- which is `unverifiable`, not a pass. The old version of
+    # this test supplied five face dimensions and expected a pass; the new floor caught it.
+    same = {d: fields[identity.DIMENSION_FIELD[d]] for d in identity.DRIFT_DIMENSIONS}
     ok = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}],
                        observer=lambda _db, ref: dict(same))
     assert ok["verdict"] == "pass", ok
@@ -175,6 +176,135 @@ def test_the_observer_is_asked_for_the_drift_dimensions():
     for dimension in identity.DRIFT_DIMENSIONS:
         assert dimension in prompt
     assert "no_person" in prompt
+
+
+# ---------------------------------------------------------------------------
+# The body-drift failure the owner caught, 2026-09-21
+
+
+def _observation(**override) -> dict:
+    base = {d: f"pinned-{identity.DIMENSION_FIELD[d]}" for d in identity.DRIFT_DIMENSIONS}
+    base.update(override)
+    return base
+
+
+def _pack() -> identity.ReferencePack:
+    return identity.ReferencePack(version=1, fields=_complete_fields(),
+                                  approved_by_owner_at="2026-09-21T00:00:00Z")
+
+
+def test_a_perfect_face_on_a_different_body_fails():
+    """The exact failure mode the first reference-conditioned trial produced.
+
+    The face came back convincingly the same woman while the chest and upper-torso
+    morphology changed substantially. That is worse than an obvious miss: a familiar face is
+    precisely what stops anybody looking further down the frame. A face match may never
+    compensate for morphology drift, and a single blended score is how it would.
+    """
+    out = identity.drift_check(_observation(bust="substantially fuller"), _pack())
+    assert out["verdict"] == "fail"
+    assert out["face"]["verdict"] == "pass"
+    assert out["morphology"]["verdict"] == "fail"
+    assert "bust" in out["morphology"]["drifted"]
+    assert "does not compensate" in out["reason"]
+    assert "garment fit cannot be compared" in out["reason"]
+
+
+def test_the_two_floors_are_independent_and_neither_averages_into_the_other():
+    pack = _pack()
+    face_only = identity.drift_check(_observation(face="a different face"), pack)
+    body_only = identity.drift_check(_observation(hips="much wider", waist="much narrower"),
+                                     pack)
+    assert face_only["verdict"] == "fail" and face_only["morphology"]["verdict"] == "pass"
+    assert body_only["verdict"] == "fail" and body_only["face"]["verdict"] == "pass"
+    assert "separate hard floors" in identity.drift_check(
+        _observation(), pack)["floors_are_independent"]
+
+
+def test_an_obscured_proportion_is_unmeasurable_and_never_a_pass():
+    """Clothing, pose and perspective change apparent silhouette. A loose cardigan must not
+    silently certify a different body."""
+    hidden = _observation(**{d: "unmeasurable" for d in identity.MORPHOLOGY_DIMENSIONS})
+    out = identity.drift_check(hidden, _pack())
+    assert out["verdict"] == "unverifiable"
+    assert out["blocks_release"] is True
+    assert out["face"]["verdict"] == "pass"
+    assert set(out["morphology"]["unmeasurable"]) == set(identity.MORPHOLOGY_DIMENSIONS)
+    assert "Unmeasurable is not a pass" in out["reason"]
+
+
+def test_a_group_with_too_little_readable_is_unverifiable_rather_than_passing():
+    """Two measurable dimensions out of eight is not a morphology check."""
+    mostly_hidden = _observation(**{d: "unmeasurable"
+                                    for d in identity.MORPHOLOGY_DIMENSIONS[2:]})
+    out = identity.drift_check(mostly_hidden, _pack())
+    assert out["morphology"]["verdict"] == "unverifiable"
+    assert out["verdict"] == "unverifiable"
+
+
+def test_enough_readable_and_all_matching_passes():
+    partial = _observation(**{d: "unmeasurable" for d in identity.MORPHOLOGY_DIMENSIONS[5:]})
+    out = identity.drift_check(partial, _pack())
+    assert out["verdict"] == "pass", out
+    assert out["morphology"]["verdict"] == "pass"
+
+
+def test_a_field_the_pack_never_pinned_is_unmeasurable_not_a_match():
+    """An unpinned field is exactly the field that drifts."""
+    fields = _complete_fields()
+    del fields["bust_proportions"]
+    pack = identity.ReferencePack(version=1, fields=fields,
+                                  approved_by_owner_at="2026-09-21T00:00:00Z")
+    out = identity.drift_check(_observation(), pack)
+    assert out["dimensions"]["bust"] == identity.UNMEASURABLE
+
+
+def test_the_pack_pins_the_body_as_well_as_the_face():
+    for field in ("stature", "overall_build", "shoulder_proportions", "torso_length",
+                  "bust_proportions", "waist_proportions", "hip_proportions",
+                  "limb_proportions"):
+        assert field in identity.IDENTITY_FIELDS
+    assert set(identity.FACE_FIELDS) & set(identity.MORPHOLOGY_FIELDS) == set()
+
+
+def test_the_observer_is_asked_about_the_body_and_told_not_to_guess():
+    prompt = M.observe_prompt()
+    for dimension in identity.MORPHOLOGY_DIMENSIONS:
+        assert dimension in prompt
+    assert "unmeasurable" in prompt
+    assert "do not infer the body from the garment" in prompt.lower()
+    # Thirteen dimensions and a phrase each does not fit in the budget written for five.
+    assert M.OBSERVE_MAX_TOKENS >= 600
+
+
+# ---------------------------------------------------------------------------
+# The brief (#198)
+
+
+def test_the_brief_forbids_building_her_from_a_real_persons_photograph():
+    """The direction arrived beside a photograph of an identifiable public figure.
+
+    A persistent commercial brand identity built from somebody's photograph is that person's
+    likeness in commercial use, and it is also the celebrity resemblance the direction rules
+    out in the same breath. Stated as a rule so a later prompt cannot reintroduce it.
+    """
+    from brambleloop.visual import brief
+
+    rules = {k for k, _ in brief.FORBIDDEN}
+    assert "real_person_reference" in rules
+    assert "public_figure_likeness" in rules
+    assert "celebrity resemblance" in brief.AVOID
+    assert "not resembling any known public figure" in brief.base_prompt().lower()
+
+
+def test_the_stress_test_covers_materially_different_situations():
+    """Five flattering portraits prove only that the generator can repeat a portrait."""
+    from brambleloop.visual import brief
+
+    keys = {k for k, _ in brief.STRESS_SCENES}
+    assert {"neutral_reference", "fitted_garment", "loose_layered_garment",
+            "winter_seasonal", "non_garment_lifestyle"} <= keys
+    assert brief.HARD_FLOORS == ("facial_identity", "whole_person_morphology")
 
 
 if __name__ == "__main__":

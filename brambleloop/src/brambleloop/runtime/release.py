@@ -2495,3 +2495,114 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
             "winner": decision.get("winner"), "locked": decision.get("locked"),
             "outstanding": sorted(outstanding),
             "unmeasured": [u["model"] for u in result.get("unmeasured") or []]}
+
+
+@handlers.register("creative.model_tournament")
+def handle_model_tournament(ctx: JobContext) -> dict:
+    """Run the canonical-model tournament and stop before choosing (#199).
+
+    The owner's direction is the design: do not generate one woman and make her canonical
+    because she happened to be first. So this generates a field, screens it, stress-tests the
+    survivors across materially different scenes, and presents them. There is no branch in
+    here that selects, and `visual.tournament` contains no function that could.
+
+    Runs once: `already_run` is keyed on the brief, so a re-deploy does not re-render
+    twenty-four faces, and a changed brief does.
+    """
+    import os
+    import tempfile
+
+    from ..finance import spend_policy
+    from ..visual import brief, tournament
+
+    allowance = spend_policy.may_spend(ctx.db, "model_tournament")
+    if not allowance["may_spend"]:
+        ctx.audit("model.tournament_capped", detail=allowance)
+        return {"ran": False, "reason": allowance["why"]}
+
+    previous = _tournament_on_file(ctx.db)
+    if previous is not None:
+        return {"ran": False, "reason": "this brief's tournament has already run",
+                "finalists": previous.get("clear_both_floors", []),
+                "awaiting": "owner selection"}
+
+    env = dict(os.environ)
+    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="tournament-")
+    field = tournament.generate_candidates(
+        ctx.db, count=ctx.job.inputs.get("count") or tournament.DEFAULT_CANDIDATES,
+        env=env, work_dir=work)
+    if not field.get("ran"):
+        ctx.audit("model.tournament_blocked", detail=field)
+        return field
+
+    finalists = field["candidates"][:brief.TARGET_FINALISTS]
+    results = [tournament.stress_test(ctx.db, f, env=env, work_dir=work) for f in finalists]
+    package = tournament.present(ctx.db, results)
+    package["field"] = {"generated": field["generated"], "excluded": field["excluded"],
+                        "failures": field["failures"][:5], "provider": field["provider"]}
+    package["spent_cad"] = round(
+        float(field.get("spent_cad") or 0.0)
+        + sum(float(r.get("spent_cad") or 0.0) for r in results), 4)
+    package["brief_fingerprint"] = _brief_fingerprint()
+
+    ctx.audit(tournament.TOURNAMENT_ACTION, detail=package)
+
+    # The owner asked to be shown the finalists. That is a consequential decision, so it
+    # goes in the one owner queue rather than into a log somebody might read.
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with ctx.db.session() as s:
+        open_row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_selection",
+            OwnerAction.done == False))  # noqa: E712
+        if open_row is None:
+            s.add(OwnerAction(
+                requirement_key="canonical_model_selection",
+                action=("Choose the permanent Brambleloop model from the finalists at "
+                        "/api/model-tournament, then confirm the selection."),
+                reason=(f"{len(results)} finalists were stress-tested across "
+                        f"{len(brief.STRESS_SCENES)} controlled scenes; "
+                        f"{len(package['clear_both_floors'])} cleared both hard floors "
+                        f"(facial identity and whole-person morphology, independently). "
+                        f"Nothing selects itself: a candidate that became canonical by "
+                        f"topping a table is an identity nobody chose."),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay=("Every model-bearing frame stays blocked, because a "
+                                      "drift check with no reference pack is unavailable "
+                                      "rather than passing."),
+                blocks="all model-led listing imagery and the creative parity gate"))
+
+    return {"ran": True, "finalists": len(results),
+            "clear_both_floors": package["clear_both_floors"],
+            "spent_cad": package["spent_cad"], "selected": None}
+
+
+def _brief_fingerprint() -> str:
+    import hashlib
+    import json
+
+    from ..visual import brief, tournament
+
+    material = json.dumps({"brief": brief.state(), "seeds": list(tournament.SEED_NOTES)},
+                          sort_keys=True)
+    return hashlib.sha256(material.encode()).hexdigest()[:16]
+
+
+def _tournament_on_file(db) -> dict | None:
+    """A completed tournament for the brief as it now stands, if there is one."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..visual import tournament
+
+    want = _brief_fingerprint()
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog)
+                             .where(AuditLog.action == tournament.TOURNAMENT_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(20)):
+            detail = row.detail or {}
+            if detail.get("brief_fingerprint") == want and detail.get("finalists"):
+                return detail
+    return None

@@ -27,19 +27,64 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-# What a reference pack has to pin (#200). Each is something that drifts between generations
-# and that a buyer notices across a gallery without being able to say why.
-IDENTITY_FIELDS: tuple[str, ...] = (
+# What a reference pack has to pin (#200).
+#
+# The face half was here from the start. The body half was added on 2026-09-21 after the
+# first reference-conditioned trial showed the failure mode the owner named: the face came
+# back convincingly the same woman while the chest and upper-torso morphology changed
+# substantially. That is not identity consistency, and it is worse than an obvious miss,
+# because a familiar face is exactly what stops anybody looking further down the frame.
+#
+# It matters most for the thing this company sells. Garment fit cannot be compared across
+# images if the body under the garment is changing: the fit reads as a property of the
+# pattern when it is a property of whichever body the generator invented that time.
+FACE_FIELDS: tuple[str, ...] = (
     "facial_geometry", "hair", "eyes", "age_band", "complexion", "representative_angles",
     "representative_expressions",
 )
+
+MORPHOLOGY_FIELDS: tuple[str, ...] = (
+    "stature", "overall_build", "shoulder_proportions", "torso_length",
+    "bust_proportions", "waist_proportions", "hip_proportions", "limb_proportions",
+)
+
+IDENTITY_FIELDS: tuple[str, ...] = FACE_FIELDS + MORPHOLOGY_FIELDS
 
 CANDIDATE = "candidate"
 CANONICAL = "canonical"
 RETIRED = "retired"
 
-# Drift dimensions (#201). A beautiful image of the wrong woman fails.
-DRIFT_DIMENSIONS: tuple[str, ...] = ("face", "hair", "eyes", "age", "stylisation")
+# Drift dimensions (#201), in the two groups that are independent hard floors. A beautiful
+# image of the wrong woman fails, and so does a correct face on a different body: a face
+# match may never compensate for morphology drift, which is what a single blended score
+# would quietly let it do.
+FACE_DIMENSIONS: tuple[str, ...] = ("face", "hair", "eyes", "age", "stylisation")
+MORPHOLOGY_DIMENSIONS: tuple[str, ...] = (
+    "stature", "build", "shoulders", "torso", "bust", "waist", "hips", "limbs",
+)
+DRIFT_DIMENSIONS: tuple[str, ...] = FACE_DIMENSIONS + MORPHOLOGY_DIMENSIONS
+
+# Which pack field each drift dimension is compared against.
+DIMENSION_FIELD: dict[str, str] = {
+    "face": "facial_geometry", "hair": "hair", "eyes": "eyes", "age": "age_band",
+    "stylisation": "representative_expressions",
+    "stature": "stature", "build": "overall_build", "shoulders": "shoulder_proportions",
+    "torso": "torso_length", "bust": "bust_proportions", "waist": "waist_proportions",
+    "hips": "hip_proportions", "limbs": "limb_proportions",
+}
+
+# The three answers a dimension may have. `UNMEASURABLE` exists because clothing, pose and
+# perspective genuinely obscure anatomy, and the owner's rule is explicit: when a dimension
+# cannot be defensibly evaluated it is marked unmeasurable and never automatically passed.
+# Counting it as a match is how a loose cardigan silently certifies a different body.
+MATCH = "match"
+DRIFT = "drift"
+UNMEASURABLE = "unmeasurable"
+
+# How much of a group has to be readable before the group can be said to have been checked.
+# Below this the frame is unverifiable rather than passing: two measurable dimensions out of
+# eight is not a morphology check, it is a coincidence with a verdict attached.
+MIN_MEASURABLE = {"face": 3, "morphology": 3}
 
 # Products where a clean product-only hero outsells a modelled one (#204). Product truth and
 # category fit outrank compulsory model presence, so this is a list of exceptions rather than
@@ -125,14 +170,55 @@ def select(candidate: Candidate, *, owner_approved: bool,
                          approved_by_owner_at=datetime.now(timezone.utc).isoformat())
 
 
+def _classify(want, got) -> str:
+    """One dimension's answer, three-valued.
+
+    `got` carries what the observer could actually see. `None` or the literal
+    "unmeasurable" means the garment, pose or crop hid it -- which is a fact about the
+    photograph, not about the woman, and is never a match.
+    """
+    if want is None:
+        # The pack never pinned it, so nothing can be compared. Unmeasurable, not a match:
+        # an unpinned field is exactly the field that drifts.
+        return UNMEASURABLE
+    if got is None or str(got).strip().lower() in ("", "unmeasurable", "unclear", "unknown",
+                                                   "obscured", "not visible"):
+        return UNMEASURABLE
+    return MATCH if str(want).strip().lower() == str(got).strip().lower() else DRIFT
+
+
+def _group_verdict(scored: dict, dimensions: tuple[str, ...], floor: int) -> dict:
+    drifted = [d for d in dimensions if scored.get(d) == DRIFT]
+    measurable = [d for d in dimensions if scored.get(d) in (MATCH, DRIFT)]
+    unmeasurable = [d for d in dimensions if scored.get(d) == UNMEASURABLE]
+    if drifted:
+        verdict = "fail"
+    elif len(measurable) < floor:
+        verdict = "unverifiable"
+    else:
+        verdict = "pass"
+    return {"verdict": verdict, "drifted": drifted, "measurable": measurable,
+            "unmeasurable": unmeasurable, "floor": floor}
+
+
 def drift_check(observed: dict, pack: ReferencePack | None,
                 *, tolerance: float = 0.15) -> dict:
     """Compare an asset's rendered identity against the canonical reference (#201).
 
-    With no pack the verdict is `unavailable`, never `pass`. A drift check that passed because
-    it had nothing to compare against would be worse than no check at all, because it would
-    be believed — and the assets it waved through would carry a face that changed slowly
-    across a gallery in the way buyers notice without being able to name.
+    Two independent hard floors, face and whole-person morphology, because a single blended
+    verdict lets a convincing face carry a different body -- which is the exact failure the
+    first reference-conditioned trial produced, and the one that makes garment fit
+    uninterpretable. Either group failing fails the frame; neither can compensate for the
+    other, and there is no average in which they could.
+
+    Garment- and pose-aware by construction: a dimension the photograph does not show is
+    `unmeasurable` rather than a match. A group with too little readable is `unverifiable`
+    rather than passing, because a morphology check that could read two dimensions out of
+    eight has not checked morphology.
+
+    With no pack the verdict is `unavailable`, never `pass`. A drift check that passed
+    because it had nothing to compare against would be worse than no check at all, because
+    it would be believed.
     """
     if pack is None:
         return {
@@ -140,31 +226,47 @@ def drift_check(observed: dict, pack: ReferencePack | None,
             "reason": ("no canonical model has been selected, so there is no reference pack "
                        "to measure drift against. This is not a pass"),
             "blocks_release": True,
-            "dimensions": {},
+            "dimensions": {}, "face": {}, "morphology": {},
         }
 
-    scored: dict[str, float] = {}
-    for dimension in DRIFT_DIMENSIONS:
-        want = pack.fields.get({"face": "facial_geometry", "age": "age_band",
-                                "stylisation": "representative_expressions"}.get(
-                                    dimension, dimension))
-        got = observed.get(dimension)
-        if want is None or got is None:
-            scored[dimension] = 1.0      # unmeasured counts as maximum drift
-            continue
-        scored[dimension] = 0.0 if str(want) == str(got) else 1.0
+    scored = {d: _classify(pack.fields.get(DIMENSION_FIELD[d]), observed.get(d))
+              for d in DRIFT_DIMENSIONS}
+    face = _group_verdict(scored, FACE_DIMENSIONS, MIN_MEASURABLE["face"])
+    morphology = _group_verdict(scored, MORPHOLOGY_DIMENSIONS, MIN_MEASURABLE["morphology"])
 
-    worst = max(scored.values()) if scored else 1.0
-    failed = [d for d, v in scored.items() if v > tolerance]
+    failed = face["drifted"] + morphology["drifted"]
+    groups_ok = face["verdict"] == "pass" and morphology["verdict"] == "pass"
+    verdict = "pass" if groups_ok else ("fail" if failed else "unverifiable")
+
+    reasons = []
+    if face["drifted"]:
+        reasons.append(f"face identity drifted on {face['drifted']}: a beautiful image of "
+                       f"the wrong woman fails (#201)")
+    if morphology["drifted"]:
+        reasons.append(
+            f"whole-person morphology drifted on {morphology['drifted']} -- a face match "
+            f"does not compensate, and garment fit cannot be compared across images if the "
+            f"body under the garment is changing")
+    if not failed and face["verdict"] == "unverifiable":
+        reasons.append(f"only {len(face['measurable'])} face dimensions were readable, "
+                       f"below the floor of {face['floor']}")
+    if not failed and morphology["verdict"] == "unverifiable":
+        reasons.append(f"only {len(morphology['measurable'])} morphology dimensions were "
+                       f"readable, below the floor of {morphology['floor']}. Unmeasurable is "
+                       f"not a pass")
+
     return {
-        "verdict": "pass" if not failed else "fail",
+        "verdict": verdict,
         "dimensions": scored,
+        "face": face,
+        "morphology": morphology,
         "failed": failed,
-        "blocks_release": bool(failed),
-        "reason": ("" if not failed else
-                   f"identity drifted on {failed}: a beautiful image of the wrong woman "
-                   f"fails (#201)"),
-        "worst": worst,
+        "blocks_release": verdict != "pass",
+        "reason": "; ".join(reasons),
+        "floors_are_independent": (
+            "face identity and whole-person morphology are separate hard floors. Neither "
+            "averages into the other, because a blended score is precisely how a familiar "
+            "face waves a different body through"),
     }
 
 

@@ -362,6 +362,55 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**2026-09-21 — #198 answered, the identity made whole-person, the tournament built, and the
+MJs purchase stopped.**
+
+### OWNER ACTION REQUIRED — do not buy the MJs set yet
+
+`/api/teardown/readiness` reports **NOT READY**, checked from evidence rather than from a
+list: a PDF reader is importable and **nothing uses it**, and `library.retrieve` — the
+quarantine's only sanctioned reader — **is called by nothing at all**. The purchase would
+land, be filed, be hashed, be manifested, have its filenames audited against the listing's
+promises, and then sit there. Every downstream capability the owner listed — materials, yarn,
+hook, gauge, sizing, construction, shaping, assembly, charts, troubleshooting, the
+cross-reference against what the listing advertised — is a schedule waiting on observations
+nothing produces. **The gap is a module, not a dependency** (B-560).
+
+Ready: listing imagery, listing promises, provenance. Missing: PDF ingestion, pattern
+analysis, promise cross-reference against the instructions, construction-to-object.
+
+### #198 — answered, and recorded as code
+
+`visual/brief.py` holds the direction in the owner's own phrasing. Two prohibitions sit apart
+from taste: **no photograph of a real identifiable person** is used as a reference or
+conditioning source, and no candidate that reads as a recognisable public figure is accepted.
+The direction arrived beside a photograph of a public figure; it was not used. A persistent
+commercial brand identity built from somebody's photograph is that person's likeness in
+commercial use, and it is the celebrity resemblance the direction rules out in the same
+breath (B-558).
+
+### The body-drift failure is fixed
+
+The canonical identity is now **the entire woman**. The pack pins stature, build, shoulders,
+torso, bust, waist, hips and limbs alongside the face. `drift_check` returns **two group
+verdicts that never average into one another** — a blended score is precisely how a good face
+waves a different body through. A dimension is three-valued: match, drift, or **unmeasurable**
+when clothing, pose or crop genuinely hides it; a group with fewer than three readable
+dimensions is `unverifiable` rather than passing (B-557).
+
+### The tournament (#199) is built and contains no way to choose
+
+Twenty-four seed notes varying hair, colouring, stature and figure from one shared base
+prompt. Screen on the owner's ten criteria; a candidate reading as a public figure leaves on
+the rule, not the score. Five finalists stress-tested across five materially different scenes
+— neutral, fitted garment, loose layered garment, winter, non-garment — each conditioned on
+the finalist's own portrait, which is the mechanism the canonical identity will use. There is
+no `select_canonical` anywhere in the module and a test reads the source to keep it that way
+(B-559). It opens an owner action when it completes.
+
+Suite green at **2,783 across 152 suites**. `/api/verify` 12/12.
+
+## Previously — last completed milestone
 **Heartbeat 2026-09-21T08:15Z — the identity gate had no callers.**
 
 `visual/identity.py` was complete, correct and **invoked by nothing anywhere in the
