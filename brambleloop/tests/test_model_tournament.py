@@ -74,24 +74,53 @@ def test_a_reference_photograph_of_a_real_person_is_refused():
 # A field, not a family
 
 
-def test_the_seed_notes_are_a_genuine_spread_rather_than_one_woman_retold():
-    """Twenty renders of one prompt are twenty photographs of nearly the same woman, and
-    choosing between them is not a choice."""
+def test_the_seed_notes_vary_within_the_direction_rather_than_across_it():
+    """The owner narrowed the physical direction on 2026-09-21: this type, not her.
+
+    The first field varied everything -- hair colour, complexion, stature, figure -- which
+    was right while the direction was open and wrong once it was not. A spread that ignores
+    the brief is not the choice the owner asked to make; a field of one woman repeated is
+    not a choice at all. These vary the things that still distinguish one woman from another
+    inside the type.
+    """
     assert len(tournament.SEED_NOTES) >= brief.TARGET_CANDIDATES[0]
     assert len(set(tournament.SEED_NOTES)) == len(tournament.SEED_NOTES)
-    body_words = ("build", "figure", "frame", "tall", "petite", "slim", "slender", "lean",
-                  "curvy", "full", "broad", "compact", "athletic", "wiry", "rounded",
-                  "hourglass", "stature", "short", "long torso", "shoulder", "limb")
+
+    joined = " ".join(tournament.SEED_NOTES).lower()
+    # Nothing outside the direction: the type is dark-haired and light-eyed.
+    for outside in ("blonde", "auburn", "platinum", "ginger", "copper-red", "grey hair",
+                    "brown eyes", "dark brown eyes"):
+        assert outside not in joined, outside
+
+    # And it still varies, on the axes that separate two women of one type.
     for note in tournament.SEED_NOTES:
         low = note.lower()
-        assert "hair" in low, note
-        assert "complexion" in low, note
-        # Every note says something about the body, not only about colouring -- the
-        # canonical identity is the entire woman, so the field has to vary as one.
-        assert any(w in low for w in body_words), note
-    joined = " ".join(tournament.SEED_NOTES).lower()
-    for word in ("tall", "petite", "slim", "full", "broad"):
-        assert word in joined, word
+        assert "hair" in low and "eyes" in low, note
+        assert any(w in low for w in ("tall", "average height", "petite")), note
+    assert len({n.split(".")[0] for n in tournament.SEED_NOTES}) >= 20
+
+
+def test_the_physical_direction_is_recorded_as_a_type_not_a_person():
+    """It was given by pointing at a photograph and saying "not exactly her".
+
+    Every attribute stored is a generic description thousands of people match. The
+    photograph is not used, and the rule against a recognisable public figure matters more
+    here than before: aiming at a type a celebrity exemplifies is exactly the circumstance
+    in which a generator drifts towards the celebrity.
+    """
+    direction = brief.PHYSICAL_DIRECTION
+    for key in ("hair", "eyes", "face", "build", "bust", "waist" if "waist" in direction
+                else "torso", "hips", "limbs"):
+        assert direction.get(key), key
+    assert "not a person" in brief.PHYSICAL_DIRECTION_IS_A_TYPE
+    assert "excluded on the rule" in brief.PHYSICAL_DIRECTION_IS_A_TYPE
+
+    prompt = brief.base_prompt()
+    assert "blue-green" in prompt and "lean and athletic" in prompt
+    # The register stays the brief's, not the photograph's.
+    assert "no heavy glamour makeup" in prompt
+    assert "naturally beautiful rather than model-perfect" in prompt
+    assert "not resembling any known public figure" in prompt
 
 
 def test_every_candidate_is_generated_from_the_one_brief():

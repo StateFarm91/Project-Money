@@ -28,6 +28,45 @@ REQUIREMENT = 198
 
 AGE_BAND = "late twenties to early thirties in apparent age"
 
+# The physical direction the owner asked for on 2026-09-21, as generic attributes.
+#
+# It was given by pointing at a photograph of a real public figure and saying "ideally the
+# body and facial features I'm looking for -- not exactly her". That is a legitimate way to
+# specify a type, and the type is what is recorded: dark hair, light blue-green eyes, strong
+# brows, defined cheekbones, a lean athletic build. Many thousands of people look like that,
+# and none of those attributes belongs to anybody.
+#
+# What is not recorded, and is refused in `FORBIDDEN`, is the photograph itself or the
+# person. A generated candidate that reads as a recognisable public figure is excluded on
+# the rule rather than on its score, however it was arrived at -- which matters more here
+# than it did before, because aiming at a type a celebrity exemplifies is exactly the
+# circumstance in which a generator drifts towards the celebrity.
+#
+# One tension is resolved deliberately. The photograph is heavily styled glamour and the
+# owner's own direction rules out excessive glamour, influencer caricature and
+# model-perfection. So the *structure* is taken -- colouring, features, proportions -- and
+# the *register* stays the brief's: warm, natural, unstyled, believable as a real person.
+PHYSICAL_DIRECTION: dict[str, str] = {
+    "hair": "long dark brunette, straight to a soft loose wave, worn down",
+    "eyes": "light blue-green, bright against the dark hair",
+    "brows": "strong, well-defined, dark",
+    "face": "oval to softly heart-shaped, high defined cheekbones, straight nose, full lips",
+    "complexion": "fair to light, warm undertone, natural skin texture",
+    "stature": "average to tall",
+    "build": "lean and athletic, visibly toned rather than soft",
+    "shoulders": "straight, moderate width, not broad",
+    "torso": "long, narrow waist, flat midriff",
+    "bust": "small to moderate, in proportion with a lean frame",
+    "hips": "narrow, close to the waist measurement",
+    "limbs": "long, slim, defined",
+}
+
+PHYSICAL_DIRECTION_IS_A_TYPE = (
+    "a physical type, not a person. Every attribute here is a generic description that "
+    "thousands of people match. The photograph it was communicated by is not used, and a "
+    "candidate that reads as a recognisable public figure is excluded on the rule"
+)
+
 # What she should feel like. Kept as the owner's own phrasing: a brief rewritten in somebody
 # else's words is a brief that has already drifted once before anything was rendered.
 QUALITIES: tuple[str, ...] = (
@@ -118,16 +157,33 @@ STRESS_MEASURES: tuple[str, ...] = HARD_FLOORS + (
 )
 
 
+def physical_sentence() -> str:
+    """The owner's physical direction as one descriptive sentence."""
+    return (
+        f"Hair {PHYSICAL_DIRECTION['hair']}. Eyes {PHYSICAL_DIRECTION['eyes']}, brows "
+        f"{PHYSICAL_DIRECTION['brows']}. Face {PHYSICAL_DIRECTION['face']}. Complexion "
+        f"{PHYSICAL_DIRECTION['complexion']}. Build: {PHYSICAL_DIRECTION['stature']} height, "
+        f"{PHYSICAL_DIRECTION['build']}, shoulders {PHYSICAL_DIRECTION['shoulders']}, "
+        f"{PHYSICAL_DIRECTION['torso']}, bust {PHYSICAL_DIRECTION['bust']}, hips "
+        f"{PHYSICAL_DIRECTION['hips']}, limbs {PHYSICAL_DIRECTION['limbs']}.")
+
+
 def base_prompt(seed_note: str = "") -> str:
     """The shared description every candidate is generated from.
 
     Deliberately one prompt with a varying note rather than twenty different prompts: the
     tournament is choosing between women within one direction, and twenty differently-worded
     briefs would be comparing the prompts instead.
+
+    Since the owner narrowed the physical direction, the note varies *within* the type rather
+    than across all types -- a different woman each time, recognisably in the direction asked
+    for. A field that ignored the direction would not be a choice the owner asked to make,
+    and one that produced the same woman twenty times would not be a choice at all.
     """
     return (
         f"Editorial portrait photograph of an attractive, warm, contemporary adult woman, "
-        f"{AGE_BAND}. She is naturally beautiful rather than model-perfect, approachable, "
+        f"{AGE_BAND}. {physical_sentence()} "
+        f"She is naturally beautiful rather than model-perfect, approachable, "
         f"premium without looking inaccessible, and entirely believable as a real person. "
         f"Natural skin texture with visible pores and no retouching. Soft daylight, neutral "
         f"warm background, relaxed genuine expression, simple plain clothing. "
@@ -142,6 +198,8 @@ def state() -> dict:
         "requirement": REQUIREMENT,
         "given_at": GIVEN_AT,
         "age_band": AGE_BAND,
+        "physical_direction": dict(PHYSICAL_DIRECTION),
+        "physical_direction_is_a_type": PHYSICAL_DIRECTION_IS_A_TYPE,
         "qualities": list(QUALITIES),
         "avoid": list(AVOID),
         "forbidden": [{"rule": k, "why": v} for k, v in FORBIDDEN],

@@ -42,46 +42,62 @@ SCREEN_MAX_TOKENS = 600
 # The spread. Each note changes what she looks like without changing what she is for: every
 # one of them still has to satisfy the brief's qualities, and none of them names a person.
 SEED_NOTES: tuple[str, ...] = (
-    "Warm mid-brown hair, shoulder length, loose natural wave. Fair complexion with freckles "
-    "across the nose. Slim build, average height.",
-    "Dark brown hair worn long and straight. Olive complexion. Athletic build, tall.",
-    "Deep black hair in a shoulder-length bob. Deep brown complexion. Softly curved build, "
-    "average height.",
-    "Auburn hair, long and curly. Very fair complexion. Slender build, petite.",
-    "Light brown hair in a blunt collarbone cut. Medium tan complexion. Broad-shouldered, "
-    "strong build, tall.",
-    "Dark hair pulled into a low bun. Rich brown complexion. Full figure, average height.",
-    "Honey-blonde hair, long with a centre part. Fair-medium complexion. Lean build, "
-    "long-limbed, tall.",
-    "Black tightly-coiled natural hair worn short. Deep complexion. Compact athletic build, "
-    "petite.",
-    "Chestnut hair in a shaggy shoulder cut. Warm ivory complexion. Soft build, average "
-    "height, short torso.",
-    "Salt-and-pepper dark hair, chin length. Light olive complexion. Slim, angular, tall.",
-    "Copper-red hair, long and wavy. Pale freckled complexion. Curvy build, average height.",
-    "Dark ash-brown hair in a long layered cut. Medium complexion. Broad build, wide "
-    "shoulders, average height.",
-    "Warm black hair worn in a sleek ponytail. Golden complexion. Very slim, long torso, "
-    "tall.",
-    "Mousy-brown hair, short pixie cut. Freckled fair complexion. Small frame, petite.",
-    "Dark brown hair with soft curls to mid-back. Brown complexion. Hourglass build, average "
-    "height.",
-    "Platinum-blonde hair in a sharp bob. Cool fair complexion. Narrow shoulders, slight "
-    "build, average height.",
-    "Deep brown hair in shoulder-length twists. Deep warm complexion. Tall, strong-shouldered.",
-    "Light golden-brown hair worn long. Sun-warmed complexion. Softly athletic, average "
-    "height.",
-    "Near-black hair in a straight long cut with a fringe. Fair-medium complexion. Petite, "
-    "short-limbed, slim.",
-    "Warm brown hair in loose shoulder waves. Medium-deep complexion. Full-figured, tall, "
-    "long torso.",
-    "Dark blonde hair in a messy mid-length cut. Fair complexion with rosy tone. Wiry build, "
-    "average height.",
-    "Black hair worn in a short curly crop. Medium-deep complexion. Compact, broad build, "
-    "petite.",
-    "Rich brown hair in a long braid. Olive-tan complexion. Slim-hipped, broad-shouldered, "
-    "tall.",
-    "Ash-blonde hair to the collarbone. Very fair complexion. Rounded build, short stature.",
+    # Variation *within* the owner's physical direction, not across it.
+    #
+    # The first field varied everything -- hair colour, complexion, stature, figure -- which
+    # was right when the direction was open and is wrong now that it is not: a spread that
+    # ignores the brief is not the choice the owner asked to make. These vary the things
+    # that still distinguish one woman from another inside the type: the exact face, the
+    # hair's length and movement, the shade of the eyes, where she sits in the lean-athletic
+    # range, and her height. Twenty distinct women, all recognisably in the direction given.
+    "Hair to mid-back, almost straight with a slight bend at the ends. Eyes a clear "
+    "blue-green. Narrow face, sharp cheekbones. Tall and very lean.",
+    "Hair just past the collarbone with a soft natural wave. Eyes grey-green. Softer jaw, "
+    "rounder cheeks. Average height, athletic with visible shoulder definition.",
+    "Long hair with a deep centre part, loose S-wave. Eyes pale blue with a green ring. "
+    "Wide-set eyes, straight strong nose. Tall, long-limbed, slight frame.",
+    "Hair to the shoulder blades, dense and straight. Eyes teal. High forehead, narrow "
+    "chin, defined cheekbones. Average height, compact and toned.",
+    "Hair mid-back with a heavy wave. Eyes blue-grey. Full lips, softly heart-shaped face. "
+    "Tall, lean, slightly broader shoulders.",
+    "Shoulder-length dark hair, blunt cut, straight. Eyes bright green-blue. Angular face, "
+    "prominent cheekbones. Average height, wiry and defined.",
+    "Very long hair, soft loose curls at the ends. Eyes light aqua. Oval face, small "
+    "straight nose. Tall, slender, long neck.",
+    "Hair to mid-back, straight with a slight natural kink. Eyes sea-green. Strong brow "
+    "line, deep-set eyes. Average height, athletic, narrow hips.",
+    "Long dark hair swept to one side, loose wave. Eyes pale blue-green. Fine features, "
+    "delicate jaw. Tall and very slim.",
+    "Hair past the shoulders, thick with a gentle body wave. Eyes green with a hazel "
+    "centre. Broad cheekbones, square-ish jaw. Average height, strong lean build.",
+    "Hair to the waist, straight and glossy. Eyes clear turquoise. Narrow oval face, high "
+    "arched brows. Tall, willowy, long-limbed.",
+    "Collarbone-length hair with a soft outward flick. Eyes steel blue. Rounded forehead, "
+    "soft cheekbones, full mouth. Average height, toned and compact.",
+    "Long hair with a loose beachy wave. Eyes grey-blue. Sculpted cheekbones, defined "
+    "jawline. Tall, lean, visibly athletic through the shoulders.",
+    "Hair to mid-back, straight, worn with a middle part. Eyes bright blue. Long face, "
+    "straight brows, narrow nose. Average height, slim and straight-framed.",
+    "Shoulder-blade-length hair, thick with a natural wave. Eyes green-blue and deep-set. "
+    "Strong cheekbones, slightly upturned nose. Tall, lean, long torso.",
+    "Long hair, fine and straight with a slight fringe. Eyes pale sea-green. Small oval "
+    "face, neat features. Average height, petite-framed but athletic.",
+    "Hair to mid-back with soft waves from the ear down. Eyes blue with a grey outer ring. "
+    "High cheekbones, wide jaw, full lips. Tall, strong-shouldered, lean.",
+    "Very long straight hair, heavy and dark. Eyes vivid blue-green. Narrow face, sharp "
+    "chin, arched brows. Average height, slight and long-limbed.",
+    "Hair past the shoulders with a relaxed wave. Eyes muted green. Softly heart-shaped "
+    "face, gentle cheekbones. Average height, athletic and balanced.",
+    "Hair to the mid-back, straight with a subtle wave at the ends. Eyes light blue-green "
+    "and almond-shaped. Defined cheekbones, straight nose. Tall, lean, narrow-hipped.",
+    "Long dark hair with loose curls throughout. Eyes green-grey. Rounder face, soft "
+    "jawline, high cheekbones. Average height, toned with a short waist.",
+    "Hair to the shoulders, straight and sleek. Eyes icy blue. Angular cheekbones, strong "
+    "brows, wide mouth. Tall, very lean, long legs.",
+    "Hair mid-back, thick with a deep natural wave. Eyes blue-green, slightly hooded. Oval "
+    "face, straight nose, defined chin. Average height, athletic.",
+    "Long hair worn straight and pushed back. Eyes light green. Narrow high cheekbones, "
+    "slim jaw. Tall, slender, long-limbed and straight-framed.",
 )
 
 DEFAULT_CANDIDATES = brief.TARGET_CANDIDATES[0]
