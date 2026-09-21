@@ -46,18 +46,31 @@ AGE_BAND = "late twenties to early thirties in apparent age"
 # owner's own direction rules out excessive glamour, influencer caricature and
 # model-perfection. So the *structure* is taken -- colouring, features, proportions -- and
 # the *register* stays the brief's: warm, natural, unstyled, believable as a real person.
+# Revised 2026-09-21 (second direction). The owner rejected all five tournament finalists
+# and supplied their own generated concept as the canonical candidate, so the attributes
+# below are read off that concept rather than off the earlier type: brunette with warm
+# lighter highlights rather than uniformly dark, worn up as often as down, and a fuller bust
+# than the first direction asked for.
 PHYSICAL_DIRECTION: dict[str, str] = {
-    "hair": "long dark brunette, straight to a soft loose wave, worn down",
-    "eyes": "light blue-green, bright against the dark hair",
-    "brows": "strong, well-defined, dark",
+    "hair": ("brunette with warm lighter highlights through the mid-lengths and ends, "
+             "worn in a soft relaxed updo with loose face-framing pieces, or down with a "
+             "natural wave"),
+    "eyes": "light blue-green, bright and clear",
+    "brows": "strong, well-defined, darker than the hair",
     "face": "oval to softly heart-shaped, high defined cheekbones, straight nose, full lips",
-    "complexion": "fair to light, warm undertone, natural skin texture",
+    "complexion": ("light with a warm sun-warmed undertone, natural skin texture, visible "
+                   "pores, light freckling across the nose and cheeks"),
     "stature": "average to tall",
     "build": "lean and athletic, visibly toned rather than soft",
     "shoulders": "straight, moderate width, not broad",
     "torso": "long, narrow waist, flat midriff",
-    "bust": "small to moderate, in proportion with a lean frame",
-    "hips": "narrow, close to the waist measurement",
+    # Revised on the owner's instruction of 2026-09-21: "slightly bigger breast". Moderate
+    # rather than small-to-moderate, and still in proportion with a lean athletic frame --
+    # the register stays the brief's, which rules out glamour and exaggeration. This is a
+    # pinned identity dimension rather than a styling choice, which is why it is a number in
+    # the pack and a required hard-floor dimension in the drift check.
+    "bust": "moderate and naturally full, in proportion with a lean athletic frame",
+    "hips": "narrow to moderate, close to the waist measurement",
     "limbs": "long, slim, defined",
 }
 
@@ -103,6 +116,95 @@ FORBIDDEN: tuple[tuple[str, str], ...] = (
      "no candidate is accepted that reads as a recognisable public figure, however it was "
      "arrived at"),
 )
+
+# ---------------------------------------------------------------------------
+# The owner's candidate (second direction, 2026-09-21)
+#
+# The tournament ran, presented five finalists with their measured results, and the owner
+# rejected all five and supplied their own generated concept instead. That is the tournament
+# working rather than failing: its whole purpose was to stop a candidate becoming canonical
+# by topping a table, and "none of these" is one of the answers it exists to make possible.
+#
+# What is different about this candidate, and what is not:
+#
+# **It is a generated image, supplied by the owner as their own concept.** It is not a
+# photograph of a real, identifiable person, so conditioning on it does not create anybody's
+# likeness -- which is the thing `FORBIDDEN` exists to prevent, and it still prevents it.
+#
+# **The public-figure screen still applies.** A generated candidate that reads as a
+# recognisable public figure is excluded on the rule however it was arrived at, and being
+# owner-supplied does not exempt it. That check is run against this candidate like any other.
+#
+# **It is not canonical.** The owner was explicit: build the reference pack, prove face and
+# whole-person morphology hold, present everything, and wait for approval before freezing.
+# So nothing in this file or in `visual.reference_pack` selects her either.
+CANDIDATE_GIVEN_AT = "2026-09-21"
+
+CANDIDATE_IS_OWNER_SUPPLIED = (
+    "a generated concept supplied by the owner as their own canonical-model direction, not "
+    "a photograph of a real person. Conditioning on it creates no living person's likeness, "
+    "and the public-figure screen still applies to what it produces"
+)
+
+REJECTED_FINALISTS_NOTE = (
+    "the five tournament finalists were rejected by the owner on 2026-09-21. They remain "
+    "evidence -- what the field looked like, what the floors measured -- and are not "
+    "eligible for automatic selection. Nothing promotes a rejected finalist"
+)
+
+
+def owner_candidate_supplied() -> bool:
+    """Whether the owner has supplied a candidate of their own.
+
+    This is what closes the tournament. Once the owner has looked at a field and said "none
+    of these, *this* one", rendering another twenty women is not a search -- it is spending
+    money on a question that has been answered. The tournament's results stay as evidence.
+    """
+    from pathlib import Path
+
+    return Path(candidate_reference()).is_file()
+
+
+def candidate_reference() -> str:
+    """The conditioning source: one clean frame of the owner's concept.
+
+    Deliberately not the whole collage and not the hero frame. A generator handed a grid of
+    seven photographs renders a grid, and the hero frame carries the Brambleloop wordmark
+    across it -- a generator handed text renders text, which is how a brand lockup ends up
+    baked into a model's face at 1024 pixels.
+    """
+    from pathlib import Path
+
+    return str(Path(__file__).resolve().parent / "assets" / "owner_candidate_reference.png")
+
+
+def candidate_concept() -> str:
+    """The owner's concept as supplied, kept whole as the direction of record."""
+    from pathlib import Path
+
+    return str(Path(__file__).resolve().parent / "assets" / "owner_candidate_concept.jpg")
+
+
+# The two frames a reference pack needs before any scene is rendered, and the reason the
+# first pack could not be measured: every finalist's reference was a head-and-shoulders
+# crop, so stature, torso, bust, waist and hips were `unmeasurable` on the reference itself.
+# A floor that can only ever return `unverifiable` is not a floor. The full-length frame is
+# what makes the morphology half of the identity checkable at all.
+REFERENCE_FRAMES: tuple[tuple[str, str], ...] = (
+    ("neutral_portrait",
+     "Neutral head-and-shoulders portrait in even, soft daylight against a plain warm-grey "
+     "background. Relaxed natural expression, direct gaze, hair worn down and away from the "
+     "face, simple plain crew-neck top, no jewellery, no makeup beyond natural. The face is "
+     "unobstructed and evenly lit."),
+    ("full_length_standing",
+     "Full-length standing photograph, head to feet entirely in frame, even soft daylight "
+     "against a plain warm-grey background. Standing straight and relaxed, arms at her "
+     "sides and clear of the torso, facing the camera. Wearing a plain fitted sleeveless "
+     "top and plain fitted trousers so that stature, shoulder width, torso length, bust, "
+     "waist, hips and limb proportions are all clearly readable. No loose or draped "
+     "clothing, no crop, nothing obscuring the silhouette."),
+)
+
 
 # What she is for. The order is the owner's.
 SHE_COMMUNICATES: tuple[str, ...] = (
@@ -150,6 +252,13 @@ STRESS_SCENES: tuple[tuple[str, str], ...] = (
 # What the stress test measures. The first two are independent hard floors and the rest are
 # quality; the split is the owner's instruction after the body-drift failure.
 HARD_FLOORS: tuple[str, ...] = ("facial_identity", "whole_person_morphology")
+
+# Named by the owner on 2026-09-21 as explicit hard-floor dimensions: *chest/bust and torso
+# continuity*. They are not merely two of the eight morphology dimensions to be averaged in
+# with the rest -- the failure that prompted the whole morphology half of this system was a
+# convincing face above a chest that had changed, so a pack that cannot evidence these two
+# has not evidenced the thing that went wrong. `identity.REQUIRED_MORPHOLOGY` enforces it.
+REQUIRED_MORPHOLOGY: tuple[str, ...] = ("bust", "torso")
 STRESS_MEASURES: tuple[str, ...] = HARD_FLOORS + (
     "chest_torso_continuity", "stature_build_continuity",
     "shoulder_waist_hip_continuity", "skin_hair_continuity", "realism",
@@ -214,7 +323,17 @@ def state() -> dict:
         "target_finalists": TARGET_FINALISTS,
         "stress_scenes": [{"key": k, "prompt": v} for k, v in STRESS_SCENES],
         "hard_floors": list(HARD_FLOORS),
+        "required_morphology_dimensions": list(REQUIRED_MORPHOLOGY),
         "stress_measures": list(STRESS_MEASURES),
+        "owner_candidate": {
+            "given_at": CANDIDATE_GIVEN_AT,
+            "is": CANDIDATE_IS_OWNER_SUPPLIED,
+            "rejected_finalists": REJECTED_FINALISTS_NOTE,
+            "reference_frames": [{"key": k, "prompt": v} for k, v in REFERENCE_FRAMES],
+            "not_canonical_yet": (
+                "the pack is built and presented; the owner approves before anything is "
+                "frozen. Nothing here selects her"),
+        },
         "selection_is_the_owners": (
             "the finalists are presented with their controlled comparison sets and measured "
             "results. Nothing selects itself; a candidate that became canonical by being "

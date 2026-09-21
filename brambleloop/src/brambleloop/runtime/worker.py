@@ -242,6 +242,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # The canonical-model tournament. Hourly like the benchmark and free after the first
     # run: it is keyed on the brief, so it renders once and a changed brief renders again.
     ("model_tournament", "creative_director", "creative.model_tournament", 60 * 60),
+    # The owner's candidate, same shape: keyed on the candidate, so it builds once and a
+    # new concept builds again. Free after the first run.
+    ("model_reference_pack", "creative_director", "creative.model_reference_pack", 60 * 60),
     # Daily, because a launch date that was comfortable in September is missed in October
     # without anything changing except the date. The first run of this engine found that the
     # whole catalogue had already missed Canadian Thanksgiving; rediscovering that by hand

@@ -112,10 +112,27 @@ def _startup() -> None:
         from ..runtime.release import _tournament_on_file, tournament_boot_key
         from ..gateway import images as _img2
 
-        if _img2.available() and _tournament_on_file(db) is None:
+        from ..visual import brief as _brief
+
+        if (_img2.available() and not _brief.owner_candidate_supplied()
+                and _tournament_on_file(db) is None):
             JobQueue(db).enqueue(
                 "creative_director", "creative.model_tournament", {},
                 idempotency_key=tournament_boot_key(utcnow()))
+    except (DuplicateJob, Exception):  # noqa: BLE001 - never block a boot
+        pass
+
+    # And the reference pack for the owner's supplied candidate, on the same principle and
+    # keyed the same way: on the candidate rather than on the clock, so a new concept builds
+    # on the next deploy and an unchanged one does nothing.
+    try:
+        from ..runtime.release import _pack_on_file, pack_boot_key
+        from ..gateway import images as _img3
+
+        if _img3.available() and _pack_on_file(db) is None:
+            JobQueue(db).enqueue(
+                "creative_director", "creative.model_reference_pack", {},
+                idempotency_key=pack_boot_key(utcnow()))
     except (DuplicateJob, Exception):  # noqa: BLE001 - never block a boot
         pass
 
@@ -1164,6 +1181,31 @@ def api_model_tournament() -> dict:
         "run": package,
         "state": ("awaiting owner selection" if package else
                   "not yet run for this brief"),
+    }
+
+
+@app.get("/api/model-pack")
+def api_model_pack() -> dict:
+    """The canonical reference pack built from the owner's candidate, and its measurements.
+
+    Images are served by the existing digest route, so this is a package that can actually
+    be looked at rather than a list of paths into a container's `/tmp`.
+    """
+    from ..runtime.release import _pack_on_file
+    from ..visual import brief, reference_pack
+
+    package = _pack_on_file(db)
+    return {
+        "candidate": {
+            "given_at": brief.CANDIDATE_GIVEN_AT,
+            "is": brief.CANDIDATE_IS_OWNER_SUPPLIED,
+            "rejected_finalists": brief.REJECTED_FINALISTS_NOTE,
+        },
+        "plan": reference_pack.plan(db),
+        "pack": package,
+        "state": ("awaiting owner approval" if package else
+                  "not yet built for this candidate"),
+        "frozen": False,
     }
 
 

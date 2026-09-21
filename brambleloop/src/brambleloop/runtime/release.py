@@ -2515,6 +2515,17 @@ def handle_model_tournament(ctx: JobContext) -> dict:
     from ..finance import spend_policy
     from ..visual import brief, tournament
 
+    if brief.owner_candidate_supplied():
+        # The owner saw the field, rejected all five finalists and supplied their own
+        # candidate. A tournament now would render twenty more women to answer a question
+        # that has been answered -- and it would do it again every time the brief changed,
+        # because the brief is what this job is keyed on.
+        return {"ran": False,
+                "reason": ("the owner supplied a canonical-model candidate on "
+                           f"{brief.CANDIDATE_GIVEN_AT} and rejected the finalists. "
+                           "The pack is built by creative.model_reference_pack"),
+                "rejected_finalists": brief.REJECTED_FINALISTS_NOTE}
+
     allowance = spend_policy.may_spend(ctx.db, "model_tournament")
     if not allowance["may_spend"]:
         ctx.audit("model.tournament_capped", detail=allowance)
@@ -2585,6 +2596,124 @@ def handle_model_tournament(ctx: JobContext) -> dict:
     return {"ran": True, "finalists": len(results),
             "clear_both_floors": package["clear_both_floors"],
             "spent_cad": package["spent_cad"], "selected": None}
+
+
+@handlers.register("creative.model_reference_pack")
+def handle_model_reference_pack(ctx: JobContext) -> dict:
+    """Build the reference pack from the owner's candidate and stop before freezing it.
+
+    The owner rejected all five tournament finalists and supplied their own concept. What
+    that changes is *which* woman; what it does not change is that she is not canonical
+    until she is proven and approved. So this renders the two reference frames and the
+    controlled scenes, measures face and whole-person morphology separately, and raises the
+    approval as an owner action. There is no branch in here that selects.
+    """
+    import os
+    import tempfile
+
+    from ..finance import spend_policy
+    from ..visual import reference_pack
+
+    allowance = spend_policy.may_spend(ctx.db, "model_reference_pack")
+    if not allowance["may_spend"]:
+        ctx.audit("model.reference_pack_capped", detail=allowance)
+        return {"ran": False, "reason": allowance["why"]}
+
+    previous = _pack_on_file(ctx.db)
+    if previous is not None:
+        return {"ran": False, "reason": "this candidate's pack has already been built",
+                "ready_for_owner_approval": previous.get("ready_for_owner_approval"),
+                "awaiting": "owner approval"}
+
+    env = dict(os.environ)
+    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="reference-pack-")
+    package = reference_pack.build(ctx.db, env=env, work_dir=work)
+    package["candidate_fingerprint"] = _candidate_fingerprint()
+    ctx.audit(reference_pack.PACK_ACTION, detail=package)
+
+    if not package.get("built"):
+        return {"ran": True, "built": False, "stage": package.get("stage"),
+                "why": package.get("why")}
+
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with ctx.db.session() as s:
+        open_row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval",
+            OwnerAction.done == False))  # noqa: E712
+        if open_row is None:
+            floors = (f"face {package['face_floor']}, whole-person morphology "
+                      f"{package['morphology_floor']}")
+            s.add(OwnerAction(
+                requirement_key="canonical_model_approval",
+                action=("Approve or reject the canonical Brambleloop model at "
+                        "/api/model-pack: the neutral portrait, the full-length body "
+                        "reference, the stress set and the measured results."),
+                reason=(f"The pack is built from your supplied candidate and measured: "
+                        f"{floors}. Approval freezes the identity, versions the reference "
+                        f"pack and makes it the conditioning source for every "
+                        f"model-bearing frame; nothing is frozen until you say so."),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay=("Every model-bearing frame stays blocked, because a "
+                                      "drift check with no reference pack is unavailable "
+                                      "rather than passing."),
+                blocks="all model-led listing imagery and the creative parity gate"))
+
+    return {"ran": True, "built": True,
+            "face_floor": package["face_floor"],
+            "morphology_floor": package["morphology_floor"],
+            "required_morphology_ok": package["required_morphology_ok"],
+            "ready_for_owner_approval": package["ready_for_owner_approval"],
+            "spent_cad": package["spent_cad"], "frozen": False}
+
+
+def _candidate_fingerprint() -> str:
+    """Identity of the run: the brief, the pack method, and the candidate's own bytes.
+
+    The candidate image is part of it because a different concept is a different woman, and
+    an audit row from the previous candidate is exactly the row that would read as "already
+    built" for the next one.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    from ..visual import brief, reference_pack
+
+    concept = Path(brief.candidate_reference())
+    digest = (hashlib.sha256(concept.read_bytes()).hexdigest()[:16]
+              if concept.is_file() else "absent")
+    material = json.dumps({"brief": brief.state(), "pack": reference_pack.PACK_VERSION,
+                           "candidate": digest}, sort_keys=True)
+    return hashlib.sha256(material.encode()).hexdigest()[:16]
+
+
+def pack_boot_key(now) -> str:
+    """The idempotency key a deploy uses to enqueue the reference-pack build."""
+    return f"boot-pack-{_candidate_fingerprint()}-{now:%Y%m%d%H}"
+
+
+def _pack_on_file(db) -> dict | None:
+    """A completed pack for the candidate as it now stands, if there is one."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..visual import reference_pack
+
+    want = _candidate_fingerprint()
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog)
+                             .where(AuditLog.action == reference_pack.PACK_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(20)):
+            detail = row.detail or {}
+            # A build that ran and failed is a different fact from one that never ran, and
+            # both are different from one that succeeded -- but only a successful build is
+            # a reason not to try again.
+            if detail.get("candidate_fingerprint") == want and detail.get("built"):
+                return detail
+    return None
 
 
 def _brief_fingerprint() -> str:

@@ -4611,6 +4611,16 @@ timings, written there by the system rather than by hand.
 - Pointing that reader at this company's own pattern found the first thing it audited: every
   Brambleloop pattern shipped with no finishing section. The document ended at the last row --
   no fastening off, no ends, no blocking -- and now does not (B-568).
+- 2026-09-21, the canonical model. The tournament rendered a field, stress-tested five
+  finalists and presented them; the owner rejected all five and supplied their own generated
+  concept as the candidate. The tournament is now closed rather than re-running, and its
+  results stay as evidence that cannot be promoted (B-569). The reference pack built from the
+  owner's candidate is two frames -- a neutral portrait for the face and a full-length
+  standing frame for the body -- because every finalist had been measured against a cropped
+  portrait on which the body was unmeasurable by construction (B-570). Chest/bust and torso
+  are required-readable rather than counted (B-571), and the owner's revised bust direction is
+  a pinned identity dimension rather than a styling preference (B-572). **Nothing is frozen**:
+  the pack is built, measured and presented, and only the owner's approval makes it canonical.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

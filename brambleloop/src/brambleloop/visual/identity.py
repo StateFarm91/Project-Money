@@ -86,6 +86,17 @@ UNMEASURABLE = "unmeasurable"
 # eight is not a morphology check, it is a coincidence with a verdict attached.
 MIN_MEASURABLE = {"face": 3, "morphology": 3}
 
+# Dimensions that must be readable before a morphology group counts as checked at all, named
+# by the owner on 2026-09-21: *chest/bust and torso continuity are explicit hard-floor
+# dimensions*. Three readable dimensions out of eight clears `MIN_MEASURABLE`, and if the
+# three are stature, shoulders and limbs then the exact failure this system was built for --
+# a convincing face above a chest that changed -- is still unexamined. A count is not a
+# substitute for looking at the thing that went wrong.
+REQUIRED_MEASURABLE: dict[str, tuple[str, ...]] = {
+    "face": (),
+    "morphology": ("bust", "torso"),
+}
+
 # Products where a clean product-only hero outsells a modelled one (#204). Product truth and
 # category fit outrank compulsory model presence, so this is a list of exceptions rather than
 # a preference.
@@ -202,18 +213,21 @@ def _classify(want, got) -> str:
     return MATCH if str(want).strip().lower() == str(got).strip().lower() else DRIFT
 
 
-def _group_verdict(scored: dict, dimensions: tuple[str, ...], floor: int) -> dict:
+def _group_verdict(scored: dict, dimensions: tuple[str, ...], floor: int,
+                   required: tuple[str, ...] = ()) -> dict:
     drifted = [d for d in dimensions if scored.get(d) == DRIFT]
     measurable = [d for d in dimensions if scored.get(d) in (MATCH, DRIFT)]
     unmeasurable = [d for d in dimensions if scored.get(d) == UNMEASURABLE]
+    required_missing = [d for d in required if d not in measurable]
     if drifted:
         verdict = "fail"
-    elif len(measurable) < floor:
+    elif len(measurable) < floor or required_missing:
         verdict = "unverifiable"
     else:
         verdict = "pass"
     return {"verdict": verdict, "drifted": drifted, "measurable": measurable,
-            "unmeasurable": unmeasurable, "floor": floor}
+            "unmeasurable": unmeasurable, "floor": floor,
+            "required": list(required), "required_unreadable": required_missing}
 
 
 def drift_check(observed: dict, pack: ReferencePack | None,
@@ -246,8 +260,10 @@ def drift_check(observed: dict, pack: ReferencePack | None,
 
     scored = {d: _classify(pack.fields.get(DIMENSION_FIELD[d]), observed.get(d))
               for d in DRIFT_DIMENSIONS}
-    face = _group_verdict(scored, FACE_DIMENSIONS, MIN_MEASURABLE["face"])
-    morphology = _group_verdict(scored, MORPHOLOGY_DIMENSIONS, MIN_MEASURABLE["morphology"])
+    face = _group_verdict(scored, FACE_DIMENSIONS, MIN_MEASURABLE["face"],
+                          REQUIRED_MEASURABLE["face"])
+    morphology = _group_verdict(scored, MORPHOLOGY_DIMENSIONS, MIN_MEASURABLE["morphology"],
+                                REQUIRED_MEASURABLE["morphology"])
 
     failed = face["drifted"] + morphology["drifted"]
     groups_ok = face["verdict"] == "pass" and morphology["verdict"] == "pass"
@@ -266,9 +282,15 @@ def drift_check(observed: dict, pack: ReferencePack | None,
         reasons.append(f"only {len(face['measurable'])} face dimensions were readable, "
                        f"below the floor of {face['floor']}")
     if not failed and morphology["verdict"] == "unverifiable":
-        reasons.append(f"only {len(morphology['measurable'])} morphology dimensions were "
-                       f"readable, below the floor of {morphology['floor']}. Unmeasurable is "
-                       f"not a pass")
+        if morphology["required_unreadable"]:
+            reasons.append(
+                f"{morphology['required_unreadable']} could not be read, and chest/bust and "
+                f"torso continuity are hard-floor dimensions rather than two of eight to be "
+                f"counted in with the rest. Unmeasurable is not a pass")
+        else:
+            reasons.append(f"only {len(morphology['measurable'])} morphology dimensions "
+                           f"were readable, below the floor of {morphology['floor']}. "
+                           f"Unmeasurable is not a pass")
 
     return {
         "verdict": verdict,
