@@ -2713,7 +2713,7 @@ def _pack_attempts(db, limit: int = 5) -> list[dict]:
                              .where(AuditLog.action == reference_pack.PACK_ACTION)
                              .order_by(desc(AuditLog.id)).limit(limit)):
             detail = row.detail or {}
-            out.append({"at": str(row.created_at), "built": detail.get("built"),
+            out.append({"at": str(row.at), "built": detail.get("built"),
                         "stage": detail.get("stage"), "why": detail.get("why"),
                         "pack_version": detail.get("pack_version"),
                         "candidate_fingerprint": detail.get("candidate_fingerprint"),
