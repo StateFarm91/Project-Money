@@ -384,6 +384,19 @@ Two joins were missing and only those two were built (B-555):
 `#200 Permanent Identity Lock` and `#201 Model Anti-Drift Release Gate` are the two `partial`
 requirements this closes. `/api/model-identity` reports the state from rows.
 
+**And four notes had gone stale the moment the capability arrived.** #200 said "no candidate
+has been generated, because that needs the image capability" — it does not any more, and the
+honest blocker is now a different one: #198, the owner's aesthetic direction, without which
+#199's tournament is meaningless and generating faces would only invite the first of them to
+become canonical by being first. #200 and #201 are `owner_gated` now rather than `partial`.
+#292 and #300 parked their imagery halves on the same capability and are **unblocked and
+unbuilt**, which is a different state from parked and is now recorded as one (B-556).
+
+The registry's own validator caught the incomplete half of that edit: an owner-gated
+requirement has no remaining work for `parked_on` to describe, and both rows still carried
+`image_generation`. A guard that refuses an incoherent registry is worth more than the edit
+it refused.
+
 Suite green at **2,755 across 150 suites**. `/api/verify` 12/12.
 
 ## Previously — last completed milestone
