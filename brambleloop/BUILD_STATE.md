@@ -4621,6 +4621,16 @@ timings, written there by the system rather than by hand.
   are required-readable rather than counted (B-571), and the owner's revised bust direction is
   a pinned identity dimension rather than a styling preference (B-572). **Nothing is frozen**:
   the pack is built, measured and presented, and only the owner's approval makes it canonical.
+- 2026-09-21 evening, the canonical reference pack is built and **awaiting the owner's
+  approval**. Three reference frames (portrait, torso, full-length), five stress scenes, and
+  all six approval conditions met: every scene rendered, facial identity held in all five,
+  no morphology drift anywhere, chest and torso both evidenced, all thirteen dimensions
+  pinned, reference frames coherent. Nothing is frozen -- `select_canonical` with the
+  owner's approval is the only thing that can. Five live builds were needed and each found a
+  different version of one defect: a reference that cannot state the dimension it is trusted
+  for, an approval condition nothing could satisfy, an hour-long idempotency lockout, a
+  stale replica answering about a different pack, and a frame whose verdict turned on
+  sampling luck (B-573..B-579). Total spend across all five: about CA$2.50.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
