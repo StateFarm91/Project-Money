@@ -277,7 +277,7 @@ def generate_candidates(db, *, count: int = DEFAULT_CANDIDATES, env: dict | None
 
 
 def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | None = None,
-                generator=None, observer=None) -> dict:
+                generator=None, observer=None, reference_observer=None) -> dict:
     """Render one finalist across the controlled scenes and measure what held.
 
     The finalist's own neutral portrait is the provisional pack: it is observed once, and
@@ -289,14 +289,21 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
 
     provider = finalist.get("provider") or preferred_provider(db, env)
     reference = finalist["image_ref"]
-    seen = (observer or model_registry.observe)(db, reference)
+    seen = (reference_observer or model_registry.observe)(db, reference)
     if seen.get("error") or seen.get("no_person"):
         return {"finalist": finalist["key"], "usable": False,
                 "why": f"the reference portrait could not be read: {seen.get('error', '')}"}
 
-    fields = {identity.DIMENSION_FIELD[d]: seen.get(d) for d in identity.DRIFT_DIMENSIONS}
-    unpinned = [f for f in identity.IDENTITY_FIELDS
-                if not fields.get(f) or str(fields.get(f)).lower() == identity.UNMEASURABLE]
+    # The pack a finalist is measured against is her own portrait. What matters is that the
+    # *comparison* is a judgement of two photographs rather than two descriptions matched as
+    # strings -- the first live tournament did the latter and reported every dimension of
+    # every scene as drift, because two honest descriptions of one woman are never identical
+    # text. The pack's fields carry the description for the record; the verdict comes from
+    # `compare_identity`.
+    fields = {identity.DIMENSION_FIELD[d]: seen.get(d) or "described"
+              for d in identity.DRIFT_DIMENSIONS}
+    unpinned = [d for d in identity.DRIFT_DIMENSIONS
+                if str(seen.get(d, "")).strip().lower() in ("", identity.UNMEASURABLE)]
     provisional = identity.ReferencePack(version=0, fields=fields,
                                          approved_by_owner_at="provisional")
 
@@ -314,7 +321,7 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
                                       work_dir=work_dir))
             spent += float(render.get("cad") or 0.0)
             ref = render.get("image_ref") or ""
-            observed = (observer or model_registry.observe)(db, ref)
+            observed = (observer or model_registry.compare_identity)(db, reference, ref)
             verdict = identity.drift_check(observed, provisional)
         except (PermanentError, TransientError) as exc:
             scenes.append({"scene": key, "rendered": False, "why": str(exc)[:200]})

@@ -127,6 +127,15 @@ def select_canonical(db, key: str, *, owner_approved: bool) -> identity.Referenc
         candidate = identity.Candidate(key=row.key, fields=dict(row.fields or {}),
                                        state=row.state, note=row.note)
         pack = identity.select(candidate, owner_approved=owner_approved, existing=existing)
+        # The pack carries its own portrait. A reference pack without a reference image can
+        # neither condition a generation nor be compared against one -- it is a description
+        # of a woman nobody can produce, which is the opposite of a lock.
+        if row.image_refs:
+            pack = identity.ReferencePack(
+                version=pack.version,
+                fields={**pack.fields, "reference_image": row.image_refs[0]},
+                approved_by_owner_at=pack.approved_by_owner_at)
+            row.fields = dict(pack.fields)
         row.state = identity.CANONICAL
         row.version = pack.version
         row.approved_by_owner_at = pack.approved_by_owner_at
@@ -200,6 +209,86 @@ def observe(db, image_ref: str, *, provider=None) -> dict:
     return parsed
 
 
+COMPARE_SYSTEM = (
+    "You are deciding whether two photographs show the same woman -- the same whole person, "
+    "not merely a similar face. You know that clothing, pose, lighting and camera angle "
+    "change how a body looks without changing the body, and that a convincing face is "
+    "exactly what stops people checking the rest of the frame."
+)
+
+COMPARE_MAX_TOKENS = 700
+
+
+def compare_prompt() -> str:
+    """Ask per dimension whether it is the same person, not what each picture looks like.
+
+    This replaced a comparison of two free-text descriptions by string equality, which
+    reported every dimension of every scene of every finalist as drift -- because two honest
+    descriptions of the same woman are never identical strings. The question a judge can
+    actually answer is the one being asked: same, different, or you cannot tell.
+    """
+    return (
+        "The FIRST image is the approved reference photograph. The SECOND is a new "
+        "photograph that is supposed to show the same woman.\n\n"
+        "Reply with a single JSON object and nothing else, one key per item below, each "
+        'exactly one of: "match" (the same person on this dimension), "drift" (visibly a '
+        'different person on this dimension), or "unmeasurable" (clothing, pose, crop or '
+        "angle means you cannot judge it honestly).\n\n"
+        "Judge the body itself, not the garment: a loose sweater is not a wider torso, and "
+        "a fitted one is not a narrower waist. Where the clothing genuinely hides a "
+        'proportion, answer "unmeasurable" -- do not guess, and do not let the face carry '
+        "the body.\n\n"
+        "Face and head:\n"
+        + "\n".join(f"- {d}" for d in identity.FACE_DIMENSIONS)
+        + "\n\nWhole-person morphology:\n"
+        + "\n".join(f"- {d}" for d in identity.MORPHOLOGY_DIMENSIONS))
+
+
+def compare_identity(db, reference_ref: str, candidate_ref: str, *, provider=None) -> dict:
+    """Per-dimension verdicts from a judge shown both photographs."""
+    import json
+
+    from ..finance import spend_report
+    from ..gateway import anthropic as gw
+
+    if not reference_ref or not candidate_ref:
+        return {"error": "a comparison needs two images"}
+
+    provider = provider or gw.provider_for(TASK)
+    try:
+        response = provider.see(COMPARE_SYSTEM, compare_prompt(),
+                                [reference_ref, candidate_ref],
+                                max_tokens=COMPARE_MAX_TOKENS)
+    except (PermanentError, TransientError) as exc:
+        return {"error": str(exc)[:200]}
+
+    if db is not None:
+        spend_report.record(
+            db, agent="quality_director",
+            amount_cad=round(
+                response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8),
+            purpose=TASK, provider="anthropic", model=provider.model,
+            department="quality", tokens_in=response.input_tokens,
+            tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
+
+    body = (response.text or "").strip()
+    if body.startswith("```"):
+        body = body.split("\n", 1)[-1].rsplit("```", 1)[0]
+    try:
+        parsed = json.loads(body)
+    except ValueError:
+        return {"error": f"the judge did not answer with JSON: {body[:120]!r}"}
+
+    out = {}
+    for dimension in identity.DRIFT_DIMENSIONS:
+        value = str(parsed.get(dimension, "")).strip().lower()
+        # Anything that is not one of the three answers is unmeasurable, never a match. A
+        # judge that wandered off the vocabulary has not said the woman is the same.
+        out[dimension] = value if value in identity.VERDICTS else identity.UNMEASURABLE
+    return out
+
+
 # ---------------------------------------------------------------------------
 # The gate (#201)
 
@@ -234,7 +323,12 @@ def gate_frames(db, frames: list[dict], *, observer=None) -> dict:
     results: list[dict] = []
     for frame in modelled:
         ref = frame.get("image_ref") or ""
-        seen = (observer or observe)(db, ref) if ref else {"error": "no image to look at"}
+        reference = pack.fields.get("reference_image") or frame.get("reference_image") or ""
+        if ref and reference:
+            seen = (observer or compare_identity)(db, reference, ref)
+        else:
+            seen = {"error": "no reference image to compare against"} if ref else {
+                "error": "no image to look at"}
         verdict = identity.drift_check(seen, pack)
         results.append({"role": frame.get("role"), "verdict": verdict["verdict"],
                         "failed": verdict.get("failed", []),

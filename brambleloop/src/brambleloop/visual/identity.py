@@ -170,13 +170,28 @@ def select(candidate: Candidate, *, owner_approved: bool,
                          approved_by_owner_at=datetime.now(timezone.utc).isoformat())
 
 
+VERDICTS: frozenset[str] = frozenset({MATCH, DRIFT, UNMEASURABLE})
+
+
 def _classify(want, got) -> str:
     """One dimension's answer, three-valued.
 
-    `got` carries what the observer could actually see. `None` or the literal
-    "unmeasurable" means the garment, pose or crop hid it -- which is a fact about the
-    photograph, not about the woman, and is never a match.
+    `got` is either a direct verdict -- `match`, `drift` or `unmeasurable`, from a judge
+    that was shown both photographs -- or a description to compare against the pack.
+
+    The direct verdict is the path that works. The first live tournament compared two
+    free-text descriptions by exact string equality and reported every dimension of every
+    scene of every finalist as drift, which is what that comparison always does: two honest
+    descriptions of the same woman are never byte-identical. "Warm mid-brown, shoulder
+    length" and "mid-brown, falls to the shoulders" are the same hair and a failed string
+    match. A check that cannot return `match` is as useless as one that cannot return
+    `drift`, and it is more dangerous, because it looks strict.
+
+    The string path is kept for a pack field compared against a literal, which is what the
+    tests exercise and what a hand-recorded observation would produce.
     """
+    if isinstance(got, str) and got.strip().lower() in VERDICTS:
+        return got.strip().lower()
     if want is None:
         # The pack never pinned it, so nothing can be compared. Unmeasurable, not a match:
         # an unpinned field is exactly the field that drifts.

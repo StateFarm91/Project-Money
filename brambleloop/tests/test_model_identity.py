@@ -136,20 +136,24 @@ def test_a_model_frame_with_no_canonical_pack_blocks():
 def test_a_matching_face_passes_and_a_drifted_one_blocks():
     db = _db()
     fields = _complete_fields()
-    M.record_candidate(db, "face-a", fields=fields)
-    M.select_canonical(db, "face-a", owner_approved=True)
+    # A pack carries its own portrait: without one it can neither condition a generation nor
+    # be compared against one, which is the opposite of a lock.
+    M.record_candidate(db, "face-a", fields=fields, image_refs=["/tmp/reference.png"])
+    pack = M.select_canonical(db, "face-a", owner_approved=True)
+    assert pack.fields["reference_image"] == "/tmp/reference.png"
 
-    # The whole person, because an observation that answers only about the face now leaves
-    # morphology unmeasurable -- which is `unverifiable`, not a pass. The old version of
-    # this test supplied five face dimensions and expected a pass; the new floor caught it.
-    same = {d: fields[identity.DIMENSION_FIELD[d]] for d in identity.DRIFT_DIMENSIONS}
+    # The observer is a comparison of two photographs returning a verdict per dimension.
+    # Matching two free-text descriptions as strings reported every dimension of every
+    # scene of every finalist as drift, because two honest descriptions of one woman are
+    # never identical text.
+    same = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
     ok = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}],
-                       observer=lambda _db, ref: dict(same))
+                       observer=lambda _db, ref, cand: dict(same))
     assert ok["verdict"] == "pass", ok
 
-    drifted = {**same, "hair": "a different woman's hair"}
+    drifted = {**same, "hair": identity.DRIFT}
     bad = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}],
-                        observer=lambda _db, ref: dict(drifted))
+                        observer=lambda _db, ref, cand: dict(drifted))
     assert bad["verdict"] == "fail"
     assert "hair" in str(bad["blocking"])
 
@@ -157,10 +161,12 @@ def test_a_matching_face_passes_and_a_drifted_one_blocks():
 def test_an_unreadable_observation_blocks_rather_than_passing():
     """An unmeasured dimension is not a matching one."""
     db = _db()
-    M.record_candidate(db, "face-a", fields=_complete_fields())
+    M.record_candidate(db, "face-a", fields=_complete_fields(),
+                       image_refs=["/tmp/reference.png"])
     M.select_canonical(db, "face-a", owner_approved=True)
     out = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}],
-                        observer=lambda _db, ref: {"error": "the observer could not answer"})
+                        observer=lambda _db, ref, cand: {
+                            "error": "the observer could not answer"})
     assert out["verdict"] == "fail"
 
 

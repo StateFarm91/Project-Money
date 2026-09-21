@@ -130,7 +130,13 @@ def test_a_partial_screen_is_refused_rather_than_averaged():
 
 
 def _reference_observation() -> dict:
-    return {d: f"ref-{d}" for d in identity.DRIFT_DIMENSIONS}
+    """Per-dimension verdicts, which is what a judge shown both photographs returns.
+
+    It used to be two free-text descriptions matched as strings. Against real observations
+    that reported every dimension of every scene of every finalist as drift, because two
+    honest descriptions of one woman are never identical text.
+    """
+    return {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
 
 
 def test_a_finalist_who_keeps_her_face_and_loses_her_body_fails():
@@ -139,13 +145,15 @@ def test_a_finalist_who_keeps_her_face_and_loses_her_body_fails():
     db = _db()
     finalist = {"key": "cand-00", "image_ref": "/tmp/ref.png", "provider": "gpt-image-2"}
 
-    def observer(_d, ref):
+    def observer(_d, reference, ref):
         if ref == "/tmp/ref.png":
             return _reference_observation()
-        return {**_reference_observation(), "bust": "substantially fuller",
-                "waist": "much narrower"}
+        return {**_reference_observation(), "bust": identity.DRIFT,
+                "waist": identity.DRIFT}
 
-    out = tournament.stress_test(db, finalist, generator=_render, observer=observer)
+    out = tournament.stress_test(db, finalist, generator=_render, observer=observer,
+                                 reference_observer=lambda _d, ref: {
+                                     d: "described" for d in identity.DRIFT_DIMENSIONS})
     assert out["usable"] is True
     assert out["face_floor"] == "pass"
     assert out["morphology_floor"] == "fail"
@@ -156,7 +164,9 @@ def test_a_finalist_who_holds_the_whole_person_clears_both_floors():
     db = _db()
     finalist = {"key": "cand-00", "image_ref": "/tmp/ref.png", "provider": "gpt-image-2"}
     out = tournament.stress_test(db, finalist, generator=_render,
-                                 observer=lambda _d, ref: _reference_observation())
+                                 observer=lambda _d, a, b: _reference_observation(),
+                                 reference_observer=lambda _d, ref: {
+                                     d: "described" for d in identity.DRIFT_DIMENSIONS})
     assert out["clears_both_floors"] is True
     assert out["complete"] is True
     assert out["scenes_rendered"] == len(brief.STRESS_SCENES) - 1
@@ -175,7 +185,9 @@ def test_every_scene_is_conditioned_on_the_finalists_own_reference():
 
     tournament.stress_test(db, {"key": "c", "image_ref": "/tmp/ref.png"},
                            generator=render,
-                           observer=lambda _d, ref: _reference_observation())
+                           observer=lambda _d, a, b: _reference_observation(),
+                           reference_observer=lambda _d, ref: {
+                               d: "described" for d in identity.DRIFT_DIMENSIONS})
     assert conditioned, "no scene was rendered"
     assert all(refs == ["/tmp/ref.png"] for refs in conditioned)
 
@@ -184,7 +196,9 @@ def test_an_unreadable_reference_portrait_is_unusable_rather_than_assumed():
     db = _db()
     out = tournament.stress_test(db, {"key": "c", "image_ref": "/tmp/ref.png"},
                                  generator=_render,
-                                 observer=lambda _d, ref: {"error": "nothing legible"})
+                                 reference_observer=lambda _d, ref: {
+                                     "error": "nothing legible"},
+                                 observer=lambda _d, a, b: _reference_observation())
     assert out["usable"] is False
 
 
