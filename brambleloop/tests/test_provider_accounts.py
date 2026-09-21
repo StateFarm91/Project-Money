@@ -110,15 +110,21 @@ def test_a_balance_with_auto_reload_off_is_reported_as_a_cliff():
     assert "not a forecast" in openai["runway_basis"]
 
 
-def test_the_anthropic_row_records_that_the_credit_has_not_arrived():
-    """The owner reported adding it; three probes since were refused for a low balance.
-    Both facts are kept, because the report is evidence of a dashboard and the probe is
-    evidence of a call."""
+def test_the_anthropic_row_keeps_both_the_report_and_what_the_probe_found():
+    """A report is evidence of a dashboard; a probe is evidence of a call.
+
+    Three probes were refused while a top-up had genuinely been made, so the report was
+    true and the capability was not -- and only one of those is a fact about whether this
+    company can work. The row keeps both, including the first top-up that never arrived.
+    """
     out = pa.reconcile(_db())
     anthropic = next(p for p in out["provider_accounts"] if p["provider"] == "anthropic")
     added = next(f for f in anthropic["reported"] if f["kind"] == "credit_added")
     assert added["amount_usd"] == 10.0
-    assert "has not reached the key" in added["note"]
+    assert "had not reached the key" in added["note"]
+    assert "21:37:52 probe succeeded" in added["note"]
+    assert anthropic["balance_usd"] == 19.83
+    assert anthropic["dashboard_used_usd"] == 20.17
 
 
 if __name__ == "__main__":
