@@ -226,8 +226,9 @@ def run(db, *, today: date | None = None, gateway=None,
     # for the CIR in hand rather than by slug, which is the whole reason the daily job
     # cannot cover a cycle-internal product. Only a job passes one; the endpoint does not,
     # and a GET that spends money spends it every time a sweep walks the routes.
+    declined: dict = {}
     if owned is None and asset_maker is not None and _images.usable(db):
-        asset_maker(cir)
+        declined = asset_maker(cir) or {}
         owned = owned_photography.last_asset(db, slug=cir.slug)
     if not _images.usable(db):
         assets.state = GATED
@@ -253,7 +254,21 @@ def run(db, *, today: date | None = None, gateway=None,
         assets.evidence = {"slug": cir.slug, "in_catalogue": in_catalogue,
                            "other_products_have_assets": bool(
                                owned_photography.last_asset(db))}
-        if in_catalogue:
+        if declined and not declined.get("made"):
+            # The maker ran and refused, and its reason outranks every guess below it.
+            #
+            # Without this the step would report "never filed in the catalogue" for a
+            # product the maker declined for an entirely different reason -- and the
+            # reason it declines most often is the live one: the cycle's arena is `hats`,
+            # a hat is not a product-first form, and a model-bearing frame is blocked
+            # while the canonical identity is built and unapproved. Reporting a gate on
+            # the owner's decision as a filing problem would send the next session after
+            # the catalogue and leave the actual blocker unmentioned.
+            assets.state = FAILED if not declined.get("waiting_on") else GATED
+            assets.gated_on = declined.get("waiting_on", "")
+            assets.evidence["form"] = declined.get("form") or owned_photography.form_of(cir)
+            assets.why = declined.get("why", "the asset maker declined without a reason")
+        elif in_catalogue:
             assets.state = GATED
             assets.gated_on = "owned_photography_job"
             assets.why = (f"image generation is proven and no owned asset has been "

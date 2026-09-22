@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,906 tests passing, 0 failing**.
+  **2,907 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4874,6 +4874,17 @@ timings, written there by the system rather than by hand.
   production: the corrected job has not run again. The endpoint confirms the chain is
   honest — it now names `hats-hat-0`, the product its own chain engineered, where it used
   to name an unrelated blanket.
+- **And checking before claiming it would close found that it will not — for a good
+  reason.** The cycle's soonest proven arena is `hats`; a hat is not a product-first form;
+  so `owned_photography.make` refuses it, because a model-bearing frame is blocked while
+  the canonical identity is built and unapproved. That is the model gate working as
+  #72/#73/#201 intend. What was wrong was what the step would have *said*: the maker's
+  refusal was discarded and it would have reported "never filed in the catalogue" — an
+  owner decision dressed as a filing problem. The maker's reason now outranks the guess,
+  and a refusal naming something to wait for is GATED rather than FAILED (B-615).
+- **Newly stated dependency: #300 cannot complete until the canonical model is approved**,
+  for any cycle whose arena is a worn form. Two launch-blocking requirements were linked
+  and nothing said so.
 - **The motif-fidelity gate is working in production.** It is what failed the cycle's assets
   step: a generated blanket image judged `mismatch` against the certified diamond-lattice
   chart. The owner's release requirement — that an image depict what the pattern actually

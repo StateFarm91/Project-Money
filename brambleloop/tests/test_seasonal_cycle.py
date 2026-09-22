@@ -272,6 +272,61 @@ def test_the_proof_job_hands_the_cycle_a_gateway_and_refuses_when_it_cannot():
     assert callable(seen.get("asset_maker"))
 
 
+def test_the_makers_own_refusal_outranks_the_structural_guess():
+    """The live blocker, reported as itself rather than as a filing problem.
+
+    The cycle's soonest proven arena is `hats`, a hat is not a product-first form, and a
+    model-bearing frame is blocked while the canonical identity is built and unapproved.
+    So the maker declines -- and without this the step would report "never filed in the
+    catalogue", sending the next session after the catalogue while the actual blocker, an
+    owner decision, went unmentioned. A reason the maker gives outranks every guess made
+    on its behalf.
+    """
+    from brambleloop.gateway import images
+
+    db = _wide_db()
+    refusals: list[str] = []
+
+    def refusing_maker(cir):
+        refusals.append(cir.slug)
+        return {"made": False, "slug": cir.slug, "form": "hat",
+                "why": ("'hat' is a form whose listing needs the canonical model, and she "
+                        "is built but not approved. A model-bearing frame is blocked "
+                        "rather than faked")}
+
+    was_usable = images.usable
+    images.usable = lambda _db: True
+    try:
+        out = cycle.run(db, today=TODAY, gateway=_WideGateway(),
+                        asset_maker=refusing_maker)
+    finally:
+        images.usable = was_usable
+
+    assets = next(s for s in out["steps"] if s["step"] == "assets")
+    assert refusals, "the maker was never asked"
+    assert assets["state"] == cycle.FAILED
+    assert "needs the canonical model" in assets["why"]
+    assert "never filed in the catalogue" not in assets["why"]
+    assert assets["evidence"]["form"] == "hat"
+
+    # A refusal that names something to wait for is gated on it rather than failed, because
+    # those two have different fixes and only one of them is anybody's to do.
+    def waiting_maker(cir):
+        return {"made": False, "slug": cir.slug,
+                "why": "the model provider's balance is spent",
+                "waiting_on": "model_provider_balance"}
+
+    images.usable = lambda _db: True
+    try:
+        held = cycle.run(db, today=TODAY, gateway=_WideGateway(),
+                         asset_maker=waiting_maker)
+    finally:
+        images.usable = was_usable
+    step = next(s for s in held["steps"] if s["step"] == "assets")
+    assert step["state"] == cycle.GATED
+    assert step["gated_on"] == "model_provider_balance"
+
+
 def test_the_verdict_is_the_weakest_link_rather_than_a_count_of_green_ticks():
     """A backward-chained schedule is exactly where an average hides a broken link."""
     out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())
