@@ -2671,6 +2671,62 @@ def _representative_slug(db) -> str:
     return rows[0] if rows else ""
 
 
+def _refresh_canonical_model_action(db, package: dict) -> None:
+    """Keep the owner's approval row describing the pack that exists now.
+
+    It told the owner "face unverifiable, whole-person morphology unverifiable" for a day
+    after those stopped being true, because the row was created on the first build and
+    never touched again. The one sentence somebody reads to decide whether to look was
+    describing a pack five versions old -- a value written once and read for a week, which
+    is the same defect as a gate reading configuration: right at the moment it was written
+    and nothing keeping it right.
+
+    The two floors were also the wrong summary. `morphology_floor: unverifiable` is the
+    correct and expected answer when a stress scene puts her in a winter coat, so quoting
+    it made a healthy pack read as a failed one. The approval decision rests on the nine
+    conditions, so those are what this says.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    conditions = package["approval_conditions"]
+    total = len(conditions)
+    met = sum(1 for c in conditions.values() if c["met"])
+    unmet = [k for k, c in conditions.items() if not c["met"]]
+    standing = (
+        f"All {total} approval conditions are met and the pack is ready for your review."
+        if package["ready_for_owner_approval"] else
+        f"{met} of {total} approval conditions are met; still outstanding: "
+        f"{', '.join(unmet)}. It is not ready yet -- this row is here so the work is "
+        f"visible, not so you approve something that has not passed.")
+    reason = (f"{standing} Built from your supplied candidate, pack "
+              f"{package['pack_version']}, fingerprint "
+              f"{package.get('candidate_fingerprint')}. Approval freezes the identity, "
+              f"versions the reference pack and makes it the conditioning source for "
+              f"every model-bearing frame; nothing is frozen until you say so.")
+
+    with db.session() as s:
+        open_row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval",
+            OwnerAction.done == False))  # noqa: E712
+        if open_row is not None:
+            open_row.reason = reason
+            return
+        s.add(OwnerAction(
+            requirement_key="canonical_model_approval",
+            action=("Approve or reject the canonical Brambleloop model at "
+                    "/api/model-pack: the neutral portrait, the torso and full-length "
+                    "body references, the close-fitting validation frame, the stress set "
+                    "and the measured results."),
+            reason=reason,
+            max_cost_cad=0.0, minutes=10,
+            consequence_of_delay=("Every model-bearing frame stays blocked, because a "
+                                  "drift check with no reference pack is unavailable "
+                                  "rather than passing."),
+            blocks="all model-led listing imagery and the creative parity gate"))
+
+
 @handlers.register("creative.model_reference_pack")
 def handle_model_reference_pack(ctx: JobContext) -> dict:
     """Build the reference pack from the owner's candidate and stop before freezing it.
@@ -2721,31 +2777,7 @@ def handle_model_reference_pack(ctx: JobContext) -> dict:
         return {"ran": True, "built": False, "stage": package.get("stage"),
                 "why": package.get("why")}
 
-    from sqlalchemy import select
-
-    from ..core.models import OwnerAction
-
-    with ctx.db.session() as s:
-        open_row = s.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == "canonical_model_approval",
-            OwnerAction.done == False))  # noqa: E712
-        if open_row is None:
-            floors = (f"face {package['face_floor']}, whole-person morphology "
-                      f"{package['morphology_floor']}")
-            s.add(OwnerAction(
-                requirement_key="canonical_model_approval",
-                action=("Approve or reject the canonical Brambleloop model at "
-                        "/api/model-pack: the neutral portrait, the full-length body "
-                        "reference, the stress set and the measured results."),
-                reason=(f"The pack is built from your supplied candidate and measured: "
-                        f"{floors}. Approval freezes the identity, versions the reference "
-                        f"pack and makes it the conditioning source for every "
-                        f"model-bearing frame; nothing is frozen until you say so."),
-                max_cost_cad=0.0, minutes=10,
-                consequence_of_delay=("Every model-bearing frame stays blocked, because a "
-                                      "drift check with no reference pack is unavailable "
-                                      "rather than passing."),
-                blocks="all model-led listing imagery and the creative parity gate"))
+    _refresh_canonical_model_action(ctx.db, package)
 
     return {"ran": True, "built": True,
             "face_floor": package["face_floor"],

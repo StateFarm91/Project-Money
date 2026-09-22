@@ -558,6 +558,53 @@ def _build_with(tmp: str, generator):
     return generator, package
 
 
+def test_the_owner_action_is_rewritten_on_every_build_rather_than_written_once():
+    """It told the owner the pack had failed for a day after it stopped failing.
+
+    The row was created on the first build and never touched again, so the one sentence
+    somebody reads to decide whether to look was describing a pack five versions old. A
+    value written once and read for a week is the same defect as a gate reading
+    configuration: right when it was written, and nothing keeps it right.
+    """
+    import tempfile
+
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.runtime import release
+    from sqlalchemy import select
+
+    db = _db()
+    with db.session() as s:
+        s.add(OwnerAction(
+            requirement_key="canonical_model_approval",
+            action="Approve or reject the canonical Brambleloop model",
+            reason="face unverifiable, whole-person morphology unverifiable",
+            max_cost_cad=0.0, minutes=10, consequence_of_delay="x", blocks="y"))
+
+    class _Ctx:
+        pass
+
+    ctx = _Ctx()
+    ctx.db = db
+    ctx.job = type("J", (), {"inputs": {}})()
+    ctx.audit = lambda *a, **k: None
+
+    with tempfile.TemporaryDirectory() as tmp:
+        package = rp.build(db, work_dir=tmp, generator=_Generator(Path(tmp)),
+                           observer=lambda db_, ref: _seen(),
+                           comparer=_revision(), hair_comparer=_never_asked)
+    assert package["ready_for_owner_approval"] is True
+
+    # The handler's rewrite, exercised through the same package the handler would see.
+    release._refresh_canonical_model_action(db, package)
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval"))
+        assert "unverifiable" not in row.reason
+        assert "ready for your review" in row.reason
+        assert package["pack_version"] in row.reason
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 

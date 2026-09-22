@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,898 tests passing, 0 failing**.
+  **2,899 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4726,13 +4726,28 @@ timings, written there by the system rather than by hand.
   its provider, its anchor, what it scored, whether it was kept, and — separately — whether
   it was refused, rendered-but-unreadable, or read and unhelpful (B-605). It changes no
   floor and costs nothing.
-- **Where the canonical model stands: eight of nine approval conditions met, repeatedly.**
-  Facial identity holds in 5 of 5 scenes, no morphology drifts anywhere, chest and torso
-  are both evidenced, a close-fitting frame reads chest/torso/waist together, and nothing
-  the owner asked to preserve has moved. The ninth condition — the bust actually changing
-  against the approved body — has read `match` on every run. **The pack is not ready for
-  owner approval, nothing is frozen, and nothing is owner-approved.** Spend is about CA$2
-  per run; month-to-date CA$48.19 of the CA$100 ceiling.
+- **2026-09-21, the canonical-model pack passes all nine approval conditions and is
+  AWAITING THE OWNER'S VISUAL APPROVAL.** Pack `v13-the-retry-keeps-the-evidence-it-was-
+  throwing-away`, candidate fingerprint `53040cdbab9589a3`, built from the owner's own
+  supplied concept. Every scene rendered; facial identity held in 5 of 5; no morphology
+  drifted in any scene; chest and torso both evidenced; all thirteen dimensions pinned;
+  the three reference frames read as one woman; the close-fitting validation frame reads
+  chest, torso and waist together; **the bust moved (`drift` on both reference frames
+  against the approved body) and nothing else did** — face, eyes, age, stature, build,
+  shoulders, torso, waist, hips and limbs all `match`, and the hair flag resolved to
+  styling (same colour, same cut, worn up in one and down in the other). Render cost
+  CA$0.3288; month-to-date CA$48.19 of the CA$100 ceiling.
+- The attempt log paid for itself on its first run: the frame that carried the change came
+  from **attempt 2 on the incumbent provider**, which means the eleven earlier unchanged
+  renders were sampling variance rather than a provider that refuses the edit. Four
+  versions of debugging had been guessing at a question one log line answered.
+- The approval row itself was stale — created on the first build and never rewritten, so
+  it told the owner "face unverifiable, whole-person morphology unverifiable" for a day
+  after both stopped being true, and quoted two floors where `unverifiable` is the correct
+  answer for a woman in a winter coat. It now reports the nine conditions, names any that
+  are unmet, and carries the pack version and fingerprint (B-606).
+- **Nothing is frozen and nothing is owner-approved.** `select_canonical` is the only thing
+  that can freeze the identity and it refuses without the owner's explicit approval.
 - **The maturity ladder's first production reading**: of 222 requirements the registry
   calls covered, 158 are implemented, tested and deployed; **42 reach production-observed**
   -- a job actually ran, finished, left an append-only audit row, and did so within the
