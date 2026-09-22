@@ -4786,6 +4786,16 @@ timings, written there by the system rather than by hand.
   provider actually renders (B-610). If flux applies the change the bust condition passes on
   its own frame; if it does not either, the finding — that no available provider will make
   this specific edit against this reference — is an owner decision, not a bug.
+- **v16 (flux with 5 minutes to render) is the honest stopping point, and it correctly
+  refuses.** Attempt 2 on gpt-image-2 produced a torso frame the *comparison against the
+  approved body* reads as a bust `drift` — the change landed — but the pack's independent
+  single-frame observation still cannot pin the bust in a clean frame, so `every_dimension
+  _pinned` fails and the revised verdict is `unmeasurable`, not a pass. That is the owner's
+  own rule working: "when clothing/pose genuinely prevents a body dimension from being
+  evaluated, return UNMEASURABLE rather than PASS." The pack will not certify a bust change
+  it cannot independently read. flux-2-pro, given 5 minutes, rendered once without applying
+  the change and timed out on the second attempt. **This is now an OWNER DECISION, not a
+  bug** — see the checkpoint note below.
 - **Nothing is frozen and nothing is owner-approved.** `select_canonical` is the only thing
   that can freeze the identity and it refuses without the owner's explicit approval.
 - **The maturity ladder's first production reading**: of 222 requirements the registry
