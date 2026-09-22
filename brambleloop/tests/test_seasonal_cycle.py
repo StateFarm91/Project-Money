@@ -96,6 +96,82 @@ def test_a_launch_date_that_has_passed_cannot_satisfy_launched_early_enough():
     assert "cannot be launched on" in timing["why"]
 
 
+def test_the_assets_step_evidences_this_cycles_product_and_never_another():
+    """The chain was broken at step 8, in production, on a launch-blocking test.
+
+    `last_asset(db)` returns the most recent owned asset on file, and the cycle handed that
+    straight in as its own evidence. The 2026-09-22 run engineered `hats-hat-0` and the
+    assets step reported `cloudline-baby-blanket` -- an end-to-end acceptance test
+    evidencing a different product than the one its own chain produced, and reporting that
+    product's motif failure as this cycle's. A pass would have been meaningless and the
+    failure was about something else entirely.
+    """
+    from brambleloop.core.models import AuditLog
+    from brambleloop.gateway import images
+    from brambleloop.publish import owned_photography
+
+    db = _wide_db()
+
+    # An asset exists, for a product this cycle did not engineer.
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=owned_photography.ACTION,
+                       detail={"made": True,
+                               "method_version": owned_photography.METHOD_VERSION,
+                               "slug": "some-other-product", "form": "blanket",
+                               "verdict": "clear", "motif_verified": True,
+                               "usable_as_listing_asset": True,
+                               "image": {"url": "/api/model-tournament/image/deadbeef"}}))
+
+    # Image generation proven, so the step gets past the capability gate and has to
+    # decide on the asset itself -- which is where it was going wrong.
+    was_usable = images.usable
+    images.usable = lambda _db: True
+    try:
+        out = cycle.run(db, today=TODAY, gateway=_WideGateway())
+    finally:
+        images.usable = was_usable
+    assets = next(s for s in out["steps"] if s["step"] == "assets")
+    engineered = next(s for s in out["steps"] if s["step"] == "engineer")
+
+    assert assets["state"] != cycle.RAN, \
+        "another product's photograph was accepted as this cycle's asset"
+    assert assets["evidence"].get("slug") == engineered["evidence"]["slug"]
+    # And it says plainly that assets exist elsewhere, so the gap is legible rather than
+    # looking like a capability that has never worked.
+    assert assets["evidence"]["other_products_have_assets"] is True
+
+    # Binding the step to this cycle's product exposed the structural gap underneath, and
+    # it is reported as one rather than as a gate that will open: the cycle authors and
+    # certifies its concept in memory and never files it, so the photography job -- which
+    # photographs catalogue products -- can never reach it. A queue entry nobody can
+    # action is a permanent blocker wearing one, so this is a failure with a named fix.
+    assert assets["evidence"]["in_catalogue"] is False
+    assert assets["state"] == cycle.FAILED
+    assert assets["gated_on"] == ""
+    assert "never filed in the catalogue" in assets["why"]
+    assert "structurally unreachable" in assets["why"]
+
+    # The other direction, or this is a wall rather than a check: an asset for the
+    # cycle's own product does satisfy the step.
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=owned_photography.ACTION,
+                       detail={"made": True,
+                               "method_version": owned_photography.METHOD_VERSION,
+                               "slug": engineered["evidence"]["slug"], "form": "hat",
+                               "verdict": "clear", "motif_verified": True,
+                               "usable_as_listing_asset": True,
+                               "disclosed_as_illustration": True,
+                               "image": {"url": "/api/model-tournament/image/feedface"}}))
+    images.usable = lambda _db: True
+    try:
+        again = cycle.run(db, today=TODAY, gateway=_WideGateway())
+    finally:
+        images.usable = was_usable
+    step = next(s for s in again["steps"] if s["step"] == "assets")
+    assert step["state"] == cycle.RAN, step
+    assert step["evidence"]["slug"] == engineered["evidence"]["slug"]
+
+
 def test_the_verdict_is_the_weakest_link_rather_than_a_count_of_green_ticks():
     """A backward-chained schedule is exactly where an average hides a broken link."""
     out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())

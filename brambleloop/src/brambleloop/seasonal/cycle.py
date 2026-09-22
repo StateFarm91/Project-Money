@@ -199,7 +199,17 @@ def run(db, *, today: date | None = None, gateway=None,
     from ..gateway import images as _images
     from ..publish import owned_photography
 
-    owned = owned_photography.last_asset(db)
+    # For *this cycle's* product, not for whichever product was photographed last.
+    #
+    # `last_asset(db)` returns the most recent owned asset on file, and the cycle was
+    # handing that straight into step 8 as its own evidence. On 2026-09-22 the run
+    # engineered `hats-hat-0` and the assets step reported `cloudline-baby-blanket`: a
+    # launch-blocking end-to-end acceptance test evidencing a different product than the
+    # one its own chain produced, and reporting that product's motif failure as this
+    # cycle's. Both halves are wrong -- the chain is broken, and the failure is
+    # misattributed, so a pass would have been meaningless and the fail was about
+    # something else.
+    owned = owned_photography.last_asset(db, slug=cir.slug)
     if not _images.usable(db):
         assets.state = GATED
         assets.gated_on = "image_generation"
@@ -211,11 +221,40 @@ def run(db, *, today: date | None = None, gateway=None,
     elif owned is None:
         # Read rather than rendered: a report that generated an image every time somebody
         # opened an endpoint would spend money to answer a question about the past.
-        assets.state = GATED
-        assets.gated_on = "owned_photography_job"
-        assets.why = ("image generation is proven and no owned asset has been rendered "
-                      "yet. `assets.owned_photography` runs daily and makes one per "
-                      "release; this step reports what exists rather than making it")
+        #
+        # Two reasons there is no asset, and they are not the same finding. The daily job
+        # photographs *catalogue* products, and this cycle authors its concept in memory
+        # and certifies it without filing it -- so for a cycle-internal product the job
+        # can never reach it, and reporting that as "waiting for the daily job" would be a
+        # gate that cannot open. Saying which one it is, is the difference between a queue
+        # entry somebody can act on and a permanent blocker wearing one.
+        from ..products.builder import for_slug
+
+        in_catalogue = for_slug(cir.slug) is not None
+        assets.evidence = {"slug": cir.slug, "in_catalogue": in_catalogue,
+                           "other_products_have_assets": bool(
+                               owned_photography.last_asset(db))}
+        if in_catalogue:
+            assets.state = GATED
+            assets.gated_on = "owned_photography_job"
+            assets.why = (f"image generation is proven and no owned asset has been "
+                          f"rendered for {cir.slug} yet. `assets.owned_photography` runs "
+                          f"daily and makes one per release; this step reports what "
+                          f"exists for this cycle's own product rather than making it, "
+                          f"and rather than borrowing another product's photograph to "
+                          f"look complete")
+        else:
+            assets.state = FAILED
+            assets.gated_on = ""
+            assets.why = (f"{cir.slug} was engineered and certified inside this cycle and "
+                          f"never filed in the catalogue, and the photography job "
+                          f"photographs catalogue products -- so no asset can ever be "
+                          f"made for it. This link is structurally unreachable for a "
+                          f"cycle-internal product rather than merely waiting, and the "
+                          f"fix is for the cycle to file what it engineers. Reported as a "
+                          f"failure because a gate that cannot open is not a gate, and "
+                          f"because the previous behaviour -- handing in whichever "
+                          f"product was photographed last -- made this look complete")
     elif owned.get("verdict") == "clear" and not owned.get("motif_verified"):
         # Rendered, every asset-truth check passed, and the fabric is not the pattern's
         # fabric -- or could not be seen well enough to tell. Both block a customer-facing

@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,903 tests passing, 0 failing**.
+  **2,904 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4838,6 +4838,31 @@ timings, written there by the system rather than by hand.
   this catalogue is flat and seamless -- so that path is decided, not exercised. The
   readiness verdict is READY and nothing blocks the purchase, which remains the owner's
   decision and has not been made.
+- **Heartbeat 2026-09-22T00:14Z.** Production green at 12/12. The gate work from the night
+  before is confirmed live: `reconciliation` balances and `owner_gated_but_ready` is empty,
+  so nothing the owner has to decide is sitting in the ready queue any more.
+- **#300's acceptance test was broken at step 8 and looked fine.** The cycle engineered
+  `hats-hat-0` and the assets step reported `cloudline-baby-blanket`: `last_asset(db)`
+  returns whichever product was photographed last, and the cycle handed that in as its own
+  evidence — with that product's motif failure attributed to this cycle. A pass would have
+  proved nothing and the failure was about something else, so the one number this
+  launch-blocking test exists to produce was meaningless in both directions. Bound to
+  `cir.slug` now (B-611).
+- **And that exposed the real gap**: the cycle authors and certifies its concept in memory
+  and never files it in the catalogue, while the photography job photographs catalogue
+  products — so for a cycle-internal product **no asset can ever exist**. Reported as FAILED
+  with the fix named (the cycle should file what it engineers) rather than as gated on a job
+  that will never reach it, because a gate that cannot open is a permanent blocker wearing a
+  queue entry. **This is #300's remaining work and it is genuinely actionable.**
+- **The motif-fidelity gate is working in production.** It is what failed the cycle's assets
+  step: a generated blanket image judged `mismatch` against the certified diamond-lattice
+  chart. The owner's release requirement — that an image depict what the pattern actually
+  makes — is live and blocking, on a real asset, not just in tests.
+- **#292 re-parked from `image_generation` to `customers`** (B-612). All five
+  re-merchandising moves now compute as available in production, so its park pointed at a
+  gate that had opened while the requirement still could not be finished. The only thing
+  left is the word "proven", which is a claim about sales. The live queue now reads
+  honestly: one requirement ready and actionable, nothing ready that nobody can begin.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
