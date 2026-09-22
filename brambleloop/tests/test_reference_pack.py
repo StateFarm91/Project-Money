@@ -605,6 +605,55 @@ def test_the_owner_action_is_rewritten_on_every_build_rather_than_written_once()
         assert package["pack_version"] in row.reason
 
 
+def test_the_approval_question_reopens_while_a_ready_pack_is_waiting():
+    """A question raised by an event survives exactly as long as nothing else touches it.
+
+    The readiness assessment closed this row, and the pack build does not run again once a
+    pack is on file -- so it stayed shut with a pack that had passed all nine conditions
+    sitting behind it, and nothing anywhere to reopen it. Deriving it on each build tick
+    is the difference between a question somebody asked once and a condition that is still
+    true.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog, OwnerAction
+    from brambleloop.runtime import release
+    from brambleloop.visual import reference_pack
+
+    db = _db()
+    with tempfile.TemporaryDirectory() as tmp:
+        package = rp.build(db, work_dir=tmp, generator=_Generator(Path(tmp)),
+                           observer=lambda db_, ref: _seen(),
+                           comparer=_revision(), hair_comparer=_never_asked)
+    assert package["ready_for_owner_approval"] is True
+
+    # The handler stamps the fingerprint before auditing, and `_pack_on_file` matches on
+    # it -- a pack built for a different candidate is not this candidate's pack.
+    package["candidate_fingerprint"] = release._candidate_fingerprint()
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=reference_pack.PACK_ACTION,
+                       detail=package))
+
+    release._reconcile_canonical_model_action(db)
+    with db.session() as s:
+        rows = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval")))
+    assert len(rows) == 1 and rows[0].done is False
+
+    # Closed by something else -- it comes back, because the pack is still waiting.
+    with db.session() as s:
+        s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval")).done = True
+    release._reconcile_canonical_model_action(db)
+    with db.session() as s:
+        open_rows = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval",
+            OwnerAction.done == False)))  # noqa: E712
+    assert len(open_rows) == 1, "a closed approval row was not reopened by the tick"
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 

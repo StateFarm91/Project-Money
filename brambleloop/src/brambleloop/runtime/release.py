@@ -1207,7 +1207,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         if requests:
             wanted = {r.key for r in requests}
             for key, row in open_actions.items():
-                if key in wanted:
+                if key in wanted or key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
                     continue
                 row.done = True
                 closed.append(key)
@@ -1459,6 +1459,14 @@ def handle_build_tick(ctx: JobContext) -> dict:
     synced = executor.sync(ctx.db)
     snapshot = executor.queue(ctx.db)
     health = executor.watchdog(ctx.db)
+
+    # The canonical-model approval is *derived* here rather than only raised by the build
+    # that produced the pack, because a question raised by an event survives exactly as
+    # long as nothing else touches it. The readiness assessment closed this one, and the
+    # pack build does not run again once a pack is on file -- so the row stayed shut with
+    # a ready pack sitting behind it and nothing to reopen it. A condition that is still
+    # true should keep asking; that is what a tick is for.
+    _reconcile_canonical_model_action(ctx.db)
 
     if synced["unparked"]:
         executor.record(
@@ -2669,6 +2677,41 @@ def _representative_slug(db) -> str:
         if cir is not None and owned_photography.needs_no_model(cir):
             return slug
     return rows[0] if rows else ""
+
+
+# Owner-action keys this assessment does not produce and must never close.
+#
+# The closer above exists because the queue only ever grew, and it was right to build it.
+# What it did not know is that it is not the only thing that writes to that queue: the
+# reference-pack build raises `canonical_model_approval`, the tournament raises
+# `canonical_model_selection`, the image benchmark raises `image_benchmark_budget`, and
+# `ops/funding.py` raises the provider-balance row. To the readiness assessment every one
+# of those is a key it did not generate, which is indistinguishable from a request that
+# has been satisfied -- so it closed them.
+#
+# It closed the canonical-model approval on the run after the pack passed all nine of its
+# conditions. The owner was not asked to approve the identity, the pack sat ready, and
+# nothing anywhere reported a problem: one subsystem tidying away another subsystem's
+# question, in the name of not asking twice.
+#
+# A closer may only close what it opens. This list is that rule, written down.
+NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE: frozenset[str] = frozenset({
+    "canonical_model_approval",
+    "canonical_model_selection",
+    "image_benchmark_budget",
+    "model_provider_balance",
+})
+
+
+def _reconcile_canonical_model_action(db) -> None:
+    """Keep the approval question open for as long as an unapproved pack is waiting."""
+    from ..visual import model_registry
+
+    if model_registry.canonical_pack(db) is not None:
+        return                                  # the owner has approved; nothing to ask
+    package = _pack_on_file(db)
+    if package and package.get("approval_conditions"):
+        _refresh_canonical_model_action(db, package)
 
 
 def _refresh_canonical_model_action(db, package: dict) -> None:

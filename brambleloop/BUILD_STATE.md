@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,899 tests passing, 0 failing**.
+  **2,901 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4746,6 +4746,16 @@ timings, written there by the system rather than by hand.
   after both stopped being true, and quoted two floors where `unverifiable` is the correct
   answer for a woman in a winter coat. It now reports the nine conditions, names any that
   are unmet, and carries the pack version and fingerprint (B-606).
+- **The approval was never actually being asked.** `launch.readiness` closes any open owner
+  action whose key is not in its own request list -- correct for the rows it raises, and it
+  is not the only thing writing to that queue. The reference-pack build, the tournament, the
+  image benchmark and `ops/funding.py` all raise rows it has never heard of, and a key it
+  did not generate is indistinguishable from a request that has been satisfied. It closed
+  the canonical-model approval on the run after the pack passed all nine conditions: pack
+  ready, owner never asked, nothing anywhere reporting a problem. The closer now skips keys
+  it does not produce, and `build.tick` *derives* the question from the waiting pack rather
+  than relying on the build that raised it once -- the pack build does not run again once a
+  pack is on file, so there had been nothing left to reopen it (B-607).
 - **Nothing is frozen and nothing is owner-approved.** `select_canonical` is the only thing
   that can freeze the identity and it refuses without the owner's explicit approval.
 - **The maturity ladder's first production reading**: of 222 requirements the registry

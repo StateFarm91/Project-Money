@@ -377,6 +377,65 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
     assert len(fee) == 1, [f.action[:60] for f in fee]
     assert fee[0].action != stale_fee, "the adopted row kept its stale figure"
 
+def test_a_closer_may_only_close_what_it_opens():
+    """It tidied away the canonical-model approval on the run after the pack passed.
+
+    The readiness assessment is not the only thing that writes to the owner's queue: the
+    reference-pack build raises `canonical_model_approval`, the tournament raises
+    `canonical_model_selection`, the image benchmark raises its budget row, and
+    `ops/funding.py` raises the provider-balance row. To the assessment every one of those
+    is a key it did not generate, which is indistinguishable from a request that has been
+    satisfied -- so it closed them.
+
+    The result was silent and complete: the pack sat ready on all nine of its conditions,
+    the owner was not asked to approve the identity, and nothing anywhere reported a
+    problem. One subsystem tidying away another subsystem's question, in the name of not
+    asking twice.
+    """
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
+    from brambleloop.runtime.release import NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE
+    from brambleloop.runtime.worker import Worker
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/closer.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    _stock(db)
+
+    with db.session() as s:
+        for key in sorted(NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE):
+            s.add(OwnerAction(
+                requirement_key=key, action=f"a question raised by {key}",
+                reason="raised by a different subsystem", max_cost_cad=0.0, minutes=5,
+                consequence_of_delay="the thing that raised it stays blocked",
+                blocks="whatever it blocks"))
+
+    JobQueue(db).enqueue("orchestrator", "launch.readiness", {},
+                         idempotency_key="closer-1")
+    worker = Worker(db, "closer-worker")
+    for _ in range(200):
+        if not worker.run_once():
+            break
+
+    with db.session() as s:
+        rows = {r.requirement_key: r for r in s.scalars(select(OwnerAction))}
+        for key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
+            assert key in rows, f"{key} was deleted rather than left alone"
+            assert rows[key].done is False, \
+                f"the readiness assessment closed {key}, which it does not raise"
+
+    # And it still closes its own, or the queue goes back to only growing.
+    assert "etsy_shop" not in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE
+
+
 def test_an_owner_action_whose_requirement_is_satisfied_closes_itself():
     """The queue only ever grew, and production was asking for four finished things.
 
