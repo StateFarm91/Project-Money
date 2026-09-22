@@ -1742,10 +1742,11 @@ def handle_model_photography(ctx: JobContext) -> dict:
     if cir is None:
         return {"ran": False, "reason": f"no CIR for {slug!r}"}
 
-    existing = model_photography.last_asset(ctx.db, slug=slug)
-    if existing and existing.get("version") == cir.version:
-        return {"ran": False, "reason": "this release already has a model frame",
-                "slug": slug, "usable": existing.get("usable_as_listing_asset")}
+    next_move = model_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
+    if not next_move["render"]:
+        return {"ran": False, "reason": next_move["reason"], "slug": slug,
+                "attempts": next_move["attempts"], "why": next_move["why"],
+                "usable": next_move["reason"] == "usable_frame_on_file"}
 
     result = compile_cir(cir)
     if not result.ok:

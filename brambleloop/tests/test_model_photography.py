@@ -271,6 +271,99 @@ def test_the_model_is_the_exception_and_an_unclassified_form_is_shot_as_an_objec
         dataclasses.replace(base, slug="mystery-thing"))
 
 
+
+def _file(db, record):
+    """Put a frame on the audit log the way the handler does."""
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", mp.ACTION, detail=record)
+
+
+def test_a_release_with_an_unusable_frame_does_not_have_a_frame():
+    """The handler used to stop at the existence of a row.
+
+    On 2026-09-22 the first live frame came back with face identity passing and three
+    floors `unverifiable` -- a head-and-shoulders crop with no body and no readable
+    fabric in it. The handler's idempotency then answered "this release already has a
+    model frame" and declined to render again, so a release whose only frame could not be
+    used reported as finished, and the next deploy agreed with it. A row standing in for
+    the capability the row was supposed to evidence is the defect this whole system exists
+    to catch, and it had got into the guard rather than the gate.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        _, record = _make(db, Path(tmp), realism_judger=_realism(skin_looks_real=False))
+        assert record["usable_as_listing_asset"] is False
+        _file(db, record)
+
+        move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
+        assert move["render"] is True
+        assert move["reason"] == "no_usable_frame_yet"
+        assert move["attempts"] == 1
+        assert mp.usable_asset(db, slug=record["slug"]) is None
+
+
+def test_a_release_with_a_usable_frame_is_not_rendered_again():
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        _, record = _make(db, Path(tmp))
+        assert record["usable_as_listing_asset"] is True
+        _file(db, record)
+
+        move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
+        assert move["render"] is False
+        assert move["reason"] == "usable_frame_on_file"
+        assert mp.usable_asset(db, slug=record["slug"])["image_ref"] == record["image_ref"]
+
+
+def test_retrying_is_bounded_and_says_the_method_is_what_needs_changing():
+    """Unbounded retry is how a loop spends the ceiling chasing the same failure."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        for _ in range(mp.ATTEMPTS):
+            _, record = _make(db, Path(tmp),
+                              realism_judger=_realism(skin_looks_real=False))
+            _file(db, record)
+
+        move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
+        assert move["render"] is False
+        assert move["reason"] == "attempts_exhausted"
+        assert move["attempts"] == mp.ATTEMPTS
+        assert "the method" in move["why"] and "METHOD_VERSION" in move["why"]
+
+
+def test_a_corrected_method_is_not_locked_out_by_the_old_ones_attempts():
+    """The attempts belong to the method, not to the product.
+
+    A new METHOD_VERSION is a different question, and answering it with the previous
+    method's exhausted budget is how a fix never gets to run.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        for _ in range(mp.ATTEMPTS):
+            _, record = _make(db, Path(tmp),
+                              realism_judger=_realism(skin_looks_real=False))
+            _file(db, record)
+        stale = dict(record, method_version="v0-an-earlier-method")
+        assert mp.what_to_do_next(
+            db, slug=record["slug"], version=record["version"])["render"] is False
+
+        fresh = _db()
+        _file(fresh, stale)
+        move = mp.what_to_do_next(fresh, slug=stale["slug"], version=stale["version"])
+        assert move["render"] is True and move["attempts"] == 0
+
+
+def test_the_frame_asks_for_a_body_the_morphology_floor_can_actually_read():
+    """A floor nothing can clear is the same defect as one nothing can fail."""
+    cir, twin = _subject()
+    db = _db()
+    prompt = mp.prompt_for(cir, twin, model_registry.canonical_pack(db))
+    for part in ("shoulders", "chest", "torso", "waist", "hips"):
+        assert part in prompt, part
+    # And the fabric large enough for the motif judge to count a repeat in.
+    assert "stitches" in prompt and "repeat" in prompt
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

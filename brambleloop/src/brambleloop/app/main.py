@@ -241,6 +241,36 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "owned_photography", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # And the model-bearing frame, on the same principle: keyed on the rendering method
+    # rather than on the clock. Its cadence is daily, which is right unattended and wrong
+    # in exactly the case that matters -- a corrected prompt deployed an hour after the
+    # day's frame failed would wait a day to be asked again, and the record in between
+    # would be evidence about the method that was replaced.
+    #
+    # Self-limiting twice over. `what_to_do_next` renders nothing once the release has a
+    # frame that cleared every floor, and nothing once this method has spent its attempts,
+    # so this asks on every deploy without spending on every deploy.
+    try:
+        from ..gateway import images as _img5
+        from ..publish import model_photography as _mphoto
+        from ..products.builder import for_slug
+        from ..runtime.release import _model_bearing_slug
+
+        _slug = _model_bearing_slug(db) if _img5.usable(db) else ""
+        _cir = for_slug(_slug) if _slug else None
+        _move = (_mphoto.what_to_do_next(db, slug=_slug, version=_cir.version)
+                 if _cir else {"render": False, "why": "no certified product needs her"})
+        _boot_enqueue("model_photography", when=bool(_move["render"]),
+                      agent="publishing", job_type=_mphoto.ACTION,
+                      key=f"boot-model-frame-{_slug}-{_mphoto.METHOD_VERSION}-"
+                          f"{build_identity().get('commit_short', 'dev')}",
+                      inputs={"slug": _slug})
+        if not _move["render"]:
+            BOOT_ENQUEUES[-1]["why"] = _move["why"][:300]
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "model_photography", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     runner.start(db)
 
 

@@ -30,7 +30,25 @@ is being sold; the brief's styling rules are in the prompt and #202 is the check
 from __future__ import annotations
 
 ACTION = "assets.model_photography"
-METHOD_VERSION = "v1-conditioned-on-the-frozen-pack-and-verified-after"
+
+# Part of what decides whether a frame on file answers the question being asked. A frame
+# rendered by an earlier method is evidence about that method, and reading it back as
+# "this release already has one" is how a corrected prompt quietly never runs.
+METHOD_VERSION = "v2-three-quarter-framing-so-the-body-floors-can-be-read"
+
+# How many times one release may be re-rendered when the frame comes back unusable.
+#
+# The first live frame was a head-and-shoulders crop: face identity passed and three floors
+# returned `unverifiable` because nothing in the frame could answer them. That is a failed
+# render, not a finding about the product -- and the handler's idempotency read it as "this
+# release already has a model frame", which is the existence of a row standing in for the
+# capability the row was supposed to evidence.
+#
+# Bounded at three for the reason the reference pack bounds its own retries: a fourth
+# attempt is evidence that the prompt is wrong rather than the sample, and the record says
+# so instead of paying to find out again. Each attempt is one render and four judgements,
+# about CA$0.30.
+ATTEMPTS = 3
 
 DISCLOSURE = (
     "Illustration generated from the certified pattern, featuring Brambleloop's fictional "
@@ -226,18 +244,66 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
     }
 
 
-def last_asset(db, *, slug: str = "") -> dict | None:
-    """The most recent model-bearing frame on file, optionally for one product."""
+def _frames(db, *, slug: str = "", limit: int = 60) -> list[dict]:
+    """Every frame this method rendered, newest first."""
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog
 
+    out: list[dict] = []
     with db.session() as s:
         for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
-                             .order_by(desc(AuditLog.id)).limit(20)):
+                             .order_by(desc(AuditLog.id)).limit(limit)):
             detail = row.detail or {}
             if (detail.get("made")
                     and detail.get("method_version") == METHOD_VERSION
                     and (not slug or detail.get("slug") == slug)):
-                return detail
+                out.append(detail)
+    return out
+
+
+def last_asset(db, *, slug: str = "") -> dict | None:
+    """The most recent model-bearing frame on file, optionally for one product."""
+    frames = _frames(db, slug=slug, limit=20)
+    return frames[0] if frames else None
+
+
+def usable_asset(db, *, slug: str = "", version: str = "") -> dict | None:
+    """A frame that actually cleared every floor. The only kind a listing may use."""
+    for frame in _frames(db, slug=slug):
+        if frame.get("usable_as_listing_asset") and (not version
+                                                     or frame.get("version") == version):
+            return frame
     return None
+
+
+def attempts_for(db, *, slug: str, version: str) -> int:
+    """How many times this method has already tried this exact release."""
+    return sum(1 for f in _frames(db, slug=slug) if f.get("version") == version)
+
+
+def what_to_do_next(db, *, slug: str, version: str) -> dict:
+    """Whether to render, and if not, which of two different reasons not to.
+
+    Three outcomes rather than two, because "this release has a usable frame" and "this
+    release has burned its attempts on frames that failed" need opposite next moves and
+    only one of them is good news. The handler used to conflate them into "already has a
+    model frame", which reported an unusable frame as a finished one.
+    """
+    good = usable_asset(db, slug=slug, version=version)
+    if good:
+        return {"render": False, "reason": "usable_frame_on_file",
+                "why": "this release already has a frame that cleared every floor",
+                "attempts": attempts_for(db, slug=slug, version=version)}
+
+    spent = attempts_for(db, slug=slug, version=version)
+    if spent >= ATTEMPTS:
+        return {"render": False, "reason": "attempts_exhausted", "attempts": spent,
+                "why": (f"{spent} frames for {slug} {version} were rendered by "
+                        f"{METHOD_VERSION} and none cleared every floor. A further render "
+                        f"would be the same method asked the same question, so what needs "
+                        f"changing is the method -- which is a code change and a new "
+                        f"METHOD_VERSION, not more spend")}
+    return {"render": True, "reason": "no_usable_frame_yet", "attempts": spent,
+            "why": (f"{spent} of {ATTEMPTS} attempts used; no frame for this release has "
+                    f"cleared every floor")}
