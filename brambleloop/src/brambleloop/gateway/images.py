@@ -595,7 +595,15 @@ def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
 
 
 BFL_POLL_SECONDS = 2.0
-BFL_POLL_ATTEMPTS = 60
+# 150 * 2s = 5 minutes. It was 60 (two minutes), set for the benchmark's single
+# un-conditioned renders. A reference-conditioned edit -- conditioning on two images and
+# holding an identity while changing one dimension -- is markedly slower, and flux-2-pro
+# is the fallback the reference pack reaches for when the incumbent will not apply the
+# change. At two minutes it timed out before returning a picture on every such attempt,
+# so the escape hatch had never actually rendered: "the second provider did not help"
+# and "the second provider never finished" are different findings, and the attempt log
+# was reporting the second as the first.
+BFL_POLL_ATTEMPTS = 150
 
 
 def generate(prompt: str, *, reference_urls: list[str] | None = None,

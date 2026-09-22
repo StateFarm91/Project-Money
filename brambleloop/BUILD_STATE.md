@@ -4775,6 +4775,17 @@ timings, written there by the system rather than by hand.
   would never have appeared in the same report. v15: the authoritative frame decides, the
   other frame's answer is printed beside it, and an authoritative frame that cannot read
   the dimension gives `unmeasurable`, which is not a pass (B-609).
+- **With the measurement finally sound, v15's honest verdict is that gpt-image-2 will not
+  apply the bust revision.** The torso reference — three of three renders — reads the bust
+  as unchanged against the approved body, and that is now reported as `the_bust_actually
+  _changed: NOT met` rather than papered over. The insisting attempt hands the edit to
+  flux-2-pro, which is the right move, but flux timed out at 120s of polling on every
+  attempt and never returned a picture: its poll budget (60×2s) was set for the benchmark's
+  single un-conditioned renders, and a reference-conditioned identity-holding edit is far
+  slower. Raised to 150 polls / 5 minutes, inside the 90-minute claim lease, so the fallback
+  provider actually renders (B-610). If flux applies the change the bust condition passes on
+  its own frame; if it does not either, the finding — that no available provider will make
+  this specific edit against this reference — is an owner decision, not a bug.
 - **Nothing is frozen and nothing is owner-approved.** `select_canonical` is the only thing
   that can freeze the identity and it refuses without the owner's explicit approval.
 - **The maturity ladder's first production reading**: of 222 requirements the registry
