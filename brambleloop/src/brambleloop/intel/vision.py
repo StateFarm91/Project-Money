@@ -79,8 +79,12 @@ def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis
         detail = row.detail or {}
         if detail.get("gallery_analysed"):
             continue
+        # Per image, not per listing. Marking only whole listings would re-offer every
+        # image of a listing whose last image failed, and a run that stops at its batch
+        # limit part-way through a gallery leaves the rest behind for good.
+        done = set(detail.get("gallery_ranks_judged") or [])
         for rank, url in enumerate(detail.get("image_urls") or [], start=1):
-            if url:
+            if url and rank not in done:
                 out.append(PendingAnalysis(benchmark_key, row.listing_ref, url, rank))
             if len(out) >= limit:
                 return out
@@ -152,7 +156,40 @@ def record(db, analysis: PendingAnalysis, observation: dict,
         listing_ref=analysis.listing_ref,
         detail={"image": analysis.to_dict(), "observation": observation},
         env=env)
+    _mark_judged(db, analysis)
     return got.observation_id
+
+
+def _mark_judged(db, analysis: PendingAnalysis) -> None:
+    """Record that this image has been judged, so nobody pays to judge it twice.
+
+    `gallery_analysed` was read in `pending` and written nowhere. The backlog therefore
+    never shrank: every two-hourly run took the same twenty-five images off the same newest
+    listings, judged them, paid for them and left them pending -- about CA$8.50 a day,
+    indefinitely, for no new evidence. It looked like progress from the outside because
+    `judged: 25` is what a draining queue also reports.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import BenchmarkListing
+
+    with db.session() as s:
+        row = s.scalar(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == analysis.benchmark_key,
+            BenchmarkListing.listing_ref == analysis.listing_ref))
+        if row is None:
+            return
+        detail = dict(row.detail or {})
+        done = sorted({*(detail.get("gallery_ranks_judged") or []), analysis.rank})
+        detail["gallery_ranks_judged"] = done
+        urls = [u for u in (detail.get("image_urls") or []) if u]
+        # Analysed when every image this listing offers has been judged -- counted rather
+        # than assumed from the last one, because a batch limit can land mid-gallery.
+        if urls and len(done) >= len(urls):
+            detail["gallery_analysed"] = True
+        row.detail = detail
+        flag_modified(row, "detail")
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +328,11 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         "judged": judged,
         "reserved_cad": round(reserved, 8),
         "attempted": len(queue),
-        "remaining": max(len(pending(db, benchmark_key, limit=limit * 20)) - judged, 0),
+        # Counted after the run, with nothing subtracted. This read the backlog and then
+        # took this run's `judged` off it -- which made the number fall by twenty-five
+        # every time while the backlog itself stood still, so a queue that was not
+        # draining reported as one that was.
+        "remaining": len(pending(db, benchmark_key, limit=limit * 20)),
         "failures": failures,
         "cost_cad": round(spent, 8),
         "note": ("nothing was judged and the backlog is not empty, which is a failure rather "

@@ -938,6 +938,82 @@ def test_the_acceptance_test_walks_every_step_the_mandate_names():
         "a fixture run was recorded as satisfying the observation mandate"
 
 
+
+def test_a_judged_image_is_never_offered_again():
+    """The defect that was spending about CA$8.50 a day to learn nothing.
+
+    `gallery_analysed` was read in `pending` and written nowhere, so every two-hourly run
+    took the same twenty-five images off the same newest listings, judged them, paid for
+    them and left them pending. Eight hours and four paid batches moved the backlog from
+    475 to 476. It looked like progress from outside, because `judged: 25` is exactly what
+    a draining queue reports too.
+    """
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks, vision
+
+    db = Database("sqlite://")
+    db.create_all()
+    with db.session() as s:
+        s.add(BenchmarkListing(
+            benchmark_key=benchmarks.MJS_KEY, listing_ref="1", title="t",
+            audit_state="audited", detail={"image_urls": ["a.jpg", "b.jpg"]}))
+
+    assert [p.rank for p in vision.pending(db, benchmarks.MJS_KEY)] == [1, 2]
+    vision._mark_judged(db, vision.PendingAnalysis(benchmarks.MJS_KEY, "1", "a.jpg", 1))
+    assert [p.rank for p in vision.pending(db, benchmarks.MJS_KEY)] == [2], \
+        "a judged image came back around to be paid for again"
+
+
+def test_a_listing_is_analysed_only_when_every_image_of_it_has_been():
+    """Per image rather than per listing, because a batch limit lands mid-gallery.
+
+    Marking whole listings would re-offer every image of a gallery whose last image
+    failed, and would abandon the rest of one the batch limit cut short.
+    """
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks, vision
+
+    db = Database("sqlite://")
+    db.create_all()
+    with db.session() as s:
+        s.add(BenchmarkListing(
+            benchmark_key=benchmarks.MJS_KEY, listing_ref="1", title="t",
+            audit_state="audited", detail={"image_urls": ["a.jpg", "b.jpg"]}))
+
+    vision._mark_judged(db, vision.PendingAnalysis(benchmarks.MJS_KEY, "1", "a.jpg", 1))
+    with db.session() as s:
+        assert not (s.query(BenchmarkListing).first().detail or {}).get("gallery_analysed")
+
+    vision._mark_judged(db, vision.PendingAnalysis(benchmarks.MJS_KEY, "1", "b.jpg", 2))
+    with db.session() as s:
+        assert (s.query(BenchmarkListing).first().detail or {})["gallery_analysed"] is True
+    assert vision.pending(db, benchmarks.MJS_KEY) == []
+
+
+def test_the_remaining_count_is_counted_rather_than_computed_to_fall():
+    """A backlog that stood still reported as one that was draining.
+
+    `remaining` read the real backlog and then subtracted this run's `judged` from it, so
+    the number fell by twenty-five every time whether or not anything had been recorded.
+    That is a progress figure computed to look like progress, and it is what made a
+    stalled queue legible as a healthy one -- including in a report to the owner.
+    """
+    import ast
+    from pathlib import Path as _Path
+
+    source = (_Path(__file__).resolve().parents[1]
+              / "src/brambleloop/intel/vision.py").read_text()
+    tree = ast.parse(source)
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "analyse")
+    for node in ast.walk(fn):
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
+            names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+            assert "judged" not in names, \
+                "the remaining count is subtracting this run's judged again"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
