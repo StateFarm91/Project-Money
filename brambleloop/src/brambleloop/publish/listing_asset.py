@@ -42,7 +42,10 @@ def make(db, cir, twin, *, record: bool = True, **kw) -> dict:
     from . import model_photography, owned_photography
 
     if needs_the_model(cir):
-        action, out = model_photography.ACTION, model_photography.make(db, cir, twin, **kw)
+        # The sequence rather than a single frame: the body floor and the fabric floor
+        # are questions about two different photographs, and one frame cannot answer both.
+        action, out = (model_photography.ACTION,
+                       model_photography.sequence(db, cir, twin, **kw))
     else:
         # The product-first path takes no identity observer and no realism judge: there is
         # no identity in the frame to compare, and passing one would be a check on nobody.

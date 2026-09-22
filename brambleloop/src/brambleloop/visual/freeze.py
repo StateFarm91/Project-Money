@@ -375,3 +375,107 @@ def enforcement_proof(db) -> dict:
                  "a drifted body under a matching face is not something a generator "
                  "produces on request, and waiting for one would mean never checking it."),
     }
+
+
+# ---------------------------------------------------------------------------
+# The references the frozen pack is actually compared against
+#
+# The morphology floor could not pass in production, and the reason was structural rather
+# than a bad render. `select_canonical` takes `image_refs[0]` as the pack's one
+# `reference_image`, and freezing deliberately put the committed portrait there because it
+# is the only reference that survives a container restart. So every model-bearing frame was
+# compared, whole, against a head-and-shoulders portrait -- and a portrait cannot answer for
+# bust, torso, waist or hips, so those came back `unmeasurable` however good the frame was.
+#
+# That is the same defect as a floor nothing can fail, seen from the other side, and
+# `reference_pack` had already written down the fix: *face and body are judged against
+# different references*. The pack's own torso frame is the authority for the body, and it is
+# durable -- `KEEP_REASON` put its bytes in Postgres precisely so they would survive.
+#
+# What must never happen here is the obvious convenience. `brief.approved_reference` returns
+# the committed *pre-revision* body frames, which are exactly the superseded pack the owner
+# said must never be eligible for automatic selection. If the revised body reference cannot
+# be recovered, this returns nothing and the morphology floor reads `unverifiable` -- an
+# honest "nobody could check" rather than a check made against the wrong woman.
+
+FACE_FRAME = "neutral_portrait"
+BODY_FRAME = "torso_fit_reference"          # authoritative for bust and torso
+FULL_LENGTH_FRAME = "full_length_standing"  # authoritative for stature, hips and limbs
+
+
+def frozen_package(db) -> dict | None:
+    """The pack build that actually became canonical, found by what the freeze recorded."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    wanted = ""
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == "model.frozen")
+                             .order_by(desc(AuditLog.id)).limit(5)):
+            version = ((row.detail or {}).get("freeze") or {}).get("pack_version")
+            if version:
+                wanted = str(version)
+                break
+    if not wanted:
+        return None
+    for row in candidates_on_file(db, limit=40):
+        if row["pack_version"] == wanted:
+            return row["_package"]
+    return None
+
+
+def _materialise(db, frame: dict) -> str:
+    """A path a vision call can actually open, for one of the pack's reference frames.
+
+    The render's own `/tmp` path is gone after a restart; the durable copy is not. So the
+    sha is what is trusted, and the store writes the recovered bytes back to disk before
+    returning them, which is what makes the result a real file again.
+    """
+    from pathlib import Path
+
+    from ..core import artifacts
+
+    sha = ((frame or {}).get("image") or {}).get("sha256") or ""
+    if not sha:
+        return ""
+    store = artifacts.ArtifactStore()
+    try:
+        store.get(sha, db=db)
+    except Exception:  # noqa: BLE001 - a reference that cannot be recovered is not one
+        return ""
+    path = Path(store.root) / sha[:2] / sha
+    return str(path) if path.is_file() else ""
+
+
+def reference_paths(db) -> dict:
+    """Which image answers for the face and which answers for the body.
+
+    Returns paths, never a verdict: a caller with no body reference is told so and reports
+    `unverifiable`, rather than being handed a portrait and a body question.
+    """
+    from . import brief
+
+    package = frozen_package(db)
+    frames = {f.get("frame"): f for f in (package or {}).get("reference_frames") or []}
+
+    face = _materialise(db, frames.get(FACE_FRAME)) or brief.approved_portrait()
+    body = _materialise(db, frames.get(BODY_FRAME))
+    full_length = _materialise(db, frames.get(FULL_LENGTH_FRAME))
+
+    return {
+        "face": face,
+        "body": body or full_length,
+        "body_frame": (BODY_FRAME if body else FULL_LENGTH_FRAME if full_length else ""),
+        "full_length": full_length,
+        "pack_version": (package or {}).get("pack_version"),
+        "why_the_face_is_separate": (
+            "a head-and-shoulders portrait cannot answer for bust, torso, waist or hips, "
+            "so comparing a whole frame against it returns `unmeasurable` for the body "
+            "however good the frame is. Face and body are judged against different "
+            "references, which is what the pack was built with two of them for"),
+        "why_no_fallback_to_the_committed_body_frames": (
+            "the committed body references are the pre-revision pack. Using them when the "
+            "revised reference cannot be recovered would enforce the superseded body the "
+            "owner replaced, so the morphology floor reads `unverifiable` instead"),
+    }

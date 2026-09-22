@@ -8,6 +8,7 @@ adjectives, and a generator asked whether it complied says yes.
 """
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -16,16 +17,22 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
+# Before the artifact store is imported: it reads its root once, and the body reference
+# these tests file has to be somewhere the test owns.
+_ART = tempfile.TemporaryDirectory(prefix="model-frame-artifacts-")
+os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = _ART.name
+
 from brambleloop.cir.compiler import compile_cir  # noqa: E402
 from brambleloop.cir.twin import build_twin  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.products.builder import for_slug  # noqa: E402
 from brambleloop.publish import model_photography as mp  # noqa: E402
-from brambleloop.visual import brief, identity, inspect as inspect_mod  # noqa: E402
+from brambleloop.visual import bible, brief, identity  # noqa: E402
+from brambleloop.visual import inspect as inspect_mod  # noqa: E402
 from brambleloop.visual import model_registry, photoreal  # noqa: E402
 
 
-def _db(*, frozen: bool = True) -> Database:
+def _db(*, frozen: bool = True, body_reference: bool = True) -> Database:
     db = Database("sqlite://")
     db.create_all()
     if frozen:
@@ -34,7 +41,31 @@ def _db(*, frozen: bool = True) -> Database:
             fields={f: f"{f} as described" for f in identity.IDENTITY_FIELDS},
             image_refs=[brief.approved_portrait()])
         model_registry.select_canonical(db, "brambleloop-canonical", owner_approved=True)
+    if body_reference:
+        _file_body_reference(db)
     return db
+
+
+def _file_body_reference(db, *, pack_version: str = "v-test") -> None:
+    """The frozen pack's own torso frame, kept where a restart cannot reach it.
+
+    The production path compares the body against this rather than against the portrait,
+    so a fixture without it is a fixture in which the morphology floor cannot pass -- which
+    is exactly what happened in production and is why these two rows exist here.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.visual import freeze, reference_pack, tournament
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as fh:
+        fh.write(b"\x89PNG\r\n\x1a\ntorso")
+        path = fh.name
+    frame = {"frame": freeze.BODY_FRAME, "image_ref": path,
+             "image": tournament._keep(path, db=db, why="a test body reference")}
+    Registry(db).audit("creative_director", reference_pack.PACK_ACTION,
+                       detail={"built": True, "pack_version": pack_version,
+                               "reference_frames": [frame]})
+    Registry(db).audit("creative_director", "model.frozen",
+                       detail={"freeze": {"pack_version": pack_version}})
 
 
 def _subject(slug: str = "cloudline-baby-blanket"):
@@ -94,6 +125,12 @@ def _realism(**overrides):
     return lambda image_ref, db=None: {"judged": True, "checks": checks, "notes": ""}
 
 
+def _styling(**overrides):
+    answers = {k: True for k in bible.QUESTIONS}
+    answers.update(overrides)
+    return lambda image_ref, db=None: {"judged": True, "answers": answers, "notes": ""}
+
+
 def _make(db, tmp: Path, *, slug="winter-cardigan", **kw):
     import dataclasses
 
@@ -104,7 +141,8 @@ def _make(db, tmp: Path, *, slug="winter-cardigan", **kw):
                      observer=kw.pop("observer", _observer()),
                      inspector=kw.pop("inspector", _inspector()),
                      motif_judger=kw.pop("motif_judger", _motif()),
-                     realism_judger=kw.pop("realism_judger", _realism()), **kw)
+                     realism_judger=kw.pop("realism_judger", _realism()),
+                     styling_judger=kw.pop("styling_judger", _styling()), **kw)
     return gen, record
 
 
@@ -121,8 +159,12 @@ def test_the_frame_is_conditioned_on_the_frozen_pack_rather_than_described():
 
     assert record["made"] is True
     assert len(gen.calls) == 1
-    assert gen.calls[0]["refs"] == [brief.approved_portrait()], gen.calls[0]["refs"]
+    # Two references, not one: the face frame and the pack's own body frame. A generator
+    # handed only a portrait has been asked for a body it was never shown.
+    assert gen.calls[0]["refs"][0] == brief.approved_portrait(), gen.calls[0]["refs"]
+    assert gen.calls[0]["refs"][1] == record["conditioned_on"]["body_reference_image"]
     assert record["conditioned_on"]["reference_image"] == brief.approved_portrait()
+    assert record["conditioned_on"]["body_reference_frame"] == "torso_fit_reference"
     assert record["conditioned_on"]["pack_version"] == 1
     # And her features are not smuggled into the prompt as adjectives instead.
     prompt = gen.calls[0]["prompt"]
@@ -223,7 +265,6 @@ def test_the_product_stays_the_hero_in_what_is_asked_for():
         gen, _ = _make(db, Path(tmp))
     prompt = gen.calls[0]["prompt"]
     assert brief.PRODUCT_IS_THE_HERO in prompt
-    assert "sharply in focus" in prompt
     assert "fit, scale and use" in prompt
     # And the photography standard is asked for, not only checked afterwards.
     assert photoreal.DIRECTION in prompt
@@ -354,15 +395,219 @@ def test_a_corrected_method_is_not_locked_out_by_the_old_ones_attempts():
         assert move["render"] is True and move["attempts"] == 0
 
 
-def test_the_frame_asks_for_a_body_the_morphology_floor_can_actually_read():
-    """A floor nothing can clear is the same defect as one nothing can fail."""
+def test_each_shot_asks_for_what_its_floor_has_to_read():
+    """A floor nothing can clear is the same defect as one nothing can fail.
+
+    The fit frame has to show a body the morphology check can measure; the detail frame
+    has to show fabric the motif check can count. Neither prompt can do both jobs, which
+    is why there are two of them.
+    """
+    cir, twin = _subject()
+    pack = model_registry.canonical_pack(_db())
+
+    fit = mp.prompt_for(cir, twin, pack, plan=mp.SHOT_PLAN)
+    for part in ("shoulders", "chest", "torso", "waist", "hips"):
+        assert part in fit, part
+
+    detail = mp.prompt_for(cir, twin, pack, plan=mp.DETAIL_PLAN)
+    assert "stitches" in detail and "repeat" in detail
+    assert "sharply in focus" in detail
+
+
+def test_styling_is_a_floor_of_its_own_and_the_right_woman_does_not_excuse_it():
+    """The gap #73 and #202 both named.
+
+    Every dimension the identity gate measures matches; the makeup is editorial, the light
+    is gelled and the dress has a print that fights the crochet. Before the character
+    bible, nothing in the release path could tell -- the frame was exactly the right woman,
+    so exactly the right woman shipped.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _make(_db(), Path(tmp), styling_judger=_styling(
+            makeup_is_daytime_natural=False, nothing_competes_with_the_product=False))
+    assert record["floors"]["face_identity"] == "pass"
+    assert record["floors"]["styling"] == "fail"
+    assert record["usable_as_listing_asset"] is False
+    assert sorted(record["styling"]["outside"]) == ["makeup", "wardrobe"]
+
+
+def test_unjudged_styling_is_not_a_pass_either():
+    def half_read(image_ref, db=None):
+        return {"judged": True, "notes": "",
+                "answers": {k: True for k in list(bible.QUESTIONS)[:3]}}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _make(_db(), Path(tmp), styling_judger=half_read)
+    assert record["floors"]["styling"] == "unverifiable"
+    assert record["usable_as_listing_asset"] is False
+
+
+def test_the_frame_is_asked_for_the_styling_it_will_be_checked_on():
+    """A prompt that asks for one thing and a gate that checks another is two standards."""
     cir, twin = _subject()
     db = _db()
     prompt = mp.prompt_for(cir, twin, model_registry.canonical_pack(db))
-    for part in ("shoulders", "chest", "torso", "waist", "hips"):
-        assert part in prompt, part
-    # And the fabric large enough for the motif judge to count a repeat in.
-    assert "stitches" in prompt and "repeat" in prompt
+    assert bible.direction() in prompt
+
+
+def test_the_body_is_compared_against_a_body_rather_than_against_a_portrait():
+    """The reason the morphology floor could not pass in production.
+
+    `select_canonical` takes one `reference_image`, and freezing put the committed portrait
+    there because it is the only reference that survives a container restart. Every frame
+    was then compared, whole, against a head-and-shoulders crop -- so bust, torso, waist
+    and hips came back `unmeasurable` however well the frame was shot. That is a floor
+    nothing can clear, which is the same defect as one nothing can fail.
+    """
+    asked: list[str] = []
+
+    def look(db, reference_ref, candidate_ref):
+        asked.append(reference_ref)
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        # A portrait genuinely cannot answer for the body, so the fixture does not let it.
+        if reference_ref == brief.approved_portrait():
+            for d in identity.MORPHOLOGY_DIMENSIONS:
+                out[d] = identity.UNMEASURABLE
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _make(_db(), Path(tmp), observer=look)
+
+    assert len(asked) == 2 and asked[0] == brief.approved_portrait()
+    assert asked[1] != asked[0], "the body was asked of the portrait again"
+    assert record["floors"]["face_identity"] == "pass"
+    assert record["floors"]["whole_person_morphology"] == "pass"
+
+
+def test_without_a_body_reference_the_morphology_floor_is_unverifiable_not_passed():
+    """And never falls back to the committed pre-revision body frames.
+
+    Those are the superseded pack the owner replaced. Comparing against them would enforce
+    the wrong body while reporting a pass, which is worse than reporting that nobody could
+    check -- the owner's rule is that the superseded pack is never eligible for automatic
+    selection, and a silent fallback is exactly automatic selection.
+    """
+    from brambleloop.visual import freeze
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db(body_reference=False)
+        _, record = _make(db, Path(tmp))
+
+    assert record["conditioned_on"]["body_reference_image"] == ""
+    assert record["floors"]["whole_person_morphology"] == "unverifiable"
+    assert record["usable_as_listing_asset"] is False
+    paths = freeze.reference_paths(db)
+    assert paths["body"] == ""
+    assert brief.approved_reference("torso_fit_reference") not in paths.values()
+
+
+def _sequence(db, tmp: Path, *, slug="winter-cardigan", **kw):
+    import dataclasses
+
+    cir, twin = _subject()
+    cir = dataclasses.replace(cir, slug=slug, title="Cardigan")
+    gen = _Generator(tmp)
+    record = mp.sequence(db, cir, twin, generator=gen,
+                         observer=kw.pop("observer", _observer()),
+                         inspector=kw.pop("inspector", _inspector()),
+                         motif_judger=kw.pop("motif_judger", _motif()),
+                         realism_judger=kw.pop("realism_judger", _realism()),
+                         styling_judger=kw.pop("styling_judger", _styling()), **kw)
+    return gen, record
+
+
+def test_the_sequence_is_two_frames_and_each_floor_is_taken_from_the_one_that_can_see_it():
+    """The finding the first correctly-framed live attempt produced.
+
+    A three-quarter frame of a woman in a crocheted hat showed the whole body and the
+    motif judge read its fabric as unmeasurable, saying exactly what it needed: a closer
+    frame. Pulling in far enough to count stitches loses the hips. The two floors are
+    questions about two photographs, so the sequence has two.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        gen, record = _sequence(_db(), Path(tmp))
+
+    assert record["shots"] == ["fit", "detail"]
+    assert len(gen.calls) == 2
+    assert gen.calls[0]["prompt"] != gen.calls[1]["prompt"]
+    assert record["floor_sources"]["whole_person_morphology"] == "fit"
+    assert record["floor_sources"]["product_truth"] == "detail"
+    assert record["floor_sources"]["photographic_realism"] == "every frame"
+    assert record["usable_as_listing_asset"] is True
+
+
+def test_a_detail_frame_that_cannot_see_the_hips_does_not_sink_the_body_floor():
+    """The authoritative frame decides what `unverifiable` means.
+
+    Letting any frame's `unmeasurable` drag a floor down makes the body floor unclearable
+    again by a different route -- a close crop of a sleeve was never going to answer for
+    stature, and treating that as a finding about the woman is the defect inverted.
+    """
+    def look(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        # The second frame rendered is the detail one, and it shows almost no body.
+        if candidate_ref.endswith("frame-1.png"):
+            for d in identity.MORPHOLOGY_DIMENSIONS:
+                out[d] = identity.UNMEASURABLE
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _sequence(_db(), Path(tmp), observer=look)
+
+    assert record["floors"]["whole_person_morphology"] == "pass"
+    assert record["usable_as_listing_asset"] is True
+
+
+def test_a_face_that_drifted_in_the_detail_frame_still_blocks():
+    """Being the wrong authority is not a licence. That frame ships too."""
+    def look(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if candidate_ref.endswith("frame-1.png"):
+            out["face"] = out["eyes"] = out["hair"] = identity.DRIFT
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _sequence(_db(), Path(tmp), observer=look)
+
+    assert record["floors"]["face_identity"] == "fail"
+    assert record["usable_as_listing_asset"] is False
+
+
+def test_a_shared_floor_takes_the_worst_answer_any_frame_gave():
+    """Either frame is a customer-facing asset on its own, so both have to be sound."""
+    seen: list[str] = []
+
+    def realism(image_ref, db=None):
+        seen.append(image_ref)
+        checks = {k: True for k in photoreal.CHECKS}
+        if image_ref.endswith("frame-1.png"):
+            checks["skin_looks_real"] = False
+        return {"judged": True, "checks": checks, "notes": ""}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _sequence(_db(), Path(tmp), realism_judger=realism)
+
+    assert len(seen) == 2, "a shared floor was only asked of one frame"
+    assert record["floors"]["photographic_realism"] == "fail"
+    assert record["usable_as_listing_asset"] is False
+
+
+def test_a_sequence_missing_a_frame_is_not_a_sequence():
+    """No reading at all is `unverifiable`, never a pass."""
+    assert mp._combine_floors([])["product_truth"] == "unverifiable"
+    fit_only = [{"shot": "fit", "floors": {f: "pass" for f in mp.FLOORS}}]
+    assert mp._combine_floors(fit_only)["product_truth"] == "unverifiable"
+    assert mp._combine_floors(fit_only)["whole_person_morphology"] == "pass"
+
+
+def test_nothing_in_the_sequence_is_averaged():
+    """Five of six floors is not five sixths of a pass."""
+    frames = [{"shot": "fit", "floors": {f: "pass" for f in mp.FLOORS}},
+              {"shot": "detail", "floors": {**{f: "pass" for f in mp.FLOORS},
+                                            "product_truth": "fail"}}]
+    floors = mp._combine_floors(frames)
+    assert floors["product_truth"] == "fail"
+    assert not all(v == "pass" for v in floors.values())
 
 if __name__ == "__main__":
     fails = 0
