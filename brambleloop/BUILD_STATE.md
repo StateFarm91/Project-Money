@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,919 tests passing, 0 failing**.
+  **2,920 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4894,6 +4894,36 @@ timings, written there by the system rather than by hand.
   gate that had opened while the requirement still could not be finished. The only thing
   left is the word "proven", which is a claim about sales. The live queue now reads
   honestly: one requirement ready and actionable, nothing ready that nobody can begin.
+- **2026-09-22T03:52:53Z — THE CANONICAL IDENTITY IS FROZEN.** The owner approved the
+  revised pack; `creative.model_freeze` promoted it in production and
+  `/api/model-identity` reports `canonical_selected: true`, version 1, `persisted: true`,
+  `gate_is_wired: true`. **All seven properties the owner asked for hold against the pack
+  read back out of the database** (`/api/model-identity/enforcement`, free to re-ask):
+  the revised pack loads with all fifteen fields and a reference image; facial identity is
+  enforced; morphology is enforced separately; bust and torso are hard; unmeasurable never
+  becomes pass; a face match cannot compensate for body drift; and a model-bearing
+  customer-facing frame is blocked while a product-only frame is `not_applicable` rather
+  than waved through.
+- **It froze v15, not the newest pack, and says so.** v16 had `bust: unmeasurable`;
+  freezing it would have written a chest with no stated value — a dimension that can never
+  drift again, which is the owner's own rule made permanent rather than broken. The freeze
+  refuses any pack with an unstated required dimension whatever the approval says, and
+  names the newer packs it skipped (B-616). Superseded packs and the five rejected
+  finalists remain evidence; nothing can promote them and `select_canonical` refuses a
+  second canonical outright.
+- **Two stale claims died with the freeze.** `owned_photography` refused every worn form
+  with "she is built but not approved" — false within minutes, and the test guarding it
+  asserted the same expired words. It now reads the real state (B-620). And #300 briefly
+  reported `complete: true` with its assets link merely `gated`: a GATED link does not stop
+  completeness, and I had mapped our own unbuilt render path to GATED. `EXTERNAL_WAITS` is
+  now a closed set with a failing default (B-621).
+- **#300 re-driven through the now-open dependency, against its own product.** The job ran
+  at 04:16:20Z, reached the assets step for `hats-hat-0` — the product its own chain
+  engineered, never another's — and the honest verdict is **complete: false, weakest link
+  `assets`**. What remains is a real, named gap and it is this build's work, not a
+  decision: **she is approved and enforced, and nothing yet conditions a frame on her
+  reference and sends the result through the identity gate.** That is the remaining content
+  of #72/#73.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

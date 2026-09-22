@@ -309,8 +309,8 @@ def test_the_makers_own_refusal_outranks_the_structural_guess():
     assert "never filed in the catalogue" not in assets["why"]
     assert assets["evidence"]["form"] == "hat"
 
-    # A refusal that names something to wait for is gated on it rather than failed, because
-    # those two have different fixes and only one of them is anybody's to do.
+    # A refusal naming something genuinely outside this build is gated on it, because that
+    # is somebody else's to grant and the cycle should not call it our failure.
     def waiting_maker(cir):
         return {"made": False, "slug": cir.slug,
                 "why": "the model provider's balance is spent",
@@ -325,6 +325,56 @@ def test_the_makers_own_refusal_outranks_the_structural_guess():
     step = next(s for s in held["steps"] if s["step"] == "assets")
     assert step["state"] == cycle.GATED
     assert step["gated_on"] == "model_provider_balance"
+
+
+def test_our_own_unfinished_work_fails_the_cycle_instead_of_gating_it():
+    """The defect this introduced and production showed within the hour.
+
+    A GATED link does not stop `complete`. So when the assets refusal started naming
+    `model_bearing_render_path` -- work nobody has written -- #300 reported
+    `complete: true` with `assets_state: gated` and no asset ever made, minutes after the
+    canonical identity was frozen. Calling our own unfinished work a gate is how a
+    launch-blocking acceptance test passes without doing the thing it tests.
+
+    Unrecognised waits fail rather than gate, so a refusal reason invented somewhere else
+    cannot buy itself a pass by naming something plausible.
+    """
+    from brambleloop.gateway import images
+
+    db = _wide_db()
+
+    def ours(cir):
+        return {"made": False, "slug": cir.slug, "form": "hat",
+                "why": "she is approved and frozen; the render path is not built",
+                "waiting_on": "model_bearing_render_path"}
+
+    was_usable = images.usable
+    images.usable = lambda _db: True
+    try:
+        out = cycle.run(db, today=TODAY, gateway=_WideGateway(), asset_maker=ours)
+    finally:
+        images.usable = was_usable
+
+    step = next(s for s in out["steps"] if s["step"] == "assets")
+    assert step["state"] == cycle.FAILED, step
+    assert step["gated_on"] == ""
+    assert out["complete"] is False, "an unbuilt render path let the cycle report complete"
+    assert out["weakest_link"] == "assets"
+    assert "model_bearing_render_path" not in cycle.EXTERNAL_WAITS
+
+    # An invented reason must not gate either.
+    def invented(cir):
+        return {"made": False, "slug": cir.slug, "why": "reasons",
+                "waiting_on": "something_plausible_sounding"}
+
+    images.usable = lambda _db: True
+    try:
+        made_up = cycle.run(db, today=TODAY, gateway=_WideGateway(), asset_maker=invented)
+    finally:
+        images.usable = was_usable
+    assert next(s for s in made_up["steps"]
+                if s["step"] == "assets")["state"] == cycle.FAILED
+    assert made_up["complete"] is False
 
 
 def test_the_verdict_is_the_weakest_link_rather_than_a_count_of_green_ticks():

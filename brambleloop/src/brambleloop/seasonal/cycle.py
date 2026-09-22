@@ -254,6 +254,7 @@ def run(db, *, today: date | None = None, gateway=None,
         assets.evidence = {"slug": cir.slug, "in_catalogue": in_catalogue,
                            "other_products_have_assets": bool(
                                owned_photography.last_asset(db))}
+        waiting = str(declined.get("waiting_on") or "") if declined else ""
         if declined and not declined.get("made"):
             # The maker ran and refused, and its reason outranks every guess below it.
             #
@@ -264,8 +265,21 @@ def run(db, *, today: date | None = None, gateway=None,
             # while the canonical identity is built and unapproved. Reporting a gate on
             # the owner's decision as a filing problem would send the next session after
             # the catalogue and leave the actual blocker unmentioned.
-            assets.state = FAILED if not declined.get("waiting_on") else GATED
-            assets.gated_on = declined.get("waiting_on", "")
+            # A wait is a gate only when the thing waited on is outside this build.
+            #
+            # This mapped any named `waiting_on` to GATED, and a GATED link does not stop
+            # `complete` -- so within minutes of the canonical identity being frozen, #300
+            # reported `complete: true` with `assets_state: gated` and no asset ever made.
+            # The refusal it was gating on was `model_bearing_render_path`, which is work
+            # nobody has done rather than a capability nobody has granted. Calling our own
+            # unfinished work a gate is how a launch-blocking acceptance test passes
+            # without doing the thing it tests.
+            #
+            # Unrecognised waits fail rather than gate, so a new refusal reason added
+            # somewhere else cannot quietly buy itself a pass.
+            external = waiting in EXTERNAL_WAITS
+            assets.state = GATED if external else FAILED
+            assets.gated_on = waiting if external else ""
             assets.evidence["form"] = declined.get("form") or owned_photography.form_of(cir)
             assets.why = declined.get("why", "the asset maker declined without a reason")
         elif in_catalogue:
@@ -350,6 +364,23 @@ def _launch_for(arena, slot, *, today: date):
              "FLAGSHIP": 90.0}.get(slot.make_lane, 20.0)
     return compile_launch(arena.event, today + timedelta(days=arena.days_away),
                           make_hours=hours, assumptions=DEFAULT)
+
+
+# Things a refusal may wait on that are genuinely outside this build, and are therefore
+# gates rather than unfinished work. A gated link does not stop the cycle reporting
+# complete, which is why membership here has to be earned: money nobody has added and
+# authority nobody has granted are gates; a render path nobody has written is not.
+#
+# Deliberately a closed set with a failing default. An unrecognised wait is treated as
+# unfinished work, so a refusal reason invented elsewhere cannot buy itself a pass by
+# naming something plausible.
+EXTERNAL_WAITS: frozenset[str] = frozenset({
+    "model_provider_balance",     # the provider's account is empty; only the owner adds to it
+    "canonical_model",            # the owner has not approved an identity
+    "ad_authority",               # no approved advertising budget
+    "image_generation",           # no image provider has demonstrated a render
+    "owned_photography_job",      # the daily job has not reached this product yet
+})
 
 
 def _verdict(steps: list[Step], today: date, arena, launch) -> dict:
