@@ -1300,6 +1300,64 @@ def api_model_pack() -> dict:
     }
 
 
+@app.post("/api/model-identity/freeze")
+def api_model_identity_freeze(authorization: str = Header(default="")) -> JSONResponse:
+    """Freeze the approved reference pack as the canonical identity. Authenticated (#200).
+
+    The owner approved the revised pack on 2026-09-22. This is the only path from measured
+    to canonical, it refuses a pack with an unstated required dimension whatever the
+    approval says, and it refuses a second canonical outright -- replacing her is a
+    redesign and a separate decision.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..visual import freeze as freeze_mod
+
+    try:
+        record = freeze_mod.freeze(db, owner_approved=True)
+    except freeze_mod.FreezeRefused as exc:
+        return JSONResponse({"frozen": False, "refused": str(exc)}, status_code=409)
+    return JSONResponse(record, status_code=200)
+
+
+@app.get("/api/model-identity/enforcement")
+def api_model_identity_enforcement() -> dict:
+    """The seven properties the owner asked to be proved after persistence (#200, #201).
+
+    Read-only and free: every check is deterministic given the persisted pack, so this can
+    be asked as often as anybody likes. It is run against the pack read back out of the
+    database rather than one held in memory, because the question is whether the identity
+    that survived persistence is the one being enforced.
+    """
+    from ..visual import freeze as freeze_mod
+
+    return freeze_mod.enforcement_proof(db)
+
+
+@app.get("/api/model-identity/freezable")
+def api_model_identity_freezable() -> dict:
+    """Which packs on file could be frozen, and why the others could not."""
+    from ..visual import freeze as freeze_mod
+
+    rows = freeze_mod.candidates_on_file(db)
+    chosen = freeze_mod.newest_freezable(db)
+    return {
+        "packs": [{k: v for k, v in r.items() if k != "_package"} for r in rows],
+        "would_freeze": chosen and {"pack_version": chosen["pack_version"],
+                                    "at": chosen["at"],
+                                    "skipped_newer": chosen["skipped_newer"]},
+        "why_not_simply_the_newest": (
+            "a newer build that could not state a required dimension is not a newer "
+            "identity, it is an unusable one: freezing it would write a floor with a hole "
+            "in it, and a dimension with no stated value can never drift again"),
+    }
+
+
 @app.get("/api/model-identity")
 def api_model_identity() -> dict:
     """The canonical model: what is selected, what is only a candidate, and what blocks.
