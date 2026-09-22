@@ -108,7 +108,7 @@ SEED_NOTES: tuple[str, ...] = (
 DEFAULT_CANDIDATES = brief.TARGET_CANDIDATES[0]
 
 
-def _keep(image_ref: str) -> dict:
+def _keep(image_ref: str, *, db=None, why: str = "") -> dict:
     """Put one render in the artifact store and return how to fetch it again.
 
     Renders land in a temporary directory on a host whose disk is replaced on every deploy,
@@ -120,6 +120,13 @@ def _keep(image_ref: str) -> dict:
     Digest-addressed, so the reference is the content and two identical renders cost one
     file. Durability is still the artifact store's problem rather than this module's: within
     a container's life the bytes are there, and `core.offsite` is what survives the host.
+
+    With `db` and `why`, the bytes are kept where a restart cannot reach them. A tournament
+    field does not need that -- it is evidence, and re-rendering it is cheap and expected.
+    The canonical model's reference pack does: it cannot be re-rendered, because
+    re-rendering produces a different woman, and on 2026-09-22 all eight images the owner
+    had been asked to approve were 404 within the hour of a redeploy, with only their
+    hashes left to say what had been measured.
     """
     from pathlib import Path
 
@@ -132,8 +139,10 @@ def _keep(image_ref: str) -> dict:
         return {"missing": image_ref}
     mime = ("image/jpeg" if path.suffix.lower() in (".jpg", ".jpeg") else
             "image/webp" if path.suffix.lower() == ".webp" else "image/png")
-    stored = ArtifactStore().put(f"tournament/{path.name}", path.read_bytes(), mime)
+    stored = ArtifactStore().put(f"tournament/{path.name}", path.read_bytes(), mime,
+                                 db=db, keep=why)
     return {"sha256": stored.sha256, "bytes": stored.bytes_len, "content_type": mime,
+            "durable": stored.durable,
             "url": f"/api/model-tournament/image/{stored.sha256}"}
 
 

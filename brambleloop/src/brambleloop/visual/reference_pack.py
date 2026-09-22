@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v13-the-retry-keeps-the-evidence-it-was-throwing-away"
+PACK_VERSION = "v14-the-images-the-owner-approves-survive-a-redeploy"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -60,6 +60,18 @@ STRESS_SCENES: tuple[tuple[str, str], ...] = tuple(
 # being spent entirely on clarity has nothing left for compliance. Each attempt is a render
 # and two judgements, about CA$0.26.
 TORSO_ATTEMPTS = 4
+
+# Why every image in this pack is kept where a container restart cannot reach it.
+#
+# The artifact store writes to a local directory and is honest that the bytes are
+# ephemeral, which is the right trade for a catalogue of regenerable PDFs. It is the wrong
+# trade for exactly this: the pack cannot be re-rendered, because re-rendering produces a
+# different woman, and the owner is asked to look at these specific images and approve
+# them. On 2026-09-22 all eight were 404 within the hour of a redeploy -- the measurements
+# survived in Postgres and the pictures they were about did not, which is a package that
+# proves something about images nobody can see.
+KEEP_REASON = ("the canonical model's reference pack: the owner approves these exact "
+               "images, and re-rendering produces a different woman")
 
 # How many scenes have to show a face that matches. More than one, because a single
 # agreeing frame is a coincidence with a verdict attached; not all of them, because a scene
@@ -174,7 +186,8 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
     carried = brief.approved_portrait()
     frames["neutral_portrait"] = {
         "frame": "neutral_portrait", "image_ref": carried,
-        "image": tournament._keep(carried), "provider": "carried",
+        "image": tournament._keep(carried, db=db, why=KEEP_REASON),
+        "provider": "carried",
         "source": ("carried unchanged from the approved reference pack, not re-rendered. "
                    "The revision changes one body dimension and must not put an approved "
                    "face at risk to do it")}
@@ -206,7 +219,8 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                     "spent_cad": round(spent, 4), "pack_version": PACK_VERSION}
         spent += float(render.get("cad") or 0.0)
         ref = render.get("image_ref") or ""
-        frames[key] = {"frame": key, "image_ref": ref, "image": tournament._keep(ref),
+        frames[key] = {"frame": key, "image_ref": ref,
+                       "image": tournament._keep(ref, db=db, why=KEEP_REASON),
                        "provider": render.get("provider") or provider}
         if key not in frames or not ref:
             return {"built": False, "stage": key, "why": "the render returned no image",
@@ -333,7 +347,7 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
             torso_revision = answer
             frames["torso_fit_reference"] = {
                 "frame": "torso_fit_reference", "image_ref": ref,
-                "image": tournament._keep(ref),
+                "image": tournament._keep(ref, db=db, why=KEEP_REASON),
                 "provider": render.get("provider") or provider, "attempts": torso_attempts}
             seen["torso_fit_reference"] = reading
     frames["torso_fit_reference"]["attempts"] = torso_attempts
@@ -391,7 +405,8 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
             scenes.append({"scene": key, "rendered": False, "why": str(exc)[:200]})
             continue
         scenes.append({
-            "scene": key, "rendered": True, "image_ref": ref, "image": tournament._keep(ref),
+            "scene": key, "rendered": True, "image_ref": ref,
+            "image": tournament._keep(ref, db=db, why=KEEP_REASON),
             "provider": render.get("provider") or provider,
             "verdict": verdict["verdict"],
             "face": verdict["face"].get("verdict"),

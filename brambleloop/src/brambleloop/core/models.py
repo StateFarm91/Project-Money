@@ -1149,3 +1149,34 @@ class ArtefactProvenance(Base):
 
     __table_args__ = (UniqueConstraint("artefact_class", "artefact_key",
                                        name="uq_artefact_provenance"),)
+
+
+class DurableArtifact(Base):
+    """The bytes of an artifact that must outlive a container restart.
+
+    The artifact store writes to a local directory, which is ephemeral on this platform,
+    and says so honestly: the hash is durable and the file is not. That is the right
+    trade-off for a catalogue of regenerable PDFs -- object storage is an owner action, the
+    store's own docstring names it, and putting every render in Postgres would be a
+    database growing without a bound.
+
+    It is the wrong trade-off for exactly one thing. The canonical model's reference pack
+    is a *brand identity*: it cannot be regenerated, because regenerating it produces a
+    different woman, and the owner is asked to look at those specific images and approve
+    them. On 2026-09-22 they were 404 within the hour -- eight images the owner had been
+    asked to approve, gone in a redeploy, with only their hashes left to prove what had
+    been measured.
+
+    So a caller may ask for bytes to be kept, and the few that do go here. Object storage
+    is still the right answer for the catalogue and is still an owner action; this is the
+    answer for the handful of files whose whole purpose is to be the same file tomorrow.
+    """
+
+    __tablename__ = "durable_artifacts"
+
+    sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    content_type: Mapped[str] = mapped_column(String(80), default="application/octet-stream")
+    bytes_len: Mapped[int] = mapped_column(Integer, default=0)
+    payload: Mapped[bytes] = mapped_column(LargeBinary)
+    why_kept: Mapped[str] = mapped_column(String(200), default="")
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

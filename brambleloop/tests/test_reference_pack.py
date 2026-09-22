@@ -654,6 +654,50 @@ def test_the_approval_question_reopens_while_a_ready_pack_is_waiting():
     assert len(open_rows) == 1, "a closed approval row was not reopened by the tick"
 
 
+def test_every_image_the_owner_is_asked_to_approve_survives_a_restart():
+    """They did not, and the owner was being asked to look at them anyway.
+
+    The artifact store writes to a local directory and is honest that the bytes are
+    ephemeral -- the right trade for a catalogue of regenerable PDFs. It is the wrong trade
+    for this pack, which cannot be re-rendered because re-rendering produces a different
+    woman. On 2026-09-22 all eight images were 404 within the hour of a redeploy: the
+    measurements survived in Postgres and the pictures they were about did not, which is a
+    package that proves something about images nobody can see.
+    """
+    import shutil
+    import tempfile
+
+    from brambleloop.core.artifacts import ArtifactStore
+
+    from brambleloop.core import artifacts
+
+    db = _db()
+    store_root = tempfile.mkdtemp()
+    was = artifacts.DEFAULT_DIR
+    artifacts.DEFAULT_DIR = store_root          # never the repo's own artifact directory
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            package = rp.build(db, work_dir=tmp, generator=_Generator(Path(tmp)),
+                               observer=lambda db_, ref: _seen(),
+                               comparer=_revision(), hair_comparer=_never_asked)
+
+        shown = ([f["image"] for f in package["reference_frames"]]
+                 + [s["image"] for s in package["scenes"] if s.get("image")])
+        assert len(shown) >= 8, len(shown)
+        for image in shown:
+            assert image.get("durable") is True, \
+                f"{image.get('sha256', '?')[:12]} is shown to the owner and is not kept"
+
+        # Lose the disk the way a redeploy does, and they are still there.
+        shutil.rmtree(store_root, ignore_errors=True)
+        store = ArtifactStore()
+        for image in shown:
+            assert store.get(image["sha256"], db=db), image["sha256"][:12]
+    finally:
+        artifacts.DEFAULT_DIR = was
+        shutil.rmtree(store_root, ignore_errors=True)
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 

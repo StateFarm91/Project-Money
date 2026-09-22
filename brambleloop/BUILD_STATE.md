@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,901 tests passing, 0 failing**.
+  **2,902 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4756,6 +4756,15 @@ timings, written there by the system rather than by hand.
   it does not produce, and `build.tick` *derives* the question from the waiting pack rather
   than relying on the build that raised it once -- the pack build does not run again once a
   pack is on file, so there had been nothing left to reopen it (B-607).
+- **And then the images evaporated.** All eight returned 404 within the hour of the next
+  redeploy: the artifact store writes bytes to a container directory and the hash to
+  Postgres, and is honest that the bytes are ephemeral. That is the right trade for a
+  catalogue of regenerable PDFs and the wrong one for a brand identity, which cannot be
+  re-rendered because re-rendering produces a different woman — so the owner was being
+  asked to visually approve a package whose measurements survived and whose pictures did
+  not. The reference pack's images are now kept in Postgres as well as on disk and restored
+  to disk on the first read after a restart; nothing else is, and object storage stays an
+  owner action for the catalogue (B-608). v14 rebuilds the pack with its images kept.
 - **Nothing is frozen and nothing is owner-approved.** `select_canonical` is the only thing
   that can freeze the identity and it refuses without the owner's explicit approval.
 - **The maturity ladder's first production reading**: of 222 requirements the registry

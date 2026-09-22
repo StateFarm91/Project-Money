@@ -1226,7 +1226,11 @@ def api_model_tournament_image(sha256: str) -> Response:
     if not sha256.isalnum() or len(sha256) != 64:
         return JSONResponse({"error": "not a digest"}, status_code=400)
     try:
-        payload = ArtifactStore().get(sha256)
+        # `db` so an image that was kept deliberately comes back after a restart. A
+        # tournament field is evidence and re-rendering it is expected; the canonical
+        # model's reference pack is not, and it was 404 within the hour of a redeploy
+        # while the owner was being asked to approve it.
+        payload = ArtifactStore().get(sha256, db=db)
     except ArtifactMissing as exc:
         # The hash is durable and the bytes are not, which the store says in its own words.
         return JSONResponse({"error": str(exc)}, status_code=404)
