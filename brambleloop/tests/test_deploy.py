@@ -567,11 +567,27 @@ def test_a_readiness_assessment_can_be_started_on_demand_and_is_idempotent_per_m
     """
     from datetime import datetime, timezone
 
-    # Retried across a minute boundary rather than asserted through one. The key is the
-    # minute, so a pair of calls that straddles :00 legitimately enqueues twice -- and a
-    # test that fails once an hour for a reason that is not a defect is a test people learn
-    # to re-run instead of read.
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Job
+
+    # Every test in this file shares one app and therefore one database, and four of them
+    # touch this endpoint. The retry below was written for the minute boundary and could
+    # not help with the real cause: an *earlier test* enqueues inside the same minute, so
+    # the first call here is already the duplicate and the property under test never gets
+    # a chance to be observed. Clearing this minute's row first makes the test measure the
+    # property -- two calls in one minute collapse to one -- rather than measuring which
+    # tests happened to run just before it.
+    def _clear_this_minute() -> None:
+        with app_main.db.session() as s:
+            for job in s.scalars(select(Job).where(Job.job_type == "launch.readiness")):
+                s.delete(job)
+
+    # Still retried across a minute boundary: the key is the minute, so a pair of calls
+    # straddling :00 legitimately enqueues twice, and a test that fails once an hour for a
+    # reason that is not a defect is one people learn to re-run instead of read.
     for _ in range(3):
+        _clear_this_minute()
         started = datetime.now(timezone.utc).minute
         with _client() as c:
             first = c.post("/api/launch-readiness").json()

@@ -51,10 +51,27 @@ def test_no_function_in_the_tournament_selects_a_canonical_model():
 
 
 def test_the_handler_presents_and_queues_the_owner_rather_than_choosing():
+    """The tournament handler may not promote anybody. Only the tournament handler.
+
+    Scoped to that one function rather than to everything between it and the next helper,
+    and matching a *call* rather than the name. The first version did neither, and both
+    cost it: the slice swept in the freeze handler that landed nearby on 2026-09-22, and
+    the bare-name match then tripped on that handler's docstring explaining that
+    `select_canonical` refuses a second canonical. A check that cannot tell a call from a
+    sentence about a call is the defect this repository keeps meeting, and a guard is not
+    exempt from it.
+    """
     source = (ROOT / "src/brambleloop/runtime/release.py").read_text()
     block = source[source.index('@handlers.register("creative.model_tournament")'):]
-    block = block[:block.index("def _brief_fingerprint")]
-    assert "select_canonical" not in block
+    # Just this handler: up to the next decorator or top-level def after it.
+    rest = block[block.index("\n", block.index("def handle_")):]
+    for boundary in ("\n@handlers.register(", "\ndef "):
+        if boundary in rest:
+            rest = rest[:rest.index(boundary)]
+    block = block[:block.index("\n", block.index("def handle_"))] + rest
+
+    assert "select_canonical(" not in block, "the tournament handler promotes a candidate"
+    assert "freeze(" not in block, "the tournament handler freezes an identity"
     assert "canonical_model_selection" in block          # it opens an owner action
     assert '"selected": None' in block
 

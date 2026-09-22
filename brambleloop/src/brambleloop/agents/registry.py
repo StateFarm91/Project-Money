@@ -75,7 +75,11 @@ DEFAULT_AGENTS: list[dict] = [
                             # (2026-09-21). It renders two reference frames and the
                             # controlled scenes and measures them; it cannot freeze an
                             # identity either.
-                            "creative.model_reference_pack"],
+                            "creative.model_reference_pack",
+                            # Freezing the pack the owner approved, and proving the gate
+                            # on it afterwards. Writes one row and spends nothing
+                            # (#200, #201; owner approval 2026-09-22).
+                            "creative.model_freeze"],
          # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
          # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
          # sum rather than at it, because a ceiling a normal week touches is a ceiling that

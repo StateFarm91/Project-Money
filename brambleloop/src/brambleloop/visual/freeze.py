@@ -38,6 +38,33 @@ from . import brief, identity
 UNREADABLE_BY_OBSERVATION: tuple[str, ...] = ("complexion", "representative_angles")
 
 
+# The owner's approval, recorded here rather than left in a conversation.
+#
+# Same reason `brief.py` holds the aesthetic direction as code: an approval that exists
+# only in a chat log is one whoever writes the next prompt paraphrases differently, and
+# this one authorises a permanent identity. It is also what lets the freeze run as a
+# worker job instead of an authenticated call -- the operator token is a secret this
+# repository must never hold, and the decision is not a secret.
+#
+# `scope` is deliberately narrow and quotes the owner. Approving an identity is not
+# approving a launch, and the next session must not be able to read this as one.
+OWNER_APPROVAL: dict = {
+    "at": "2026-09-22",
+    "decision": "approve and freeze the revised canonical Brambleloop model reference pack",
+    "includes": ("the revised torso/full-length morphology and bust/chest proportion"),
+    "superseded": ("the pre-revision body pack and the rejected tournament finalists "
+                   "remain historical evidence and are never eligible for automatic "
+                   "selection"),
+    "does_not_authorise": ("Etsy publication, advertising, customer communication or any "
+                           "other live launch action. Shadow Mode stands"),
+}
+
+
+def approved() -> dict:
+    """The recorded owner approval. Empty means nothing has been approved."""
+    return dict(OWNER_APPROVAL) if OWNER_APPROVAL.get("at") else {}
+
+
 class FreezeRefused(ValueError):
     """A freeze that would write an identity with a hole in it, or one nobody approved."""
 
@@ -151,10 +178,15 @@ def freeze(db, *, owner_approved: bool, key: str = "brambleloop-canonical",
                "at": "supplied by the caller", "skipped_newer": []}
               if package is not None else newest_freezable(db))
     if chosen is None:
+        # Name every rejection. "Nothing can be frozen" is true and unactionable; the
+        # useful sentence says which build fell short of what, because the fix is a
+        # re-render of a specific frame rather than a general worry.
+        rejected = "; ".join(
+            f"{r['pack_version']}: {', '.join(r['missing']) or r['why_not'][:60]}"
+            for r in candidates_on_file(db)) or "no pack build is on file at all"
         raise FreezeRefused(
-            "no pack on file can be frozen. Every build either did not finish or could "
-            "not state a required dimension, and a pack with a hole in it would freeze a "
-            "floor that can never fail")
+            f"no pack on file can be frozen. A pack with a hole in it would freeze a "
+            f"floor that can never fail, so each of these was declined -- {rejected}")
     verdict = freezable(chosen["package"])
     if not verdict["freezable"]:
         raise FreezeRefused(verdict["why"])
@@ -170,10 +202,10 @@ def freeze(db, *, owner_approved: bool, key: str = "brambleloop-canonical",
     refs += [sha for sha in ((f.get("image") or {}).get("sha256")
                              for f in chosen["package"].get("reference_frames") or [])
              if sha]
+    record = approved()
     note = (f"frozen from {chosen['pack_version']} on the owner's approval of "
-            f"2026-09-22, including the revised torso/full-length morphology and "
-            f"bust/chest proportion. Superseded packs and the rejected tournament "
-            f"finalists remain evidence and are not eligible for selection")
+            f"{record.get('at', 'an unrecorded date')}, including "
+            f"{record.get('includes', '')}. {record.get('superseded', '')}")
 
     model_registry.record_candidate(db, key, fields=fields,
                                     image_refs=[r for r in refs if r], note=note)

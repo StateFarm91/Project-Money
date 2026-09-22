@@ -2839,6 +2839,50 @@ def _refresh_canonical_model_action(db, package: dict) -> None:
             blocks="all model-led listing imagery and the creative parity gate"))
 
 
+@handlers.register("creative.model_freeze")
+def handle_model_freeze(ctx: JobContext) -> dict:
+    """Freeze the approved reference pack, then prove the identity gate on it (#200, #201).
+
+    A job rather than an authenticated endpoint, because the operator token is a secret
+    this repository must never hold and the owner's decision is not a secret: it is
+    recorded in `freeze.OWNER_APPROVAL` for the same reason `brief.py` holds the aesthetic
+    direction as code. An approval living only in a chat log is one the next prompt
+    paraphrases.
+
+    Naturally idempotent. `select_canonical` refuses a second canonical outright, so a
+    re-run reports the identity that exists rather than replacing her -- replacing her is
+    a redesign and a separate owner decision.
+
+    GREEN: it writes one row and runs deterministic checks. No model call, no render, no
+    spend, nothing published.
+    """
+    from ..visual import freeze as freeze_mod
+
+    record = freeze_mod.approved()
+    if not record:
+        return {"ran": False, "reason": ("no owner approval is recorded, and freezing an "
+                                         "identity nobody chose is the one thing this "
+                                         "path exists to prevent")}
+    try:
+        outcome = freeze_mod.freeze(ctx.db, owner_approved=True)
+    except freeze_mod.FreezeRefused as exc:
+        # A refusal is the correct outcome when no pack can state every dimension, and it
+        # is recorded rather than raised: the job did its job by declining.
+        ctx.audit("model.freeze_refused", detail={"why": str(exc)[:400]})
+        return {"ran": True, "frozen": False, "refused": str(exc)[:300]}
+
+    proof = freeze_mod.enforcement_proof(ctx.db)
+    ctx.audit("model.frozen", detail={"freeze": outcome, "enforcement": proof,
+                                      "approval": record})
+    return {"ran": True, "frozen": outcome.get("frozen"),
+            "already_canonical": outcome.get("already_canonical", False),
+            "pack_version": outcome.get("pack_version"),
+            "skipped_newer": [s.get("pack_version")
+                              for s in outcome.get("skipped_newer", [])],
+            "enforcement_proved": proof.get("proved"),
+            "enforcement_failed": proof.get("failed", [])}
+
+
 @handlers.register("creative.model_reference_pack")
 def handle_model_reference_pack(ctx: JobContext) -> dict:
     """Build the reference pack from the owner's candidate and stop before freezing it.

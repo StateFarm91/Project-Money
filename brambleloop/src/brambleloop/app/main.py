@@ -190,6 +190,25 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "model_reference_pack", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # And freeze the pack the owner approved, once. Enqueued whenever an approval is
+    # recorded and no canonical identity exists yet: the handler refuses a second
+    # canonical outright, so this is safe to re-ask on every deploy and does nothing the
+    # moment she is frozen. A job rather than an authenticated call, because the operator
+    # token is a secret this repository must never hold and the owner's decision is not
+    # one (#200).
+    try:
+        from ..visual import freeze as _freeze
+        from ..visual import model_registry as _registry
+
+        _wanted = bool(_freeze.approved()) and _registry.canonical_pack(db) is None
+        _boot_enqueue("model_freeze", when=_wanted, agent="creative_director",
+                      job_type="creative.model_freeze",
+                      key=f"boot-freeze-{_freeze.approved().get('at', 'none')}",
+                      inputs={"approved_at": _freeze.approved().get("at", "")})
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "model_freeze", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     # And one owned product image per certified release. Idempotent by product and version
     # inside the handler, so a deploy re-attempts a render that failed and does nothing at
     # all once a release has its picture.

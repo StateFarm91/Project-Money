@@ -196,6 +196,59 @@ def test_the_proof_can_fail_and_is_not_a_row_of_yeses():
     assert "the_revised_pack_is_what_loads" in proof["failed"]
 
 
+def test_the_freeze_job_records_the_approval_and_refuses_to_replace_her():
+    """It runs as a job on a recorded approval rather than on an operator token, and a
+    re-run reports the identity that exists rather than writing a second one."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.release import JobContext, handle_model_freeze
+
+    db = _db()
+    Registry(db).seed_defaults()
+    _file(db, _package(version="v15"))
+    queue = JobQueue(db)
+    ctx = JobContext(job=queue.enqueue("creative_director", "creative.model_freeze", {}),
+                     db=db, queue=queue, registry=Registry(db), phase=None)
+
+    first = handle_model_freeze(ctx)
+    assert first["frozen"] is True
+    assert first["pack_version"] == "v15"
+    assert first["enforcement_proved"] is True, first["enforcement_failed"]
+
+    second = handle_model_freeze(ctx)
+    assert second["frozen"] is False and second["already_canonical"] is True
+
+
+def test_the_freeze_job_declines_rather_than_raising_when_no_pack_can_be_frozen():
+    """A refusal is the correct outcome, not an error: the job did its job by declining,
+    and a dead letter would make a correct refusal look like a broken worker."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.release import JobContext, handle_model_freeze
+
+    db = _db()
+    Registry(db).seed_defaults()
+    _file(db, _package(version="v16", unpinned=("bust",)))
+    queue = JobQueue(db)
+    ctx = JobContext(job=queue.enqueue("creative_director", "creative.model_freeze", {}),
+                     db=db, queue=queue, registry=Registry(db), phase=None)
+
+    out = handle_model_freeze(ctx)
+    assert out["ran"] is True and out["frozen"] is False
+    assert "bust_proportions" in out["refused"]
+    assert model_registry.canonical_pack(db) is None
+
+
+def test_the_recorded_approval_authorises_the_identity_and_nothing_else():
+    """The next session must not be able to read an identity approval as a launch one."""
+    record = freeze.approved()
+    assert record["at"] == "2026-09-22"
+    for refused in ("Etsy publication", "advertising", "customer communication"):
+        assert refused in record["does_not_authorise"]
+    assert "Shadow Mode stands" in record["does_not_authorise"]
+    assert "never eligible for automatic selection" in record["superseded"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
