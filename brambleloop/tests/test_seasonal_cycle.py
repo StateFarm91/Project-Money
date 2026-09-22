@@ -327,6 +327,58 @@ def test_the_makers_own_refusal_outranks_the_structural_guess():
     assert step["gated_on"] == "model_provider_balance"
 
 
+def test_a_model_frames_floors_are_reported_as_themselves():
+    """Four findings were being collapsed into the name of a fifth.
+
+    A model-bearing record carries five named floors rather than the single `verdict` the
+    product-first path produces, so it fell through to the branch phrased for that path
+    and the report said "did not clear the asset-truth gate" when what had failed was
+    photographic realism, with product truth and morphology unreadable beside it. Each
+    floor is its own finding with its own fix: a failure needs a different render and an
+    unverifiable needs a frame that shows the thing.
+    """
+    from brambleloop.gateway import images
+
+    db = _wide_db()
+
+    def model_frame(cir):
+        from brambleloop.core.models import AuditLog
+        from brambleloop.publish import model_photography
+
+        detail = {"made": True, "slug": cir.slug, "form": "hat",
+                  "method_version": model_photography.METHOD_VERSION,
+                  "carries_model": True,
+                  "conditioned_on": {"pack_version": 1},
+                  "image": {"url": "/api/model-tournament/image/abc"},
+                  "floors": {"face_identity": "pass",
+                             "whole_person_morphology": "unverifiable",
+                             "product_truth": "unverifiable",
+                             "photographic_realism": "fail",
+                             "asset_truth": "pass"},
+                  "usable_as_listing_asset": False}
+        with db.session() as s:
+            s.add(AuditLog(actor="publishing", action=model_photography.ACTION,
+                           detail=detail))
+        return detail
+
+    was = images.usable
+    images.usable = lambda _db: True
+    try:
+        out = cycle.run(db, today=TODAY, gateway=_WideGateway(), asset_maker=model_frame)
+    finally:
+        images.usable = was
+
+    step = next(s for s in out["steps"] if s["step"] == "assets")
+    assert step["state"] == cycle.FAILED
+    assert step["evidence"]["floors"]["photographic_realism"] == "fail"
+    assert step["evidence"]["carries_model"] is True
+    assert step["evidence"]["conditioned_on"] == {"pack_version": 1}
+    assert "photographic_realism fail" in step["why"]
+    assert "whole_person_morphology unverifiable" in step["why"]
+    assert "asset-truth gate" not in step["why"], "four findings collapsed into a fifth"
+    assert out["complete"] is False
+
+
 def test_our_own_unfinished_work_fails_the_cycle_instead_of_gating_it():
     """The defect this introduced and production showed within the hour.
 

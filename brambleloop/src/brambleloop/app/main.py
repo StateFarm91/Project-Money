@@ -1338,6 +1338,37 @@ def api_model_pack() -> dict:
     }
 
 
+@app.get("/api/model-asset")
+def api_model_asset(slug: str = "") -> dict:
+    """The most recent model-bearing listing frame, and what every floor said about it.
+
+    Read-only and free. The record is what the job produced, not a fresh opinion about the
+    same picture: five independent floors, the reference it was conditioned on, and the
+    identity comparison made by a model that never saw the prompt.
+    """
+    from ..publish import model_photography
+    from ..visual import model_registry
+
+    record = model_photography.last_asset(db, slug=slug)
+    pack = model_registry.canonical_pack(db)
+    if record is None:
+        return {"asset": None, "canonical_version": pack.version if pack else None,
+                "why": ("no model-bearing frame has been made yet. "
+                        "`assets.model_photography` runs daily and makes one per release "
+                        "for the forms a buyer cannot judge without a body")}
+    return {
+        "asset": {k: record.get(k) for k in (
+            "slug", "version", "form", "method_version", "provider", "image",
+            "conditioned_on", "floors", "usable_as_listing_asset", "why",
+            "disclosed_as_illustration", "disclosure", "spent_cad")},
+        "identity": record.get("identity"),
+        "motif": record.get("motif"),
+        "photographic_realism": record.get("photographic_realism"),
+        "canonical_version": pack.version if pack else None,
+        "floors_never_average": record.get("floors_never_average"),
+    }
+
+
 @app.post("/api/model-identity/freeze")
 def api_model_identity_freeze(authorization: str = Header(default="")) -> JSONResponse:
     """Freeze the approved reference pack as the canonical identity. Authenticated (#200).

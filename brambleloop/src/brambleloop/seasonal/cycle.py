@@ -309,6 +309,31 @@ def run(db, *, today: date | None = None, gateway=None,
                           f"gated because a gate that cannot open is not a gate, and "
                           f"because the previous behaviour -- handing in whichever "
                           f"product was photographed last -- made this look complete")
+    elif owned.get("floors") is not None:
+        # A model-bearing record. It carries five named floors rather than the single
+        # `verdict` the product-first path produces, and routing it through the branches
+        # below made the report say "did not clear the asset-truth gate" when what had
+        # actually failed was photographic realism, with product truth and morphology
+        # unreadable beside it. Four findings collapsed into the name of a fifth.
+        floors = dict(owned["floors"])
+        short = sorted(k for k, v in floors.items() if v != "pass")
+        assets.evidence = {
+            "slug": owned.get("slug"), "form": owned.get("form"),
+            "image": (owned.get("image") or {}).get("url"),
+            "floors": floors,
+            "conditioned_on": owned.get("conditioned_on"),
+            "carries_model": True,
+            "charts_and_schematics": "rendered deterministically from the certified CIR"}
+        if owned.get("usable_as_listing_asset"):
+            assets.state = RAN
+        else:
+            assets.state = FAILED
+            assets.gated_on = ""
+            assets.why = (
+                f"the model-bearing frame did not clear every floor: "
+                f"{', '.join(f'{k} {floors[k]}' for k in short)}. Each of these is its own "
+                f"finding with its own fix -- a failure needs a different render and an "
+                f"unverifiable needs a frame that shows the thing")
     elif owned.get("verdict") == "clear" and not owned.get("motif_verified"):
         # Rendered, every asset-truth check passed, and the fabric is not the pattern's
         # fabric -- or could not be seen well enough to tell. Both block a customer-facing
