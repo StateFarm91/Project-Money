@@ -2774,10 +2774,30 @@ NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE: frozenset[str] = frozenset({
 
 def _reconcile_canonical_model_action(db) -> None:
     """Keep the approval question open for as long as an unapproved pack is waiting."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
     from ..visual import model_registry
 
-    if model_registry.canonical_pack(db) is not None:
-        return                                  # the owner has approved; nothing to ask
+    pack = model_registry.canonical_pack(db)
+    if pack is not None:
+        # Approved and frozen, so the question is answered -- and answering it has to
+        # close the row, not merely stop reopening it. Returning early left the owner
+        # being asked to approve an identity they had already approved, which is the
+        # standing instruction this queue breaks most easily: do not ask me to repeat an
+        # action already completed. A condition that stops being true has to take its
+        # question with it.
+        with db.session() as s:
+            row = s.scalar(select(OwnerAction).where(
+                OwnerAction.requirement_key == "canonical_model_approval",
+                OwnerAction.done == False))  # noqa: E712
+            if row is not None:
+                row.done = True
+                row.reason = (f"Approved and frozen as canonical pack version "
+                              f"{pack.version} at {pack.approved_by_owner_at}. Closed "
+                              f"because the decision was made, not because the question "
+                              f"expired.")
+        return
     package = _pack_on_file(db)
     if package and package.get("approval_conditions"):
         _refresh_canonical_model_action(db, package)

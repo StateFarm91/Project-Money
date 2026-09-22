@@ -653,6 +653,22 @@ def test_the_approval_question_reopens_while_a_ready_pack_is_waiting():
             OwnerAction.done == False)))  # noqa: E712
     assert len(open_rows) == 1, "a closed approval row was not reopened by the tick"
 
+    # And once she is frozen the question is answered, so the row closes rather than
+    # merely stopping being reopened. Leaving it open asks the owner to approve an
+    # identity they have already approved.
+    from brambleloop.visual import freeze as freeze_mod
+
+    freeze_mod.freeze(db, owner_approved=True, package=package)
+    release._reconcile_canonical_model_action(db)
+    with db.session() as s:
+        still_open = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval",
+            OwnerAction.done == False)))  # noqa: E712
+        closed = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == "canonical_model_approval")))
+    assert not still_open, "the owner is still being asked to approve a frozen identity"
+    assert "Approved and frozen" in closed[-1].reason
+
 
 def test_every_image_the_owner_is_asked_to_approve_survives_a_restart():
     """They did not, and the owner was being asked to look at them anyway.
