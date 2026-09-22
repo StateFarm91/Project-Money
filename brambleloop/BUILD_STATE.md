@@ -5086,10 +5086,14 @@ is unproven rather than unreachable.
   the gate (C).
 - **#73 — the character bible is built and enforced**, and the pack now carries every part
   the requirement names.
-- **#75 — all eight checks exist and are wired in front of export.** COMPETITIVE reads
-  `unjudged`, which blocks, because no per-listing imagery comparison against the benchmark
-  has been made: gallery-level vision analysis is absent on all 438 observed MJs listings.
-  That is a real gap, not a formality.
+- **#75 — all eight checks exist and are wired in front of export, and the one missing
+  piece of evidence is draining on its own.** COMPETITIVE reads `unjudged`, which blocks,
+  because no per-listing imagery comparison against the benchmark has been made. But the
+  backlog is moving rather than stuck: the two-hourly `intel.gallery_analysis` cadence
+  judged 25 images at 08:09Z with zero failures for CA$0.71, leaving 475 — about 19 runs,
+  roughly 38 hours and CA$13 to empty, inside the purpose's declared share of the month
+  and needing nothing from anybody. A real gap with a date on it, not a formality and not
+  a blocker.
 - **#300 — product-bound and honest.** The chain reaches its assets step for `hats-hat-0`,
   the product its own cycle engineered, and reports `complete: false, weakest link assets`
   with the exact floors that fell short. It closes when the sequence clears every floor.
