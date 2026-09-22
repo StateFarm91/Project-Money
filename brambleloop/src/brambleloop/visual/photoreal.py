@@ -159,10 +159,18 @@ def gate(reading: dict) -> dict:
 # thing asked for and the thing checked cannot drift apart into two different standards.
 DIRECTION = (
     "Photographed as real photography, not as a render: natural window light with one "
-    "coherent shadow direction, ordinary skin texture with visible pores and no beauty "
-    "retouching, believable hair with stray strands, real yarn with visible twist and "
-    "fuzz, fabric that falls under its own weight, an ordinary relaxed pose, and a little "
-    "honest imperfection -- a crease, a stray fibre, an unstyled corner. No text, "
-    "watermarks or logos anywhere. Avoid catalogue perfection, heavy background blur and "
-    "glossy retouching."
+    "coherent shadow direction, believable hair with stray strands, real yarn with "
+    "visible twist and fuzz, fabric that falls under its own weight, an ordinary relaxed "
+    "pose, and a little honest imperfection -- a crease, a stray fibre, an unstyled "
+    "corner. No text, watermarks or logos anywhere. Avoid catalogue perfection, heavy "
+    "background blur and glossy retouching. "
+    # Named at this length because the first live frame failed on exactly these three and
+    # the judge said why: "overly smooth, poreless, airbrushed... the overall symmetry and
+    # evenness of features reads as retouched rather than photographed". A general request
+    # for realism did not reach it; the specific defect has to be named to be avoided.
+    "Her skin is unretouched and photographed as it is: visible pores and fine texture, "
+    "uneven natural tone, faint shine where light falls, and ordinary asymmetry between "
+    "the two sides of the face. No skin smoothing, no blemish removal, no eye or teeth "
+    "brightening, no softening filter. It should look like an unedited raw frame from a "
+    "real camera rather than a finished beauty image."
 )

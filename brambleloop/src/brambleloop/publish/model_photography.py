@@ -61,10 +61,28 @@ def prompt_for(cir, twin, pack, *, occasion: str = "") -> str:
         f"{', '.join(cir.colors)}. "
         f"She is the same woman as the reference image: same face, same hair, same "
         f"colouring, same build and proportions. "
-        f"{brief.PRODUCT_IS_THE_HERO} The crochet is sharply in focus and occupies the "
-        f"frame; she is present to show fit, scale and use. "
+        f"{SHOT_PLAN} "
+        f"{brief.PRODUCT_IS_THE_HERO} She is present to show fit, scale and use. "
         f"{photoreal.DIRECTION}"
     )
+
+
+# What the frame has to *show*, as opposed to what it has to contain.
+#
+# The first live model frame came back with three of its five floors `unverifiable`: a
+# head-and-shoulders crop of a woman in a hat cannot evidence bust or torso, and fabric
+# that small cannot be compared against a stitch chart. Those are honest readings and the
+# right answer is not to relax the floors -- the owner's rule is that unmeasurable is
+# never a pass -- but to render a frame that can actually satisfy them. A three-quarter
+# shot showing the product and the upper body is an ordinary listing photograph and it is
+# checkable; a tight crop is neither.
+SHOT_PLAN = (
+    "Framed three-quarter length, from above the head to below the hips, standing "
+    "squarely and evenly lit, so that her shoulders, chest, torso, waist and hips are all "
+    "clearly visible and nothing obscures them. The crochet is large in the frame and "
+    "sharply in focus, close enough that individual stitches and the repeat of the "
+    "pattern can be counted."
+)
 
 
 def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
