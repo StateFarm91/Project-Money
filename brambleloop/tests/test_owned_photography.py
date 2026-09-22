@@ -169,13 +169,23 @@ def test_the_prompt_states_the_patterns_own_motif():
     assert "9-stitch repeat" in op.prompt_for(cir, twin)
 
 
-def test_a_product_whose_listing_needs_the_model_is_refused_rather_than_shot_without_her():
-    """The canonical model is built and unapproved, so a model-bearing frame is blocked.
+def test_a_product_whose_listing_needs_the_model_is_refused_for_the_true_reason():
+    """A worn form is refused, and the refusal has to say which of two things is missing.
 
-    A product-first form does not wait on her -- #204 says a clean product-only hero
-    outsells a modelled one for exactly these forms -- and a garment does.
+    It used to return one hardcoded sentence -- "she is built but not approved" -- and on
+    2026-09-22 that became false while still being returned: the owner approved and froze
+    the canonical identity, and a garment went on being refused for a reason that had
+    expired. A refusal that states a condition instead of reading it is the same defect as
+    a gate reading configuration rather than demonstrated capability, and worse in a
+    message, because the message is what the next session believes.
+
+    A product-first form waits on neither -- #204 says a clean product-only hero outsells
+    a modelled one for exactly these forms.
     """
     import dataclasses
+    import tempfile
+
+    from brambleloop.visual import freeze, identity, model_registry
 
     cir, twin = _subject()
     # The same certified object under a garment's slug: the form is what decides, and a
@@ -184,13 +194,30 @@ def test_a_product_whose_listing_needs_the_model_is_refused_rather_than_shot_wit
     assert op.needs_no_model(cir) is True
     assert op.needs_no_model(garment) is False
 
-    import tempfile
-
+    # No canonical identity: blocked on the owner's decision.
+    db = _db()
     with tempfile.TemporaryDirectory() as tmp:
-        record = op.make(_db(), garment, twin, generator=_generator(Path(tmp)),
+        record = op.make(db, garment, twin, generator=_generator(Path(tmp)),
                          inspector=_inspector())
     assert record["made"] is False
-    assert "not approved" in record["why"]
+    assert record["waiting_on"] == "canonical_model"
+    assert "no canonical identity has been approved" in record["why"]
+
+    # Frozen: she exists and is enforced, so what is missing is the render path -- which
+    # is this build's work rather than a decision, and the message must say so.
+    model_registry.record_candidate(
+        db, "brambleloop-canonical",
+        fields={f: "described" for f in identity.IDENTITY_FIELDS},
+        image_refs=[freeze.brief.approved_portrait()])
+    model_registry.select_canonical(db, "brambleloop-canonical", owner_approved=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        after = op.make(db, garment, twin, generator=_generator(Path(tmp)),
+                        inspector=_inspector())
+    assert after["made"] is False
+    assert after["waiting_on"] == "model_bearing_render_path"
+    assert "approved and frozen" in after["why"]
+    assert "not approved" not in after["why"], "the expired reason came back"
 
 
 def test_the_provider_is_named_rather_than_left_to_a_variable_nobody_set():

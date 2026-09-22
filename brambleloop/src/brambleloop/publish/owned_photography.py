@@ -57,11 +57,46 @@ def form_of(cir) -> str:
 def needs_no_model(cir) -> bool:
     """Whether this product can be photographed without the canonical model.
 
-    The distinction matters right now: the canonical identity is built and unapproved, so
-    every model-bearing frame is blocked. A blanket does not care -- and #204 says a clean
-    product-only hero outsells a modelled one for exactly these forms anyway.
+    A property of the *form*, not of the model's approval state: a blanket is shot flat
+    whatever the identity register says, and #204 is that a clean product-only hero
+    outsells a modelled one for exactly these forms anyway.
     """
     return form_of(cir) in PRODUCT_FIRST_FORMS
+
+
+def model_bearing_refusal(db, cir) -> dict:
+    """Why a worn form cannot be photographed yet, read rather than remembered.
+
+    This used to be one hardcoded sentence -- "she is built but not approved" -- and on
+    2026-09-22 that sentence became false while still being returned: the owner approved
+    and froze the canonical identity, and a hat went on being refused for a reason that
+    had expired. A refusal that states a condition rather than reading it is the same
+    defect as a gate reading configuration instead of demonstrated capability, and it is
+    worse in a message, because the message is what the next session believes.
+
+    Two genuinely different states now, and they have different fixes:
+
+      no canonical identity -- a model-bearing frame is blocked rather than faked, and
+      that is the owner's decision to make;
+      an approved identity and no model-bearing render path -- she exists, she is
+      enforced, and nothing yet builds a frame with her in it. That is this build's work,
+      not a decision.
+    """
+    from ..visual import model_registry
+
+    pack = model_registry.canonical_pack(db)
+    form = form_of(cir)
+    if pack is None:
+        return {"waiting_on": "canonical_model",
+                "why": (f"{form!r} is a form whose listing needs the canonical model, and "
+                        f"no canonical identity has been approved. A model-bearing frame "
+                        f"is blocked rather than faked")}
+    return {"waiting_on": "model_bearing_render_path",
+            "why": (f"{form!r} needs the canonical model, and she is approved and frozen "
+                    f"at pack version {pack.version} -- what is missing is the render "
+                    f"path: nothing here yet conditions a frame on her reference and "
+                    f"sends the result through the identity gate. That is buildable work "
+                    f"rather than a decision, and #72/#73 is where it belongs")}
 
 
 def claim_for(cir, twin) -> dict:
@@ -135,10 +170,9 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
                 "waiting_on": "model_provider_balance"}
 
     if not needs_no_model(cir):
-        return {"made": False, "slug": cir.slug,
-                "why": (f"{form_of(cir)!r} is a form whose listing needs the canonical "
-                        f"model, and she is built but not approved. A model-bearing frame "
-                        f"is blocked rather than faked")}
+        refusal = model_bearing_refusal(db, cir)
+        return {"made": False, "slug": cir.slug, "form": form_of(cir),
+                "waiting_on": refusal["waiting_on"], "why": refusal["why"]}
 
     prompt = prompt_for(cir, twin, occasion=occasion)
     claim = claim_for(cir, twin)
