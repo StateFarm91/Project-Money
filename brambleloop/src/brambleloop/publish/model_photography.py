@@ -38,7 +38,7 @@ ACTION = "assets.model_photography"
 # Part of what decides whether a frame on file answers the question being asked. A frame
 # rendered by an earlier method is evidence about that method, and reading it back as
 # "this release already has one" is how a corrected prompt quietly never runs.
-METHOD_VERSION = "v5-two-frames-because-the-floors-ask-about-two-photographs"
+METHOD_VERSION = "v6-the-portrait-is-sent-as-a-jpeg-and-styling-is-read-off-the-fit-frame"
 
 # How many times one release may be re-rendered when the frame comes back unusable.
 #
@@ -130,11 +130,17 @@ DETAIL_PLAN = (
 # realism, styling and asset truth -- are asked of every frame, because any frame that
 # ships is a customer-facing asset in its own right.
 SHOTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    ("fit", SHOT_PLAN, ("face_identity", "whole_person_morphology")),
+    # Styling belongs here rather than in the shared set. Five of the bible's fourteen
+    # questions are about wardrobe, and a frame cropped to a hat cannot answer one of
+    # them -- the first live sequence returned `styling: unjudged` on the detail frame
+    # for exactly that reason, which made a sixth floor unclearable by the same mistake
+    # the morphology floor had just been rescued from. The fit frame shows the whole
+    # styling, so the fit frame is asked. A styling *failure* seen anywhere still blocks.
+    ("fit", SHOT_PLAN, ("face_identity", "whole_person_morphology", "styling")),
     ("detail", DETAIL_PLAN, ("product_truth",)),
 )
 
-SHARED_FLOORS: tuple[str, ...] = ("photographic_realism", "asset_truth", "styling")
+SHARED_FLOORS: tuple[str, ...] = ("photographic_realism", "asset_truth")
 
 
 def _merge_observations(face_seen: dict, body_seen: dict, *, has_body: bool) -> dict:

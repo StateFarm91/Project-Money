@@ -271,6 +271,21 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "model_photography", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # And ask once whether the photographic-realism standard can be met at all, keyed on
+    # the checks rather than on the clock. One vision call about a public benchmark image;
+    # nothing is rendered, copied or re-hosted.
+    try:
+        from ..runtime.release import photoreal_calibration
+        from ..visual import photoreal as _photoreal
+
+        _needed = photoreal_calibration(db) is None
+        _boot_enqueue("photoreal_calibration", when=_needed, agent="creative_director",
+                      job_type="creative.photoreal_calibration",
+                      key=f"boot-photoreal-calibration-{_photoreal.CHECKS_VERSION}")
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "photoreal_calibration", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     runner.start(db)
 
 
@@ -1406,6 +1421,32 @@ def api_model_asset(slug: str = "") -> dict:
         "photographic_realism": frames[0].get("photographic_realism"),
         "canonical_version": pack.version if pack else None,
         "floors_never_average": record.get("floors_never_average"),
+    }
+
+
+@app.get("/api/photoreal-calibration")
+def api_photoreal_calibration() -> dict:
+    """Whether the photographic-realism judge can pass a photograph nobody generated.
+
+    A standard nothing can clear is the same defect as a floor nothing can fail, and this
+    is the question that tells the two apart: a render this judge blocks is only a render
+    that needs changing if the judge would have passed a real camera's output.
+    """
+    from ..runtime.release import photoreal_calibration
+    from ..visual import photoreal
+
+    result = photoreal_calibration(db)
+    return {
+        "calibration": result,
+        "checks_version": photoreal.CHECKS_VERSION,
+        "checks": dict(photoreal.CHECKS),
+        "why": ("asked once per version of these checks, against a real listing photograph "
+                "from the observed benchmark. Used as a control and nothing else: not "
+                "copied, not re-hosted, not imitated, and what it depicts is never "
+                "described"),
+        "state": ("not yet asked" if result is None else
+                  "the standard is reachable" if result.get("reachable") else
+                  "this judge blocked a real photograph"),
     }
 
 

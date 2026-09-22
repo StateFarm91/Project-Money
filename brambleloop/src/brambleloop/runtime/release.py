@@ -3208,3 +3208,46 @@ def _tournament_on_file(db) -> dict | None:
             if detail.get("brief_fingerprint") == want:
                 return detail
     return None
+
+
+@handlers.register("creative.photoreal_calibration")
+def handle_photoreal_calibration(ctx: JobContext) -> dict:
+    """Ask the photographic-realism judge about a photograph nobody generated.
+
+    Two renders in a row were blocked on the same three checks and the second of them
+    plainly had pores, freckles and fine lines in it. Either the renders are unphotographic
+    or the judge cannot pass a photograph, and those need opposite fixes -- so this asks
+    rather than assuming the flattering answer.
+
+    GREEN: one vision call about a public benchmark image. It renders nothing, copies
+    nothing, re-hosts nothing, and never describes what the photograph depicts.
+    """
+    from ..visual import photoreal
+
+    control = photoreal.control_image(ctx.db)
+    if not control:
+        return {"ran": False, "reason": ("no observed benchmark listing carries an image "
+                                         "URL, so there is no real photograph on file to "
+                                         "calibrate against")}
+    result = photoreal.calibrate(ctx.db, image_url=control)
+    result["checks_version"] = photoreal.CHECKS_VERSION
+    ctx.audit(photoreal.CALIBRATION_ACTION, detail=result)
+    return {"ran": True, "verdict": result["verdict"], "reachable": result["reachable"],
+            "failed": result["failed"], "what_it_means": result["what_it_means"]}
+
+
+def photoreal_calibration(db) -> dict | None:
+    """The most recent calibration of the current checks, if one has been made."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..visual import photoreal
+
+    with db.session() as s:
+        for row in s.scalars(
+                select(AuditLog).where(AuditLog.action == photoreal.CALIBRATION_ACTION)
+                .order_by(desc(AuditLog.id)).limit(5)):
+            detail = row.detail or {}
+            if detail.get("checks_version") == photoreal.CHECKS_VERSION:
+                return detail
+    return None

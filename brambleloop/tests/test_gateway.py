@@ -449,6 +449,67 @@ def test_a_call_priced_at_zero_still_leaves_the_tokens_it_spent():
     assert rows[0].tokens_in or rows[0].tokens_out, "the tokens were not kept either"
 
 
+
+def test_an_image_is_labelled_by_its_bytes_rather_than_by_its_filename():
+    """The defect that took half the identity check out without failing anything.
+
+    The artifact store is content-addressed, so its files are named for their sha256 and
+    have no extension at all. `mimetypes.guess_type` returns nothing for such a name, and
+    the code defaulted that to `image/png` -- a guess wearing a fact's clothes. On
+    2026-09-22 the canonical portrait, a JPEG, was recovered from the store, sent labelled
+    `image/png`, refused by the provider, and the face comparison came back `unmeasurable`
+    on all five dimensions. The body reference happened to be a PNG, so morphology passed
+    and the identity floor half worked, which is worse than it failing.
+    """
+    import tempfile
+    from pathlib import Path as _Path
+
+    from brambleloop.gateway.anthropic import _image_block
+
+    tmp = _Path(tempfile.mkdtemp())
+    jpeg = tmp / "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9"
+    jpeg.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 32)
+    assert _image_block(str(jpeg))["source"]["media_type"] == "image/jpeg"
+
+    png = tmp / "b17c"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+    assert _image_block(str(png))["source"]["media_type"] == "image/png"
+
+    webp = tmp / "c28d"
+    webp.write_bytes(b"RIFF" + b"\x00" * 4 + b"WEBP" + b"\x00" * 16)
+    assert _image_block(str(webp))["source"]["media_type"] == "image/webp"
+
+
+def test_the_bytes_win_when_the_extension_disagrees_with_them():
+    """Two places holding one fact is how they come to disagree, and here one is evidence."""
+    import tempfile
+    from pathlib import Path as _Path
+
+    from brambleloop.gateway.anthropic import _image_block
+
+    tmp = _Path(tempfile.mkdtemp())
+    lying = tmp / "actually-a-jpeg.png"
+    lying.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 32)
+    assert _image_block(str(lying))["source"]["media_type"] == "image/jpeg"
+
+
+def test_a_file_that_is_not_an_image_is_refused_rather_than_assumed():
+    import tempfile
+    from pathlib import Path as _Path
+
+    from brambleloop.gateway.anthropic import ProviderUnusable
+    from brambleloop.gateway.anthropic import _image_block
+
+    tmp = _Path(tempfile.mkdtemp())
+    text = tmp / "notes"
+    text.write_bytes(b"this is not a picture")
+    try:
+        _image_block(str(text))
+    except ProviderUnusable as exc:
+        assert "nothing known" in str(exc) or "not an image format" in str(exc)
+    else:
+        raise AssertionError("a text file was sent to the provider as an image")
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

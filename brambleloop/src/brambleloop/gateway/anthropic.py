@@ -418,13 +418,47 @@ def _image_block(reference: str) -> dict:
         raise ProviderUnusable(
             f"{reference!r} is neither a URL nor a file on this disk. An image reference "
             f"that resolves to nothing would be sent as a question about no picture")
-    media_type = mimetypes.guess_type(path.name)[0] or "image/png"
+    data = path.read_bytes()
+    media_type = _sniff(data) or mimetypes.guess_type(path.name)[0]
     if media_type not in ("image/png", "image/jpeg", "image/gif", "image/webp"):
         raise ProviderUnusable(
-            f"{media_type} is not an image format the provider accepts: png, jpeg, gif, webp")
+            f"{reference!r} is not an image format the provider accepts "
+            f"(png, jpeg, gif, webp); its bytes read as {media_type or 'nothing known'}")
     return {"type": "image",
             "source": {"type": "base64", "media_type": media_type,
-                       "data": base64.standard_b64encode(path.read_bytes()).decode()}}
+                       "data": base64.standard_b64encode(data).decode()}}
+
+
+# The four formats' magic numbers, because a filename is not evidence about bytes.
+_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def _sniff(data: bytes) -> str | None:
+    """What this file actually is, from its first bytes rather than from its name.
+
+    The artifact store is content-addressed, so its files are named for their sha256 and
+    have no extension at all -- and `guess_type` on such a name returns nothing. Defaulting
+    that to `image/png` is a guess wearing a fact's clothes, and on 2026-09-22 it cost the
+    identity floor: the canonical portrait is a JPEG, it was recovered from the store as an
+    extensionless file, sent to the provider labelled `image/png`, refused, and the face
+    comparison came back `unmeasurable` on all five dimensions. The body reference happened
+    to be a PNG and worked, so half the identity check passed and half silently did not.
+
+    Sniffing is authoritative and the filename is the fallback, never the other way round.
+    A file whose bytes say nothing recognisable is refused rather than assumed.
+    """
+    for magic, media_type in _MAGIC:
+        if data.startswith(magic):
+            return media_type
+    # WEBP is RIFF....WEBP, so the tag is not at offset zero.
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 # The probe image and what it asks. A picture whose answer is checkable without a model:

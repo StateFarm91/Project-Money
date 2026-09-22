@@ -174,3 +174,75 @@ DIRECTION = (
     "brightening, no softening filter. It should look like an unedited raw frame from a "
     "real camera rather than a finished beauty image."
 )
+
+
+# ---------------------------------------------------------------------------
+# Whether this judge can be satisfied at all
+#
+# Two renders in a row were blocked on `skin_looks_real`, `processing_is_restrained` and
+# `not_sterile_perfection`, and the second of them plainly had pores, freckles and fine
+# lines in it. At that point there are two possibilities and they need opposite fixes: the
+# renders really are unphotographic, or the judge cannot pass a photograph. A standard that
+# nothing can clear is the same defect as a floor nothing can fail, and this system has
+# found that shape four times already -- so it is a question to ask rather than to assume
+# the flattering answer to.
+#
+# The control is a real photograph: one of the benchmark shop's own listing images, which
+# is a photograph a real person took with a real camera. It is used as a calibration
+# control and nothing else -- not copied, not re-hosted, not imitated, and the design in it
+# is never described. If the judge blocks that, the judge is wrong; if it clears it, the
+# renders are.
+
+CALIBRATION_ACTION = "photoreal.calibration"
+
+# Moves when the checks or the wording move, because a calibration is a statement about
+# one version of this standard and reading an older one back as current is how a tightened
+# judge never gets re-checked.
+CHECKS_VERSION = "v1-eleven-named-rejections"
+
+
+def calibrate(db, *, image_url: str, provider=None) -> dict:
+    """Ask the judge about a photograph nobody generated, and record what it said.
+
+    Returns the reading and the gate's verdict on it, with no opinion about what that
+    means: a `clear` says this standard is reachable and a `blocked` says it is not, and
+    both are findings rather than one being a failure.
+    """
+    reading = judge(image_url, db=db, provider=provider)
+    verdict = gate(reading)
+    return {
+        "control": image_url,
+        "control_is": ("a real photograph from an observed benchmark listing, used to "
+                       "check whether this judge can pass a photograph at all. It is not "
+                       "copied, re-hosted or imitated, and what it depicts is never "
+                       "described"),
+        "verdict": verdict["verdict"],
+        "failed": verdict["failed"],
+        "unjudged": verdict["unjudged"],
+        "notes": verdict["notes"],
+        "reachable": verdict["verdict"] == "clear",
+        "what_it_means": (
+            "the standard is reachable, so a render this judge blocks is a render that "
+            "needs changing" if verdict["verdict"] == "clear" else
+            "this judge blocked a real photograph, so what it is measuring is not "
+            "'reads as generated'. Tightening the render against it would be chasing a "
+            "standard nothing can meet"),
+    }
+
+
+def control_image(db, *, benchmark_key: str = "") -> str:
+    """One real listing photograph from the observed benchmark, or "" if none is on file."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import BenchmarkListing
+    from ..intel import benchmarks
+
+    key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        for row in s.scalars(select(BenchmarkListing)
+                             .where(BenchmarkListing.benchmark_key == key)
+                             .order_by(desc(BenchmarkListing.last_seen)).limit(60)):
+            for url in (row.detail or {}).get("image_urls") or []:
+                if url:
+                    return str(url)
+    return ""
