@@ -276,6 +276,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Daily and free after the first run: an asset already made for a release is not
     # remade, so this costs one image the day a release first gets one and nothing after.
     ("owned_photography", "publishing", "assets.owned_photography", 24 * 60 * 60),
+    # Daily, and its counterpart: the forms a buyer cannot judge without a body. Idempotent
+    # by product and version inside the handler, so this costs one render per release and
+    # nothing afterwards -- and it refuses to spend at all when no frozen identity exists
+    # to verify the result against (#72, #130, #202).
+    ("model_photography", "publishing", "assets.model_photography", 24 * 60 * 60),
     ("seasonal_sentinel", "orchestrator", "seasonal.sentinel", 24 * 60 * 60),
     # Six-hourly, matching the radar scan. #313 wants frequent lightweight checks once a
     # baseline exists, and the fingerprint makes an unchanged catalogue nearly free -- but

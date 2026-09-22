@@ -221,7 +221,9 @@ def run(db, *, today: date | None = None, gateway=None,
     # cycle's. Both halves are wrong -- the chain is broken, and the failure is
     # misattributed, so a pass would have been meaningless and the fail was about
     # something else.
-    owned = owned_photography.last_asset(db, slug=cir.slug)
+    from ..publish import listing_asset
+
+    owned = listing_asset.last(db, slug=cir.slug)
     # A maker was handed in, so this run is allowed to produce the thing it reports on --
     # for the CIR in hand rather than by slug, which is the whole reason the daily job
     # cannot cover a cycle-internal product. Only a job passes one; the endpoint does not,
@@ -229,7 +231,9 @@ def run(db, *, today: date | None = None, gateway=None,
     declined: dict = {}
     if owned is None and asset_maker is not None and _images.usable(db):
         declined = asset_maker(cir) or {}
-        owned = owned_photography.last_asset(db, slug=cir.slug)
+        from ..publish import listing_asset
+
+    owned = listing_asset.last(db, slug=cir.slug)
     if not _images.usable(db):
         assets.state = GATED
         assets.gated_on = "image_generation"
@@ -252,8 +256,7 @@ def run(db, *, today: date | None = None, gateway=None,
 
         in_catalogue = for_slug(cir.slug) is not None
         assets.evidence = {"slug": cir.slug, "in_catalogue": in_catalogue,
-                           "other_products_have_assets": bool(
-                               owned_photography.last_asset(db))}
+                           "other_products_have_assets": bool(listing_asset.last(db))}
         waiting = str(declined.get("waiting_on") or "") if declined else ""
         if declined and not declined.get("made"):
             # The maker ran and refused, and its reason outranks every guess below it.

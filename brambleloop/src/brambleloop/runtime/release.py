@@ -1704,6 +1704,87 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
                {"reason": "every field came back malformed; nothing was proposed or spent"})}
 
 
+@handlers.register("assets.model_photography")
+def handle_model_photography(ctx: JobContext) -> dict:
+    """One model-bearing listing frame for a certified product that needs her (#72, #130).
+
+    The counterpart to `assets.owned_photography`, which photographs the forms that are
+    shot flat. This one photographs the forms a buyer cannot judge without a body: it
+    conditions the render on the frozen canonical reference image and then has the result
+    described by a vision model that never saw the prompt, because conditioning is a
+    request and the identity gate is what turns it into evidence.
+
+    Idempotent by product and version, so a deploy re-attempts a frame that failed and
+    does nothing once a release has one.
+
+    GREEN: one render and its checks. Publishes nothing, contacts nobody, and refuses to
+    spend at all when there is no frozen identity to verify the result against.
+    """
+    import tempfile
+
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+    from ..gateway import images
+    from ..products.builder import for_slug
+    from ..publish import listing_asset, model_photography
+
+    if not images.usable(ctx.db):
+        return {"ran": False, "reason": ("image generation has not been demonstrated in "
+                                         "this environment, so there is nothing to render "
+                                         "with")}
+
+    slug = ctx.job.inputs.get("slug") or _model_bearing_slug(ctx.db)
+    if not slug:
+        return {"ran": False, "reason": ("no certified product needs the model, so there "
+                                         "is nothing for this job to photograph")}
+
+    cir = for_slug(slug)
+    if cir is None:
+        return {"ran": False, "reason": f"no CIR for {slug!r}"}
+
+    existing = model_photography.last_asset(ctx.db, slug=slug)
+    if existing and existing.get("version") == cir.version:
+        return {"ran": False, "reason": "this release already has a model frame",
+                "slug": slug, "usable": existing.get("usable_as_listing_asset")}
+
+    result = compile_cir(cir)
+    if not result.ok:
+        return {"ran": False, "reason": f"{slug} does not compile"}
+
+    with tempfile.TemporaryDirectory(prefix="model-frame-") as work_dir:
+        record = listing_asset.make(ctx.db, cir, build_twin(cir, result),
+                                    work_dir=work_dir, record=False)
+
+    ctx.audit(model_photography.ACTION, detail=record)
+    return {"ran": True, "made": record.get("made"), "slug": slug,
+            "waiting_on": record.get("waiting_on"),
+            "floors": record.get("floors"),
+            "usable": record.get("usable_as_listing_asset"),
+            "why": (record.get("why") or "")[:240]}
+
+
+def _model_bearing_slug(db) -> str:
+    """A certified product whose listing needs her, if the catalogue has one.
+
+    Returns empty rather than falling back to the first product, which is the difference
+    between "nothing here needs the model" and "photograph a blanket on a woman". The
+    caller reports the empty answer as a reason rather than as a failure.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Product
+    from ..products.builder import for_slug
+    from ..publish import listing_asset
+
+    with db.session() as s:
+        rows = [p.slug for p in s.scalars(select(Product).order_by(Product.id))]
+    for slug in rows:
+        cir = for_slug(slug)
+        if cir is not None and listing_asset.needs_the_model(cir):
+            return slug
+    return ""
+
+
 @handlers.register("seasonal.cycle_proof")
 def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     """Run #300's cycle as a job, and close the assets link it cannot close as a GET.
@@ -1734,7 +1815,7 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     from ..gateway import routing
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway.model_gateway import ModelGateway
-    from ..publish import owned_photography
+    from ..publish import listing_asset
     from ..seasonal import cycle
 
     # The gateway is the difference between this job doing its job and this job reporting
@@ -1756,11 +1837,14 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
 
     with tempfile.TemporaryDirectory(prefix="cycle-proof-") as work_dir:
         def make_asset(cir):
+            # Dispatched by form rather than by this handler's opinion: a cardigan needs
+            # her in the frame and a blanket does not, and one place decides that so the
+            # cycle, the daily job and the release chain cannot answer it differently.
             result = compile_cir(cir)
             if not result.ok:
                 return None
-            return owned_photography.make(ctx.db, cir, build_twin(cir, result),
-                                          work_dir=work_dir)
+            return listing_asset.make(ctx.db, cir, build_twin(cir, result),
+                                      work_dir=work_dir)
 
         report = cycle.run(ctx.db, gateway=gateway, asset_maker=make_asset)
 

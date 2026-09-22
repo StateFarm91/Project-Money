@@ -112,7 +112,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # #300's cycle run as a job, so its assets link can be closed
                             # for the product the cycle itself engineered rather than for
                             # whichever product was photographed last (B-611).
-                            "seasonal.cycle_proof"],
+                            "seasonal.cycle_proof",
+                            # A listing frame with the canonical model in it, conditioned
+                            # on the frozen pack and verified afterwards (#72, #130, #202).
+                            "assets.model_photography"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
