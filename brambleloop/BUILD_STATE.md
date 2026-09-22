@@ -4924,6 +4924,20 @@ timings, written there by the system rather than by hand.
   decision: **she is approved and enforced, and nothing yet conditions a frame on her
   reference and sends the result through the identity gate.** That is the remaining content
   of #72/#73.
+- **Reconciled against production evidence (B-622).** `reconciliation` reported
+  `balances: False` the moment the gate opened, naming all nine stale statuses — the check
+  wired in the night before doing its job on the first event that mattered. Now **covered**:
+  #199 (field rendered, finalists presented, owner rejected all five, supplied a candidate,
+  approved the pack built from it), #200 (frozen, persisted, versioned, refuses a second
+  and refuses an incomplete pack), #201 (gate wired, seven properties proved in production),
+  #74 (`PRODUCT_FIRST_FORMS` + form-based `needs_no_model`; product-only frames answered
+  `not_applicable`, not passed). Still **partial**, each for a stated reason: #72/#130/#202
+  wait on the model-bearing render path (ours, not a decision); #73's pack does not yet
+  carry makeup range, wardrobe rules, lighting language or the rejected drift examples;
+  #75's eight-part parity gate is genuinely unbuilt — four of eight checks exist and calling
+  it covered because half exists is the averaging it is written against.
+- **Coverage 226 of 320 (70.6%). READY is six items and all six are ours**: #72, #73, #75,
+  #130, #202, #300. Nothing ready that nobody can begin; `balances: True`.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.

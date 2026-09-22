@@ -500,7 +500,13 @@ GATES: tuple[Gate, ...] = (
          "the owner's approval of a canonical model identity, which is a decision rather "
          "than a capability -- no amount of rendering produces it",
          _canonical_model_approved,
-         (72, 73, 74, 75, 130, 199, 200, 201, 202),
+         # Opened 2026-09-22T03:52:53Z when the owner approved and froze the identity, and
+         # now carries nothing, for the reason `etsy_shop` and `image_generation` are also
+         # kept empty: a gate that has opened is evidence and worth keeping, and leaving
+         # the nine requirements attached would keep claiming they wait on a decision that
+         # has been made. Three of them are covered and six have remaining work that is
+         # ours, which is a different thing from being gated (B-622).
+         (),
          "a ModelIdentity row is canonical with an owner approval timestamp. `select` "
          "refuses to promote a candidate without one, so a better picture cannot make "
          "this true"),

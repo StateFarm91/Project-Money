@@ -704,7 +704,6 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
 
     # Now a gate's condition becomes true in the database the deployed worker actually
     # reads, and the same silence becomes a stall with exactly one incident behind it.
-    before = len(stalls)
     _open_physical_proof(db)
     tick("build-2")
     tick("build-3")
@@ -717,7 +716,14 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     assert opened["verdict"] == "stalled"
     # Two ticks, one incident: a loop that raises a fresh row every hour is a loop nobody
     # reads.
-    assert len(stalls) == before + 1
+    #
+    # Asserted as a total rather than as an increment. `before + 1` quietly depended on
+    # the first phase being silent, which stopped being true on 2026-09-22 when the
+    # canonical-model gate opened and six requirements un-parked into genuinely ready
+    # work: the first tick then correctly raised the stall, and the test failed on a
+    # change that was the system working. The property was never about the increment -- it
+    # is that however many ticks pass, one stall is one row.
+    assert len(stalls) == 1, [i.summary[:80] for i in stalls]
     assert "look identical from outside" in stalls[-1].summary
 
 
@@ -945,15 +951,18 @@ def test_owner_approval_is_a_gate_rather_than_a_sentence_in_a_note():
     condition is not a gate no matter how clearly it is written.
     """
     assert "canonical_model" in E.GATE_BY_KEY
-    waiting = sorted(E.GATE_BY_KEY["canonical_model"].requirement_ids)
-    assert waiting == [72, 73, 74, 75, 130, 199, 200, 201, 202]
-    for rid in waiting:
-        assert E.gate_for(rid) == "canonical_model"
+    # The condition, not the requirement list. The list is data and it legitimately
+    # emptied on 2026-09-22 when the owner approved the identity -- a gate that has opened
+    # is kept as evidence and carries nothing, the way `etsy_shop` does. Asserting the
+    # membership would have made this test fail on the approval it was written to wait for.
+    gate = E.GATE_BY_KEY["canonical_model"]
+    assert gate.check is E._canonical_model_approved
+    assert "approval" in gate.what or "approve" in gate.what
 
+    # The invariant that outlives the list: nothing owner-gated is ever ready.
     db = _synced({"BRAMBLELOOP_IMAGE_KEY_OPENAI": "set"})
-    ready = {r["requirement_id"] for r in E.queue(db)["ready"]}
-    assert not ready & set(waiting)
     assert E.reconciliation(db)["owner_gated_but_ready"] == []
+    assert E.reconciliation(db)["balances"] is True
 
 
 def test_a_rendered_pack_does_not_open_the_owner_approval_gate():
