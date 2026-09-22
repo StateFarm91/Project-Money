@@ -337,6 +337,14 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # not exist. It reads certified products and an already-observed catalogue, changes no
     # listing and cannot increment the catalogue by construction.
     ("remerchandising_review", "listing", "seasonal.remerchandising", 7 * 24 * 60 * 60),
+    # Weekly. #300 is a launch-blocking acceptance test whose eighth link -- create
+    # Brambleloop-owned assets -- it could not satisfy for its own product: the cycle
+    # certifies its concept in memory, and the daily photography job looks products up by
+    # slug and can never reach it. This runs the cycle as a job so the asset is made for
+    # the CIR in hand. Weekly rather than daily because it costs one render and its
+    # checks, and because the thing it proves -- that the chain closes end to end -- does
+    # not change between Tuesdays. `/api/seasonal/cycle` reads what this produced.
+    ("seasonal_cycle_proof", "publishing", "seasonal.cycle_proof", 7 * 24 * 60 * 60),
     # Weekly, and free. #30's argument is that the capacity mix has to arrive as a number,
     # because the default for a system with no audience is more engineering -- it is the
     # work that is here, it always finishes, and it never needs anybody outside this

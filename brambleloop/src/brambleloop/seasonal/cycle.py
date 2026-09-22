@@ -65,8 +65,20 @@ class CycleRefused(ValueError):
 
 
 def run(db, *, today: date | None = None, gateway=None,
-        benchmark_key: str = "") -> dict:
-    """Run one simulated seasonal cycle and report what each link actually produced."""
+        benchmark_key: str = "", asset_maker=None) -> dict:
+    """Run one simulated seasonal cycle and report what each link actually produced.
+
+    `asset_maker` is how the assets link gets closed, and only a job ever passes one. The
+    cycle authors and certifies its concept in memory and never files it in the catalogue
+    -- correctly, because #300 asks for a *simulated* cycle and filing a product on every
+    page view would inflate the catalogue that #292 exists to protect. But the daily
+    photography job looks products up by slug, so it can never reach this one, which left
+    the assets link unreachable for the very product the chain produced.
+
+    So the maker takes the CIR in hand rather than a slug. `run` stays free when nobody
+    passes one -- this endpoint is a GET, and a GET that spends money spends it every time
+    a test sweep walks the routes.
+    """
     from ..creative.audit import catalogue_concepts
     from ..creative.prospecting import (NoArenasContradictsEvidence, arenas, choose,
                                         slots)
@@ -210,6 +222,13 @@ def run(db, *, today: date | None = None, gateway=None,
     # misattributed, so a pass would have been meaningless and the fail was about
     # something else.
     owned = owned_photography.last_asset(db, slug=cir.slug)
+    # A maker was handed in, so this run is allowed to produce the thing it reports on --
+    # for the CIR in hand rather than by slug, which is the whole reason the daily job
+    # cannot cover a cycle-internal product. Only a job passes one; the endpoint does not,
+    # and a GET that spends money spends it every time a sweep walks the routes.
+    if owned is None and asset_maker is not None and _images.usable(db):
+        asset_maker(cir)
+        owned = owned_photography.last_asset(db, slug=cir.slug)
     if not _images.usable(db):
         assets.state = GATED
         assets.gated_on = "image_generation"
@@ -250,9 +269,12 @@ def run(db, *, today: date | None = None, gateway=None,
                           f"never filed in the catalogue, and the photography job "
                           f"photographs catalogue products -- so no asset can ever be "
                           f"made for it. This link is structurally unreachable for a "
-                          f"cycle-internal product rather than merely waiting, and the "
-                          f"fix is for the cycle to file what it engineers. Reported as a "
-                          f"failure because a gate that cannot open is not a gate, and "
+                          f"cycle-internal product rather than merely waiting. Filing "
+                          f"the product would fix it and would inflate the catalogue on "
+                          f"every page view, which is what #292 exists to refuse, so the "
+                          f"fix is an `asset_maker`: a job runs this cycle and renders "
+                          f"for the CIR in hand. Reported as a failure rather than as "
+                          f"gated because a gate that cannot open is not a gate, and "
                           f"because the previous behaviour -- handing in whichever "
                           f"product was photographed last -- made this look complete")
     elif owned.get("verdict") == "clear" and not owned.get("motif_verified"):

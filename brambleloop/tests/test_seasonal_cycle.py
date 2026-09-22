@@ -172,6 +172,54 @@ def test_the_assets_step_evidences_this_cycles_product_and_never_another():
     assert step["evidence"]["slug"] == engineered["evidence"]["slug"]
 
 
+def test_an_asset_maker_closes_the_link_and_the_endpoint_never_gets_one():
+    """The fix for the link #300 could not reach, and the reason it is a job.
+
+    Filing the cycle's product would also fix it, and would inflate the catalogue on every
+    page view -- the move #292 exists to refuse. So the maker takes the CIR in hand, which
+    is the thing the daily slug-driven job cannot do, and only a job passes one: a GET that
+    spends money spends it every time a test sweep walks the routes.
+    """
+    from brambleloop.core.models import AuditLog
+    from brambleloop.gateway import images
+    from brambleloop.publish import owned_photography
+
+    db = _wide_db()
+    made: list[str] = []
+
+    def maker(cir):
+        made.append(cir.slug)
+        with db.session() as s:
+            s.add(AuditLog(actor="publishing", action=owned_photography.ACTION,
+                           detail={"made": True, "slug": cir.slug, "form": "hat",
+                                   "method_version": owned_photography.METHOD_VERSION,
+                                   "verdict": "clear", "motif_verified": True,
+                                   "usable_as_listing_asset": True,
+                                   "disclosed_as_illustration": True,
+                                   "image": {"url": "/api/model-tournament/image/abc"}}))
+
+    was_usable = images.usable
+    images.usable = lambda _db: True
+    try:
+        # No maker: the link cannot close, and nothing was rendered.
+        without = cycle.run(db, today=TODAY, gateway=_WideGateway())
+        assert made == [], "the cycle rendered an image without being handed a maker"
+        assert next(s for s in without["steps"]
+                    if s["step"] == "assets")["state"] != cycle.RAN
+
+        # With one: it closes, for the product the chain engineered.
+        with_maker = cycle.run(db, today=TODAY, gateway=_WideGateway(), asset_maker=maker)
+    finally:
+        images.usable = was_usable
+
+    engineered = next(s for s in with_maker["steps"]
+                      if s["step"] == "engineer")["evidence"]["slug"]
+    assert made == [engineered], (made, engineered)
+    assets = next(s for s in with_maker["steps"] if s["step"] == "assets")
+    assert assets["state"] == cycle.RAN, assets
+    assert assets["evidence"]["slug"] == engineered
+
+
 def test_the_verdict_is_the_weakest_link_rather_than_a_count_of_green_ticks():
     """A backward-chained schedule is exactly where an average hides a broken link."""
     out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())

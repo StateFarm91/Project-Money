@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,904 tests passing, 0 failing**.
+  **2,905 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4853,7 +4853,15 @@ timings, written there by the system rather than by hand.
   products — so for a cycle-internal product **no asset can ever exist**. Reported as FAILED
   with the fix named (the cycle should file what it engineers) rather than as gated on a job
   that will never reach it, because a gate that cannot open is a permanent blocker wearing a
-  queue entry. **This is #300's remaining work and it is genuinely actionable.**
+  queue entry.
+- **And then closed it.** The message B-611 left named the wrong fix — "the cycle should
+  file what it engineers" — and filing it would inflate the catalogue on every page view,
+  the move #292 exists to refuse. `owned_photography.make` already takes a CIR rather than
+  a slug, so the answer is an injected `asset_maker`: the new weekly **`seasonal.cycle_proof`**
+  job runs the cycle and renders for the product the chain produced, while
+  `/api/seasonal/cycle` passes nothing and stays free — a GET that spends money spends it
+  every time a sweep walks the routes. It runs as `publishing`, the agent that already owns
+  the photography job (B-613). **#300's assets link is now reachable for the first time.**
 - **The motif-fidelity gate is working in production.** It is what failed the cycle's assets
   step: a generated blanket image judged `mismatch` against the certified diamond-lattice
   chart. The owner's release requirement — that an image depict what the pattern actually

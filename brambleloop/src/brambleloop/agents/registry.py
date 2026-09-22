@@ -104,7 +104,11 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["assets.build", "assets.render",
                             # A styled image of the finished object, generated from the
                             # certified CIR and disclosed as an illustration (#292, #300).
-                            "assets.owned_photography"],
+                            "assets.owned_photography",
+                            # #300's cycle run as a job, so its assets link can be closed
+                            # for the product the cycle itself engineered rather than for
+                            # whichever product was photographed last (B-611).
+                            "seasonal.cycle_proof"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

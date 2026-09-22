@@ -1704,6 +1704,55 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
                {"reason": "every field came back malformed; nothing was proposed or spent"})}
 
 
+@handlers.register("seasonal.cycle_proof")
+def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
+    """Run #300's cycle as a job, and close the assets link it cannot close as a GET.
+
+    #300 is a launch-blocking acceptance test, and its eighth link -- "create
+    Brambleloop-owned assets" -- was the one it could never satisfy for its own product.
+    The cycle authors and certifies its concept in memory and never files it in the
+    catalogue, which is right for a *simulated* cycle and wrong for the daily photography
+    job, which looks products up by slug and so can never reach it. For a while the step
+    papered over that by handing in whichever product happened to be photographed last,
+    including that product's motif failure, which made the test's verdict meaningless in
+    both directions (B-611).
+
+    So the asset is made here rather than there: `owned_photography.make` takes the CIR in
+    hand, not a slug. It runs as a job because `/api/seasonal/cycle` is a GET and a GET
+    that spends money spends it every time a sweep walks the routes -- and because filing
+    the product instead would inflate the catalogue on every page view, which is the move
+    #292 exists to refuse.
+
+    GREEN: it renders one image and judges it. It publishes nothing, contacts nobody, and
+    spends one render plus its checks -- and refuses to spend even that when the model
+    provider's balance would leave the result unjudgeable.
+    """
+    import tempfile
+
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+    from ..publish import owned_photography
+    from ..seasonal import cycle
+
+    with tempfile.TemporaryDirectory(prefix="cycle-proof-") as work_dir:
+        def make_asset(cir):
+            result = compile_cir(cir)
+            if not result.ok:
+                return None
+            return owned_photography.make(ctx.db, cir, build_twin(cir, result),
+                                          work_dir=work_dir)
+
+        report = cycle.run(ctx.db, asset_maker=make_asset)
+
+    ctx.audit("seasonal.cycle_proof", detail=report)
+    assets = next((s for s in report["steps"] if s["step"] == "assets"), {})
+    return {"ran": True, "complete": report["complete"],
+            "weakest_link": report["weakest_link"],
+            "assets_state": assets.get("state"),
+            "assets_slug": (assets.get("evidence") or {}).get("slug"),
+            "customer_can_finish_in_time": report["customer_can_finish_in_time"]}
+
+
 @handlers.register("seasonal.remerchandising")
 def handle_remerchandising_review(ctx: JobContext) -> dict:
     """The periodic inspection #292 asks for, against the nearest priority occasion.
