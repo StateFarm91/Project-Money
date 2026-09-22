@@ -2783,6 +2783,33 @@ def _reconcile_canonical_model_action(db) -> None:
         _refresh_canonical_model_action(db, package)
 
 
+def cycle_proof_incomplete(db) -> bool:
+    """Whether #300's chain still has not closed its assets link.
+
+    Used to decide whether a deploy re-asks the question. A weekly cadence is right
+    unattended and wrong right after the thing that was blocking it changes: the canonical
+    identity was frozen minutes after this week's run had already happened, so the next
+    scheduled answer would have been seven days stale. A deploy is what re-asks.
+
+    Self-limiting on purpose. It reads the last recorded run and returns False once the
+    assets step actually ran, so this costs one cycle per deploy only while the chain is
+    still open and nothing once it closes -- rather than spending on every deploy forever
+    to re-prove something already proved.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "seasonal.cycle_proof")
+                       .order_by(desc(AuditLog.id)).limit(1))
+    if row is None:
+        return True
+    steps = (row.detail or {}).get("steps") or []
+    assets = next((x for x in steps if x.get("step") == "assets"), {})
+    return assets.get("state") != "ran"
+
+
 def _refresh_canonical_model_action(db, package: dict) -> None:
     """Keep the owner's approval row describing the pack that exists now.
 

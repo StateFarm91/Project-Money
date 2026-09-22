@@ -373,6 +373,31 @@ def test_a_cycle_that_completes_says_so_only_when_the_buyer_arithmetic_holds():
         assert late["complete"] is False
 
 
+def test_the_deploy_re_ask_stops_asking_once_the_chain_closes():
+    """A weekly cadence is right unattended and wrong right after the blocker changes.
+
+    The canonical identity was frozen minutes after this week's run had already happened,
+    so the next scheduled answer would have been seven days stale. A deploy re-asks -- and
+    has to stop: a boot enqueue that fired forever would spend a cycle on every deploy to
+    re-prove something already proved, which is the opposite failure and just as wasteful.
+    """
+    from brambleloop.core.models import AuditLog
+    from brambleloop.runtime.release import cycle_proof_incomplete
+
+    db = _wide_db()
+    assert cycle_proof_incomplete(db) is True, "no run on file must re-ask"
+
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action="seasonal.cycle_proof",
+                       detail={"steps": [{"step": "assets", "state": "failed"}]}))
+    assert cycle_proof_incomplete(db) is True, "an open assets link must re-ask"
+
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action="seasonal.cycle_proof",
+                       detail={"steps": [{"step": "assets", "state": "ran"}]}))
+    assert cycle_proof_incomplete(db) is False, "a closed chain must stop asking"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

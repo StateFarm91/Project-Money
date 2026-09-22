@@ -209,6 +209,25 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "model_freeze", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # And re-ask #300's chain while its assets link is still open. The cadence is weekly,
+    # which is right unattended and wrong immediately after the thing that was blocking it
+    # changes -- the canonical identity was frozen minutes after this week's run had
+    # already happened, so the next scheduled answer would have been seven days stale.
+    # Self-limiting: `cycle_proof_incomplete` returns False once the link closes, so this
+    # stops asking rather than spending on every deploy forever.
+    try:
+        from ..runtime.release import cycle_proof_incomplete
+
+        _open = cycle_proof_incomplete(db)
+        _boot_enqueue("seasonal_cycle_proof", when=_open, agent="publishing",
+                      job_type="seasonal.cycle_proof",
+                      key=f"boot-cycle-proof-"
+                          f"{build_identity().get('commit_short', 'dev')}",
+                      inputs={})
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "seasonal_cycle_proof", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     # And one owned product image per certified release. Idempotent by product and version
     # inside the handler, so a deploy re-attempts a render that failed and does nothing at
     # all once a release has its picture.
