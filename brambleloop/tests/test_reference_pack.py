@@ -698,6 +698,52 @@ def test_every_image_the_owner_is_asked_to_approve_survives_a_restart():
         shutil.rmtree(store_root, ignore_errors=True)
 
 
+def test_the_frame_whose_job_the_bust_is_decides_whether_the_bust_changed():
+    """The v14 run passed on the wrong frame, and it was one step from the owner.
+
+    `verdict_for` takes DRIFT if any frame says DRIFT. For a dimension that must not move
+    that is conservative -- any sign of change fails. For the one dimension that must move
+    it is permissive -- any sign of change passes. Same rule, opposite effect. On v14 the
+    torso reference, which exists to read the chest and which `FRAME_AUTHORITY` names for
+    the bust, said `match`; the full-length standing frame, where the chest is a small part
+    of a whole-body shot, said `drift`; and the pack reported that the revision had landed
+    while three of three torso renders were saying it had not.
+    """
+    import tempfile
+
+    approved_full = brief.approved_reference("full_length_standing")
+
+    def distant(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if reference_ref == approved_full:
+            out["bust"] = identity.DRIFT      # the frame that cannot really see it
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, package = _build(Path(tmp), compare=distant, hair=_never_asked)
+    revision = package["revision"]
+    assert revision["judged_by"] == ["torso_fit_reference"]
+    assert revision["revised_verdict"] == identity.MATCH
+    assert revision["changed"] is False
+    assert revision["frames_disagree"] == {"full_length_standing": identity.DRIFT}
+    assert package["approval_conditions"]["the_bust_actually_changed"]["met"] is False
+    assert package["ready_for_owner_approval"] is False
+
+    # And the authoritative frame alone is enough to pass it.
+    approved_torso = brief.approved_reference("torso_fit_reference")
+
+    def close(db, reference_ref, candidate_ref):
+        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+        if reference_ref == approved_torso:
+            out["bust"] = identity.DRIFT
+        return out
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, good = _build(Path(tmp), compare=close, hair=_never_asked)
+    assert good["revision"]["changed"] is True
+    assert good["approval_conditions"]["the_bust_actually_changed"]["met"] is True
+
+
 def test_a_verdict_on_a_dimension_no_frame_could_state_is_not_a_verdict():
     """The contradiction the first v9 run was built to stop, seen in production.
 

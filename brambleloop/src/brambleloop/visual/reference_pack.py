@@ -40,7 +40,7 @@ PACK_ACTION = "model.reference_pack"
 # Part of the run fingerprint. A pack built before the full-length frame existed is not
 # comparable to one built after it, and re-reading the old audit row as "already done" is
 # how a corrected method quietly never runs.
-PACK_VERSION = "v14-the-images-the-owner-approves-survive-a-redeploy"
+PACK_VERSION = "v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is"
 
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
@@ -528,7 +528,33 @@ def _revision_check(db, compare, torso: str, full_length: str,
             return identity.MATCH
         return identity.UNMEASURABLE
 
-    revised = verdict_for(brief.REVISED_DIMENSION)
+    # The revised dimension is judged by the frame whose job it is, not by whichever frame
+    # made the strongest claim.
+    #
+    # `verdict_for` takes DRIFT if any frame says DRIFT, and that rule is conservative for
+    # a preserved dimension -- any sign of change is a failure -- and permissive for the
+    # revised one, where any sign of change is a pass. Same line, opposite effect, and on
+    # the v14 run it granted the approval: the torso frame, which exists to read the chest
+    # and which `FRAME_AUTHORITY` names for the bust, said `match`; the full-length
+    # standing frame, where the chest is a small part of a whole-body shot, said `drift`;
+    # the pack reported that the revision had landed. Three of three torso renders had just
+    # said it had not.
+    #
+    # So the authoritative frame decides, and when the other frame disagrees that is
+    # reported rather than resolved in the direction that flatters the run. If the
+    # authoritative frame cannot read it, the verdict is `unmeasurable` -- which the
+    # `no_frame_could_state_it` path below already handles, and which is not a pass.
+    authoritative = [f for f, dims in brief.FRAME_AUTHORITY.items()
+                     if brief.REVISED_DIMENSION in dims and f in against]
+    from_authority = [against[f].get(brief.REVISED_DIMENSION) for f in authoritative]
+    revised = (identity.DRIFT if identity.DRIFT in from_authority
+               else identity.MATCH if identity.MATCH in from_authority
+               else identity.UNMEASURABLE) if authoritative else verdict_for(
+                   brief.REVISED_DIMENSION)
+    elsewhere = {f: against[f].get(brief.REVISED_DIMENSION) for f in against
+                 if f not in authoritative}
+    disagreement = {f: v for f, v in elsewhere.items() if v != revised
+                    and v in (identity.DRIFT, identity.MATCH)}
     # Only the revised dimension is overridden this way, and the asymmetry is deliberate.
     # Here the verdict *is* the floor, so a confident answer with nothing under it decides
     # the run. For a preserved dimension a comparison's `match` grants nothing -- it only
@@ -561,6 +587,16 @@ def _revision_check(db, compare, torso: str, full_length: str,
         "changed": revised == identity.DRIFT,
         "revised_verdict": revised,
         "no_frame_could_state_it": revised_had_no_frame,
+        "judged_by": authoritative,
+        "other_frames_said": elsewhere,
+        "frames_disagree": disagreement,
+        "why_one_frame_decides": (
+            "`FRAME_AUTHORITY` names the frame whose job each dimension is, and the bust's "
+            "is the close torso reference. Taking the strongest claim from any frame is "
+            "conservative for a dimension that must not move and permissive for the one "
+            "that must, which is the same rule granting and refusing on opposite evidence. "
+            "A disagreement is reported here rather than resolved in whichever direction "
+            "flatters the run"),
         "why_an_unstated_dimension_has_no_verdict": (
             "the comparison answered `match` on a dimension the pack's own observation "
             "could not state, across three re-rendered torso frames. 'It did not change' "

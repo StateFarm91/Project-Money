@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,902 tests passing, 0 failing**.
+  **2,903 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4765,6 +4765,16 @@ timings, written there by the system rather than by hand.
   not. The reference pack's images are now kept in Postgres as well as on disk and restored
   to disk on the first read after a restart; nothing else is, and object storage stays an
   owner action for the catalogue (B-608). v14 rebuilds the pack with its images kept.
+- **v14 passed all nine conditions and the pass was wrong** — caught one step before the
+  owner saw it, by the attempt log added the night before. `verdict_for` takes `drift` if
+  any frame says `drift`: conservative for a dimension that must not move, permissive for
+  the one that must, same line of code. The torso reference — the frame that exists to read
+  the chest, and the one `FRAME_AUTHORITY` names for the bust — said `match`, three of
+  three torso renders said `changed: false`, and the full-length standing frame said
+  `drift`; the pack reported the revision had landed. Without the log, those two numbers
+  would never have appeared in the same report. v15: the authoritative frame decides, the
+  other frame's answer is printed beside it, and an authoritative frame that cannot read
+  the dimension gives `unmeasurable`, which is not a pass (B-609).
 - **Nothing is frozen and nothing is owner-approved.** `select_canonical` is the only thing
   that can freeze the identity and it refuses without the owner's explicit approval.
 - **The maturity ladder's first production reading**: of 222 requirements the registry
