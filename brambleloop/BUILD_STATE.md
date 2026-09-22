@@ -5045,12 +5045,23 @@ before tonight.
 
 Four of six. The two that remain:
 
-- **product_truth** — the motif judge reads both frames now and calls both a **mismatch**.
-  The detail frame is conditioned on the certified chart itself and the generator still
-  produces a different fabric. That is the honest finding and it is a capability question
-  about the image provider rather than a prompt to tighten: reference-conditioning works
-  for a face and does not, so far, reproduce a specified stitch pattern. **This is now
-  #300's weakest link and the named next decision.**
+- **product_truth** — the motif judge called both frames a **mismatch**, and the reason
+  was ours, not the provider's (B-644). `expected()` took the chart's motif name from the
+  first sentence of the designer note, and every machine-authored note reads "prototype of
+  {key}: {what}, {w} x {h} cm at {gauge}" — the finished object and its dimensions, with
+  nothing in it about stitches. So the render prompt asked for "fabric worked in this
+  pattern's own motif: an adult hat, worked in the round", and the verdict compared an
+  honest description of fabric against those same words and found no overlap. **For every
+  product the seasonal cycle authors, product truth could never pass**, and it failed for
+  a reason that had nothing to do with the picture. The mirror defect sat behind it: with
+  the name empty the test was skipped and the verdict fell through to MATCH.
+
+  I had already written this up as a provider capability question (B-643). **That
+  conclusion is withdrawn.** Object prose is now recognised by our own format string, an
+  unnamed motif reports `name_test: unavailable` rather than passing, and the colour count
+  — deterministic from the chart, true of every pattern including the ones authored in
+  memory — is checked first, because that is what both live renders actually broke. The
+  provider gets asked again only after a render that was told the truth about its fabric.
 - **photographic_realism** — improving under evidence rather than guesswork, and the
   calibration proved the standard discriminates. The detail frame fell from three failed
   checks to one (`processing_is_restrained`); the fit frame still fails all three. One of
