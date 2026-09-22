@@ -229,6 +229,48 @@ def test_the_product_stays_the_hero_in_what_is_asked_for():
     assert photoreal.DIRECTION in prompt
 
 
+def test_the_model_is_the_exception_and_an_unclassified_form_is_shot_as_an_object():
+    """The defect production data exposed, as the fixture that keeps it fixed.
+
+    `form_of` knew only the product-first vocabulary, so a slug with no product-first word
+    fell back to the CIR's *construction*: `winter-village-graphghan` -- a blanket --
+    reported its form as `flat_rows`, and asking "is this not product-first" then classed
+    it as needing a model. Four catalogue products were, including a pet snuggle mat and a
+    wall hanging. A construction is not a form, and "not on the product-first list" is not
+    the same claim as "somebody has to wear it".
+
+    #74 makes her the exception rather than the fallback, so the answer comes off an
+    allowlist of worn forms and an unclassified product is photographed as an object. The
+    cost of being wrong that way is a flat photograph of a scarf; the other way it is a
+    woman draped in a blanket and a render nobody should have paid for.
+    """
+    import dataclasses
+
+    from brambleloop.products.builder import CATALOGUE, for_slug
+    from brambleloop.publish import listing_asset, owned_photography as op
+
+    routed = [s for s in CATALOGUE
+              if for_slug(s) is not None and listing_asset.needs_the_model(for_slug(s))]
+    assert routed == [], f"flat catalogue products routed to the model path: {routed}"
+
+    # And every catalogue form names itself rather than its construction.
+    for slug in CATALOGUE:
+        cir = for_slug(slug)
+        if cir is None:
+            continue
+        assert op.form_of(cir) != (cir.construction or "").lower(), \
+            f"{slug} is labelled by its construction rather than its form"
+
+    # The gate still bites where it should: a worn form needs her.
+    base = for_slug("cloudline-baby-blanket")
+    for worn in ("winter-cardigan", "alpine-beanie", "cosy-scarf", "hats-hat-0"):
+        assert listing_asset.needs_the_model(dataclasses.replace(base, slug=worn)), worn
+
+    # An unknown form is not a worn one.
+    assert not listing_asset.needs_the_model(
+        dataclasses.replace(base, slug="mystery-thing"))
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

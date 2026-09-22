@@ -46,9 +46,23 @@ from ..visual.identity import PRODUCT_FIRST_FORMS  # noqa: E402
 
 
 def form_of(cir) -> str:
-    """The product's form, as the shot plan and the styling both need it."""
-    slug = (cir.slug or "").lower()
-    for form in PRODUCT_FIRST_FORMS:
+    """The product's form, as the shot plan and the styling both need it.
+
+    Both vocabularies, because this knew only one of them and that made the fallback do
+    the classifying. A slug with no product-first word returned the CIR's *construction*
+    -- `flat_rows` for a graphghan -- and every caller then asked whether a construction
+    was a product-first form. It is not, and neither is it a worn one: a construction is
+    not a form at all, and the question was a category error either way.
+    """
+    # Hyphens normalised, because the form words are written with underscores and
+    # `cottage-wall-hanging` therefore matched none of them and fell through to its
+    # construction.
+    slug = (cir.slug or "").lower().replace("-", "_")
+    from ..visual.identity import WORN_FORMS
+
+    # Longest first, so `earwarmer` is not read as `warmer` and `wall_hanging` beats
+    # nothing: a shorter word inside a longer one would classify by accident.
+    for form in sorted(PRODUCT_FIRST_FORMS | WORN_FORMS, key=len, reverse=True):
         if form in slug:
             return form
     return (cir.construction or "").lower() or "object"
@@ -60,8 +74,17 @@ def needs_no_model(cir) -> bool:
     A property of the *form*, not of the model's approval state: a blanket is shot flat
     whatever the identity register says, and #204 is that a clean product-only hero
     outsells a modelled one for exactly these forms anyway.
+
+    Answered from the worn list rather than from the absence of the product-first one.
+    `form_of` falls back to the CIR's construction when a slug carries no form word, so
+    asking "is this not product-first" classed `winter-village-graphghan` -- a blanket
+    whose form read as `flat_rows` -- as needing a model, along with three other flat
+    catalogue products. A construction is not a form. #74 makes her the exception rather
+    than the fallback, so an unclassified form is photographed as an object.
     """
-    return form_of(cir) in PRODUCT_FIRST_FORMS
+    from ..visual.identity import WORN_FORMS
+
+    return form_of(cir) not in WORN_FORMS
 
 
 def model_bearing_refusal(db, cir) -> dict:

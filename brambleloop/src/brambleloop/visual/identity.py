@@ -103,6 +103,33 @@ REQUIRED_MEASURABLE: dict[str, tuple[str, ...]] = {
 PRODUCT_FIRST_FORMS: frozenset[str] = frozenset({
     "blanket", "throw", "coaster", "placemat", "runner", "basket", "pillow", "wall_hanging",
     "ornament", "garland", "wreath", "toy",
+    # Named because the catalogue has them and they were being labelled by their
+    # construction instead: a graphghan is a blanket with a picture on it, and a snuggle
+    # mat is a mat. The verdict was already right -- an unclassified form is photographed
+    # as an object -- but a frame captioned `flat_rows` is a frame nobody can shot-plan.
+    "graphghan", "afghan", "mat", "motif",
+})
+
+# Forms a buyer genuinely cannot judge without a body on the other side of the fabric:
+# how it sits, where it ends, whether it fits. These are the *only* forms the model gate
+# applies to, and the list is an allowlist rather than the complement of the one above.
+#
+# The complement was the bug. `form_of` falls back to the CIR's *construction* when the
+# slug carries no form word, so `winter-village-graphghan` -- a blanket -- reported its
+# form as `flat_rows`, which is not in `PRODUCT_FIRST_FORMS`, so it was classed as needing
+# the model. Four catalogue products were, including a pet snuggle mat and a wall hanging.
+# A construction is not a form, and "not on the product-first list" is not the same claim
+# as "somebody has to wear it".
+#
+# The default therefore has to be the other way round. #74 says the model gate applies only
+# where human modelling materially *helps* the buyer, which makes her the exception rather
+# than the fallback: a form nobody has classified is photographed as an object, and the
+# cost of being wrong is a flat photograph of a scarf rather than a woman draped in a
+# blanket and a render nobody should have paid for.
+WORN_FORMS: frozenset[str] = frozenset({
+    "garment", "cardigan", "sweater", "jumper", "shawl", "wrap", "poncho", "scarf",
+    "cowl", "snood", "hat", "beanie", "bonnet", "headband", "earwarmer", "mitten",
+    "glove", "sock", "slipper", "bag", "tote", "dress", "top", "vest",
 })
 
 
