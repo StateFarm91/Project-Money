@@ -79,3 +79,18 @@ def usable(record: dict | None) -> bool:
     if not record or not record.get("made"):
         return False
     return bool(record.get("usable_as_listing_asset"))
+
+
+def frames_for(db, *, slug: str) -> list[dict]:
+    """Every frame this product's listing would export, flat, for the parity gate.
+
+    A model-bearing listing is a sequence and a product-first one is a single hero, so a
+    caller that assumed either shape would be wrong about half the catalogue. #75 judges
+    the set, so the set is what this returns -- and an empty list is an answer: parity on
+    no frames is `unjudged`, which blocks, rather than passing by having nothing to fail.
+    """
+    record = last(db, slug=slug)
+    if not record or not record.get("made"):
+        return []
+    frames = record.get("frames")
+    return list(frames) if frames else [record]

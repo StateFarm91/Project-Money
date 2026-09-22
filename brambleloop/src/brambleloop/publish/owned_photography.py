@@ -242,6 +242,12 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
         "slug": cir.slug,
         "version": cir.version,
         "method_version": METHOD_VERSION,
+        # A product-first listing's one frame is its hero, and #75's GALLERY check reads
+        # the role: a frame with no declared job cannot be distinguished from filler.
+        "role": "hero",
+        "readable_at_grid": (
+            None if not inspected.get("described")
+            else (inspected.get("description") or {}).get("clarity") != "unreadable"),
         "form": form_of(cir),
         "occasion": occasion or None,
         "prompt": prompt,

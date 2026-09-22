@@ -43,6 +43,15 @@ class ShadowModeRefusal(CapabilityNotEnabled):
     """
 
 
+class ParityRefusal(CapabilityNotEnabled):
+    """Listing export blocked by the eight-part creative parity gate (#75).
+
+    Terminal for the same reason as a shadow refusal: re-running the same job against the
+    same frames asks the same question. What changes a parity verdict is a different frame
+    or a comparison that has not been made, neither of which a retry produces.
+    """
+
+
 # ---- concept -> CIR ------------------------------------------------------
 
 
@@ -500,13 +509,33 @@ def handle_store_publish(ctx: JobContext) -> dict:
     than the only one. Nothing in this environment satisfies the others: there are no
     credentials and no owner grant.
     """
+    # The eight-part creative parity gate (#75). *Computed* before the phase check and
+    # *enforced* after it, and the split is deliberate.
+    #
+    # Computed first, because a gate that only runs once the phase allows publishing is a
+    # gate nobody has ever seen run, and the first listing it judged would be a live one.
+    # This reads evidence already on file -- no render, no model call, no network -- so
+    # running it on every refused attempt costs nothing and produces the record of it
+    # working that Shadow Mode otherwise makes impossible to gather.
+    #
+    # Enforced after, because Shadow Mode is the outermost boundary and must stay the
+    # reason. A system that refuses to publish for a creative reason before establishing
+    # that it is allowed to publish at all has inverted its own gates, and the refusal
+    # `/api/verify` counts as evidence of Shadow Mode working would start saying something
+    # else.
+    parity_verdict = _listing_parity(ctx)
+    ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"), detail=parity_verdict)
+
     if ctx.phase is Phase.SHADOW:
         ctx.audit("store.publish_refused", artifact=ctx.job.inputs.get("slug"),
-                  detail={"reason": "shadow mode: no live publication"})
+                  detail={"reason": "shadow mode: no live publication",
+                          "creative_parity": parity_verdict["verdict"],
+                          "parity_would_block": parity_verdict["blocks_release"]})
         raise ShadowModeRefusal(
             "store.publish is a production capability; the system is in SHADOW mode and has "
             "no live Etsy connection. Draft retained for review."
         )
+
 
     import os
 
@@ -531,6 +560,17 @@ def handle_store_publish(ctx: JobContext) -> dict:
         ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
                   detail={"reason": refusal})
         raise ShadowModeRefusal(refusal)
+
+    # Enforced here: after every question about whether this system may publish at all,
+    # and before anything is sent. Phase, credentials and the authority matrix are
+    # capability gates and stay outermost; parity is the question of whether *this listing*
+    # is good enough, which is only worth asking of a system that could publish it.
+    if parity_verdict["blocks_release"]:
+        ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
+                  detail={"reason": f"creative parity (#75): {parity_verdict['why']}"})
+        raise ParityRefusal(
+            f"listing export is blocked by the eight-part creative parity gate: "
+            f"{parity_verdict['why']}")
 
     with ctx.db.session() as s:
         listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
@@ -890,3 +930,47 @@ def handle_plan_strategy(ctx: JobContext) -> dict:
 # Importing the back half registers its handlers. Kept at the bottom because `release` imports
 # job-context helpers from this module's neighbours, and a top-of-file import would be a cycle.
 from . import release  # noqa: E402,F401
+
+
+def _listing_parity(ctx: JobContext) -> dict:
+    """#75 for the listing this job would export, from evidence already on file.
+
+    Never renders and never asks a model anything: every dimension is a reading of an
+    asset record that exists, or `unjudged`. The benchmark comparison is passed through
+    when one has been made and left absent when none has -- assuming this company compares
+    well beside MJs is the one answer nobody has evidence for.
+    """
+    from ..publish import listing_asset
+    from ..visual import parity
+
+    slug = ctx.job.inputs.get("slug", "")
+    frames = listing_asset.frames_for(ctx.db, slug=slug)
+    try:
+        verdict = parity.assess(frames, benchmark_quality=_benchmark_quality(ctx.db, slug))
+    except parity.ParityRefused as exc:
+        # A partial set cannot satisfy #75, and the refusal is the gate working. Reported
+        # as blocking rather than raised, so the publish attempt records why.
+        return {"verdict": parity.UNJUDGED, "blocks_release": True,
+                "why": str(exc)[:300], "dimensions": {}, "slug": slug}
+    return {**verdict, "slug": slug, "frames_judged": len(frames)}
+
+
+def _benchmark_quality(db, slug: str) -> dict | None:
+    """The blind comparison against observed benchmark listings, if one has been made.
+
+    None rather than a favourable default. `parity` reads the absence as `unjudged`, which
+    blocks -- which is correct: #75 asks for a comparison, and a comparison nobody made is
+    not a comparison that went well.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog)
+                             .where(AuditLog.action == "creative.blind_review")
+                             .order_by(desc(AuditLog.id)).limit(10)):
+            detail = row.detail or {}
+            if detail.get("slug") == slug and "materially_inferior" in detail:
+                return detail
+    return None

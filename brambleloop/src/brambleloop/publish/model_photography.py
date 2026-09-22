@@ -266,9 +266,18 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
     # -valued rather than boolean.
     usable = all(v == "pass" for v in floors.values())
 
+    description = (inspected.get("description") or {})
     return {
         "made": True,
         "shot": shot,
+        # The gallery role this frame plays, which is what #75's GALLERY check reads: a
+        # frame with no declared job is filler by definition. The shot names are the
+        # gallery's own vocabulary, so a sequence is a gallery rather than two pictures.
+        "role": shot,
+        # And whether it survives Etsy's search thumbnail, which is where the buying
+        # decision actually starts. `None` when nobody looked -- not True.
+        "readable_at_grid": (None if not inspected.get("described")
+                             else description.get("clarity") != "unreadable"),
         "answers_for": list(answers_for),
         "slug": cir.slug,
         "version": cir.version,

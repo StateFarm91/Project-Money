@@ -1386,14 +1386,24 @@ def api_model_asset(slug: str = "") -> dict:
                 "why": ("no model-bearing frame has been made yet. "
                         "`assets.model_photography` runs daily and makes one per release "
                         "for the forms a buyer cannot judge without a body")}
+    # The listing asset is a sequence, so the per-frame readings are what diagnose a
+    # blocked floor: "product truth unverifiable" says nothing about which frame could not
+    # be read, and a combined verdict with no frames behind it is a summary of evidence
+    # nobody can see.
+    frames = record.get("frames") or [record]
     return {
         "asset": {k: record.get(k) for k in (
             "slug", "version", "form", "method_version", "provider", "image",
-            "conditioned_on", "floors", "usable_as_listing_asset", "why",
+            "conditioned_on", "shots", "floors", "floor_sources",
+            "usable_as_listing_asset", "why", "why_two_frames",
             "disclosed_as_illustration", "disclosure", "spent_cad")},
-        "identity": record.get("identity"),
-        "motif": record.get("motif"),
-        "photographic_realism": record.get("photographic_realism"),
+        "frames": [{k: f.get(k) for k in (
+            "shot", "role", "answers_for", "readable_at_grid", "floors", "image",
+            "identity", "motif", "photographic_realism", "styling", "asset_truth",
+            "inspection", "why")} for f in frames],
+        "identity": frames[0].get("identity"),
+        "motif": next((f.get("motif") for f in frames if f.get("motif")), None),
+        "photographic_realism": frames[0].get("photographic_realism"),
         "canonical_version": pack.version if pack else None,
         "floors_never_average": record.get("floors_never_average"),
     }
