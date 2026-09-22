@@ -4650,7 +4650,7 @@ timings, written there by the system rather than by hand.
 - The test runner now discovers its suites. The hand-maintained list was three files out of
   date, so two mornings' work was green without being run by the full suite -- both passed
   directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
-  **2,905 tests passing, 0 failing**.
+  **2,906 tests passing, 0 failing**.
 - **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
   again. The owner added US$10 and the console showed a balance, but a screenshot is a
   claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
@@ -4861,7 +4861,19 @@ timings, written there by the system rather than by hand.
   job runs the cycle and renders for the product the chain produced, while
   `/api/seasonal/cycle` passes nothing and stays free — a GET that spends money spends it
   every time a sweep walks the routes. It runs as `publishing`, the agent that already owns
-  the photography job (B-613). **#300's assets link is now reachable for the first time.**
+  the photography job (B-613).
+- **Its first live run finished successfully and proved nothing** — `weakest_link: generate`,
+  `assets_state: None`. The handler asked the cycle for everything except the one input it
+  needed, so the generate step gated on `model_provider` and the run stopped at step 5, four
+  links short of the link the job exists to close. Found by reading the cadence's recorded
+  outputs rather than trusting a `done` job — which is exactly the deployed-versus-exercised
+  distinction the maturity ladder draws, arriving on the first thing built after it. The job
+  now builds the gateway the endpoint builds and refuses outright without a credential
+  rather than emitting a truncated run a cadence row would report as a proof (B-614).
+- **#300's assets link is reachable for the first time**, and not yet proven closed in
+  production: the corrected job has not run again. The endpoint confirms the chain is
+  honest — it now names `hats-hat-0`, the product its own chain engineered, where it used
+  to name an unrelated blanket.
 - **The motif-fidelity gate is working in production.** It is what failed the cycle's assets
   step: a generated blanket image judged `mismatch` against the certified diamond-lattice
   chart. The owner's release requirement — that an image depict what the pattern actually

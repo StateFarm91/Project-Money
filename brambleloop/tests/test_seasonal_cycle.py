@@ -220,6 +220,58 @@ def test_an_asset_maker_closes_the_link_and_the_endpoint_never_gets_one():
     assert assets["evidence"]["slug"] == engineered
 
 
+def test_the_proof_job_hands_the_cycle_a_gateway_and_refuses_when_it_cannot():
+    """The first live run of this job proved nothing and reported success.
+
+    `weakest_link: generate`, `assets_state: None` -- the handler asked the cycle for
+    everything except the one input it needed, so the generate step gated on
+    `model_provider` and the run stopped at step 5, four links short of the assets link
+    the job exists to close. A proof that stops before the thing it proves is not a proof,
+    and it cost a scheduled run to find out.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.gateway.anthropic import AnthropicProvider
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime.release import JobContext, handle_seasonal_cycle_proof
+    from brambleloop.seasonal import cycle as cycle_mod
+
+    db = _wide_db()
+    Registry(db).seed_defaults()
+    queue = JobQueue(db)
+    ctx = JobContext(job=queue.enqueue("publishing", "seasonal.cycle_proof", {}), db=db,
+                     queue=queue, registry=Registry(db), phase=None)
+
+    # No credential: it says so rather than running a cycle that cannot generate.
+    was_key = AnthropicProvider.key
+    AnthropicProvider.key = staticmethod(lambda: "")
+    try:
+        out = handle_seasonal_cycle_proof(ctx)
+    finally:
+        AnthropicProvider.key = was_key
+    assert out["ran"] is False
+    assert "four links" in out["reason"]
+
+    # With one, the cycle is handed both a gateway and a maker -- captured rather than
+    # run, because the point under test is what the handler passes.
+    seen = {}
+
+    def spy(_db, **kwargs):
+        seen.update(kwargs)
+        return {"steps": [], "complete": False, "weakest_link": "",
+                "customer_can_finish_in_time": True}
+
+    was_run = cycle_mod.run
+    AnthropicProvider.key = staticmethod(lambda: "a-key")
+    cycle_mod.run = spy
+    try:
+        handle_seasonal_cycle_proof(ctx)
+    finally:
+        cycle_mod.run = was_run
+        AnthropicProvider.key = was_key
+    assert seen.get("gateway") is not None, "the cycle was run without a model provider"
+    assert callable(seen.get("asset_maker"))
+
+
 def test_the_verdict_is_the_weakest_link_rather_than_a_count_of_green_ticks():
     """A backward-chained schedule is exactly where an average hides a broken link."""
     out = cycle.run(_wide_db(), today=TODAY, gateway=_WideGateway())

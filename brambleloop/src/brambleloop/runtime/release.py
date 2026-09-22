@@ -1731,8 +1731,28 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
 
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
+    from ..gateway import routing
+    from ..gateway.anthropic import AnthropicProvider
+    from ..gateway.model_gateway import ModelGateway
     from ..publish import owned_photography
     from ..seasonal import cycle
+
+    # The gateway is the difference between this job doing its job and this job reporting
+    # that it could not start. Without one the generate step gates on `model_provider` and
+    # the run stops at step 5, four links short of the assets link this job exists to
+    # close -- which is exactly what the first live run did: `weakest_link: generate`,
+    # `assets_state: None`. A proof that stops before the thing it proves is not a proof,
+    # and it cost a scheduled run to find out because the handler asked the cycle for
+    # everything except the one input it needed.
+    gateway = None
+    if AnthropicProvider.key():
+        _task, tier = routing.route("concept_generation")
+        gateway = ModelGateway([AnthropicProvider(model=tier.model)])
+    if gateway is None:
+        return {"ran": False, "reason": ("no model provider credential, so the cycle "
+                                         "cannot generate concepts and would stop four "
+                                         "links before the assets link this job exists "
+                                         "to close")}
 
     with tempfile.TemporaryDirectory(prefix="cycle-proof-") as work_dir:
         def make_asset(cir):
@@ -1742,7 +1762,7 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
             return owned_photography.make(ctx.db, cir, build_twin(cir, result),
                                           work_dir=work_dir)
 
-        report = cycle.run(ctx.db, asset_maker=make_asset)
+        report = cycle.run(ctx.db, gateway=gateway, asset_maker=make_asset)
 
     ctx.audit("seasonal.cycle_proof", detail=report)
     assets = next((s for s in report["steps"] if s["step"] == "assets"), {})
