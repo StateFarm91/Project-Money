@@ -5104,14 +5104,18 @@ is unproven rather than unreachable.
   the gate (C).
 - **#73 — the character bible is built and enforced**, and the pack now carries every part
   the requirement names.
-- **#75 — all eight checks exist and are wired in front of export, and the one missing
-  piece of evidence is draining on its own.** COMPETITIVE reads `unjudged`, which blocks,
-  because no per-listing imagery comparison against the benchmark has been made. But the
-  backlog is moving rather than stuck: the two-hourly `intel.gallery_analysis` cadence
-  judged 25 images at 08:09Z with zero failures for CA$0.71, leaving 475 — about 19 runs,
-  roughly 38 hours and CA$13 to empty, inside the purpose's declared share of the month
-  and needing nothing from anybody. A real gap with a date on it, not a formality and not
-  a blocker.
+- **#75 — all eight checks exist and are wired in front of export. The evidence for
+  COMPETITIVE was not draining, and the reason was a defect (B-647).** `gallery_analysed`
+  was read in `pending()` and written nowhere, so every two-hourly run took the same
+  twenty-five images off the same newest listings, judged them, paid for them and left
+  them pending: eight unattended hours and four paid batches moved the backlog from 475 to
+  **476**, at about CA$8.50 a day for no new evidence. `remaining` then subtracted the
+  run's own `judged` from a live count, so a queue standing still reported as one draining
+  by twenty-five a run — which is how "about 38 hours and CA$13 to empty" reached the
+  owner in a report. Both halves are fixed: images are marked judged per rank, a listing
+  is analysed only when every image of it has been, and `remaining` is counted with
+  nothing subtracted. **The real drain rate is whatever the next runs report and is not
+  claimed here in advance.**
 - **#300 — product-bound and honest.** The chain reaches its assets step for `hats-hat-0`,
   the product its own cycle engineered, and reports `complete: false, weakest link assets`
   with the exact floors that fell short. It closes when the sequence clears every floor.
