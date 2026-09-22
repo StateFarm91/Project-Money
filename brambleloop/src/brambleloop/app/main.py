@@ -281,7 +281,15 @@ def _startup() -> None:
         _needed = photoreal_calibration(db) is None
         _boot_enqueue("photoreal_calibration", when=_needed, agent="creative_director",
                       job_type="creative.photoreal_calibration",
-                      key=f"boot-photoreal-calibration-{_photoreal.CHECKS_VERSION}")
+                      # The commit is in the key for the reason the cycle-proof key has
+                      # it. The first attempt died on a missing agent permission and its
+                      # dead letter kept the key, so the deploy carrying the fix enqueued
+                      # nothing and reported `duplicate` -- an idempotency key outliving
+                      # the defect it recorded, which is how a fix never gets to run.
+                      # Self-limiting either way: this asks nothing once a calibration of
+                      # these checks exists.
+                      key=(f"boot-photoreal-calibration-{_photoreal.CHECKS_VERSION}-"
+                           f"{build_identity().get('commit_short', 'dev')}"))
     except Exception as e:  # noqa: BLE001 - never block a boot
         BOOT_ENQUEUES.append({"name": "photoreal_calibration", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
