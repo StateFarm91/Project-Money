@@ -173,6 +173,34 @@ def judge(observed: dict, want: dict, *, repeat_tolerance: float = 0.5) -> dict:
             "why": "the described repeating unit is the chart's own, and the judge agrees"}
 
 
+def chart_image(cir, twin, *, work_dir: str = "") -> str:
+    """The certified chart as a picture, for a caller that wants to condition on it.
+
+    The same render `check` compares against, exposed so the generator can be *shown* the
+    fabric rather than told about it. "Patterns are software releases" cuts both ways: the
+    chart is deterministic output from the certified CIR, so it is the one description of
+    the fabric that cannot drift, and handing a generator a sentence about a diamond
+    lattice while checking the result against the lattice itself is asking one question and
+    grading another.
+
+    Returns "" rather than raising: a chart that will not render is a reason not to
+    condition on one, never a reason to fail the render.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from .charts import ChartSpec, render_chart
+
+    try:
+        chart = render_chart(cir, twin, ChartSpec(cell_px=18))
+        out = Path(work_dir or tempfile.mkdtemp(prefix="motif-chart-")) / "chart-ref.png"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        chart.save(str(out))
+        return str(out)
+    except Exception:  # noqa: BLE001 - conditioning on nothing is the fallback
+        return ""
+
+
 def check(db, image_ref: str, cir, twin, *, provider=None, judger=None) -> dict:
     """Render the chart, show both, and decide. Blocks a customer-facing asset unless match."""
     import tempfile

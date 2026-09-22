@@ -172,7 +172,19 @@ DIRECTION = (
     "uneven natural tone, faint shine where light falls, and ordinary asymmetry between "
     "the two sides of the face. No skin smoothing, no blemish removal, no eye or teeth "
     "brightening, no softening filter. It should look like an unedited raw frame from a "
-    "real camera rather than a finished beauty image."
+    "real camera rather than a finished beauty image. "
+    # Added after the calibration settled which way the evidence pointed. A real benchmark
+    # photograph failed none of these checks and answered all three of the ones blocking
+    # our renders, so the standard discriminates and the renders were the problem. Three
+    # attempts had been blocked on the same trio, each time against direction that asked
+    # generally for unretouched skin -- so this names the *scene* as well, because the two
+    # remaining failures were about the frame rather than the face: a person on a seamless
+    # backdrop with nothing else in shot is a catalogue cut-out however real her skin is.
+    "The scene is a real place with real evidence of use: a wall with its own colour and "
+    "marks, a floor edge, a hint of what is beyond the frame. Something in it is slightly "
+    "out of place -- a crease in the fabric, a strand of hair across a shoulder, a thread "
+    "end, a fold that has not been straightened. Nothing is arranged for the photograph "
+    "and nothing has been cleaned up afterwards."
 )
 
 
@@ -198,18 +210,45 @@ CALIBRATION_ACTION = "photoreal.calibration"
 # Moves when the checks or the wording move, because a calibration is a statement about
 # one version of this standard and reading an older one back as current is how a tightened
 # judge never gets re-checked.
-CHECKS_VERSION = "v1-eleven-named-rejections"
+CHECKS_VERSION = "v2-a-control-that-cannot-answer-is-not-a-standard-that-cannot-pass"
 
 
 def calibrate(db, *, image_url: str, provider=None) -> dict:
     """Ask the judge about a photograph nobody generated, and record what it said.
 
-    Returns the reading and the gate's verdict on it, with no opinion about what that
-    means: a `clear` says this standard is reachable and a `blocked` says it is not, and
-    both are findings rather than one being a failure.
+    Three outcomes, not two, and the middle one turned out to be the common one. The first
+    live calibration came back `unjudged` on `anatomy_is_possible` and
+    `depth_of_field_is_natural`, because the control was a flat-lay swatch with no person
+    and no background in it and honestly cannot answer either. Reading that as "the
+    standard is unreachable" would have been a verdict computed from absence of evidence --
+    the exact defect this function was added to test for, committed by the test.
+
+    What matters is whether any check *failed* on a real photograph, and which checks were
+    answered at all. That first control failed nothing and answered all three of the checks
+    that were blocking our renders, so those three discriminate and the renders are what
+    needs changing.
     """
     reading = judge(image_url, db=db, provider=provider)
     verdict = gate(reading)
+    failed, unjudged = verdict["failed"], verdict["unjudged"]
+    answered = sorted(k for k in CHECKS if k not in unjudged)
+
+    if failed:
+        reachable, meaning = False, (
+            f"this judge failed a real photograph on {failed}, so what those checks "
+            f"measure is not 'reads as generated'. Tightening a render against them would "
+            f"be chasing a standard nothing can meet")
+    elif unjudged:
+        reachable, meaning = True, (
+            f"a real photograph failed nothing. {answered} discriminate, and a render this "
+            f"judge blocks on any of them is a render that needs changing. {unjudged} "
+            f"stayed unjudged because this control could not show them: unproven rather "
+            f"than unreachable, and a control that shows them would settle it")
+    else:
+        reachable, meaning = True, (
+            "a real photograph cleared every check, so the standard is reachable and a "
+            "render this judge blocks is a render that needs changing")
+
     return {
         "control": image_url,
         "control_is": ("a real photograph from an observed benchmark listing, used to "
@@ -217,16 +256,12 @@ def calibrate(db, *, image_url: str, provider=None) -> dict:
                        "copied, re-hosted or imitated, and what it depicts is never "
                        "described"),
         "verdict": verdict["verdict"],
-        "failed": verdict["failed"],
-        "unjudged": verdict["unjudged"],
+        "failed": failed,
+        "unjudged": unjudged,
+        "discriminating": answered,
         "notes": verdict["notes"],
-        "reachable": verdict["verdict"] == "clear",
-        "what_it_means": (
-            "the standard is reachable, so a render this judge blocks is a render that "
-            "needs changing" if verdict["verdict"] == "clear" else
-            "this judge blocked a real photograph, so what it is measuring is not "
-            "'reads as generated'. Tightening the render against it would be chasing a "
-            "standard nothing can meet"),
+        "reachable": reachable,
+        "what_it_means": meaning,
     }
 
 

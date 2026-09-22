@@ -1453,8 +1453,10 @@ def api_photoreal_calibration() -> dict:
                 "copied, not re-hosted, not imitated, and what it depicts is never "
                 "described"),
         "state": ("not yet asked" if result is None else
-                  "the standard is reachable" if result.get("reachable") else
-                  "this judge blocked a real photograph"),
+                  "this judge failed a real photograph" if result.get("failed") else
+                  "a real photograph failed nothing; some checks it could not show"
+                  if result.get("unjudged") else
+                  "a real photograph cleared every check"),
     }
 
 

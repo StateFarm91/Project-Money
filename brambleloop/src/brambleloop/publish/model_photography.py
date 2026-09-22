@@ -38,7 +38,7 @@ ACTION = "assets.model_photography"
 # Part of what decides whether a frame on file answers the question being asked. A frame
 # rendered by an earlier method is evidence about that method, and reading it back as
 # "this release already has one" is how a corrected prompt quietly never runs.
-METHOD_VERSION = "v6-the-portrait-is-sent-as-a-jpeg-and-styling-is-read-off-the-fit-frame"
+METHOD_VERSION = "v8-the-detail-frame-is-conditioned-on-the-certified-chart"
 
 # How many times one release may be re-rendered when the frame comes back unusable.
 #
@@ -100,10 +100,27 @@ def prompt_for(cir, twin, pack, *, occasion: str = "", plan: str = "") -> str:
 # shot showing the product and the upper body is an ordinary listing photograph and it is
 # checkable; a tight crop is neither.
 SHOT_PLAN = (
-    "Framed three-quarter length, from above the head to below the hips, standing "
-    "squarely and evenly lit, so that her shoulders, chest, torso, waist and hips are all "
-    "clearly visible and nothing obscures them. The crochet is worn and clearly visible."
+    "Framed three-quarter length, from above the head to below the hips, standing squarely "
+    "so that her shoulders, chest, torso, waist and hips are all clearly visible and "
+    "nothing obscures them. Lit by soft directional daylight from one side, close enough "
+    "to the camera's axis that nothing falls into shadow, with gentle falloff that models "
+    "the body and the crochet rather than flattening them. The crochet is worn and clearly "
+    "visible, and the setting is a real room or a real wall with its own texture and "
+    "ordinary marks rather than a seamless studio backdrop."
 )
+
+# Why "evenly lit" is gone.
+#
+# The first sequence under the character bible blocked its fit frame on `lighting`, and the
+# judge was right: the frame was flat, frontal and shadowless. So was the instruction. The
+# shot plan said "evenly lit" to make the body readable while `bible.direction()`, in the
+# same prompt, asked for soft directional daylight -- and the bible's own note says why that
+# matters beyond taste: flat light removes the shadow that makes crochet texture legible, so
+# it is a product-truth failure wearing a styling costume. Two pieces of direction I wrote
+# disagreed with each other, which is the value-living-in-two-places defect arriving in
+# prompt language, and the generator obeyed the nearer one. The body is readable from
+# directional light with soft falloff; it does not need flat light, it needed *no deep
+# shadow*, and those are different requests.
 
 # And the frame that answers the other question, because one frame cannot answer both.
 #
@@ -209,8 +226,22 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
     prompt = prompt_for(cir, twin, pack, occasion=occasion, plan=plan)
     claim = owned.claim_for(cir, twin)
 
+    # The detail frame is conditioned on the certified chart as well as on her.
+    #
+    # Its first real reading was `mismatch`: the generator produced a handsome three-colour
+    # granny-shell fabric for a two-colour certified pattern. It had been *told* the motif
+    # in a sentence and *graded* against the chart, which is asking one question and
+    # marking another -- the same gap the identity lock closes by handing over a reference
+    # image instead of adjectives. The chart is deterministic output from the certified
+    # CIR, so it is the one description of this fabric that cannot drift, and the frame
+    # that has to prove product truth is the frame that should see it. The fit frame is
+    # not given it: a chart in a three-quarter portrait's references pulls the whole frame
+    # towards a flat swatch, and product truth is not that frame's floor.
+    chart_reference = (motif_fidelity.chart_image(cir, twin, work_dir=work_dir or "")
+                       if shot == "detail" else "")
+
     try:
-        conditioning = [r for r in (reference, body_reference) if r]
+        conditioning = [r for r in (reference, body_reference, chart_reference) if r]
         render = (generator(prompt, env=env, size="1024x1024",
                             reference_urls=conditioning)
                   if generator else
@@ -304,6 +335,7 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
             "reference_image": reference,
             "body_reference_image": body_reference,
             "body_reference_frame": refs["body_frame"],
+            "chart_reference": chart_reference,
             "why_two": refs["why_the_face_is_separate"],
             "pack_version": pack.version,
             "approved_at": pack.approved_by_owner_at,

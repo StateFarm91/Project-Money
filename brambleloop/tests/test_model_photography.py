@@ -609,6 +609,25 @@ def test_nothing_in_the_sequence_is_averaged():
     assert floors["product_truth"] == "fail"
     assert not all(v == "pass" for v in floors.values())
 
+
+def test_the_shot_plan_and_the_character_bible_ask_for_the_same_light():
+    """Two pieces of direction in one prompt disagreed, and the generator obeyed one.
+
+    The shot plan said "evenly lit" to make the body readable while `bible.direction()`,
+    in the same prompt, asked for soft directional daylight -- and the bible says why that
+    matters beyond taste: flat light removes the shadow that makes crochet texture legible,
+    so it is a product-truth failure wearing a styling costume. The first sequence under
+    the bible blocked its fit frame on `lighting` and the judge was right about the frame
+    and about the instruction. The body needed no deep shadow, not flat light.
+    """
+    assert "evenly lit" not in mp.SHOT_PLAN
+    assert "directional" in mp.SHOT_PLAN and "falloff" in mp.SHOT_PLAN
+    # And the bible's own range is still what the prompt carries, unparaphrased.
+    cir, twin = _subject()
+    prompt = mp.prompt_for(cir, twin, model_registry.canonical_pack(_db()),
+                           plan=mp.SHOT_PLAN)
+    assert bible.AXES["lighting"]["range"] in prompt
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

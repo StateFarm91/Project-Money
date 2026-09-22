@@ -119,6 +119,38 @@ def test_a_calibration_belongs_to_the_checks_it_was_made_against():
     assert photoreal_calibration(db)["reachable"] is True
 
 
+
+def test_a_control_that_cannot_answer_a_check_is_not_a_standard_that_cannot_pass():
+    """The first live calibration, and the defect it nearly wrote into its own verdict.
+
+    The control was a flat-lay swatch with no person and no background in it, so
+    `anatomy_is_possible` and `depth_of_field_is_natural` came back unjudged -- honestly,
+    because that photograph cannot show either. It failed nothing, and it answered all
+    three of the checks that were blocking our renders. Calling that "unreachable" would
+    have been a verdict computed from absence of evidence: the exact defect this function
+    exists to test for, committed by the test, and it would have sent the next session to
+    loosen a standard that was working.
+    """
+    judge = _Judge()
+    del judge.answers["anatomy_is_possible"]
+    del judge.answers["depth_of_field_is_natural"]
+
+    out = photoreal.calibrate(_db(), image_url="https://example.invalid/swatch.jpg",
+                              provider=judge)
+    assert out["verdict"] == "unjudged"
+    assert out["failed"] == []
+    assert out["reachable"] is True, "a check nobody could make is not a check that failed"
+    assert "skin_looks_real" in out["discriminating"]
+    assert "unproven rather than unreachable" in out["what_it_means"]
+
+
+def test_the_three_checks_that_block_our_renders_are_reported_as_discriminating():
+    """What the calibration is actually for: which checks a real photograph cleared."""
+    out = photoreal.calibrate(_db(), image_url="https://example.invalid/photo.jpg",
+                              provider=_Judge())
+    for check in ("skin_looks_real", "processing_is_restrained", "not_sterile_perfection"):
+        assert check in out["discriminating"], check
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
