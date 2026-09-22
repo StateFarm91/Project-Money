@@ -38,7 +38,7 @@ ACTION = "assets.model_photography"
 # Part of what decides whether a frame on file answers the question being asked. A frame
 # rendered by an earlier method is evidence about that method, and reading it back as
 # "this release already has one" is how a corrected prompt quietly never runs.
-METHOD_VERSION = "v10-a-close-crop-is-not-asked-about-the-outfit"
+METHOD_VERSION = "v11-every-frame-sees-the-chart-so-one-listing-is-one-fabric"
 
 # How many times one release may be re-rendered when the frame comes back unusable.
 #
@@ -194,7 +194,7 @@ def _merge_observations(face_seen: dict, body_seen: dict, *, has_body: bool) -> 
 def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | None = None,
          work_dir: str | None = None, provider_key: str = "", generator=None,
          observer=None, inspector=None, motif_judger=None, realism_judger=None,
-         styling_judger=None) -> dict:
+         styling_judger=None, chart_reference: str | None = None) -> dict:
     """Render one frame of the sequence and check it. A record, never a claim.
 
     The frame reports every reading it could make and which floors it is the authority on.
@@ -241,19 +241,26 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
     prompt = prompt_for(cir, twin, pack, occasion=occasion, plan=plan)
     claim = owned.claim_for(cir, twin)
 
-    # The detail frame is conditioned on the certified chart as well as on her.
+    # Every frame is conditioned on the certified chart, not only the one that proves it.
     #
-    # Its first real reading was `mismatch`: the generator produced a handsome three-colour
-    # granny-shell fabric for a two-colour certified pattern. It had been *told* the motif
-    # in a sentence and *graded* against the chart, which is asking one question and
-    # marking another -- the same gap the identity lock closes by handing over a reference
-    # image instead of adjectives. The chart is deterministic output from the certified
-    # CIR, so it is the one description of this fabric that cannot drift, and the frame
-    # that has to prove product truth is the frame that should see it. The fit frame is
-    # not given it: a chart in a three-quarter portrait's references pulls the whole frame
-    # towards a flat swatch, and product truth is not that frame's floor.
-    chart_reference = (motif_fidelity.chart_image(cir, twin, work_dir=work_dir or "")
-                       if shot == "detail" else "")
+    # The detail frame's first real reading was `mismatch`: the generator produced a
+    # handsome three-colour granny shell for a two-colour certified pattern. It had been
+    # *told* the motif in a sentence and *graded* against the chart, which is asking one
+    # question and marking another -- the gap the identity lock closes by handing over a
+    # reference image instead of adjectives. Given the chart, it passed.
+    #
+    # The fit frame was deliberately withheld from it, on the reasoning that a chart among
+    # a three-quarter portrait's references would pull the frame towards a flat swatch and
+    # that product truth is not that frame's floor. The second half of that was wrong, and
+    # the live sequence said so: the fit frame's fabric *is* read and its `mismatch` blocks
+    # the sequence, because both frames ship. Worse, the two frames are independent
+    # renders -- one conditioned on the chart and one not produced two different fabrics in
+    # one listing, which is a coherence failure on top of a fidelity one. Not being a
+    # floor's authority is not the same as not being judged by it.
+    # Rendered once for the sequence and passed in, so both frames are conditioned on the
+    # same picture rather than on two renders that happen to agree.
+    if chart_reference is None:
+        chart_reference = motif_fidelity.chart_image(cir, twin, work_dir=work_dir or "")
 
     try:
         conditioning = [r for r in (reference, body_reference, chart_reference) if r]
@@ -410,9 +417,18 @@ def sequence(db, cir, twin, **kw) -> dict:
     when another frame happens to read better, and a shared floor takes the worst answer any
     frame gave. Nothing here averages, and `unverifiable` is never on the pass side.
     """
+    from . import motif_fidelity
+
+    # One chart for the whole sequence. Two frames shown two renders of the same chart
+    # would almost certainly agree, and "almost certainly" is not what a listing showing
+    # one product needs from the reference both of its pictures are built on.
+    chart = kw.pop("chart_reference", None)
+    if chart is None:
+        chart = motif_fidelity.chart_image(cir, twin, work_dir=kw.get("work_dir") or "")
+
     frames: list[dict] = []
     for name, _, _floors in SHOTS:
-        frame = make(db, cir, twin, shot=name, **kw)
+        frame = make(db, cir, twin, shot=name, chart_reference=chart, **kw)
         frames.append(frame)
         if not frame.get("made"):
             # One frame that could not be rendered is a sequence that does not exist.

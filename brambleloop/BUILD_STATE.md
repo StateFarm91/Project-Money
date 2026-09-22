@@ -5056,6 +5056,13 @@ Four of six. The two that remain:
   a reason that had nothing to do with the picture. The mirror defect sat behind it: with
   the name empty the test was skipped and the verdict fell through to MATCH.
 
+  **And when it was told the truth, it passed.** The v10 detail frame returned
+  `product_truth: pass` — the judge compared the photograph against the chart itself, said
+  the fabric is working it, and the colour count agreed. First time that floor has ever
+  cleared. So the provider was never the problem, twice over: I blamed it once on a
+  defect (B-643) and again on the v9 evidence (B-645), and the answer both times was that
+  the render had not been told what fabric to make.
+
   I had already written this up as a provider capability question (B-643). **That
   conclusion is withdrawn.** Object prose is now recognised by our own format string, an
   unnamed motif reports `name_test: unavailable` rather than passing, and the colour count

@@ -683,6 +683,24 @@ def test_a_styling_breach_a_close_crop_can_see_still_blocks():
     assert record["floors"]["styling"] == "fail"
     assert record["usable_as_listing_asset"] is False
 
+
+def test_every_frame_in_the_sequence_sees_the_chart():
+    """One listing is one fabric, and the frames are independent renders.
+
+    The chart was given to the detail frame only, because product truth is that frame's
+    floor. The live v10 sequence showed both halves of why that was wrong: the fit frame's
+    fabric is read too and its `mismatch` blocks the sequence, and -- worse -- one frame
+    conditioned on the chart and one not produced two different fabrics in a single
+    listing. Not being a floor's authority is not the same as not being judged by it.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        gen, record = _sequence(_db(), Path(tmp))
+
+    assert len(gen.calls) == 2
+    charts = [c["refs"][-1] for c in gen.calls]
+    assert all(c.endswith("chart-ref.png") for c in charts), charts
+    assert charts[0] == charts[1], "the two frames were shown different charts"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
