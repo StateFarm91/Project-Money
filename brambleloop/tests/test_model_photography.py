@@ -126,9 +126,13 @@ def _realism(**overrides):
 
 
 def _styling(**overrides):
-    answers = {k: True for k in bible.QUESTIONS}
-    answers.update(overrides)
-    return lambda image_ref, db=None: {"judged": True, "answers": answers, "notes": ""}
+    def judge(image_ref, db=None, axes=None):
+        asked = tuple(axes or tuple(bible.AXES))
+        answers = {k: True for k in bible.QUESTIONS if bible.AXIS_OF[k] in asked}
+        answers.update({k: v for k, v in overrides.items()
+                        if bible.AXIS_OF[k] in asked})
+        return {"judged": True, "answers": answers, "axes": list(asked), "notes": ""}
+    return judge
 
 
 def _make(db, tmp: Path, *, slug="winter-cardigan", **kw):
@@ -432,9 +436,11 @@ def test_styling_is_a_floor_of_its_own_and_the_right_woman_does_not_excuse_it():
 
 
 def test_unjudged_styling_is_not_a_pass_either():
-    def half_read(image_ref, db=None):
-        return {"judged": True, "notes": "",
-                "answers": {k: True for k in list(bible.QUESTIONS)[:3]}}
+    def half_read(image_ref, db=None, axes=None):
+        asked = tuple(axes or tuple(bible.AXES))
+        keys = [k for k in bible.QUESTIONS if bible.AXIS_OF[k] in asked]
+        return {"judged": True, "notes": "", "axes": list(asked),
+                "answers": {k: True for k in keys[:2]}}
 
     with tempfile.TemporaryDirectory() as tmp:
         _, record = _make(_db(), Path(tmp), styling_judger=half_read)
@@ -627,6 +633,55 @@ def test_the_shot_plan_and_the_character_bible_ask_for_the_same_light():
     prompt = mp.prompt_for(cir, twin, model_registry.canonical_pack(_db()),
                            plan=mp.SHOT_PLAN)
     assert bible.AXES["lighting"]["range"] in prompt
+
+
+def test_a_close_crop_is_never_asked_whether_the_outfit_is_right():
+    """The defect that survived making styling fit-authoritative.
+
+    The detail frame went on being asked the wardrobe questions. First it answered
+    `unjudged`, which the gate refused to pass; then on the next render it answered
+    *False* -- a crop of a hat reporting that the outfit is wrong. Under "a failure
+    anywhere blocks everywhere" that became a false block on the whole sequence, so a
+    frame's limitation arrived as a finding about the styling. It is the same defect as
+    comparing a body against a portrait, one gate along.
+    """
+    asked: list[tuple] = []
+
+    def judge(image_ref, db=None, axes=None):
+        asked.append(tuple(axes or ()))
+        answers = {k: True for k in bible.QUESTIONS
+                   if bible.AXIS_OF[k] in (axes or tuple(bible.AXES))}
+        return {"judged": True, "answers": answers, "axes": list(axes or []), "notes": ""}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _sequence(_db(), Path(tmp), styling_judger=judge)
+
+    assert len(asked) == 2
+    assert "wardrobe" in asked[0], "the fit frame shows the outfit and must be asked"
+    assert "wardrobe" not in asked[1], "a hat crop was asked about the outfit again"
+    assert record["floors"]["styling"] == "pass"
+    detail = next(f for f in record["frames"] if f["shot"] == "detail")
+    assert detail["styling"]["axes"]["wardrobe"]["verdict"] == "not_asked"
+
+
+def test_a_styling_breach_a_close_crop_can_see_still_blocks():
+    """Narrowing what is asked is not narrowing what counts.
+
+    Makeup, expression and lighting are all visible in a crop that includes her face, so
+    a breach in any of them blocks the sequence exactly as before.
+    """
+    def judge(image_ref, db=None, axes=None):
+        asked = tuple(axes or tuple(bible.AXES))
+        answers = {k: True for k in bible.QUESTIONS if bible.AXIS_OF[k] in asked}
+        if image_ref.endswith("frame-1.png"):
+            answers["makeup_is_daytime_natural"] = False
+        return {"judged": True, "answers": answers, "axes": list(asked), "notes": ""}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _, record = _sequence(_db(), Path(tmp), styling_judger=judge)
+
+    assert record["floors"]["styling"] == "fail"
+    assert record["usable_as_listing_asset"] is False
 
 if __name__ == "__main__":
     fails = 0

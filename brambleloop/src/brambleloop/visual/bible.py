@@ -155,7 +155,8 @@ SYSTEM = (
 )
 
 
-def prompt() -> str:
+def prompt(axes: tuple[str, ...] | None = None) -> str:
+    asked = axes or tuple(AXES)
     lines = [
         "Answer as JSON. For each key give true if the statement holds, false if it does "
         "not, and omit the key entirely if the image does not show you enough to judge it. "
@@ -163,21 +164,32 @@ def prompt() -> str:
         "",
     ]
     for key, what in QUESTIONS.items():
-        lines.append(f'  "{key}": {what}')
+        if AXIS_OF[key] in asked:
+            lines.append(f'  "{key}": {what}')
     lines.append("")
     lines.append('Add "notes": one short sentence naming the clearest styling problem you '
                  "saw, or an empty string.")
     return "\n".join(lines)
 
 
-def judge(image_ref: str, *, db=None, provider=None) -> dict:
-    """Ask a model what it can see. Returns readings, never a verdict."""
+def judge(image_ref: str, *, db=None, provider=None,
+          axes: tuple[str, ...] | None = None) -> dict:
+    """Ask a model what it can see, about the axes this frame is in a position to answer.
+
+    `axes` exists because of what a close crop did when it was asked anyway. The detail
+    frame -- a hat filling the frame -- first returned `unjudged` on wardrobe, which the
+    gate correctly refused to pass; then, on the next render, it answered *False*. A frame
+    that cannot see an outfit saying the outfit is wrong is not evidence about the outfit,
+    and under the rule that a failure anywhere blocks everywhere it became a false block on
+    the whole sequence. `brief.FRAME_AUTHORITY` already draws this line for the identity
+    dimensions: a frame is asked only what it is in a position to know.
+    """
     from ..finance import spend_report
     from ..gateway import anthropic as gw
 
     provider = provider or gw.provider_for(TASK)
     try:
-        response = provider.see(SYSTEM, prompt(), [image_ref], max_tokens=MAX_TOKENS)
+        response = provider.see(SYSTEM, prompt(axes), [image_ref], max_tokens=MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
         return {"judged": False, "error": str(exc)[:200], "answers": {}}
 
@@ -204,14 +216,15 @@ def judge(image_ref: str, *, db=None, provider=None) -> dict:
 
     # The closed vocabulary and real booleans only. A string "true" answers a different
     # question, and coercing it would invent an opinion the model did not give.
+    asked = axes or tuple(AXES)
     answers = {k: bool(parsed[k]) for k in QUESTIONS
-               if k in parsed and isinstance(parsed[k], bool)}
-    return {"judged": True, "answers": answers,
+               if k in parsed and isinstance(parsed[k], bool) and AXIS_OF[k] in asked}
+    return {"judged": True, "answers": answers, "axes": list(asked),
             "notes": str(parsed.get("notes") or "")[:240],
             "bible_version": BIBLE_VERSION}
 
 
-def assess(reading: dict) -> dict:
+def assess(reading: dict, *, axes: tuple[str, ...] | None = None) -> dict:
     """Each axis on its own, because they fail for different reasons and need different fixes.
 
     An averaged styling score would let a frame with correct makeup and coloured gels come
@@ -219,8 +232,15 @@ def assess(reading: dict) -> dict:
     computed across dimensions that do not substitute for one another.
     """
     answers = dict(reading.get("answers") or {})
+    asked = tuple(axes or reading.get("axes") or tuple(AXES))
     out: dict[str, dict] = {}
     for name, axis in AXES.items():
+        if name not in asked:
+            # Not asked of this frame, which is a different thing from asked and unanswered.
+            out[name] = {"verdict": "not_asked", "breached": [], "unjudged": [],
+                         "why": f"a frame of this kind cannot see {name}",
+                         "range": axis["range"]}
+            continue
         keys = list(axis["questions"])
         breached = sorted(k for k in keys if answers.get(k) is False)
         unread = sorted(k for k in keys if k not in answers)
@@ -238,12 +258,13 @@ def assess(reading: dict) -> dict:
     return out
 
 
-def gate(reading: dict) -> dict:
-    """Three-valued, and unjudged is never a pass."""
-    axes = assess(reading)
+def gate(reading: dict, *, axes: tuple[str, ...] | None = None) -> dict:
+    """Three-valued, and unjudged is never a pass. An axis not asked is not judged at all."""
+    axes = assess(reading, axes=axes)
     outside = sorted(k for k, v in axes.items() if v["verdict"] == "outside_range")
     unjudged = sorted(k for k, v in axes.items() if v["verdict"] == "unjudged")
 
+    asked = sorted(k for k, v in axes.items() if v["verdict"] != "not_asked")
     if outside:
         verdict, why = "blocked", (
             f"styling is outside the character bible on {outside}. "
@@ -258,6 +279,7 @@ def gate(reading: dict) -> dict:
         verdict, why = "clear", "every axis of the character bible is within range"
 
     return {"verdict": verdict, "outside": outside, "unjudged": unjudged,
+            "asked": asked,
             "axes": axes, "notes": reading.get("notes", ""), "why": why,
             "bible_version": BIBLE_VERSION,
             "requirements": ("#73 -- the pack carries makeup range, expression range, "

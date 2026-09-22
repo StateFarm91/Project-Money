@@ -38,7 +38,7 @@ ACTION = "assets.model_photography"
 # Part of what decides whether a frame on file answers the question being asked. A frame
 # rendered by an earlier method is evidence about that method, and reading it back as
 # "this release already has one" is how a corrected prompt quietly never runs.
-METHOD_VERSION = "v9-the-motif-check-stops-grading-against-prose-about-the-object"
+METHOD_VERSION = "v10-a-close-crop-is-not-asked-about-the-outfit"
 
 # How many times one release may be re-rendered when the frame comes back unusable.
 #
@@ -156,6 +156,21 @@ SHOTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("fit", SHOT_PLAN, ("face_identity", "whole_person_morphology", "styling")),
     ("detail", DETAIL_PLAN, ("product_truth",)),
 )
+
+# Which styling axes each shot is in a position to answer at all.
+#
+# Making styling fit-authoritative was not enough on its own. The detail frame went on
+# being asked the wardrobe questions, and on the next render it stopped saying `unjudged`
+# and started answering *False* -- a crop of a hat reporting that the outfit is wrong.
+# Under "a failure anywhere blocks everywhere" that became a false block on the whole
+# sequence, so the frame's limitation was arriving as a finding about the styling. It is
+# the same defect as comparing a body against a portrait, one gate along: a frame is asked
+# only what it is in a position to know, which is what `brief.FRAME_AUTHORITY` already
+# does for the identity dimensions.
+STYLING_AXES: dict[str, tuple[str, ...]] = {
+    "fit": ("makeup", "expression", "wardrobe", "lighting"),
+    "detail": ("makeup", "expression", "lighting"),
+}
 
 SHARED_FLOORS: tuple[str, ...] = ("photographic_realism", "asset_truth")
 
@@ -280,7 +295,10 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
     # 5. The character bible: makeup, expression, wardrobe and lighting (#73, #202). The
     # identity gate would accept exactly the right woman in glamour makeup under coloured
     # light in a printed dress, because every dimension it measures would still match.
-    styling = bible.gate((styling_judger or bible.judge)(image_ref, db=db))
+    styling_axes = STYLING_AXES.get(shot, tuple(bible.AXES))
+    styling = bible.gate(
+        (styling_judger or bible.judge)(image_ref, db=db, axes=styling_axes),
+        axes=styling_axes)
 
     floors = {
         "face_identity": drift["face"].get("verdict", "unverifiable"),
