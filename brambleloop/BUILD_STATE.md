@@ -5027,30 +5027,51 @@ that never saw the prompt. Every claim below is from a live run, not a test.
   from the observed benchmark, once per version of the checks. The photograph is a control
   and nothing else: not copied, not re-hosted, not imitated, never described.
 
-### The live sequence after all five fixes (07:2x UTC, method v6)
+### The live sequence, method by method
 
-Two of six floors pass and the other four are now **real findings** rather than "nobody
-could tell", which is the whole distinction the owner asked to be preserved.
+Every floor that cleared did so because a specific defect was found and fixed, and every
+floor still failing is a **real reading** rather than "nobody could tell" — which is the
+distinction the owner asked to be preserved, and the one this table could not make at all
+before tonight.
 
-| floor | verdict | from |
-|---|---|---|
-| face_identity | **pass** | both frames, all five dimensions measurable |
-| whole_person_morphology | **pass** | the fit frame, against the pack's own torso reference |
-| product_truth | fail | the detail frame: the fabric is readable and **mismatches** the certified chart |
-| photographic_realism | fail | both frames: `skin_looks_real`, `processing_is_restrained`, `not_sterile_perfection` |
-| asset_truth | fail | the detail frame: `texture_not_repeating` |
-| styling | fail | the fit frame: `lighting` outside the bible's range |
+| floor | v2 (one frame) | v6 (two frames, two references) | v8 (chart-conditioned, lighting fixed) |
+|---|---|---|---|
+| face_identity | pass | **pass** | **pass** |
+| whole_person_morphology | unverifiable | **pass** | **pass** |
+| asset_truth | unverifiable | fail | **pass** |
+| styling | — | fail (`lighting`) | **pass** |
+| product_truth | unverifiable | fail (mismatch) | fail (mismatch) |
+| photographic_realism | fail | fail | fail |
 
-Before tonight the identity half of this table could not be filled in at all. The motif
-gate is now failing on a render it can actually see, which is the gate working: an
-`unmeasurable` needed a closer frame and a `mismatch` needs a different render.
+Four of six. The two that remain:
 
-**The photographic-realism verdict is the one not to act on yet.** Three renders in a row
-blocked on the same three checks, and one of them plainly had pores, freckles and fine
-lines in it. `creative.photoreal_calibration` is deployed to answer whether that judge can
-pass a real photograph; its first run died on a missing agent permission (B-639) and it has
-not yet produced a verdict. Tightening the render before that answer exists would be
-chasing a standard that may be unreachable.
+- **product_truth** — the motif judge reads both frames now and calls both a **mismatch**.
+  The detail frame is conditioned on the certified chart itself and the generator still
+  produces a different fabric. That is the honest finding and it is a capability question
+  about the image provider rather than a prompt to tighten: reference-conditioning works
+  for a face and does not, so far, reproduce a specified stitch pattern. **This is now
+  #300's weakest link and the named next decision.**
+- **photographic_realism** — improving under evidence rather than guesswork, and the
+  calibration proved the standard discriminates. The detail frame fell from three failed
+  checks to one (`processing_is_restrained`); the fit frame still fails all three. One of
+  three bounded attempts for this method is used.
+
+**The photographic-realism verdict was the one not to act on until it was checked, and
+then it was.** Three renders in a row blocked on the same three checks, and one of them
+plainly had pores, freckles and fine lines in it. `creative.photoreal_calibration` asked
+the judge about a real benchmark listing photograph. It **failed nothing**, and under the
+corrected reading it answered ten of the eleven checks — including all three that were
+blocking us. `skin_looks_real`, `processing_is_restrained` and `not_sterile_perfection`
+discriminate, so the renders are what needs changing and tightening them is justified
+rather than speculative. Only `depth_of_field_is_natural` stayed unjudged, because a
+flat-lay swatch has no background to blur: unproven, not unreachable.
+
+Its first reading of that answer was wrong, and wrong in the dangerous direction: the
+control is a flat-lay swatch with no person and no background in it, so two checks came
+back `unjudged`, and `calibrate` reported "this judge blocked a real photograph". A verdict
+computed from absence of evidence — the exact defect the function exists to test for,
+committed by the test (B-641). It is three-valued about its own control now, and `unjudged`
+is unproven rather than unreachable.
 
 ### Honest status of the six
 
@@ -5073,4 +5094,13 @@ chasing a standard that may be unreachable.
   the product its own cycle engineered, and reports `complete: false, weakest link assets`
   with the exact floors that fell short. It closes when the sequence clears every floor.
 
-Tests: 2,983 passing, 0 failing.
+### What the night cost, and what it did not touch
+
+Month-to-date model spend moved CA$52.04 → CA$53.35 of the CA$100 ceiling: roughly CA$1.30
+for the whole overnight build, across eight deploys and five live sequences. No provider
+credits were bought, no auto-reload enabled, no limit raised, no benchmark re-run, and the
+MJs benchmark purchase remains untouched and owner-controlled. `/api/verify` is 12 of 12
+throughout, `store.published` is 0 against 134 recorded refusals, and `BRAMBLELOOP_PHASE`
+is `shadow`.
+
+Tests: 2,988 passing, 0 failing.
