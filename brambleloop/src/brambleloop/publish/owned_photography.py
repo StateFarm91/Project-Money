@@ -166,11 +166,26 @@ def motif_sentence(cir) -> str:
     after making it, and it is the same failure as a beauty image with guessed
     instructions: the picture and the pattern describing different objects.
     """
-    note = (cir.designer_notes or "").strip()
-    first = note.split(".")[0].strip() if note else ""
-    return (f"The fabric is worked in this pattern's own motif: {first}."
-            if first else
-            "The fabric is a plain single-colour crochet fabric with no motif.")
+    from . import motif_fidelity
+
+    named = motif_fidelity.motif_name(cir)
+    colours = len(cir.colors or {})
+    count = {1: "one colour", 2: "exactly two colours", 3: "exactly three colours"}.get(
+        colours, f"exactly {colours} colours")
+    # Stated whether or not prose names the motif, because it is the one fabric fact that
+    # is true of every certified pattern -- and it is the one the live renders kept
+    # breaking, returning a three-colour granny shell for a two-colour hat.
+    palette = (f"The fabric works {count}: {', '.join(sorted(cir.colors))}. No other "
+               f"colour appears anywhere in the crochet.")
+    if named:
+        return f"The fabric is worked in this pattern's own motif: {named}. {palette}"
+    # No motif in prose. Saying "plain single-colour fabric with no motif" here would be a
+    # claim about the fabric made from the absence of a sentence about it -- and for every
+    # product the seasonal cycle authors, that absence is guaranteed. The chart is what the
+    # render is conditioned on and what the result is checked against, so the chart is what
+    # the prompt points at.
+    return (f"The fabric is worked exactly as the accompanying stitch chart shows, stitch "
+            f"for stitch and row for row. {palette}")
 
 
 def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,

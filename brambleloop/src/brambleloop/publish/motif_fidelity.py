@@ -115,16 +115,64 @@ def parse(text: str) -> dict:
     return parsed
 
 
+# The marker for prose this system wrote about an *object* rather than about a fabric.
+#
+# `creative.prototype.author` formats every machine-authored designer note as
+# "prototype of {key}: {what}, {w} x {h} cm at {gauge}" -- a description of the finished
+# thing and its dimensions, with nothing in it about stitches. `expected` was taking the
+# first sentence of that note as the chart's motif name, which put two guaranteed failures
+# into the live path at once: the render prompt asked for "fabric worked in this pattern's
+# own motif: prototype of hats-hat-0: an adult hat, worked in the round, 52 x 22 cm at 12",
+# and the verdict compared an honest description of fabric against those same words, found
+# no overlap and returned `mismatch` every time. For every product the seasonal cycle
+# authors, `product_truth` could never pass, and it failed for a reason that had nothing to
+# do with the picture.
+#
+# Matched on our own format string rather than by hunting for fabric words: an allowlist of
+# motif vocabulary would be a guess about English, and the complement of an allowlist is not
+# an allowlist. This is a fact about a string this repository produces.
+MACHINE_OBJECT_NOTE = "prototype of "
+
+
+def motif_name(cir) -> str:
+    """The chart's motif as prose names it, or "" when prose does not name it.
+
+    Empty is a real answer and the callers treat it as one: the render is asked for the
+    fabric the chart shows rather than for a sentence, and the verdict rests on what can
+    actually be measured instead of on an overlap with words about something else.
+    """
+    note = (cir.designer_notes or "").strip()
+    if not note or note.lower().startswith(MACHINE_OBJECT_NOTE):
+        return ""
+    return note.split(".")[0].strip()
+
+
+def chart_colours(twin) -> int:
+    """How many colours the certified chart actually works in.
+
+    Deterministic, available for every product including the ones the cycle authors in
+    memory, and the thing the live renders kept getting wrong: a two-colour certified hat
+    came back as a handsome three-colour granny shell twice.
+    """
+    grid = twin.chart_grid() if hasattr(twin, "chart_grid") else []
+    return len({cell for row in grid for cell in row if cell is not None})
+
+
 def expected(cir, twin) -> dict:
     """What the chart actually contains, from the certified data rather than from prose."""
-    note = (cir.designer_notes or "").strip()
-    motif = note.split(".")[0].strip() if note else ""
     grid = twin.chart_grid() if hasattr(twin, "chart_grid") else []
     width = max((len(row) for row in grid), default=0)
+    named = motif_name(cir)
     return {
-        "motif_named": motif,
+        "motif_named": named,
+        "motif_is_named": bool(named),
+        "why_unnamed": ("" if named else
+                        "this pattern's designer note describes the finished object rather "
+                        "than the fabric, so prose names no motif. The chart is still "
+                        "authoritative and the colour count is still checked"),
         "chart_stitches_wide": width,
         "chart_rows": len(grid),
+        "colour_count": chart_colours(twin),
         "colours": sorted((cir.colors or {}).keys()),
         "source": "the certified CIR and its twin, which the written instructions come from",
     }
@@ -149,6 +197,20 @@ def judge(observed: dict, want: dict, *, repeat_tolerance: float = 0.5) -> dict:
     shape = str(observed.get("repeating_unit_shape") or "").strip().lower()
     named = str(want.get("motif_named") or "").strip().lower()
 
+    # The colour count, which is deterministic and available for every product including
+    # the ones the seasonal cycle authors in memory and never files. Checked before the
+    # name, because it is the one fabric fact that does not depend on prose existing: the
+    # live failures were a two-colour certified hat rendered twice as a three-colour
+    # granny shell, and counting colours catches that whether or not anything named the
+    # motif.
+    want_colours = int(want.get("colour_count") or 0)
+    saw_colours = _colours_in(observed.get("colour_arrangement"))
+    if want_colours and saw_colours and saw_colours != want_colours:
+        return {"verdict": MISMATCH, "observed": observed, "overlap": [],
+                "why": (f"the fabric works {saw_colours} colours and the certified chart "
+                        f"works {want_colours}. A colour the pattern does not contain is "
+                        f"a different fabric however good the stitch looks")}
+
     # The words the chart's own name uses, against the words the judge used for the shape.
     # Both are short phrases about the same thing, so an overlap is meaningful and the
     # absence of one is the signal that caught the checkerboard.
@@ -169,8 +231,42 @@ def judge(observed: dict, want: dict, *, repeat_tolerance: float = 0.5) -> dict:
                         f"{shape!r}, which shares no term with the chart's own "
                         f"{named!r}. A polite yes and a contradicting description is the "
                         f"shape of the failure this check was built for")}
+    if not chart_words:
+        # No prose names this chart's motif, so the name test is unavailable rather than
+        # satisfied. Falling through to MATCH here was the mirror of the defect above: an
+        # empty expectation that nothing can contradict passes every fabric ever rendered.
+        # What has actually been established is that the judge compared the photograph
+        # against the chart and said yes, and that the colours agree.
+        return {"verdict": MATCH, "observed": observed, "overlap": overlap,
+                "name_test": "unavailable",
+                "why": (f"the judge compared the photograph against the chart itself and "
+                        f"says the fabric is working it, and the colour count agrees. "
+                        f"{want.get('why_unnamed', '')}".strip())}
     return {"verdict": MATCH, "observed": observed, "overlap": overlap,
+            "name_test": "passed",
             "why": "the described repeating unit is the chart's own, and the judge agrees"}
+
+
+def _colours_in(arrangement) -> int:
+    """How many colours the judge's own phrase describes, or 0 when it does not say.
+
+    Read from the answer rather than asked as a number, because "how many colours" invites
+    a confident integer about a photograph somebody half-looked at, while a description of
+    the arrangement is what a person actually sees. Zero means the phrase carries no count,
+    which leaves the colour check unmade rather than passed.
+    """
+    import re
+
+    text = str(arrangement or "").strip().lower()
+    if not text:
+        return 0
+    words = {"one": 1, "single": 1, "solid": 1, "two": 2, "three": 3, "four": 4,
+             "five": 5, "six": 6}
+    for word, count in words.items():
+        if re.search(rf"\b{word}\b", text):
+            return count
+    digits = re.search(r"\b([1-9])\b", text)
+    return int(digits.group(1)) if digits else 0
 
 
 def chart_image(cir, twin, *, work_dir: str = "") -> str:

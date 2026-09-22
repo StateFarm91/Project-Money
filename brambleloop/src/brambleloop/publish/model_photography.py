@@ -38,7 +38,7 @@ ACTION = "assets.model_photography"
 # Part of what decides whether a frame on file answers the question being asked. A frame
 # rendered by an earlier method is evidence about that method, and reading it back as
 # "this release already has one" is how a corrected prompt quietly never runs.
-METHOD_VERSION = "v8-the-detail-frame-is-conditioned-on-the-certified-chart"
+METHOD_VERSION = "v9-the-motif-check-stops-grading-against-prose-about-the-object"
 
 # How many times one release may be re-rendered when the frame comes back unusable.
 #

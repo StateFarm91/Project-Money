@@ -112,6 +112,101 @@ def test_the_vocabulary_is_closed():
         raise AssertionError("a description with holes in it was accepted")
 
 
+
+def _proto(cir):
+    import dataclasses
+
+    return dataclasses.replace(cir, designer_notes=(
+        "prototype of hats-hat-0: an adult hat, worked in the round, "
+        "52 x 22 cm at 12 sts/10cm"))
+
+
+def test_a_note_about_the_object_does_not_become_the_chart_s_motif():
+    """The defect that made product truth unpassable for every cycle-authored product.
+
+    `creative.prototype.author` writes "prototype of {key}: {what}, {w} x {h} cm at
+    {gauge}" -- the finished thing and its dimensions, with nothing in it about stitches.
+    `expected` took the first sentence of that as the motif name, and two guaranteed
+    failures followed: the render prompt asked for "fabric worked in this pattern's own
+    motif: an adult hat, worked in the round", and the verdict compared an honest
+    description of fabric against those words, found no overlap and returned `mismatch`
+    every time. #300's weakest link failed for a reason that had nothing to do with the
+    picture, twice, in production.
+    """
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.products.builder import for_slug
+
+    cir = for_slug("cloudline-baby-blanket")
+    twin = build_twin(cir, compile_cir(cir))
+
+    assert mf.motif_name(cir), "a real designer note still names the motif"
+    assert mf.motif_name(_proto(cir)) == ""
+
+    want = mf.expected(_proto(cir), twin)
+    assert want["motif_is_named"] is False
+    assert "finished object" in want["why_unnamed"]
+
+
+def test_an_unnamed_motif_makes_the_name_test_unavailable_rather_than_satisfied():
+    """The mirror defect, waiting behind the first one.
+
+    With `motif_named` empty the overlap test was skipped and the verdict fell straight
+    through to MATCH -- an expectation nothing can contradict, which passes every fabric
+    ever rendered. Object prose made it always fail; no prose made it always pass. Both
+    are a verdict resting on a value that is not about the thing being judged.
+    """
+    want = {"motif_named": "", "colour_count": 2, "why_unnamed": "prose names no motif"}
+    observed = {"fabric_readable": True, "same_pattern_as_chart": True,
+                "repeating_unit_shape": "shell rows",
+                "colour_arrangement": "two colours alternating"}
+    out = mf.judge(observed, want)
+    assert out["verdict"] == mf.MATCH
+    assert out["name_test"] == "unavailable", "an absent test must not report as a passed one"
+    assert "prose names no motif" in out["why"]
+
+
+def test_a_colour_the_pattern_does_not_contain_is_a_different_fabric():
+    """The one fabric fact that is true of every certified pattern, prose or no prose.
+
+    Both live renders of a two-colour certified hat came back as three-colour granny
+    shells. The colour count is deterministic from the chart and is checked before the
+    name, so it catches that for the products the cycle authors in memory as well as for
+    the catalogue.
+    """
+    want = {"motif_named": "", "colour_count": 2}
+    observed = {"fabric_readable": True, "same_pattern_as_chart": True,
+                "repeating_unit_shape": "shell rows",
+                "colour_arrangement": "three colours in repeating shell rows"}
+    out = mf.judge(observed, want)
+    assert out["verdict"] == mf.MISMATCH
+    assert "3 colours" in out["why"] and "chart works 2" in out["why"]
+
+
+def test_a_colour_arrangement_that_states_no_count_leaves_that_check_unmade():
+    """Unmade is not passed, and it is not failed either."""
+    assert mf._colours_in("") == 0
+    assert mf._colours_in("subtle tonal variation across the piece") == 0
+    want = {"motif_named": "", "colour_count": 2}
+    observed = {"fabric_readable": True, "same_pattern_as_chart": True,
+                "repeating_unit_shape": "shell rows",
+                "colour_arrangement": "subtle tonal variation across the piece"}
+    assert mf.judge(observed, want)["verdict"] == mf.MATCH
+
+
+def test_the_prompt_points_at_the_chart_when_prose_names_no_motif():
+    """"Plain single-colour fabric with no motif" was a claim made from a missing sentence."""
+    from brambleloop.products.builder import for_slug
+    from brambleloop.publish import owned_photography as op
+
+    cir = for_slug("cloudline-baby-blanket")
+    sentence = op.motif_sentence(_proto(cir))
+    assert "exactly as the accompanying stitch chart shows" in sentence
+    assert "no motif" not in sentence
+    # And the colour count is stated either way, because that is what kept going wrong.
+    assert "exactly two colours" in sentence
+    assert "exactly two colours" in op.motif_sentence(cir)
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
