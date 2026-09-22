@@ -4941,3 +4941,136 @@ timings, written there by the system rather than by hand.
 - Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
   named test. Gates A, C, D, E, F passing; B passing except
   regression automation.
+
+---
+
+## 2026-09-22 overnight — the model-bearing render path, built and exercised
+
+The owner's mandate: build the actual production chain — canonical pack → reference
+conditioned generation → generated model-bearing frame → independent observation → face
+identity gate → whole-person morphology gate → product/pattern truth gates → photographic
+realism gate → release eligibility — with no mocks, no fixtures and no path that merely
+claims conditioning occurred. Six READY requirements: #72, #73, #75, #130, #202, #300.
+
+**The path exists and runs in production.** `assets.model_photography` conditions a render
+on the frozen pack's own reference images and has the result described by a vision model
+that never saw the prompt. Every claim below is from a live run, not a test.
+
+### What was proved in production
+
+- **Reference-conditioned generation.** Live frames record
+  `conditioned_on: {reference_image, body_reference_image, pack_version: 1,
+  approved_at: 2026-09-22T03:52:53Z}`, both references recovered from the durable artifact
+  store, passed to the provider as references rather than described in words.
+- **The whole-person morphology floor passed for the first time** — `pass` on the fit
+  frame, against the pack's own torso reference.
+- **The eight-part parity gate runs on every publish attempt**, including the refused
+  ones, recording `listing.parity` with all eight dimensions.
+- **Shadow Mode intact.** `/api/verify` 12 of 12, `store.published: 0`, refusals still
+  recorded as shadow refusals, month-to-date model spend CA$53.11 of the CA$100 ceiling.
+
+### Five defects found, each a variant of the family this system keeps catching
+
+- **B-631 — a row standing in for the capability it evidenced.** The handler's idempotency
+  asked whether a frame existed for this product and version and answered "this release
+  already has a model frame" when the only frame on file had three floors unverifiable.
+  The release could never be re-rendered and the next deploy agreed the work was done.
+  `what_to_do_next` now gives three answers, and retrying is bounded at three attempts
+  belonging to the *method*, so a corrected prompt gets its own budget.
+- **B-632 — the morphology floor could never pass.** `select_canonical` takes one
+  `reference_image` and freezing put the committed portrait there, because it is the only
+  reference that survives a restart. Every frame was therefore compared, whole, against a
+  head-and-shoulders crop, so bust, torso, waist and hips read `unmeasurable` however well
+  the frame was shot. Face and body are now judged against different references, the body
+  one recovered from the durable store. **There is deliberately no fallback**: the
+  committed body frames are the pre-revision pack, and using them would enforce the
+  superseded body the owner replaced, so the floor reads `unverifiable` instead.
+- **B-633 — one frame cannot answer both remaining floors.** The correctly-framed
+  three-quarter shot showed the whole body and the motif judge read its fabric as
+  `unmeasurable`, naming what it needed: "a closer or flatter frame". Close enough to
+  count stitches loses the hips. The asset is now the smallest complete gallery — a fit
+  frame and a detail frame — each floor taken from the frame in a position to answer it,
+  shared floors taking the worst answer any frame gave, and a failure anywhere blocking
+  everywhere because both frames ship.
+- **B-634 — an image labelled by its filename rather than by its bytes.** The artifact
+  store is content-addressed, so its files carry no extension; `guess_type` returns nothing
+  and the code defaulted that to `image/png`. The canonical portrait is a JPEG. It was sent
+  labelled `image/png`, refused by the provider, and the face comparison returned
+  `unmeasurable` on all five dimensions — while the body reference, a PNG, worked. Half the
+  identity check silently did not run, which is worse than it failing. Bytes are now
+  authoritative.
+- **B-635 — styling was unjudgeable on a close crop.** Five of the character bible's
+  fourteen questions are about wardrobe and a frame cropped to a hat answers none, so a
+  sixth floor became unclearable by the same mistake the morphology floor had just been
+  rescued from. Styling is now read off the fit frame.
+
+### What was built
+
+- **`visual/bible.py` (#73, #202).** The four parts #73 names and the pack did not carry —
+  makeup range, expression range, wardrobe rules, lighting language — written as fourteen
+  closed questions about the rendered frame and enforced as a sixth independent floor. The
+  identity gate would accept exactly the right woman in editorial makeup under gelled light
+  in a printed dress, every dimension it measures still matching; nothing could tell.
+  Rejected drift examples are read out of the audit log rather than composed, and the
+  canonical pack is never listed among them — that is read from the freeze record, not
+  guessed from which build is newest.
+- **The parity gate in front of listing export (#75).** All eight checks existed and
+  nothing consulted them. The verdict is now computed *before* the phase check — Shadow
+  Mode refuses every publication, so a gate enforced behind it would meet its first real
+  listing having executed zero times — and enforced *after* the phase, the credentials and
+  the authority matrix, because those ask whether this system may publish at all and must
+  stay outermost.
+- **A calibration control for the photographic-realism judge.** Two renders in a row were
+  blocked on the same three checks and the second plainly had pores, freckles and fine
+  lines in it. Either the renders are unphotographic or the judge cannot pass a photograph,
+  and those need opposite fixes. The judge is now asked about a real listing photograph
+  from the observed benchmark, once per version of the checks. The photograph is a control
+  and nothing else: not copied, not re-hosted, not imitated, never described.
+
+### The live sequence after all five fixes (07:2x UTC, method v6)
+
+Two of six floors pass and the other four are now **real findings** rather than "nobody
+could tell", which is the whole distinction the owner asked to be preserved.
+
+| floor | verdict | from |
+|---|---|---|
+| face_identity | **pass** | both frames, all five dimensions measurable |
+| whole_person_morphology | **pass** | the fit frame, against the pack's own torso reference |
+| product_truth | fail | the detail frame: the fabric is readable and **mismatches** the certified chart |
+| photographic_realism | fail | both frames: `skin_looks_real`, `processing_is_restrained`, `not_sterile_perfection` |
+| asset_truth | fail | the detail frame: `texture_not_repeating` |
+| styling | fail | the fit frame: `lighting` outside the bible's range |
+
+Before tonight the identity half of this table could not be filled in at all. The motif
+gate is now failing on a render it can actually see, which is the gate working: an
+`unmeasurable` needed a closer frame and a `mismatch` needs a different render.
+
+**The photographic-realism verdict is the one not to act on yet.** Three renders in a row
+blocked on the same three checks, and one of them plainly had pores, freckles and fine
+lines in it. `creative.photoreal_calibration` is deployed to answer whether that judge can
+pass a real photograph; its first run died on a missing agent permission (B-639) and it has
+not yet produced a verdict. Tightening the render before that answer exists would be
+chasing a standard that may be unreachable.
+
+### Honest status of the six
+
+- **#72, #130, #202 — the render path is built, deployed, exercised and evidenced; the
+  frame is not yet usable.** Identity is proved end to end in production: conditioned on
+  the frozen pack, verified afterwards by a model that never saw the prompt, face and body
+  both passing against their own references. What remains is render quality on four floors.
+- **The catalogue contains no worn form.** All eleven products route to the product-first
+  path, correctly, so the only model-bearing evidence comes from the seasonal cycle's own
+  engineered `hats-hat-0`. #72 says the model is mandatory "for appropriate wearables" and
+  this company does not yet sell one — a merchandising fact worth stating, not a gap in
+  the gate (C).
+- **#73 — the character bible is built and enforced**, and the pack now carries every part
+  the requirement names.
+- **#75 — all eight checks exist and are wired in front of export.** COMPETITIVE reads
+  `unjudged`, which blocks, because no per-listing imagery comparison against the benchmark
+  has been made: gallery-level vision analysis is absent on all 438 observed MJs listings.
+  That is a real gap, not a formality.
+- **#300 — product-bound and honest.** The chain reaches its assets step for `hats-hat-0`,
+  the product its own cycle engineered, and reports `complete: false, weakest link assets`
+  with the exact floors that fell short. It closes when the sequence clears every floor.
+
+Tests: 2,983 passing, 0 failing.

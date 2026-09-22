@@ -327,6 +327,59 @@ def test_every_role_reports_unmeasured_on_an_empty_database_rather_than_activity
         assert out["scorecard"]["score"] == 0.0
 
 
+
+def test_every_registered_handler_is_runnable_by_some_agent():
+    """A capability nobody may exercise is a capability that does not exist.
+
+    On 2026-09-22 `creative.photoreal_calibration` was registered, boot-enqueued and
+    deployed, and died in production with "permission denied: agent 'creative_director'
+    may not run it". The permission model worked exactly as designed; nothing said the
+    handler and the registry disagreed until a dead letter did, hours later. A job type
+    declared in two places is a value living in two places, and this is the check that
+    makes them agree at commit time rather than at 3am.
+    """
+    from brambleloop.agents.registry import DEFAULT_AGENTS
+    from brambleloop.runtime import pipeline, release  # noqa: F401
+    from brambleloop.runtime.worker import handlers
+
+    allowed = {t for a in DEFAULT_AGENTS for t in a.get("allowed_job_types", [])}
+    orphans = sorted(t for t in handlers.known() if t not in allowed)
+    assert not orphans, (
+        f"{orphans} are registered handlers no agent may run. Enqueuing one produces a "
+        f"dead letter that reads like a permission bug rather than a missing line")
+
+
+# Job types the authority matrix declares and nothing implements. These are deliberate:
+# the matrix states what each agent *would* be permitted, which is a design statement from
+# the Master Plan rather than a claim that the capability exists. Listed rather than
+# tolerated silently, because "permitted" reads as "available" to anybody auditing it, and
+# because a new one appearing by accident should fail rather than join the crowd.
+DECLARED_BUT_UNBUILT: frozenset[str] = frozenset({
+    "ads.adjust", "ads.campaign", "assets.render", "cir.reverse", "cir.revise",
+    "cir.twin", "content.draft", "gate.asset_truth", "gate.policy", "gate.quality",
+    "pricing.experiment", "radar.competitor_snapshot", "store.update",
+})
+
+
+def test_the_only_permitted_job_types_without_handlers_are_the_declared_ones():
+    """The same disagreement from the other side, pinned rather than waved through.
+
+    A permission granted for a job type nothing handles widens what an agent may attempt
+    while buying nothing. Thirteen of those are deliberate statements of the authority
+    matrix; a fourteenth would be a typo or a rename that quietly stopped matching, and
+    the failure it causes turns up much later as "permission denied" on a job somebody
+    thought was wired.
+    """
+    from brambleloop.agents.registry import DEFAULT_AGENTS
+    from brambleloop.runtime import pipeline, release  # noqa: F401
+    from brambleloop.runtime.worker import handlers
+
+    known = set(handlers.known())
+    phantom = {t for a in DEFAULT_AGENTS for t in a.get("allowed_job_types", [])} - known
+    assert phantom == DECLARED_BUT_UNBUILT, {
+        "newly unhandled": sorted(phantom - DECLARED_BUT_UNBUILT),
+        "now handled, so remove from the list": sorted(DECLARED_BUT_UNBUILT - phantom)}
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

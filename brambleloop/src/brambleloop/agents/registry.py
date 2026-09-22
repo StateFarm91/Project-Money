@@ -79,7 +79,13 @@ DEFAULT_AGENTS: list[dict] = [
                             # Freezing the pack the owner approved, and proving the gate
                             # on it afterwards. Writes one row and spends nothing
                             # (#200, #201; owner approval 2026-09-22).
-                            "creative.model_freeze"],
+                            "creative.model_freeze",
+                            # Asking the photographic-realism judge whether it can pass a
+                            # photograph nobody generated. One vision call about a public
+                            # benchmark image; renders nothing and copies nothing
+                            # (2026-09-22, after two renders were blocked on checks a real
+                            # photograph might not have cleared either).
+                            "creative.photoreal_calibration"],
          # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
          # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
          # sum rather than at it, because a ceiling a normal week touches is a ceiling that
