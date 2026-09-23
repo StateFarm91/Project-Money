@@ -302,6 +302,17 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
                         "semantic", "description_error", "realism_error")},
         "verdict": verdict["verdict"],
         "why": verdict["why"],
+        # The gate's own detail, kept rather than discarded.
+        #
+        # `gate` computes `failed_realism`, `semantic_problems`, `third_party_marks` and
+        # `unmade`, and this record was keeping only the verdict and the gate's general
+        # description of itself. So a blocked asset reported "artefacts a maker sees
+        # instantly, a picture that does not show what its caption promises, or somebody
+        # else's brand" -- which is what the gate is for, not what went wrong with this
+        # picture, and is unactionable either way. The model path stores its `asset_truth`
+        # block for exactly this reason; this path did not, which is the same capability
+        # drift that left the chart undisplayed.
+        "asset_truth": verdict,
         "motif_claimed": motif_sentence(cir),
         "motif": motif,
         "motif_verified": motif["verdict"] == motif_fidelity.MATCH,
@@ -434,11 +445,19 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
         elif (tried := assets_for(db, slug=slug, version=version)):
             unusable.append(slug)
             latest = tried[0]
+            truth = latest.get("asset_truth") or {}
             diagnosis[slug] = {
                 "attempts": len(tried),
                 "verdict": latest.get("verdict"),
                 "why": (latest.get("why") or "")[:300],
                 "motif": (latest.get("motif") or {}).get("verdict"),
+                # Which checks, not what the gate is for. "A picture that does not show
+                # what its caption promises" is the gate describing itself; the next fix
+                # needs the names of the checks this picture actually failed.
+                "failed_realism": list(truth.get("failed_realism") or ()),
+                "semantic_problems": list(truth.get("semantic_problems") or ()),
+                "third_party_marks": list(truth.get("third_party_marks") or ()),
+                "unmade": list(truth.get("unmade") or ()),
             }
         else:
             missing.append(slug)

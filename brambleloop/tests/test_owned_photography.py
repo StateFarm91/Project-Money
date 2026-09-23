@@ -338,6 +338,7 @@ def test_coverage_counts_the_catalogue_rather_than_the_job():
     # Why it failed, not just that it did: the next decision is "render the rest or fix
     # the method first", and that cannot be made without spending to find out otherwise.
     assert out["why_each_unusable_one_failed"]["b"]["verdict"] == "unjudged"
+    assert "failed_realism" in out["why_each_unusable_one_failed"]["b"]
     assert "a" not in out["why_each_unusable_one_failed"]
     assert "c" not in out["why_each_unusable_one_failed"]
 
@@ -396,6 +397,32 @@ def test_the_method_version_says_the_chart_is_shown():
     corrected render never runs."""
     assert op.METHOD_VERSION.startswith("v4-")
     assert "shown" in op.METHOD_VERSION
+
+
+def test_a_blocked_asset_says_which_checks_failed_not_what_the_gate_is_for():
+    """Production, 2026-09-23: a blocked asset reported the gate's description of itself.
+
+    "artefacts a maker sees instantly, a picture that does not show what its caption
+    promises, or somebody else's brand in the frame" is what asset truth is *for*. It is
+    not what went wrong with this picture, and no next step can be chosen from it. The
+    gate already computes the names; the record was throwing them away.
+    """
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": "a",
+        "version": "1.0.0", "usable_as_listing_asset": False, "verdict": "blocked",
+        "why": "the gate describing itself",
+        "asset_truth": {"verdict": "blocked", "failed_realism": ["stitch_scale_is_sane"],
+                        "semantic_problems": ["shows a cushion, caption promises a throw"],
+                        "third_party_marks": []}})
+
+    out = op.coverage(db, slugs=["a"], versions={"a": "1.0.0"})
+    found = out["why_each_unusable_one_failed"]["a"]
+    assert found["failed_realism"] == ["stitch_scale_is_sane"]
+    assert found["semantic_problems"] == ["shows a cushion, caption promises a throw"]
+    assert found["third_party_marks"] == []
 
 
 if __name__ == "__main__":
