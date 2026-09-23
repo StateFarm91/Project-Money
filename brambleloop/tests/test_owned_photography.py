@@ -335,6 +335,7 @@ def test_coverage_counts_the_catalogue_rather_than_the_job():
     assert out["with_no_asset_at_all"] == ["c"]
     assert out["listable"] == 1
     assert out["complete"] is False
+    assert "method_blocked_on" in out, "the gate's state has to be readable without a render"
     # Why it failed, not just that it did: the next decision is "render the rest or fix
     # the method first", and that cannot be made without spending to find out otherwise.
     assert out["why_each_unusable_one_failed"]["b"]["verdict"] == "unjudged"

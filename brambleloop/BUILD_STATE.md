@@ -627,10 +627,26 @@ evidence about which product is hard does not. `historical_failures` counts a pr
 failures across *all* methods and orders behind it, so a product that has failed five times
 under three methods now goes last rather than first.
 
-**Where this leaves the provider question.** Five failures, one discriminating check, two
-method changes that did not move it. That is the evidence for the second owner item below —
-the honest reading is that this image provider does not render crochet fabric without
-tiling, and the remaining lever is a different provider rather than a better prompt.
+**Settled by the next render.** With ordering fixed, v5's second render went to
+`spooky-garland` — one of the simplest products in the catalogue, a garland rather than a
+pictorial blanket. It failed the same check:
+
+| product | complexity | v5 result |
+|---|---|---|
+| `winter-village-graphghan` | hardest — a pictorial picture-blanket | `texture_not_repeating` |
+| `spooky-garland` | among the simplest | `texture_not_repeating` |
+
+That rules out the comfortable explanation. It is not that complex pictorial products are
+hard; it is the fabric itself, on the simplest object in the catalogue. Two asks, two
+failures under v5, so B-666's block re-arms on its own — `/api/asset-coverage` now reports
+`method_blocked_on` so that state is readable without paying for a render to be refused.
+
+**The provider question, now answered as far as evidence can answer it.** Six renders,
+CA$0.246, across three method versions — v3 with no chart, v4 with the chart shown, v5 with
+tiling named at paragraph length — every one blocked on a check that a real crochet
+photograph passes cleanly, on both the hardest and the simplest product. The prompt is not
+the variable. The remaining lever is a different image provider, which is spend and a
+provider decision, so it is the owner item below rather than something done here.
 
 ### The production diagnosis, and why no more renders are being paid for
 
@@ -751,6 +767,32 @@ automatically, rather than a stale refusal somebody has to remember to clear.
 **What this changes about the decision below:** re-making the model is not "generate new
 body frames". The face is the root, and the face is the thing the owner approved. There is
 no version of this that does not go back to them.
+
+### OWNER ACTION REQUIRED — the image provider cannot render crochet fabric
+
+**Exact action:** authorise evaluating a second image provider for listing imagery, against
+the existing benchmark. Nothing is purchased or switched without a further decision; this
+authorises the comparison.
+
+**Why it is required rather than a decision I can make:** it is spend, and which provider
+renders this company's product imagery is a provider decision the owner already took once
+(the image benchmark, B-050/B-051).
+
+**Evidence it is the provider and not the brief:** six renders, CA$0.246, three method
+versions — no chart, chart shown, tiling named explicitly — all blocked on
+`texture_not_repeating`, on both the hardest product (a pictorial graphghan) and one of the
+simplest (a garland). `/api/gallery-calibration` passed a real crochet photograph on all
+ten gallery checks with nothing unjudged, so the check discriminates and the renders
+genuinely tile.
+
+**Maximum cost:** roughly CA$2–4 to render the same two products on a second provider and
+judge them with the existing gates. Opex is CA$62.30 against the CA$100 governing ceiling.
+
+**Minutes required of the owner:** about 2 — a yes or no. The comparison itself is automated.
+
+**Consequence of waiting:** the catalogue stays at `listable: 0` of 10 and no product can be
+listed with imagery, whatever else is finished. This is now the binding launch blocker, and
+it costs nothing to wait: the systematic block stops the cadence paying to re-ask.
 
 ### OWNER ACTION REQUIRED — the canonical model has to be re-made
 

@@ -561,6 +561,11 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
         "why_each_unusable_one_failed": diagnosis,
         "listable": len(usable),
         "complete": bool(slugs) and len(usable) == len(slugs),
+        # Readable rather than inferred. The block only fires when the next job runs, so
+        # without this its state can only be established by paying for a render to be
+        # refused -- and "the gate should fire" is not the same claim as "the gate says it
+        # will". Naming it here costs nothing and is the difference between the two.
+        "method_blocked_on": systematically_blocked(db),
         "why_it_is_counted": (
             "a cadence that photographs one representative product for ever reports "
             "success every day while the catalogue stays unlistable. Counting every "
