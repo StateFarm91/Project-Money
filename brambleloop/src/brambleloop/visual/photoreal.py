@@ -297,6 +297,9 @@ INHERITED: tuple[str, ...] = ("skin_looks_real", "processing_is_restrained",
                               "hands_are_right", "anatomy_is_possible")
 
 
+REFERENCE_ACTION = "visual.reference_realism"
+
+
 def reference_realism(db, *, provider=None, paths: dict | None = None) -> dict:
     """Whether the frozen identity pack could ever produce a believable photograph.
 
@@ -318,6 +321,7 @@ def reference_realism(db, *, provider=None, paths: dict | None = None) -> dict:
     from . import freeze
 
     paths = paths if paths is not None else freeze.reference_paths(db)
+    record = paths.get("pack_version")
     readings: dict[str, dict] = {}
     for frame in ("face", "body"):
         ref = paths.get(frame)
@@ -344,7 +348,7 @@ def reference_realism(db, *, provider=None, paths: dict | None = None) -> dict:
     # from `unjudged`, which is the honest "a portrait cannot show you yarn" answer -- one
     # is a question to ask again and the other is a question this image cannot answer.
     unreadable = sorted(f for f, r in readings.items() if not r["judged"])
-    return {
+    out = {
         "judged": True,
         "pack_version": paths.get("pack_version"),
         "frames": readings,
@@ -365,3 +369,48 @@ def reference_realism(db, *, provider=None, paths: dict | None = None) -> dict:
             "airbrushed skin in a render is the generator's doing rather than hers. The "
             "method or the provider is what has to change"),
     }
+    _file_verdict(db, out)
+    return out
+
+
+def _file_verdict(db, out: dict) -> None:
+    """Put the verdict on the audit log so nobody has to pay for it twice.
+
+    The render path has to know whether the reference can produce a photograph, and it
+    cannot make a vision call of its own inside a "should I render" decision -- that would
+    be a spend to decide whether to spend. So the answer is filed where it can be read for
+    nothing, keyed to the pack it was made about.
+    """
+    if db is None:
+        return
+    try:
+        from ..core.models import AuditLog
+
+        with db.session() as s:
+            s.add(AuditLog(actor="creative_director", action=REFERENCE_ACTION,
+                           detail=out))
+    except Exception:  # noqa: BLE001 - a diagnostic that cannot file is still a diagnostic
+        return
+
+
+def filed_verdict(db, *, pack_version: str = "") -> dict | None:
+    """The most recent filed reference verdict, and only for the pack it was made about.
+
+    A verdict about a superseded pack says nothing about the one in force. Returning it
+    anyway would block a new identity on the old one's failures, or -- worse -- clear a new
+    one on the old one's pass, which is a gate reading evidence about something else.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == REFERENCE_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(20)):
+            detail = row.detail or {}
+            if not detail.get("judged"):
+                continue
+            if pack_version and detail.get("pack_version") != pack_version:
+                continue
+            return detail
+    return None

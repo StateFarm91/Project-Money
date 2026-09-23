@@ -942,6 +942,72 @@ def test_both_shot_plans_ask_for_the_hands_two_floors_ask_about():
         assert "finger" in plan.lower(), shot
 
 
+def _file_reference_verdict(db, *, pack_version, failures):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.visual import photoreal
+
+    Registry(db).audit("creative_director", photoreal.REFERENCE_ACTION, detail={
+        "judged": True, "pack_version": pack_version,
+        "inheritable_failures": list(failures),
+        "verdict": "pack_is_the_cause" if failures else "pack_is_not_the_cause",
+        "what_it_means": "a generator copies the skin it is shown"})
+
+
+def _pack_version(db):
+    from brambleloop.visual import freeze
+
+    return freeze.reference_paths(db).get("pack_version")
+
+
+def test_a_reference_that_cannot_be_photographed_stops_the_render_before_it_is_paid_for():
+    """The stronger answer, and it holds on the first attempt rather than waiting.
+
+    A rate says "this keeps failing"; the reference verdict says why. Live, 2026-09-23:
+    the frozen pack's own images fail `skin_looks_real` and `processing_is_restrained`,
+    which are exactly the checks a render inherits from them. Every frame made from her is
+    unusable before it is rendered, so waiting for three samples to say so is three renders
+    of wasted spend.
+    """
+    db = _db()
+    _file_reference_verdict(db, pack_version=_pack_version(db),
+                            failures=["processing_is_restrained", "skin_looks_real"])
+
+    move = mp.what_to_do_next(db, slug="winter-cardigan", version="1.0.0")
+    assert move["render"] is False
+    assert move["reason"] == "reference_cannot_produce_a_photograph"
+    assert move["blocked_on"] == ["processing_is_restrained", "skin_looks_real"]
+    assert "cannot pass" in move["why"]
+
+
+def test_a_verdict_about_a_superseded_pack_does_not_block_a_new_identity():
+    """A new identity is not answerable for the old one's skin.
+
+    The other direction is worse and the same defect: clearing a new pack on the old one's
+    pass would be a gate reading evidence about something else.
+    """
+    db = _db()
+    _file_reference_verdict(db, pack_version="v0-an-earlier-pack",
+                            failures=["skin_looks_real"])
+
+    assert mp.what_to_do_next(db, slug="winter-cardigan", version="1.0.0")["render"] is True
+
+
+def test_no_filed_verdict_is_not_a_finding_about_the_reference():
+    """"She cannot be photographed" and "nobody has checked" need opposite responses."""
+    db = _db()
+    move = mp.what_to_do_next(db, slug="winter-cardigan", version="1.0.0")
+    assert move["render"] is True
+    assert move["reason"] == "no_usable_frame_yet"
+
+
+def test_a_reference_that_passes_what_a_render_inherits_does_not_block():
+    """The gate has to be able to pass, or it is the defect it was built against."""
+    db = _db()
+    _file_reference_verdict(db, pack_version=_pack_version(db), failures=[])
+
+    assert mp.what_to_do_next(db, slug="winter-cardigan", version="1.0.0")["render"] is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

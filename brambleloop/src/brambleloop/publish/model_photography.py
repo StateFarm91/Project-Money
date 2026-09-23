@@ -655,6 +655,33 @@ def attempts_for(db, *, slug: str, version: str) -> int:
     return sum(1 for f in _frames(db, slug=slug) if f.get("version") == version)
 
 
+def _reference_cannot_be_photographed(db) -> dict | None:
+    """The filed reference verdict, when it says the pack is why renders fail.
+
+    Read rather than computed: deciding whether to spend must not itself spend, so this
+    takes the verdict `/api/reference-realism` filed and never makes a vision call. A
+    verdict about a superseded pack is ignored, because a new identity is not answerable
+    for the old one's skin.
+
+    No filed verdict means no answer, and no answer is not a finding -- the render goes
+    ahead and the rate gate behind this one still applies. That is the difference between
+    "she cannot be photographed" and "nobody has checked", which this system has now been
+    caught conflating often enough to write down every time.
+    """
+    from ..visual import freeze, photoreal
+
+    try:
+        pack_version = freeze.reference_paths(db).get("pack_version") or ""
+    except Exception:  # noqa: BLE001 - a missing pack is not a finding about the pack
+        return None
+    if not pack_version:
+        return None
+    filed = photoreal.filed_verdict(db, pack_version=pack_version)
+    if not filed or not filed.get("inheritable_failures"):
+        return None
+    return filed
+
+
 def _systematically_blocked(db) -> list[str]:
     """Floors this method has never once passed, across every release it has rendered.
 
@@ -695,6 +722,23 @@ def what_to_do_next(db, *, slug: str, version: str) -> dict:
     # fourth on the next product is the same method asked the same question, paid for
     # again. A systematic failure is a code change, and changing `METHOD_VERSION` is what
     # clears this, because the measurement counts only the current method.
+    # Asked before the rate, because it is the stronger answer. A rate says "this keeps
+    # failing"; the reference verdict says *why*, and it holds on the first attempt rather
+    # than waiting for a sample. Live, 2026-09-23: the frozen pack's own reference images
+    # fail `skin_looks_real`, `processing_is_restrained` and `hands_are_right`, which are
+    # exactly the checks a render inherits from them. No prompt can outvote the picture the
+    # generator is copying, so every frame made from her is unusable before it is rendered.
+    unphotographic = _reference_cannot_be_photographed(db)
+    if unphotographic:
+        return {"render": False, "reason": "reference_cannot_produce_a_photograph",
+                "attempts": attempts_for(db, slug=slug, version=version),
+                "blocked_on": unphotographic["inheritable_failures"],
+                "pack_version": unphotographic.get("pack_version"),
+                "why": (f"the frozen reference itself fails "
+                        f"{unphotographic['inheritable_failures']}, and those are the "
+                        f"checks every frame conditioned on her inherits. Rendering would "
+                        f"buy a frame that cannot pass. {unphotographic['what_it_means']}")}
+
     blocked = _systematically_blocked(db)
     if blocked:
         return {"render": False, "reason": "method_systematically_blocked",

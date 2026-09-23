@@ -446,13 +446,25 @@ shots rendered, CA$0.0822 spent:
 | `photographic_realism` | **fail** | airbrushed skin, unrestrained processing, on every attempt |
 | `asset_truth` | fail | `texture_not_repeating` on the detail frame; `hands_and_fingers` unmade |
 
-**Realism is a systematic failure, not bad luck.** Three attempts, every one blocked on
-`skin_looks_real` and `processing_is_restrained`, against direction that names airbrushed
-skin at paragraph length and a judge the 2026-09-22 calibration proved can pass a real
-photograph. Under B-651 that classifies as architectural: retrying cannot fix a floor that
-has never once passed.
+**Realism fails on every model frame this system has ever produced**, across v8 to v12,
+blocked on `skin_looks_real` and `processing_is_restrained` against direction that names
+airbrushed skin at paragraph length, and a judge the 2026-09-22 calibration proved can pass
+a real photograph.
 
-So `what_to_do_next` gained a fourth outcome, `method_systematically_blocked`. `ATTEMPTS`
+*Stated precisely, because the first draft of this section was not.* `/api/render-reliability`
+reports one v12 sequence on file, not three — the earlier attempts belong to superseded
+method versions and the measurement counts only the current method, by design. So v12's
+realism failure is `unclassified`, not `systematic`, and **B-654's block is not in force.**
+Saying otherwise would have been a figure manufactured by the claim rather than read from
+the evidence, which is the mistake B-647 already cost this company real money for.
+
+What actually stops the spend is the reference verdict, which is the stronger answer and
+does not wait for a sample: `what_to_do_next` refuses with `reference_cannot_produce_a_photograph`
+when the filed verdict says the pack's own images fail the checks a render inherits. It is
+read, never computed — deciding whether to spend must not itself spend — and it is keyed to
+the pack it was made about, so a new identity is not answerable for the old one's skin.
+
+Alongside it, `what_to_do_next` gained `method_systematically_blocked`. `ATTEMPTS`
 bounds one release and does nothing about a method that does not work, because each new
 product starts its budget again — without this the next product pays three more times for
 the same answer. The block lifts when `METHOD_VERSION` changes, which is a code change
