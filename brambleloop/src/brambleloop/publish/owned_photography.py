@@ -445,20 +445,35 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
         elif (tried := assets_for(db, slug=slug, version=version)):
             unusable.append(slug)
             latest = tried[0]
-            truth = latest.get("asset_truth") or {}
-            diagnosis[slug] = {
+            truth = latest.get("asset_truth")
+            found = {
                 "attempts": len(tried),
                 "verdict": latest.get("verdict"),
                 "why": (latest.get("why") or "")[:300],
                 "motif": (latest.get("motif") or {}).get("verdict"),
+            }
+            if truth is None:
+                # An older record, filed before the gate's detail was kept. Saying so
+                # beats printing four empty lists next to `verdict: blocked`, which reads
+                # as "it was blocked and nothing failed" -- a verdict computed from the
+                # absence of a field, which is the defect this file keeps finding in
+                # everything except itself. Found in my own diagnosis an hour after
+                # writing it, by reading its output in production.
+                found["detail"] = "not_recorded"
+                found["why_no_detail"] = (
+                    "this asset was filed before the gate's per-check detail was kept, so "
+                    "which checks failed is unknown rather than empty. The next render of "
+                    "this product records it")
+            else:
                 # Which checks, not what the gate is for. "A picture that does not show
                 # what its caption promises" is the gate describing itself; the next fix
                 # needs the names of the checks this picture actually failed.
-                "failed_realism": list(truth.get("failed_realism") or ()),
-                "semantic_problems": list(truth.get("semantic_problems") or ()),
-                "third_party_marks": list(truth.get("third_party_marks") or ()),
-                "unmade": list(truth.get("unmade") or ()),
-            }
+                found["detail"] = "recorded"
+                found["failed_realism"] = list(truth.get("failed_realism") or ())
+                found["semantic_problems"] = list(truth.get("semantic_problems") or ())
+                found["third_party_marks"] = list(truth.get("third_party_marks") or ())
+                found["unmade"] = list(truth.get("unmade") or ())
+            diagnosis[slug] = found
         else:
             missing.append(slug)
     return {

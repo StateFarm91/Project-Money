@@ -338,7 +338,6 @@ def test_coverage_counts_the_catalogue_rather_than_the_job():
     # Why it failed, not just that it did: the next decision is "render the rest or fix
     # the method first", and that cannot be made without spending to find out otherwise.
     assert out["why_each_unusable_one_failed"]["b"]["verdict"] == "unjudged"
-    assert "failed_realism" in out["why_each_unusable_one_failed"]["b"]
     assert "a" not in out["why_each_unusable_one_failed"]
     assert "c" not in out["why_each_unusable_one_failed"]
 
@@ -423,6 +422,30 @@ def test_a_blocked_asset_says_which_checks_failed_not_what_the_gate_is_for():
     assert found["failed_realism"] == ["stitch_scale_is_sane"]
     assert found["semantic_problems"] == ["shows a cushion, caption promises a throw"]
     assert found["third_party_marks"] == []
+    assert found["detail"] == "recorded"
+
+
+def test_an_older_record_reports_unknown_rather_than_four_empty_lists():
+    """`verdict: blocked` beside four empty lists reads as "blocked and nothing failed".
+
+    Caught in production an hour after the detail-keeping was written, by reading its own
+    output: the record predated the change, so every list came back empty and the report
+    looked like a gate that blocked for no reason. A verdict computed from the absence of
+    a field is the defect this file keeps finding everywhere except in itself.
+    """
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": "a",
+        "version": "1.0.0", "usable_as_listing_asset": False, "verdict": "blocked",
+        "why": "the gate describing itself"})
+
+    found = op.coverage(db, slugs=["a"], versions={"a": "1.0.0"}
+                        )["why_each_unusable_one_failed"]["a"]
+    assert found["detail"] == "not_recorded"
+    assert "unknown rather than empty" in found["why_no_detail"]
+    assert "failed_realism" not in found, "an empty list reads as nothing having failed"
 
 
 if __name__ == "__main__":
