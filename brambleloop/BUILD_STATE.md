@@ -432,6 +432,52 @@ The repeated paid re-judging of the same 25 images — four batches over eight h
 the backlog 475 → 476 — is stopped at both ends: the marker is written, and `remaining` no
 longer subtracts its own run's work.
 
+### CORRECTION — the model blocks the acceptance test, not the catalogue
+
+Stated wrongly earlier in this session and corrected here on evidence. I wrote that "every
+worn product is blocked behind her" and that cardigans, hats and scarves could not have a
+listing image. **There are no worn products.** All eleven certified products are flat-shot:
+
+`winter-village-graphghan`, `cloudline-baby-blanket`, `autumn-oak-mosaic-throw`,
+`harvest-table-runner`, `mosaic-placemat-pair`, `nordic-star-ornaments`, `spooky-garland`,
+`valentine-heart-garland`, `pet-snuggle-mat`, `pressed-flower-motifs`,
+`cottage-wall-hanging`.
+
+`listing_asset.needs_the_model` returns False for every one, and production agrees — the
+`model_photography` cadence reports "no certified product needs the model". The only worn
+item anywhere is `hats-hat-0`, a concept the seasonal cycle engineers in memory from the
+MJs `hats` arena and never files in the catalogue.
+
+So the canonical model blocks **#72, #130, #202 and #300's acceptance test**. It does not
+block a single real product from being listed. That is a materially less severe commercial
+position than I described, and the owner action below is re-scoped accordingly.
+
+### A-CLASS — the photography cadence was reporting success while doing nothing
+
+Found by following that correction. Two defects, compounding, on the path that carries the
+entire shippable catalogue:
+
+1. **`verdict: "unjudged"` counted as a finished release.** The handler's idempotency asked
+   only whether a row existed for the version and replied "this release already has an
+   owned asset". Production's own output carried `verdict: "unjudged"` inside that reply —
+   an asset whose checks were never made, reported as done, daily. This is B-631 exactly,
+   the defect the *model* path was rescued from, left standing on the product-first path.
+2. **`_representative_slug` returned the same product every day, for ever.** It took the
+   first product-first slug by row id unconditionally, so `winter-village-graphghan` was
+   photographed and the other ten certified products never were — and nothing counted it.
+
+Together: the one product photographed has an unjudged asset, and ten have none. A launch
+that depends on listing imagery has **no usable assets at all**, and the cadence has been
+reporting `done` every day throughout.
+
+Fixed: `owned_photography.what_to_do_next` gives the product-first path the same three
+outcomes the model path has (`usable_asset_on_file` / `attempts_exhausted` /
+`no_usable_asset_yet`), bounded at `ATTEMPTS = 3` per release. `_representative_slug` now
+skips products that are finished or exhausted and returns one that still needs work, so
+the cadence walks the catalogue instead of standing on its first row.
+`owned_photography.coverage` and `/api/asset-coverage` count what the job never did: how
+many certified products actually have a usable listing asset.
+
 ### The production diagnosis, and why no more renders are being paid for
 
 Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both
@@ -555,10 +601,15 @@ no version of this that does not go back to them.
 ### OWNER ACTION REQUIRED — the canonical model has to be re-made
 
 **Exact action:** approve re-opening the canonical-model selection, which was settled on
-2026-09-21 from five finalists. The approved identity cannot produce a customer-facing
-photograph, so every worn product is blocked behind her. Specifically **the approved
-portrait is the root** — the carried file, not just the body frames — so this is a new
-face, not a revision to the existing one.
+2026-09-21 from five finalists. Specifically **the approved portrait is the root** — the
+carried file, not just the body frames — so this is a new face, not a revision to the
+existing one.
+
+**Re-scoped on the correction above.** This does not block any product from being listed;
+all eleven certified products are flat-shot and need no model. It blocks requirements #72,
+#130, #202 and #300's acceptance test. It is a release-gate and brand blocker, not a
+commercial one, and it is no longer the most urgent thing in this file — the asset-coverage
+defect above is.
 
 **Why it is required rather than a decision I can make:** replacing her is a brand identity
 decision and `freeze` refuses a second canonical outright by design (#200). It is also
@@ -572,10 +623,10 @@ be frozen. Against the CA$100 ceiling and the current ~CA$7/month run rate.
 **Minutes required of the owner:** about 10 — review the finalists that survive the gate
 and name one.
 
-**Consequence of waiting:** #72, #130, #202 and #300 stay blocked. Flat-shot products
-(blankets, swatches) are unaffected and continue; every worn form — cardigans, hats,
-scarves — cannot have a listing image. No spend accrues while waiting, because the
-systematic block stops the render cadence paying to re-ask the question.
+**Consequence of waiting:** #72, #130, #202 and #300 stay blocked, and Build 2 cannot be
+declared complete. No product is prevented from being listed. No spend accrues while
+waiting, because the reference verdict stops the render cadence paying to re-ask a settled
+question.
 
 **What is already built for it:** the gate that stops this recurring, and the diagnostic
 that proved it. Nothing will be generated, presented or frozen without the go-ahead.

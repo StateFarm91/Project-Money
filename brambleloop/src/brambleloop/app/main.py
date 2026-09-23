@@ -1484,6 +1484,19 @@ def api_reference_realism() -> dict:
             "inherited_checks": list(photoreal.INHERITED)}
 
 
+@app.get("/api/asset-coverage")
+def api_asset_coverage() -> dict:
+    """How much of the certified catalogue can actually be listed.
+
+    The count nobody was keeping. The photography cadence reported success every day while
+    photographing one representative product for ever, so "the job ran" and "the catalogue
+    has pictures" had drifted a long way apart with nothing measuring the gap.
+    """
+    from ..runtime.release import owned_asset_coverage
+
+    return {"owned": owned_asset_coverage(db)}
+
+
 @app.get("/api/carried-portrait")
 def api_carried_portrait() -> dict:
     """Whether the face every reference pack carries forward can pass what it passes on.

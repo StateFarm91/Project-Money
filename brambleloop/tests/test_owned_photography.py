@@ -258,6 +258,102 @@ def test_the_seasonal_cycle_reports_the_asset_rather_than_rendering_one():
     assert "last_asset" in source
 
 
+def _file_asset(db, *, slug="cloudline-baby-blanket", version="1.0.0", usable,
+                verdict="clear"):
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": slug,
+        "version": version, "usable_as_listing_asset": usable, "verdict": verdict})
+
+
+def test_an_unjudged_asset_is_not_a_release_that_already_has_one():
+    """B-631 again, left standing on the path that carries the whole shippable catalogue.
+
+    Production, 2026-09-23: the cadence replied "this release already has an owned asset"
+    carrying `verdict: "unjudged"`. An asset whose checks were never made was reported as a
+    finished release, every day, by a job that looked healthy while doing nothing. The
+    model path was rescued from exactly this; this path never was.
+    """
+    db = _db()
+    _file_asset(db, usable=False, verdict="unjudged")
+
+    move = op.what_to_do_next(db, slug="cloudline-baby-blanket", version="1.0.0")
+    assert move["render"] is True
+    assert move["reason"] == "no_usable_asset_yet"
+    assert move["attempts"] == 1
+
+
+def test_an_asset_that_cleared_its_checks_is_a_release_that_has_one():
+    """The gate has to be able to close, or the cadence never stops spending."""
+    db = _db()
+    _file_asset(db, usable=True)
+
+    move = op.what_to_do_next(db, slug="cloudline-baby-blanket", version="1.0.0")
+    assert move["render"] is False
+    assert move["reason"] == "usable_asset_on_file"
+    assert move["verdict"] == "clear"
+
+
+def test_rephotographing_is_bounded_and_says_the_method_is_what_needs_changing():
+    db = _db()
+    for _ in range(op.ATTEMPTS):
+        _file_asset(db, usable=False, verdict="blocked")
+
+    move = op.what_to_do_next(db, slug="cloudline-baby-blanket", version="1.0.0")
+    assert move["render"] is False
+    assert move["reason"] == "attempts_exhausted"
+    assert "METHOD_VERSION" in move["why"]
+
+
+def test_a_new_release_gets_its_own_attempts():
+    """Attempts belong to the release, or a re-cut product inherits an exhausted budget."""
+    db = _db()
+    for _ in range(op.ATTEMPTS):
+        _file_asset(db, usable=False, verdict="blocked", version="1.0.0")
+
+    assert op.what_to_do_next(db, slug="cloudline-baby-blanket",
+                              version="1.1.0")["render"] is True
+
+
+def test_coverage_counts_the_catalogue_rather_than_the_job():
+    """"The photography job ran" and "the catalogue can be listed" are different facts.
+
+    `_representative_slug` returned the same product every day for ever, so one product was
+    photographed and the rest never were, while the cadence reported success. Nothing
+    counted the difference until this did.
+    """
+    db = _db()
+    _file_asset(db, slug="a", usable=True)
+    _file_asset(db, slug="b", usable=False, verdict="unjudged")
+
+    out = op.coverage(db, slugs=["a", "b", "c"],
+                      versions={"a": "1.0.0", "b": "1.0.0", "c": "1.0.0"})
+    assert out["certified"] == 3
+    assert out["with_usable_asset"] == ["a"]
+    assert out["with_only_unusable_assets"] == ["b"]
+    assert out["with_no_asset_at_all"] == ["c"]
+    assert out["listable"] == 1
+    assert out["complete"] is False
+
+
+def test_coverage_is_complete_only_when_every_certified_product_has_a_usable_asset():
+    db = _db()
+    _file_asset(db, slug="a", usable=True)
+    _file_asset(db, slug="b", usable=True)
+
+    out = op.coverage(db, slugs=["a", "b"], versions={"a": "1.0.0", "b": "1.0.0"})
+    assert out["complete"] is True
+    assert out["listable"] == 2
+
+
+def test_an_empty_catalogue_is_not_complete_coverage():
+    """Nothing certified is not everything photographed -- the absence-of-evidence rule."""
+    out = op.coverage(_db(), slugs=[], versions={})
+    assert out["complete"] is False
+    assert out["listable"] == 0
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

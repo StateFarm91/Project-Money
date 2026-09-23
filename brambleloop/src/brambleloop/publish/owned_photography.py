@@ -317,3 +317,104 @@ def last_asset(db, *, slug: str = "") -> dict | None:
                     and (not slug or detail.get("slug") == slug)):
                 return detail
     return None
+
+
+# How many times one release may be re-photographed when the asset comes back unusable.
+#
+# Matching `model_photography.ATTEMPTS` for the same reason: a fourth attempt is evidence
+# that the method is wrong rather than the sample, and the record says so instead of paying
+# to find out again.
+ATTEMPTS = 3
+
+
+def assets_for(db, *, slug: str, version: str) -> list[dict]:
+    """Every asset this method made for this exact release, newest first."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    out: list[dict] = []
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                             .order_by(desc(AuditLog.id)).limit(200)):
+            detail = row.detail or {}
+            if (detail.get("made")
+                    and detail.get("method_version") == METHOD_VERSION
+                    and detail.get("slug") == slug
+                    and detail.get("version") == version):
+                out.append(detail)
+    return out
+
+
+def usable_asset(db, *, slug: str, version: str) -> dict | None:
+    """An asset that actually cleared its checks. The only kind a listing may use."""
+    for asset in assets_for(db, slug=slug, version=version):
+        if asset.get("usable_as_listing_asset"):
+            return asset
+    return None
+
+
+def what_to_do_next(db, *, slug: str, version: str) -> dict:
+    """Whether to photograph, and if not, which of two different reasons not to.
+
+    The product-first counterpart of `model_photography.what_to_do_next`, and it exists
+    because only the model path was ever given one. This path's idempotency asked whether
+    a row existed for the release and answered "this release already has an owned asset"
+    -- which is exactly B-631, the defect the model path was rescued from, left standing on
+    the path that carries the entire shippable catalogue.
+
+    Production, 2026-09-23: that reply came back carrying `verdict: "unjudged"`. An asset
+    whose checks were never made was being reported as a finished release, every day, by a
+    cadence that looked healthy while doing nothing. Unjudged is not usable, here as
+    everywhere else.
+    """
+    good = usable_asset(db, slug=slug, version=version)
+    if good:
+        return {"render": False, "reason": "usable_asset_on_file",
+                "why": "this release already has an asset that cleared every check",
+                "verdict": good.get("verdict"),
+                "attempts": len(assets_for(db, slug=slug, version=version))}
+
+    spent = len(assets_for(db, slug=slug, version=version))
+    if spent >= ATTEMPTS:
+        return {"render": False, "reason": "attempts_exhausted", "attempts": spent,
+                "why": (f"{spent} assets for {slug} {version} were rendered by "
+                        f"{METHOD_VERSION} and none cleared its checks. A further render "
+                        f"would be the same method asked the same question, so what needs "
+                        f"changing is the method -- a code change and a new "
+                        f"METHOD_VERSION, not more spend")}
+    return {"render": True, "reason": "no_usable_asset_yet", "attempts": spent,
+            "why": (f"{spent} of {ATTEMPTS} attempts used; no asset for this release has "
+                    f"cleared its checks")}
+
+
+def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
+    """Which certified products actually have a usable listing asset, and which do not.
+
+    The question nobody was asking. `_representative_slug` returned the first product-first
+    slug by row id and returned the same one every day, so one product was photographed
+    for ever and the other ten never were -- while the cadence reported success. A
+    catalogue-wide count is the difference between "the photography job ran" and "the
+    catalogue can be listed".
+    """
+    usable, unusable, missing = [], [], []
+    for slug in slugs:
+        version = versions.get(slug, "")
+        if usable_asset(db, slug=slug, version=version):
+            usable.append(slug)
+        elif assets_for(db, slug=slug, version=version):
+            unusable.append(slug)
+        else:
+            missing.append(slug)
+    return {
+        "certified": len(slugs),
+        "with_usable_asset": sorted(usable),
+        "with_only_unusable_assets": sorted(unusable),
+        "with_no_asset_at_all": sorted(missing),
+        "listable": len(usable),
+        "complete": bool(slugs) and len(usable) == len(slugs),
+        "why_it_is_counted": (
+            "a cadence that photographs one representative product for ever reports "
+            "success every day while the catalogue stays unlistable. Counting every "
+            "certified product is what tells those two apart"),
+    }

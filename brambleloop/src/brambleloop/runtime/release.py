@@ -2793,10 +2793,12 @@ def handle_owned_photography(ctx: JobContext) -> dict:
     if cir is None:
         return {"ran": False, "reason": f"no CIR for {slug!r}"}
 
-    existing = owned_photography.last_asset(ctx.db, slug=slug)
-    if existing and existing.get("version") == cir.version:
-        return {"ran": False, "reason": "this release already has an owned asset",
-                "verdict": existing.get("verdict"), "slug": slug}
+    next_move = owned_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
+    if not next_move["render"]:
+        return {"ran": False, "reason": next_move["reason"], "slug": slug,
+                "attempts": next_move["attempts"], "why": next_move["why"],
+                "verdict": next_move.get("verdict"),
+                "usable": next_move["reason"] == "usable_asset_on_file"}
 
     result = compile_cir(cir)
     if not result.ok:
@@ -2816,21 +2818,66 @@ def handle_owned_photography(ctx: JobContext) -> dict:
 
 
 def _representative_slug(db) -> str:
-    """The certified product an owned asset is worth making for first."""
+    """The certified product-first product that most needs an asset next.
+
+    It used to return the first product-first slug by row id, unconditionally -- so it
+    returned the same product every day for ever. One product was photographed and the
+    other ten certified products never were, while the cadence reported success daily and
+    nothing anywhere counted the difference. A launch that depends on listing imagery had,
+    in truth, no usable assets at all.
+
+    Now it skips the products that are finished with and returns one that still needs work,
+    so the cadence walks the catalogue instead of standing still on its first row. Products
+    whose attempts are exhausted are skipped too: spending on them again is the same method
+    asked the same question, and leaving them selected would block every product behind
+    them.
+
+    Falls back to the old behaviour when every product is done or exhausted, because
+    returning nothing would make the handler report "no certified product to photograph"
+    for a catalogue that is simply finished -- a different thing, and the honest reply
+    belongs to `what_to_do_next` rather than to this.
+    """
     from sqlalchemy import select
 
     from ..core.models import Product
 
     with db.session() as s:
         rows = [p.slug for p in s.scalars(select(Product).order_by(Product.id))]
-    from ..publish import owned_photography
-    from ..products.builder import for_slug
 
+    from ..products.builder import for_slug
+    from ..publish import owned_photography
+
+    product_first = []
     for slug in rows:
         cir = for_slug(slug)
         if cir is not None and owned_photography.needs_no_model(cir):
+            product_first.append((slug, cir))
+
+    for slug, cir in product_first:
+        if owned_photography.what_to_do_next(
+                db, slug=slug, version=cir.version)["render"]:
             return slug
-    return rows[0] if rows else ""
+    return product_first[0][0] if product_first else (rows[0] if rows else "")
+
+
+def owned_asset_coverage(db) -> dict:
+    """How much of the certified catalogue actually has a usable listing asset."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+    from ..products.builder import for_slug
+    from ..publish import owned_photography
+
+    with db.session() as s:
+        rows = [p.slug for p in s.scalars(select(Product).order_by(Product.id))]
+
+    slugs, versions = [], {}
+    for slug in rows:
+        cir = for_slug(slug)
+        if cir is not None and owned_photography.needs_no_model(cir):
+            slugs.append(slug)
+            versions[slug] = cir.version
+    return owned_photography.coverage(db, slugs=slugs, versions=versions)
 
 
 # Owner-action keys this assessment does not produce and must never close.
