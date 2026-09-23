@@ -391,11 +391,23 @@ def test_the_generator_is_shown_the_chart_it_will_be_judged_against():
     assert "stitch chart" in seen["prompt"] or "motif" in seen["prompt"].lower()
 
 
-def test_the_method_version_says_the_chart_is_shown():
-    """A v3 asset is evidence about v3. Reading it back as this release's is how a
-    corrected render never runs."""
-    assert op.METHOD_VERSION.startswith("v4-")
-    assert "shown" in op.METHOD_VERSION
+def test_an_asset_from_a_superseded_method_is_not_read_as_this_release_s():
+    """Attempts and assets belong to the method, not to the product.
+
+    Was written as `METHOD_VERSION.startswith("v4-")`, which tested the label rather than
+    the behaviour and broke the moment the method legitimately moved to v5. The durable
+    property is that a superseded method's asset does not satisfy this release -- that is
+    what stops a corrected render being skipped as "already has one".
+    """
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": "v0-superseded", "slug": "a",
+        "version": "1.0.0", "usable_as_listing_asset": True})
+
+    assert op.usable_asset(db, slug="a", version="1.0.0") is None
+    assert op.what_to_do_next(db, slug="a", version="1.0.0")["render"] is True
 
 
 def test_a_blocked_asset_says_which_checks_failed_not_what_the_gate_is_for():
@@ -531,6 +543,38 @@ def test_a_superseded_methods_failures_do_not_block_the_corrected_one():
 
     assert op.systematically_blocked(db) == []
     assert op.what_to_do_next(db, slug="a", version="1.0.0")["render"] is True
+
+
+def test_the_prompt_names_tiling_because_that_is_what_every_render_failed_on():
+    """A general request for realism did not reach it; the defect has to be named.
+
+    `photoreal.DIRECTION` already records that lesson about skin. It had never been applied
+    to fabric: the prompt asked for visible stitch texture and for fabric that "lies as real
+    crocheted fabric lies", and never once said what tiling was. Four renders across two
+    products and two method versions were blocked on `texture_not_repeating`, and a real
+    crochet photograph passed all ten gallery checks -- so the check discriminates and the
+    renders genuinely tile.
+    """
+    cir = for_slug("cloudline-baby-blanket")
+    prompt = op.prompt_for(cir, build_twin(cir, compile_cir(cir)))
+
+    assert "never tiled" in prompt
+    assert "repeat boundary" in prompt
+    assert "worked stitch by stitch rather than stamped" in prompt
+    # It asks for the harder thing rather than relaxing the check.
+    assert "vary slightly in tension" in prompt
+
+
+def test_the_version_bump_targets_the_check_that_actually_failed():
+    """The systematic block's escape is a method change, and this is the test of one.
+
+    `model_photography` deliberately did NOT bump for a change addressing only *unjudged*
+    checks while the *failed* ones stood (B-655). Here the new direction targets
+    `texture_not_repeating` itself, which is the check that failed four times out of four,
+    so clearing the block is the gate working rather than being defeated.
+    """
+    assert op.METHOD_VERSION.startswith("v5-")
+    assert "tiling" in op.METHOD_VERSION
 
 
 if __name__ == "__main__":

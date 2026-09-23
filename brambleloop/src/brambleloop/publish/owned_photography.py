@@ -33,11 +33,18 @@ ACTION = "assets.owned_photography"
 # reason every other versioned thing in this build learned the hard way: an asset made by a
 # method that has since been corrected is not the asset the corrected method would make, and
 # reading it as "already done" is how a correction never runs.
-# v4, because v3 checked the render against a chart it had never shown it.
+# v5, because v4 never told the generator what tiling was.
 #
-# The attempts and the assets belong to the method: a v3 asset is evidence about v3, and
+# The attempts and the assets belong to the method: a v4 asset is evidence about v4, and
 # reading it back as "this release already has one" is how a corrected render never runs.
-METHOD_VERSION = "v4-the-chart-is-shown-not-only-described"
+#
+# This bump clears B-666's systematic block, and that is the gate working rather than being
+# defeated. The block's stated escape is a method change, and `texture_not_repeating` --
+# the check that failed four times out of four -- is precisely what the new direction
+# below addresses. Compare `model_photography`, where the version was deliberately NOT
+# bumped for a change that only addressed checks coming back *unjudged* while the *failed*
+# ones stood (B-655). The test is whether the change targets the thing that failed.
+METHOD_VERSION = "v5-tiling-is-named-so-it-can-be-avoided"
 
 # The disclosure that travels with the asset. #79's rule, carried as data rather than left
 # to whoever writes the listing to remember.
@@ -157,8 +164,37 @@ def prompt_for(cir, twin, *, occasion: str = "") -> str:
         f"plain warm neutral surface in soft natural daylight.{size} {motif_sentence(cir)} "
         f"The crochet fabric's stitch texture is clearly visible and the piece lies as real "
         f"crocheted fabric lies.{occasion_line} No people, no hands, no text, no logos, no "
-        f"brand marks, no packaging. The object is the entire subject of the frame."
+        f"brand marks, no packaging. The object is the entire subject of the frame. "
+        f"{FABRIC_DIRECTION}"
     )
+
+
+# The one defect every product-first render has failed on, named.
+#
+# Four renders across two products and two method versions were all blocked on
+# `texture_not_repeating`, and `/api/gallery-calibration` then passed a real crochet
+# photograph on all ten gallery checks with nothing unjudged -- so the check discriminates
+# and the renders genuinely tile. Systematic under B-651, and the prescribed response to
+# systematic is a method change.
+#
+# Named at this length for the reason `photoreal.DIRECTION` already records about skin:
+# "A general request for realism did not reach it; the specific defect has to be named to
+# be avoided." The prompt asked for visible stitch texture and for fabric that "lies as
+# real crocheted fabric lies", and never once said what tiling was. A generator filling an
+# area it cannot reason about copies a patch, and nothing in the brief told it not to.
+#
+# This does not lower anything. It asks for the harder thing -- fabric worked continuously
+# rather than stamped -- which is what a real photograph of crochet shows and what the
+# check was always asking for.
+FABRIC_DIRECTION = (
+    "The fabric is worked continuously across the whole piece, never tiled: do not copy, "
+    "repeat or paste any patch of fabric. Every row runs unbroken from one edge to the "
+    "other, and the stitch pattern is worked stitch by stitch rather than stamped as a "
+    "block. Individual stitches vary slightly in tension and shape as hand work does, so "
+    "no two areas are pixel-identical. The edges and corners are genuinely different from "
+    "the middle -- a real border, real corners, real ends -- and there is no seam, grid "
+    "line or repeat boundary anywhere that a patch of fabric was duplicated."
+)
 
 
 def motif_sentence(cir) -> str:

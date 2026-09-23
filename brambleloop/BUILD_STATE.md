@@ -585,6 +585,36 @@ will not pay three times each for an answer four renders already gave.
 rather than a suspicion, and it stopped a CA$1 spend that would have bought eight more of
 the same failure.
 
+### v5 — the tiling defect is named, which is the method change the block asked for
+
+The calibration settled that the renders tile and the check is sound, and B-651's response
+to a systematic failure is a method change rather than a retry. This is that change, and it
+costs nothing to make.
+
+The prompt asked for visible stitch texture and for fabric that "lies as real crocheted
+fabric lies", and **never once said what tiling was**. `photoreal.DIRECTION` already
+records the lesson, about skin: *"A general request for realism did not reach it; the
+specific defect has to be named to be avoided."* It had never been applied to fabric.
+
+`FABRIC_DIRECTION` now names it: worked continuously and never tiled, no patch copied or
+repeated, every row unbroken edge to edge, stitches varying in tension as hand work does,
+edges and corners genuinely different from the middle, and no seam or repeat boundary where
+a patch was duplicated. That asks for the harder thing — fabric worked rather than stamped —
+which is what the real benchmark photograph shows and what the check was always asking for.
+
+`METHOD_VERSION` → `v5-tiling-is-named-so-it-can-be-avoided`, which clears B-666's block.
+**That is the gate working, not being defeated**, and the distinction is testable: the
+block's stated escape is a method change, and this change targets `texture_not_repeating`
+itself — the check that failed four times out of four. Compare the model path, where the
+version was deliberately *not* bumped for a change addressing only checks that came back
+`unjudged` while the failed ones stood (B-655). The test is whether the change targets the
+thing that failed.
+
+**Unverified.** Whether naming the defect reaches this generator is exactly what the next
+renders answer, and it is the same question the skin direction answered *no* to three times
+before the reference turned out to be the cause. If v5 tiles as well, `texture_not_repeating`
+goes systematic again and the block re-arms on its own — which is the point of having it.
+
 ### The production diagnosis, and why no more renders are being paid for
 
 Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both
