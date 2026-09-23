@@ -272,7 +272,11 @@ def _startup() -> None:
         _repair_wanted = bool(_fp) and _repair6(db, fingerprint=_fp) is None
         _boot_enqueue("portrait_repair", when=_repair_wanted, agent="publishing",
                       job_type="visual.portrait_repair",
-                      key=f"portrait-repair-{_fp[:16]}")
+                      # Same reason: the fingerprint says which portrait, the commit lets
+                      # a refused attempt be made again once the reason for refusing is
+                      # gone. `_repair_on_file` only counts an attempt that actually ran.
+                      key=(f"portrait-repair-{_fp[:16]}-"
+                           f"{build_identity().get('commit_short', 'dev')}"))
         if not _repair_wanted:
             BOOT_ENQUEUES[-1]["why"] = (
                 "this portrait has already had a repair attempt" if _fp else
@@ -297,7 +301,16 @@ def _startup() -> None:
                    and _trial6(db, challenger=_challenger) is None)
         _boot_enqueue("provider_trial", when=_wanted, agent="publishing",
                       job_type="visual.provider_trial",
-                      key=f"provider-trial-{_challenger}-{_owned6.METHOD_VERSION}",
+                      # Keyed on the commit as well as the question.
+                      #
+                      # A fixed key is claimed once and never again, so after the funding
+                      # refusal of 2026-09-23 no later deploy could have re-fired this --
+                      # the experiment would have sat armed for ever while the thing it
+                      # waited on came back. The `when=` guard and the handler's own
+                      # `_trial_on_file` check are what stop an answered question being
+                      # re-bought; the key only has to let the attempt happen again.
+                      key=(f"provider-trial-{_challenger}-{_owned6.METHOD_VERSION}-"
+                           f"{build_identity().get('commit_short', 'dev')}"),
                       inputs={"challenger": _challenger})
         if not _wanted:
             BOOT_ENQUEUES[-1]["why"] = (

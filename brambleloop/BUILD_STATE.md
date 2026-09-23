@@ -795,6 +795,43 @@ number of attempts adds money to an account, so a dead letter there was a queue 
 nobody could action wearing the costume of a bug. The refusal also says "the proof did not
 run", so a funding stop can never read as #300 having been disproved.
 
+### Re-probed on the owner's instruction: the production credential still cannot spend
+
+The owner reported Anthropic Console showing US$5.95 organization credits available and
+asked for a fresh probe of the real production credential rather than cached state. The
+probe ran and **failed**:
+
+```
+2026-09-23T18:00:36Z  anthropic 400
+"Your credit balance is too low to access the Anthropic API"
+```
+
+**Console credit and this credential's ability to spend are not the same fact**, which is
+precisely why the instruction was to go and look. Both experiments therefore refused, and
+between them spent **CA$0.00**:
+
+| experiment | ceiling | spent | outcome |
+|---|---|---|---|
+| portrait repair | CA$1.00 | CA$0.00 | `ran: false`, `waiting_on: model_provider_balance` |
+| provider trial | CA$4.00 | CA$0.00 | 6 attempts, all `made: false`, verdict `unproven` |
+
+**Two trigger defects found and fixed before they could bite.**
+
+1. `_trial_on_file` treated any filed trial as "already run". A funding refusal files a row
+   with no rendered attempts, so it would have blocked the real trial permanently at the
+   exact moment the balance returned. An idempotency key exists to stop re-buying an
+   answer, not to record the absence of one as though it were the answer. A trial that
+   rendered nothing is no longer a trial.
+2. Both experiments' boot-enqueue keys were fixed strings. A key is claimed once and never
+   again, so **no later deploy could have re-fired either of them** — they would have sat
+   armed for ever while the thing they waited on came back. Both keys now carry the commit,
+   the way `owned_photography`'s already did. The `when=` guards and the handlers' own
+   on-file checks are what prevent re-buying; the key only has to let the attempt happen
+   again.
+
+Both are the same shape and it is worth naming: a guard that cannot distinguish "answered"
+from "could not be attempted" converts a temporary blocker into a permanent one.
+
 ### A-CLASS — the launch gate could not see the photographs, only the charts
 
 Found by asking the heartbeat's question honestly: with both authorised experiments
