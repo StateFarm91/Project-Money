@@ -2864,14 +2864,25 @@ def _representative_slug(db) -> str:
     # about whether the method works than one product at three, which is the sampling rule
     # `visual.reliability` is built on: a dimension asked once cannot be classified, and
     # three tries at a single hard case is one case, not three.
+    # Ordered by attempts on this release, then by how often this product has failed under
+    # any method, and only then by row order.
+    #
+    # The second key is what row id used to decide. When v5 reset every product to zero
+    # attempts the first key went flat and the cadence went straight back to
+    # `winter-village-graphghan` -- the hardest thing in this catalogue -- which is exactly
+    # the arbitrary tie-break the ordering fix existed to remove. History survives a version
+    # bump: a product that has failed five times under three methods is evidence about the
+    # product, and it belongs behind the ones that have never failed at all.
     waiting = []
-    for slug, cir in product_first:
+    for index, (slug, cir) in enumerate(product_first):
         move = owned_photography.what_to_do_next(db, slug=slug, version=cir.version)
         if move["render"]:
-            waiting.append((move["attempts"], slug))
+            waiting.append((move["attempts"],
+                            owned_photography.historical_failures(db, slug=slug),
+                            index, slug))
     if waiting:
-        waiting.sort(key=lambda pair: pair[0])
-        return waiting[0][1]
+        waiting.sort()
+        return waiting[0][-1]
     return product_first[0][0] if product_first else (rows[0] if rows else "")
 
 

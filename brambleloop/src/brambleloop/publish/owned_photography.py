@@ -425,6 +425,35 @@ def usable_asset(db, *, slug: str, version: str) -> dict | None:
     return None
 
 
+def historical_failures(db, *, slug: str, limit: int = 300) -> int:
+    """How many times this product has been rendered and failed, under any method.
+
+    Across method versions on purpose, unlike everything else that reads this log. The
+    attempt *budget* belongs to the method, correctly -- but "which product should be
+    photographed next" is a different question, and for that a product that has failed
+    five times under three methods is evidence about the product, not about the methods.
+
+    Found when v5 reset every product to zero attempts and the cadence went straight back
+    to `winter-village-graphghan`, the hardest thing in the catalogue. The "untried first"
+    ordering was right and gave no signal once a version bump made everything untried, so
+    row id decided again -- which is the arbitrary tie-break the ordering fix existed to
+    remove.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    failures = 0
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                             .order_by(desc(AuditLog.id)).limit(limit)):
+            detail = row.detail or {}
+            if detail.get("made") and detail.get("slug") == slug and not detail.get(
+                    "usable_as_listing_asset"):
+                failures += 1
+    return failures
+
+
 def what_to_do_next(db, *, slug: str, version: str) -> dict:
     """Whether to photograph, and if not, which of two different reasons not to.
 

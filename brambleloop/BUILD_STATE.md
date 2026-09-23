@@ -610,10 +610,27 @@ version was deliberately *not* bumped for a change addressing only checks that c
 `unjudged` while the failed ones stood (B-655). The test is whether the change targets the
 thing that failed.
 
-**Unverified.** Whether naming the defect reaches this generator is exactly what the next
-renders answer, and it is the same question the skin direction answered *no* to three times
-before the reference turned out to be the cause. If v5 tiles as well, `texture_not_repeating`
-goes systematic again and the block re-arms on its own — which is the point of having it.
+**Answered, and the answer is no.** The v5 render (CA$0.0411, boot-enqueued) came back
+`failed_realism: ["texture_not_repeating"]` with `motif: mismatch`. Naming the defect at
+paragraph length did not reach this generator — the same answer the skin direction got
+three times before the reference turned out to be the cause.
+
+That is now five renders across v3, v4 and v5, every one blocked on the same check, with a
+real photograph having passed it. Under B-666 the block re-arms as soon as a second v5
+render agrees, which is the gate doing its job without anybody deciding to be honest.
+
+**And it caught a gap in my own ordering fix.** The v5 bump reset every product to zero
+attempts, so "untried first" went flat and row order decided again — straight back to
+`winter-village-graphghan`, the hardest thing in the catalogue and precisely the arbitrary
+tie-break that fix existed to remove. The attempt budget belongs to the method; the
+evidence about which product is hard does not. `historical_failures` counts a product's
+failures across *all* methods and orders behind it, so a product that has failed five times
+under three methods now goes last rather than first.
+
+**Where this leaves the provider question.** Five failures, one discriminating check, two
+method changes that did not move it. That is the evidence for the second owner item below —
+the honest reading is that this image provider does not render crochet fabric without
+tiling, and the remaining lever is a different provider rather than a better prompt.
 
 ### The production diagnosis, and why no more renders are being paid for
 

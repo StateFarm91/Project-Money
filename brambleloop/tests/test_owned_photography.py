@@ -577,6 +577,37 @@ def test_the_version_bump_targets_the_check_that_actually_failed():
     assert "tiling" in op.METHOD_VERSION
 
 
+def test_a_version_bump_does_not_send_the_cadence_back_to_the_hardest_product():
+    """History survives a version bump; the attempt budget does not.
+
+    v5 reset every product to zero attempts, so "untried first" went flat and row id
+    decided again -- straight back to `winter-village-graphghan`, the hardest thing in the
+    catalogue and the arbitrary tie-break the ordering fix existed to remove. A product
+    that has failed repeatedly under earlier methods is evidence about the product.
+    """
+    from brambleloop.core.models import Product
+    from brambleloop.runtime.release import _representative_slug
+
+    db = _db()
+    with db.session() as sess:
+        sess.add(Product(slug="winter-village-graphghan", title="Graphghan",
+                         status="certified"))
+        sess.add(Product(slug="spooky-garland", title="Garland", status="certified"))
+
+    # Failures under superseded methods: they do not spend this release's budget, and they
+    # are still the best evidence available about which product to try next.
+    from brambleloop.agents.registry import Registry
+
+    for method in ("v3-old", "v4-old"):
+        Registry(db).audit("publishing", op.ACTION, detail={
+            "made": True, "method_version": method, "slug": "winter-village-graphghan",
+            "version": "1.0.0", "usable_as_listing_asset": False})
+
+    assert op.historical_failures(db, slug="winter-village-graphghan") == 2
+    assert op.historical_failures(db, slug="spooky-garland") == 0
+    assert _representative_slug(db) == "spooky-garland"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
