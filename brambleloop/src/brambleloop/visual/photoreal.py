@@ -327,6 +327,8 @@ def reference_realism(db, *, provider=None, paths: dict | None = None) -> dict:
         verdict = gate(reading)
         readings[frame] = {"verdict": verdict["verdict"], "failed": verdict["failed"],
                            "unjudged": verdict["unjudged"], "why": verdict["why"],
+                           "judged": bool(reading.get("judged")),
+                           "error": reading.get("error", ""),
                            "notes": reading.get("notes", "")}
 
     if not readings:
@@ -338,10 +340,15 @@ def reference_realism(db, *, provider=None, paths: dict | None = None) -> dict:
                         if f in INHERITED})
     other = sorted({f for r in readings.values() for f in r["failed"]
                     if f not in INHERITED})
+    # A frame the judge could not read at all is not a frame that passed. Kept separate
+    # from `unjudged`, which is the honest "a portrait cannot show you yarn" answer -- one
+    # is a question to ask again and the other is a question this image cannot answer.
+    unreadable = sorted(f for f, r in readings.items() if not r["judged"])
     return {
         "judged": True,
         "pack_version": paths.get("pack_version"),
         "frames": readings,
+        "unreadable_frames": unreadable,
         "inheritable_failures": inherited,
         "other_failures": other,
         "inherited_checks": list(INHERITED),

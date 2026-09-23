@@ -23,6 +23,37 @@ from brambleloop.visual import brief, freeze, identity, model_registry  # noqa: 
 from brambleloop.visual import reference_pack  # noqa: E402
 
 
+class _SoundReference:
+    """A realism judge that finds the reference believable.
+
+    Injected into every test that is about something else. Without it each of them would
+    be blocked by the freeze-time realism gate, which is correct behaviour and would make
+    them all tests of that one gate.
+    """
+
+    model = "test"
+    cost_per_1k_input_cad = 0.0
+    cost_per_1k_output_cad = 0.0
+
+    def __init__(self, **checks):
+        from brambleloop.visual import photoreal
+
+        self.answers = {k: True for k in photoreal.CHECKS}
+        self.answers.update(checks)
+
+    def see(self, system, prompt, refs, max_tokens=0):
+        import json as _json
+
+        answers, self_ = self.answers, self
+
+        class R:
+            text = _json.dumps({**answers, "notes": "seen"})
+            input_tokens = 1
+            output_tokens = 1
+        return R()
+
+
+
 def _db() -> Database:
     tmp = tempfile.mkdtemp()
     db = Database(f"sqlite:///{tmp}/freeze.sqlite")
@@ -69,7 +100,7 @@ def test_a_pack_that_cannot_state_the_bust_is_never_frozen():
     assert "bust_proportions" in verdict["missing"]
 
     try:
-        freeze.freeze(db, owner_approved=True)
+        freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
     except freeze.FreezeRefused as exc:
         assert "hole" in str(exc) or "could not be read" in str(exc)
     else:                                                    # pragma: no cover
@@ -89,7 +120,7 @@ def test_the_freeze_reaches_past_a_newer_unusable_pack_and_says_which():
     assert chosen["pack_version"] == "v15"
     assert [s["pack_version"] for s in chosen["skipped_newer"]] == ["v16"]
 
-    record = freeze.freeze(db, owner_approved=True)
+    record = freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
     assert record["frozen"] is True
     assert record["pack_version"] == "v15"
     assert record["skipped_newer"][0]["pack_version"] == "v16"
@@ -100,16 +131,16 @@ def test_nothing_freezes_without_the_owner_and_nothing_freezes_twice():
     _file(db, _package(version="v15"))
 
     try:
-        freeze.freeze(db, owner_approved=False)
+        freeze.freeze(db, owner_approved=False, realism_judger=_SoundReference())
     except freeze.FreezeRefused as exc:
         assert "the owner's decision" in str(exc)
     else:                                                    # pragma: no cover
         raise AssertionError("froze without the owner")
     assert model_registry.canonical_pack(db) is None
 
-    first = freeze.freeze(db, owner_approved=True)
+    first = freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
     assert first["frozen"] is True
-    second = freeze.freeze(db, owner_approved=True)
+    second = freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
     assert second["frozen"] is False and second["already_canonical"] is True
     assert "redesign" in second["why"]
 
@@ -135,7 +166,7 @@ def test_the_reference_image_is_one_that_survives_a_restart():
     and an `/api/...` path is not something a provider can fetch."""
     db = _db()
     _file(db, _package(version="v15"))
-    record = freeze.freeze(db, owner_approved=True)
+    record = freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
     reference = record["fields"]["reference_image"]
     assert reference == brief.approved_portrait()
     assert Path(reference).is_file(), "the canonical reference image is not on disk"
@@ -150,7 +181,7 @@ def test_the_seven_properties_hold_against_the_persisted_pack():
     """
     db = _db()
     _file(db, _package(version="v15"))
-    freeze.freeze(db, owner_approved=True)
+    freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
 
     proof = freeze.enforcement_proof(db)
     assert proof["proved"] is True, proof["failed"]
@@ -179,7 +210,7 @@ def test_the_proof_can_fail_and_is_not_a_row_of_yeses():
     persisted pack's bust field and the properties that depend on it must stop holding."""
     db = _db()
     _file(db, _package(version="v15"))
-    freeze.freeze(db, owner_approved=True)
+    freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
 
     from sqlalchemy import select
 
@@ -210,13 +241,25 @@ def test_the_freeze_job_records_the_approval_and_refuses_to_replace_her():
     ctx = JobContext(job=queue.enqueue("creative_director", "creative.model_freeze", {}),
                      db=db, queue=queue, registry=Registry(db), phase=None)
 
-    first = handle_model_freeze(ctx)
+    # Patched at `photoreal.judge` rather than injected, because this test is about the
+    # handler and the handler has no injection point: a live vision call in a test would
+    # be a test of the network. The gate itself is tested directly below.
+    from brambleloop.visual import photoreal
+
+    original = photoreal.judge
+    photoreal.judge = lambda ref, db=None, provider=None: {
+        "judged": True, "checks": {k: True for k in photoreal.CHECKS}, "notes": ""}
+    try:
+        first = handle_model_freeze(ctx)
+        second_run = handle_model_freeze(ctx)
+    finally:
+        photoreal.judge = original
+
     assert first["frozen"] is True
     assert first["pack_version"] == "v15"
     assert first["enforcement_proved"] is True, first["enforcement_failed"]
 
-    second = handle_model_freeze(ctx)
-    assert second["frozen"] is False and second["already_canonical"] is True
+    assert second_run["frozen"] is False and second_run["already_canonical"] is True
 
 
 def test_the_freeze_job_declines_rather_than_raising_when_no_pack_can_be_frozen():
@@ -247,6 +290,69 @@ def test_the_recorded_approval_authorises_the_identity_and_nothing_else():
         assert refused in record["does_not_authorise"]
     assert "Shadow Mode stands" in record["does_not_authorise"]
     assert "never eligible for automatic selection" in record["superseded"]
+
+
+def test_a_reference_that_reads_as_generated_is_never_frozen():
+    """The finding of 2026-09-23, made structural.
+
+    Three model frames were blocked on `skin_looks_real` and `processing_is_restrained`
+    against direction naming airbrushed skin at paragraph length, and the third escalation
+    of that language achieved nothing -- because the prompt was arguing with the picture.
+    Reading the frozen pack itself found poreless skin on the face frame and indistinct
+    fingers on the body frame: every render inherited exactly the failures blocking it.
+
+    Freezing is a one-way door, so this is the last moment the question can be asked for
+    free. A pack that cannot produce a believable photograph is not an identity, it is a
+    permanent floor nothing downstream can clear.
+    """
+    db = _db()
+    _file(db, _package(version="v15"))
+    try:
+        freeze.freeze(db, owner_approved=True,
+                      realism_judger=_SoundReference(skin_looks_real=False))
+    except freeze.FreezeRefused as exc:
+        assert "skin_looks_real" in str(exc)
+        assert "a generator copies the skin it is shown" in str(exc)
+    else:
+        raise AssertionError("an airbrushed reference was frozen as canonical")
+
+    assert model_registry.canonical_pack(db) is None, "a refused pack was still promoted"
+
+
+def test_a_reference_flawed_only_in_its_own_scene_is_still_frozen():
+    """The gate has to be able to pass, or it is the defect it was built against.
+
+    Lighting and sterile perfection belong to the scene a new frame builds around her, so
+    refusing on those would reject a usable identity over a flaw that never reaches a
+    listing -- a floor nothing can clear, installed by the fix for a floor nothing can
+    clear.
+    """
+    db = _db()
+    _file(db, _package(version="v15"))
+    out = freeze.freeze(db, owner_approved=True,
+                        realism_judger=_SoundReference(lighting_is_coherent=False,
+                                                       not_sterile_perfection=False))
+    assert out["frozen"] is True
+
+
+def test_a_reference_the_judge_could_not_read_is_unproven_rather_than_sound():
+    """Unjudged is not a pass, and freezing on it would make the question permanent."""
+    class _Silent(_SoundReference):
+        def see(self, system, prompt, refs, max_tokens=0):
+            class R:
+                text = "the provider declined"
+                input_tokens = 1
+                output_tokens = 1
+            return R()
+
+    db = _db()
+    _file(db, _package(version="v15"))
+    try:
+        freeze.freeze(db, owner_approved=True, realism_judger=_Silent())
+    except freeze.FreezeRefused as exc:
+        assert "unproven rather than sound" in str(exc)
+    else:
+        raise AssertionError("a pack nobody could judge was frozen")
 
 
 if __name__ == "__main__":

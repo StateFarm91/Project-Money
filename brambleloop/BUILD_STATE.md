@@ -465,7 +465,63 @@ those address checks that came back *unjudged*, not the ones that came back *fai
 Cutting a version now would clear the block without fixing what it caught, and buy three
 more attempts with money that is not authorised.
 
-**The next question is built and unanswered.** `/api/reference-realism` judges the frozen
+### ANSWERED, in production: the pack is the cause
+
+`/api/reference-realism` on pack `v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is`,
+2026-09-23. Both reference frames `blocked`:
+
+- **face** — failed `skin_looks_real`, `processing_is_restrained`, `not_sterile_perfection`.
+  "Overly smooth, poreless quality especially on the forehead and cheeks, and the overall
+  polish (symmetric styled hair, flawless complexion, uniform background) reads as heavily
+  processed or AI-generated."
+- **body** — the same three plus `hands_are_right`. "Skin has an overly smooth, poreless
+  quality and the fingers are indistinct/blurred, both typical of AI generation."
+
+`inheritable_failures: ['hands_are_right', 'processing_is_restrained', 'skin_looks_real']`
+— the exact three that have blocked every model frame. The prompt was arguing with the
+picture and the picture wins: a generator copies the skin it is shown. Three escalations of
+direction naming airbrushed skin explicitly achieved nothing, and a fourth would have
+achieved nothing, which is what the systematic block now prevents.
+
+This also retires a hypothesis this system spent real money on. The renders were never the
+problem, the provider was never the problem, and the realism judge — calibrated against a
+real photograph on 2026-09-22 — was right every time.
+
+**Made structural (B-657).** `visual.freeze` now refuses to promote a pack whose own
+reference images fail the checks a render inherits from them. Freezing is a one-way door —
+`select_canonical` refuses a second canonical outright — so that was the last moment the
+question could be asked for free, and it was not being asked. Only `photoreal.INHERITED`
+is grounds to refuse: a reference flawed in its own lighting is still frozen, because
+refusing on that would install a floor nothing can clear as the fix for a floor nothing can
+clear.
+
+### OWNER ACTION REQUIRED — the canonical model has to be re-made
+
+**Exact action:** approve re-opening the canonical-model selection, which was settled on
+2026-09-21 from five finalists. The approved identity cannot produce a customer-facing
+photograph, so every worn product is blocked behind her.
+
+**Why it is required rather than a decision I can make:** replacing her is a brand identity
+decision and `freeze` refuses a second canonical outright by design (#200). It is also
+spend: generating and gating a new candidate set costs image credits, and no additional
+funding is authorised.
+
+**Maximum cost:** roughly CA$3–5 for a candidate set of five to eight, gated on
+`photoreal.INHERITED` *before* any of them is presented, so nothing is shown that could not
+be frozen. Against the CA$100 ceiling and the current ~CA$7/month run rate.
+
+**Minutes required of the owner:** about 10 — review the finalists that survive the gate
+and name one.
+
+**Consequence of waiting:** #72, #130, #202 and #300 stay blocked. Flat-shot products
+(blankets, swatches) are unaffected and continue; every worn form — cardigans, hats,
+scarves — cannot have a listing image. No spend accrues while waiting, because the
+systematic block stops the render cadence paying to re-ask the question.
+
+**What is already built for it:** the gate that stops this recurring, and the diagnostic
+that proved it. Nothing will be generated, presented or frozen without the go-ahead.
+
+**The next question is built and answered.** `/api/reference-realism` judges the frozen
 identity pack by the same standard its renders are held to. Every frame is conditioned on
 that reference, and a generator copies the skin it is shown, so there are two explanations
 needing opposite fixes: the provider will not do unretouched skin (change the method), or

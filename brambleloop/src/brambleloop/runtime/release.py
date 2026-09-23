@@ -2985,8 +2985,13 @@ def handle_model_freeze(ctx: JobContext) -> dict:
     re-run reports the identity that exists rather than replacing her -- replacing her is
     a redesign and a separate owner decision.
 
-    GREEN: it writes one row and runs deterministic checks. No model call, no render, no
-    spend, nothing published.
+    GREEN: it writes one row, runs deterministic checks, and makes two vision calls -- the
+    freeze-time realism gate, which asks whether the candidate's own reference images read
+    as photographs before making her the one every render is conditioned on. About one cent,
+    once, at a decision that cannot be taken back. No render, nothing published. That
+    sentence used to say "no model call, no spend" and stopped being true when the gate was
+    added; leaving it would have been a docstring asserting a property the code no longer
+    had, which is the same defect as a test asserting one.
     """
     from ..visual import freeze as freeze_mod
 

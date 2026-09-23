@@ -150,8 +150,54 @@ def newest_freezable(db) -> dict | None:
     return None
 
 
+def _refuse_an_unphotographic_pack(db, package: dict, *, judger=None) -> None:
+    """A reference that reads as generated makes every frame built from it read as generated.
+
+    Found the hard way, 2026-09-23. Three model frames were blocked on `skin_looks_real`
+    and `processing_is_restrained` against direction that names airbrushed skin at
+    paragraph length, and the third escalation of that language achieved nothing -- because
+    the prompt was arguing with the picture. `/api/reference-realism` then read the frozen
+    pack itself: poreless skin and catalogue polish on the face frame, and indistinct
+    fingers on the body frame. Every render inherited exactly the failures blocking it.
+
+    Freezing is a one-way door -- `select_canonical` refuses a second canonical outright --
+    so this is the last moment the question can be asked for free. A pack that cannot
+    produce a believable photograph is not an identity, it is a permanent floor nothing
+    downstream can clear, and the render budget gets spent discovering that one product at
+    a time.
+
+    Only the checks a render inherits are grounds to refuse. `photoreal.INHERITED` is
+    narrow on purpose: lighting and sterile perfection belong to the scene the new frame
+    builds around her, and refusing on those would reject a usable identity over a flaw
+    that never reaches a listing.
+    """
+    from . import photoreal
+
+    reading = photoreal.reference_realism(
+        db, provider=judger, paths=reference_paths(db, package=package))
+    if not reading.get("judged"):
+        raise FreezeRefused(
+            f"the candidate pack's reference images could not be materialised, so whether "
+            f"she can produce a believable photograph is unknown. {reading.get('why', '')} "
+            f"Unknown is not a pass for a decision that cannot be taken back")
+    if reading.get("unreadable_frames"):
+        raise FreezeRefused(
+            f"the realism judge did not answer for {reading['unreadable_frames']}, so this "
+            f"pack is unproven rather than sound. That is a question to ask again, which "
+            f"is a different fix from a failure -- and freezing on it would make an "
+            f"unanswered question permanent")
+    failures = reading.get("inheritable_failures") or []
+    if failures:
+        raise FreezeRefused(
+            f"the candidate's own reference images fail {failures}, and those are the "
+            f"checks every frame conditioned on her inherits. Freezing her would make "
+            f"`photographic_realism` a floor no render could ever clear, however the "
+            f"prompt is worded: a generator copies the skin it is shown. "
+            f"{reading.get('what_it_means', '')}")
+
+
 def freeze(db, *, owner_approved: bool, key: str = "brambleloop-canonical",
-           package: dict | None = None) -> dict:
+           package: dict | None = None, realism_judger=None) -> dict:
     """Promote the newest freezable pack to canonical. The one path, and it refuses.
 
     `owner_approved` is passed through to `select_canonical`, which is the function that
@@ -190,6 +236,8 @@ def freeze(db, *, owner_approved: bool, key: str = "brambleloop-canonical",
     verdict = freezable(chosen["package"])
     if not verdict["freezable"]:
         raise FreezeRefused(verdict["why"])
+
+    _refuse_an_unphotographic_pack(db, chosen["package"], judger=realism_judger)
 
     fields = fields_from(chosen["package"])
     # `select_canonical` takes the first of these as the pack's `reference_image`, and the
@@ -448,7 +496,7 @@ def _materialise(db, frame: dict) -> str:
     return str(path) if path.is_file() else ""
 
 
-def reference_paths(db) -> dict:
+def reference_paths(db, *, package: dict | None = None) -> dict:
     """Which image answers for the face and which answers for the body.
 
     Returns paths, never a verdict: a caller with no body reference is told so and reports
@@ -456,7 +504,10 @@ def reference_paths(db) -> dict:
     """
     from . import brief
 
-    package = frozen_package(db)
+    # `package` lets a caller ask about a pack that is not canonical yet, which is what
+    # the freeze-time realism gate needs: the question has to be answered *before* the
+    # pack becomes the one every render is conditioned on, not after.
+    package = package if package is not None else frozen_package(db)
     frames = {f.get("frame"): f for f in (package or {}).get("reference_frames") or []}
 
     face = _materialise(db, frames.get(FACE_FRAME)) or brief.approved_portrait()

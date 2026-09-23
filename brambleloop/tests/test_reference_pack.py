@@ -658,7 +658,28 @@ def test_the_approval_question_reopens_while_a_ready_pack_is_waiting():
     # identity they have already approved.
     from brambleloop.visual import freeze as freeze_mod
 
-    freeze_mod.freeze(db, owner_approved=True, package=package)
+    # A sound realism judge, because this test is about the owner-action row's lifecycle
+    # rather than about the freeze-time realism gate. Without one the gate correctly
+    # refuses -- there is no vision provider here -- and the row would stay open for a
+    # reason this test is not making.
+    from brambleloop.visual import photoreal
+
+    class _Sound:
+        model = "test"
+        cost_per_1k_input_cad = 0.0
+        cost_per_1k_output_cad = 0.0
+
+        def see(self, system, prompt, refs, max_tokens=0):
+            import json as _json
+
+            class R:
+                text = _json.dumps({k: True for k in photoreal.CHECKS})
+                input_tokens = 1
+                output_tokens = 1
+            return R()
+
+    freeze_mod.freeze(db, owner_approved=True, package=package,
+                      realism_judger=_Sound())
     release._reconcile_canonical_model_action(db)
     with db.session() as s:
         still_open = list(s.scalars(select(OwnerAction).where(
