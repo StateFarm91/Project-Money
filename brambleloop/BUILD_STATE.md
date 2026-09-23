@@ -507,6 +507,28 @@ is grounds to refuse: a reference flawed in its own lighting is still frozen, be
 refusing on that would install a floor nothing can clear as the fix for a floor nothing can
 clear.
 
+### Production state at close, 2026-09-23T05:4xZ
+
+- `/api/verify` **ok: true**, 12 of 12. Shadow Mode intact, 0 published, 134 publication
+  refusals (the refusals are the evidence that publishing was actually attempted).
+- `/api/reference-realism` run twice against pack v15. Both runs: `pack_is_the_cause`,
+  both frames blocked, `skin_looks_real` and `processing_is_restrained` failing every
+  time. `hands_are_right` failed the first run and not the second — so the judge is
+  stochastic on hands and consistent on skin, which is what makes the skin finding the
+  one to act on. The verdict is filed, so the render path reads it for nothing.
+- `/api/render-reliability`: 1 gallery attempted, 0 usable, CA$0.0822 spent, verdict
+  `unproven`, rate withheld below the floor of 3. Honest and unflattering, which is the
+  point of writing the standard first.
+- `build_tick`: ready 5, parked 68, blocked 0, done 227. The watchdog says `stalled` with
+  `alarm: true` — correctly. Every READY requirement is the model-bearing cluster (#72,
+  #130, #202, #300), and all of it is behind the one decision below.
+- `model_photography` cadence last ran 04:03:44Z and spent nothing: "no certified product
+  needs the model". Gallery drain continues, `failures` back to 0 after one transient.
+
+The render guard is deployed and its input is filed, but it has not yet been *observed*
+refusing in production — the cadence has not needed the model since the verdict was filed.
+Saying it works would be a claim about a code path nobody has watched run.
+
 ### OWNER ACTION REQUIRED — the canonical model has to be re-made
 
 **Exact action:** approve re-opening the canonical-model selection, which was settled on
