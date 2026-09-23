@@ -509,6 +509,17 @@ about v3 rather than as this release's, and the corrected render actually runs.
 walks the catalogue, so the evidence arrives over the next runs at the cost those renders
 were always going to have. No render was bought to prove it early.
 
+What *is* confirmed on the v4 deploy: `/api/asset-coverage` went from two products with
+unusable assets to ten with none. That is the version scoping working exactly as intended —
+a v3 asset is evidence about v3 and is no longer read as this release's — and it is why the
+corrected render will actually run instead of being skipped as "already has one".
+
+**The discipline being held here**: verify the fix on one render before paying for nine
+more. Opex is CA$62.30 of the CA$100 governing ceiling, and the whole lesson of this
+session is that a method which fails every time it is asked fails the next nine times too.
+If the first v4 asset comes back usable, the rest are worth the roughly CA$1 they cost. If
+it does not, that CA$1 would have bought nine more of the same answer.
+
 ### The production diagnosis, and why no more renders are being paid for
 
 Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both
