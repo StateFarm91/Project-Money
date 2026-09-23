@@ -1014,6 +1014,82 @@ def test_the_remaining_count_is_counted_rather_than_computed_to_fall():
             assert "judged" not in names, \
                 "the remaining count is subtracting this run's judged again"
 
+
+def _one_listing(images=("a.jpg", "b.jpg")):
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks
+
+    db = Database("sqlite://")
+    db.create_all()
+    with db.session() as s:
+        s.add(BenchmarkListing(
+            benchmark_key=benchmarks.MJS_KEY, listing_ref="1", title="t",
+            audit_state="audited", detail={"image_urls": list(images)}))
+    return db
+
+
+def test_the_backlog_is_counted_rather_than_capped_by_the_query_limit():
+    """The replacement for one unmeasurable number must not be another.
+
+    B-647 replaced a `remaining` that subtracted its own run's work with one that read
+    `len(pending(..., limit=limit * 20))` -- which saturates at five hundred. With 438
+    listings carrying several images each the true backlog is thousands, so the figure
+    read 500 whether the queue drained or not, and would have hidden whether the fix
+    worked for weeks. Counted over the whole catalogue now, and not through `pending`.
+    """
+    import ast
+    from pathlib import Path as _Path
+
+    from brambleloop.intel import benchmarks, vision
+
+    db = _one_listing(tuple(f"{i}.jpg" for i in range(30)))
+    assert vision.pending_count(db, benchmarks.MJS_KEY)["unjudged"] == 30
+    assert len(vision.pending(db, benchmarks.MJS_KEY, limit=5)) == 5, "pending still pages"
+
+    source = (_Path(__file__).resolve().parents[1]
+              / "src/brambleloop/intel/vision.py").read_text()
+    fn = next(n for n in ast.walk(ast.parse(source))
+              if isinstance(n, ast.FunctionDef) and n.name == "analyse")
+    for node in ast.walk(fn):
+        if isinstance(node, ast.keyword) and node.arg == "remaining":
+            raise AssertionError("remaining is being computed inline again")
+
+
+def test_an_image_that_keeps_failing_is_not_retried_for_ever():
+    """Every live batch since the drain began carried `failures: 1`.
+
+    A failing image is never marked judged, so it came back on every run, taking a slot
+    and a little money with it indefinitely. Bounded, then named as given up on -- an
+    image the provider refuses four times is not one more attempt away.
+    """
+    from brambleloop.intel import benchmarks, vision
+
+    db = _one_listing()
+    failing = vision.PendingAnalysis(benchmarks.MJS_KEY, "1", "a.jpg", 1)
+    for _ in range(vision.FAILED_ATTEMPTS):
+        vision._mark_failed(db, failing)
+
+    assert [p.rank for p in vision.pending(db, benchmarks.MJS_KEY)] == [2]
+    count = vision.pending_count(db, benchmarks.MJS_KEY)
+    assert count["given_up_on"] == 1
+    assert count["unjudged"] == 1, "a given-up image is not outstanding work"
+
+
+def test_an_image_nobody_will_retry_does_not_hold_a_gallery_open():
+    """Otherwise one refused image keeps its whole listing pending for ever."""
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.intel import benchmarks, vision
+
+    db = _one_listing()
+    for _ in range(vision.FAILED_ATTEMPTS):
+        vision._mark_failed(db, vision.PendingAnalysis(benchmarks.MJS_KEY, "1", "a.jpg", 1))
+    vision._mark_judged(db, vision.PendingAnalysis(benchmarks.MJS_KEY, "1", "b.jpg", 2))
+
+    with db.session() as s:
+        assert (s.query(BenchmarkListing).first().detail or {})["gallery_analysed"] is True
+    assert vision.pending_count(db, benchmarks.MJS_KEY)["unjudged"] == 0
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

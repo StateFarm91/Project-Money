@@ -31,6 +31,14 @@ SHOT_TYPES: tuple[str, ...] = (
     "flat_lay", "in_use", "scale_reference", "infographic", "process", "packaging",
 )
 
+# How many times one image may fail before the queue stops offering it.
+#
+# A failing image is never marked judged, so without this it returns on every run forever,
+# taking a slot and a little money with it: the live runs have carried `failures: 1` in
+# every batch since the drain began. Three, then it is counted as given up on and named,
+# because an image the provider refuses four times is not an image one more attempt fixes.
+FAILED_ATTEMPTS = 3
+
 PENDING = "pending"
 ANALYSED = "analysed"
 BLOCKED = "blocked"
@@ -83,12 +91,48 @@ def pending(db, benchmark_key: str, *, limit: int = 200) -> list[PendingAnalysis
         # image of a listing whose last image failed, and a run that stops at its batch
         # limit part-way through a gallery leaves the rest behind for good.
         done = set(detail.get("gallery_ranks_judged") or [])
+        tried = detail.get("gallery_ranks_failed") or {}
         for rank, url in enumerate(detail.get("image_urls") or [], start=1):
-            if url and rank not in done:
+            if (url and rank not in done
+                    and int(tried.get(str(rank), 0)) < FAILED_ATTEMPTS):
                 out.append(PendingAnalysis(benchmark_key, row.listing_ref, url, rank))
             if len(out) >= limit:
                 return out
     return out
+
+
+def pending_count(db, benchmark_key: str) -> dict:
+    """How many images are genuinely unjudged, and how many have failed repeatedly.
+
+    Counted over the whole catalogue rather than over a page of it. `analyse` reported
+    `remaining` as `len(pending(..., limit=limit * 20))`, which saturates at five hundred:
+    with 438 listings carrying several images each the true backlog is thousands, so the
+    figure read 500 whether the queue was draining or not. That is the same defect as the
+    subtraction it replaced -- a progress number that cannot show progress -- and it would
+    have hidden whether B-647's fix worked for weeks.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+
+    unjudged = judged = stuck = 0
+    with db.session() as s:
+        for row in s.scalars(select(BenchmarkListing).where(
+                BenchmarkListing.benchmark_key == benchmark_key,
+                BenchmarkListing.audit_state == "audited")):
+            detail = row.detail or {}
+            urls = [u for u in (detail.get("image_urls") or []) if u]
+            done = set(detail.get("gallery_ranks_judged") or [])
+            tried = detail.get("gallery_ranks_failed") or {}
+            judged += len(done)
+            for rank in range(1, len(urls) + 1):
+                if rank in done:
+                    continue
+                if int(tried.get(str(rank), 0)) >= FAILED_ATTEMPTS:
+                    stuck += 1
+                else:
+                    unjudged += 1
+    return {"unjudged": unjudged, "judged": judged, "given_up_on": stuck}
 
 
 def check_observation(observation: dict) -> None:
@@ -160,6 +204,34 @@ def record(db, analysis: PendingAnalysis, observation: dict,
     return got.observation_id
 
 
+def _mark_failed(db, analysis: PendingAnalysis) -> None:
+    """Count one failed attempt against this image, so it is not retried forever.
+
+    A failing image is never marked judged, so before this it came back on every run --
+    the live batches carried `failures: 1` every time, taking a slot and a little money
+    with it indefinitely. After `FAILED_ATTEMPTS` the queue stops offering it and
+    `pending_count` reports it as given up on rather than as outstanding work, because a
+    backlog that includes what nobody will retry is not a backlog anybody can clear.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import BenchmarkListing
+
+    with db.session() as s:
+        row = s.scalar(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == analysis.benchmark_key,
+            BenchmarkListing.listing_ref == analysis.listing_ref))
+        if row is None:
+            return
+        detail = dict(row.detail or {})
+        tried = dict(detail.get("gallery_ranks_failed") or {})
+        tried[str(analysis.rank)] = int(tried.get(str(analysis.rank), 0)) + 1
+        detail["gallery_ranks_failed"] = tried
+        row.detail = detail
+        flag_modified(row, "detail")
+
+
 def _mark_judged(db, analysis: PendingAnalysis) -> None:
     """Record that this image has been judged, so nobody pays to judge it twice.
 
@@ -184,9 +256,14 @@ def _mark_judged(db, analysis: PendingAnalysis) -> None:
         done = sorted({*(detail.get("gallery_ranks_judged") or []), analysis.rank})
         detail["gallery_ranks_judged"] = done
         urls = [u for u in (detail.get("image_urls") or []) if u]
-        # Analysed when every image this listing offers has been judged -- counted rather
-        # than assumed from the last one, because a batch limit can land mid-gallery.
-        if urls and len(done) >= len(urls):
+        tried = detail.get("gallery_ranks_failed") or {}
+        settled = {r for r in range(1, len(urls) + 1)
+                   if r in done or int(tried.get(str(r), 0)) >= FAILED_ATTEMPTS}
+        # Analysed when every image this listing offers is settled -- judged, or given up
+        # on after its attempts. Counted rather than assumed from the last one, because a
+        # batch limit can land mid-gallery, and an image nobody will retry must not hold a
+        # whole gallery open for ever.
+        if urls and len(settled) >= len(urls):
             detail["gallery_analysed"] = True
         row.detail = detail
         flag_modified(row, "detail")
@@ -302,6 +379,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             break
         except (PermanentError, TransientError) as exc:
             failures.append({"key": item.key, "why": str(exc)[:200]})
+            _mark_failed(db, item)
             continue
 
         cost = round(
@@ -316,11 +394,13 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             record(db, item, observation, env=env)
         except AnalysisRefused as exc:
             failures.append({"key": item.key, "why": str(exc)[:200]})
+            _mark_failed(db, item)
             continue
         judged += 1
 
     _bill(db, spent, judged, job_id, provider=provider, reserved=reserved,
           tokens_in=tokens_in, tokens_out=tokens_out)
+    backlog = pending_count(db, benchmark_key)
     return {
         "benchmark": benchmark_key,
         "model": provider.model,
@@ -332,7 +412,8 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         # took this run's `judged` off it -- which made the number fall by twenty-five
         # every time while the backlog itself stood still, so a queue that was not
         # draining reported as one that was.
-        "remaining": len(pending(db, benchmark_key, limit=limit * 20)),
+        # Counted over the whole catalogue, not over a page of it, and not saturating.
+        **{"remaining": backlog["unjudged"], "backlog": backlog},
         "failures": failures,
         "cost_cad": round(spent, 8),
         "note": ("nothing was judged and the backlog is not empty, which is a failure rather "
