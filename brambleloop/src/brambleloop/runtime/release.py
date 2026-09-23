@@ -2877,7 +2877,9 @@ def handle_provider_trial(ctx: JobContext) -> dict:
                 "verdict": already.get("verdict"), "spent_cad": already.get("spent_cad")}
 
     with tempfile.TemporaryDirectory(prefix="provider-trial-") as work_dir:
-        out = provider_trial.run(ctx.db, challenger=challenger, work_dir=work_dir)
+        out = provider_trial.run(
+            ctx.db, challenger=challenger, work_dir=work_dir,
+            prior_incumbent=provider_trial.incumbent_evidence(ctx.db))
 
     ctx.audit(provider_trial.ACTION, detail=out)
     return {"ran": True, "challenger": challenger,

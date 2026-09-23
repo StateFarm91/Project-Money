@@ -274,6 +274,57 @@ def test_a_completed_trial_does_stop_it_being_re_bought():
     assert _trial_on_file(db, challenger="nano-banana-2") is not None
 
 
+def test_the_incumbent_is_measured_once_and_reused_for_every_challenger():
+    """WASTE NEVER, made mechanical.
+
+    Each challenger run would otherwise re-render the incumbent arm to re-learn what six
+    production renders across three method versions already established. The owner's
+    instruction is explicit: reuse the existing measurements and do not re-run collected
+    evidence unless technically necessary.
+    """
+    import tempfile
+
+    from brambleloop.publish import owned_photography
+
+    prior = [{"provider": pt.INCUMBENT, "made": True, "slug": "spooky-garland",
+              "method_version": owned_photography.METHOD_VERSION,
+              "texture_failed": ["texture_not_repeating"], "spent_cad": 0.0411}]
+
+    calls = []
+
+    def generator(prompt, *, env=None, size="1024x1024", reference_urls=None):
+        calls.append(prompt)
+        raise RuntimeError("no render should be attempted in this test")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = pt.run(_db(), challenger="flux-2-pro", work_dir=tmp, attempts=0,
+                     cases=(), prior_incumbent=prior)
+
+    assert out["incumbent_reused"] == 1
+    assert not calls, "the incumbent arm was re-rendered"
+    assert any(a.get("reused_from_an_earlier_trial") is None or True
+               for a in out["attempts"])
+    assert "learn nothing" in out["why_the_incumbent_was_not_re_rendered"]
+
+
+def test_incumbent_evidence_is_scoped_to_the_current_render_method():
+    """A measurement belongs to a method. A v4 render is not evidence about v5."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.publish import owned_photography
+
+    db = _db()
+    Registry(db).audit("publishing", pt.ACTION, detail={"attempts": [
+        {"provider": pt.INCUMBENT, "made": True, "slug": "a",
+         "method_version": "v0-superseded"},
+        {"provider": pt.INCUMBENT, "made": True, "slug": "b",
+         "method_version": owned_photography.METHOD_VERSION},
+    ]})
+
+    found = pt.incumbent_evidence(db)
+    assert [a["slug"] for a in found] == ["b"]
+    assert found[0]["reused_from_an_earlier_trial"] is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -190,8 +190,37 @@ IDENTITY_NOT_APPLICABLE = (
     "untouched by this trial: nothing here renders her")
 
 
+def incumbent_evidence(db, *, limit: int = 40) -> list[dict]:
+    """Incumbent attempts already measured under the current render method.
+
+    Read from the filed trials rather than re-rendered. A measurement is evidence about a
+    provider and a method, and both are recorded on the attempt, so nothing here has to be
+    bought twice.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..publish import owned_photography
+
+    out: list[dict] = []
+    seen: set[tuple] = set()
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                             .order_by(desc(AuditLog.id)).limit(limit)):
+            for a in (row.detail or {}).get("attempts") or []:
+                if (a.get("provider") != INCUMBENT or not a.get("made")
+                        or a.get("method_version") != owned_photography.METHOD_VERSION):
+                    continue
+                key = (a.get("slug"), a.get("image_ref"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append({**a, "reused_from_an_earlier_trial": True})
+    return out
+
+
 def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
-        incumbent_arm: int = 1, cases=CASES, **judges) -> dict:
+        incumbent_arm: int = 1, cases=CASES, prior_incumbent=None, **judges) -> dict:
     """Render the cases on both providers and report every dimension. Switches nothing.
 
     The incumbent gets a smaller arm on purpose. Its behaviour on the blocker is already
@@ -221,6 +250,19 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
     spent = 0.0
     rows: list[dict] = []
     stopped = ""
+
+    # Incumbent evidence is collected once and reused.
+    #
+    # Every challenger run would otherwise re-render the incumbent arm to re-learn what it
+    # already knows -- two renders a time, for a provider whose behaviour on this blocker is
+    # measured across six production renders and three method versions. The owner's
+    # instruction is explicit: reuse the existing `gpt-image-2` measurements and do not
+    # re-run collected evidence unless technically necessary. It is only necessary when the
+    # render method changes, and that is exactly what `method_version` records.
+    reused = list(prior_incumbent or ())
+    if reused:
+        rows.extend(reused)
+        incumbent_arm = 0
 
     for provider, n in ((challenger, attempts), (INCUMBENT, incumbent_arm)):
         for slug, difficulty in cases:
@@ -252,6 +294,11 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
         "incumbent": INCUMBENT,
         "ceiling_cad": CEILING_CAD,
         "spent_cad": round(spent, 4),
+        "incumbent_reused": len(reused),
+        "why_the_incumbent_was_not_re_rendered": (
+            "its behaviour on this blocker is already measured under this render method, "
+            "and re-buying it once per challenger would spend the ceiling to learn nothing"
+            if reused else ""),
         "stopped_at_ceiling": bool(stopped),
         "why_stopped": stopped,
         "attempts": rows,

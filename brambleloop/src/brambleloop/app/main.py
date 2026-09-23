@@ -3340,7 +3340,11 @@ def api_build2() -> dict:
         "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
         "coverage": reqs.coverage(),
         "sections": reqs.sections(),
-        "executable_remaining": [r.to_dict() for r in reqs.executable()[:40]],
+        # Listed in full rather than sliced. A hardcoded `[:40]` silently dropped five
+        # requirements from a list whose own summary said forty-five, so anyone reading the
+        # list as the remaining work could not see all of it -- and nothing said so.
+        "executable_remaining": [r.to_dict() for r in reqs.executable()],
+        "executable_listed_in_full": True,
         "blocked_on_owner": [r.to_dict() for r in reqs.by_status(reqs.OWNER_GATED)],
     }
 
@@ -3744,7 +3748,18 @@ def dashboard() -> str:
         from ..build2 import requirements as reqs
 
         cov = reqs.coverage()
-        executable = cov.get("partial", 0) + cov.get("missing", 0)
+        # `coverage()` nests the per-status counts under `by_status`, so reading `partial`
+        # and `missing` off the top level found neither, defaulted both to 0, and rendered
+        # "executable left: 0" beside a card saying `executable_remaining: 45`.
+        #
+        # The most misleading number a dashboard can show: it said the build was out of
+        # work while 45 requirements were outstanding and 5 were ready to start. Absence of
+        # a key reported as the number zero -- the same defect family as a verdict computed
+        # from absence of evidence, arriving through `dict.get` instead of a query.
+        #
+        # `executable_remaining` is the computed field and the one the API already serves;
+        # using it means the tile and the endpoint cannot disagree.
+        executable = cov["executable_remaining"]
         cards = "".join(
             f'<div class="card"><span>{k.replace("_", " ")}</span><b>{v}</b></div>'
             for k, v in sorted(cov.items()))

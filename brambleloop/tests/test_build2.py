@@ -143,6 +143,67 @@ def test_a_registry_that_lost_a_requirement_is_refused():
     assert len(mod.load()) == 320
 
 
+def test_the_console_reports_the_work_that_is_left_not_zero():
+    """The most misleading number a dashboard can show.
+
+    The tile read `partial` and `missing` off the top level of `coverage()`, which nests
+    them under `by_status`. Both `.get` calls missed, both defaulted to 0, and the console
+    rendered "executable left: 0" beside a card saying `executable_remaining: 45` -- while
+    five requirements were ready to start. Absence of a key reported as the number zero.
+    """
+    from brambleloop.build2 import requirements as reqs
+
+    cov = reqs.coverage()
+    assert cov.get("partial", 0) + cov.get("missing", 0) == 0, (
+        "the keys the old tile read are still absent from the top level, which is the "
+        "whole reason it rendered zero")
+    assert cov["executable_remaining"] == cov["by_status"]["partial"] + cov["by_status"]["missing"]
+    assert cov["executable_remaining"] > 0, "there is outstanding work to report"
+
+
+def test_the_console_tile_uses_the_computed_field():
+    """A tile and an endpoint that derive the same fact twice will disagree one day."""
+    import inspect as _inspect
+
+    from brambleloop.app import main
+
+    source = _inspect.getsource(main.dashboard)
+    assert 'cov["executable_remaining"]' in source
+    assert 'cov.get("partial", 0)' not in source
+
+
+def test_every_executable_requirement_is_listed_not_a_slice_of_them():
+    """A hardcoded `[:40]` dropped five requirements from a list of forty-five silently.
+
+    A reader taking the list as the remaining work could not see all of it, and nothing in
+    the payload said the list was partial.
+    """
+    from brambleloop.build2 import requirements as reqs
+
+    assert len(reqs.executable()) == reqs.coverage()["executable_remaining"]
+
+
+def test_a_shop_gate_does_not_open_on_a_variable_alone():
+    """A variable can be set by anyone at any time. A shop cannot.
+
+    `etsy_shop` opened on `ETSY_SHOP_NAME` being present, so it reported OPEN while
+    `/api/launch` reported the shop blocked on the owner with `ever_called: false` -- and
+    the executor would have offered shop-dependent work as ready that nobody could do. The
+    `etsy_api` gate directly below it already stated the rule: "a real sanctioned read, not
+    a variable being set".
+    """
+    from brambleloop.build2 import executor
+
+    from brambleloop.core.db import Database
+
+    db = Database("sqlite://")
+    db.create_all()
+    gate = executor.GATE_BY_KEY["etsy_shop"]
+    # The name alone must not be enough, with no successful probe on file.
+    assert gate.open(db, {"ETSY_SHOP_NAME": "brambleloopstudio"}) is False
+    assert "not a shop" in gate.how
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

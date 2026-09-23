@@ -431,11 +431,22 @@ GATES: tuple[Gate, ...] = (
     # in the ready queue that nobody can start, which is the one thing this module exists to
     # prevent. A gate that has opened is evidence and is worth keeping.
     Gate("etsy_shop", "a live Etsy shop, which only the account holder can open",
-         lambda db, env: _env_gate("ETSY_SHOP_NAME")(db, env)
-         or _env_gate("ETSY_SHOP_ID")(db, env),
+         # The identifier AND a sanctioned read that worked.
+         #
+         # This opened on `ETSY_SHOP_NAME` alone -- a gate reading configuration instead of
+         # demonstrated capability, which is exactly what the `etsy_api` gate directly
+         # below states the rule against: "a real sanctioned read, not a variable being
+         # set". So it reported OPEN while `/api/launch` reported the shop blocked on the
+         # owner with `ever_called: false`, and the executor would have offered
+         # shop-dependent work as ready that nobody could do.
+         #
+         # A variable can be set by anyone at any time; a shop cannot. Requiring both means
+         # the gate cannot open ahead of the thing it stands for.
+         lambda db, env: bool(_env_gate("ETSY_SHOP_NAME")(db, env)
+                              or _env_gate("ETSY_SHOP_ID")(db, env)) and _etsy_usable(db, env),
          (),
-         "the shop's public identifier is set -- the name in its URL -- which only exists "
-         "once the shop does"),
+         "the shop's public identifier is set AND a recorded etsy.probe succeeded -- the "
+         "identifier alone is a variable, which is not a shop"),
     Gate("etsy_api",
          "Etsy API credentials, which are what lets this system read the shop's own seller "
          "data rather than a person reading it on a screen",
