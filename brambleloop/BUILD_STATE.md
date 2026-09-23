@@ -25,18 +25,23 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 221 | satisfied, with a named test or artefact |
-| partial | 43 | something real exists and is short of the requirement |
+| covered | 227 | satisfied, with a named test or artefact |
+| partial | 45 | something real exists and is short of the requirement |
 | missing | 0 | nobody has built it |
-| owner_gated | 36 | waits on an owner decision, credential or legal acceptance |
+| owner_gated | 28 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 20 | waits on market evidence that does not exist yet in shadow mode |
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
-as one nobody has written. **43 requirements are executable** (partial +
-missing); the counts above move as work lands and are regenerated from the registry, never
-typed. 221 of 320 covered is **69.1% complete**, read from the registry rather than
+as one nobody has written. **45 requirements are executable** (partial +
+missing). 227 of 320 covered is **70.9% complete**, read from the registry rather than
 estimated.
+
+These counts were typed, and until 2026-09-23 they were stale — the table read 221/43/36
+beside a sentence promising it was "regenerated from the registry, never typed", which is the
+same defect as a value living in two places and disagreeing with itself, sitting in the
+document whose entire job is honest status. Read them live at `/api/build2`; that endpoint
+computes them and this table is a snapshot of it.
 
 Seven of those moved out of `partial` this session without being built, and that is a claim
 worth being precise about: they were re-audited, not finished. #39's retrieval half is
@@ -5915,3 +5920,86 @@ second one is the true reading.
   reported a stalled loop as healthy. Both fixed.
 - Remote Control for HQ is **unfinished C-class convenience**, not a launch blocker.
   Recorded and dropped; the cloud session and Railway production are both PC-independent.
+
+## 2026-09-23 — the Build-2 completion audit the owner asked for
+
+The instruction was to audit every one of the 93 requirements that are not covered, decide
+whether each classification is truthful, and fix the machinery wherever work had been parked
+before the actual owner boundary. Done by query against the live production gate state rather
+than by reading the notes, because the notes are what would be wrong.
+
+### The contradiction the owner reported, resolved
+
+"45 partial/executable remaining, yet executable left: 0" was two separate reporting defects,
+both real, both now fixed and observed in production at commit `eb83ce6` (B-684):
+
+- The console tile read `cov.get("partial", 0) + cov.get("missing", 0)` from a dict that nests
+  those counts under `by_status`. Both lookups missed, both defaulted to zero, and the tile
+  rendered **executable left: 0** beside a card reading `executable_remaining: 45`. Now reads
+  the computed field. Production now shows `executable left: 45`.
+- `/api/build2` sliced its list at a hardcoded `[:40]`, dropping five of forty-five silently.
+  Now lists in full and says so with `executable_listed_in_full: true`.
+
+### Are the 93 classifications truthful? Substantially yes
+
+Cross-referenced every non-covered requirement against whether the gate it waits on is
+actually open in production. **Four** sit under an open gate, and none is a false park:
+
+- **#300** (`partial`, parked on `image_generation`, now open) — correctly executable, and it
+  is the tracked next action. Blocked in practice by the imagery chain below, not by the gate.
+- **#94, #104, #140** (`data_gated`) — the gate table lists them under `model_provider` and
+  `culture_feed`, but their blocker is the other axis: real performance data. Being reachable
+  is not the same as being answerable.
+
+Every one of the 93 names a specific dependency; none is parked on a vague one.
+
+### The one class worth stating plainly, and why it stays parked
+
+**#237, #238, #239** carry their own note: "machinery buildable, needs real stats". That is
+literally the pattern the owner warned about — but building three analytics engines with no
+data, no way to validate them and thresholds that need real baselines, ahead of a single
+listable product, would be working the wrong end of the owner's own priority chain to move a
+percentage. They are post-launch measurement. Parked deliberately, recorded here so the
+decision is visible rather than implicit. **Test count is evidence, not the objective.**
+
+### What the audit did find: the owner's re-probe instruction was not honoured (B-686)
+
+The owner asked, in terms: re-probe the actual production Google credential once, do not rely
+on the previous failed probe. Production did the opposite and said so in its own health
+output: `provider_trial` boot enqueue, `outcome: not needed`, `why: this challenger has
+already been tried under this render method`.
+
+The cause was `_trial_on_file` counting `nano-banana-2`'s four `402 prepayment credits are
+depleted` attempts as a completed trial. A refusal was recorded as a measurement, so the
+strongest candidate in the experiment was retired permanently on the evidence that an account
+had not been topped up yet — while `BRAMBLELOOP_IMAGE_KEY_GOOGLE` was set in production the
+whole time. Fourth appearance this session of a temporary blocker converted into a permanent
+one. A challenger is now tried only if it actually rendered.
+
+### Where the critical path actually is
+
+`listable: 0 of 10`. Measured across both providers, on the simplest and hardest certified
+products, under the current render method:
+
+| | gpt-image-2 | flux-2-pro |
+|---|---|---|
+| renders | 2 | 4 |
+| texture clear | 0.0 | 0.5 |
+| structural clear | 1.0 | 1.0 |
+| **product truth match** | **0.0** | **0.0** |
+| photoreal clear | 0.0 | 0.0 |
+| usable | 0.0 | 0.0 |
+| CA$/render | 0.0411 | 0.0274 |
+
+Trial verdict: `no_switch_on_this_evidence` — flux cleared the tiling blocker half the time
+and gave back structure and photographic realism, which is trading one launch blocker for
+another. Nothing was switched; the image stack remains the owner's decision.
+
+The number that matters more than the one the trial was authorised to answer is **product
+truth: 0 of 6 renders, both providers, both products**. Tiling was the blocker we were
+chasing; reproducing the certified chart is a second, deeper one that no provider has cleared
+yet. `nano-banana-2` is the one candidate whose own entry claims fine-grained fabric fidelity
+and it has still never been measured. That measurement is what the next deploy buys.
+
+Spend: trial CA$0.1918 of CA$4.00 authorised. Portrait repair CA$0.1233 of CA$1.00. Combined
+CA$0.3151 of CA$5.00. Shadow Mode intact; nothing published.

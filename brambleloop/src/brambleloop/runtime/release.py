@@ -2905,26 +2905,42 @@ def _trial_on_file(db, *, challenger: str) -> dict | None:
                 continue
             # Was *this challenger* actually put to the question?
             #
-            # Two ways to get this wrong and both were live. A funding refusal files a row
-            # with no attempts at all, and reading that as "already run" would have blocked
-            # the real trial permanently the moment the balance returned. And a trial where
-            # the challenger returned 402 on every attempt still contains the incumbent's
-            # renders -- so counting any rendered attempt would credit the challenger with
-            # an experiment it never took part in, which is the wrong-evidence shape this
-            # file keeps finding.
+            # The question is asked of the challenger's own attempts, and only of the ones
+            # that produced an image. Three ways to get this wrong and all three were live
+            # at some point in this file:
             #
-            # So the question is asked of the challenger's own attempts. They need not have
-            # succeeded: a challenger that was reached and could not render has been tried,
-            # and re-running would re-buy the incumbent arm to learn nothing new.
+            #   A funding refusal files a row with no attempts at all, and reading that as
+            #   "already run" would have blocked the real trial permanently the moment the
+            #   balance returned.
+            #
+            #   A trial where the challenger returned 402 on every attempt still contains
+            #   the incumbent's renders, so counting *any* rendered attempt would credit the
+            #   challenger with an experiment it never took part in.
+            #
+            #   And -- the one this comment used to get wrong -- counting the challenger's
+            #   unrendered attempts as evidence. `nano-banana-2` answered 402 "prepayment
+            #   credits are depleted" to every attempt on 2026-09-23, and that ran the
+            #   challenger out of the trial for good: the row said tried, so no later deploy
+            #   would ask again, and when the owner funded the account the next morning and
+            #   said "re-probe the actual production credential, do not rely on the previous
+            #   failed probe", the boot enqueue answered "not needed". A refusal is not a
+            #   measurement. `made: False` means the provider was never asked to draw
+            #   anything, so nothing was learned about it that funding could not change.
+            #
+            # Re-asking is close to free, which is what makes this the safe direction to be
+            # wrong in: an attempt that never renders spends CA$0.00 and is judged by
+            # nothing, and the incumbent arm is reused rather than re-bought. A provider
+            # that keeps refusing therefore costs a job per deploy and no money, while the
+            # old rule cost the entire experiment.
             theirs = [a for a in (detail.get("attempts") or [])
-                      if a.get("provider") == challenger]
+                      if a.get("provider") == challenger and a.get("made")]
             if not theirs:
                 continue
             # A trial run under a superseded render method is evidence about that method,
-            # not about this one -- the same rule the assets themselves follow.
-            rendered = [a for a in (detail.get("attempts") or []) if a.get("made")]
-            if rendered and rendered[0].get(
-                    "method_version") != owned_photography.METHOD_VERSION:
+            # not about this one -- the same rule the assets themselves follow. Read from
+            # the challenger's own render rather than the first made attempt of any
+            # provider, which could be the incumbent's.
+            if theirs[0].get("method_version") != owned_photography.METHOD_VERSION:
                 continue
             return detail
     return None

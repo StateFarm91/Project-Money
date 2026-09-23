@@ -302,10 +302,15 @@ def _startup() -> None:
         from ..publish import owned_photography as _owned6
         from ..runtime.release import _trial_on_file as _trial6
 
-        # The strongest credentialled challenger that has not already been shown unable to
-        # render. `nano-banana-2` returned 402 depleted-credit on every attempt on
-        # 2026-09-23, so the trial falls through to the next one rather than re-buying the
-        # same refusal on every deploy.
+        # The strongest credentialled challenger that has not already been measured.
+        #
+        # "Measured" means it rendered something. `nano-banana-2` returned 402
+        # depleted-credit on every attempt on 2026-09-23, and treating that as a completed
+        # trial retired the strongest candidate on the evidence that its owner had not
+        # topped up an account yet -- so the fall-through to the next challenger was
+        # permanent rather than temporary. `_trial_on_file` now counts only the
+        # challenger's own rendered attempts, so a refused provider comes back into the
+        # running by itself when the refusal stops.
         from ..visual import provider_trial as _pt6
 
         _spent_challengers = tuple(

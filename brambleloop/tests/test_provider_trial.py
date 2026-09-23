@@ -226,12 +226,21 @@ def test_a_funding_refusal_does_not_count_as_a_trial_already_run():
         "a trial that rendered nothing blocked the trial that would")
 
 
-def test_a_challenger_that_could_not_render_still_counts_as_tried():
+def test_a_challenger_that_could_not_render_is_not_counted_as_tried():
     """Live: `nano-banana-2` returned 402 depleted-credit on every attempt.
 
-    The row still holds the incumbent's two renders, so counting any rendered attempt would
-    credit the challenger with an experiment it never took part in -- and re-running would
-    re-buy the incumbent arm to learn nothing new. Reached and unable to render is tried.
+    This test used to assert the opposite, and the opposite cost the experiment. The
+    reasoning was that re-running would re-buy the incumbent arm to learn nothing new --
+    true when it was written, and no longer true now the incumbent arm is reused. What was
+    left was a rule that retired the strongest candidate on the evidence that an account
+    had not been topped up: the row said tried, so no later deploy asked again, and when
+    the owner funded the account and asked for the credential to be re-probed, the boot
+    enqueue answered "not needed".
+
+    A refusal is not a measurement. `made: False` means the provider was never asked to
+    draw anything, so the trial holds no evidence about it that funding could not change --
+    and re-asking spends CA$0.00, because a render that does not happen is not billed and
+    is judged by nothing.
     """
     from brambleloop.agents.registry import Registry
     from brambleloop.publish import owned_photography
@@ -245,9 +254,38 @@ def test_a_challenger_that_could_not_render_still_counts_as_tried():
             {"provider": "gpt-image-2", "made": True,
              "method_version": owned_photography.METHOD_VERSION}]})
 
-    assert _trial_on_file(db, challenger="nano-banana-2") is not None
-    # And the incumbent's renders do not credit a challenger never attempted.
+    assert _trial_on_file(db, challenger="nano-banana-2") is None, (
+        "a challenger that rendered nothing was recorded as measured, so the trial the "
+        "owner asked for could never run again")
+    # The protection the old rule was built around is the one that has to survive the
+    # change: the incumbent's renders sitting in the same row still credit nobody.
     assert _trial_on_file(db, challenger="flux-2-pro") is None
+
+
+def test_the_method_version_is_read_from_the_challengers_own_render():
+    """Whose render dates the trial matters when the two providers ran under different ones.
+
+    The check used to read the first *made* attempt of any provider, which in a row where
+    the incumbent arm is reused is the incumbent's. So a challenger measured under a
+    superseded render method would be dated by the incumbent's current-method render and
+    counted as current evidence -- a measurement about v4 answering a question about v5.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.publish import owned_photography
+    from brambleloop.runtime.release import _trial_on_file
+
+    db = _db()
+    Registry(db).audit("publishing", pt.ACTION, detail={
+        "challenger": "nano-banana-2",
+        "attempts": [
+            # The incumbent's reused arm, current method, listed first as production writes it.
+            {"provider": "gpt-image-2", "made": True,
+             "method_version": owned_photography.METHOD_VERSION},
+            {"provider": "nano-banana-2", "made": True,
+             "method_version": "v1-a-method-that-has-been-superseded"}]})
+
+    assert _trial_on_file(db, challenger="nano-banana-2") is None, (
+        "the challenger's superseded-method render was dated by the incumbent's current one")
 
 
 def test_the_fallback_challenger_is_the_strongest_one_not_already_spent():
