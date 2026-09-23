@@ -33,7 +33,11 @@ ACTION = "assets.owned_photography"
 # reason every other versioned thing in this build learned the hard way: an asset made by a
 # method that has since been corrected is not the asset the corrected method would make, and
 # reading it as "already done" is how a correction never runs.
-METHOD_VERSION = "v3-motif-checked-against-the-chart"
+# v4, because v3 checked the render against a chart it had never shown it.
+#
+# The attempts and the assets belong to the method: a v3 asset is evidence about v3, and
+# reading it back as "this release already has one" is how a corrected render never runs.
+METHOD_VERSION = "v4-the-chart-is-shown-not-only-described"
 
 # The disclosure that travels with the asset. #79's rule, carried as data rather than left
 # to whoever writes the listing to remember.
@@ -183,7 +187,8 @@ def motif_sentence(cir) -> str:
     # claim about the fabric made from the absence of a sentence about it -- and for every
     # product the seasonal cycle authors, that absence is guaranteed. The chart is what the
     # render is conditioned on and what the result is checked against, so the chart is what
-    # the prompt points at.
+    # the prompt points at -- and `make` passes that chart as a reference image, so the
+    # thing this sentence points at is actually in the request.
     return (f"The fabric is worked exactly as the accompanying stitch chart shows, stitch "
             f"for stitch and row for row. {palette}")
 
@@ -212,6 +217,8 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
         return {"made": False, "slug": cir.slug, "form": form_of(cir),
                 "waiting_on": refusal["waiting_on"], "why": refusal["why"]}
 
+    from . import motif_fidelity
+
     prompt = prompt_for(cir, twin, occasion=occasion)
     claim = claim_for(cir, twin)
 
@@ -228,11 +235,28 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
                 "why": ("no verified image provider is available in this environment. The "
                         "capability probe records what can render; nothing can")}
 
+    # The chart is shown, not only described.
+    #
+    # This path asked the generator to work a pattern "exactly as the accompanying stitch
+    # chart shows" and then passed `reference_urls=None` -- so there was no accompanying
+    # chart. The comment in `motif_sentence` above said the render "is conditioned on" the
+    # chart and it was not: a sentence asserting a property the code did not have, which
+    # is the same defect as a test asserting one.
+    #
+    # The consequence, read from production on 2026-09-23: `cloudline-baby-blanket` came
+    # back `verdict: clear` -- every asset-truth check passed -- and `motif: mismatch`, so
+    # the asset was unusable. The render was being failed for not reproducing information
+    # it was never given, which is a floor nothing can clear. The model path had already
+    # been fixed this way and its `product_truth` went from fail to pass on the change.
+    chart = motif_fidelity.chart_image(cir, twin, work_dir=work_dir or "")
+    references = [chart] if chart else None
+
     try:
-        render = (generator(prompt, env=env, size="1024x1024", reference_urls=None)
+        render = (generator(prompt, env=env, size="1024x1024", reference_urls=references)
                   if generator else
                   images.generate(prompt, env=env, provider_key=provider,
-                                  size="1024x1024", work_dir=work_dir))
+                                  size="1024x1024", work_dir=work_dir,
+                                  reference_urls=references))
     except Exception as exc:  # noqa: BLE001 - a refusal is a record, not a crash
         return {"made": False, "slug": cir.slug, "prompt": prompt,
                 "why": f"{type(exc).__name__}: {exc}"[:300]}

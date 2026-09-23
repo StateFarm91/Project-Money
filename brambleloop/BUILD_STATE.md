@@ -478,6 +478,37 @@ the cadence walks the catalogue instead of standing on its first row.
 `owned_photography.coverage` and `/api/asset-coverage` count what the job never did: how
 many certified products actually have a usable listing asset.
 
+### The flat-shot path was failing renders for information it never gave them
+
+`/api/asset-coverage` made the two existing failures readable, and they said this:
+
+| product | verdict | motif | attempts |
+|---|---|---|---|
+| `cloudline-baby-blanket` | **clear** — every check passed | **mismatch** | 1 |
+| `winter-village-graphghan` | blocked | unmeasurable | 2 |
+
+The blanket is the diagnostic one. Every asset-truth check passed and the asset was still
+unusable, because `usable_as_listing_asset` requires the motif to match the chart as well.
+
+`owned_photography.make` passed **`reference_urls=None`**. The prompt said the fabric is
+worked "exactly as the accompanying stitch chart shows" and there was no accompanying
+chart — the generator was asked to reproduce a pattern it was never shown, then failed for
+not reproducing it. A floor nothing can clear. The comment directly above even asserted
+that "the chart is what the render is conditioned on", which it was not: a sentence
+claiming a property the code did not have, which is the same defect as a test claiming one.
+
+The model path had already been fixed exactly this way — showing the chart is what took its
+`product_truth` from fail to pass on v10 — and the fix was never carried across. Capability
+drift between two paths doing the same job, which is the family this system keeps finding.
+
+Fixed: `make` renders the chart and passes it as a reference image, and `METHOD_VERSION` is
+bumped to `v4-the-chart-is-shown-not-only-described` so v3's assets are read as evidence
+about v3 rather than as this release's, and the corrected render actually runs.
+
+**Not verified in production yet.** The daily cadence renders one product per run and now
+walks the catalogue, so the evidence arrives over the next runs at the cost those renders
+were always going to have. No render was bought to prove it early.
+
 ### The production diagnosis, and why no more renders are being paid for
 
 Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both

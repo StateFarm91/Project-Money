@@ -359,6 +359,45 @@ def test_an_empty_catalogue_is_not_complete_coverage():
     assert out["listable"] == 0
 
 
+def test_the_generator_is_shown_the_chart_it_will_be_judged_against():
+    """The render was failed for not reproducing information it was never given.
+
+    The prompt said "exactly as the accompanying stitch chart shows" and the call passed
+    `reference_urls=None`, so there was no accompanying chart. Production, 2026-09-23:
+    `cloudline-baby-blanket` came back `verdict: clear` -- every asset-truth check passed
+    -- with `motif: mismatch`, and the asset was unusable. A floor nothing can clear, and
+    the model path had already been fixed the same way.
+    """
+    import tempfile
+
+    seen = {}
+
+    def generator(prompt, *, env=None, size="1024x1024", reference_urls=None):
+        seen["refs"] = list(reference_urls or [])
+        seen["prompt"] = prompt
+        path = Path(tmp) / "owned.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        return {"image_ref": str(path), "provider": "test", "cad": 0.04}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cir = for_slug("cloudline-baby-blanket")
+        result = compile_cir(cir)
+        op.make(_db(), cir, build_twin(cir, result), work_dir=tmp, generator=generator,
+                inspector=lambda ref, db=None, claim="": {"described": True, "checks": {}},
+                motif_judger=lambda *a, **k: {"judged": False})
+
+    assert seen["refs"], "the generator was asked for a chart it was never shown"
+    assert any("chart" in r.lower() or r.endswith(".png") for r in seen["refs"]), seen["refs"]
+    assert "stitch chart" in seen["prompt"] or "motif" in seen["prompt"].lower()
+
+
+def test_the_method_version_says_the_chart_is_shown():
+    """A v3 asset is evidence about v3. Reading it back as this release's is how a
+    corrected render never runs."""
+    assert op.METHOD_VERSION.startswith("v4-")
+    assert "shown" in op.METHOD_VERSION
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
