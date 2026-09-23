@@ -300,6 +300,27 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200,
 
     missing_palette = [x["listing_ref"] for x in observed if not x["palette"]]
 
+    # The vision columns, counted from what has actually been derived.
+    #
+    # These reported `absent_on: len(observed), share: 1.0` -- a constant asserting total
+    # absence regardless of how many galleries had been judged and paid for. So the one
+    # report that says whether the gallery-analysis spend buys anything could not move,
+    # and on 2026-09-23 it still read "absent on all 438" while a listing in the table
+    # carried twenty recorded observations. Paid evidence existed and the coverage report
+    # said we knew nothing, which is stale state presented as current and the reason
+    # nobody could tell the drain was working.
+    #
+    # It also named the wrong blocker: `capability: browser/vision`, when the vision
+    # capability is open and `intel.gallery_analysis` has been running for days.
+    from . import vision as _vision
+
+    derived: dict[str, list[str]] = {k: [] for k in VISION_ATTRIBUTES}
+    for x in observed:
+        have = _vision.attributes_for(db, x["listing_ref"], benchmark_key=benchmark_key)
+        for key in VISION_ATTRIBUTES:
+            if not have.get(key):
+                derived[key].append(x["listing_ref"])
+
     # The third gap, and the one nobody would have gone looking for. The scanner routes a
     # listing when it first sees it and then short-circuits on an unchanged fingerprint, so a
     # widened vocabulary reaches nothing already in the table: the stored pod is whatever the
@@ -345,9 +366,14 @@ def gaps(db, *, benchmark_key: str | None = None, limit: int = 200,
                 "note": ("Etsy publishes per-image hex, hue, saturation and brightness, so "
                          "this is an unmade call rather than a missing capability"),
             },
-            **{k: {"absent_on": len(observed), "share": 1.0,
-                   "capability": "browser/vision", "note": ATTRIBUTES[k][1]}
-               for k in VISION_ATTRIBUTES},
+            **{k: {
+                "absent_on": len(derived[k]),
+                "share": (round(len(derived[k]) / len(observed), 3) if observed else 0.0),
+                "closing_at": (f"{_vision.MIN_IMAGES_FOR_ATTRIBUTES} judged images per "
+                               f"listing, drawn from the gallery-analysis backlog"),
+                "capability": "image_vision, which is open and draining",
+                "note": ATTRIBUTES[k][1],
+               } for k in VISION_ATTRIBUTES},
         },
         "note": ("A gap counted is not a gap known. Every unrouted listing is named here "
                  "because the pod vocabulary may only grow from observed titles -- widening "

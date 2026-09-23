@@ -275,14 +275,26 @@ def test_the_gap_report_surfaces_the_terms_a_widening_may_be_drawn_from():
     assert "number" in terms  # noise is shown too; the judgement is not the report's to make
 
 
-def test_a_palette_absence_names_an_unmade_call_not_a_missing_capability():
-    """Confusing the two is how a closeable gap waits on a gate that was never its blocker."""
+def test_an_attribute_absence_names_its_real_blocker_not_an_expired_one():
+    """Confusing the two is how a closeable gap waits on a gate that was never its blocker.
+
+    This asserted `silhouette`'s capability was `browser/vision`, as the contrast to
+    palette's unmade call. That contrast expired: the vision capability was demonstrated,
+    `intel.gallery_analysis` has been draining the backlog for days, and the column is
+    filled by judged images rather than by a browser. A test holding the old words would
+    have kept the coverage report pointing at a gate that had already opened -- which is
+    the defect it was written to prevent, committed by the test (B-606, B-620, and now
+    here).
+    """
     db = _db()
     _listings(db, [("Crochet Blanket", "")])
     attrs = M.gaps(db)["attributes"]
     assert attrs["palette"]["absent_on"] == 1
     assert "credential" in attrs["palette"]["capability"]
-    assert attrs["silhouette"]["capability"] == "browser/vision"
+    # Neither column waits on a capability nobody has any more.
+    assert "browser" not in attrs["silhouette"]["capability"]
+    assert "image_vision" in attrs["silhouette"]["capability"]
+    assert attrs["silhouette"]["absent_on"] == 1, "no image of this listing was judged"
 
 
 def test_the_gap_report_reads_the_key_the_scanner_writes():

@@ -1090,6 +1090,69 @@ def test_an_image_nobody_will_retry_does_not_hold_a_gallery_open():
         assert (s.query(BenchmarkListing).first().detail or {})["gallery_analysed"] is True
     assert vision.pending_count(db, benchmarks.MJS_KEY)["unjudged"] == 0
 
+
+def test_vision_coverage_is_counted_rather_than_asserted_absent():
+    """The report that says whether the gallery spend buys anything could not move.
+
+    `gaps()` reported the vision columns as `absent_on: len(observed), share: 1.0` -- a
+    constant asserting total absence however many galleries had been judged and paid for.
+    On 2026-09-23 it still read "absent on all 438" while a listing in the table carried
+    twenty recorded observations from a single run. Paid evidence existed and the coverage
+    report said we knew nothing: stale state presented as current, and the reason nobody
+    could tell whether the drain was working.
+
+    It named the wrong blocker too -- `capability: browser/vision` -- when the vision
+    capability is open and the analysis cadence had been running for days.
+    """
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing, BenchmarkObservation
+    from brambleloop.intel import benchmarks, market_map, vision
+
+    db = Database("sqlite://")
+    db.create_all()
+    with db.session() as s:
+        for i in range(3):
+            s.add(BenchmarkListing(
+                benchmark_key=benchmarks.MJS_KEY, listing_ref=str(i),
+                title="Crochet Blanket Pattern", product_type="6343", detail={}))
+        for _ in range(vision.MIN_IMAGES_FOR_ATTRIBUTES):
+            s.add(BenchmarkObservation(
+                benchmark_key=benchmarks.MJS_KEY, listing_ref="0",
+                kind="gallery_image_observation", grade="mandated",
+                satisfies_mandate=True,
+                detail={"observation": {"shot_type": "hero_styled",
+                                        "composition": "centred"}}))
+
+    attributes = market_map.gaps(db)["attributes"]
+    for key in market_map.VISION_ATTRIBUTES:
+        entry = attributes[key]
+        assert entry["absent_on"] == 2, (key, entry)
+        assert entry["share"] < 1.0, "a measured column reported total absence"
+        assert "browser/vision" not in entry["capability"], \
+            "the coverage report still names a capability that is already open"
+
+
+def test_a_listing_below_the_image_floor_still_counts_as_absent():
+    """One image is one photographer's decision about one frame. Two is the floor, and a
+    coverage number that counted a single judged image would overstate what the map knows."""
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import BenchmarkListing, BenchmarkObservation
+    from brambleloop.intel import benchmarks, market_map
+
+    db = Database("sqlite://")
+    db.create_all()
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref="0",
+                               title="Crochet Blanket Pattern", product_type="6343",
+                               detail={}))
+        s.add(BenchmarkObservation(
+            benchmark_key=benchmarks.MJS_KEY, listing_ref="0",
+            kind="gallery_image_observation", grade="mandated", satisfies_mandate=True,
+            detail={"observation": {"shot_type": "hero_styled"}}))
+
+    attributes = market_map.gaps(db)["attributes"]
+    assert attributes["silhouette"]["absent_on"] == 1
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
