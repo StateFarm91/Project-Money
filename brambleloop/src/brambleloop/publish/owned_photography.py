@@ -398,12 +398,24 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
     catalogue can be listed".
     """
     usable, unusable, missing = [], [], []
+    # Why each failure failed, not just that it did. Without this the next decision --
+    # render the rest, or fix the method first -- cannot be made without spending to find
+    # out, and tonight's whole lesson is that a method which fails every time it is asked
+    # will fail the next eight times too.
+    diagnosis: dict[str, dict] = {}
     for slug in slugs:
         version = versions.get(slug, "")
         if usable_asset(db, slug=slug, version=version):
             usable.append(slug)
-        elif assets_for(db, slug=slug, version=version):
+        elif (tried := assets_for(db, slug=slug, version=version)):
             unusable.append(slug)
+            latest = tried[0]
+            diagnosis[slug] = {
+                "attempts": len(tried),
+                "verdict": latest.get("verdict"),
+                "why": (latest.get("why") or "")[:300],
+                "motif": (latest.get("motif") or {}).get("verdict"),
+            }
         else:
             missing.append(slug)
     return {
@@ -411,6 +423,7 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
         "with_usable_asset": sorted(usable),
         "with_only_unusable_assets": sorted(unusable),
         "with_no_asset_at_all": sorted(missing),
+        "why_each_unusable_one_failed": diagnosis,
         "listable": len(usable),
         "complete": bool(slugs) and len(usable) == len(slugs),
         "why_it_is_counted": (

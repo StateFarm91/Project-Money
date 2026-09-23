@@ -335,6 +335,11 @@ def test_coverage_counts_the_catalogue_rather_than_the_job():
     assert out["with_no_asset_at_all"] == ["c"]
     assert out["listable"] == 1
     assert out["complete"] is False
+    # Why it failed, not just that it did: the next decision is "render the rest or fix
+    # the method first", and that cannot be made without spending to find out otherwise.
+    assert out["why_each_unusable_one_failed"]["b"]["verdict"] == "unjudged"
+    assert "a" not in out["why_each_unusable_one_failed"]
+    assert "c" not in out["why_each_unusable_one_failed"]
 
 
 def test_coverage_is_complete_only_when_every_certified_product_has_a_usable_asset():
