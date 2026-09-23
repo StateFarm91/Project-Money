@@ -171,7 +171,21 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
     """
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
+    from ..ops import funding
     from ..products.builder import for_slug
+
+    # Refused before the first render, for the reason the portrait repair refuses: every
+    # floor this trial compares on is a vision call, so a render made now could not be
+    # scored on the one question the trial exists to answer. A comparison of two
+    # unjudgeable images is not a comparison.
+    held = funding.blocked(db)
+    if held.get("blocked"):
+        return {"ran": False, "waiting_on": "model_provider_balance",
+                "challenger": challenger, "incumbent": INCUMBENT,
+                "spent_cad": 0.0, "attempts": [],
+                "why": ("every dimension this trial compares on is a vision call, and the "
+                        "balance that serves them is spent. Rendering now would buy images "
+                        "that cannot be scored. " + held.get("why_this_stops_spending", ""))}
 
     spent = 0.0
     rows: list[dict] = []

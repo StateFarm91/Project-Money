@@ -199,6 +199,48 @@ def test_a_spent_provider_balance_is_a_refusal_rather_than_a_dead_letter():
         "a refusal must not read as #300 having been disproved")
 
 
+def test_a_funding_refusal_does_not_count_as_a_trial_already_run():
+    """The hazard that would have surfaced the moment the balance came back.
+
+    The trial's idempotency key exists to stop re-buying an answer. A funding refusal files
+    a row with no rendered attempts, and reading that as "already run" would record the
+    absence of an answer as though it were the answer -- blocking the real trial
+    permanently, at exactly the moment it became possible.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.runtime.release import _trial_on_file
+
+    db = _db()
+    with db.session() as sess:
+        sess.add(OwnerAction(requirement_key="model_provider_balance",
+                             action="top up", reason="spent", done=False))
+
+    refusal = pt.run(db, challenger="nano-banana-2", work_dir="/tmp")
+    assert refusal["ran"] is False
+    assert refusal["waiting_on"] == "model_provider_balance"
+    assert refusal["spent_cad"] == 0.0
+
+    Registry(db).audit("publishing", pt.ACTION, detail=refusal)
+    assert _trial_on_file(db, challenger="nano-banana-2") is None, (
+        "a trial that rendered nothing blocked the trial that would")
+
+
+def test_a_completed_trial_does_stop_it_being_re_bought():
+    """The guard still has to guard, or the ceiling is spent twice on one question."""
+    from brambleloop.agents.registry import Registry
+    from brambleloop.publish import owned_photography
+    from brambleloop.runtime.release import _trial_on_file
+
+    db = _db()
+    Registry(db).audit("publishing", pt.ACTION, detail={
+        "challenger": "nano-banana-2", "spent_cad": 0.55,
+        "attempts": [{"made": True,
+                      "method_version": owned_photography.METHOD_VERSION}]})
+
+    assert _trial_on_file(db, challenger="nano-banana-2") is not None
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

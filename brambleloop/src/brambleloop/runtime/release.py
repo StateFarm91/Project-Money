@@ -2901,10 +2901,19 @@ def _trial_on_file(db, *, challenger: str) -> dict | None:
             detail = row.detail or {}
             if detail.get("challenger") != challenger:
                 continue
+            # A trial that rendered nothing is not a trial.
+            #
+            # Without this, the funding refusal of 2026-09-23 would have filed a row with
+            # no rendered attempts, and this guard would have read it as "already run" --
+            # blocking the real trial permanently the moment the balance came back. The
+            # idempotency key exists to stop re-buying an answer, not to record the absence
+            # of one as though it were the answer.
+            made = [a for a in (detail.get("attempts") or []) if a.get("made")]
+            if not made:
+                continue
             # A trial run under a superseded render method is evidence about that method,
             # not about this one -- the same rule the assets themselves follow.
-            made = [a for a in (detail.get("attempts") or []) if a.get("made")]
-            if made and made[0].get("method_version") != owned_photography.METHOD_VERSION:
+            if made[0].get("method_version") != owned_photography.METHOD_VERSION:
                 continue
             return detail
     return None

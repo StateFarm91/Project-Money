@@ -241,6 +241,46 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "owned_photography", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # A fresh capability probe, before anything that depends on one.
+    #
+    # `funding.blocked` reads the open owner action rather than the six-hourly probe,
+    # deliberately: the probe is the stale half of that pair. But that makes the action the
+    # only thing that clears it, and it is cleared by evidence -- a real call that got an
+    # answer -- rather than by anybody ticking it. So when a balance is restored, the
+    # unblocking move is to go and get that evidence rather than to wait up to six hours
+    # for the cadence.
+    #
+    # Enqueued ahead of the two experiments on purpose: jobs are claimed in id order, so
+    # the probe clears the action before the work that checks it. If the ordering ever
+    # fails the experiments refuse cleanly and file nothing, which is why the refusal had
+    # to stop counting as an attempt first.
+    try:
+        _boot_enqueue("capability_probes", when=True, agent="orchestrator",
+                      job_type="ops.capability_probes",
+                      key=f"boot-probe-{build_identity().get('commit_short', 'dev')}")
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "capability_probes", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
+    # The canonical portrait repair, once per set of portrait bytes.
+    try:
+        from ..runtime.release import _repair_on_file as _repair6
+        from ..visual import brief as _brief6
+        from ..visual import photoreal as _pr6
+
+        _fp = _pr6._portrait_fingerprint(_brief6.approved_portrait())
+        _repair_wanted = bool(_fp) and _repair6(db, fingerprint=_fp) is None
+        _boot_enqueue("portrait_repair", when=_repair_wanted, agent="publishing",
+                      job_type="visual.portrait_repair",
+                      key=f"portrait-repair-{_fp[:16]}")
+        if not _repair_wanted:
+            BOOT_ENQUEUES[-1]["why"] = (
+                "this portrait has already had a repair attempt" if _fp else
+                "the approved portrait is not readable, so there is nothing to repair")
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "portrait_repair", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     # The second-provider trial, once, on the owner's 2026-09-23 authorisation.
     #
     # Keyed on the challenger and the render method rather than the commit, because the
