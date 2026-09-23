@@ -841,10 +841,30 @@ it costs nothing to wait: the systematic block stops the cadence paying to re-as
 
 ### OWNER ACTION REQUIRED — the canonical model has to be re-made
 
-**Exact action:** approve re-opening the canonical-model selection, which was settled on
-2026-09-21 from five finalists. Specifically **the approved portrait is the root** — the
-carried file, not just the body frames — so this is a new face, not a revision to the
-existing one.
+**CORRECTED 2026-09-23 on the owner's instruction.** This section previously said the
+approved portrait being the root made this "a new face, not a revision". The owner's stated
+intent is the opposite: *"preserve the approved woman and repair/rebuild deficient canonical
+reference photography if possible, rather than casually replacing her."* She was chosen
+deliberately from five finalists; what fails is the **photograph of her**, not the choice.
+So the action is repair, and replacement is the fallback nobody has authorised.
+
+**Exact action:** decide whether to authorise a repair attempt on the approved portrait —
+an image-to-image pass that restores skin texture while keeping the same woman. Not a new
+selection, not a new finalist round.
+
+**Built and waiting for it (zero cost, B-674):** `visual.portrait_repair` judges a candidate
+repair on two floors that cannot substitute for each other — REPAIRED (the checks a render
+inherits now pass on the portrait itself) and STILL HER (an independent judge, shown the
+approved portrait and the candidate, finds no drift on `face`, `hair`, `eyes`, `age`). Four
+verdicts, because the responses are opposite: `repaired`, `not_repaired` (still her, still
+airbrushed — try the photography again), `different_woman` (a replacement, which is yours
+to decide), and `unverifiable`.
+
+Drift outranks a clean realism pass deliberately. **This is the one failure nothing else in
+this system would catch**: `face_identity` compares a render against the pack, so once a
+drifted portrait *is* the pack, every later frame agrees with it perfectly — the reference
+that is supposed to be the check has become the thing being checked. A silently swapped
+identity would pass every gate here. The module assesses and never generates.
 
 **Re-scoped on the correction above.** This does not block any product from being listed;
 all eleven certified products are flat-shot and need no model. It blocks requirements #72,
