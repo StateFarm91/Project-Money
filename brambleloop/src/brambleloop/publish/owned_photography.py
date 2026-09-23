@@ -410,6 +410,18 @@ def what_to_do_next(db, *, slug: str, version: str) -> dict:
                 "verdict": good.get("verdict"),
                 "attempts": len(assets_for(db, slug=slug, version=version))}
 
+    blocked = systematically_blocked(db)
+    if blocked:
+        return {"render": False, "reason": "method_systematically_blocked",
+                "attempts": len(assets_for(db, slug=slug, version=version)),
+                "blocked_on": blocked,
+                "why": (f"{blocked} failed every time {METHOD_VERSION} was asked, across "
+                        f"every product it has rendered. A real benchmark photograph "
+                        f"passed these same checks, so they discriminate and the renders "
+                        f"are what is wrong -- and retrying cannot fix a check that has "
+                        f"never once passed. What needs changing is the method, and a new "
+                        f"METHOD_VERSION is what tells this check the method changed")}
+
     spent = len(assets_for(db, slug=slug, version=version))
     if spent >= ATTEMPTS:
         return {"render": False, "reason": "attempts_exhausted", "attempts": spent,
@@ -489,3 +501,56 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
             "success every day while the catalogue stays unlistable. Counting every "
             "certified product is what tells those two apart"),
     }
+
+
+# Below this many asks, a check's failures are not classified either way.
+#
+# The same floor `visual.reliability` uses, and for the same reason: one ask cannot tell an
+# architecture failure from bad luck, and guessing either way sends the next session to
+# rebuild something on a sample of one.
+MIN_ASKS_FOR_A_CLASSIFICATION = 2
+
+
+def systematically_blocked(db, *, limit: int = 200) -> list[str]:
+    """Checks this method has never once passed, across every product it has rendered.
+
+    The product-first counterpart of `model_photography._systematically_blocked`, built
+    after the calibration settled which way the evidence pointed on 2026-09-23. Four
+    renders across two products and two method versions were all blocked on
+    `texture_not_repeating`, and a real benchmark photograph then passed all ten checks
+    with nothing unjudged -- so the check discriminates and the renders are genuinely
+    tiling.
+
+    A check failed every time it was asked is an architecture finding: the generator is
+    not being asked for something it can produce. Retrying cannot fix it, so the honest
+    thing is to stop paying to re-ask. `ATTEMPTS` bounds one release and does nothing
+    about a method that does not work, because each new product starts its budget again.
+
+    Counted against the attempts that *asked* each check, never against all attempts, for
+    the reason B-652 exists: a check asked three times and failed three times is systematic
+    even in a sample of thirty, and dividing by thirty reports an architecture problem as
+    bad luck.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    asked: dict[str, int] = {}
+    failed: dict[str, int] = {}
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                             .order_by(desc(AuditLog.id)).limit(limit)):
+            detail = row.detail or {}
+            if not detail.get("made") or detail.get("method_version") != METHOD_VERSION:
+                continue
+            realism = ((detail.get("inspection") or {}).get("realism")) or {}
+            for name, ok in realism.items():
+                if ok is None:
+                    continue
+                asked[name] = asked.get(name, 0) + 1
+                if ok is False:
+                    failed[name] = failed.get(name, 0) + 1
+
+    return sorted(name for name, n in failed.items()
+                  if n >= asked.get(name, 0)
+                  and asked.get(name, 0) >= MIN_ASKS_FOR_A_CLASSIFICATION)

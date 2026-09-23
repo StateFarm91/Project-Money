@@ -472,6 +472,67 @@ def test_the_cadence_photographs_an_untried_product_before_retrying_a_hard_one()
     assert _representative_slug(db) == "spooky-garland"
 
 
+def _file_realism(db, *, slug="a", version="1.0.0", **checks):
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": slug,
+        "version": version, "usable_as_listing_asset": False,
+        "inspection": {"realism": dict(checks)}})
+
+
+def test_a_check_that_never_once_passed_stops_the_catalogue_spending_on_it():
+    """`ATTEMPTS` bounds one release and does nothing about a method that does not work.
+
+    Live, 2026-09-23: four renders across two products and two method versions, every one
+    blocked on `texture_not_repeating`. A real benchmark photograph then passed all ten
+    gallery checks with nothing unjudged, so the check discriminates and the renders are
+    genuinely tiling. Each new product starts its own attempt budget, so without this the
+    remaining eight pay three times each for the same answer.
+    """
+    db = _db()
+    for slug in ("a", "b"):
+        _file_realism(db, slug=slug, texture_not_repeating=False, drape=True)
+
+    move = op.what_to_do_next(db, slug="c", version="1.0.0")
+    assert move["render"] is False
+    assert move["reason"] == "method_systematically_blocked"
+    assert move["blocked_on"] == ["texture_not_repeating"]
+    assert "never once passed" in move["why"]
+
+
+def test_a_check_that_fails_sometimes_is_retried_rather_than_blocked():
+    """Stochastic failure is exactly what the attempt budget is for."""
+    db = _db()
+    _file_realism(db, slug="a", texture_not_repeating=False)
+    _file_realism(db, slug="b", texture_not_repeating=True)
+
+    assert op.what_to_do_next(db, slug="c", version="1.0.0")["render"] is True
+
+
+def test_a_check_asked_once_is_not_classified_from_a_single_ask():
+    """One ask cannot tell an architecture failure from bad luck."""
+    db = _db()
+    _file_realism(db, slug="a", texture_not_repeating=False)
+
+    assert op.systematically_blocked(db) == []
+
+
+def test_a_superseded_methods_failures_do_not_block_the_corrected_one():
+    """The escape is work rather than waiting: a new METHOD_VERSION clears it."""
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    for _ in range(3):
+        Registry(db).audit("publishing", op.ACTION, detail={
+            "made": True, "method_version": "v0-superseded", "slug": "a",
+            "version": "1.0.0",
+            "inspection": {"realism": {"texture_not_repeating": False}}})
+
+    assert op.systematically_blocked(db) == []
+    assert op.what_to_do_next(db, slug="a", version="1.0.0")["render"] is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -551,6 +551,40 @@ renders went to the hardest product, and one product's two attempts cannot separ
 method is wrong" from "this product is hard". The next renders spread across the simpler
 products, which is what will answer it.
 
+### The calibration overruled me, for the second time tonight
+
+Four product-first renders, two products, two method versions, every one blocked on
+`texture_not_repeating`. Crocheted fabric is by construction a surface that repeats, and
+`inspect.realism_prompt` sends the judge only the bare check *names* with no definitions —
+unlike `photoreal.CHECKS`, which maps each name to a careful description. The reasoning
+that this was a floor nothing can clear was strong, and it was wrong.
+
+`/api/gallery-calibration`, run against a real benchmark listing photograph:
+
+```
+calibrated: true | failed: [] | unjudged: [] | reachable: true
+```
+
+**All ten checks passed on a real crochet photograph, `texture_not_repeating` included,
+with nothing unjudged.** The check discriminates. Our renders are genuinely tiling.
+
+That is the second time in this session that a confident "the gate must be broken" was
+overruled by putting a real photograph to it — the first was the photographic-realism floor
+on 2026-09-22. Both times the standard was working. The rule earned twice over: when the
+choice is "the measurement is wrong" or "the thing measured is wrong", the flattering
+answer is the one to test, not the one to act on.
+
+**So the finding is about the generator.** `texture_not_repeating` asked four times, failed
+four times → systematic under B-651, and the prescribed response to systematic is a method
+change rather than a retry. `owned_photography.systematically_blocked` now stops the
+catalogue spending on it, the way the model path already did — the same capability drift
+that left the chart undisplayed and the gate's detail discarded. Eight untouched products
+will not pay three times each for an answer four renders already gave.
+
+**Cost of the whole investigation: four renders, CA$0.164.** It bought a settled cause
+rather than a suspicion, and it stopped a CA$1 spend that would have bought eight more of
+the same failure.
+
 ### The production diagnosis, and why no more renders are being paid for
 
 Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both
