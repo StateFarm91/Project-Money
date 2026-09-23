@@ -281,3 +281,80 @@ def control_image(db, *, benchmark_key: str = "") -> str:
                 if url:
                     return str(url)
     return ""
+
+
+# Which of these checks a reference image can pass on to everything conditioned on it.
+#
+# A generator given a reference reproduces the person in it, including her skin. If the
+# frozen portrait is itself airbrushed, every frame built from it is airbrushed too, and no
+# amount of prompt language saying "visible pores, no smoothing" can outvote the picture --
+# the prompt is a request and the reference is evidence.
+#
+# Only the checks that are properties of the *subject* are inheritable. Lighting, depth of
+# field, invented text and sterile perfection are properties of the scene the new frame
+# builds around her, so a reference failing those says nothing about the render.
+INHERITED: tuple[str, ...] = ("skin_looks_real", "processing_is_restrained",
+                              "hands_are_right", "anatomy_is_possible")
+
+
+def reference_realism(db, *, provider=None, paths: dict | None = None) -> dict:
+    """Whether the frozen identity pack could ever produce a believable photograph.
+
+    The question three blocked renders made unavoidable. Every model frame is conditioned
+    on the pack's reference image and every one came back failing `skin_looks_real` and
+    `processing_is_restrained`, against direction that names airbrushed skin explicitly.
+    Two explanations need opposite fixes and a render cannot tell them apart:
+
+      the generator will not do unretouched skin  -> change the method or the provider
+      the reference she is copied from is already airbrushed -> re-make the pack
+
+    So the reference is judged by the same standard its renders are held to. This is the
+    third time this system has had to ask "is the thing being measured wrong, or is the
+    measurement wrong" and the answer has been different each time, which is why it is
+    asked with evidence rather than assumed.
+
+    Read-only: it judges images already on file and generates nothing.
+    """
+    from . import freeze
+
+    paths = paths if paths is not None else freeze.reference_paths(db)
+    readings: dict[str, dict] = {}
+    for frame in ("face", "body"):
+        ref = paths.get(frame)
+        if not ref:
+            continue
+        reading = judge(ref, db=db, provider=provider)
+        verdict = gate(reading)
+        readings[frame] = {"verdict": verdict["verdict"], "failed": verdict["failed"],
+                           "unjudged": verdict["unjudged"], "why": verdict["why"],
+                           "notes": reading.get("notes", "")}
+
+    if not readings:
+        return {"judged": False, "pack_version": paths.get("pack_version"),
+                "why": ("no frozen reference image could be materialised, so there is "
+                        "nothing to judge. That is not a finding about the pack")}
+
+    inherited = sorted({f for r in readings.values() for f in r["failed"]
+                        if f in INHERITED})
+    other = sorted({f for r in readings.values() for f in r["failed"]
+                    if f not in INHERITED})
+    return {
+        "judged": True,
+        "pack_version": paths.get("pack_version"),
+        "frames": readings,
+        "inheritable_failures": inherited,
+        "other_failures": other,
+        "inherited_checks": list(INHERITED),
+        "verdict": ("pack_is_the_cause" if inherited else
+                    "pack_is_not_the_cause" if all(r["verdict"] == "clear"
+                                                   for r in readings.values())
+                    else "pack_is_not_the_cause_of_the_inherited_failures"),
+        "what_it_means": (
+            f"the frozen reference fails {inherited} itself, so every frame conditioned "
+            f"on it inherits them. No prompt can outvote the picture the generator is "
+            f"copying: the pack is what has to change, and re-rendering is spend on a "
+            f"question already answered" if inherited else
+            "the frozen reference clears the checks a render inherits from it, so "
+            "airbrushed skin in a render is the generator's doing rather than hers. The "
+            "method or the provider is what has to change"),
+    }

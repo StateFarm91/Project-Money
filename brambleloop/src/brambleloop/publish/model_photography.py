@@ -38,6 +38,19 @@ ACTION = "assets.model_photography"
 # Part of what decides whether a frame on file answers the question being asked. A frame
 # rendered by an earlier method is evidence about that method, and reading it back as
 # "this release already has one" is how a corrected prompt quietly never runs.
+# Deliberately NOT bumped for the hands change below, 2026-09-23.
+#
+# Bumping it would clear the systematic block on `photographic_realism` -- the measurement
+# counts only the current method -- and that block is in force because realism has failed
+# every time v12 has been asked. Asking for hands addresses two floors that came back
+# *unjudged*; it does nothing about the ones that came back *failed*: airbrushed skin,
+# unrestrained processing, sterile perfection. Cutting a new version now would buy three
+# more attempts at the same answer with money this company has not authorised, by
+# defeating the gate that was just built to prevent exactly that.
+#
+# So the hands direction is staged: it rides the next METHOD_VERSION, which is cut when
+# the realism cause is actually addressed. No v12 frame can be rendered while the block
+# holds, so nothing is mixed in the meantime.
 METHOD_VERSION = "v12-a-frame-that-passed-is-kept-rather-than-rolled-again"
 
 # How many times one release may be re-rendered when the frame comes back unusable.
@@ -106,7 +119,19 @@ SHOT_PLAN = (
     "to the camera's axis that nothing falls into shadow, with gentle falloff that models "
     "the body and the crochet rather than flattening them. The crochet is worn and clearly "
     "visible, and the setting is a real room or a real wall with its own texture and "
-    "ordinary marks rather than a seamless studio backdrop."
+    "ordinary marks rather than a seamless studio backdrop. "
+    # Asked for because two floors ask about them and neither plan used to put them in
+    # shot. Live, 2026-09-23: `asset_truth` came back `unjudged` on `hands_and_fingers`
+    # and `photographic_realism` `unjudged` on `hands_are_right`, in both frames, because
+    # her hands were not in either. Unmade is not passed, so both floors could only ever
+    # be cleared by the generator happening to include something nobody requested -- the
+    # same value-living-in-two-places defect as "evenly lit", one gate along.
+    #
+    # It asks for the harder thing rather than the easier one on purpose. Hands are the
+    # classic generated-image tell, so a frame that has to show them is a frame that has
+    # to be better, not a floor that has been lowered."
+    "At least one of her hands is fully in the frame and unobscured, in a relaxed natural "
+    "position, with all of its fingers visible."
 )
 
 # Why "evenly lit" is gone.
@@ -140,7 +165,10 @@ DETAIL_PLAN = (
     "sharply in focus and lit so the fabric's texture is modelled by the light. Close "
     "enough that individual stitches, the repeat of the pattern and the way the colours "
     "are placed can all be counted and followed. Part of her is in the frame so the piece "
-    "is plainly being worn rather than laid flat."
+    "is plainly being worn rather than laid flat. One of her hands is in the frame, "
+    "unobscured and with all of its fingers visible, resting near or touching the "
+    "crochet -- the same two floors ask about hands here, and a frame that cannot answer "
+    "them has not passed them."
 )
 
 # Each shot, what to ask for, and which floor it is the authority on. The shared floors --
@@ -500,6 +528,31 @@ def sequence(db, cir, twin, **kw) -> dict:
     }
 
 
+def _filed_frames(db, *, slug: str, version: str):
+    """Every individual frame on file for this release, newest first.
+
+    Separate from `_frames` because the audit log does not hold what this needs. The
+    handler files one row per *sequence* -- `listing_asset.make` writes the record
+    `sequence()` returned -- and the individual frames live inside it under `frames`,
+    without a `version` of their own. A reader that asked those rows for `shot` and
+    `version` directly would match nothing, silently, forever: the row is real, the frame
+    is in it, and every field the query names is absent from the level it looked at.
+
+    That is exactly what shipped in 946eee8. Frame reuse was tested against rows filed one
+    frame at a time, which is a shape production never writes, so the test was green and
+    the feature could not fire even once. The same defect family as every other one found
+    this week -- a check that cannot tell a call from a sentence about a call -- so the
+    fix is here, on the read side, where it also makes the sequences already filed in
+    production usable rather than needing them re-rendered.
+    """
+    for record in _frames(db, slug=slug):
+        if record.get("version") != version:
+            continue
+        for frame in record.get("frames") or ():
+            if frame.get("made"):
+                yield frame
+
+
 def _passing_frame(db, cir, *, shot: str) -> dict | None:
     """The most recent frame for this release and shot that cleared every floor it answers.
 
@@ -509,8 +562,8 @@ def _passing_frame(db, cir, *, shot: str) -> dict | None:
     """
     answers = dict((name, floors) for name, _, floors in SHOTS).get(shot, ())
     wanted = set(answers) | set(SHARED_FLOORS)
-    for frame in _frames(db, slug=cir.slug):
-        if frame.get("shot") != shot or frame.get("version") != cir.version:
+    for frame in _filed_frames(db, slug=cir.slug, version=cir.version):
+        if frame.get("shot") != shot:
             continue
         floors = frame.get("floors") or {}
         # Any failed floor disqualifies the frame, including one it is not the authority
@@ -577,6 +630,11 @@ def _frames(db, *, slug: str = "", limit: int = 60) -> list[dict]:
     return out
 
 
+def sequences(db, *, slug: str = "", limit: int = 60) -> list[dict]:
+    """Every sequence this method filed, newest first. The public reading of the log."""
+    return _frames(db, slug=slug, limit=limit)
+
+
 def last_asset(db, *, slug: str = "") -> dict | None:
     """The most recent model-bearing frame on file, optionally for one product."""
     frames = _frames(db, slug=slug, limit=20)
@@ -597,6 +655,24 @@ def attempts_for(db, *, slug: str, version: str) -> int:
     return sum(1 for f in _frames(db, slug=slug) if f.get("version") == version)
 
 
+def _systematically_blocked(db) -> list[str]:
+    """Floors this method has never once passed, across every release it has rendered.
+
+    Read through `visual.reliability` so the standard lives in one place: a dimension is
+    systematic only when it failed every time it was *asked*, and only once it has been
+    asked enough times to tell an architecture failure from bad luck. A floor that has
+    simply not been asked yet returns nothing, which is the difference between "this does
+    not work" and "nobody has checked" -- the distinction this system keeps having to
+    re-learn.
+    """
+    from ..visual import reliability
+
+    measured = reliability.measure(db)
+    if not measured.get("measured"):
+        return []
+    return list(measured.get("systematic_failures") or ())
+
+
 def what_to_do_next(db, *, slug: str, version: str) -> dict:
     """Whether to render, and if not, which of two different reasons not to.
 
@@ -610,6 +686,24 @@ def what_to_do_next(db, *, slug: str, version: str) -> dict:
         return {"render": False, "reason": "usable_frame_on_file",
                 "why": "this release already has a frame that cleared every floor",
                 "attempts": attempts_for(db, slug=slug, version=version)}
+
+    # Before counting this release's attempts, ask whether the method has already been
+    # shown not to work. `ATTEMPTS` bounds one release; it does nothing about a method
+    # whose floor has failed on every attempt across every release, because each new
+    # release starts its budget again. Three attempts on hats-hat-0 blocked on
+    # `photographic_realism` against direction that names the defect explicitly -- a
+    # fourth on the next product is the same method asked the same question, paid for
+    # again. A systematic failure is a code change, and changing `METHOD_VERSION` is what
+    # clears this, because the measurement counts only the current method.
+    blocked = _systematically_blocked(db)
+    if blocked:
+        return {"render": False, "reason": "method_systematically_blocked",
+                "attempts": attempts_for(db, slug=slug, version=version),
+                "blocked_on": blocked,
+                "why": (f"{blocked} failed every time {METHOD_VERSION} was asked, across "
+                        f"every release it has rendered. Retrying cannot fix a floor that "
+                        f"has never once passed: what needs changing is the method, and a "
+                        f"new METHOD_VERSION is what tells this check the method changed")}
 
     spent = attempts_for(db, slug=slug, version=version)
     if spent >= ATTEMPTS:

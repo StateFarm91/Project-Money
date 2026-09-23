@@ -151,6 +151,75 @@ def test_the_three_checks_that_block_our_renders_are_reported_as_discriminating(
     for check in ("skin_looks_real", "processing_is_restrained", "not_sterile_perfection"):
         assert check in out["discriminating"], check
 
+class _Ref:
+    """A judge with a fixed answer, standing in for the vision model."""
+
+    model = "test"
+    cost_per_1k_input_cad = 0.0
+    cost_per_1k_output_cad = 0.0
+
+    def __init__(self, **checks):
+        self.answers = {k: True for k in photoreal.CHECKS}
+        self.answers.update(checks)
+
+    def see(self, system, prompt, refs, max_tokens=0):
+        import json as _json
+
+        class R:
+            text = _json.dumps({**self.answers, "notes": "seen"})
+            input_tokens = 1
+            output_tokens = 1
+        return R()
+
+
+_PATHS = {"face": "/tmp/face.png", "body": "/tmp/body.png", "pack_version": "v2"}
+
+
+def test_an_airbrushed_reference_is_named_as_the_cause_the_render_inherits():
+    """The finding that decides whether to change the method or re-make the pack.
+
+    A generator given a reference reproduces the person in it, skin included. If the
+    frozen portrait is already airbrushed then no prompt language can outvote it, and
+    three more renders would be spend on a question already answered.
+    """
+    out = photoreal.reference_realism(_db(), provider=_Ref(skin_looks_real=False),
+                                      paths=dict(_PATHS))
+    assert out["judged"] is True
+    assert out["verdict"] == "pack_is_the_cause"
+    assert out["inheritable_failures"] == ["skin_looks_real"]
+    assert "the pack is what has to change" in out["what_it_means"]
+
+
+def test_a_reference_that_fails_only_a_scene_property_does_not_excuse_the_render():
+    """Lighting and sterile perfection belong to the scene the new frame builds.
+
+    A reference shot under bad light says nothing about a render made somewhere else, and
+    reading it as "the pack is the cause" would let a real generator failure hide behind a
+    reference's irrelevant flaw -- a verdict drawn from evidence about something else.
+    """
+    out = photoreal.reference_realism(_db(), provider=_Ref(lighting_is_coherent=False),
+                                      paths=dict(_PATHS))
+    assert out["inheritable_failures"] == []
+    assert out["other_failures"] == ["lighting_is_coherent"]
+    assert out["verdict"] == "pack_is_not_the_cause_of_the_inherited_failures"
+    assert "the generator's doing rather than hers" in out["what_it_means"]
+
+
+def test_a_clean_reference_puts_the_blame_on_the_method():
+    out = photoreal.reference_realism(_db(), provider=_Ref(), paths=dict(_PATHS))
+    assert out["verdict"] == "pack_is_not_the_cause"
+    assert "The method or the provider is what has to change" in out["what_it_means"]
+
+
+def test_no_materialisable_reference_is_not_a_finding_about_the_pack():
+    """Absence of evidence, refused out loud, for the seventh time this week."""
+    out = photoreal.reference_realism(_db(), provider=_Ref(),
+                                      paths={"face": "", "body": "", "pack_version": "v2"})
+    assert out["judged"] is False
+    assert "not a finding about the pack" in out["why"]
+    assert "verdict" not in out
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

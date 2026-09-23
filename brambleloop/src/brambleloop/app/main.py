@@ -247,9 +247,11 @@ def _startup() -> None:
     # day's frame failed would wait a day to be asked again, and the record in between
     # would be evidence about the method that was replaced.
     #
-    # Self-limiting twice over. `what_to_do_next` renders nothing once the release has a
-    # frame that cleared every floor, and nothing once this method has spent its attempts,
-    # so this asks on every deploy without spending on every deploy.
+    # Self-limiting three ways. `what_to_do_next` renders nothing once the release has a
+    # frame that cleared every floor, nothing once this method has spent its attempts on
+    # this release, and nothing at all once a floor has failed every time this method was
+    # asked -- so this asks on every deploy without spending on every deploy, and a deploy
+    # does not buy another answer to a question already settled.
     try:
         from ..gateway import images as _img5
         from ..publish import model_photography as _mphoto
@@ -1400,7 +1402,7 @@ def api_model_asset(slug: str = "") -> dict:
     identity comparison made by a model that never saw the prompt.
     """
     from ..publish import model_photography
-    from ..visual import model_registry
+    from ..visual import model_registry, reliability
 
     record = model_photography.last_asset(db, slug=slug)
     pack = model_registry.canonical_pack(db)
@@ -1429,7 +1431,57 @@ def api_model_asset(slug: str = "") -> dict:
         "photographic_realism": frames[0].get("photographic_realism"),
         "canonical_version": pack.version if pack else None,
         "floors_never_average": record.get("floors_never_average"),
+        # One passing sequence demonstrates possibility. This is the rate, the cost and
+        # the diagnosis, judged against a standard written down before the sample existed.
+        "reliability": reliability.measure(db),
     }
+
+
+@app.get("/api/render-reliability")
+def api_render_reliability() -> dict:
+    """Whether the render pipeline is a capability or a run of luck, and what it costs.
+
+    Read-only and free: it measures sequences already filed and renders nothing. The
+    standard it judges against was written on `standard_set_at`, before any of these
+    attempts were drawn, so the number cannot become the standard after the fact.
+    """
+    from ..visual import reliability
+
+    return {
+        "reliability": reliability.measure(db),
+        "standard": {
+            "correctness": ("no asset is ever marked usable with a floor that did not "
+                            "say pass. Absolute -- one breach blocks launch however good "
+                            "the rate, because that is the failure that reaches a buyer"),
+            "economics": (f"every attempted gallery reaches a usable state inside "
+                          f"{reliability.MAX_ATTEMPTS_PER_GALLERY} attempts at no more "
+                          f"than CA${reliability.MAX_CAD_PER_USABLE_GALLERY} per usable "
+                          f"gallery"),
+            "set_at": reliability.STANDARD_SET_AT,
+            "min_galleries_for_a_rate": reliability.MIN_GALLERIES_FOR_A_RATE,
+            "min_asks_for_a_classification": reliability.MIN_ASKS_FOR_A_CLASSIFICATION,
+        },
+    }
+
+
+@app.get("/api/reference-realism")
+def api_reference_realism() -> dict:
+    """Whether the frozen identity pack could ever produce a believable photograph.
+
+    Three model frames failed `skin_looks_real` and `processing_is_restrained` against
+    direction that names airbrushed skin explicitly. Either the generator will not do
+    unretouched skin, or the reference it is copying is already airbrushed -- opposite
+    fixes, and a render cannot tell them apart. This judges the reference by the same
+    standard its renders are held to.
+
+    Read-only: it judges images already on file and generates nothing. It does make vision
+    calls, so it costs a fraction of a cent and is not run on a cadence.
+    """
+    from ..visual import photoreal
+
+    return {"reference_realism": photoreal.reference_realism(db),
+            "checks": dict(photoreal.CHECKS),
+            "inherited_checks": list(photoreal.INHERITED)}
 
 
 @app.get("/api/photoreal-calibration")

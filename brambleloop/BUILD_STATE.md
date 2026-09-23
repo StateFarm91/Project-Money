@@ -362,6 +362,128 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+**2026-09-23 — the render-reliability standard, and the frame-reuse feature that was green
+and dead on arrival.**
+
+### The reliability standard was written before the sample was drawn
+
+`visual/reliability.py`, `standard_set_at: 2026-09-23`. Two standards, deliberately separate,
+because only one of them is about image quality:
+
+- **CORRECTNESS** — no asset is ever marked usable with a floor that did not say `pass`.
+  Absolute. One breach blocks launch however good the rate, because that is the failure that
+  reaches a buyer.
+- **ECONOMICS** — every attempted gallery reaches a usable state inside
+  `MAX_ATTEMPTS_PER_GALLERY = 3` at no more than `MAX_CAD_PER_USABLE_GALLERY = 2.00`,
+  reasoned from a ~CA$9.50 pattern whose imagery is made once and serves the listing for its
+  whole life.
+
+Verdicts: `unsafe` (a correctness breach) → `architecturally blocked` (a floor failed every
+time it was asked) → `unproven` (below `MIN_GALLERIES_FOR_A_RATE = 3`) → `unreliable`
+(a gallery spent its budget without an asset) → `uneconomic` → `production capable`.
+Live at `/api/render-reliability`, reading filed sequences and rendering nothing.
+
+Two refusals are built in rather than bolted on. A rate is withheld below three galleries,
+because a proportion from two is not a capability measurement. And a dimension asked fewer
+than `MIN_ASKS_FOR_A_CLASSIFICATION = 2` times is reported `unclassified` rather than called
+systematic — one ask cannot tell an architecture failure from bad luck, and guessing sends
+the next session to rebuild something on a sample of one.
+
+**The standard's own first draft carried the defect it exists to catch.** `systematic` divided
+a dimension's failures by *all* attempts. `product_truth` is decided by the detail frame, so a
+floor asked three times and failed three times would have been reported as a 27% stochastic
+failure in an eleven-attempt sample — an architecture problem retried forever. Fixed to count
+each dimension against the attempts that asked it, before any measurement was taken.
+
+### B-651 — frame reuse could not fire in production, and its test could not see that
+
+The reuse feature shipped in `946eee8` read audit rows expecting one row per *frame*. The
+handler and `listing_asset.make` file one row per **sequence**, with the frames nested under
+`frames` and no `version` of their own. So `_passing_frame` compared `record["shot"]` — a key
+that is not at that level — against every shot name, matched nothing, silently, and would have
+gone on matching nothing forever. Every field the query named was absent from the level it
+looked at, which is why it failed quietly rather than erroring.
+
+The test was green because it filed frames one at a time: a shape production never writes.
+Classified **B** (trust blocker: a false-green test standing in for a capability). Fixed on the
+read side, in `_filed_frames`, which also makes the sequences already filed in production
+reusable rather than needing them re-rendered. The new guard drives the real filing path
+(`listing_asset.make(record=True)`) and was verified to fail against the old reader before
+being kept.
+
+### B-647 and B-649 confirmed working in production
+
+Not asserted — observed, from `/api/queue/cadences` on 2026-09-23:
+
+- `gallery run 02:02:48Z | judged=25 remaining=1278 failures=0`. The backlog now counts what
+  is actually left, with nothing subtracted and nothing capped at 500, and `failures: 0` for
+  the first time since the durable marker was added.
+- `vision coverage moved: silhouette absent_on=414 share=0.945`, down from the hardcoded 438.
+  That number moving at all is the evidence that judged images are now recorded and that
+  coverage is measured per listing rather than assumed.
+
+The second reading settled it. At 04:03:44Z: `judged=24 remaining=1254`, against `1278` an
+hour earlier — a decrease of exactly 24, the unique count judged, with nothing subtracted
+twice and nothing capped. Coverage moved again in the same window, `silhouette absent_on`
+413. A backlog that moves by exactly what was paid for is the property the defect destroyed,
+and it is now observed rather than argued.
+
+The repeated paid re-judging of the same 25 images — four batches over eight hours that moved
+the backlog 475 → 476 — is stopped at both ends: the marker is written, and `remaining` no
+longer subtracts its own run's work.
+
+### The production diagnosis, and why no more renders are being paid for
+
+Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both
+shots rendered, CA$0.0822 spent:
+
+| floor | verdict | what the evidence says |
+|---|---|---|
+| `face_identity` | **pass** | the identity lock works |
+| `product_truth` | **pass** | motif `match` on both frames, 8 and 14 repeats read correctly |
+| `styling` | fail | `lighting` outside range on the detail frame only |
+| `whole_person_morphology` | unverifiable | bust and torso unreadable; the plan asks for them |
+| `photographic_realism` | **fail** | airbrushed skin, unrestrained processing, on every attempt |
+| `asset_truth` | fail | `texture_not_repeating` on the detail frame; `hands_and_fingers` unmade |
+
+**Realism is a systematic failure, not bad luck.** Three attempts, every one blocked on
+`skin_looks_real` and `processing_is_restrained`, against direction that names airbrushed
+skin at paragraph length and a judge the 2026-09-22 calibration proved can pass a real
+photograph. Under B-651 that classifies as architectural: retrying cannot fix a floor that
+has never once passed.
+
+So `what_to_do_next` gained a fourth outcome, `method_systematically_blocked`. `ATTEMPTS`
+bounds one release and does nothing about a method that does not work, because each new
+product starts its budget again — without this the next product pays three more times for
+the same answer. The block lifts when `METHOD_VERSION` changes, which is a code change
+somebody has to make and cannot be waited out.
+
+**`METHOD_VERSION` was deliberately not bumped in this commit.** Two prompt defects were
+found and fixed — neither shot plan asked for the hands that `asset_truth` and
+`photographic_realism` both ask about, so two floors could only ever clear by luck — but
+those address checks that came back *unjudged*, not the ones that came back *failed*.
+Cutting a version now would clear the block without fixing what it caught, and buy three
+more attempts with money that is not authorised.
+
+**The next question is built and unanswered.** `/api/reference-realism` judges the frozen
+identity pack by the same standard its renders are held to. Every frame is conditioned on
+that reference, and a generator copies the skin it is shown, so there are two explanations
+needing opposite fixes: the provider will not do unretouched skin (change the method), or
+the reference is already airbrushed (re-make the pack). Only the subject's own properties
+are treated as inheritable — lighting and sterile perfection belong to the scene the new
+frame builds, and reading those as the pack's fault would let a real generator failure hide
+behind an irrelevant flaw in the reference. Read-only, generates nothing, costs a fraction
+of a cent, and is not on a cadence.
+
+### Unfinished, classified C (post-launch)
+
+**Remote access from the owner's phone to the Windows HQ machine is not configured.** Claude
+Remote Control did not connect from the S25 Ultra, and the owner ended that work on
+2026-09-22. It is HQ convenience, not a launch blocker: Brambleloop runs on Railway and is
+unaffected by whether that PC is on, which is the Phase 11 independence requirement rather
+than a gap in it. No generic remote-desktop system was installed, per the owner's instruction.
+
+## Previously — last completed milestone
 **2026-09-21 — #198 answered, the identity made whole-person, the tournament built, and the
 MJs purchase stopped.**
 

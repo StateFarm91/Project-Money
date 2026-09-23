@@ -318,7 +318,13 @@ def test_the_model_is_the_exception_and_an_unclassified_form_is_shot_as_an_objec
 
 
 def _file(db, record):
-    """Put a frame on the audit log the way the handler does."""
+    """Put a record on the audit log the way the handler does.
+
+    The handler files the *sequence*, not its frames: `listing_asset.make` writes the one
+    record `sequence()` returned, with the individual frames nested inside it. Tests that
+    filed frames one at a time were describing a shape production never writes, which is
+    how frame reuse shipped green and dead -- so every caller here passes the sequence.
+    """
     from brambleloop.agents.registry import Registry
 
     Registry(db).audit("publishing", mp.ACTION, detail=record)
@@ -362,12 +368,22 @@ def test_a_release_with_a_usable_frame_is_not_rendered_again():
 
 
 def test_retrying_is_bounded_and_says_the_method_is_what_needs_changing():
-    """Unbounded retry is how a loop spends the ceiling chasing the same failure."""
+    """Unbounded retry is how a loop spends the ceiling chasing the same failure.
+
+    Each attempt fails a *different* floor on purpose. Three attempts failing the same one
+    is a systematic failure and stops earlier for a better reason, which the block tests
+    cover; this is the bad-luck case the per-release bound exists for, and giving it the
+    systematic pattern would have tested the wrong gate.
+    """
+    breakers = (
+        {"realism_judger": _realism(skin_looks_real=False)},
+        {"styling_judger": _styling(light_is_soft_and_directional=False)},
+        {"motif_judger": _motif(repeating_unit_shape="solid square", repeats_across=8)},
+    )
     with tempfile.TemporaryDirectory() as tmp:
         db = _db()
-        for _ in range(mp.ATTEMPTS):
-            _, record = _make(db, Path(tmp),
-                              realism_judger=_realism(skin_looks_real=False))
+        for breaker in breakers[:mp.ATTEMPTS]:
+            _, record = _make(db, Path(tmp), **breaker)
             _file(db, record)
 
         move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
@@ -725,8 +741,7 @@ def test_a_frame_that_cleared_its_floors_is_kept_rather_than_rolled_again():
         assert first["floors"]["photographic_realism"] == "fail"
         fit = next(f for f in first["frames"] if f["shot"] == "fit")
         assert all(v == "pass" for v in fit["floors"].values()), fit["floors"]
-        for frame in first["frames"]:
-            _file(db, frame)
+        _file(db, first)
 
         rendered_before = len(gen.calls)
         gen2, second = _sequence(db, Path(tmp))
@@ -752,7 +767,7 @@ def test_a_frame_with_any_failed_floor_is_never_kept():
             repeating_unit_shape="solid square", repeats_across=8))
         for frame in first["frames"]:
             assert frame["floors"]["product_truth"] == "fail"
-            _file(db, frame)
+        _file(db, first)
 
         gen2, second = _sequence(db, Path(tmp))
 
@@ -770,8 +785,7 @@ def test_a_frame_is_kept_only_on_verdicts_that_were_actually_made():
 
         _, first = _sequence(db, Path(tmp), realism_judger=half_read)
         assert first["floors"]["photographic_realism"] == "unverifiable"
-        for frame in first["frames"]:
-            _file(db, frame)
+        _file(db, first)
 
         gen2, second = _sequence(db, Path(tmp))
 
@@ -791,8 +805,7 @@ def test_a_kept_frame_does_not_bill_twice():
     with tempfile.TemporaryDirectory() as tmp:
         db = _db()
         _, first = _sequence(db, Path(tmp), realism_judger=detail_only_fails)
-        for frame in first["frames"]:
-            _file(db, frame)
+        _file(db, first)
         assert first["spent_cad"] == 0.08, "two frames rendered, two billed"
 
         _, second = _sequence(db, Path(tmp))
@@ -800,6 +813,134 @@ def test_a_kept_frame_does_not_bill_twice():
     assert second["reused_frames"] == ["fit"]
     # Only the newly rendered frame is billed to this pass.
     assert second["spent_cad"] == 0.04
+
+def test_reuse_reads_the_shape_the_real_filing_path_writes():
+    """The guard for the defect that made frame reuse green and dead on arrival.
+
+    The three reuse tests above call `_file` and so can only ever prove the reader agrees
+    with the test helper. This one files through `listing_asset.make(record=True)` -- the
+    real path, the one the handler and the seasonal cycle both go through -- so if the
+    written shape and the read shape ever diverge again, this fails instead of passing.
+    """
+    import dataclasses
+
+    from brambleloop.publish import listing_asset
+
+    def detail_only_fails(image_ref, db=None):
+        checks = {k: True for k in photoreal.CHECKS}
+        if image_ref.endswith("frame-1.png"):
+            checks["skin_looks_real"] = False
+        return {"judged": True, "checks": checks, "notes": ""}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        cir, twin = _subject()
+        cir = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
+        assert listing_asset.needs_the_model(cir), "this test needs the model-bearing path"
+
+        gen = _Generator(Path(tmp))
+        first = listing_asset.make(db, cir, twin, generator=gen, observer=_observer(),
+                                   inspector=_inspector(), motif_judger=_motif(),
+                                   realism_judger=detail_only_fails,
+                                   styling_judger=_styling())
+        assert first["made"] and first["floors"]["photographic_realism"] == "fail"
+
+        gen2, second = _sequence(db, Path(tmp))
+
+    assert second["reused_frames"] == ["fit"], (
+        "the frame the real filing path wrote could not be found by the reader")
+    assert len(gen2.calls) == 1
+    assert second["usable_as_listing_asset"] is True
+
+
+def _filed(db, **detail):
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", mp.ACTION, detail={
+        "made": True, "method_version": mp.METHOD_VERSION, "slug": "hats-hat-0",
+        "version": "0.1.0", "spent_cad": 0.08, **detail})
+
+
+def test_a_method_whose_floor_never_once_passed_stops_spending_on_the_next_product_too():
+    """`ATTEMPTS` bounds one release and does nothing about a method that does not work.
+
+    Live, 2026-09-23: three sequences for `hats-hat-0` blocked on `photographic_realism`,
+    against direction that names airbrushed skin explicitly and a judge the calibration
+    proved can pass a real photograph. Each new release starts its attempt budget again,
+    so without this the next product pays three more times for the same answer. A floor
+    that has never once passed is a code change, not a sample.
+    """
+    db = _db()
+    for _ in range(3):
+        _filed(db, floors={"face_identity": "pass", "photographic_realism": "fail"})
+
+    move = mp.what_to_do_next(db, slug="winter-cardigan", version="1.0.0")
+    assert move["render"] is False
+    assert move["reason"] == "method_systematically_blocked"
+    assert move["blocked_on"] == ["photographic_realism"]
+    assert "a new METHOD_VERSION is what tells this check the method changed" in move["why"]
+
+
+def test_a_floor_that_merely_has_not_been_asked_does_not_block_anything():
+    """"This does not work" and "nobody has checked" are the defect family, not a nuance."""
+    db = _db()
+    _filed(db, floors={"face_identity": "pass"})
+    _filed(db, floors={"face_identity": "pass"})
+
+    move = mp.what_to_do_next(db, slug="winter-cardigan", version="1.0.0")
+    assert move["render"] is True
+    assert move["reason"] == "no_usable_frame_yet"
+
+
+def test_a_floor_that_fails_sometimes_is_retried_rather_than_blocked():
+    """Stochastic failure is exactly what the attempt budget is for."""
+    db = _db()
+    _filed(db, floors={"photographic_realism": "fail"})
+    _filed(db, floors={"photographic_realism": "pass"})
+
+    move = mp.what_to_do_next(db, slug="winter-cardigan", version="1.0.0")
+    assert move["render"] is True
+
+
+def test_changing_the_method_version_clears_a_systematic_block():
+    """The escape, and the only one: a floor nothing can clear must be clearable by work.
+
+    The measurement counts only the current method, so a block is lifted by changing the
+    method -- which is a code change somebody has to make and cannot be waited out.
+    """
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    for _ in range(3):
+        Registry(db).audit("publishing", mp.ACTION, detail={
+            "made": True, "method_version": "v11-superseded", "slug": "hats-hat-0",
+            "version": "0.1.0", "spent_cad": 0.08,
+            "floors": {"photographic_realism": "fail"}})
+
+    move = mp.what_to_do_next(db, slug="hats-hat-0", version="0.1.0")
+    assert move["render"] is True, "a superseded method's failures blocked the new one"
+
+
+def test_both_shot_plans_ask_for_the_hands_two_floors_ask_about():
+    """A floor nobody can answer is a floor nobody can clear.
+
+    Live, 2026-09-23: `asset_truth` returned `unjudged` on `hands_and_fingers` and
+    `photographic_realism` `unjudged` on `hands_are_right`, in both frames, because her
+    hands were in neither. Unmade is not passed here, so both floors could only ever have
+    been cleared by the generator including something no plan requested -- the same defect
+    as the shot plan saying "evenly lit" while the bible asked for directional light.
+
+    Asking for hands asks for the harder thing. They are the classic generated-image tell,
+    so this is a frame that has to be better rather than a floor that has been lowered.
+    """
+    from brambleloop.visual import gallery, photoreal
+
+    assert "hands_and_fingers" in gallery.REALISM_CHECKS
+    assert "hands_are_right" in photoreal.CHECKS
+    for shot, plan, _ in mp.SHOTS:
+        assert "hand" in plan.lower(), f"{shot} is checked on hands it never asks for"
+        assert "finger" in plan.lower(), shot
+
 
 if __name__ == "__main__":
     fails = 0
