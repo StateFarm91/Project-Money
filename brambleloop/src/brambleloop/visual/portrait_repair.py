@@ -50,6 +50,22 @@ ACTION = "visual.portrait_repair"
 # is about the crop.
 MUST_HOLD: tuple[str, ...] = ("face", "hair", "eyes", "age")
 
+# Which inherited checks a head-and-shoulders portrait can actually answer.
+#
+# `photoreal.INHERITED` includes `hands_are_right`, and the approved portrait is a portrait:
+# there are no hands in it. So that check came back unjudged on every candidate, `unmade is
+# not passed` fired, and all three repairs were reported `unverifiable` -- a floor nothing
+# can clear, in the module whose entire job is to stop that.
+#
+# This is the same reasoning already applied to `MUST_HOLD`, which excludes the morphology
+# dimensions because a portrait cannot answer for bust or hips. It was applied to the
+# identity half and not to the realism half.
+#
+# A *failed* hands check still counts: if a rebuilt portrait does show hands and they are
+# wrong, that is a real defect. What is dropped is only the requirement that it be judged.
+PORTRAIT_ANSWERABLE: tuple[str, ...] = ("skin_looks_real", "processing_is_restrained",
+                                        "anatomy_is_possible")
+
 REPAIRED = "repaired"
 NOT_REPAIRED = "not_repaired"
 DIFFERENT_WOMAN = "different_woman"
@@ -75,7 +91,9 @@ def assess(db, *, candidate_ref: str, approved_ref: str = "", provider=None,
     reading = photoreal.judge(candidate_ref, db=db, provider=realism_judger)
     gate = photoreal.gate(reading)
     still_failing = sorted(f for f in gate["failed"] if f in photoreal.INHERITED)
-    realism_unmade = sorted(u for u in gate["unjudged"] if u in photoreal.INHERITED)
+    # Only the checks this frame could have answered. A portrait with no hands in it has
+    # not failed a hands check; it has not been asked one.
+    realism_unmade = sorted(u for u in gate["unjudged"] if u in PORTRAIT_ANSWERABLE)
 
     # Floor two: is it still her. Asked of a judge shown both photographs, which is the
     # only comparison that can answer it -- a description of her compared against a
@@ -296,3 +314,40 @@ def _method_verdict(candidates: list[dict]) -> str:
     if all(c.get("verdict") == UNVERIFIABLE for c in made):
         return UNVERIFIABLE
     return NOT_REPAIRED
+
+
+def reassess(record: dict) -> dict:
+    """Re-derive verdicts from evidence already collected. Makes no call and spends nothing.
+
+    The first live run judged three candidates `unverifiable` because `hands_are_right`
+    could not be read on a portrait -- a fault in the rule, not in the evidence. The
+    per-candidate failures and drifts were measured correctly and are on file, so the
+    corrected verdict is a recomputation rather than a re-judgement.
+
+    Deliberately not a re-run: the owner's instruction is not to re-judge old evidence
+    merely because funding returned, and re-rendering would buy answers already paid for.
+    """
+    candidates = []
+    for found in record.get("candidates") or []:
+        if not found.get("made"):
+            candidates.append(found)
+            continue
+        still_failing = list(found.get("realism_still_failing") or ())
+        unmade = [u for u in (found.get("realism_unjudged") or ())
+                  if u in PORTRAIT_ANSWERABLE]
+        drifted = list(found.get("identity_drifted") or ())
+        unread = list(found.get("identity_unread") or ())
+        candidates.append({**found,
+                           "verdict": _verdict(still_failing, unmade, drifted, unread),
+                           "verdict_recomputed": True,
+                           "realism_unjudged_ignored": [
+                               u for u in (found.get("realism_unjudged") or ())
+                               if u not in PORTRAIT_ANSWERABLE]})
+
+    won = next((c for c in candidates if c.get("verdict") == REPAIRED), None)
+    return {**record, "candidates": candidates, "repaired_candidate": won,
+            "verdict": _method_verdict(candidates),
+            "recomputed": (
+                "verdicts re-derived from the evidence already collected, after "
+                "`hands_are_right` was found to be unanswerable on a portrait. No render "
+                "and no judgement was re-bought")}

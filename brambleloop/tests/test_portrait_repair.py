@@ -360,6 +360,81 @@ def test_the_spend_ceiling_stops_it_before_the_attempt_bound_does():
     assert out["spent_cad"] <= 0.05
 
 
+def test_a_check_a_portrait_cannot_answer_does_not_block_the_repair():
+    """A floor nothing can clear, in the module whose job is to stop that.
+
+    The first live run judged all three candidates `unverifiable` because
+    `hands_are_right` came back unjudged -- on a head-and-shoulders portrait, which has no
+    hands in it. `MUST_HOLD` already excluded the morphology dimensions for exactly this
+    reason; the same reasoning had not been applied to the realism half.
+    """
+    assert "hands_are_right" not in pr.PORTRAIT_ANSWERABLE
+    assert "skin_looks_real" in pr.PORTRAIT_ANSWERABLE
+
+    # A judge that answers everything except hands, which is what a portrait produces.
+    checks = {k: True for k in photoreal.CHECKS}
+    del checks["hands_are_right"]
+
+    class _NoHands:
+        model = "test"
+        cost_per_1k_input_cad = 0.0
+        cost_per_1k_output_cad = 0.0
+
+        def see(self, system, prompt, refs, max_tokens=0):
+            import json as _json
+
+            class R:
+                text = _json.dumps(checks)
+                input_tokens = 1
+                output_tokens = 1
+            return R()
+
+    _, compare = _judges()
+    out = _assess(compare, _NoHands())
+
+    assert out["verdict"] == pr.REPAIRED, (
+        "a repair was blocked by a question the photograph cannot be asked")
+
+
+def test_hands_that_are_judged_and_wrong_still_count():
+    """Only the requirement to be judged is dropped, never the failure itself."""
+    realism, compare = _judges(realism_false=("hands_are_right",))
+    out = _assess(compare, realism)
+    assert out["verdict"] == pr.NOT_REPAIRED
+    assert "hands_are_right" in out["realism_still_failing"]
+
+
+def test_reassess_recomputes_from_stored_evidence_without_spending():
+    """The corrected rule applied to evidence already paid for.
+
+    Not a re-run: the owner's instruction is not to re-judge old evidence merely because
+    funding returned, and re-rendering would buy answers already on file.
+    """
+    record = {"candidates": [
+        {"made": True, "attempt": 1,
+         "realism_still_failing": ["processing_is_restrained"],
+         "realism_unjudged": ["hands_are_right"],
+         "identity_drifted": [], "identity_unread": []}]}
+
+    out = pr.reassess(record)
+    assert out["verdict"] == pr.NOT_REPAIRED
+    assert out["candidates"][0]["verdict_recomputed"] is True
+    assert out["candidates"][0]["realism_unjudged_ignored"] == ["hands_are_right"]
+    assert "No render and no judgement was re-bought" in out["recomputed"]
+
+
+def test_reassess_still_reports_a_drifted_candidate_as_a_different_woman():
+    """The recomputation must not quietly upgrade anything it should not."""
+    record = {"candidates": [
+        {"made": True, "attempt": 1, "realism_still_failing": [],
+         "realism_unjudged": ["hands_are_right"],
+         "identity_drifted": ["face"], "identity_unread": []}]}
+
+    out = pr.reassess(record)
+    assert out["verdict"] == pr.DIFFERENT_WOMAN
+    assert out["repaired_candidate"] is None
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

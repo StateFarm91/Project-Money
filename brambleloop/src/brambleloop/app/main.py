@@ -1609,7 +1609,10 @@ def api_portrait_repair() -> dict:
                         "owner's authorisation and refuses to render while the judging "
                         "balance is spent")}
 
-    attempt = row.detail or {}
+    # Verdicts re-derived from the stored evidence, because the first live run judged on a
+    # rule that could not be satisfied by a portrait. No call is made and nothing is
+    # re-bought: the failures and drifts were measured correctly and are on file.
+    attempt = portrait_repair.reassess(row.detail or {})
     won = attempt.get("repaired_candidate")
     return {
         "attempt": attempt,
