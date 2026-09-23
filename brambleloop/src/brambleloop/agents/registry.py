@@ -121,7 +121,14 @@ DEFAULT_AGENTS: list[dict] = [
                             "seasonal.cycle_proof",
                             # A listing frame with the canonical model in it, conditioned
                             # on the frozen pack and verified afterwards (#72, #130, #202).
-                            "assets.model_photography"],
+                            "assets.model_photography",
+                            # Whether the tiling blocker is specific to the incumbent image
+                            # provider. Owner-authorised 2026-09-23 up to CA$4.00 -- but
+                            # this agent's daily ceiling is CA$2.00 and is NOT raised for
+                            # it, so the binding limit is the lower of the two. A standing
+                            # spend control does not get widened to fit an experiment; the
+                            # experiment is sized to fit the control.
+                            "visual.provider_trial"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

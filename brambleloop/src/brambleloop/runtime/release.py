@@ -2760,6 +2760,70 @@ def handle_model_tournament(ctx: JobContext) -> dict:
             "spent_cad": package["spent_cad"], "selected": None}
 
 
+@handlers.register("visual.provider_trial")
+def handle_provider_trial(ctx: JobContext) -> dict:
+    """Measure whether the tiling blocker is specific to the incumbent image provider.
+
+    A job rather than an endpoint for the reason this codebase already learned: a GET that
+    spends money spends it every time a sweep walks the routes.
+
+    Authorised by the owner on 2026-09-23 up to CA$4.00, enforced in
+    `provider_trial.CEILING_CAD` rather than remembered. Idempotent by challenger and
+    method version, so a redeploy does not re-buy a trial that has already run.
+
+    AMBER: it renders images and makes vision calls, inside a ceiling checked before every
+    render. It publishes nothing, switches nothing and never renders the canonical model.
+    """
+    import tempfile
+
+    from ..gateway import images
+    from ..visual import provider_trial
+
+    challenger = ctx.job.inputs.get("challenger") or "nano-banana-2"
+    if challenger not in images.available():
+        return {"ran": False, "reason": ("this challenger has no credential in this "
+                                         "environment, so nothing could be rendered with "
+                                         "it"), "challenger": challenger}
+
+    already = _trial_on_file(ctx.db, challenger=challenger)
+    if already:
+        return {"ran": False, "reason": "trial_already_run", "challenger": challenger,
+                "verdict": already.get("verdict"), "spent_cad": already.get("spent_cad")}
+
+    with tempfile.TemporaryDirectory(prefix="provider-trial-") as work_dir:
+        out = provider_trial.run(ctx.db, challenger=challenger, work_dir=work_dir)
+
+    ctx.audit(provider_trial.ACTION, detail=out)
+    return {"ran": True, "challenger": challenger,
+            "spent_cad": out.get("spent_cad"),
+            "stopped_at_ceiling": out.get("stopped_at_ceiling"),
+            "recommendation": (out.get("verdict") or {}).get("recommendation"),
+            "why": ((out.get("verdict") or {}).get("why") or "")[:300]}
+
+
+def _trial_on_file(db, *, challenger: str) -> dict | None:
+    """A completed trial for this challenger under the current render method."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..publish import owned_photography
+    from ..visual import provider_trial
+
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == provider_trial.ACTION)
+                             .order_by(desc(AuditLog.id)).limit(20)):
+            detail = row.detail or {}
+            if detail.get("challenger") != challenger:
+                continue
+            # A trial run under a superseded render method is evidence about that method,
+            # not about this one -- the same rule the assets themselves follow.
+            made = [a for a in (detail.get("attempts") or []) if a.get("made")]
+            if made and made[0].get("method_version") != owned_photography.METHOD_VERSION:
+                continue
+            return detail
+    return None
+
+
 @handlers.register("assets.owned_photography")
 def handle_owned_photography(ctx: JobContext) -> dict:
     """Render one owned product image for a certified product, and judge it.

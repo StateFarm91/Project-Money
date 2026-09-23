@@ -241,6 +241,33 @@ def _startup() -> None:
         BOOT_ENQUEUES.append({"name": "owned_photography", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})
 
+    # The second-provider trial, once, on the owner's 2026-09-23 authorisation.
+    #
+    # Keyed on the challenger and the render method rather than the commit, because the
+    # question is "does this provider tile under this method" and a redeploy does not make
+    # that a new question. The handler refuses again on its own if a trial is already on
+    # file, so the key and the guard have to disagree before anything is re-bought.
+    try:
+        from ..gateway import images as _img6
+        from ..publish import owned_photography as _owned6
+        from ..runtime.release import _trial_on_file as _trial6
+
+        _challenger = "nano-banana-2"
+        _wanted = (_challenger in _img6.available()
+                   and _trial6(db, challenger=_challenger) is None)
+        _boot_enqueue("provider_trial", when=_wanted, agent="publishing",
+                      job_type="visual.provider_trial",
+                      key=f"provider-trial-{_challenger}-{_owned6.METHOD_VERSION}",
+                      inputs={"challenger": _challenger})
+        if not _wanted:
+            BOOT_ENQUEUES[-1]["why"] = (
+                f"{_challenger} is not credentialled here"
+                if _challenger not in _img6.available()
+                else "this challenger has already been tried under this render method")
+    except Exception as e:  # noqa: BLE001 - never block a boot
+        BOOT_ENQUEUES.append({"name": "provider_trial", "outcome": "error",
+                              "detail": f"{type(e).__name__}: {e}"[:300]})
+
     # And the model-bearing frame, on the same principle: keyed on the rendering method
     # rather than on the clock. Its cadence is daily, which is right unattended and wrong
     # in exactly the case that matters -- a corrected prompt deployed an hour after the
