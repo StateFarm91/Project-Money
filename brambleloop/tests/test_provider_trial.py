@@ -157,6 +157,48 @@ def test_the_two_cases_cover_simple_and_hard_as_the_owner_required():
     assert any("hard" in why for _, why in pt.CASES)
 
 
+def test_a_spent_provider_balance_is_a_refusal_rather_than_a_dead_letter():
+    """Live, 2026-09-23: two dead letters reading "Your credit balance is too low".
+
+    The cycle's own generate and engineer steps call the gateway several links before the
+    asset maker's funding guard, so a `ProviderUnusable` escaped upstream of it and killed
+    the job -- turning `/api/verify` red and reporting a funding problem as a broken
+    worker. Retrying cannot help: no number of attempts adds money to an account, so a dead
+    letter here is a queue entry nobody can action wearing the costume of a bug.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.resilience import PermanentError
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import release
+
+    db = _db()
+    Registry(db).seed_defaults()
+    queue = JobQueue(db)
+    ctx = release.JobContext(
+        job=queue.enqueue("publishing", "seasonal.cycle_proof", {}),
+        db=db, queue=queue, registry=Registry(db), phase=None)
+
+    def explode(*a, **k):
+        raise PermanentError("anthropic 400: Your credit balance is too low")
+
+    from brambleloop.seasonal import cycle
+    from brambleloop.gateway.anthropic import AnthropicProvider
+
+    original_run, original_key = cycle.run, AnthropicProvider.key
+    cycle.run = explode
+    AnthropicProvider.key = staticmethod(lambda: "test-key")
+    try:
+        out = release.handle_seasonal_cycle_proof(ctx)
+    finally:
+        cycle.run, AnthropicProvider.key = original_run, original_key
+
+    assert out["ran"] is True, "a correct refusal was reported as a job that never ran"
+    assert out["refused"] == "model_provider_balance"
+    assert out["complete"] is False
+    assert "the proof did not run" in out["why"], (
+        "a refusal must not read as #300 having been disproved")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

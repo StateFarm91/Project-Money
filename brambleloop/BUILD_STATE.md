@@ -768,6 +768,51 @@ automatically, rather than a stale refusal somebody has to remember to clear.
 body frames". The face is the root, and the face is the thing the owner approved. There is
 no version of this that does not go back to them.
 
+### The CA$4 image authorisation cannot be spent yet — the judging balance is empty
+
+The trial is built, tested, deployed and boot-enqueued. It did not run, and the reason is
+not the image provider:
+
+```
+seasonal.cycle_proof | 2 dead letters | 2026-09-23T14:26Z
+ProviderUnusable: anthropic 400: "Your credit balance is too low to access the Anthropic API"
+```
+
+**Anthropic is the judging provider, not the rendering one.** Every gate that makes a render
+*mean* anything — the motif judge, asset truth, the gallery realism checks, photographic
+realism, the identity comparison — is a vision call on that balance. So rendering on a
+second image provider right now would spend the owner's CA$4 to produce pictures nothing
+could score, which is precisely what `owned_photography`'s funding guard already refuses to
+do. The authorisation is intact and unspent: **CA$0.00 of CA$4.00**.
+
+**A-CLASS, fixed:** the two dead letters turned `/api/verify` red and reported a funding
+problem as a broken worker. `handle_seasonal_cycle_proof`'s docstring already claimed it
+"refuses to spend when the model provider's balance would leave the result unjudgeable" —
+and the asset maker does — but the cycle's own generate and engineer steps call the gateway
+several links earlier, so the error escaped upstream of that guard. It now records a
+refusal instead, the way the freeze job already did. Retrying could never have helped: no
+number of attempts adds money to an account, so a dead letter there was a queue entry
+nobody could action wearing the costume of a bug. The refusal also says "the proof did not
+run", so a funding stop can never read as #300 having been disproved.
+
+### OWNER ACTION REQUIRED — top up the Anthropic balance before the CA$4 trial can run
+
+**Exact action:** add credit to the Anthropic API account that serves judging and vision.
+
+**Why it is required rather than a decision I can make:** it is spend on a provider
+balance, which is explicitly outside standing authority.
+
+**Maximum cost:** owner's discretion. For reference, the trial itself needs roughly CA$0.30
+of judging on top of ~CA$0.70 of rendering, and month-to-date agent opex is CA$62.30 against
+the CA$100 governing ceiling.
+
+**Minutes required of the owner:** about 2.
+
+**Consequence of waiting:** the authorised CA$4 provider experiment cannot start, and
+`seasonal.cycle_proof` will keep refusing (cleanly now, not dead-lettering). No spend
+accrues while waiting — the funding guard stops every path that would render something
+unjudgeable.
+
 ### OWNER ACTION REQUIRED — the image provider cannot render crochet fabric
 
 **Exact action:** authorise evaluating a second image provider for listing imagery, against

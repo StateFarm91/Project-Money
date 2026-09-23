@@ -1524,6 +1524,29 @@ def api_asset_coverage() -> dict:
     return {"owned": owned_asset_coverage(db)}
 
 
+@app.get("/api/provider-trial")
+def api_provider_trial() -> dict:
+    """What the second-provider trial measured, and what it recommends.
+
+    Read-only and free: it reports a trial already run and renders nothing. The trial is a
+    job for exactly that reason -- a GET that spends money spends it every time a sweep
+    walks the routes.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..visual import provider_trial
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == provider_trial.ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+    if row is None:
+        return {"trial": None, "ceiling_cad": provider_trial.CEILING_CAD,
+                "why": ("no second-provider trial is on file. It runs once as a job on the "
+                        "owner's authorisation and is not on a cadence")}
+    return {"trial": row.detail, "ceiling_cad": provider_trial.CEILING_CAD}
+
+
 @app.get("/api/gallery-calibration")
 def api_gallery_calibration() -> dict:
     """Whether the gallery realism checks can pass a photograph of crochet at all.

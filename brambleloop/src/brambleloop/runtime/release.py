@@ -1813,6 +1813,7 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
 
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
+    from ..core.resilience import PermanentError, TransientError
     from ..gateway import routing
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway.model_gateway import ModelGateway
@@ -1847,7 +1848,33 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
             return listing_asset.make(ctx.db, cir, build_twin(cir, result),
                                       work_dir=work_dir)
 
-        report = cycle.run(ctx.db, gateway=gateway, asset_maker=make_asset)
+        try:
+            report = cycle.run(ctx.db, gateway=gateway, asset_maker=make_asset)
+        except (PermanentError, TransientError) as exc:
+            # A spent provider balance is a refusal, not a defect.
+            #
+            # This docstring already claimed the job "refuses to spend when the model
+            # provider's balance would leave the result unjudgeable", and the asset maker
+            # does exactly that -- but the cycle's own generate and engineer steps call the
+            # gateway several links earlier, so a `ProviderUnusable` from an empty balance
+            # escaped upstream of the guard and killed the job. Live, 2026-09-23: two dead
+            # letters reading "Your credit balance is too low", which turned `/api/verify`
+            # red and reported a funding problem as a broken worker.
+            #
+            # That is the distinction this codebase already draws for the freeze job: a
+            # refusal is recorded rather than raised, because the job did its job by
+            # declining. Retrying it cannot help -- no number of attempts adds money to an
+            # account -- so a dead letter here is a queue entry nobody can action wearing
+            # the costume of a bug.
+            ctx.audit("seasonal.cycle_proof_refused",
+                      detail={"why": str(exc)[:400],
+                              "waiting_on": "model_provider_balance"})
+            return {"ran": True, "complete": False,
+                    "refused": "model_provider_balance",
+                    "why": (f"the cycle could not be run because the model provider "
+                            f"refused: {str(exc)[:200]}. Nothing about #300 is proved or "
+                            f"disproved by this -- the proof did not run"),
+                    "waiting_on": "model_provider_balance"}
 
     ctx.audit("seasonal.cycle_proof", detail=report)
     assets = next((s for s in report["steps"] if s["step"] == "assets"), {})
