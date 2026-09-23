@@ -448,6 +448,30 @@ def test_an_older_record_reports_unknown_rather_than_four_empty_lists():
     assert "failed_realism" not in found, "an empty list reads as nothing having failed"
 
 
+def test_the_cadence_photographs_an_untried_product_before_retrying_a_hard_one():
+    """Row order queued the whole catalogue behind its worst case.
+
+    `winter-village-graphghan` is a pictorial picture-blanket -- the hardest thing here for
+    a generator -- and it came first by row id, so three attempts at it would run before
+    nine simpler products got their first. That is also the weaker measurement: nine
+    products at one attempt each says far more about whether the method works than one
+    product at three.
+    """
+    from brambleloop.core.models import Product
+    from brambleloop.runtime.release import _representative_slug
+
+    db = _db()
+    with db.session() as sess:
+        sess.add(Product(slug="winter-village-graphghan", title="Graphghan",
+                         status="certified"))
+        sess.add(Product(slug="spooky-garland", title="Garland", status="certified"))
+
+    # The hard one already has an attempt on file; the simple one has none.
+    _file_asset(db, slug="winter-village-graphghan", usable=False, verdict="blocked")
+
+    assert _representative_slug(db) == "spooky-garland"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

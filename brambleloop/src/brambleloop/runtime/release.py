@@ -2853,10 +2853,25 @@ def _representative_slug(db) -> str:
         if cir is not None and owned_photography.needs_no_model(cir):
             product_first.append((slug, cir))
 
+    # Untried products first, then the ones with attempts already spent.
+    #
+    # Row order alone put `winter-village-graphghan` first, and a pictorial graphghan is
+    # the hardest thing in this catalogue for a generator to reproduce -- so the whole
+    # catalogue queued behind three attempts at its worst case while nine simpler products
+    # (garlands, placemats, ornaments, a table runner) had no asset at all.
+    #
+    # It is also the weaker measurement. Nine products at one attempt each says far more
+    # about whether the method works than one product at three, which is the sampling rule
+    # `visual.reliability` is built on: a dimension asked once cannot be classified, and
+    # three tries at a single hard case is one case, not three.
+    waiting = []
     for slug, cir in product_first:
-        if owned_photography.what_to_do_next(
-                db, slug=slug, version=cir.version)["render"]:
-            return slug
+        move = owned_photography.what_to_do_next(db, slug=slug, version=cir.version)
+        if move["render"]:
+            waiting.append((move["attempts"], slug))
+    if waiting:
+        waiting.sort(key=lambda pair: pair[0])
+        return waiting[0][1]
     return product_first[0][0] if product_first else (rows[0] if rows else "")
 
 

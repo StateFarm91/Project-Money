@@ -520,6 +520,37 @@ session is that a method which fails every time it is asked fails the next nine 
 If the first v4 asset comes back usable, the rest are worth the roughly CA$1 they cost. If
 it does not, that CA$1 would have bought nine more of the same answer.
 
+### The first legible flat-shot failure, and what it costs to read one
+
+Two v4 renders ran in production (CA$0.0411 each, boot-enqueued by the deploys rather than
+bought separately). `winter-village-graphghan`, attempt 2 of 3:
+
+```
+verdict: blocked | motif: mismatch | detail: recorded
+failed_realism: ["texture_not_repeating"]
+semantic_problems: []   third_party_marks: []   unmade: []
+```
+
+Two independent signals pointing the same way: the generator is tiling a patch instead of
+working the chart, and the motif does not match. That is a coherent finding rather than a
+gate misfiring — and it is now readable, which it was not three commits ago.
+
+**But the sample is wrong, and that was an ordering defect.** `_representative_slug` picked
+by row id, and row id put `winter-village-graphghan` first — a pictorial picture-blanket,
+the hardest thing in this catalogue for a generator to reproduce. So the whole catalogue
+was queued behind three attempts at its worst case while nine simpler products (garlands,
+placemats, ornaments, a table runner) had no asset at all.
+
+It is also the weaker measurement. Nine products at one attempt each says far more about
+whether the method works than one product at three, which is the sampling rule
+`visual.reliability` is built on: three tries at a single hard case is one case, not three.
+Fixed — untried products are photographed before products with attempts already spent.
+
+**What this does not yet say.** Whether showing the chart helped is still unknown: both v4
+renders went to the hardest product, and one product's two attempts cannot separate "the
+method is wrong" from "this product is hard". The next renders spread across the simpler
+products, which is what will answer it.
+
 ### The production diagnosis, and why no more renders are being paid for
 
 Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both
