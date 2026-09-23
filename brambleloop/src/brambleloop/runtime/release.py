@@ -2901,19 +2901,28 @@ def _trial_on_file(db, *, challenger: str) -> dict | None:
             detail = row.detail or {}
             if detail.get("challenger") != challenger:
                 continue
-            # A trial that rendered nothing is not a trial.
+            # Was *this challenger* actually put to the question?
             #
-            # Without this, the funding refusal of 2026-09-23 would have filed a row with
-            # no rendered attempts, and this guard would have read it as "already run" --
-            # blocking the real trial permanently the moment the balance came back. The
-            # idempotency key exists to stop re-buying an answer, not to record the absence
-            # of one as though it were the answer.
-            made = [a for a in (detail.get("attempts") or []) if a.get("made")]
-            if not made:
+            # Two ways to get this wrong and both were live. A funding refusal files a row
+            # with no attempts at all, and reading that as "already run" would have blocked
+            # the real trial permanently the moment the balance returned. And a trial where
+            # the challenger returned 402 on every attempt still contains the incumbent's
+            # renders -- so counting any rendered attempt would credit the challenger with
+            # an experiment it never took part in, which is the wrong-evidence shape this
+            # file keeps finding.
+            #
+            # So the question is asked of the challenger's own attempts. They need not have
+            # succeeded: a challenger that was reached and could not render has been tried,
+            # and re-running would re-buy the incumbent arm to learn nothing new.
+            theirs = [a for a in (detail.get("attempts") or [])
+                      if a.get("provider") == challenger]
+            if not theirs:
                 continue
             # A trial run under a superseded render method is evidence about that method,
             # not about this one -- the same rule the assets themselves follow.
-            if made[0].get("method_version") != owned_photography.METHOD_VERSION:
+            rendered = [a for a in (detail.get("attempts") or []) if a.get("made")]
+            if rendered and rendered[0].get(
+                    "method_version") != owned_photography.METHOD_VERSION:
                 continue
             return detail
     return None

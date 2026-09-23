@@ -147,6 +147,37 @@ CASES: tuple[tuple[str, str], ...] = (
 
 INCUMBENT = "gpt-image-2"
 
+# Challengers in the order they answer the question best, and the reason for the order.
+#
+# `nano-banana-2` is first on the merits: its own row in the provider table reads
+# "fine-grained fabric and material texture at up to 4K... whether that buys anything on
+# crochet", which is precisely the failing dimension. Live, 2026-09-23, it returned
+# `402 prepayment credits are depleted` on every attempt and rendered nothing, so it could
+# not be tested at all.
+#
+# `flux-2-pro` is the fallback because it is the only other credentialled provider that
+# conditions on reference images, and its probe is green. Substituting it is not widening
+# the experiment: the authorised question is whether the tiling blocker is provider-
+# specific, one challenger at a time, inside the same ceiling. A challenger that cannot
+# render is not a cheaper answer, it is no answer.
+CHALLENGERS: tuple[str, ...] = ("nano-banana-2", "flux-2-pro")
+
+
+def pick_challenger(env: dict | None = None, *, exclude: tuple[str, ...] = ()) -> str:
+    """The strongest credentialled challenger that is not the incumbent.
+
+    Credentialled is not the same as usable -- `nano-banana-2` held a key and a depleted
+    balance -- so a caller that has already watched one fail passes it in `exclude`. This
+    returns a name, never a promise that it will render.
+    """
+    from ..gateway import images
+
+    have = set(images.available(env))
+    for key in CHALLENGERS:
+        if key in have and key != INCUMBENT and key not in exclude:
+            return key
+    return ""
+
 # Why the identity dimension is reported rather than silently absent.
 #
 # The owner asked for canonical identity and morphology "where applicable", and the honest

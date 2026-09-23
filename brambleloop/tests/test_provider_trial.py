@@ -226,6 +226,37 @@ def test_a_funding_refusal_does_not_count_as_a_trial_already_run():
         "a trial that rendered nothing blocked the trial that would")
 
 
+def test_a_challenger_that_could_not_render_still_counts_as_tried():
+    """Live: `nano-banana-2` returned 402 depleted-credit on every attempt.
+
+    The row still holds the incumbent's two renders, so counting any rendered attempt would
+    credit the challenger with an experiment it never took part in -- and re-running would
+    re-buy the incumbent arm to learn nothing new. Reached and unable to render is tried.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.publish import owned_photography
+    from brambleloop.runtime.release import _trial_on_file
+
+    db = _db()
+    Registry(db).audit("publishing", pt.ACTION, detail={
+        "challenger": "nano-banana-2",
+        "attempts": [
+            {"provider": "nano-banana-2", "made": False, "why": "402 credits depleted"},
+            {"provider": "gpt-image-2", "made": True,
+             "method_version": owned_photography.METHOD_VERSION}]})
+
+    assert _trial_on_file(db, challenger="nano-banana-2") is not None
+    # And the incumbent's renders do not credit a challenger never attempted.
+    assert _trial_on_file(db, challenger="flux-2-pro") is None
+
+
+def test_the_fallback_challenger_is_the_strongest_one_not_already_spent():
+    """A challenger that cannot render is not a cheaper answer, it is no answer."""
+    assert pt.CHALLENGERS[0] == "nano-banana-2", "the merits order is the documented one"
+    assert "flux-2-pro" in pt.CHALLENGERS
+    assert pt.INCUMBENT not in pt.CHALLENGERS
+
+
 def test_a_completed_trial_does_stop_it_being_re_bought():
     """The guard still has to guard, or the ceiling is spent twice on one question."""
     from brambleloop.agents.registry import Registry
@@ -235,7 +266,9 @@ def test_a_completed_trial_does_stop_it_being_re_bought():
     db = _db()
     Registry(db).audit("publishing", pt.ACTION, detail={
         "challenger": "nano-banana-2", "spent_cad": 0.55,
-        "attempts": [{"made": True,
+        # `provider` is on every real attempt record; a fixture without it was testing a
+        # shape production never writes.
+        "attempts": [{"provider": "nano-banana-2", "made": True,
                       "method_version": owned_photography.METHOD_VERSION}]})
 
     assert _trial_on_file(db, challenger="nano-banana-2") is not None

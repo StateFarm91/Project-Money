@@ -795,7 +795,75 @@ number of attempts adds money to an account, so a dead letter there was a queue 
 nobody could action wearing the costume of a bug. The refusal also says "the proof did not
 run", so a funding stop can never read as #300 having been disproved.
 
-### Re-probed on the owner's instruction: the production credential still cannot spend
+### BOTH EXPERIMENTS RAN — reconciled spend and evidence, 2026-09-23
+
+Anthropic funding restored and confirmed by probe (`model_probe` ok at 21:37:07Z,
+`image_vision` working at 21:37:06Z). Both owner-authorised experiments executed.
+
+**Spend reconciliation**
+
+| experiment | ceiling | spent | of ceiling |
+|---|---|---|---|
+| portrait repair | CA$1.00 | **CA$0.1233** | 12% |
+| provider trial | CA$4.00 | **CA$0.0822** | 2% |
+| **total** | CA$5.00 | **CA$0.2055** | 4% |
+
+Month-to-date agent opex CA$65.03 against the CA$100 governing ceiling.
+
+#### 1. Portrait repair — her identity held; the photography did not improve
+
+Three candidates, the full bounded set, because none cleared both floors.
+
+| attempt | identity drifted | realism still failing |
+|---|---|---|
+| 1 | **none** | `processing_is_restrained` |
+| 2 | **none** | `processing_is_restrained`, `skin_looks_real` |
+| 3 | **none** | `processing_is_restrained`, `skin_looks_real` |
+
+**The important half succeeded.** `identity_drifted: []` with nothing unread, three times out
+of three: reference conditioning holds the approved woman through an image-to-image repair.
+The failure mode the owner most needed protecting against — a beautiful, real, subtly
+different woman — did not occur and would have been caught if it had.
+
+**The repair itself did not take.** `processing_is_restrained` failed on every candidate;
+attempt 1 cleared `skin_looks_real` and the others did not. Verdict `not_repaired`: still
+her, still over-processed. Nothing is adopted and the canonical reference is unchanged.
+
+**A floor nothing can clear, in my own module.** All three were first reported
+`unverifiable` because `hands_are_right` came back unjudged — on a head-and-shoulders
+portrait, which has no hands in it. `MUST_HOLD` already excluded the morphology dimensions
+for exactly that reason; the reasoning had been applied to the identity half and not the
+realism half. Corrected, and applied to the stored evidence by recomputation rather than by
+re-rendering: the failures were measured correctly and were already paid for.
+
+#### 2. Provider trial — the challenger could not be tested, and the incumbent now is
+
+`nano-banana-2` returned **`402 prepayment credits are depleted`** on all four attempts and
+rendered nothing. That is a **Google AI Studio** balance, separate from the Anthropic one
+just restored. The authorised question is therefore still unanswered, and the trial
+correctly reports `unproven` rather than a verdict.
+
+What the run did buy is the first full measurement of the incumbent on every dimension,
+including photographic realism, which the product-first path had never judged:
+
+| `gpt-image-2` | spooky-garland | winter-village-graphghan |
+|---|---|---|
+| texture (the blocker) | **fail** | **fail** |
+| structural fidelity | pass | pass |
+| product truth | mismatch | mismatch |
+| photographic realism | blocked (`not_sterile_perfection`) | unjudged |
+
+Rates: texture 0/2, product truth 0/2, photoreal 0/2, usable 0/2 — **structural 2/2**. The
+crochet it renders is physically plausible; it tiles, and it does not work the certified
+chart. Consistent across the simplest and the hardest product.
+
+**Challenger fallback added.** `flux-2-pro` is the only other credentialled provider that
+conditions on reference images and its probe is green, so the trial falls through to it
+rather than re-buying the same 402 on every deploy. That is not widening the experiment:
+one challenger at a time, same question, same ceiling. A challenger that cannot render is
+not a cheaper answer — it is no answer.
+
+### Previously — re-probed on the owner's instruction: the credential could not spend
 
 The owner reported Anthropic Console showing US$5.95 organization credits available and
 asked for a fresh probe of the real production credential rather than cached state. The

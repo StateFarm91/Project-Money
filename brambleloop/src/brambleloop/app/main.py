@@ -302,7 +302,15 @@ def _startup() -> None:
         from ..publish import owned_photography as _owned6
         from ..runtime.release import _trial_on_file as _trial6
 
-        _challenger = "nano-banana-2"
+        # The strongest credentialled challenger that has not already been shown unable to
+        # render. `nano-banana-2` returned 402 depleted-credit on every attempt on
+        # 2026-09-23, so the trial falls through to the next one rather than re-buying the
+        # same refusal on every deploy.
+        from ..visual import provider_trial as _pt6
+
+        _spent_challengers = tuple(
+            k for k in _pt6.CHALLENGERS if _trial6(db, challenger=k) is not None)
+        _challenger = _pt6.pick_challenger(exclude=_spent_challengers) or "nano-banana-2"
         _wanted = (_challenger in _img6.available()
                    and _trial6(db, challenger=_challenger) is None)
         _boot_enqueue("provider_trial", when=_wanted, agent="publishing",
