@@ -57,6 +57,8 @@ UNKNOWN = "unknown"
 # whether any of the others mean anything.
 SIGNALS: dict[str, str] = {
     "progress": "jobs actually completed in the window -- the only signal that is about work",
+    "evidence_freshness": ("completed work that produced something this system did not "
+                           "already know -- the signal `progress` cannot give"),
     "worker_heartbeat": "the worker ticked recently",
     "scheduler_freshness": "the scheduler has enqueued within its own interval",
     "queue_age": "how long the oldest pending job has waited",
@@ -74,6 +76,13 @@ WORKER_SILENT_AFTER_S = 120
 SCHEDULER_SILENT_AFTER_S = 15 * 60
 # A pending job older than this means the queue is not draining, whatever the worker says.
 QUEUE_STALLED_AFTER_S = 60 * 60
+# How far back to look for a job whose result differed from that cadence's previous run.
+#
+# Longer than the progress window because several cadences are daily: six hours of
+# identical daily results is normal and twelve is not. Chosen so a system producing
+# nothing new across two full cycles of its fastest meaningful work is visible as stalled.
+EVIDENCE_WINDOW_S = 12 * 60 * 60
+
 # Completed jobs below this in the window means nothing is being achieved.
 PROGRESS_WINDOW_S = 6 * 60 * 60
 MIN_COMPLETIONS = 1
@@ -175,6 +184,33 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
          "nothing has been completed in the window. Every other signal can be green while "
          "this one is not, because the others measure that the process exists and this one "
          "measures that it is achieving something")))
+
+    # Whether any of that completed work actually produced something new.
+    #
+    # `progress` counts completed jobs, and on 2026-09-22 that was the whole problem: the
+    # system ran 44 cadences and 2,893 jobs across a full day with every liveness signal
+    # green, while the gallery cadence re-judged the same twenty-five images every two
+    # hours and five other cadences returned `ran: false`. Jobs completing is not evidence
+    # being produced, and a health sweep that cannot tell them apart reports a loop
+    # spinning in place as healthy indefinitely -- which it did, for about eight hours,
+    # at roughly CA$8.50 a day.
+    #
+    # Measured by comparing each cadence's latest result against its previous one, because
+    # that is what "new" means here and it needs no judgement: a cadence returning exactly
+    # what it returned last time has told this system nothing it did not know.
+    fresh, repeated = _evidence(db, now)
+    readings.append(Reading(
+        "evidence_freshness",
+        HEALTHY if fresh else IDLE,
+        {"cadences_with_new_results": sorted(fresh),
+         "cadences_repeating_themselves": sorted(repeated),
+         "window_hours": EVIDENCE_WINDOW_S // 3600},
+        ("work completed and some of it produced results this system had not seen before"
+         if fresh else
+         "every job that completed in the window returned what its cadence returned last "
+         "time. The queue is draining, the worker is alive and nothing is being learned -- "
+         "which is what a stalled loop looks like from the inside, and why `progress` "
+         "being green is not enough to call this healthy")))
 
     tick_age = _age_s(_parse(runner_state.get("worker_last_tick")), now)
     if tick_age is None and executing_worker:
@@ -416,3 +452,45 @@ def state() -> dict:
                  "queue and complete nothing for a week -- every liveness signal green, "
                  "because none of them is about work. An idle system reports idle (#185)."),
     }
+
+
+def _evidence(db, now) -> tuple[set[str], set[str]]:
+    """Which cadences produced a new result in the window, and which repeated themselves.
+
+    Compares each job type's most recent completed result against the one before it. A
+    cadence whose two latest runs are identical has produced nothing new, whatever its
+    status says; one whose result moved has told this system something.
+
+    Deliberately not a judgement about *value*: "different from last time" is checkable
+    without opinion, and the failure this exists to catch -- the same twenty-five images
+    judged and charged for every two hours, reporting `judged: 25` each time -- is exactly
+    a result that never moves.
+    """
+    import datetime
+    import json
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import Job, JobStatus
+
+    since = now - datetime.timedelta(seconds=EVIDENCE_WINDOW_S)
+    rows = list(db.scalars(
+        select(Job).where(Job.status == JobStatus.DONE)
+        .where(Job.finished_at.is_not(None))
+        .where(Job.finished_at >= since)
+        .order_by(desc(Job.finished_at)).limit(400)))
+
+    latest: dict[str, list[str]] = {}
+    for job in rows:
+        seen = latest.setdefault(job.job_type, [])
+        if len(seen) < 2:
+            seen.append(json.dumps(job.outputs or {}, sort_keys=True, default=str))
+
+    fresh, repeated = set(), set()
+    for job_type, results in latest.items():
+        # One run in the window is new by construction: there is nothing it repeats.
+        if len(results) < 2 or results[0] != results[1]:
+            fresh.add(job_type)
+        else:
+            repeated.add(job_type)
+    return fresh, repeated

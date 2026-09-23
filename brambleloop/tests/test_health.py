@@ -404,6 +404,107 @@ def test_state_says_what_online_is_allowed_to_mean():
     assert set(out["already_automatic"]) == {"clear_expired_lease", "requeue_dead_letter"}
 
 
+
+def _job(s, job_type, outputs, minutes_ago, now):
+    import datetime
+
+    from brambleloop.core.models import Job, JobStatus
+
+    s.add(Job(agent="a", job_type=job_type, inputs={}, outputs=outputs,
+              status=JobStatus.DONE,
+              finished_at=now - datetime.timedelta(minutes=minutes_ago)))
+
+
+def _now():
+    import datetime
+
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def test_a_cadence_repeating_itself_is_not_new_evidence():
+    """2026-09-22, and the reason a stalled day looked healthy from the outside.
+
+    The system ran 44 cadences and 2,893 jobs with every liveness signal green, while the
+    gallery cadence re-judged the same twenty-five images every two hours -- returning
+    `judged: 25` each time, at about CA$8.50 a day -- and five other cadences returned
+    `ran: false`. `progress` counts completed jobs and so reported work being done.
+    Completed jobs are not produced evidence, and nothing could tell them apart.
+    """
+    import datetime
+
+    from brambleloop.core.db import Database
+    from brambleloop.ops import health
+
+    db = Database("sqlite://")
+    db.create_all()
+    now = _now()
+    with db.session() as s:
+        _job(s, "intel.gallery_analysis", {"judged": 25, "remaining": 475}, 30, now)
+        _job(s, "intel.gallery_analysis", {"judged": 25, "remaining": 475}, 150, now)
+
+    with db.session() as s:
+        fresh, repeated = health._evidence(s, now)
+    assert fresh == set()
+    assert repeated == {"intel.gallery_analysis"}
+
+
+def test_a_cadence_whose_result_moved_is_new_evidence():
+    from brambleloop.core.db import Database
+    from brambleloop.ops import health
+
+    db = Database("sqlite://")
+    db.create_all()
+    now = _now()
+    with db.session() as s:
+        _job(s, "intel.gallery_analysis", {"judged": 25, "remaining": 450}, 30, now)
+        _job(s, "intel.gallery_analysis", {"judged": 25, "remaining": 475}, 150, now)
+
+    with db.session() as s:
+        fresh, _ = health._evidence(s, now)
+    assert fresh == {"intel.gallery_analysis"}
+
+
+def test_the_sweep_refuses_to_call_a_spinning_loop_healthy():
+    """The signal exists so that eight hours of this is visible rather than reassuring."""
+    import os
+
+    from brambleloop.core.db import Database
+    from brambleloop.ops import health
+
+    db = Database("sqlite://")
+    db.create_all()
+    now = _now()
+    with db.session() as s:
+        for i in range(health.MIN_COMPLETIONS + 2):
+            _job(s, "intel.gallery_analysis", {"judged": 25, "remaining": 475}, 10 + i, now)
+
+    with db.session() as s:
+        readings = health.read(s, runner_state={}, env=dict(os.environ),
+                               executing_worker=True)
+    by = {r.signal: r for r in readings}
+    assert by["progress"].state == health.HEALTHY, "jobs really did complete"
+    assert by["evidence_freshness"].state == health.IDLE, \
+        "a loop returning the same result every run reported as producing evidence"
+    assert "intel.gallery_analysis" in \
+        by["evidence_freshness"].evidence["cadences_repeating_themselves"]
+
+
+def test_one_run_in_the_window_is_new_rather_than_repeated():
+    """There is nothing for a first run to repeat, and calling it stale would be a verdict
+    computed from absence of evidence."""
+    from brambleloop.core.db import Database
+    from brambleloop.ops import health
+
+    db = Database("sqlite://")
+    db.create_all()
+    now = _now()
+    with db.session() as s:
+        _job(s, "seasonal.cycle_proof", {"complete": False}, 30, now)
+
+    with db.session() as s:
+        fresh, repeated = health._evidence(s, now)
+    assert fresh == {"seasonal.cycle_proof"} and repeated == set()
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

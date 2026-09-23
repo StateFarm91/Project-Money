@@ -5130,3 +5130,58 @@ throughout, `store.published` is 0 against 134 recorded refusals, and `BRAMBLELO
 is `shadow`.
 
 Tests: 2,988 passing, 0 failing.
+
+---
+
+## 2026-09-23 — forensic recovery: why a busy day produced little
+
+### The diagnosis, from production evidence rather than from the dashboards
+
+**Production never stalled.** Everything the recovery prompt listed as a candidate cause was
+ruled out by evidence, not by assumption:
+
+| candidate cause | evidence | verdict |
+|---|---|---|
+| deployment mismatch | deployed SHA == local == remote | ruled out |
+| worker failure | alive, 9h uptime, 0 restarts, ticking | ruled out |
+| scheduler failure | ticking within its interval | ruled out |
+| queue starvation | 0 pending, 0 running, 2,893 done, 0 failed | ruled out |
+| executor believed nothing READY | `build_tick` reports `ready: 5` | ruled out |
+| lease problem | lease held and re-acquirable | ruled out |
+| database / spend / provider gate | `/api/verify` 12/12, CA$60.63 of CA$100, no paused scopes | ruled out |
+| genuine lack of executable work | five READY requirements, all ours | ruled out |
+
+**What was actually true.** Forty-four cadences ran on schedule and the system learned
+almost nothing from them:
+
+- `gallery_analysis` re-judged the same twenty-five images every two hours and charged for
+  them each time (B-647) — twelve runs, no new evidence, about CA$8.50 a day.
+- Five cadences are listed by the queue's own `last_run_was_a_no_op`:
+  `model_tournament`, `model_reference_pack`, `owned_photography`, `model_photography`,
+  `blinded_benchmark`.
+- `seasonal_cycle_proof` ran once and failed at `assets` — real evidence, no progress.
+- **The development loop is not a cadence.** Code only changes while a Claude session is
+  awake, and the heartbeat Routine wakes one every eight hours. Production cadences
+  generate evidence; they do not advance a READY requirement.
+
+**And the health sweep called all of it healthy**, because `progress` counts *completed
+jobs* — `{"state": "healthy", "bad": [], "why": "work is being completed"}`. Jobs
+completing is not evidence being produced. That is the demonstrated root cause of "active
+all day, little to show": not a failure anywhere, but **no signal that could tell a working
+loop from a spinning one**.
+
+### The signal that would have caught it (B-648)
+
+`evidence_freshness` compares each cadence's latest result against its previous one over a
+twelve-hour window. A cadence returning exactly what it returned last time has told this
+system nothing it did not know. Deliberately not a judgement about value — "different from
+last time" needs no opinion, and the failure it exists to catch is precisely a result that
+never moves. `progress` and `evidence_freshness` can now disagree, and when they do, the
+second one is the true reading.
+
+### Classification
+
+- **B-647 / B-648 — TRUST BLOCKERS.** Duplicate paid processing, and a health signal that
+  reported a stalled loop as healthy. Both fixed.
+- Remote Control for HQ is **unfinished C-class convenience**, not a launch blocker.
+  Recorded and dropped; the cloud session and Railway production are both PC-independent.
