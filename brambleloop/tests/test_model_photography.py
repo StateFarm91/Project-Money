@@ -701,6 +701,106 @@ def test_every_frame_in_the_sequence_sees_the_chart():
     assert all(c.endswith("chart-ref.png") for c in charts), charts
     assert charts[0] == charts[1], "the two frames were shown different charts"
 
+
+def test_a_frame_that_cleared_its_floors_is_kept_rather_than_rolled_again():
+    """The architectural fix for oscillation, and the reason it is not a weakening.
+
+    Generation is stochastic and the floors are independent, so re-rendering the whole
+    sequence on any failure asks all six floors to land in a single draw. The live runs
+    showed exactly that: v8 passed identity, morphology, asset truth and styling; v10
+    passed product truth; no single draw passed everything. Keeping what passed turns
+    "all six floors in one attempt" into "each frame passes in some attempt" -- the same
+    standard, a fraction of the cost.
+    """
+    def detail_only_fails(image_ref, db=None):
+        """Realism fails on the second frame rendered -- the detail shot -- and not the fit."""
+        checks = {k: True for k in photoreal.CHECKS}
+        if image_ref.endswith("frame-1.png"):
+            checks["skin_looks_real"] = False
+        return {"judged": True, "checks": checks, "notes": ""}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        gen, first = _sequence(db, Path(tmp), realism_judger=detail_only_fails)
+        assert first["floors"]["photographic_realism"] == "fail"
+        fit = next(f for f in first["frames"] if f["shot"] == "fit")
+        assert all(v == "pass" for v in fit["floors"].values()), fit["floors"]
+        for frame in first["frames"]:
+            _file(db, frame)
+
+        rendered_before = len(gen.calls)
+        gen2, second = _sequence(db, Path(tmp))
+
+    # The fit frame was kept; only the detail frame was rendered again.
+    assert second["reused_frames"] == ["fit"], second["reused_frames"]
+    assert len(gen2.calls) == 1, "the whole sequence was re-rendered"
+    assert second["floors"]["photographic_realism"] == "pass"
+    assert second["usable_as_listing_asset"] is True
+    assert rendered_before == 2
+
+
+def test_a_frame_with_any_failed_floor_is_never_kept():
+    """Even a floor it is not the authority for.
+
+    A fit frame whose fabric read as a mismatch is a bad photograph, and keeping it would
+    carry that `fail` into every later sequence under the "a failure anywhere blocks"
+    rule -- poisoning the release permanently with a verdict nothing could clear.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        _, first = _sequence(db, Path(tmp), motif_judger=_motif(
+            repeating_unit_shape="solid square", repeats_across=8))
+        for frame in first["frames"]:
+            assert frame["floors"]["product_truth"] == "fail"
+            _file(db, frame)
+
+        gen2, second = _sequence(db, Path(tmp))
+
+    assert second["reused_frames"] == []
+    assert len(gen2.calls) == 2
+
+
+def test_a_frame_is_kept_only_on_verdicts_that_were_actually_made():
+    """`unverifiable` is not a pass here either, or reuse would launder an unmade check."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+
+        def half_read(image_ref, db=None):
+            return {"judged": False, "error": "provider refused", "checks": {}}
+
+        _, first = _sequence(db, Path(tmp), realism_judger=half_read)
+        assert first["floors"]["photographic_realism"] == "unverifiable"
+        for frame in first["frames"]:
+            _file(db, frame)
+
+        gen2, second = _sequence(db, Path(tmp))
+
+    assert second["reused_frames"] == [], "a frame with an unmade check was kept"
+    assert len(gen2.calls) == 2
+
+
+def test_a_kept_frame_does_not_bill_twice():
+    """Cost per usable gallery is the number this exists to move; counting a kept frame's
+    original spend again would flatter it."""
+    def detail_only_fails(image_ref, db=None):
+        checks = {k: True for k in photoreal.CHECKS}
+        if image_ref.endswith("frame-1.png"):
+            checks["skin_looks_real"] = False
+        return {"judged": True, "checks": checks, "notes": ""}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = _db()
+        _, first = _sequence(db, Path(tmp), realism_judger=detail_only_fails)
+        for frame in first["frames"]:
+            _file(db, frame)
+        assert first["spent_cad"] == 0.08, "two frames rendered, two billed"
+
+        _, second = _sequence(db, Path(tmp))
+
+    assert second["reused_frames"] == ["fit"]
+    # Only the newly rendered frame is billed to this pass.
+    assert second["spent_cad"] == 0.04
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

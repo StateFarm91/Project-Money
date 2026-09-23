@@ -38,7 +38,7 @@ ACTION = "assets.model_photography"
 # Part of what decides whether a frame on file answers the question being asked. A frame
 # rendered by an earlier method is evidence about that method, and reading it back as
 # "this release already has one" is how a corrected prompt quietly never runs.
-METHOD_VERSION = "v11-every-frame-sees-the-chart-so-one-listing-is-one-fabric"
+METHOD_VERSION = "v12-a-frame-that-passed-is-kept-rather-than-rolled-again"
 
 # How many times one release may be re-rendered when the frame comes back unusable.
 #
@@ -428,7 +428,22 @@ def sequence(db, cir, twin, **kw) -> dict:
 
     frames: list[dict] = []
     for name, _, _floors in SHOTS:
-        frame = make(db, cir, twin, shot=name, chart_reference=chart, **kw)
+        # A frame that already cleared every floor it is judged on is kept, not rolled
+        # again. Generation is stochastic and the floors are independent, so re-rendering
+        # the whole sequence on any failure asks all six to land in a single draw -- which
+        # is why the live runs oscillated: v8 passed identity, morphology, asset truth and
+        # styling; v10 passed product truth; no one draw passed everything. Keeping what
+        # passed turns "all six floors in one attempt" into "each frame passes in some
+        # attempt", which is the same standard at a fraction of the cost and is the
+        # difference between a lucky render and a pipeline.
+        #
+        # Safe for gallery continuity because a kept frame was conditioned on the same
+        # frozen pack, the same body reference and the same certified chart as the one
+        # replacing its sibling. Nothing here lowers a floor: a kept frame kept its
+        # verdicts too, and they are re-combined with the new frame's on every pass.
+        keep = _passing_frame(db, cir, shot=name)
+        frame = keep or make(db, cir, twin, shot=name, chart_reference=chart, **kw)
+        frame = dict(frame, reused=bool(keep))
         frames.append(frame)
         if not frame.get("made"):
             # One frame that could not be rendered is a sequence that does not exist.
@@ -474,8 +489,40 @@ def sequence(db, cir, twin, **kw) -> dict:
             "floors take the worst answer any frame gave. A sequence ships when every floor "
             "says pass; `unverifiable` is not on the pass side, because a check nobody "
             "could make is not a check that passed"),
-        "spent_cad": round(sum(float(f.get("spent_cad") or 0.0) for f in frames), 4),
+        "spent_cad": round(sum(float(f.get("spent_cad") or 0.0)
+                               for f in frames if not f.get("reused")), 4),
+        "reused_frames": [f["shot"] for f in frames if f.get("reused")],
+        "why_reuse_is_safe": (
+            "a kept frame was conditioned on the same frozen pack, the same body reference "
+            "and the same certified chart as the frame rendered beside it, and it kept its "
+            "own verdicts, which are re-combined on every pass. Nothing is lowered: a frame "
+            "is only kept when every floor it answers actually said pass"),
     }
+
+
+def _passing_frame(db, cir, *, shot: str) -> dict | None:
+    """The most recent frame for this release and shot that cleared every floor it answers.
+
+    Its own floors, not the sequence's: the fit frame is not held back because a detail
+    frame failed the motif, which is the whole point. `unverifiable` is not a pass here
+    either, so a frame is only kept on verdicts that were actually made.
+    """
+    answers = dict((name, floors) for name, _, floors in SHOTS).get(shot, ())
+    wanted = set(answers) | set(SHARED_FLOORS)
+    for frame in _frames(db, slug=cir.slug):
+        if frame.get("shot") != shot or frame.get("version") != cir.version:
+            continue
+        floors = frame.get("floors") or {}
+        # Any failed floor disqualifies the frame, including one it is not the authority
+        # for. A fit frame whose fabric read as a mismatch is a bad photograph even though
+        # the detail frame decides product truth -- and keeping it would carry that `fail`
+        # into every later sequence under the "a failure anywhere blocks" rule, poisoning
+        # the release permanently with a verdict nothing could clear.
+        if any(verdict == "fail" for verdict in floors.values()):
+            continue
+        if all(floors.get(name) == "pass" for name in wanted):
+            return frame
+    return None
 
 
 def _authority_for(floor: str) -> str:
