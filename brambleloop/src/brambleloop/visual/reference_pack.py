@@ -33,7 +33,7 @@ owner approves, and `model_registry.select_canonical` is the only thing that can
 from __future__ import annotations
 
 from ..core.resilience import PermanentError, TransientError
-from . import brief, identity, model_registry, tournament
+from . import brief, identity, model_registry, photoreal, tournament
 
 PACK_ACTION = "model.reference_pack"
 
@@ -157,6 +157,32 @@ def build(db, *, env: dict | None = None, work_dir: str | None = None,
                 "why": ("the model provider's balance is spent, so nothing rendered now "
                         "could be measured. " + held["why_this_stops_spending"]),
                 "waiting_on": "model_provider_balance",
+                "spent_cad": 0.0, "pack_version": PACK_VERSION}
+
+    # Asked before the provider, because it costs nothing and it is the one refusal that
+    # no amount of rendering can work around.
+    #
+    # The portrait below is carried, not re-rendered, so every pack this function can
+    # build has the same face in it. If that face cannot pass the checks a render inherits
+    # from it, then the pack cannot be frozen -- and finding that out at the freeze gate
+    # means seven frames were rendered and paid for to reach a refusal that was knowable
+    # beforehand. Production judged this exact file `blocked` on `skin_looks_real` and
+    # `processing_is_restrained` on 2026-09-23.
+    #
+    # Read, never judged here: a filed verdict or nothing. Nobody having checked is not a
+    # failure, so an unchecked portrait builds as it always did.
+    carried_verdict = photoreal.filed_portrait_verdict(
+        db, fingerprint=photoreal._portrait_fingerprint(brief.approved_portrait()))
+    if carried_verdict and carried_verdict.get("inheritable_failures"):
+        return {"built": False, "stage": "carried_portrait",
+                "why": (f"the portrait every pack carries forward as its face fails "
+                        f"{carried_verdict['inheritable_failures']}, which are the checks "
+                        f"a render inherits from it. Building would render seven frames "
+                        f"around a face that cannot be frozen, so the file itself is what "
+                        f"has to change -- and replacing the approved face is the owner's "
+                        f"decision, not this job's"),
+                "waiting_on": "owner_replaces_the_approved_portrait",
+                "portrait_fingerprint": carried_verdict.get("fingerprint", "")[:16],
                 "spent_cad": 0.0, "pack_version": PACK_VERSION}
 
     provider = tournament.preferred_provider(db, env)

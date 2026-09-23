@@ -414,3 +414,95 @@ def filed_verdict(db, *, pack_version: str = "") -> dict | None:
                 continue
             return detail
     return None
+
+
+PORTRAIT_ACTION = "visual.carried_portrait_realism"
+
+
+def _portrait_fingerprint(path: str) -> str:
+    """The portrait's content hash. A verdict belongs to the bytes it was made about."""
+    import hashlib
+    from pathlib import Path
+
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def carried_portrait(db, *, provider=None, path: str = "") -> dict:
+    """Whether the committed portrait every pack build carries can pass what it passes on.
+
+    `reference_pack.build` does not re-render the face. It carries
+    `brief.approved_portrait()` -- a file in this repository -- because the owner approved
+    that face and a revision about one body dimension must not put it back at risk. Which
+    means the carried portrait's realism is not one pack's property: it is every future
+    pack's, until the file changes.
+
+    Production, 2026-09-23: that file is what the frozen pack's face frame is, and it came
+    back `blocked` on `skin_looks_real` and `processing_is_restrained` on two independent
+    runs. So every pack this code can build inherits an airbrushed face and would be
+    refused by the freeze gate -- after rendering seven frames and paying for them.
+
+    Keyed by content hash rather than by date or pack version. The answer cannot change
+    while the bytes do not, so this is asked once ever rather than once per build, and a
+    replaced portrait is a different question that gets asked again automatically.
+    """
+    from . import brief
+
+    path = path or brief.approved_portrait()
+    fingerprint = _portrait_fingerprint(path)
+    if not fingerprint:
+        return {"judged": False, "why": f"the carried portrait is not readable at {path}"}
+
+    filed = filed_portrait_verdict(db, fingerprint=fingerprint)
+    if filed:
+        return filed
+
+    reading = judge(path, db=db, provider=provider)
+    verdict = gate(reading)
+    out = {
+        "judged": bool(reading.get("judged")),
+        "fingerprint": fingerprint,
+        "portrait": path,
+        "verdict": verdict["verdict"],
+        "failed": verdict["failed"],
+        "unjudged": verdict["unjudged"],
+        "inheritable_failures": sorted(f for f in verdict["failed"] if f in INHERITED),
+        "notes": reading.get("notes", ""),
+        "why_it_matters": (
+            "every reference pack carries this exact file forward as its face frame, so a "
+            "failure here is not one pack's problem -- it is every pack this code can "
+            "build, until the file is replaced"),
+    }
+    if db is not None and out["judged"]:
+        try:
+            from ..core.models import AuditLog
+
+            with db.session() as s:
+                s.add(AuditLog(actor="creative_director", action=PORTRAIT_ACTION,
+                               detail=out))
+        except Exception:  # noqa: BLE001 - a diagnostic that cannot file is still one
+            pass
+    return out
+
+
+def filed_portrait_verdict(db, *, fingerprint: str) -> dict | None:
+    """The filed verdict for exactly these bytes, or nothing.
+
+    Nothing means nobody has checked, which is not the same as a pass and not the same as
+    a failure. Callers that must not spend read this and proceed when it is empty.
+    """
+    if db is None or not fingerprint:
+        return None
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == PORTRAIT_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(20)):
+            detail = row.detail or {}
+            if detail.get("judged") and detail.get("fingerprint") == fingerprint:
+                return detail
+    return None

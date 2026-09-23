@@ -529,11 +529,36 @@ The render guard is deployed and its input is filed, but it has not yet been *ob
 refusing in production — the cadence has not needed the model since the verdict was filed.
 Saying it works would be a claim about a code path nobody has watched run.
 
+### The root cause is one committed file, and it narrows the decision
+
+`reference_pack.build` does not re-render the face. It carries
+`visual/assets/identity_portrait.jpg` forward unchanged — deliberately, because the owner
+approved that face and the last revision was about one body dimension, which must not put
+an approved face back at risk.
+
+That file **is** the face frame production judged `blocked`. So it is not one pack's
+problem: every pack this code can build inherits it, and would be refused by the freeze
+gate after rendering seven frames and paying for them. `reference_pack.build` now refuses
+at stage `carried_portrait` with `spent_cad: 0.0` when a filed verdict says the carried
+face cannot pass — read, never judged there, so an unchecked portrait builds as it always
+did.
+
+The verdict is keyed by the file's **content hash**, not by a date or a pack version. That
+is what makes replacing the file the fix: new bytes are a new question, asked
+automatically, rather than a stale refusal somebody has to remember to clear.
+`/api/carried-portrait` asks it once and files it; repeat calls are free.
+
+**What this changes about the decision below:** re-making the model is not "generate new
+body frames". The face is the root, and the face is the thing the owner approved. There is
+no version of this that does not go back to them.
+
 ### OWNER ACTION REQUIRED — the canonical model has to be re-made
 
 **Exact action:** approve re-opening the canonical-model selection, which was settled on
 2026-09-21 from five finalists. The approved identity cannot produce a customer-facing
-photograph, so every worn product is blocked behind her.
+photograph, so every worn product is blocked behind her. Specifically **the approved
+portrait is the root** — the carried file, not just the body frames — so this is a new
+face, not a revision to the existing one.
 
 **Why it is required rather than a decision I can make:** replacing her is a brand identity
 decision and `freeze` refuses a second canonical outright by design (#200). It is also

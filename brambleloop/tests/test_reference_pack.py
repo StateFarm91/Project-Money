@@ -1134,6 +1134,67 @@ def test_the_bust_direction_is_the_owners_revision():
     assert identity.REQUIRED_MEASURABLE["morphology"] == ("bust", "torso")
 
 
+def _file_portrait_verdict(db, *, failures, fingerprint=None):
+    from brambleloop.agents.registry import Registry
+    from brambleloop.visual import brief, photoreal
+
+    fingerprint = fingerprint or photoreal._portrait_fingerprint(brief.approved_portrait())
+    Registry(db).audit("creative_director", photoreal.PORTRAIT_ACTION, detail={
+        "judged": True, "fingerprint": fingerprint,
+        "portrait": brief.approved_portrait(),
+        "inheritable_failures": list(failures),
+        "verdict": "blocked" if failures else "clear"})
+
+
+def test_a_carried_portrait_that_cannot_pass_refuses_the_build_before_it_spends():
+    """The face is carried, not re-rendered, so it is every future pack's property.
+
+    Production judged this exact file `blocked` on `skin_looks_real` and
+    `processing_is_restrained`. Without this the job renders seven frames around a face
+    that the freeze gate will refuse, and pays for them to reach a refusal that was
+    knowable before the first render.
+    """
+    db = _db()
+    _file_portrait_verdict(db, failures=["processing_is_restrained", "skin_looks_real"])
+
+    out = rp.build(db)
+    assert out["built"] is False
+    assert out["stage"] == "carried_portrait"
+    assert out["spent_cad"] == 0.0, "it spent money to learn something already on file"
+    assert out["waiting_on"] == "owner_replaces_the_approved_portrait"
+    assert "skin_looks_real" in out["why"]
+
+
+def test_an_unchecked_portrait_builds_exactly_as_it_always_did():
+    """Nobody having checked is not a failure. The build is not held on a missing answer."""
+    out = rp.build(_db())
+    assert out.get("stage") != "carried_portrait"
+
+
+def test_a_verdict_about_different_bytes_does_not_block_a_replaced_portrait():
+    """The verdict belongs to the bytes it was made about.
+
+    Keying by content hash is what makes replacing the file the fix: a new portrait is a
+    new question, asked automatically, rather than a stale refusal somebody has to
+    remember to clear.
+    """
+    db = _db()
+    _file_portrait_verdict(db, failures=["skin_looks_real"],
+                           fingerprint="0" * 64)
+
+    out = rp.build(db)
+    assert out.get("stage") != "carried_portrait"
+
+
+def test_a_portrait_flawed_only_in_its_own_scene_still_builds():
+    """The gate has to be able to pass, or it is the defect it was built against."""
+    db = _db()
+    _file_portrait_verdict(db, failures=[])
+
+    out = rp.build(db)
+    assert out.get("stage") != "carried_portrait"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

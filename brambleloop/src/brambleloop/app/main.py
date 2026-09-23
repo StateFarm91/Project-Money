@@ -1484,6 +1484,21 @@ def api_reference_realism() -> dict:
             "inherited_checks": list(photoreal.INHERITED)}
 
 
+@app.get("/api/carried-portrait")
+def api_carried_portrait() -> dict:
+    """Whether the face every reference pack carries forward can pass what it passes on.
+
+    `reference_pack.build` does not re-render the portrait -- it carries the approved file
+    -- so this one answer decides whether any pack this code can build is freezable at all.
+    Asked once per set of bytes and filed, so repeat calls are free and a replaced
+    portrait is a new question asked automatically.
+    """
+    from ..visual import photoreal
+
+    return {"carried_portrait": photoreal.carried_portrait(db),
+            "inherited_checks": list(photoreal.INHERITED)}
+
+
 @app.get("/api/photoreal-calibration")
 def api_photoreal_calibration() -> dict:
     """Whether the photographic-realism judge can pass a photograph nobody generated.

@@ -220,6 +220,58 @@ def test_no_materialisable_reference_is_not_a_finding_about_the_pack():
     assert "verdict" not in out
 
 
+class _Counting(_Ref):
+    """Counts how many times it was actually asked."""
+
+    def __init__(self, **checks):
+        super().__init__(**checks)
+        self.calls = 0
+
+    def see(self, system, prompt, refs, max_tokens=0):
+        self.calls += 1
+        return super().see(system, prompt, refs, max_tokens)
+
+
+def test_the_carried_portrait_is_judged_once_per_set_of_bytes_and_then_read_for_free():
+    """It is the same file every time, so the answer cannot change while the bytes do not.
+
+    Asking per build would pay repeatedly for an answer that is already on file, in a
+    function whose entire purpose is to refuse before spending.
+    """
+    db = _db()
+    judge = _Counting(skin_looks_real=False)
+
+    first = photoreal.carried_portrait(db, provider=judge)
+    assert first["judged"] is True
+    assert first["inheritable_failures"] == ["skin_looks_real"]
+    assert judge.calls == 1
+
+    second = photoreal.carried_portrait(db, provider=judge)
+    assert second["fingerprint"] == first["fingerprint"]
+    assert judge.calls == 1, "the same bytes were judged twice"
+
+
+def test_a_replaced_portrait_is_a_new_question_rather_than_a_stale_refusal():
+    """Keying by content hash is what makes replacing the file the fix."""
+    db = _db()
+    photoreal.carried_portrait(db, provider=_Ref(skin_looks_real=False))
+
+    assert photoreal.filed_portrait_verdict(db, fingerprint="0" * 64) is None
+
+
+def test_an_unreadable_portrait_is_not_a_finding_about_the_portrait():
+    out = photoreal.carried_portrait(_db(), provider=_Ref(),
+                                     path="/nowhere/identity_portrait.jpg")
+    assert out["judged"] is False
+    assert "not readable" in out["why"]
+    assert "inheritable_failures" not in out
+
+
+def test_the_carried_portrait_verdict_says_why_one_file_decides_every_pack():
+    out = photoreal.carried_portrait(_db(), provider=_Ref())
+    assert "every pack this code can build" in out["why_it_matters"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
