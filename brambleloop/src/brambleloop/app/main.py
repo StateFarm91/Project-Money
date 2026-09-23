@@ -1497,6 +1497,26 @@ def api_asset_coverage() -> dict:
     return {"owned": owned_asset_coverage(db)}
 
 
+@app.get("/api/gallery-calibration")
+def api_gallery_calibration() -> dict:
+    """Whether the gallery realism checks can pass a photograph of crochet at all.
+
+    Every product-first asset this company has made was blocked on
+    `texture_not_repeating`, across two products and two method versions -- and crocheted
+    fabric is by construction a surface that repeats. Either the generator is tiling, or
+    the check cannot pass a crochet photograph, and a render cannot tell those apart.
+
+    The same question `photoreal.calibrate` asks about its own list, and that one settled
+    the other way: the renders were the problem and the standard was working. So the
+    evidence decides this rather than the reasoning.
+    """
+    from ..visual import gallery
+    from ..visual import inspect as inspect_mod
+
+    return {"calibration": inspect_mod.calibrate(db),
+            "checks": list(gallery.REALISM_CHECKS)}
+
+
 @app.get("/api/carried-portrait")
 def api_carried_portrait() -> dict:
     """Whether the face every reference pack carries forward can pass what it passes on.

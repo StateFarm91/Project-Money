@@ -272,6 +272,69 @@ def test_the_carried_portrait_verdict_says_why_one_file_decides_every_pack():
     assert "every pack this code can build" in out["why_it_matters"]
 
 
+def _gallery_judge(**overrides):
+    """A judge that answers the gallery realism checks."""
+    from brambleloop.visual import gallery
+
+    answers = {k: True for k in gallery.REALISM_CHECKS}
+    answers.update(overrides)
+
+    def inspect_image(ref, db=None, provider=None, claim=None):
+        return {"image": ref, "described": True, "realism_judged": True,
+                "realism": dict(answers),
+                "realism_unjudged": [k for k in gallery.REALISM_CHECKS
+                                     if k not in answers]}
+    return inspect_image
+
+
+def test_a_check_a_real_photograph_fails_is_named_unreachable():
+    """The question four blocked renders made unavoidable.
+
+    Every product-first asset was blocked on `texture_not_repeating`, and crocheted fabric
+    is by construction a surface that repeats. If a real photograph fails the same check,
+    the gate is asking something no photograph of crochet can satisfy.
+    """
+    from brambleloop.visual import inspect as inspect_mod
+
+    original = inspect_mod.inspect_image
+    inspect_mod.inspect_image = _gallery_judge(texture_not_repeating=False)
+    try:
+        out = inspect_mod.calibrate(_db(), image_url="https://example.invalid/real.jpg")
+    finally:
+        inspect_mod.inspect_image = original
+
+    assert out["calibrated"] is True
+    assert out["failed"] == ["texture_not_repeating"]
+    assert out["reachable"] is False
+    assert "nothing can meet" in out["what_it_means"]
+
+
+def test_a_real_photograph_that_fails_nothing_leaves_the_render_to_blame():
+    """The gate has to be able to clear a photograph, or it proves nothing either way."""
+    from brambleloop.visual import inspect as inspect_mod
+
+    original = inspect_mod.inspect_image
+    inspect_mod.inspect_image = _gallery_judge()
+    try:
+        out = inspect_mod.calibrate(_db(), image_url="https://example.invalid/real.jpg")
+    finally:
+        inspect_mod.inspect_image = original
+
+    assert out["reachable"] is True
+    assert out["failed"] == []
+    assert "a render that needs changing" in out["what_it_means"]
+
+
+def test_no_benchmark_photograph_is_not_a_finding_about_the_checks():
+    """Absence of a control is absence of evidence, for the eighth time this week."""
+    from brambleloop.visual import inspect as inspect_mod
+
+    out = inspect_mod.calibrate(_db())
+    assert out["calibrated"] is False
+    assert "not a finding about the checks" in out["why"]
+    assert "failed" not in out
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

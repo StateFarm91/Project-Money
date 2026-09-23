@@ -338,3 +338,70 @@ def gate(inspection: dict) -> dict:
     return {"verdict": "clear", "failed_realism": [], "semantic_problems": [],
             "third_party_marks": [],
             "why": "every check was made and every check passed"}
+
+
+def calibrate(db, *, image_url: str = "", provider=None, benchmark_key: str = "") -> dict:
+    """Ask the realism checks about a photograph nobody generated.
+
+    The question four blocked renders made unavoidable. Every product-first asset this
+    company has made was blocked on `texture_not_repeating`, across two products and two
+    method versions -- and crocheted fabric is, by construction, a surface that repeats.
+
+    Two possibilities needing opposite fixes, and a render cannot tell them apart:
+
+      the generator really is tiling a patch    -> the method or the provider changes
+      the check cannot pass a crochet photograph -> the check changes
+
+    `photoreal.calibrate` exists for exactly this question about its own list and settled
+    it the other way: the renders were the problem and the standard was working. So the
+    flattering assumption is not the one to make here either, and this asks the same way,
+    against a real listing photograph used as a control and nothing else -- not copied,
+    not re-hosted, not imitated, and never described.
+
+    A check a real photograph *fails* is unreachable. A check it *cannot answer* is
+    unproven rather than unreachable, which is a different finding needing a different
+    control, and conflating them is how a working standard gets loosened.
+    """
+    from . import photoreal
+
+    control = image_url or photoreal.control_image(db, benchmark_key=benchmark_key)
+    if not control:
+        return {"calibrated": False,
+                "why": ("no benchmark listing photograph is on file, so there is no "
+                        "control to calibrate against. That is not a finding about the "
+                        "checks")}
+
+    reading = inspect_image(control, db=db, provider=provider)
+    checks = dict(reading.get("realism") or {})
+    failed = sorted(k for k, v in checks.items() if v is False)
+    unjudged = sorted(reading.get("realism_unjudged") or
+                      [k for k in REALISM_CHECKS if k not in checks])
+    answered = sorted(k for k in REALISM_CHECKS if k not in unjudged)
+
+    return {
+        "calibrated": bool(reading.get("realism_judged")),
+        "control": control,
+        "control_is": ("a real photograph from an observed benchmark listing, used to "
+                       "check whether these checks can pass a photograph at all. It is "
+                       "not copied, re-hosted or imitated, and what it depicts is never "
+                       "described"),
+        "checks": list(REALISM_CHECKS),
+        "failed": failed,
+        "unjudged": unjudged,
+        "discriminating": answered,
+        "unreachable": failed,
+        "reachable": not failed,
+        "what_it_means": (
+            f"these checks failed a real photograph on {failed}, so what they measure is "
+            f"not 'reads as generated'. Every render is being blocked by a question no "
+            f"photograph of crochet can answer the way this gate wants, and tightening a "
+            f"render against them would be chasing a standard nothing can meet"
+            if failed else
+            f"a real photograph failed none of them. {answered} discriminate, so a render "
+            f"these checks block is a render that needs changing rather than a standard "
+            f"that needs relaxing"),
+        "why_unjudged_is_not_unreachable": (
+            "a check this control could not answer is unproven, not unreachable. A "
+            "different control settles it, and calling it unreachable would be a verdict "
+            "computed from absence of evidence"),
+    }
