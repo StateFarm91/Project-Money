@@ -347,7 +347,7 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
 
     from ..brand.storefront import build_storefront, check_storefront
     from ..core.models import (
-        ContentPiece, Incident, Listing, ListingAsset, PatternVersion, PhysicalTest,
+        ContentPiece, Incident, Listing, ListingAsset, PatternVersion, PhysicalTest, Product,
         SpendLimit,
     )
 
@@ -364,6 +364,13 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         paused = [l.scope for l in s.scalars(select(SpendLimit)) if l.paused]
         physical_done = list(s.scalars(
             select(PhysicalTest).where(PhysicalTest.passed == True)))  # noqa: E712
+        # `PatternVersion` keys by `product_id`, so the slugs are joined here rather than
+        # read off the version rows -- which is what the first draft of `listing_photography`
+        # tried, and it raised rather than misreporting, which is the better failure.
+        certified_ids = {p.id for p in s.scalars(select(Product))
+                         if p.id in {c.product_id for c in certified}}
+        certified_slugs = sorted(p.slug for p in s.scalars(select(Product))
+                                 if p.id in certified_ids)
 
     # -- what the company has built for itself ------------------------------
     out.append(_build(
@@ -388,7 +395,52 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     blocked_assets = sorted({a.product_slug for a in assets if a.blocked_reasons})
     out.append(_build(
         "imagery_truthful", "no listing asset is blocked by Asset Truth",
-        not blocked_assets, {"blocked": blocked_assets[:5]}))
+        # `bool(assets)` is the whole fix. "No asset is blocked" is vacuously true when
+        # there are no assets, so this passed on an empty set -- a floor nothing can fail,
+        # sitting on the launch gate. Every other requirement here already guards its own
+        # emptiness with `and bool(listings)`; this one did not.
+        not blocked_assets and bool(assets),
+        {"blocked": blocked_assets[:5], "assets_on_file": len(assets)}))
+
+    # Whether the catalogue has photographs a buyer would actually see.
+    #
+    # `listing_imagery` above counts rows in the `ListingAsset` table, which is where
+    # charts, schematics and earlier approvals live. The rendered product photographs are
+    # audit records written by `assets.owned_photography`, and this requirement was the
+    # only part of launch readiness that could see them -- because it did not exist.
+    #
+    # Live, 2026-09-23: `listing_imagery` and `imagery_truthful` both reported READY while
+    # `/api/asset-coverage` reported `listable: 0 of 10`. Two subsystems flatly disagreeing
+    # about whether this company has listing imagery, and the optimistic one was the one
+    # gating launch. That is the value-living-in-two-places defect on the most consequential
+    # gate in the system: a shop could have been declared imagery-ready with not one product
+    # photograph that passed its floors.
+    #
+    # It reads `owned_photography.coverage` rather than recomputing, so the launch gate and
+    # the coverage endpoint cannot drift apart again by construction.
+    from ..publish import owned_photography
+    from ..products.builder import for_slug
+
+    photo_slugs, photo_versions = [], {}
+    for slug in certified_slugs:
+        cir = for_slug(slug)
+        if cir is not None and owned_photography.needs_no_model(cir):
+            photo_slugs.append(slug)
+            photo_versions[slug] = cir.version
+    photo = owned_photography.coverage(db, slugs=photo_slugs, versions=photo_versions)
+    out.append(_build(
+        "listing_photography",
+        "every certified product-first pattern has a listing photograph that cleared its "
+        "floors",
+        photo["complete"],
+        {"listable": photo["listable"], "certified": photo["certified"],
+         "with_no_asset_at_all": photo["with_no_asset_at_all"][:5],
+         "with_only_unusable_assets": photo["with_only_unusable_assets"][:5],
+         "method_blocked_on": photo.get("method_blocked_on") or [],
+         "why_this_is_separate_from_listing_imagery": (
+             "that requirement counts approved rows in the asset table, which include "
+             "charts and schematics. This one counts rendered photographs that passed "
+             "the gates, which is what a buyer sees")}))
 
     unpriced = sorted(l.product_slug for l in listings if l.price_cad <= 0)
     out.append(_build(

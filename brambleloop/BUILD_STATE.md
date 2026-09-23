@@ -795,6 +795,42 @@ number of attempts adds money to an account, so a dead letter there was a queue 
 nobody could action wearing the costume of a bug. The refusal also says "the proof did not
 run", so a funding stop can never read as #300 having been disproved.
 
+### A-CLASS — the launch gate could not see the photographs, only the charts
+
+Found by asking the heartbeat's question honestly: with both authorised experiments
+balance-blocked, what is the next unblocked action? `/api/launch` answers **11 of 21
+requirements ready**, and every one of the ten not-ready is `blocked_by: owner` or
+`integration` — no remaining engineering. Except two of the eleven "ready" ones were wrong.
+
+```
+listing_imagery   READY  "every listing carries at least 6 approved frames"
+imagery_truthful  READY  "no listing asset is blocked by Asset Truth"
+/api/asset-coverage      listable: 0 of 10
+```
+
+Two subsystems flatly disagreeing about whether this company has listing imagery, and the
+optimistic one was gating launch. `listing_imagery` counts rows in the `ListingAsset`
+table — charts, schematics, earlier approvals — while the rendered product photographs are
+audit records written by `assets.owned_photography`, which nothing in launch readiness
+read. **A shop could have been declared imagery-ready with not one product photograph that
+passed its floors.**
+
+`imagery_truthful` was worse in kind: "no listing asset is blocked" is *vacuously true of
+an empty asset table*. Every other requirement in that file already guards its own
+emptiness with `and bool(listings)`; this one did not. A floor nothing can fail, on the
+launch gate.
+
+Both fixed. `listing_photography` is a new requirement reading `owned_photography.coverage`
+— the same source `/api/asset-coverage` uses, so the two cannot drift apart again by
+construction — and `imagery_truthful` now requires assets to exist before it can pass.
+Launch readiness is **11 of 22**, with `listing_photography` correctly `blocked_by: build`.
+
+**The test fixture carried the same defect.** `_stock()` built synthetic `product-0` slugs
+with no CIR, so the new requirement could never be satisfied in a test however much was
+stocked — a floor nothing can clear, living in the fixture rather than the code. It now
+uses real catalogue slugs, so "a company that has done its half" means the same thing in
+the tests as in production, and takes `photographs=False` to reproduce the live gap.
+
 ### Portrait repair: authorised, built, and refusing to spend until it can be judged
 
 The owner authorised a bounded repair attempt on the approved portrait on 2026-09-23 —

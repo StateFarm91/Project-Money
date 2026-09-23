@@ -36,12 +36,50 @@ def _db() -> Database:
     return db
 
 
+def _catalogue_slugs(n: int) -> list[str]:
+    """Real product-first slugs, because the launch gate reads real CIRs.
+
+    The fixture used synthetic `product-0` names, which have no CIR -- so
+    `listing_photography` could never be satisfied in a test however much was stocked,
+    which is a floor nothing can clear living in the fixture rather than in the code. Real
+    slugs also make "a company that has done its half" mean the same thing here as it does
+    in production.
+    """
+    from brambleloop.products.builder import CATALOGUE, for_slug
+    from brambleloop.publish import owned_photography as _op
+
+    out = []
+    for slug in CATALOGUE:
+        cir = for_slug(slug)
+        if cir is not None and _op.needs_no_model(cir):
+            out.append(slug)
+        if len(out) >= n:
+            break
+    return out
+
+
 def _stock(db, listings: int = MIN_LISTINGS_TO_OPEN, frames: int = MIN_APPROVED_ASSETS,
-           content_each: int = 1) -> None:
-    """A warehouse that looks like a company that has done its half of the work."""
+           content_each: int = 1, photographs: bool = True) -> None:
+    """A warehouse that looks like a company that has done its half of the work.
+
+    `photographs=False` is the live situation of 2026-09-23: approved chart frames on every
+    listing and not one product photograph that cleared its floors.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.products.builder import for_slug
+    from brambleloop.publish import owned_photography as _op
+
+    slugs = _catalogue_slugs(listings)
+    if photographs:
+        for slug in slugs:
+            cir = for_slug(slug)
+            Registry(db).audit("publishing", _op.ACTION, detail={
+                "made": True, "method_version": _op.METHOD_VERSION, "slug": slug,
+                "version": cir.version, "usable_as_listing_asset": True,
+                "verdict": "clear"})
+
     with db.session() as s:
-        for i in range(listings):
-            slug = f"product-{i}"
+        for i, slug in enumerate(slugs):
             product = Product(slug=slug, title=f"Product {i}", status="certified")
             s.add(product)
             s.flush()
@@ -529,6 +567,56 @@ def test_the_benchmark_purchase_ask_points_at_the_selection_and_the_upload_page(
     assert "/api/benchmark-selection" in BENCHMARK_PURCHASES.action
     assert "folder" not in BENCHMARK_PURCHASES.action
     assert "about ten" not in BENCHMARK_PURCHASES.action
+
+
+def test_no_asset_is_blocked_is_not_true_of_no_assets():
+    """A floor nothing can fail, on the launch gate.
+
+    `imagery_truthful` asked whether any asset carried a block reason and passed when none
+    did -- which is vacuously true of an empty asset table. Every other requirement here
+    already guards its own emptiness with `and bool(listings)`; this one did not, so a
+    company with no imagery at all reported its imagery as truthful.
+    """
+    readiness = assess(_db(), phase="shadow")
+    truthful = next(r for r in readiness.requirements if r.key == "imagery_truthful")
+    assert not truthful.ready, "no assets passed the 'no asset is blocked' check"
+    assert truthful.evidence["assets_on_file"] == 0
+
+
+def test_the_launch_gate_can_see_the_photographs_and_not_only_the_charts():
+    """The disagreement found live on 2026-09-23.
+
+    `listing_imagery` and `imagery_truthful` both reported READY while
+    `/api/asset-coverage` reported `listable: 0 of 10`. They count rows in the asset table
+    -- charts, schematics, earlier approvals -- and the rendered product photographs are
+    audit records those checks cannot see. Two subsystems disagreeing about whether this
+    company has listing imagery, with the optimistic one gating launch.
+    """
+    db = _db()
+    _stock(db, photographs=False)
+
+    readiness = assess(db, phase="shadow")
+    keys = {r.key for r in readiness.requirements}
+    assert "listing_photography" in keys, "nothing in launch readiness reads the renders"
+
+    frames = next(r for r in readiness.requirements if r.key == "listing_imagery")
+    photo = next(r for r in readiness.requirements if r.key == "listing_photography")
+    assert frames.ready, "the stocked warehouse has its approved frames"
+    assert not photo.ready, (
+        "approved chart frames were accepted as product photography")
+    assert photo.evidence["listable"] == 0
+    assert photo.blocked_by == BLOCKED_BUILD
+
+
+def test_the_photography_requirement_reads_the_same_source_as_the_coverage_endpoint():
+    """Reading rather than recomputing is what stops the two drifting apart again."""
+    import inspect as _inspect
+
+    from brambleloop.launch import readiness as readiness_mod
+
+    source = _inspect.getsource(readiness_mod.assess)
+    assert "owned_photography.coverage" in source, (
+        "a second implementation of coverage would disagree with the first one day")
 
 
 if __name__ == "__main__":
