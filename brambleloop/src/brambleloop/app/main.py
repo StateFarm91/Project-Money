@@ -1524,6 +1524,55 @@ def api_asset_coverage() -> dict:
     return {"owned": owned_asset_coverage(db)}
 
 
+@app.get("/api/portrait-repair")
+def api_portrait_repair() -> dict:
+    """The repair attempt's evidence, laid out for the owner's visual approval.
+
+    The owner asked to see the original and the repaired portrait side by side, with the
+    independent realism and identity evidence, before anything supersedes the canonical
+    reference. This is that payload: both image references and both floors' verdicts, so
+    the decision is made on what was measured rather than on which picture looks nicer.
+
+    Read-only and free. It reports an attempt already made and renders nothing.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..visual import brief, photoreal, portrait_repair
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == portrait_repair.ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+    if row is None:
+        return {"attempt": None, "approved": brief.approved_portrait(),
+                "ceiling_cad": portrait_repair.CEILING_CAD,
+                "why": ("no repair attempt is on file. It runs once as a job on the "
+                        "owner's authorisation and refuses to render while the judging "
+                        "balance is spent")}
+
+    attempt = row.detail or {}
+    won = attempt.get("repaired_candidate")
+    return {
+        "attempt": attempt,
+        "ceiling_cad": portrait_repair.CEILING_CAD,
+        "side_by_side": ({"approved": attempt.get("approved"),
+                          "repaired": won.get("candidate"),
+                          "realism_still_failing": won.get("realism_still_failing"),
+                          "identity_drifted": won.get("identity_drifted"),
+                          "identity_dimensions_held": list(portrait_repair.MUST_HOLD),
+                          "inherited_checks": list(photoreal.INHERITED)}
+                         if won else None),
+        "awaiting_owner_approval": bool(won),
+        "what_happens_next": (
+            "nothing, until the owner looks at both photographs and decides. A repaired "
+            "candidate does not supersede the canonical reference on this evidence alone, "
+            "because freezing is a one-way door and the approved woman is the owner's"
+            if won else
+            "no candidate cleared both floors, so there is nothing to approve and the "
+            "canonical reference is unchanged"),
+    }
+
+
 @app.get("/api/provider-trial")
 def api_provider_trial() -> dict:
     """What the second-provider trial measured, and what it recommends.

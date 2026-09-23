@@ -128,7 +128,12 @@ DEFAULT_AGENTS: list[dict] = [
                             # it, so the binding limit is the lower of the two. A standing
                             # spend control does not get widened to fit an experiment; the
                             # experiment is sized to fit the control.
-                            "visual.provider_trial"],
+                            "visual.provider_trial",
+                            # A bounded repair attempt on the approved canonical portrait,
+                            # owner-authorised 2026-09-23 inside a CA$1.00 ceiling. It
+                            # adopts nothing: the reference is replaced only on the owner's
+                            # visual approval of the side-by-side evidence.
+                            "visual.portrait_repair"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

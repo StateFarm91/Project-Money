@@ -148,3 +148,151 @@ def _what_to_do(still_failing, realism_unmade, drifted, unread) -> str:
     return ("the photograph clears the checks every pack inherits from it and the "
             "comparison finds no drift on the dimensions that make her herself. This is a "
             "candidate the owner can decide on")
+
+
+# The owner's authorisation of 2026-09-23, bounded here rather than remembered.
+#
+# "Generate the minimum bounded number of repair candidates necessary to determine whether
+# this method works. Preserve exact spend." Three is that number: one cannot tell a method
+# that works from a lucky draw, and a fourth is evidence the method is wrong rather than
+# the sample -- the same bound `model_photography.ATTEMPTS` uses and for the same reason.
+# The loop stops at the first candidate that clears both floors, so a working method costs
+# one render.
+MAX_CANDIDATES = 3
+CEILING_CAD = 1.00
+
+# What the repair asks for, from the owner's own list of deficiencies.
+#
+# Every clause is about the photograph. Not one is about her: no adjective describing a
+# face, no age, no colouring, no "beautiful". Those would be a description of a type, which
+# is how a generator produces a different woman who matches the words -- the exact failure
+# `model_photography.prompt_for` already documents. Her appearance is carried entirely by
+# the reference image, which is what makes this a repair rather than a casting call.
+REPAIR_DIRECTION = (
+    "This is a photographic restoration of the attached portrait. Keep the same person "
+    "exactly: the same face and its geometry, the same eyes, the same hair, the same "
+    "apparent age, the same complexion. Do not beautify, slim, youthen, symmetrise or "
+    "otherwise improve her, and do not change her expression or identity in any way. "
+    "Change only how the photograph was made. "
+    "Restore real skin: visible pores and fine surface texture, uneven natural tone, faint "
+    "shine where light falls, ordinary asymmetry between the two sides of the face, and any "
+    "lines, marks or blemishes that belong to her. Remove the airbrushed, poreless, "
+    "synthetic quality and the heavy beauty retouching. No skin smoothing, no blemish "
+    "removal, no eye or teeth brightening, no softening filter. "
+    "Render hair as real hair with individual strands, stray flyaways and uneven fall "
+    "rather than as a smooth mass. Where hands or fingers are visible they are correctly "
+    "formed and correctly numbered, in focus, not blurred or merged. "
+    "Light it as a real camera in a real room: one coherent daylight source with natural "
+    "falloff and honest shadow, ordinary lens character and grain, no catalogue polish and "
+    "no uniform studio backdrop. It should read as an unedited raw frame of this woman "
+    "taken by a photographer, not as a finished beauty image."
+)
+
+
+def propose(db, *, work_dir: str, provider_key: str = "", env: dict | None = None,
+            generator=None, approved_ref: str = "", **judges) -> dict:
+    """Render bounded repair candidates and assess each. Adopts nothing, ever.
+
+    **Refuses to render when the assessment cannot be made.** That is the load-bearing
+    guard, not a courtesy: a candidate nobody can judge is indistinguishable from a
+    different woman, and the one outcome worse than no repair is an unverified one adopted
+    because it looked good. Money spent on an unjudgeable portrait of a person is money
+    spent making that mistake possible.
+
+    Stops at the first candidate that clears both floors, because the question the owner
+    asked is whether the method works -- not which of three near-identical portraits is
+    prettiest, which is a casting decision nobody authorised.
+    """
+    from ..gateway import images
+    from ..ops import funding
+    from . import brief, tournament
+
+    approved_ref = approved_ref or brief.approved_portrait()
+
+    held = funding.blocked(db)
+    if held.get("blocked") and generator is None:
+        return {"ran": False, "waiting_on": "model_provider_balance",
+                "spent_cad": 0.0, "candidates": [],
+                "why": ("both floors of a repair are vision calls -- the realism judge and "
+                        "the identity comparison -- and the balance that serves them is "
+                        "spent. Rendering now would buy a portrait of a person that "
+                        "nothing could check for drift, which is the one thing this "
+                        "authorisation exists to prevent. "
+                        + held.get("why_this_stops_spending", ""))}
+
+    # The same selector the production render path uses, rather than a second opinion
+    # about which provider is preferred. Two places choosing a provider is how they come
+    # to disagree, and the benchmark already decided this one.
+    provider = provider_key or tournament.preferred_provider(db, env) or ""
+    if not provider and generator is None:
+        return {"ran": False, "waiting_on": "image_provider_credential",
+                "spent_cad": 0.0, "candidates": [],
+                "why": "no verified image provider is available in this environment"}
+
+    spent, candidates = 0.0, []
+    for index in range(MAX_CANDIDATES):
+        price = _price_of(provider)
+        if spent + price > CEILING_CAD:
+            break
+        try:
+            render = (generator(REPAIR_DIRECTION, reference_urls=[approved_ref])
+                      if generator else
+                      images.generate(REPAIR_DIRECTION, reference_urls=[approved_ref],
+                                      env=env, provider_key=provider, size="1024x1024",
+                                      work_dir=work_dir))
+        except Exception as exc:  # noqa: BLE001 - a refusal is a record, not a crash
+            candidates.append({"attempt": index + 1, "made": False,
+                               "why": f"{type(exc).__name__}: {exc}"[:240]})
+            break
+
+        spent = round(spent + float(render.get("cad") or price), 4)
+        found = assess(db, candidate_ref=render.get("image_ref") or "",
+                       approved_ref=approved_ref, **judges)
+        found["attempt"] = index + 1
+        found["made"] = True
+        found["provider"] = provider
+        candidates.append(found)
+        if found.get("verdict") == REPAIRED:
+            break
+
+    won = next((c for c in candidates if c.get("verdict") == REPAIRED), None)
+    return {
+        "ran": True,
+        "approved": approved_ref,
+        "provider": provider,
+        "spent_cad": round(spent, 4),
+        "ceiling_cad": CEILING_CAD,
+        "candidates": candidates,
+        "repaired_candidate": won,
+        "verdict": _method_verdict(candidates),
+        "adopts_nothing": (
+            "no candidate supersedes the canonical reference here. The owner asked to see "
+            "the original and the repair side by side with the evidence before anything "
+            "replaces her, and freezing is a one-way door"),
+        "body_pack_untouched": (
+            "this is a portrait repair. The approved bust, torso and body proportions "
+            "remain authoritative and nothing here regenerates them"),
+    }
+
+
+def _price_of(provider_key: str) -> float:
+    from ..gateway import images
+
+    provider = images.BY_KEY.get(provider_key)
+    return round(float(provider.usd_per_image) * images.USD_TO_CAD, 4) if provider else 0.0
+
+
+def _method_verdict(candidates: list[dict]) -> str:
+    """Whether the repair *method* works, which is the question that was asked."""
+    made = [c for c in candidates if c.get("made")]
+    if not made:
+        return UNVERIFIABLE
+    if any(c.get("verdict") == REPAIRED for c in made):
+        return REPAIRED
+    if any(c.get("verdict") == DIFFERENT_WOMAN for c in made):
+        # Worth naming even when another candidate merely failed: a method that drifts her
+        # identity is not a method to retry, it is one to abandon.
+        return DIFFERENT_WOMAN
+    if all(c.get("verdict") == UNVERIFIABLE for c in made):
+        return UNVERIFIABLE
+    return NOT_REPAIRED

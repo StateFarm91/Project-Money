@@ -177,19 +177,187 @@ def test_the_dimensions_come_from_identity_rather_than_being_retyped_here():
         "a head-and-shoulders portrait cannot answer for bust or hips")
 
 
-def test_it_assesses_and_never_generates():
-    """Producing a candidate is spend and a decision the owner has not given."""
+def test_assess_judges_and_never_renders():
+    """`assess` reads two images and scores them. It must never be a reason to spend.
+
+    This asserted that the whole module never generated, which was true while generation
+    was unauthorised and became false when the owner authorised a bounded repair attempt.
+    A test that encodes a temporary permission as a permanent invariant fails on the day
+    the permission arrives and says nothing about what actually matters -- so it now names
+    the durable halves: `assess` renders nothing, and `propose` adopts nothing.
+    """
     import inspect as _inspect
 
-    source = _inspect.getsource(pr)
-    assert "images.generate" not in source
-    assert "generator" not in source
+    assessing = _inspect.getsource(pr.assess)
+    assert "images.generate" not in assessing
+    assert "generator" not in assessing
 
 
 def test_missing_either_image_is_not_a_finding_about_either():
     out = pr.assess(_db(), candidate_ref="", approved_ref="/tmp/approved.jpg")
     assert out["assessed"] is False
     assert "not a finding about either" in out["why"]
+
+
+def _stub_generator(tmp):
+    calls = []
+
+    def generate(prompt, *, reference_urls=None, **kw):
+        calls.append({"prompt": prompt, "refs": list(reference_urls or [])})
+        path = Path(tmp) / f"candidate-{len(calls)}.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        return {"image_ref": str(path), "provider": "test", "cad": 0.04}
+
+    return generate, calls
+
+
+def _with_compare(compare, fn):
+    from brambleloop.visual import model_registry
+
+    original = model_registry.compare_identity
+    model_registry.compare_identity = compare
+    try:
+        return fn()
+    finally:
+        model_registry.compare_identity = original
+
+
+def test_nothing_is_rendered_when_the_assessment_cannot_be_made():
+    """The load-bearing guard, not a courtesy.
+
+    A candidate nobody can judge is indistinguishable from a different woman, and the one
+    outcome worse than no repair is an unverified one adopted because it looked good. Live,
+    2026-09-23: both floors are vision calls and that balance is spent.
+    """
+    from brambleloop.core.models import OwnerAction
+
+    db = _db()
+    with db.session() as sess:
+        sess.add(OwnerAction(requirement_key="model_provider_balance",
+                             action="top up the balance", reason="the balance is spent",
+                             done=False))
+
+    out = pr.propose(db, work_dir="/tmp")
+    assert out["ran"] is False
+    assert out["waiting_on"] == "model_provider_balance"
+    assert out["spent_cad"] == 0.0
+    assert out["candidates"] == []
+    assert "nothing could check for drift" in out["why"]
+
+
+def test_it_stops_at_the_first_candidate_that_clears_both_floors():
+    """The question is whether the method works, not which portrait is prettiest.
+
+    Rendering all three and picking a favourite would be a casting decision nobody
+    authorised, and it would spend three times over to answer a question one render
+    settled.
+    """
+    import tempfile
+
+    realism, compare = _judges()
+    with tempfile.TemporaryDirectory() as tmp:
+        generate, calls = _stub_generator(tmp)
+        out = _with_compare(compare, lambda: pr.propose(
+            _db(), work_dir=tmp, generator=generate, provider_key="gpt-image-2",
+            realism_judger=realism))
+
+    assert len(calls) == 1, "it kept rendering after a candidate had already passed"
+    assert out["verdict"] == pr.REPAIRED
+    assert out["repaired_candidate"]["attempt"] == 1
+
+
+def test_it_is_bounded_when_no_candidate_ever_clears():
+    """A fourth attempt is evidence the method is wrong rather than the sample."""
+    import tempfile
+
+    realism, compare = _judges(realism_false=("skin_looks_real",))
+    with tempfile.TemporaryDirectory() as tmp:
+        generate, calls = _stub_generator(tmp)
+        out = _with_compare(compare, lambda: pr.propose(
+            _db(), work_dir=tmp, generator=generate, provider_key="gpt-image-2",
+            realism_judger=realism))
+
+    assert len(calls) == pr.MAX_CANDIDATES
+    assert out["verdict"] == pr.NOT_REPAIRED
+    assert out["repaired_candidate"] is None
+
+
+def test_a_method_that_drifts_her_identity_is_named_rather_than_retried_into_a_pass():
+    """A method that changes the woman is not one to retry. It is one to abandon."""
+    import tempfile
+
+    realism, compare = _judges(drift=("face",))
+    with tempfile.TemporaryDirectory() as tmp:
+        generate, _ = _stub_generator(tmp)
+        out = _with_compare(compare, lambda: pr.propose(
+            _db(), work_dir=tmp, generator=generate, provider_key="gpt-image-2",
+            realism_judger=realism))
+
+    assert out["verdict"] == pr.DIFFERENT_WOMAN
+    assert out["repaired_candidate"] is None
+
+
+def test_the_candidate_is_conditioned_on_her_rather_than_described():
+    """Her appearance is carried by the reference image, not by adjectives.
+
+    A prompt that described a face would produce a different woman who matches the words,
+    which is the failure `model_photography.prompt_for` already documents. Every clause of
+    the repair direction is about the photograph.
+    """
+    import tempfile
+
+    realism, compare = _judges()
+    with tempfile.TemporaryDirectory() as tmp:
+        generate, calls = _stub_generator(tmp)
+        _with_compare(compare, lambda: pr.propose(
+            _db(), work_dir=tmp, generator=generate, provider_key="gpt-image-2",
+            realism_judger=realism, approved_ref="/tmp/approved.jpg"))
+
+    assert calls[0]["refs"] == ["/tmp/approved.jpg"], "she was described instead of shown"
+    prompt = calls[0]["prompt"].lower()
+    # Words that would describe a type rather than repair a photograph. `slim` is
+    # deliberately absent from this list: it occurs only inside "do not beautify, slim,
+    # youthen", which is a prohibition and the opposite of a description. The first draft
+    # of this test banned it outright and failed on the clause that exists to protect her.
+    for adjective in ("brunette", "blonde", "young", "beautiful", "pretty"):
+        assert adjective not in prompt, f"the prompt describes her: {adjective}"
+    assert "do not beautify, slim, youthen" in prompt, (
+        "the prohibition against improving her is what makes this a repair")
+
+
+def test_it_adopts_nothing_and_leaves_the_body_pack_alone():
+    """Two standing instructions, asserted rather than trusted to the docstring."""
+    import tempfile
+
+    realism, compare = _judges()
+    with tempfile.TemporaryDirectory() as tmp:
+        generate, _ = _stub_generator(tmp)
+        out = _with_compare(compare, lambda: pr.propose(
+            _db(), work_dir=tmp, generator=generate, provider_key="gpt-image-2",
+            realism_judger=realism))
+
+    assert "no candidate supersedes the canonical reference" in out["adopts_nothing"]
+    assert "remain authoritative" in out["body_pack_untouched"]
+
+
+def test_the_spend_ceiling_stops_it_before_the_attempt_bound_does():
+    """Whichever limit binds first is the one that holds."""
+    import tempfile
+
+    realism, compare = _judges(realism_false=("skin_looks_real",))
+    original = pr.CEILING_CAD
+    pr.CEILING_CAD = 0.05  # room for one render at CA$0.0411
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            generate, calls = _stub_generator(tmp)
+            out = _with_compare(compare, lambda: pr.propose(
+                _db(), work_dir=tmp, generator=generate, provider_key="gpt-image-2",
+                realism_judger=realism))
+    finally:
+        pr.CEILING_CAD = original
+
+    assert len(calls) == 1, "it rendered past the ceiling"
+    assert out["spent_cad"] <= 0.05
 
 
 if __name__ == "__main__":

@@ -795,6 +795,44 @@ number of attempts adds money to an account, so a dead letter there was a queue 
 nobody could action wearing the costume of a bug. The refusal also says "the proof did not
 run", so a funding stop can never read as #300 having been disproved.
 
+### Portrait repair: authorised, built, and refusing to spend until it can be judged
+
+The owner authorised a bounded repair attempt on the approved portrait on 2026-09-23 —
+explicitly not a redesign, replacement, new face or reopened tournament. The identity is
+approved; the photography is defective.
+
+**It has not rendered anything, and that is the design working.** Both floors of
+`portrait_repair.assess` are vision calls — the realism judge and the identity comparison —
+and that balance is spent. `propose` refuses before the first render, because a candidate
+nobody can judge is indistinguishable from a different woman, and the one outcome worse
+than no repair is an unverified one adopted because it looked good. **CA$0.00 of CA$1.00.**
+
+What is built and waiting:
+
+- **Bounded at three candidates, CA$1.00, stops at the first that clears both floors.** The
+  question asked was whether the method works, not which of three near-identical portraits
+  is prettiest — that would be a casting decision nobody authorised, at three times the
+  price of the answer.
+- **She is shown, never described.** The repair direction carries no adjective about her:
+  no colouring, no age, no "beautiful". Her appearance comes entirely from the reference
+  image. A prompt that described a face would produce a different woman who matches the
+  words, which is the failure `model_photography.prompt_for` already documents. Every
+  clause is about the photograph — pores and tonal variation, hair as strands rather than a
+  mass, correctly formed fingers, one coherent daylight source, no catalogue polish — plus
+  an explicit prohibition on beautifying, slimming, youthening or symmetrising her.
+- **Drift outranks realism**, and a method that drifts her is reported `different_woman`
+  rather than retried into a pass: that is a method to abandon, not to sample again.
+- **Nothing is adopted.** `/api/portrait-repair` returns both photographs side by side with
+  both floors' evidence, and the canonical reference changes only on the owner's visual
+  approval.
+- **The body pack is untouched.** The approved bust, torso and proportions remain
+  authoritative; a portrait repair regenerates none of them.
+
+**Encouraging prior evidence, stated as evidence and not as a promise:** `face_identity`
+already reads `pass` on production model frames conditioned on this same portrait, so the
+provider can hold her face through reference conditioning. That is what makes a repair
+plausible. It is not proof that it will clear the realism floor.
+
 ### OWNER ACTION REQUIRED — top up the Anthropic balance before the CA$4 trial can run
 
 **Exact action:** add credit to the Anthropic API account that serves judging and vision.
@@ -808,10 +846,12 @@ the CA$100 governing ceiling.
 
 **Minutes required of the owner:** about 2.
 
-**Consequence of waiting:** the authorised CA$4 provider experiment cannot start, and
-`seasonal.cycle_proof` will keep refusing (cleanly now, not dead-lettering). No spend
-accrues while waiting — the funding guard stops every path that would render something
-unjudgeable.
+**Consequence of waiting:** **both** authorised experiments are held — the CA$4 provider
+trial and the CA$1 portrait repair — because both depend on judging rather than on
+rendering. `seasonal.cycle_proof` keeps refusing cleanly, which is now observed in
+production at 14:48:56Z rather than asserted: `{"ran": true, "refused":
+"model_provider_balance"}` instead of a dead letter. No spend accrues while waiting; the
+funding guard stops every path that would render something unjudgeable.
 
 ### OWNER ACTION REQUIRED — the image provider cannot render crochet fabric
 

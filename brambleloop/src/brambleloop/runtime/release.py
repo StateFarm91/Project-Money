@@ -2787,6 +2787,65 @@ def handle_model_tournament(ctx: JobContext) -> dict:
             "spent_cad": package["spent_cad"], "selected": None}
 
 
+@handlers.register("visual.portrait_repair")
+def handle_portrait_repair(ctx: JobContext) -> dict:
+    """A bounded repair attempt on the approved canonical portrait (owner, 2026-09-23).
+
+    A job rather than an endpoint, for the reason this codebase already learned: a GET that
+    spends money spends it every time a sweep walks the routes.
+
+    Idempotent by the portrait's content hash, so a redeploy does not re-buy an attempt
+    that has already been made, and a replaced portrait is a new question asked
+    automatically.
+
+    AMBER: it renders up to `MAX_CANDIDATES` images of a person and makes vision calls,
+    inside a CA$1.00 ceiling, and refuses to render at all when the judging balance would
+    leave a candidate unassessable. It adopts nothing: the canonical reference is replaced
+    only on the owner's visual approval of the side-by-side evidence.
+    """
+    import tempfile
+
+    from ..visual import brief, photoreal, portrait_repair
+
+    fingerprint = photoreal._portrait_fingerprint(brief.approved_portrait())
+    already = _repair_on_file(ctx.db, fingerprint=fingerprint)
+    if already:
+        return {"ran": False, "reason": "repair_already_attempted",
+                "verdict": already.get("verdict"),
+                "spent_cad": already.get("spent_cad")}
+
+    with tempfile.TemporaryDirectory(prefix="portrait-repair-") as work_dir:
+        out = portrait_repair.propose(ctx.db, work_dir=work_dir)
+
+    out["portrait_fingerprint"] = fingerprint
+    ctx.audit(portrait_repair.ACTION, detail=out)
+    return {"ran": out.get("ran"), "verdict": out.get("verdict"),
+            "waiting_on": out.get("waiting_on"),
+            "spent_cad": out.get("spent_cad"),
+            "candidates": len(out.get("candidates") or []),
+            "why": (out.get("why") or "")[:300]}
+
+
+def _repair_on_file(db, *, fingerprint: str) -> dict | None:
+    """A repair attempt already made against exactly these bytes."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..visual import portrait_repair
+
+    if not fingerprint:
+        return None
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == portrait_repair.ACTION)
+                             .order_by(desc(AuditLog.id)).limit(20)):
+            detail = row.detail or {}
+            # A refusal is not an attempt. If it never rendered because the balance was
+            # spent, the question is still open and must be asked again when it is not.
+            if detail.get("ran") and detail.get("portrait_fingerprint") == fingerprint:
+                return detail
+    return None
+
+
 @handlers.register("visual.provider_trial")
 def handle_provider_trial(ctx: JobContext) -> dict:
     """Measure whether the tiling blocker is specific to the incumbent image provider.
