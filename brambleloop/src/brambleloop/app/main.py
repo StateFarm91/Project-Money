@@ -258,6 +258,12 @@ def _startup() -> None:
         _boot_enqueue("capability_probes", when=True, agent="orchestrator",
                       job_type="ops.capability_probes",
                       key=f"boot-probe-{build_identity().get('commit_short', 'dev')}")
+        # And the model probe, which is the other half of the same evidence and runs on a
+        # six-hourly cadence of its own. Waiting for it is what left the experiments
+        # refusing for three and a half hours after the credential started working.
+        _boot_enqueue("model_probe", when=True, agent="orchestrator",
+                      job_type="model.probe",
+                      key=f"boot-model-probe-{build_identity().get('commit_short', 'dev')}")
     except Exception as e:  # noqa: BLE001 - never block a boot
         BOOT_ENQUEUES.append({"name": "capability_probes", "outcome": "error",
                               "detail": f"{type(e).__name__}: {e}"[:300]})

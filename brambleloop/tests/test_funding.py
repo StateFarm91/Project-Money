@@ -148,6 +148,38 @@ def test_the_worker_checks_both_outputs_and_exceptions():
     assert len(calls) >= 2, "the funding check is on only one path"
 
 
+def test_a_successful_vision_probe_clears_the_funding_block_too():
+    """The evidence was on file and the gate could not read it.
+
+    `funding.blocked` reads the open owner action, and `funding.cleared` was reached only
+    from `model.probe`. Live, 2026-09-23: the vision probe came back working at 20:37Z
+    while the action stayed open on an 18:00Z `model.probe` failure, so both
+    owner-authorised experiments went on refusing for three and a half hours with the proof
+    that they could run already recorded.
+
+    A gate reading one specific probe rather than the thing the probe is evidence of. The
+    clear belongs to any real call that got an answer, which is what `cleared`'s own
+    docstring says it is for.
+    """
+    import inspect as _inspect
+
+    from brambleloop.gateway import anthropic as gw
+
+    source = _inspect.getsource(gw.vision_probe)
+    assert "funding.cleared" in source, (
+        "a vision call that got an answer still could not clear a funding block")
+
+
+def test_the_clear_is_reached_from_both_probes_not_only_one():
+    """Both halves of the same evidence, so neither can be the only way through."""
+    import inspect as _inspect
+
+    from brambleloop.gateway import anthropic as gw
+
+    for probe in (gw.vision_probe, gw.probe):
+        assert "funding.cleared" in _inspect.getsource(probe), probe.__name__
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

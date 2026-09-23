@@ -542,6 +542,23 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
                 tokens_in=response.input_tokens, tokens_out=response.output_tokens,
                 detail={"price_basis": "assumed"})
 
+            # This call got an answer, so the balance is no longer the blocker.
+            #
+            # `funding.cleared` was reached only from `model.probe`, and the funding action
+            # is the only thing `funding.blocked` reads -- so a successful *vision* probe
+            # proved the credential worked and changed nothing. Live, 2026-09-23: the
+            # vision probe came back working at 20:37Z while the funding action stayed open
+            # on an 18:00Z `model.probe` failure, and both owner-authorised experiments
+            # went on refusing for three and a half hours with the evidence to unblock them
+            # already on file.
+            #
+            # A gate reading one specific probe rather than the thing the probe is evidence
+            # of. The clear belongs to any real call that got an answer, which is exactly
+            # what `funding.cleared`'s own docstring says it is for.
+            from ..ops import funding
+
+            record["funding"] = funding.cleared(db)
+
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=VISION_PROBE_ACTION,
                        artifact=provider.model, detail=record))
