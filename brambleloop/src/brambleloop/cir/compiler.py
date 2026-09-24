@@ -57,6 +57,7 @@ class ResolvedOp:
     consumes: int
     produces: int
     repeat_group: int | None = None  # index of the repeat this op belongs to, if any
+    loop: str = "both"
 
 
 @dataclass
@@ -133,7 +134,7 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
     nodes = list(nodes)
     for i, n in enumerate(nodes):
         if isinstance(n, Op):
-            out.append(ResolvedOp(n.stitch, n.count, n.consumes, n.produces))
+            out.append(ResolvedOp(n.stitch, n.count, n.consumes, n.produces, loop=n.loop))
             continue
 
         assert isinstance(n, Repeat)
@@ -171,7 +172,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
             problems.extend(sub_problems)
             for r in sub:
                 out.append(
-                    ResolvedOp(r.stitch, r.count, r.consumes, r.produces, repeat_group=gid)
+                    ResolvedOp(r.stitch, r.count, r.consumes, r.produces, repeat_group=gid,
+                               loop=getattr(r, "loop", "both"))
                 )
 
     return out, problems

@@ -6095,3 +6095,131 @@ owner's instruction on the image stack was explicit: bring the measured evidence
 Spend: this run CA$0.5536, experiment total **CA$0.8276 of CA$4.00**. The cumulative ceiling
 worked on its first real use — `prior_spend_cad: 0.274` was carried into the run rather than
 reset, exactly as B-687 intended, and the incumbent arm was reused rather than re-bought.
+
+## 2026-09-24 — deterministic product truth: the benchmark cardigan proof
+
+The owner supplied a purchased crochet pattern plus four photographs of the finished garment,
+as private evaluation evidence, to test whether Brambleloop can bridge instructions → product
+deterministically after the three-provider trial returned product truth 0 of 12.
+
+**Handling:** the purchased pattern's protected expression is not in this repository and
+never will be. It was extracted to a session scratchpad, read, and used to measure
+Brambleloop's own machinery. No Brambleloop product is derived from it; the regression tests
+use generic swatch fixtures. What is recorded below is measurement of *our* system.
+
+### Phase A/B — the pattern is arithmetically coherent, and the photographs agree
+
+Independently recomputed from the pattern's own stitch counts and gauge, for all nine sizes:
+
+| check | result |
+|---|---|
+| finished length from stitch count ÷ gauge | **9/9 within 1%** |
+| back width from row count ÷ gauge | **9/9 within 2%** |
+| total rows = front + back + front + 1 | **9/9 exact** |
+| sleeve circumference ≈ 2 × stated armhole | 9/9 within 5% |
+
+That last one is the seam-compatibility invariant: the sleeve tube's circumference has to
+equal the armhole's perimeter or the pieces cannot be sewn together. It holds across every
+size, which means the pattern is internally consistent and is a sound benchmark.
+
+Reconciliation against the four photographs, classified by what actually supports each claim:
+
+- **BOTH** — oversized silhouette (pattern: ~14cm positive ease at XS); open front with no
+  closures; two patch pockets; dropped shoulder with no armhole shaping (the armhole is a
+  straight chain-spanned slit); ribbed cuffs; integral ribbed hem band; balloon sleeve from a
+  straight tube gathered by a slip-stitch cuff; mid-thigh length.
+- **PATTERN ONLY** — stitch counts, gauge, yarn weight, size grading, seam order, the
+  instruction that pieces are joined with RS inside and WS facing out.
+- **PHOTOGRAPH ONLY** — pocket placement on the body, and neckline-ribbing position. The
+  pattern specifies neither numerically; it says "pin ribbing along neckline" and shows the
+  pockets in a photo.
+- **NOT OBSERVABLE** — individual stitch identity at this image resolution. No stitch-level
+  photographic verification is claimed.
+- **AMBIGUOUS** — stated sleeve length (39cm) against the foundation-chain computation
+  (42.8cm at XS); the difference is plausibly seam allowance and take-up but is not stated.
+
+**The compiler independently found the same gap the human pattern has.** Compiling our CIR of
+the garment produced exactly one warning: assembly steps join two pieces *without saying where
+on the second piece the join happens*. That is the pocket and ribbing placement — the one
+thing the purchased pattern also leaves to a photograph. The gate was not tuned to find it.
+
+### Phase C — what the existing CIR could and could not hold
+
+The whole garment **compiles clean in the existing CIR, unmodified**: four components, the
+armhole via the existing `skips` primitive, the full seam set, and a twin reporting
+**62.1cm against the pattern's stated 62cm — 0.1% error** from counts and gauge alone.
+
+Two things it could not represent, both found by building it rather than by reading it:
+
+1. **Loop targeting (BLO/FLO) did not exist.** The stitch registry had post stitches, bobbles
+   and cables but no concept of which loop a stitch enters. The benchmark's entire visual
+   identity is alternating BLO/FLO half doubles, so the CIR could hold every stitch count in
+   the garment exactly while being unable to say the one thing that makes it look like
+   itself. Count-perfect and texture-blind passes every gate and renders the wrong fabric.
+2. **The twin's grid was in working order, not fabric order (B-690).** Flat rows turn, so
+   alternate rows are mirrored. The integral hem rib — nine back-loop stitches at one edge of
+   every row — landed at positions 0–8 on odd rows and 80–88 on even ones, describing a rib
+   that zig-zags across the fabric instead of the continuous band the garment has. This was a
+   **live defect in shipped functionality**, not merely a gap: `color_grid()` feeds chart
+   rendering, so every flat two-colour chart has been drawn with alternate rows reversed.
+
+### Phase D/E — the deterministic proof, and what it measures
+
+Bounded addition: a `loop` field on `Op` → `ResolvedOp` → `Cell` (count-neutral, so no
+existing certified pattern needs re-verification), fabric coordinates on the twin, and
+`visual/fabric.py` — a flat SVG drawn one rect per counted stitch, one bar per unworked loop.
+No model, no prompt, no credits spent.
+
+The measurement that makes this testable rather than decorative, computed from loop targets:
+
+| | working order (before) | fabric order (after) |
+|---|---|---|
+| alternation along a row | 0.909 | 0.909 |
+| offset between rows | **0.085** | **0.864** |
+| classified surface | stripes | **checkered** |
+
+The fabric-coordinate fix moved the measured texture from stripes to checkered. The benchmark's own name for its stitch pattern describes a
+crumpled, non-directional broken surface, which is also what the photographs show. The classifier reads both axes rather than thresholding one,
+because alternation alone cannot tell a checkerboard from a ridge — and it refuses to name a
+direction on the *worn* garment, because that needs panel grain, which the CIR does not carry.
+
+**Product-truth scorecard for the deterministic path:**
+
+| | verdict |
+|---|---|
+| instruction fidelity | **PASS** — every drawn cell is a stitch the compiler counted; zero invented |
+| geometric fidelity | **PASS** — 62.1cm vs 62cm stated; 9/9 sizes reconcile |
+| physical plausibility | **PASS** — compiles clean, holds resolved, seams complete, closed form |
+| visual correspondence | **PARTIAL** — texture class and construction features correspond; stitch-level photographic match NOT claimed (resolution does not support it) |
+| photorealism | **not attempted, by design** |
+
+Compare: three image providers, twelve renders, product truth **0/12**. One deterministic
+render, product truth **true by construction**, cost **CA$0.00**.
+
+### CRITICAL DECISION GATE
+
+**Is deterministic Pattern/CIR → Product Truth viable enough to justify the production visual
+pipeline? YES.**
+
+The evidence: the existing CIR already carried topology, components, holds, seams, gauge and
+per-stitch cells; it compiled a real nine-size commercial garment clean on the first honest
+attempt; its twin reproduced the finished measurement to 0.1%; and the one thing it could not
+express turned out to be a count-neutral field that took a bounded change to add. That is a
+representation that was close, not one that was wrong.
+
+**Minimum production architecture to progress from here** (recommended, not built):
+
+1. **Panel grain/orientation** — the one genuinely missing primitive left. Without it a panel
+   cannot be placed in garment space and "vertical on the worn garment" cannot be said. This
+   is what turns correct panels into an assembled schematic.
+2. **Chain-span gauge** — chains are narrower than worked stitches; the armhole is chain-
+   spanned, and the implied chain gauge (~18/10cm vs 14.5 for hdc) is what reconciles the
+   stated armhole with the sleeve circumference. Without it every chain-spanned opening is
+   geometrically wrong.
+3. **Placed seams made mandatory for garments** — the compiler already warns; the benchmark
+   shows a commercial pattern shipping without it, which is the bar to beat, not to match.
+4. **A presentation layer that composites around the fabric and may never redraw it.** Scene,
+   lighting, model and environment may eventually be generative. The crochet region stays
+   authoritative, or product truth stops meaning anything.
+
+Stopping here as instructed. The renderer is a proof, not a product.

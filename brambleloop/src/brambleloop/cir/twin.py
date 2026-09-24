@@ -53,6 +53,23 @@ class Cell:
     stitch: str
     color: str | None
     repeat_group: int | None = None
+    # Carried from the op so the fabric grid knows its own texture. Without it the twin is a
+    # grid of identical cells and every textured pattern renders as plain fabric.
+    loop: str = "both"
+    # Where this stitch sits in the *fabric*, as opposed to the order it was worked in.
+    #
+    # Flat rows are worked back and forth: you turn at the end of every row, so the stitch
+    # you make first in row 3 is at the opposite edge from the stitch you made first in row
+    # 2. `position` is working order, which is what the writer needs; `fabric_position` is
+    # where the stitch actually is, which is what anything looking at the surface needs.
+    #
+    # Found 2026-09-24 by the benchmark cardigan, whose hem ribbing is worked into the body
+    # as nine back-loop stitches at one edge of every row. In working order those nine sat
+    # at positions 0-8 on odd rows and 80-88 on even ones, so the twin described a rib that
+    # zig-zagged from edge to edge instead of the continuous band the garment has. The same
+    # error mirrors every other row of `color_grid`, which feeds chart rendering -- so a flat
+    # two-colour chart has been drawn with alternate rows reversed.
+    fabric_position: int = 0
 
 
 @dataclass
@@ -88,20 +105,27 @@ class TwinModel:
         return {c.stitch for c in self.cells}
 
     def chart_grid(self) -> list[list[str]]:
-        """Row-major grid of stitch codes, bottom row first. Feeds chart rendering."""
-        rows = sorted({c.row for c in self.cells})
-        grid: list[list[str]] = []
-        for r in rows:
-            cells = sorted((c for c in self.cells if c.row == r), key=lambda c: c.position)
-            grid.append([c.stitch for c in cells])
-        return grid
+        """Row-major grid of stitch codes, bottom row first, in FABRIC order.
+
+        A chart is a picture of the fabric, so it is indexed by where stitches are rather
+        than by the order they were made in. See `Cell.fabric_position`.
+        """
+        return self._grid(lambda c: c.stitch)
 
     def color_grid(self) -> list[list[str | None]]:
+        return self._grid(lambda c: c.color)
+
+    def loop_grid(self) -> list[list[str]]:
+        """Which loop each stitch entered. This is what makes a texture a texture."""
+        return self._grid(lambda c: getattr(c, "loop", "both"))
+
+    def _grid(self, pick):
         rows = sorted({c.row for c in self.cells})
-        out: list[list[str | None]] = []
+        out = []
         for r in rows:
-            cells = sorted((c for c in self.cells if c.row == r), key=lambda c: c.position)
-            out.append([c.color for c in cells])
+            cells = sorted((c for c in self.cells if c.row == r),
+                           key=lambda c: c.fabric_position)
+            out.append([pick(c) for c in cells])
         return out
 
 
@@ -170,6 +194,10 @@ def build_twin(
         raise KeyError(f"no compiled rows for component {name!r}")
 
     model = TwinModel(component=name, calibrated=calibration != 1.0)
+    comp_early = next(c for c in cir.components if c.name == name)
+    # Only flat work turns. Rounds keep going the same way, so working order already is
+    # fabric order and mirroring them would invent a reversal the fabric does not have.
+    turns = comp_early.construction == "flat_rows"
     for r in rows:
         pos = 0
         for op in r.ops:
@@ -178,10 +206,20 @@ def build_twin(
                 for _ in range(st.produces):
                     model.cells.append(
                         Cell(row=r.index, position=pos, stitch=op.stitch,
-                             color=r.color, repeat_group=op.repeat_group)
+                             color=r.color, repeat_group=op.repeat_group,
+                             loop=getattr(op, "loop", "both"))
                     )
                     pos += 1
         model.row_widths[r.index] = pos
+        if turns and r.index % 2 == 0:
+            # This row was worked in the opposite direction, so its fabric coordinates run
+            # the other way. Mirrored against this row's own width: a short row sits where
+            # it was worked, not padded to the widest row.
+            for c in model.cells[-pos:]:
+                c.fabric_position = pos - 1 - c.position
+        else:
+            for c in model.cells[-pos:]:
+                c.fabric_position = c.position
 
     comp = next(c for c in cir.components if c.name == name)
     if comp.construction == "flat_rows":

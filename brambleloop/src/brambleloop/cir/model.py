@@ -17,6 +17,22 @@ from . import stitches
 Construction = Literal["flat_rows", "joined_rounds", "spiral_rounds"]
 
 
+# Which loop of the stitch below the hook enters.
+#
+# Count-neutral by construction: working into the front loop, the back loop or both
+# consumes one stitch and produces one either way, so none of the compiler's arithmetic
+# changes. What changes is the fabric. A half double crochet worked in the back loop leaves
+# the front loop lying on the surface as a horizontal bar, and alternating the two across a
+# row and offsetting them between rows is how textured stitch patterns exist at all.
+#
+# Added 2026-09-24 after the benchmark cardigan: its entire visual identity is alternating
+# BLO/FLO half doubles, and the CIR could represent every stitch count in the garment
+# exactly while being unable to say the one thing that makes it look like itself. A
+# representation that is count-perfect and texture-blind passes every gate and renders the
+# wrong fabric -- which is the same defect as a name claiming what the pattern does not do.
+LoopTarget = Literal["both", "front", "back"]
+
+
 @dataclass
 class Op:
     """One operation in a row: a stitch repeated `count` times in consecutive stitches."""
@@ -24,6 +40,7 @@ class Op:
     stitch: str
     count: int = 1
     note: str | None = None
+    loop: LoopTarget = "both"
 
     def __post_init__(self) -> None:
         if self.count < 1:
