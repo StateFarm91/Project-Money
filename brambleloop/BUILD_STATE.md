@@ -434,9 +434,26 @@ and no amount of further hand-placing of key points will substitute for it.
 Yes, and the sprint strengthened the case rather than weakening it. The deterministic chain
 CIR -> topology -> validation holds and is now defended by independent checks and 17
 adversarial fixtures. What is missing is a named, published, well-understood component with
-open implementations and, in CT2Yarn, a CC BY 4.0 dataset of real crocheted samples
-reconstructed as yarn centrelines -- which would also give the shape check something
-genuinely external to be calibrated against.
+open implementations.
+
+**A caveat, verified rather than assumed.** CT2Yarn does publish a CC BY 4.0 dataset of 18
+micro-CT scans of real crocheted samples as yarn centrelines (Zenodo, 27.35GB raw or 2.27GB
+processed, downloadable per sample). Its README does NOT state a half double crochet sample:
+the categories are letters and shapes, chain stitches, single-stitch patches and tension
+variations, and the paper's stitch templates are a chain, a slip stitch and a single stitch.
+
+So it can validate the yarn-path machinery -- linking number, continuity, interpenetration --
+against real crochet, which is worth doing and is the best independent test available. It
+cannot calibrate HDC morphology, because it appears not to contain any. An earlier draft of
+this section claimed it could; that claim was written from a search summary before the
+README had been read, and is corrected here.
+
+**That is the second time.** Storck et al. model chains, slip stitches and single crochets;
+CT2Yarn scans chains, slip stitches and single-stitch patches. The published crochet
+literature and its data both stop short of the half double. That is not a gap in the reading,
+it is the state of the art, and it is why HDC geometry had to be derived here from the
+certified gauge and documented anatomy rather than adopted. Worth knowing before any future
+increment budgets time to "find the published HDC model".
 
 #### Estimated remaining scope
 
