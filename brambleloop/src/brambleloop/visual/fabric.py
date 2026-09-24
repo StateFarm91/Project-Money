@@ -155,7 +155,15 @@ def texture_signature(twin, *, max_rows: int | None = None) -> dict:
         surface, why = "ridges_along_the_rows", ("the loop target holds along a row and "
                                                  "flips on the next, so each row is a band")
     else:
-        surface, why = "uniform", "the loop target barely changes in either direction"
+        # Constant single-loop targeting is not the absence of texture -- it is ribbing, the
+        # most common textured fabric in crochet. Every row leaves its unworked loop in the
+        # same relative place, so each row contributes a bar and the bars stack into ridges
+        # running along the rows. The first version of this classifier called it "uniform"
+        # because it only looked for *variation*, and so reported the neckband of a ribbed
+        # cardigan as barely textured. Absence of variation is not absence of texture.
+        surface, why = "ridges_along_the_rows", (
+            "the loop target is the same everywhere, so every row leaves its unworked loop "
+            "in the same place and the rows stack into ridges: this is ribbing")
     return {
         "textured": True,
         "cells": total,

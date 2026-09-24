@@ -211,6 +211,25 @@ class Component:
     # that the component resuming it starts on exactly that many stitches.
     holds: list[Hold] = field(default_factory=list)
     resumes: str | None = None
+    # Which way this panel's rows run on the finished object.
+    #
+    # "up" means rows stack from hem to shoulder, the ordinary bottom-up panel. "across"
+    # means the piece is worked side to side: the foundation chain runs the length of the
+    # garment and the rows stack around the body. The stitch counts are identical either
+    # way, which is why the CIR could describe a side-to-side cardigan perfectly and still
+    # not know which way its fabric ran.
+    #
+    # It matters because texture has a direction. Row boundaries and any ridge that follows a
+    # row are lines parallel to the rows, so a side-to-side panel shows them running
+    # vertically on the worn garment and a bottom-up panel shows them running horizontally.
+    # That is the single most visible property of a textured garment in a photograph, and
+    # without this field nothing downstream may claim it in either direction.
+    grain: Literal["up", "across"] = "up"
+
+    @property
+    def rows_run_vertically_on_the_body(self) -> bool:
+        """True when this panel's rows appear as vertical lines on the worn garment."""
+        return self.grain == "across"
 
     def __post_init__(self) -> None:
         if self.make < 1:

@@ -6223,3 +6223,71 @@ representation that was close, not one that was wrong.
    authoritative, or product truth stops meaning anything.
 
 Stopping here as instructed. The renderer is a proof, not a product.
+
+## 2026-09-24 — the benchmark reconstructed in full, all nine sizes
+
+The owner corrected an over-restrictive reading on my part: technical facts — counts, gauge,
+construction method, stitch sequence, grading, assembly — are not protected expression, and
+reducing the benchmark to high-level measurements was weakening the test for no reason. The
+garment is now encoded completely in `cir/benchmarks.py`. What stays out is the seller's
+written text and photographs; what is in is our own encoding of how the thing is built.
+
+### The reconstruction
+
+`cardigan(size)` builds the whole garment for any of the nine sizes: the one-piece body
+(front → armhole → back → armhole → front → final row), two sleeves, two pockets, the
+neckline ribbing, and the five-step assembly. **All nine sizes compile with zero errors.**
+
+| check | result |
+|---|---|
+| compiles, every size | **9/9, no errors** |
+| total row count vs the pattern's published total | **9/9 exact** (81, 91, 99, 107, 115, 125, 133, 143, 151) |
+| finished length from counts ÷ gauge | 9/9 within 2% |
+| back width from row count ÷ gauge | 9/9 within 3% |
+| sleeve circumference vs armhole perimeter (seam compatibility) | **9/9 compatible** |
+| grading monotonic in all seven dimensions | pass |
+
+Body at XS is 7,292 stitches; 5XL is 14,800. Every one is placed, loop-targeted and drawn.
+
+### What the reconstruction got right that a measurement summary would have missed
+
+- **The cuff is slip stitch, not half double.** Nothing in the sleeve tapers — it is a
+  straight tube. The balloon shape exists because the cuff edge is worked in slip stitch,
+  which is shorter than a half double and draws that edge in. A summary that recorded
+  "sleeve: 62 sts × 26 rows" would have produced a sleeve hanging like a pipe.
+- **The hem ribbing is not a band.** It is nine back-loop stitches at one edge of every body
+  row, created by the same rows as the fabric beside it — which only reads correctly once
+  the grid is in fabric coordinates (B-690), since the rows turn.
+- **The neckband is ribbing, and the classifier said it was flat.** Constant single-loop
+  working has no *variation*, so a classifier looking for variation called it "uniform". But
+  every row leaves its unworked loop in the same place and the rows stack into ridges — that
+  is ribbing, the commonest textured fabric in crochet. Fixed: absence of variation is not
+  absence of texture. Body and sleeves measure `checkered`; the neckband `ridges_along_the_rows`.
+- **Grain is now carried.** Body and sleeves are `across` — worked sideways, so their rows run
+  vertically on the worn garment. Pockets are `up`. This is what lets anything downstream
+  speak about direction on a finished object instead of guessing.
+
+### Two gaps the full reconstruction measured rather than predicted
+
+1. **No chain-span primitive, and the geometry is ~1% wrong because of it.** The armhole is
+   spanned by chains that replace the stitches the row left unworked. The CIR counts a chain
+   as producing one unit, so the armhole row measures 64 worked stitches + 27 chains = 91
+   units wide — but those 27 chains *span* the 26 stitches they replace and add no width.
+   Measured overstatement: **+1.11% at XS, +1.02% at 5XL.** Separately, the chain gauge the
+   pattern's own numbers imply is 17.6–19.7 per 10cm against 14.5 for the worked fabric, so
+   chains are roughly 20–35% narrower. Until the CIR can distinguish a span from a stitch,
+   every chain-spanned opening is geometrically wrong by about a percent.
+2. **A bridge chain cannot be declared as "not a stitch of this row".** The pattern writes it
+   precisely — `<64 sts + 27 chs>` — and the CIR has no way to say it, so the encoding
+   declares the sum and carries the distinction in a note. That is the same missing
+   distinction as (1), seen from the counting side rather than the measuring side.
+
+### Honest status of the photograph comparison
+
+Unchanged and still **PARTIAL**. Construction features and texture class correspond —
+side-to-side grain predicting vertical row lines, a broken checkered body surface, ribbed
+neckband and cuffs, a straight sleeve gathered at the cuff, two patch pockets, a dropped
+shoulder from an unshaped slit armhole. Stitch-level photographic verification is **not**
+claimed and the image resolution does not support it. Pocket and neckband placement remain
+photograph-only: the pattern states neither numerically, and the neckline row count had to be
+derived from the body geometry rather than read, which `_neckline_rows` flags as derived.

@@ -28,8 +28,19 @@ def test_twin_chart_grid_shape_matches_row_counts():
     twin = build_twin(cir, r)
     grid = twin.chart_grid()
     assert [len(row) for row in grid] == [40, 40, 40, 40]
-    # Row 2 alternates 3 sc then a dc, ten times over.
-    assert grid[1][:5] == ["sc", "sc", "sc", "dc", "sc"]
+    # The grid is in fabric order, not working order (B-690).
+    #
+    # Flat rows turn, so an even row is worked in the opposite direction and its stitches sit
+    # mirrored in the fabric relative to the order they were made. Every chart this renders
+    # carries the footer "odd rows read right to left, even rows read left to right" -- an
+    # explicit promise about direction that only holds if the grid says where stitches ARE.
+    # This assertion used to encode working order, so the chart told makers to read even rows
+    # one way while drawing them the other.
+    #
+    # Row 2 is worked as (3 sc, dc) ten times; in the fabric that reads (dc, 3 sc) ten times.
+    assert grid[1][:5] == ["dc", "sc", "sc", "sc", "dc"]
+    # Row 1 is odd, so working order and fabric order agree.
+    assert grid[0][:5] == ["sc"] * 5
 
 
 def test_twin_reports_colours_actually_present():
