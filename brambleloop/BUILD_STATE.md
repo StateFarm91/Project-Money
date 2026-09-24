@@ -472,6 +472,40 @@ hoped for. Days rather than hours, and it needs its own acceptance gates. **Reco
 the next increment, and flagged for owner decision because it is a subsystem rather than a
 fix.**
 
+#### Heartbeat 2026-09-24T08:14Z — verified, and three more of my own claims corrected
+
+Production `/api/verify`: **12 of 12 passing**. Phase `shadow`, 0 published against 148
+publish refusals, model spend CA$74.81 of the CA$100 ceiling, no paused scopes.
+
+Full suite: **3,275 passing, 0 suites failing.** The first run of this heartbeat reported
+3,213 passing and 2 suites failing, and both failures were mine and both suites were
+actually green -- see below. 3275 - 3213 = 62, exactly the 18 + 27 + 17 passes that were
+not being counted.
+
+Three defects, all of them in work this session had already reported as done:
+
+18. **The suite caught me committing the fault its own comment was written about.**
+    `run_tests.sh` counts passes with `grep -c '^OK'` and deliberately counts a suite that
+    exits clean while reporting none as a failure. Its comment explains why: nine files
+    once printed a different marker, their results stopped reaching the headline total for
+    a whole session, exit codes still caught real failures so nothing looked broken, and
+    the headline number was quietly wrong -- "the harder fault to notice". All three test
+    files added this sprint printed `PASS`.
+
+19. **The Hopf link scored 0.** Testing the linking number against values this project did
+    not choose showed that a crossing landing exactly on a path vertex was dropped, and the
+    absence of a detection returned as the absence of a crossing -- the precise failure
+    that module's docstring says it exists to prevent. The crochet figures are unaffected
+    and were re-run rather than assumed: the bug produced false ZEROS and the reported
+    state has none.
+
+20. **The CT2Yarn claim was wrong twice over**, corrected above from the Zenodo record
+    itself rather than from prose about it.
+
+The sprint's conclusions stand unchanged. What did not stand was the confidence of my
+reporting: three things presented as verified had been checked less carefully than the
+report implied, and each was caught by a check rather than by me re-reading my own work.
+
 #### Cost and posture
 
 Zero spend. Everything in this sprint is deterministic and in-container: numpy, Mitsuba
