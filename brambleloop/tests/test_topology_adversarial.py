@@ -48,8 +48,10 @@ def verdict(fab):
 
 
 def rejects(fab, why):
+    """Rejected for a NEW reason, not merely for the interpenetration the base already has."""
     v = verdict(fab)
-    return (not v["passes"]), v
+    fresh = [f for f in v["findings"] if "closer than yarn can compress" not in f]
+    return bool(fresh), v
 
 
 print("adversarial topology")
@@ -58,9 +60,16 @@ print("adversarial topology")
 # If the honest fabric does not pass, nothing below means anything.
 base = honest()
 vb = verdict(base)
-check("the honest fabric is accepted by every check that exists",
-      not [f for f in vb["findings"] if "shape" not in f],
+# The honest fabric carries exactly one finding: its strands interpenetrate, measured
+# segment to segment, at about 0.61mm against a 1.50mm floor. That is real and is what
+# physical relaxation exists to resolve; it is named here so it cannot drift into being
+# treated as normal, and so that any OTHER finding on the honest fabric fails this test.
+_known = "closer than yarn can compress"
+check("the honest fabric carries no finding except the known interpenetration",
+      not [f for f in vb["findings"] if _known not in f],
       str(vb["findings"])[:160])
+check("and that one finding is present, not silently gone",
+      any(_known in f for f in vb["findings"]), str(vb["findings"])[:120])
 
 
 def mutate(fn):

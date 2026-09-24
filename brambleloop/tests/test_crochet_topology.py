@@ -67,9 +67,16 @@ check("every linking number is exactly one, in one sense or the other",
 # --- interpenetration ---------------------------------------------------------
 # The dive that carries a stitch around the loop below clears it by a yarn diameter. Sized
 # purely as a fraction of the row height it passed within 0.53mm of a 2mm strand.
-check("no two strands interpenetrate",
-      v["closest_non_adjacent_mm"] >= f.yarn_diameter * 0.45,
+# The AUTHORED geometry does not clear the contact floor, and that is recorded here as a
+# fact rather than hidden. Measured segment to segment it sits at about 0.61mm against a
+# 1.50mm floor. The vertex-sampled check it replaced reported 2.06mm for the same fabric,
+# which is why this went unnoticed. Relaxation is what brings it into spec -- see below --
+# and this assertion exists so that if the authored geometry ever does clear the floor on
+# its own, somebody has to come here and say so deliberately.
+check("the authored geometry's interpenetration is where we think it is",
+      0.4 < v["closest_non_adjacent_mm"] < 1.0,
       f"{v['closest_non_adjacent_mm']}mm at {f.yarn_diameter}mm yarn")
+check("and the validator therefore refuses it", v["passes"] is False)
 
 raw, _ = swatch(6, 8, settled=False)
 vr = CT.validate(raw, t, max_rows=6, max_cols=8)
@@ -111,8 +118,8 @@ check("the large swatch exercises every loop target",
 
 vb = CT.validate(big, t, max_rows=14, max_cols=16)
 check("no unlinked stitches at scale", not vb.get("unlinked"), str(vb.get("unlinked")))
-check("no interpenetration at scale",
-      vb["closest_non_adjacent_mm"] >= big.yarn_diameter * 0.45)
+check("the same interpenetration is present at scale, not just in the small fixture",
+      0.4 < vb["closest_non_adjacent_mm"] < 1.0, str(vb["closest_non_adjacent_mm"]))
 
 # --- continuity ---------------------------------------------------------------
 check("the yarn is one path", vb["total_points"] > 0)
@@ -150,6 +157,36 @@ check("yarn per stitch is the right order of magnitude",
 check("every stitch is shaped like a half double crochet",
       vb["stitches_shaped_like_hdc"] == vb["stitches_built"],
       str(vb.get("misshapen")))
+
+# --- what relaxation is for ---------------------------------------------------
+# The one thing the authored geometry cannot do for itself. Physical relaxation has to
+# resolve the interpenetration WITHOUT breaking anything the topology gate certified.
+from brambleloop.visual import relaxation as RX
+
+small_fab = CT.settle(CT.build(t, c.gauge, max_rows=5, max_cols=5))
+before = CT.validate(small_fab, t, max_rows=5, max_cols=5)
+relaxed, report = RX.relax(small_fab, iterations=200)
+after = CT.validate(relaxed, t, max_rows=5, max_cols=5)
+
+check("relaxation lifts the strands off each other",
+      after["closest_non_adjacent_mm"] > before["closest_non_adjacent_mm"] * 2,
+      f"{before['closest_non_adjacent_mm']} -> {after['closest_non_adjacent_mm']}")
+check("relaxation clears the contact floor",
+      after["closest_non_adjacent_mm"] >= relaxed.yarn_diameter * CT.COMPRESSED_CONTACT,
+      str(after["closest_non_adjacent_mm"]))
+# The hard invariant, and it is guaranteed by construction rather than measured afterwards:
+# if the smallest gap between non-adjacent segments never reached zero, no strand can have
+# passed through another, so the topology cannot have changed.
+check("no strand could have passed through another at any point",
+      report.crossing_impossible and report.min_gap_seen_mm > 0,
+      f"min gap {report.min_gap_seen_mm}")
+check("yarn length is preserved", abs(report.as_dict()["length_change_pct"]) < 1.0,
+      str(report.as_dict()["length_change_pct"]))
+check("yarn strain stays small", report.max_strain_after < 0.1,
+      str(report.max_strain_after))
+check("relaxation keeps every stitch shaped like a half double",
+      after["stitches_shaped_like_hdc"] >= before["stitches_shaped_like_hdc"] - 1,
+      f"{before['stitches_shaped_like_hdc']} -> {after['stitches_shaped_like_hdc']}")
 
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)
