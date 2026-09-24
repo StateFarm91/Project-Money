@@ -151,12 +151,24 @@ def _segment_crossings(q0, q1, pa, pb, pc, tol):
     v = np.einsum("j,ij->i", d, qv) / safe
     t = np.einsum("ij,ij->i", e2, qv) / safe
 
-    hit = (~parallel) & (u >= -tol) & (v >= -tol) & (u + v <= 1 + tol) & (t > tol) & (t < 1 - tol)
+    inside = (~parallel) & (u >= -tol) & (v >= -tol) & (u + v <= 1 + tol)
+    hit = inside & (t > tol) & (t < 1 - tol)
+
     # A hit sitting on a triangle's edge or vertex is shared with the neighbouring triangle
-    # and would be counted twice, or on the fan apex and counted once per triangle. Report it
-    # so the caller can move the surface rather than trust the number.
+    # and would be counted twice, or on the fan apex and counted once per triangle.
+    #
+    # A crossing sitting at the END of a path segment is the same problem seen from the
+    # other side, and it used to be invisible: the t-range test dropped it and nothing
+    # noticed, so the answer came back 0 -- not linked -- for a crossing that was really
+    # there. A Hopf link scored zero because its crossing fell exactly on a vertex.
+    # Absence of a detection was being reported as absence of a crossing.
+    #
+    # Both are reported so the caller can move the surface rather than trust the number.
     edge = 1e-6
-    degenerate = bool((hit & ((u < edge) | (v < edge) | (u + v > 1 - edge))).any())
+    on_edge = bool((hit & ((u < edge) | (v < edge) | (u + v > 1 - edge))).any())
+    at_vertex = bool((inside & (t > -edge) & (t < edge + 1.0)
+                      & ((t <= edge) | (t >= 1.0 - edge))).any())
+    degenerate = on_edge or at_vertex
     if not hit.any():
         return 0, degenerate
     normals = np.cross(e1, e2)
