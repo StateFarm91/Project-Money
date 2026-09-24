@@ -190,6 +190,32 @@ IDENTITY_NOT_APPLICABLE = (
     "untouched by this trial: nothing here renders her")
 
 
+def experiment_spend_cad(db, *, limit: int = 40) -> float:
+    """What this experiment has already spent, across every challenger run.
+
+    The ceiling is on the experiment, not on the run. `run` used to start its counter at
+    zero, so each challenger got a fresh CA$4.00 and the authorised total was whatever the
+    ceiling happened to be multiplied by however many challengers were tried. That held only
+    while exactly one challenger ever rendered, which stopped being true the moment
+    `nano-banana-2` became reachable again -- so a control that had never been wrong was
+    about to be wrong for the first time on the next deploy.
+
+    Filed runs are summed regardless of render method. A method change does not refund
+    money, and the owner authorised an amount rather than an amount per attempt at the
+    question.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    total = 0.0
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                             .order_by(desc(AuditLog.id)).limit(limit)):
+            total += float((row.detail or {}).get("spent_cad") or 0.0)
+    return round(total, 4)
+
+
 def incumbent_evidence(db, *, limit: int = 40) -> list[dict]:
     """Incumbent attempts already measured under the current render method.
 
@@ -247,7 +273,11 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
                         "balance that serves them is spent. Rendering now would buy images "
                         "that cannot be scored. " + held.get("why_this_stops_spending", ""))}
 
-    spent = 0.0
+    # Seeded from what the experiment has already spent, not from zero. The ceiling governs
+    # the authorisation the owner gave once, so every challenger after the first draws from
+    # what is left of it rather than from a fresh copy of it.
+    prior = experiment_spend_cad(db)
+    spent = prior
     rows: list[dict] = []
     stopped = ""
 
@@ -293,7 +323,11 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
         "challenger": challenger,
         "incumbent": INCUMBENT,
         "ceiling_cad": CEILING_CAD,
-        "spent_cad": round(spent, 4),
+        # This run's own spend, which is what `experiment_spend_cad` sums and therefore must
+        # never include the prior total, or the ceiling would compound every time it is read.
+        "spent_cad": round(spent - prior, 4),
+        "experiment_spent_cad": round(spent, 4),
+        "prior_spend_cad": prior,
         "incumbent_reused": len(reused),
         "why_the_incumbent_was_not_re_rendered": (
             "its behaviour on this blocker is already measured under this render method, "

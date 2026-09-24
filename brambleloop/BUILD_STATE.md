@@ -6003,3 +6003,25 @@ and it has still never been measured. That measurement is what the next deploy b
 
 Spend: trial CA$0.1918 of CA$4.00 authorised. Portrait repair CA$0.1233 of CA$1.00. Combined
 CA$0.3151 of CA$5.00. Shadow Mode intact; nothing published.
+
+### The executor's five ready requirements are one blocker wearing five numbers
+
+Read from `/api/build` on 2026-09-24. The watchdog is alarming:
+
+```
+verdict: stalled | ready_total: 5 | completions_in_window: 0 (6h)
+last_completion: 2026-09-22T08:00:18Z
+```
+
+The five are #130, #300, #72, #75 and #202 — the model-bearing and acceptance-test cluster.
+Every one is genuinely unparked: their gates are open, nothing is waiting on the owner, and
+the executor is right to offer them. They are also, every one, unfinishable today for the
+same reason — the renders do not clear their floors. `listable: 0 of 10`, product truth 0 of
+6 renders across both providers.
+
+Worth stating because "5 ready, 0 moving for two days" invites the wrong fix. The queue is
+not stuck on scheduling, claiming, dependencies or an unnoticed gate, and no amount of
+executor work will move it. It is stuck on one question, and the next deploy is what asks it:
+can any available image provider reproduce a certified crochet chart. Until that has an
+answer, five ready requirements is an accurate count of work that cannot be completed rather
+than a backlog anybody can burn down.

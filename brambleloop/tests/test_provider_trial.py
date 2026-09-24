@@ -288,6 +288,41 @@ def test_the_method_version_is_read_from_the_challengers_own_render():
         "the challenger's superseded-method render was dated by the incumbent's current one")
 
 
+def test_the_ceiling_governs_the_experiment_not_each_challenger_run():
+    """CA$4.00 was authorised once, not once per challenger.
+
+    `run` seeded its spend counter at zero, so every challenger drew a fresh copy of the
+    ceiling and the real authorised total was CA$4.00 multiplied by however many providers
+    were tried. That was never wrong while exactly one challenger had ever rendered, and it
+    was about to be wrong for the first time the moment `nano-banana-2` became reachable
+    again -- a spend control that holds only until it is used.
+    """
+    from brambleloop.agents.registry import Registry
+
+    db = _db()
+    assert pt.experiment_spend_cad(db) == 0.0, "nothing filed, nothing spent"
+
+    Registry(db).audit("publishing", pt.ACTION, detail={
+        "challenger": "flux-2-pro", "spent_cad": 0.1918, "attempts": []})
+    Registry(db).audit("publishing", pt.ACTION, detail={
+        "challenger": "nano-banana-2", "spent_cad": 1.25, "attempts": []})
+
+    assert pt.experiment_spend_cad(db) == 1.4418, (
+        "the experiment's spend is the sum of its runs, whatever the render method")
+
+    # And the guard the ceiling is made of refuses on the cumulative figure.
+    spent = pt.experiment_spend_cad(db)
+    price = pt._price_of("nano-banana-2")
+    assert spent + price <= pt.CEILING_CAD, "this fixture should still be inside the ceiling"
+    try:
+        pt.attempt(db, None, None, provider_key="nano-banana-2", work_dir="/tmp",
+                   spent_so_far=pt.CEILING_CAD - 0.0001)
+    except pt.CeilingReached as exc:
+        assert "already spent" in str(exc)
+    else:
+        raise AssertionError("a render past the ceiling was not refused")
+
+
 def test_the_fallback_challenger_is_the_strongest_one_not_already_spent():
     """A challenger that cannot render is not a cheaper answer, it is no answer."""
     assert pt.CHALLENGERS[0] == "nano-banana-2", "the merits order is the documented one"
