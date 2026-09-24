@@ -90,6 +90,27 @@ def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
 @app.on_event("startup")
 def _startup() -> None:
     schema_changes = db.create_all()
+    # One row per container start, carrying the commit it started on.
+    #
+    # `runner.STATE.worker_restarts` looks like a restart count and cannot be one: it counts
+    # the worker thread's own restart loop inside a single process, so it resets to zero
+    # with the process it lives in. Measured on 2026-09-24: `/api/verify` reported
+    # `restarts: 0` across three different `worker_started_at` values inside forty-seven
+    # minutes. Those three were deploys, which is exactly the point -- nothing in this
+    # system could have told them apart from a container dying and being replaced every
+    # twenty minutes, and the second is the case a restart count is *for*.
+    #
+    # A row per boot makes the difference queryable: a start on a commit the previous start
+    # already used is a restart, and a start on a new commit is a deploy. One row per boot
+    # is nothing beside 4,700 audit rows a day.
+    try:
+        Registry(db).audit("orchestrator", "runtime.started",
+                           detail={"commit": build_identity().get("commit", ""),
+                                   "commit_short": build_identity().get(
+                                       "commit_short", "dev"),
+                                   "at": utcnow().isoformat()})
+    except Exception:  # noqa: BLE001 - recording a boot must never prevent one
+        pass
     if schema_changes:
         # A schema change nobody can see is how a deploy breaks quietly.
         Registry(db).audit("orchestrator", "schema.migrated",
@@ -432,7 +453,15 @@ def health() -> JSONResponse:
 
 @app.get("/api/status")
 def api_status() -> dict:
+    from ..queue.durable import deliberate_refusal
+
     q = JobQueue(db)
+    # Read once. This called `q.dead_letters()` three times, which is three full loads of
+    # every dead row on the endpoint the console polls -- and the three answers were three
+    # different classifications of the same rows.
+    dead = q.dead_letters()
+    refusals = sum(1 for j in dead
+                   if deliberate_refusal(j.job_type, j.last_error or ""))
     with db.session() as s:
         products = s.scalar(select(func.count()).select_from(Product)) or 0
         certified = s.scalar(
@@ -456,11 +485,19 @@ def api_status() -> dict:
         # Split, because the raw count is 99% Shadow Mode working correctly. A publication
         # job dying is a refusal, not a failure, and a number dominated by healthy refusals
         # is an alarm nobody can read. `/api/queue/dead` groups them.
-        "dead_letters": len(q.dead_letters()),
-        "dead_letter_refusals": sum(1 for j in q.dead_letters()
-                                    if j.job_type == "store.publish"),
-        "dead_letter_defects": sum(1 for j in q.dead_letters()
-                                   if j.job_type != "store.publish"),
+        #
+        # Classified by `durable.deliberate_refusal`, which is the same function
+        # `/api/verify` uses. It was `job_type != "store.publish"` here, and that is a
+        # third answer to a question `durable.py` already says is "defined once because it
+        # is asked in two places". Measured on production 2026-09-24: this endpoint
+        # reported `dead_letter_defects: 1` while `/api/verify` reported zero unexpected
+        # dead letters, from the same row, in the same minute -- a stand-aside, which is a
+        # refusal working. Two of this company's own status endpoints disagreeing about
+        # whether anything is wrong is worse than either answer.
+        "dead_letters": len(dead),
+        "dead_letter_refusals": refusals,
+        "dead_letter_defects": len(dead) - refusals,
+        "dead_letter_classified_by": "queue.durable.deliberate_refusal",
         "products": products,
         "certified_versions": certified,
         "open_incidents": incidents,
@@ -3532,12 +3569,38 @@ def api_verify() -> JSONResponse:
           ceiling <= authorised_ceiling_cad() and model_spend <= ceiling,
           {"providers": available_providers(), "spent_this_month_cad": model_spend,
            "monthly_ceiling_cad": ceiling})
+    # This check measures that every agent *has* a ceiling. It does not measure that the
+    # ceiling binds, and the two are far apart: `registry.record_cost` consults it, and
+    # `finance.spend_report.record` -- the single writer the owner's spend-accounting
+    # instruction created, and the one nearly every real call now goes through -- does not
+    # consult it at all. So today's spend per agent is carried in the evidence beside the
+    # ceiling it is supposed to respect, because a number nobody can see is a ceiling
+    # nobody can check. The verdict is unchanged; what changed is that it no longer implies
+    # more than it looked at.
+    from ..finance.spend_report import per_agent_today
+
+    today = per_agent_today(db)
     check("every_agent_has_a_cost_ceiling",
           bool(agents) and all(a.daily_cost_ceiling_cad > 0 for a in agents),
           {"agents": len(agents),
-           "without_ceiling": [a.name for a in agents if a.daily_cost_ceiling_cad <= 0]})
+           "without_ceiling": [a.name for a in agents if a.daily_cost_ceiling_cad <= 0],
+           "spent_today_against_ceiling": today["agents"],
+           "over_their_ceiling_today": today["over"],
+           "this_check_measures": ("that a ceiling exists, not that it was enforced. The "
+                                   "row above it says what was actually spent")})
+    # Named for what it can see. `all(...)` over an empty list is True, and this list is
+    # empty in production: nothing in this system calls `SpendGuard.set_limit`, so no scope
+    # has ever been configured and the check has been reporting the ceilings unbreached by
+    # having no ceilings to breach. The verdict is left alone -- an unconfigured scope is
+    # not a breach -- and the count is put in the evidence so the difference between "none
+    # breached" and "none exist" is visible on the line somebody reads.
     check("spend_limits_not_breached", all(not l.paused for l in limits),
-          {"paused_scopes": [l.scope for l in limits if l.paused]})
+          {"paused_scopes": [l.scope for l in limits if l.paused],
+           "scopes_configured": len(limits),
+           "what_this_cannot_see": (
+               "a scope nobody configured. With none configured this check passes by "
+               "absence: the live money controls are the monthly model ceiling above and "
+               "the per-agent daily ceilings beside it")})
 
     # Durability: a state this rich cannot have come from a container that started empty.
     durable = certified > 0 and audits > 0 and not _is_sqlite()
@@ -3551,8 +3614,19 @@ def api_verify() -> JSONResponse:
     # grace is bounded by the runner's own timings and expires; a worker that started long
     # ago and never ticked still fails, which is the case this check exists for.
     starting = bool(r.get("worker_starting"))
+    # `restarts` is the worker thread's own restart loop inside this process, and it resets
+    # to zero with the process -- so it can never report the restart that matters, which is
+    # the container being replaced. The row-backed count beside it can, and it separates a
+    # replacement on a new commit (a deploy) from one on a commit already seen (a container
+    # dying and coming back). Evidence only: the verdict is unchanged.
+    from ..ops.health import container_starts
+
+    with db.session() as s:
+        boots = container_starts(s)
     check("worker_is_alive", bool(r["worker_alive"]) or starting,
-          {"last_tick": r["worker_last_tick"], "restarts": r["worker_restarts"],
+          {"last_tick": r["worker_last_tick"],
+           "restarts_in_this_process": r["worker_restarts"],
+           "container_starts_24h": boots,
            "starting": starting, "started_at": r["worker_started_at"]})
     check("scheduler_has_ticked", r["scheduler_last_tick"] is not None or starting,
           {"last_tick": r["scheduler_last_tick"], "starting": starting})

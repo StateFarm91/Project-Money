@@ -8,15 +8,26 @@ These are enforced here in code, not asserted in a prompt.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Iterable
 
 from sqlalchemy import select
 
-from ..core.db import Database
+from ..core.db import Database, is_postgres
 from ..core.models import (
     Agent, Authority, AuditLog, CostEntry, Job, Phase, SpendLimit, utcnow,
 )
+
+
+def _utc_date(value: datetime):
+    """The UTC calendar date of a timestamp, whether or not it carries a timezone.
+
+    SQLite hands back naive datetimes and Postgres hands back aware ones, and the naive ones
+    are UTC by construction (`utcnow` writes them). Comparing the two without saying so is
+    how a day boundary becomes a coin toss.
+    """
+    return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).astimezone(
+        timezone.utc).date()
 
 
 class PermissionDenied(Exception):
@@ -272,11 +283,19 @@ class Registry:
 
     # ---- cost ceilings -------------------------------------------------
     def spend_today(self, agent_name: str) -> float:
-        today = date.today().isoformat()
+        """This agent's spend on the current UTC day.
+
+        UTC, because every other timestamp in this system is and the rows being summed are
+        written with `utcnow`. `date.today()` is the host's local day, so on any host not
+        set to UTC the window being summed and the window the rows were stamped in are
+        different windows -- a ceiling that resets at the wrong hour, silently, and only on
+        some machines.
+        """
+        today = utcnow().date()
         with self.db.session() as s:
             entries = s.scalars(select(CostEntry).where(CostEntry.agent == agent_name))
             return round(
-                sum(e.amount_cad for e in entries if e.at.date().isoformat() == today), 4
+                sum(e.amount_cad for e in entries if _utc_date(e.at) == today), 4
             )
 
     def record_cost(
@@ -284,17 +303,32 @@ class Registry:
         job_id: int | None = None, tokens_in: int = 0, tokens_out: int = 0,
         detail: dict | None = None,
     ) -> None:
+        """Write the cost row, then refuse if this agent is over its daily ceiling.
+
+        The order is the fix. This checked first and wrote second, so the one call that
+        crossed the ceiling wrote no row at all -- the spend that breached the guard was the
+        single spend the ledger did not contain. That is not a conservative failure: the
+        money had already left (this is called *after* the provider answered), and the
+        monthly ceiling in `gateway.anthropic.spent_this_month_cad` is computed from exactly
+        these rows, so a breach of the daily ceiling quietly lowered the number the monthly
+        ceiling is checked against. A guard that erases its own evidence makes the guard
+        above it wrong.
+
+        The refusal is unchanged and still raises: the caller still fails, the job still
+        dead-letters, and nothing new is permitted. What changed is that the bill is now
+        complete whether or not the ceiling held.
+        """
         agent = self.get(agent_name)
-        if self.spend_today(agent_name) + amount_cad > agent.daily_cost_ceiling_cad:
-            raise BudgetExceeded(
-                f"agent {agent_name!r} would exceed its daily ceiling of "
-                f"CA${agent.daily_cost_ceiling_cad:.2f}"
-            )
         with self.db.session() as s:
             s.add(CostEntry(
                 agent=agent_name, amount_cad=amount_cad, kind=kind, job_id=job_id,
                 tokens_in=tokens_in, tokens_out=tokens_out, detail=detail or {},
             ))
+        if self.spend_today(agent_name) > agent.daily_cost_ceiling_cad:
+            raise BudgetExceeded(
+                f"agent {agent_name!r} would exceed its daily ceiling of "
+                f"CA${agent.daily_cost_ceiling_cad:.2f}"
+            )
 
     # ---- audit ---------------------------------------------------------
     def audit(
@@ -339,10 +373,13 @@ class SpendGuard:
                 s.add(lim)
             lim.daily_cap_cad = daily_cap_cad
             lim.lifetime_cap_cad = lifetime_cap_cad
-            lim.day = date.today().isoformat()
+            lim.day = utcnow().date().isoformat()
 
     def _roll_day(self, lim: SpendLimit) -> None:
-        today = date.today().isoformat()
+        # UTC, matching every timestamp this system writes. A daily cap that rolls on the
+        # host's local midnight and is spent against rows stamped in UTC is a cap whose
+        # window depends on a container setting nobody records.
+        today = utcnow().date().isoformat()
         if lim.day != today:
             lim.day = today
             lim.spent_today_cad = 0.0
@@ -357,7 +394,17 @@ class SpendGuard:
         """
         breach: str | None = None
         with self.db.session() as s:
-            lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == scope))
+            # Locked for the read-modify-write. Two authorisations arriving together both
+            # read the same `spent_today_cad`, both find room, and both write their own
+            # total back -- the classic lost update, and on a cap it means the second spend
+            # is authorised against a balance that does not include the first. Several
+            # agents now run in parallel against one database, so this is a live shape
+            # rather than a theoretical one. `FOR UPDATE` is a no-op on SQLite, which
+            # serialises writers anyway; it is Postgres that needs it.
+            q = select(SpendLimit).where(SpendLimit.scope == scope)
+            if is_postgres(self.db.engine):
+                q = q.with_for_update()
+            lim = s.scalar(q)
             if lim is None:
                 breach = f"no spend limit configured for {scope!r}; refusing to spend"
             else:

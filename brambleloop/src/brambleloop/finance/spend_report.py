@@ -159,6 +159,67 @@ def what_it_bought(db, *, now: datetime | None = None) -> dict:
     }
 
 
+def per_agent_today(db, *, now: datetime | None = None) -> dict:
+    """What each agent has spent on the current UTC day, against its declared daily ceiling.
+
+    This existed nowhere, and the gap is the point. `Agent.daily_cost_ceiling_cad` is
+    checked in exactly one place -- `registry.record_cost`, which the model gateway uses --
+    and `record` below is the single writer the owner's spend-accounting instruction
+    created for everything else: vision, image generation, inspection, tournaments,
+    reference packs, the probes. None of those paths consults an agent's ceiling, so a
+    ceiling could be exceeded every day without any surface in this system saying so, and
+    `/api/verify` asserted only that a number was configured.
+
+    A reader, not a guard. It cannot refuse a spend that has already happened; it makes the
+    overrun visible, which is the thing that was missing. Enforcement belongs before the
+    call, in `gateway.anthropic.check_budget`, and moving it there changes what the running
+    system will refuse -- an owner-visible behaviour change rather than a reporting fix.
+
+    All kinds, not just `llm`. An agent's daily ceiling is a limit on what that agent may
+    spend, and a ceiling that ignores whichever kinds were added later is a ceiling that
+    quietly stops covering the newest way to spend money.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Agent, CostEntry
+
+    now = now or datetime.now(timezone.utc)
+    today = now.date()
+    spent: dict[str, float] = {}
+    with db.session() as s:
+        for row in s.scalars(select(CostEntry)):
+            at = _aware(row.at)
+            if at is not None and at.date() == today:
+                name = row.agent or UNATTRIBUTED
+                spent[name] = round(spent.get(name, 0.0) + float(row.amount_cad or 0.0), 8)
+        agents = [(a.name, float(a.daily_cost_ceiling_cad or 0.0))
+                  for a in s.scalars(select(Agent))]
+
+    rows = []
+    over = []
+    for name, ceiling in sorted(agents):
+        today_cad = round(spent.pop(name, 0.0), 6)
+        entry = {"agent": name, "spent_today_cad": today_cad, "daily_ceiling_cad": ceiling,
+                 "share": round(today_cad / ceiling, 4) if ceiling else None}
+        rows.append(entry)
+        if ceiling > 0 and today_cad > ceiling:
+            over.append(entry)
+    # Spend attributed to a name that is not a registered agent has no ceiling at all, and
+    # it is reported rather than dropped for the same reason `unattributed` is: the dollars
+    # nobody has a story for are the dollars worth looking at.
+    unregistered = [{"agent": name, "spent_today_cad": round(cad, 6),
+                     "daily_ceiling_cad": None}
+                    for name, cad in sorted(spent.items()) if cad]
+    return {
+        "day": today.isoformat(),
+        "agents": rows,
+        "over": over,
+        "spenders_with_no_agent_row": unregistered,
+        "why": ("an agent's daily ceiling is consulted by `registry.record_cost` and by "
+                "nothing else. This is what was actually spent beside what was allowed"),
+    }
+
+
 def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "",
            model: str = "", department: str = "", product_slug: str = "",
            estimated_cad: float = 0.0, tokens_in: int = 0, tokens_out: int = 0,

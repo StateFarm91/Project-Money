@@ -169,22 +169,45 @@ def estimate_cad(model: str, *, input_tokens: int, output_tokens: int) -> float:
 
 
 def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
-                 now: datetime | None = None) -> dict:
+                 now: datetime | None = None, uncommitted_cad: float = 0.0) -> dict:
     """Refuse a call that would cross the ceiling, before it is made.
 
     Assumes the model writes its entire output allowance. It usually does not, and budgeting
     for the usual case is how a ceiling becomes a target.
+
+    `uncommitted_cad` is money this caller has already spent and has not yet written to a
+    cost row. It exists because the ceiling is read from rows and the callers that spend the
+    most write one row per *run*, not one per call: `intel.vision` judges up to a page of
+    gallery images in a loop and bills once at the end, and `visual.inspect` makes two vision
+    calls and bills once. Every call after the first in those loops was therefore checked
+    against the month as it stood before the loop began -- so a guard whose whole purpose is
+    to refuse before the call was, in practice, refusing only the first call of each batch.
+    Production ran about twenty-one vision calls behind one ledger row on 2026-09-24.
+
+    A caller that passes nothing gets the old behaviour, which is correct for a caller that
+    bills each call. A caller that batches must pass what it is holding, and the amount is
+    its running *actual* spend plus what it has estimated for calls still unbilled -- the
+    same pessimism the padding applies, for the same reason.
+
+    This closes the half of the race that happens inside one process. The other half -- two
+    agents in different processes checking the same total before either writes a row -- is
+    not fixable from here, because there is nowhere durable to put a reservation. That needs
+    a schema change and is named in the audit rather than pretended away.
     """
     spent = spent_this_month_cad(db, now=now)
+    committed = round(spent + max(0.0, float(uncommitted_cad or 0.0)), 6)
     ceiling = monthly_ceiling_cad()
     estimate = estimate_cad(model, input_tokens=input_tokens, output_tokens=max_tokens)
-    if spent + estimate > ceiling:
+    if committed + estimate > ceiling:
         raise BudgetExceeded(
-            f"this call is estimated at CA${estimate:.4f} against CA${spent:.4f} already "
-            f"spent this month and a ceiling of CA${ceiling:.2f}. Refused before the call "
-            f"rather than found on the invoice")
-    return {"spent_cad": spent, "ceiling_cad": ceiling, "estimate_cad": estimate,
-            "headroom_cad": round(ceiling - spent - estimate, 6)}
+            f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
+            f"already spent this month (CA${spent:.4f} billed, "
+            f"CA${committed - spent:.4f} spent by this run and not yet billed) and a "
+            f"ceiling of CA${ceiling:.2f}. Refused before the call rather than found on "
+            f"the invoice")
+    return {"spent_cad": spent, "committed_cad": committed, "ceiling_cad": ceiling,
+            "estimate_cad": estimate,
+            "headroom_cad": round(ceiling - committed - estimate, 6)}
 
 
 @dataclass
