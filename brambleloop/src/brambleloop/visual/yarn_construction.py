@@ -228,3 +228,81 @@ def surface_fibres(ply_curves, spec: PlySpec, *, per_ply: int = 16,
                                            + np.sin(wander)[:, None] * v)
             out.append(pts)
     return out, r_fib
+
+
+# Singles twist. In a balanced plied yarn the singles are twisted OPPOSITE to the ply --
+# Z-spun singles plied S, or the reverse -- which is what lets the yarn hang without
+# corkscrewing. So the fibre grain on a ply surface runs counter to the ply spiral, and that
+# opposition is a property of the yarn rather than a choice.
+SINGLES_TWIST_MULTIPLIER = 3.7      # within the 3.0-4.0 quoted for spun knitting yarns
+FIBRE_DIAMETER_CV = 0.18            # staple fibre diameter varies; 15-25% CV is typical
+
+
+def fibre_surface_map(spec: PlySpec, *, tile_mm: float = 4.0, size: int = 1024,
+                      seed: int = 20260924):
+    """A tangent-space normal map of the fibres lying on a ply surface.
+
+    This is the half of Montazeri et al.'s ply model that geometry alone does not give. They
+    UV-map the ply so that "the V-direction is aligned with the ply tangent" and the U
+    coordinate is "the phase around the ellipse", then assign 1D textures specifying fibre
+    normal and tangent per cross-section, interpolated along the ply for continuity.
+
+    Mitsuba's linearcurve already carries exactly that parameterisation -- measured, not
+    assumed: firing rays at a straight curve gives u = 0.25, 0.0, 0.75 at 0, 90 and 180
+    degrees around it, and v rising monotonically along its length. So the published mapping
+    transfers without adaptation, and it is continuous through curved stitch paths because
+    the curve's own parameterisation is.
+
+    WHAT IS DRAWN, and why it is not noise. Each fibre is a cylinder lying on the surface, so
+    across its width the normal tilts by asin(t/r) exactly as a cylinder does. The fibres run
+    at the singles helix angle, counter to the ply twist. Nothing here is a random field: it
+    is a bed of cylinders at a derived diameter, a derived spacing and a derived angle.
+
+      fibres around the circumference   DERIVED: 2*pi*r_ply / fibre diameter = 229
+      fibre helix angle                 DERIVED from singles twist, 8.6 to 10.4 degrees
+      diameter variation                BOUNDED: staple fibre CV is typically 15-25%
+
+    Returned as a float array in [0,1], the usual normal-map encoding.
+    """
+    rng = np.random.default_rng(seed)
+    r_fib = fibre_radius_mm()
+    d_fib = 2.0 * r_fib
+    circ = 2.0 * np.pi * spec.ply_radius_mm
+
+    tex_single = spec.tex / spec.plies
+    tpm = SINGLES_TWIST_MULTIPLIER * np.sqrt(tex_single)
+    pitch = 1000.0 / tpm
+    theta = np.arctan2(2.0 * np.pi * spec.ply_radius_mm, pitch)   # fibre angle to ply axis
+
+    # Millimetre coordinates across one tile: u spans the full circumference, v a slice.
+    uu = np.linspace(0.0, circ, size, endpoint=False)[None, :]
+    vv = np.linspace(0.0, tile_mm, size, endpoint=False)[:, None]
+
+    # Distance perpendicular to the fibre direction. The sign of theta is negative because
+    # the singles run counter to the ply.
+    perp = uu * np.cos(theta) + vv * np.sin(theta)
+
+    # Fibre boundaries with a little diameter variation, as staple fibre has.
+    n_f = max(int(round(circ / d_fib)), 8)
+    widths = d_fib * (1.0 + FIBRE_DIAMETER_CV * rng.standard_normal(n_f * 3))
+    widths = np.clip(widths, 0.4 * d_fib, 1.8 * d_fib)
+    edges = np.concatenate([[0.0], np.cumsum(widths)])
+    span = edges[-1]
+
+    p = np.mod(perp, span)
+    idx = np.searchsorted(edges, p, side="right") - 1
+    idx = np.clip(idx, 0, len(widths) - 1)
+    centre = 0.5 * (edges[idx] + edges[idx + 1])
+    half = 0.5 * widths[idx]
+    t = np.clip((p - centre) / np.maximum(half, 1e-9), -1.0, 1.0)
+
+    tilt = np.arcsin(t)                    # a cylinder's normal, across its width
+    s = np.sin(tilt)
+    nx = s * np.cos(theta)
+    ny = s * np.sin(theta)
+    nz = np.cos(tilt)
+    n = np.stack([nx, ny, nz], axis=-1)
+    n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
+    return (n * 0.5 + 0.5).astype(np.float32), dict(
+        fibres_around=n_f, fibre_helix_deg=float(np.degrees(theta)),
+        tile_mm=tile_mm, singles_tpm=float(tpm))
