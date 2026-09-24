@@ -197,13 +197,36 @@ def build_payload(*, title: str, description: str, price_cad: float, tags: list[
         problems.append(f"tags over {TAG_CHARS_MAX} characters: {over}")
     if len(materials) > MATERIALS_MAX:
         problems.append(f"{len(materials)} materials; Etsy allows {MATERIALS_MAX}")
+
+    # Duplicates are collapsed rather than refused, because they are not a mistake anybody
+    # made: a CIR carries one material entry per colour, so a six-colour blanket in one yarn
+    # arrives here as that yarn six times. Etsy would accept it and the listing would read as
+    # careless, and above thirteen colours it would be refused for a reason that has nothing
+    # to do with the thirteen-material limit's purpose. Order is preserved so the first-named
+    # yarn stays first.
+    deduplicated: list[str] = []
+    for material in materials:
+        if material not in deduplicated:
+            deduplicated.append(material)
+
+    payload = ListingPayload(title=title.strip(), description=description,
+                             price=float(price_cad), tags=list(tags),
+                             materials=deduplicated)
+
+    # Etsy's character sets, from Etsy's own published API document. Additive: none of the
+    # limits above is restated there, because a limit written in two places is a limit that
+    # gets changed in one of them. This catches what length and count cannot -- a material
+    # written "100% cotton", a title with two ampersands -- which is the class of failure
+    # that is invisible until the first request is sent.
+    from ..publish.listing_schema import check_payload
+
+    problems.extend(check_payload(payload.to_dict()))
+
     if problems:
         raise EtsyRejected("this listing cannot be mapped to an Etsy listing: "
                            + "; ".join(problems))
 
-    return ListingPayload(title=title.strip(), description=description,
-                          price=float(price_cad), tags=list(tags),
-                          materials=list(materials))
+    return payload
 
 
 @dataclass
