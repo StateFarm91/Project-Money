@@ -7661,3 +7661,99 @@ the Children and Baby Products policy. NOT APPLIED YET: the Etsy/Commerce depart
 concurrently working on shop policy and may be in that file. Applying it now would be the
 integrator racing his own department. It is queued for the integration point after
 Etsy/Commerce reports.
+
+## 2026-09-24 — Etsy / Commerce department: THREE LAUNCH-BLOCKING DEFECTS, verified
+
+Merged from an isolated worktree. CA$0.00, Shadow Mode, no Etsy API call, no shop, no
+credentials stored. Boundary verified by diff: nothing under `visual/**`, `cir/**`,
+BUILD_STATE or DECISION_LOG touched. Tests re-run by the integrator, all exit 0.
+
+### The finding, and it reframes the critical path
+
+The department fetched Etsy's own published OpenAPI description and compared it to what our
+export actually produces. **Three things would have failed outright on the first real
+request, and none was visible from `launch/readiness.py`, which only measures our side of
+the wire.** Each independently verified by the integrator before merge:
+
+  1. **NOTHING UPLOADS A LISTING IMAGE.** `uploadListingImage` appears ZERO times in `src/`.
+     Etsy, verbatim: "Setting a `draft` listing to `active` will also publish the listing on
+     etsy.com and requires that the listing have an image set." Every draft would be
+     permanently unactivatable. **The shop would have opened with zero live listings** —
+     despite a certified, owner-approved image pipeline sitting right next to it.
+  2. **NOTHING EVER ACTIVATES A LISTING.** `updateListing` appears ZERO times in `src/`. The
+     client creates drafts and stops.
+  3. **The create request is sent as JSON.** `integrations/http.py` sets
+     `Content-Type: application/json`; Etsy's document lists exactly one media type for
+     `createDraftListing` and `updateListing`: `application/x-www-form-urlencoded`.
+
+Why this matters beyond the fix: it is this codebase's defining defect family in the most
+expensive possible place. `launch/readiness.py` reports readiness by measuring OUR artefacts
+and never the counterparty's contract, so it could return green while the shop was incapable
+of putting a single listing live. A check that cannot see what it exists to measure.
+
+**It also corrects the DAG conclusion recorded earlier today.** I wrote that Visual was the
+critical path and the chain was imagery -> listings -> customers. That is now known to be
+incomplete: with perfect imagery we still could not have activated one listing. Two
+independent blockers sat on that chain, and only one of them was being worked.
+
+The department deliberately did NOT fix (2)'s wire format in the transport, on the grounds
+that the format cannot be verified without a live call and changing it on a reading produces
+the same untested code with more confidence. `listing_schema.form_encoded()` supplies the
+shape, tested. That is the right call and it is recorded rather than quietly patched.
+
+### Also fixed, additively, no threshold weakened
+
+  * **Etsy's character sets, which nothing checked.** Materials permit letters, digits and
+    whitespace ONLY, so `"100% cotton"` was refused by Etsy and by nothing here. Titles allow
+    `%`, `:`, `&`, `+` once each. `build_payload` now refuses both.
+  * **Duplicate materials.** A CIR carries one material entry per colour, so an eight-colour
+    blanket sent the same yarn eight times, and a product with more than thirteen colours
+    would have been refused for a reason unrelated to the limit's purpose.
+  * **A live requirement-40 drift failure.** The buyer's licence — the single most-asked
+    question in this market — existed in THREE places saying THREE different things about
+    selling finished items. `commerce/terms.py` said "individual makers and small
+    businesses, not manufactured at scale"; `brand/storefront.py` said "sell the items you
+    make from it" with no limit; `commerce/seo.py` says "Sell what you make".
+    `brand/storefront.py` now renders from the decision. **`commerce/seo.py` is still a third
+    copy** and is recorded as outstanding rather than touched, because it is a shared file.
+
+### Built
+
+`publish/listing_schema.py` — Etsy's digital-download contract clause by clause, each SOURCED
+(keeping the verbatim sentence; a sourced clause with no quote is refused at construction) or
+INFERRED. Confirms `shipping_profile_id`, `return_policy_id` and `readiness_state_id` are
+physical-only. `commerce/shop_package.py` — six policies, a ten-question FAQ with the
+craft-fair question first, the AI disclosure rendered from `gates/platform_policy` rather
+than rewritten, the five shop text fields Etsy's API can actually write (including
+`digital_sale_message`, which reaches every customer and was empty), and `MANUAL_ONLY` for
+fields with no write endpoint. 32 tests.
+
+### Integrator applied the change held from the SEO department
+
+`gates/platform_policy.py` now watches a sixth surface: Children and Baby Products, gating
+`publishing` AND `product_creation` — the point to refuse a crib-bumper pattern is before a
+CIR is written for it, not at the listing. Held until Etsy/Commerce finished so the
+integrator was not racing his own department; applied once that file was free.
+
+### Five new OWNER ACTION items, none repeating the existing queue
+
+  1. **Paste Etsy's five policy pages into the policy watch** — 25 min, CA$0. `help.etsy.com`
+     and `etsy.com/legal/*` return HTTP 403 to every automated request from this environment,
+     so the freshness gate has read NOTHING. It has been green by having no data.
+  2. **Decide the GST/HST position** — 20 min, CA$0-250. Software must not take a tax
+     position. PRIMARY source is the CRA's own page: CA$30,000 threshold, effective from the
+     sale that crosses it, 29 days to register.
+  3. **Legal review of the customer-use terms** — 30 min, max CA$500. `enforceable` stays
+     false until then.
+  4. **Confirm the Canadian fee stack on the first transaction** — 5 min, CA$0. Sources
+     disagree on whether Canada carries a ~1.15% Regulatory Operating Fee; on a CA$7 pattern
+     that decides whether the pricing floor holds.
+  5. **Set each listing's AI attribution in Shop Manager** — 10 min + ~1 min/listing, CA$0.
+     SECONDARY that Etsy requires a two-place disclosure; PRIMARY that its API has no
+     AI/disclosure/attribution field at all, so if the setting exists no software can set it.
+
+### Still missing entirely, recorded honestly
+
+Listing images, activation, OAuth refresh (static token, no refresh flow), shop-setup calls
+(`updateShop`, `createShopSection`, `createShopReturnPolicy`), listing properties/attributes,
+and any fetcher for the policy freshness watch — `record_snapshot` has zero callers in `src/`.

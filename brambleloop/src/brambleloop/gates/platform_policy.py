@@ -47,6 +47,14 @@ POLICY_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
                           ("growth", "paid_media")),
     "shilling_and_reviews": ("https://www.etsy.com/legal/prohibited/",
                              ("growth", "support", "portfolio")),
+    # Children and Baby Products, effective 2026-06-02. Watched because its scope is wider
+    # than the others in a way that reaches us directly: it prohibits the PATTERNS, DESIGNS
+    # AND INSTRUCTIONS for making prohibited children's items, not only the items. A shop
+    # selling nothing but PDFs can be actioned under it. It therefore gates product_creation
+    # as well as publishing -- the point to refuse a crib-bumper pattern is before a CIR is
+    # written for it, not at the listing.
+    "children_and_baby": ("https://www.etsy.com/legal/prohibited-items/children/",
+                          ("publishing", "product_creation")),
 }
 
 # Beyond this, a snapshot is a historical document rather than a current policy.
