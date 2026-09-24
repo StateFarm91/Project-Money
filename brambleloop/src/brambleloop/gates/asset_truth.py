@@ -225,7 +225,16 @@ def check_asset(
     # "unsupported difficulty claims are blocked" half true.
     if cl.difficulty:
         stated = cl.difficulty.lower()
-        advanced_stitches = {"tr", "dc_inc", "dc_dec"} & set(twin.stitch_types_used)
+        # The set is imported rather than written here. This gate exists to catch a beginner
+        # claim made about a pattern a beginner cannot work, and its own copy of the list
+        # predated the post stitches, the bobble and the cable crossings -- so the one
+        # product in the catalogue that is genuinely beyond a beginner was claimed as
+        # beginner by the listing, printed as beginner on the PDF cover, and passed here.
+        # A gate that cannot see the stitch it exists to see is worse than no gate, because
+        # it is counted as coverage.
+        from ..publish.difficulty import ADVANCED_STITCHES
+
+        advanced_stitches = ADVANCED_STITCHES & set(twin.stitch_types_used)
         colors_used = len([c for c in twin.colors_used if c])
         if stated == "beginner" and cir.risk_class == "C":
             out.append(Finding(

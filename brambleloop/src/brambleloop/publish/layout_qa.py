@@ -11,8 +11,15 @@ defect was only ever visible in the pixels, and nothing was looking at the pixel
 
 So these checks measure the image. They do it without knowing the palette, because a check
 that hardcodes cream is a check that passes a blank frame the day the brand changes: the
-background is inferred from the corners, and *ink* is whatever differs from it. That makes
-every rule below a statement about the picture rather than about the code that drew it.
+background is the colour that fills most of the frame, and *ink* is whatever differs from it.
+That makes every rule below a statement about the picture rather than about the code that
+drew it.
+
+(It was inferred from the corners once, and this paragraph still said so after `_dominant`
+stopped doing it. A full-bleed subject reached the corners, became the background by
+definition, and a frame that was 97% one block of colour was reported as 96% empty --
+`_dominant`'s own note records the fix. A docstring describing a method the function no
+longer uses is the next reader's false map.)
 
 The mobile scale is not a smaller version of the same check. An image is judged in a search
 grid at a couple of hundred pixels, and detail that survives at two thousand can vanish
@@ -268,7 +275,7 @@ def report(frames, *, text_positions: tuple[int, ...] = ()) -> dict:
         "problems": problems,
         "ok": not problems,
         "mobile_thumb_px": MOBILE_THUMB_PX,
-        "note": ("Measured on the rendered pixels, with the background inferred from the "
-                 "corners rather than assumed from the palette. Every rule here is a "
+        "note": ("Measured on the rendered pixels, with the background taken as the frame's "
+                 "dominant colour rather than assumed from the palette. Every rule here is a "
                  "statement about the picture rather than about the code that drew it (#59)."),
     }

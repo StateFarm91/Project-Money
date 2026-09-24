@@ -601,7 +601,14 @@ def handle_store_publish(ctx: JobContext) -> dict:
 
     result = compile_cir(cir)
     twin = build_twin(cir, result)
-    doc = build_pattern_pdf(cir, twin=twin, terminology="US")
+    # Pinned to the release date, not to the day of the upload. This render is the file the
+    # customer actually downloads, and `assets.build` recorded a hash for it earlier; left to
+    # default, the release date printed on the cover would be today's and the two would be
+    # different files for no reason connected to the pattern.
+    from .release import _released_on
+
+    doc = build_pattern_pdf(cir, twin=twin, terminology="US",
+                            released_on=_released_on(ctx, slug, version))
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     stored = store.put(f"{slug}/{version}/pattern-us.pdf", doc.pdf_bytes, "application/pdf")
 

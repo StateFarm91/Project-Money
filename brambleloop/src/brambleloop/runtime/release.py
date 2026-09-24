@@ -114,6 +114,29 @@ def _load_cir(ctx: JobContext, slug: str, version: str) -> CIR:
         return CIR.from_dict(pv.cir_json)
 
 
+def _released_on(ctx: JobContext, slug: str, version: str):
+    """The date this release was created, so the PDF does not read the wall clock.
+
+    `build_pattern_pdf` prints a release date, and left to itself it prints `date.today()`.
+    That makes the rendered bytes a function of when somebody happened to render them -- and
+    artifact bytes are not durable, so a purchased file is re-rendered on demand and the
+    store's publish handler renders it again at upload time. A hash recorded here and a file
+    downloaded next month would then differ for no reason connected to the pattern, which is
+    exactly the property `assets.build` claims its hash proves.
+
+    The release row already knows when it was made, so the document is pinned to that.
+    """
+    from sqlalchemy import select
+
+    with ctx.db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == version)) if product else None
+        created = getattr(pv, "created_at", None)
+        return created.date() if created else None
+
+
 def _seed_for(slug: str):
     return next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
 
@@ -132,9 +155,17 @@ def handle_assets_build(ctx: JobContext) -> dict:
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
 
-    doc = build_pattern_pdf(cir, twin=twin, terminology="US")
+    doc = build_pattern_pdf(cir, twin=twin, terminology="US",
+                            released_on=_released_on(ctx, slug, version))
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     pdf = store.put(f"{slug}/{version}/pattern-us.pdf", doc.pdf_bytes, "application/pdf")
+
+    # What is wrong with the document the customer receives, measured on the document. These
+    # are recorded whether or not they block, because a finding nobody records is a finding
+    # nobody acts on -- the same failure as a severity comparison that is always false.
+    if doc.problems:
+        ctx.audit("assets.deliverable_problems", artifact=f"{slug}@{version}",
+                  detail={"problems": doc.problems})
 
     import io
 
@@ -545,13 +576,16 @@ def _motifs_for(slug: str) -> list[str]:
 
 
 def _difficulty(twin, cir) -> str:
-    advanced = {"tr", "dc_inc", "dc_dec"}
-    colors_used = len([c for c in twin.colors_used if c])
-    if twin.stitch_types_used & advanced or colors_used > 3:
-        return "intermediate"
-    if colors_used > 1 or cir.construction != "flat_rows":
-        return "confident beginner"
-    return "beginner"
+    """What the listing claims, from the same ladder the PDF cover prints.
+
+    This was its own copy of the arithmetic, including its own copy of the literal set of
+    "advanced" stitches, and so was `publish/pdf.py`, and so was the gate that blocks an
+    unsupported difficulty claim. Three copies written before the texture stitches existed
+    agreed with each other that a cabled throw was beginner work. See `publish/difficulty`.
+    """
+    from ..publish.difficulty import difficulty
+
+    return difficulty(cir, twin)
 
 
 @handlers.register("collection.assemble")
