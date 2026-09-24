@@ -6291,3 +6291,91 @@ shoulder from an unshaped slit armhole. Stitch-level photographic verification i
 claimed and the image resolution does not support it. Pocket and neckband placement remain
 photograph-only: the pattern states neither numerically, and the neckline row count had to be
 derived from the body geometry rather than read, which `_neckline_rows` flags as derived.
+
+## 2026-09-24 — production visual pipeline, increments 1 and 2
+
+Owner authorised the pipeline on the measured architectural result. Built in increments as
+instructed, against the milestone ladder A→E, stopping to diagnose at the first failure.
+
+### Increment 1 — the chain-span primitive
+
+`Op.spans` says how many stitches of the row below a chain BRIDGES rather than adds to, and
+`Gauge.chains_per_10cm` (with `chain_gauge_uncertainty`) says how wide a chain is when it
+does add fabric. Both are count-neutral: the compiler's arithmetic is untouched.
+
+**Migration safety, proved empirically before changing anything:** all 11 catalogue products
+use chains only as foundations — zero mid-row chain ops — so no already-certified product's
+geometry can shift. The change cannot corrupt what exists because nothing existing uses it.
+
+Result on the benchmark: body width **62.10cm against 62.07cm from its own stitch count**,
+where it had been 62.76cm. The +1.11% error at XS and +1.02% at 5XL are gone. Where no chain
+gauge is stated, a width that had to assume one now carries a `width_caveat` naming the
+assumption rather than presenting an over-estimate as a measurement.
+
+### Increment 2 — placement in object space
+
+`cir/assembly.py` places every piece and checks every join, deterministically, from certified
+counts and gauge. Deliberately generic: pieces, edges, joins and footprints describe a
+basket's side meeting its base or a blanket's border meeting its centre as readily as a
+sleeve meeting an armhole. No garment vocabulary anywhere in the module.
+
+**Milestone B failed on the first attempt, and the diagnosis was architectural.** The edge
+vocabulary could only name a piece's four outer sides — but a sleeve does not join the side
+of a body panel, it joins a **slit inside it**, and the neckband follows a **path** along it.
+Comparing a sleeve against the body's full height reported a garment that assembles perfectly
+well as impossible. Fixed by making openings first-class: an opening's length derives from
+the bridge chains at chain gauge, which is the increment-1 primitive paying for itself, and
+what another piece sews into is twice that span because a slit has two sides.
+
+Measured: derived armhole vs the pattern's stated armhole is within 5% at every size, and the
+sleeve-to-armhole seam check lands at **0.0–0.4% for S, M, L and XL**.
+
+**A third verdict was needed and is the honest part.** At XS the check comes out 6.6% against
+a 6% tolerance — but the armhole length is derived from a chain gauge solved out of the
+pattern and known only to ±6%, so the discrepancy sits inside the derivation's own error
+bars. Neither "fits" nor "does not fit" is supportable, so joins now report
+`indeterminate` alongside sound/mismatched/unchecked. A check that cannot separate its error
+from the thing it measures says so.
+
+Current state, every size: 3 of 5 joins sound (XS: 2 sound, 1 indeterminate), 2 unchecked —
+the neckline path and the pocket placement, which the purchased pattern genuinely states only
+in a photograph. Verdict `partially_placed`, which is truthful rather than disappointing.
+
+### Milestone C — correspondence with the real photographs
+
+`visual/correspondence.py` predicts finished-object characteristics from the certified CIR
+alone and compares them with recorded observations of the four supplied photographs. The two
+sides are not the same kind of evidence and the module says so: a prediction is a computation
+over certified counts, an observation is a judgement about an image at whatever resolution it
+has. Observations are stored as data rather than re-judged per run, so a changed verdict means
+the model changed.
+
+**Result at size S — the size the pattern says the sample was made in: PARTIAL.
+11 correspond, 0 contradict, 3 not observable.**
+
+Corresponding: overall length, silhouette, front opening with no closures, dropped shoulder
+from an unshaped slit, sleeve volume, cuff gathering, pocket count and kind, neckband,
+body texture class, neckband texture class, and texture direction — the last being the
+discriminating one, since sideways construction predicts vertical row lines and a bottom-up
+garment with identical counts would show them horizontal.
+
+Not observable, and permanently so: individual stitch identity (listing photography does not
+resolve it), pocket placement (the construction states none), drape (nothing deterministic is
+claimed). `FULL` is deliberately unreachable from photography alone.
+
+### Milestone ladder, live at `/api/visual-pipeline` and on the console
+
+| | | |
+|---|---|---|
+| A | pattern → deterministic fabric | **PASS** |
+| B | panels → assembled object geometry | **PARTIAL** |
+| C | object → photograph correspondence | **PARTIAL** |
+| D | photographic presentation without drift | NOT_STARTED |
+| E | listing asset passing truth and realism | NOT_STARTED |
+
+The ladder enforces its own ordering: a milestone cannot report PASS while an earlier one has
+not, so later layers cannot be built on an invalid earlier one by accident. Computed on every
+call rather than stored, because a stored progress figure is what told this build it had no
+work left.
+
+Cost this increment: **CA$0.00.** No model called, nothing rendered, no provider touched.

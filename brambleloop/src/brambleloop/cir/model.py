@@ -41,6 +41,22 @@ class Op:
     count: int = 1
     note: str | None = None
     loop: LoopTarget = "both"
+    # How many stitches of the row below this op BRIDGES rather than adds to.
+    #
+    # A chain is the only stitch whose width depends on what it is doing. Chained across a
+    # gap -- an armhole, a buttonhole, a lace space over skipped stitches -- it occupies the
+    # width of the stitches it replaced and adds nothing of its own. Chained into open air at
+    # the start of a row it creates new fabric. The CIR counted every chain as producing one
+    # unit of width, so a bridged opening measured as if the chains had been added to the row
+    # instead of laid across it.
+    #
+    # Measured on the benchmark garment before this existed: the body came out +1.11% too
+    # wide at XS and +1.02% at 5XL, because a 27-chain armhole bridge was counted as 27 units
+    # of width on top of the 64 worked stitches instead of spanning the 26 it replaced.
+    #
+    # `spans=0` means "this chain adds its own width", which is the honest default: a chain
+    # that bridges nothing is a chain that makes fabric.
+    spans: int = 0
 
     def __post_init__(self) -> None:
         if self.count < 1:
@@ -143,6 +159,20 @@ class Gauge:
     stitch_type: str = "sc"
     hook_mm: float | None = None
     yarn_weight: str | None = None
+    # Chains are narrower than the worked stitches they sit beside, so a run of chain spaces
+    # measured at stitch gauge is measured at the wrong gauge. The benchmark garment's own
+    # numbers imply 17.6-19.7 chains per 10cm against 14.5 for its worked fabric -- roughly
+    # 20-35% narrower. Optional, because most patterns never state it; when it is absent,
+    # anything that would have to assume it says so instead of guessing.
+    chains_per_10cm: float | None = None
+    # How well that chain gauge is known, as a relative figure. Zero means the designer
+    # stated it and it is exact. A non-zero value means it was solved out of the pattern's
+    # own numbers, which is evidence rather than measurement: the benchmark garment's nine
+    # sizes imply 17.6-19.7 chains per 10cm around a midpoint of 18.4, about six percent
+    # either way. Anything computed from an uncertain gauge inherits that uncertainty, and a
+    # check whose result falls inside it cannot tell pass from fail -- so it must say so
+    # instead of picking whichever it happens to land on.
+    chain_gauge_uncertainty: float = 0.0
 
     def __post_init__(self) -> None:
         if self.stitches_per_10cm <= 0 or self.rows_per_10cm <= 0:
@@ -272,6 +302,31 @@ class Seam:
     spans_rounds: int = 1
     stitches_from_centre: int | None = None
     mirrored: bool = False
+    # WHICH EDGE of each piece the join runs along.
+    #
+    # `at_round` places a join on a piece worked in rounds; a flat piece has no rounds, so
+    # until now nothing could say that a sleeve's top edge meets a body's side edge. Naming
+    # the edges is what turns a set of correct rectangles into an object with a shape: it
+    # gives every join a length on both sides, and two edges that are supposed to be sewn
+    # together and are not the same length is a garment that cannot be assembled.
+    #
+    # Deliberately generic rather than garment vocabulary. A basket's side joins its base,
+    # a blanket's border joins its centre, a bag's gusset joins its front: all of them are
+    # one piece's edge meeting another's, and none of them needs a word like "armhole".
+    # "opening" is a hole the construction makes -- an armhole, a buttonhole, the mouth of a
+    # bag -- rather than one of the piece's outer edges. It exists because the first attempt
+    # at this vocabulary could only name the four sides of a rectangle, and a sleeve does not
+    # join the side of a body panel: it joins a slit inside it. A join targeting an outer
+    # edge when it means an opening compares the wrong two lengths and reports a garment
+    # that assembles perfectly well as impossible.
+    edge_a: Literal["top", "bottom", "left", "right",
+                    "fold", "perimeter", "opening"] | None = None
+    edge_b: Literal["top", "bottom", "left", "right",
+                    "fold", "perimeter", "opening"] | None = None
+
+    @property
+    def names_its_edges(self) -> bool:
+        return self.edge_a is not None and self.edge_b is not None
 
     @property
     def is_self_seam(self) -> bool:

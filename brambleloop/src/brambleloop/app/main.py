@@ -1583,6 +1583,23 @@ def api_reference_realism() -> dict:
             "inherited_checks": list(photoreal.INHERITED)}
 
 
+@app.get("/api/visual-pipeline")
+def api_visual_pipeline(size: str = "S") -> dict:
+    """Where the deterministic visual pipeline actually stands, milestone by milestone.
+
+    Computed from the benchmark garment on every call rather than stored. A stored progress
+    figure is the thing that told this build it had no work left, so the rule here is that
+    nothing claims a milestone it cannot demonstrate on request.
+
+    Free: it compiles a pattern, measures fabric and compares against recorded observations.
+    No model is called and nothing is rendered, so a test sweep walking the routes costs
+    nothing -- the rule this codebase learned when a GET could spend money.
+    """
+    from ..visual import milestones
+
+    return milestones.assess(size=size)
+
+
 @app.get("/api/asset-coverage")
 def api_asset_coverage() -> dict:
     """How much of the certified catalogue can actually be listed.
@@ -3772,6 +3789,31 @@ def dashboard() -> str:
                 f'<div class="card"><span>executable left</span><b>{executable}</b></div>'
                 f"</div>")
 
+    def _visual_pipeline() -> str:
+        """The milestone ladder, so the route to a listable product is visible on the page.
+
+        Shown beside the Build-2 counts because these are the same question asked twice: the
+        executor's ready queue has stood at five for days, every one of them unfinishable for
+        the same reason, and this is the reason.
+        """
+        from ..visual import milestones
+
+        try:
+            m = milestones.assess()
+        except Exception as e:  # noqa: BLE001 - a broken milestone must not blank the console
+            return f"<p>unavailable: {type(e).__name__}: {e}</p>"
+        tone = {"PASS": "#1a7f37", "PARTIAL": "#9a6700", "FAIL": "#cf222e",
+                "NOT_STARTED": "#57606a", "BLOCKED_ON_EARLIER": "#cf222e"}
+        rows = "".join(
+            f"<tr><td><b>{r['milestone']}</b></td><td>{r['name']}</td>"
+            f"<td style=\"color:{tone.get(r['status'], '#57606a')}\"><b>{r['status']}</b></td>"
+            f"<td>{r['evidence'][:150]}</td></tr>"
+            for r in m["milestones"])
+        return (f"<p>highest passed: <b>{m['highest_passed'] or 'none'}</b> &middot; "
+                f"working on <b>{m['current'] or '-'}</b> &middot; {m['business_objective']}</p>"
+                f"<table><tr><th></th><th>Milestone</th><th>State</th><th>Evidence</th></tr>"
+                f"{rows}</table>")
+
     def _mission() -> str:
         from ..intel.benchmarks import MJS_KEY
         from ..intel.cadence import next_interval
@@ -3865,6 +3907,7 @@ def dashboard() -> str:
 
     command_centre = (
         _block("Build 2 coverage", _build2)
+        + _block("Visual pipeline", _visual_pipeline)
         + _block("MJs mission", _mission)
         + _block("Seasonal deadlines", _seasonal)
         + _block("CA$5,000/month model", _scale)

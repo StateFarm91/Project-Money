@@ -58,6 +58,7 @@ class ResolvedOp:
     produces: int
     repeat_group: int | None = None  # index of the repeat this op belongs to, if any
     loop: str = "both"
+    spans: int = 0
 
 
 @dataclass
@@ -134,7 +135,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
     nodes = list(nodes)
     for i, n in enumerate(nodes):
         if isinstance(n, Op):
-            out.append(ResolvedOp(n.stitch, n.count, n.consumes, n.produces, loop=n.loop))
+            out.append(ResolvedOp(n.stitch, n.count, n.consumes, n.produces, loop=n.loop,
+                                  spans=n.spans))
             continue
 
         assert isinstance(n, Repeat)
@@ -173,7 +175,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
             for r in sub:
                 out.append(
                     ResolvedOp(r.stitch, r.count, r.consumes, r.produces, repeat_group=gid,
-                               loop=getattr(r, "loop", "both"))
+                               loop=getattr(r, "loop", "both"),
+                               spans=getattr(r, "spans", 0))
                 )
 
     return out, problems

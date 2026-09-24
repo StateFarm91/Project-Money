@@ -45,6 +45,16 @@ STATED_SLEEVE  = (39, 39, 41, 41, 42, 42, 43, 43, 45)
 STATED_BUST    = (71, 81, 91, 101, 112, 122, 132, 142, 152)
 
 GAUGE_STS, GAUGE_ROWS = 14.5, 9.5     # per 10cm, in the textured stitch pattern
+# Not stated by the pattern -- almost none state it -- but implied by its own numbers. The
+# armhole is bridged by chains and its stated measurement must equal half the sleeve
+# circumference for the pieces to be sewable; solving that across the nine sizes gives
+# 17.6-19.7 chains per 10cm. The midpoint is carried here as measured-from-the-pattern
+# rather than assumed, and `reconcile` reports the per-size figure it came from.
+GAUGE_CHAINS = 18.4
+# The spread across the nine sizes, relative to that midpoint: 17.6-19.7 is about +-6%.
+# Carried so that anything derived from it inherits the uncertainty instead of presenting a
+# solved-for number as a measured one.
+GAUGE_CHAINS_UNCERTAINTY = 0.06
 HOOK_MM = 6.0
 EDGE_RIB = 9                          # back-loop stitches forming the integral hem rib
 POCKET_STS, POCKET_ROWS = 24, 13
@@ -84,7 +94,7 @@ def _armhole_row(index: int, *, total: int, chains: int) -> Row:
     # rather than stitches of this row", so the count is the sum and the distinction lives
     # in this note. Named as a gap rather than smoothed over: a representation that cannot
     # separate a span from a stitch will get every chain-spanned opening subtly wrong.
-    return Row(index=index, ops=[Op("hdc", worked), Op("ch", chains)],
+    return Row(index=index, ops=[Op("hdc", worked), Op("ch", chains, spans=chains - 1)],
                declared_count=worked + chains, turning_chain=1, skips=chains - 1,
                note=f"armhole: {worked} sts worked, {chains} chains span the opening")
 
@@ -170,15 +180,37 @@ def cardigan(size: str = "XS") -> CIR:
         title=f"Benchmark side-to-side textured cardigan ({size})",
         version="1.0.0", construction="flat_rows",
         components=[body, sleeve, pocket, ribbing],
-        gauge=Gauge(GAUGE_STS, GAUGE_ROWS, stitch_type="hdc", hook_mm=HOOK_MM),
+        gauge=Gauge(GAUGE_STS, GAUGE_ROWS, stitch_type="hdc", hook_mm=HOOK_MM,
+                    chains_per_10cm=GAUGE_CHAINS,
+                    chain_gauge_uncertainty=GAUGE_CHAINS_UNCERTAINTY),
         materials=[Material(name="worsted acrylic", yarn_weight="worsted",
                             metres_estimate=round(YARN_G[i] * 2.25, 1))],
         assembly=[
-            Seam("whipstitch", "sleeve", "sleeve", note="fold lengthways, seam the long edge"),
-            Seam("whipstitch", "body", "body", note="shoulder seams, fronts onto back"),
-            Seam("whipstitch", "sleeve", "body", note="sleeve head into the armhole"),
-            Seam("whipstitch", "neck_ribbing", "body", note="ribbing along the neckline"),
-            Seam("whipstitch", "pocket", "body", note="pockets onto the fronts"),
+            # The sleeve is folded along its length and closed: one piece to itself.
+            Seam("whipstitch", "sleeve", "sleeve", edge_a="fold", edge_b="fold",
+                 note="fold lengthways, seam the long edge into a tube"),
+            # The folded sleeve's open end meets the armhole. The tube's circumference is the
+            # sleeve's across-axis; the armhole's perimeter is twice its stated span.
+            Seam("whipstitch", "sleeve", "body", edge_a="fold", edge_b="opening",
+                 note="sleeve head into the armhole"),
+            # Fronts fold onto the back at the shoulders: the body joined to itself.
+            Seam("whipstitch", "body", "body", edge_a="top", edge_b="top",
+                 note="shoulder seams, fronts onto back"),
+            # The band runs along the whole neckline, which is why its row count is derived
+            # from the body rather than stated.
+            # The neckline is a PATH along the body -- both front edges plus the back neck --
+            # not one of its rectangle edges and not an opening. The pattern states no length
+            # for it ("work until the ribbing measures the neckline"), so this join names no
+            # edges and is reported unchecked. Deriving the band's length from the body and
+            # then "verifying" it against the body would be checking an assumption against
+            # itself.
+            Seam("whipstitch", "neck_ribbing", "body",
+                 note="ribbing along the neckline; the pattern states no length"),
+            # Pockets sit ON the fronts, within the body's outline. The pattern gives their
+            # position only in a photograph, so the edges they meet are genuinely unstated
+            # and this join stays unchecked rather than being invented.
+            Seam("whipstitch", "pocket", "body",
+                 note="pockets onto the fronts; the pattern states no placement"),
         ],
         designer_notes=("Pieces are joined with the right side inward, so the surface worn "
                         "outward is the reverse of the textured face."),

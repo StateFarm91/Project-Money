@@ -91,6 +91,9 @@ class TwinModel:
     geometry: Revolution | None = None
     # Flat pieces only: "rectangle" or "shaped_flat", derived from the row widths.
     outline: str | None = None
+    # Set when a width had to be computed with an assumed chain gauge. A measurement that
+    # rests on an assumption must say so wherever it is read, or it gets quoted as measured.
+    width_caveat: str = ""
 
     @property
     def stitch_total(self) -> int:
@@ -129,6 +132,43 @@ class TwinModel:
         return out
 
 
+def row_width_cm(row: ResolvedRow, gauge) -> tuple[float, str]:
+    """How wide one row's fabric actually is, and what had to be assumed to say so.
+
+    Not simply `stitch_count / gauge`, because a chain's width depends on what it is doing:
+
+      * a worked stitch is one stitch-width;
+      * a chain BRIDGING a gap (`spans > 0`) occupies the width of the stitches it replaced
+        and contributes nothing of its own -- laid across the fabric, not added to it;
+      * a chain adding fabric (`spans == 0`) is a chain-width, which is narrower than a
+        stitch-width and is only knowable when the gauge states it.
+
+    Returns (width_cm, caveat). The caveat is empty when nothing was assumed; otherwise it
+    names what is unknown, so a size claim built on an assumed chain gauge can never be
+    presented as a measured one.
+    """
+    st_cm = 10.0 / gauge.stitches_per_10cm
+    ch_cm = (10.0 / gauge.chains_per_10cm) if gauge.chains_per_10cm else None
+    width, assumed_chains = 0.0, 0
+    for op in row.ops:
+        if op.stitch != "ch":
+            width += op.produces * st_cm
+            continue
+        spans = getattr(op, "spans", 0)
+        if spans:
+            width += spans * st_cm          # bridges existing width, adds none of its own
+        elif ch_cm is not None:
+            width += op.count * ch_cm
+        else:
+            width += op.count * st_cm       # the old behaviour, now declared rather than silent
+            assumed_chains += op.count
+    caveat = ("" if not assumed_chains else
+              f"{assumed_chains} chain(s) add fabric width but the gauge states no chain "
+              f"gauge, so they were measured at stitch gauge; chains are typically 20-35% "
+              f"narrower, so this width is an over-estimate")
+    return width, caveat
+
+
 def _flat_dimensions(rows: list[ResolvedRow], cir: CIR) -> tuple[float | None, float | None]:
     """Finished size of a piece worked in flat rows: stitches across, rows up.
 
@@ -138,8 +178,7 @@ def _flat_dimensions(rows: list[ResolvedRow], cir: CIR) -> tuple[float | None, f
     if not cir.gauge or not rows:
         return None, None
     g = cir.gauge
-    widest = max(r.stitch_count for r in rows)
-    width_cm = widest / g.stitches_per_10cm * 10.0
+    width_cm = max(row_width_cm(r, g)[0] for r in rows)
 
     # Row height scales with stitch height relative to the gauge stitch.
     base = stitches.get(g.stitch_type).row_height or 1.0
@@ -224,6 +263,9 @@ def build_twin(
     comp = next(c for c in cir.components if c.name == name)
     if comp.construction == "flat_rows":
         model.width_cm, model.height_cm = _flat_dimensions(rows, cir)
+        if cir.gauge:
+            caveats = {row_width_cm(r, cir.gauge)[1] for r in rows}
+            model.width_caveat = next((c for c in sorted(caveats) if c), "")
         # The outline is the piece's silhouette, derived from the row widths rather than
         # declared. A flat piece whose every row has the same stitch count is a rectangle,
         # whatever the listing calls it, and a hexagon coaster that is really a rectangle is
