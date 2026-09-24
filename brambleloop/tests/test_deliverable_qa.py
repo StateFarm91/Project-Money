@@ -404,13 +404,21 @@ def test_the_same_release_renders_the_same_bytes_on_a_different_day():
         "and release._released_on can both go")
 
 
-def test_the_release_chain_pins_the_date_rather_than_reading_the_clock():
-    """The half of the fix that decides whether a customer is affected."""
-    from brambleloop.runtime import release
+def test_every_place_that_renders_the_customer_pdf_pins_its_date():
+    """The half of the fix that decides whether a customer is affected.
 
-    assert "released_on=_released_on(" in Path(
-        release.__file__).read_text(), \
-        "assets.build renders the customer PDF without pinning its release date"
+    Two handlers render the file the buyer receives: `assets.build`, which records its hash,
+    and `store.publish`, which uploads the bytes. Fixing one and not the other would leave
+    the recorded hash and the uploaded file disagreeing exactly as before.
+    """
+    from brambleloop.runtime import pipeline, release
+
+    for module in (release, pipeline):
+        source = Path(module.__file__).read_text()
+        for number, line in enumerate(source.splitlines(), 1):
+            if "build_pattern_pdf(" in line and "def " not in line and "import" not in line:
+                window = "\n".join(source.splitlines()[number - 1:number + 3])
+                assert "released_on=" in window, (module.__name__, number, line.strip())
 
 
 def test_the_footer_tells_a_buyer_whether_their_download_finished():

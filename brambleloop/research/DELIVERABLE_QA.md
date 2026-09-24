@@ -128,10 +128,11 @@ so a purchased file is re-rendered on demand, and `pipeline.handle_store_publish
 process on one day: a proof measured on a sample that cannot contain the broken case, under a
 docstring asserting the property the code lacked.
 
-**Fixed:** `assets.build` pins the document to `PatternVersion.created_at`, and a new test
-moves the clock (`pdf.date` stubbed to 2030-01-01) to prove a pinned release renders
-byte-identical across days and an unpinned one does not. `pipeline.handle_store_publish` still
-re-renders unpinned — see *Remaining*.
+**Fixed:** both handlers that render the customer's file — `assets.build`, which records the
+hash, and `store.publish`, which uploads the bytes — now pin the document to
+`PatternVersion.created_at`. A new test moves the clock (`pdf.date` stubbed to 2030-01-01) to
+prove a pinned release renders byte-identical across days and an unpinned one does not, and a
+second walks both modules' sources so that a third render site cannot be added unpinned.
 
 ### 6. The materials list was the page a buyer takes to the shop, and it listed only yarn — FIXED
 
