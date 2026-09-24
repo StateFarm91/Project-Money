@@ -121,39 +121,71 @@ def test_the_key_and_the_writer_agree_about_what_the_document_prints():
     assert ab.unlocalised("US") == (), ab.unlocalised("US")
 
 
-def test_the_uk_render_still_prints_us_codes_for_the_stitches_the_writer_never_localised():
-    """The defect, pinned where it is visible and owned by the module that must fix it.
+def test_the_uk_render_localises_every_stitch_the_document_can_contain():
+    """Was a pinned defect; is now the property itself.
 
-    `cir.writer._term` maps sc, hdc, dc, tr and the shaping stitches into UK terms and has no
-    entry for the post stitches; `write_op` short-circuits `sk` before it reaches the map at
-    all. A UK maker reading `fpdc` works a front post *double* crochet -- which in UK terms
-    is the stitch a US pattern calls single crochet, half the height of the stitch this
-    pattern was compiled against, in a fabric whose whole point is the raised cable.
+    When this was written, `cir.writer._term` carried its own terminology map covering only
+    the basic stitches and their shaping variants, returned the US code unchanged for
+    anything else, and `write_op` short-circuited `sk` before the map was consulted at all.
+    A UK maker reading `fpdc` works a front post DOUBLE crochet -- in UK terms the stitch a
+    US pattern calls single crochet, HALF the height of the one the pattern compiled
+    against, in a fabric whose whole point is the raised cable.
 
-    Asserted as a subset so that fixing the writer (which this department may not edit --
-    `cir/**` is owned elsewhere) makes this pass, not fail.
+    The department that found it could not fix it, because `cir/**` is owned elsewhere, so
+    it pinned the gap as a subset and left a message saying what to do when the root was
+    fixed. The root is now fixed: one table in `cir.stitches.UK_TERMS`, which both the writer
+    and the key derive from, so they cannot disagree again. The assertion is therefore
+    tightened from "no worse than this known gap" to "there is no gap".
     """
-    known_gap = {"fpdc", "bpdc", "sk"}
-    assert set(ab.unlocalised("UK")) <= known_gap, ab.unlocalised("UK")
-    assert "fpdc" in ab.unlocalised("UK"), (
-        "the writer now localises fpdc -- delete it from the known gap and from the refusal "
-        "note in publish/pdf.py")
+    assert ab.unlocalised("UK") == (), ab.unlocalised("UK")
+    assert ab.unlocalised("US") == (), ab.unlocalised("US")
+
+
+def test_an_unrenderable_code_is_refused_rather_than_printed_as_its_us_abbreviation():
+    """The failure mode that produced the wrong-stitch document, at its source.
+
+    Passing an unknown code through unchanged is precisely what let a UK document print a US
+    abbreviation, so the table refuses instead of guessing. This is the check that keeps the
+    next stitch someone adds from repeating it.
+    """
+    from brambleloop.cir import stitches as _st
+    try:
+        _st.term("no_such_stitch", "UK")
+    except KeyError as e:
+        assert "UK_TERMS" in str(e), str(e)
+    else:
+        raise AssertionError("an unknown code was given a UK rendering it does not have")
+    # US is the canonical terminology, so a code passes through by definition there.
+    assert _st.term("no_such_stitch", "US") == "no_such_stitch"
 
 
 def test_a_uk_document_that_would_instruct_the_wrong_stitch_is_refused():
-    """Refused rather than rendered, on the same ground as a pattern that fails compilation.
+    """The guard stays at full strength now that the live gap it was written for is closed.
 
-    Nothing renders UK terms in the pipeline today, which is exactly why the rule can be set
-    at full strength: a rule written after the first wrong UK document exists is a rule
-    argued against a sunk cost.
+    Testing it against the real gap would mean the guard stopped being tested the moment the
+    writer was fixed -- the check would pass forever by having nothing to catch, which is the
+    exact failure this codebase keeps finding elsewhere. So the gap is injected instead: a
+    stitch is given a UK rendering the writer cannot produce, and the document must refuse.
     """
+    from brambleloop.cir import stitches as _st
     cable = build_cable_throw()
+
+    original = dict(_st.UK_TERMS)
     try:
-        build_pattern_pdf(cable, terminology="UK", released_on=RELEASED)
-    except ValueError as e:
-        assert "fpdc" in str(e) and "UK" in str(e), str(e)
-    else:
-        raise AssertionError("a UK PDF was rendered containing an unlocalised post stitch")
+        _st.UK_TERMS["fpdc"] = "SOMETHING_THE_WRITER_CANNOT_PRINT"
+        try:
+            build_pattern_pdf(cable, terminology="UK", released_on=RELEASED)
+        except ValueError as e:
+            assert "fpdc" in str(e) and "UK" in str(e), str(e)
+        else:
+            raise AssertionError("a UK PDF was rendered containing an unlocalised stitch")
+    finally:
+        _st.UK_TERMS.clear()
+        _st.UK_TERMS.update(original)
+
+    # And with the table honest, the same cable pattern now renders in UK terms rather than
+    # being refused -- which is the whole point of having fixed the writer.
+    build_pattern_pdf(cable, terminology="UK", released_on=RELEASED)
 
     # And a pattern with no such stitch still renders in UK terms, so the guard is about the
     # stitches rather than about the terminology.

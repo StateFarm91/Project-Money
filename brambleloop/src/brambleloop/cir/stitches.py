@@ -39,6 +39,45 @@ class Stitch:
 
 
 # Canonical registry. `height` is in "sc units" and drives row-height geometry.
+# The abbreviation each code is PRINTED as, per terminology. This lives here, in the lowest
+# layer, because it is a fact about the stitch rather than about any document, and because it
+# was previously two tables that disagreed. `cir/writer._term` carried its own copy covering
+# only the basic stitches and their shaping variants; `publish/abbreviations.TOKENS` carried
+# the complete one. The writer's copy silently returned the US code for anything it did not
+# know, so a UK document printed `fpdc` -- which a UK maker correctly reads as front post
+# DOUBLE crochet, the stitch a US pattern calls single crochet, HALF the height of the one
+# the pattern compiled. On the cable throw that is a garment coming out at roughly half its
+# stated length, from a document that was internally consistent and wrong.
+#
+# One table, in the layer both consumers can import. `publish.abbreviations.TOKENS` now
+# derives from this rather than restating it.
+UK_TERMS: dict[str, str] = {
+    "ch": "ch", "slst": "ss", "sc": "dc", "hdc": "htr", "dc": "tr", "tr": "dtr",
+    "inc": "dc inc", "dec": "dc dec", "dc_inc": "tr inc", "dc_dec": "tr dec",
+    "sk": "miss", "fpdc": "fptr", "bpdc": "bptr",
+    # Same token in both terminologies. Named explicitly rather than left to a default,
+    # because "absent from the table" and "identical in both" are different facts and only
+    # one of them is safe to print.
+    "bob": "bob", "cable2x2": "cable2x2", "cable1x1": "cable1x1",
+}
+
+
+def term(code: str, terminology: str = "US") -> str:
+    """The abbreviation this code is printed as. Unknown codes are refused, not passed through.
+
+    Passing an unknown code through unchanged is what produced a UK document instructing the
+    wrong stitch, so a code with no stated rendering raises instead of guessing.
+    """
+    if terminology.upper() != "UK":
+        return code
+    try:
+        return UK_TERMS[code]
+    except KeyError:
+        raise KeyError(
+            f"{code!r} has no stated UK rendering; add it to cir.stitches.UK_TERMS rather "
+            f"than letting a UK document print a US abbreviation") from None
+
+
 _STITCHES: dict[str, Stitch] = {}
 
 

@@ -16,14 +16,8 @@ from .model import CIR, Component, Op, OpNode, Repeat, Row
 
 
 def _term(code: str, terminology: str) -> str:
-    s = stitches.get(code)
-    if terminology.upper() == "UK":
-        return {
-            "sc": "dc", "hdc": "htr", "dc": "tr", "tr": "dtr",
-            "inc": "dc inc", "dec": "dc dec", "dc_inc": "tr inc", "dc_dec": "tr dec",
-            "ch": "ch", "slst": "ss", "sk": "miss",
-        }.get(code, code)
-    return code
+    """Delegates to the single terminology table in `stitches`. See UK_TERMS there."""
+    return stitches.term(code, terminology)
 
 
 def write_op(op: Op, terminology: str = "US") -> str:
@@ -34,7 +28,9 @@ def write_op(op: Op, terminology: str = "US") -> str:
     if op.stitch == "ch":
         return f"ch {n}" if n > 1 else "ch 1"
     if op.stitch == "sk":
-        return f"sk next {n} sts" if n > 1 else "sk next st"
+        # `code`, not the literal. This returned "sk" in both terminologies because it ran
+        # before the mapping was consulted -- the UK entry existed and was dead.
+        return f"{code} next {n} sts" if n > 1 else f"{code} next st"
     if st.consumes > 1:
         # Decreases consume two; a 2-over-2 cable crossing consumes four. Both are "over
         # next N sts", and hardcoding the two meant the first stitch that consumed more

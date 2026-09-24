@@ -7852,3 +7852,84 @@ Durable spend reservation (the only remaining unbounded overshoot); per-agent en
 before the call rather than after; `tempfile.mkdtemp` at 10 production call sites — the same
 call that left 29GB in `/tmp` on 2026-09-20, where only frequent container replacement is
 saving us; and a retention policy for the audit log, jobs and dead letters.
+
+## 2026-09-24 — Deliverable QA: a UK pattern instructed the wrong stitch
+
+Merged from an isolated worktree. The department rendered the real PDFs for every shippable
+design — 11 catalogue products, the Nordic Forest flagship, three texture designs, the
+hexagon coaster — extracted every page with pypdf and read them as a buyer trying to make
+the thing. Boundary verified: it read `visual/**` and `cir/**` and edited neither.
+
+### Ranked by customer harm
+
+1. **A UK-terms PDF instructed the WRONG STITCH.** `cir/writer._term` carried its own
+   terminology map covering only the basic stitches and their shaping variants, and returned
+   the US code unchanged for anything else — so a UK document printed `fpdc`, which a UK
+   maker correctly reads as front post DOUBLE crochet: in UK terms the stitch a US pattern
+   calls single crochet, **half the height** of the one the pattern compiled against. On the
+   cable throw that is a garment arriving at roughly half its stated 129cm, from a document
+   that was internally consistent and wrong. `write_op` also short-circuited `sk` before the
+   map was consulted, so that UK entry was dead.
+2. **The Heirloom Cable Throw was sold, labelled and gated as "beginner".** `_difficulty`
+   existed in THREE places, each with its own stale copy of the hard-stitch set. The one
+   product genuinely beyond a beginner printed "beginner" on its cover, claimed it on its
+   listing, and **passed the gate whose stated job is to block that claim** — the gate could
+   not see a cable.
+3. **No abbreviation key anywhere in the document.** The only key was the legend IMAGE, built
+   from the stitches that make a fabric cell — so a turning chain and a skipped stitch, which
+   make no cell, appeared in instructions whose key was structurally incapable of containing
+   them.
+4. **Stated gauge and compiled length described two different fabrics.** Cloudline states 18
+   rows/10cm; 88 rows produce 97cm, which is 9 rows/10cm. A maker checking at row 22 measures
+   24cm where 12 is implied and rips out a correct blanket.
+5. **The certified hash did not identify the customer's file.** `released_on` defaulted to
+   `date.today()` and is printed on the cover, and `store.publish` re-renders at upload. The
+   existing determinism test rendered three times in one process on one day — **a proof
+   measured on a sample that could not contain the broken case**, under a docstring asserting
+   the property.
+
+Eight more fixed: materials list naming no hook, needle, pins or cable needle; a licence with
+no owner, date or pattern id; the reader's "us terms" cue reporting an abbreviations section
+in a PDF that had none (and crediting competitors with keys they never wrote); small print at
+4.48:1 contrast and 8pt against a brand minimum of 9; the palette duplicated out of
+`bible.PALETTE`; "page 5" rather than "page 5 of 8"; and "1 times".
+
+### The integrator closed the root, in the layer that owns it
+
+The department could not fix (1) because `cir/**` is Visual-owned, so it wrote a guard that
+refuses such a document and pinned the gap as a subset so that fixing the writer would make
+its test PASS rather than fail. The root is now closed properly rather than patched:
+
+`cir/stitches.UK_TERMS` is now the single terminology table, in the lowest layer, because
+what a stitch is called is a fact about the stitch rather than about any document. The writer
+delegates to it and `publish/abbreviations.TOKENS` derives from it, so the two cannot
+disagree again — this was one value living in two places, and the copy that knew less was the
+one the customer's document was rendered from. `stitches.term()` REFUSES an unknown code
+rather than passing it through, because passing it through is exactly what produced the wrong
+stitch. The `sk` short-circuit now uses the mapped token.
+
+Both of the department's pinning tests were then TIGHTENED rather than deleted: "no worse
+than this known gap" became "there is no gap", and the refusal guard — which must stay,
+because it protects against the next stitch somebody adds without a UK rendering — is now
+tested against an INJECTED gap. Testing it against the real gap would have meant the guard
+stopped being tested the moment the writer was fixed: a check passing forever by having
+nothing to catch, which is the failure this codebase keeps finding elsewhere.
+
+23 checks in `tests/test_deliverable_qa.py`, green.
+
+### Still open, and one is commercially serious
+
+  * **`growth/content.py` promises "US or UK terms" and a pin claims "US and UK terms", while
+    `assets.build` ships `pattern-us.pdf` only.** That is a claim to customers we do not meet.
+    Now that the writer localises correctly the honest fix is to ship both, but that is a
+    release-chain change and is recorded rather than rushed.
+  * `publish/charts.py` still duplicates the brand palette and bakes its legend into pixels.
+  * `stitches.Stitch` has no crossing direction — its own comment claims which two strands
+    cross in front "is a property of the stitch" and the dataclass has no such field, so
+    front- and back-crossed cables are identical to every check. **A docstring asserting a
+    property the code lacks.** The document now states only what is true.
+  * `TwinModel` exposes only a total height, so milestones interpolate linearly — harmless
+    today, wrong on any pattern with uneven sections.
+  * **`twin.calibrated` is False catalogue-wide.** Nothing in the deliverable has been checked
+    against a physically worked sample. That remains the largest unmeasured risk in the
+    product, and the document says so where it matters.

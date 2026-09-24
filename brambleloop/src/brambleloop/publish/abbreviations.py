@@ -43,24 +43,8 @@ from ..cir import stitches
 # writer does not yet make that substitution, `unlocalised()` reports it; this table states
 # what the document should say, not what it currently says.
 TOKENS: dict[str, tuple[str, str]] = {
-    "ch": ("ch", "ch"),
-    "slst": ("slst", "ss"),
-    "sc": ("sc", "dc"),
-    "hdc": ("hdc", "htr"),
-    "dc": ("dc", "tr"),
-    "tr": ("tr", "dtr"),
-    "inc": ("inc", "dc inc"),
-    "dec": ("dec", "dc dec"),
-    "dc_inc": ("dc_inc", "tr inc"),
-    "dc_dec": ("dc_dec", "tr dec"),
-    "sk": ("sk", "miss"),
-    "fpdc": ("fpdc", "fptr"),
-    "bpdc": ("bpdc", "bptr"),
-    "bob": ("bob", "bob"),
-    "cable2x2": ("cable2x2", "cable2x2"),
-    "cable1x1": ("cable1x1", "cable1x1"),
+    code: (code, stitches.term(code, "UK")) for code in stitches.UK_TERMS
 }
-
 
 class KeyIncomplete(ValueError):
     """A stitch reached the customer document that the key cannot define."""
