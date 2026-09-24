@@ -55,6 +55,23 @@ CROWN_RISE = 1.23          # a key point rises this fraction of H above the base
 # parameter rather than a constant because it is a property of the yarn, not of crochet.
 DEFAULT_D_OVER_L = 0.29
 
+# How close two strands may come, as a fraction of yarn diameter. Yarn compresses where it
+# crosses, so centres closer than a full diameter are physical; closer than this is not.
+#
+# ONE constant, used by both the check and the relaxation. They used to disagree: the check
+# accepted 0.45 and the relaxation pushed everything to 1.0, so relaxation inflated the
+# fabric to a separation neither the check nor real crochet asks for. With thin yarn that was
+# invisible. With the correct yarn it tore the fabric apart -- linkage 208 -> 189, and only
+# 15 of 224 stitches still shaped like half double crochet.
+COMPRESSED_CONTACT = 0.45
+
+# What relaxation AIMS for, which is not the same quantity as the floor above. The floor is
+# the point past which yarn cannot be squeezed; this is where two touching strands actually
+# rest. Using one number for both made relaxation settle exactly on the limit, so the verdict
+# came down to floating point and a fabric could be rejected for being 0.0000001mm inside a
+# bound it had been pushed precisely onto.
+RESTING_CONTACT = 0.62
+
 # Closing a single loop strand needs a third point off its own line, or the
 # 'loop' is a degenerate sliver bounding no area and nothing can pass through it.
 # The offset is behind the fabric, where the strand's own stitch body is.
@@ -201,14 +218,18 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         ("third_loop",   (c - 0.12 * L, yt - 0.07 * H, -D * 0.40)),
 
         # --- the two top loops: the two legs of one chain loop ------------------
+        # Spans 0.73 of a pitch, not 0.80. At 0.80 the V of one stitch came within 1.489mm
+        # of its neighbour's, against a compressed-contact floor of 1.50mm -- adjacent tops
+        # pressed very slightly harder together than yarn can be squeezed. A construction
+        # fix, not a threshold one.
         # Symmetric about the centre, so they sit at the same fabric x either way. They run
         # in opposite directions -- out along the back, home along the front -- which is why
         # closing the V into a ring must not reverse one of them.
-        ("back_loop",    (c - 0.40 * L, yt + 0.02 * H, -D * 0.44)),
-        ("back_loop_e",  (c + 0.40 * L, yt + 0.06 * H, -D * 0.40)),
-        ("v_turn",       (c + 0.48 * L, yt + 0.10 * H, +D * 0.02)),
-        ("front_loop",   (c + 0.40 * L, yt + 0.13 * H, +D * 0.44)),
-        ("front_loop_e", (c - 0.40 * L, yt + 0.09 * H, +D * 0.46)),
+        ("back_loop",    (c - 0.365 * L, yt + 0.02 * H, -D * 0.44)),
+        ("back_loop_e",  (c + 0.365 * L, yt + 0.06 * H, -D * 0.40)),
+        ("v_turn",       (c + 0.445 * L, yt + 0.10 * H, +D * 0.02)),
+        ("front_loop",   (c + 0.365 * L, yt + 0.13 * H, +D * 0.44)),
+        ("front_loop_e", (c - 0.365 * L, yt + 0.09 * H, +D * 0.46)),
         ("away",         (1.00 * L, yt - 0.30 * H, +D * 0.46)),
     ]
     names = [n for n, _ in p]
@@ -250,14 +271,18 @@ def _turning_chain(L: float, H: float, D: float, direction: int,
     of a chain stitch". My earlier model had none at all, which left each row a separate
     object that happened to sit above the last -- another way the fabric was not one thing.
     """
+    # Held clear of the last stitch's top V, which it grazed at exactly the compressed
+    # contact distance. A turning chain stands at the edge of the fabric, outside the
+    # stitches, so it has the room -- it was only sitting there because nothing had made it
+    # move.
     d = direction
     return np.asarray([
-        (0.10 * L * d, y_top + 0.10 * H, +D * 0.30),
-        (0.34 * L * d, y_top + 0.46 * H, +D * 0.55),
-        (0.18 * L * d, y_top + 0.86 * H, -D * 0.10),
-        (-0.16 * L * d, y_top + 0.92 * H, -D * 0.45),
-        (-0.34 * L * d, y_top + 0.58 * H, -D * 0.20),
-        (-0.20 * L * d, y_top + 0.16 * H, +D * 0.25),
+        (0.24 * L * d, y_top + 0.08 * H, +D * 0.34),
+        (0.52 * L * d, y_top + 0.44 * H, +D * 0.60),
+        (0.38 * L * d, y_top + 0.86 * H, -D * 0.08),
+        (0.02 * L * d, y_top + 0.94 * H, -D * 0.48),
+        (-0.18 * L * d, y_top + 0.60 * H, -D * 0.24),
+        (-0.06 * L * d, y_top + 0.18 * H, +D * 0.28),
     ], dtype=np.float64)
 
 
@@ -267,7 +292,18 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
     L = 10.0 / gauge.stitches_per_10cm * 10.0
     H = 10.0 / gauge.rows_per_10cm * 10.0
     D = L * 0.55
-    fab = Fabric(L=L, H=H, D=D, yarn_diameter=L * d_over_l)
+    # Yarn diameter comes from the hook the pattern specifies, not from a ratio chosen
+    # here. It had been L * 0.29 = 2.0mm, a number with no source, and the fabric rendered
+    # as open lacework because the strands were about forty per cent too thin to touch.
+    #
+    # The pattern states a 6mm hook, which is a chunky yarn. Two independent routes agree on
+    # what that means: a 6mm hook takes yarn of roughly hook/1.8, and the certified gauge of
+    # 14.5 stitches per 10cm gives a 6.9mm stitch whose post is about two strands wide, so
+    # roughly 3.45mm. They land within three per cent of each other, which is why this is
+    # derived rather than picked.
+    hook = getattr(gauge, "hook_mm", None)
+    yarn_d = hook / 1.8 if hook else L * d_over_l
+    fab = Fabric(L=L, H=H, D=D, yarn_diameter=yarn_d)
 
     rows = sorted({c.row for c in twin.cells})
     if max_rows:
@@ -595,7 +631,7 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
         checks["closest_non_adjacent_mm"] = round(worst, 3)
         # Real yarn compresses where it crosses, so some overlap is physical; half a diameter
         # is not.
-        if worst < fab.yarn_diameter * 0.45:
+        if worst < fab.yarn_diameter * COMPRESSED_CONTACT:
             findings.append(f"two strands come within {worst:.2f}mm, closer than yarn can "
                             f"compress at {fab.yarn_diameter:.2f}mm diameter")
 
@@ -632,7 +668,7 @@ def settle(fab: Fabric, *, iterations: int = 60, stiffness: float = 0.16,
     pts = fab.points.copy()
     if len(pts) < 4:
         return fab
-    contact = fab.yarn_diameter
+    contact = fab.yarn_diameter * RESTING_CONTACT
     # Each segment's own length, as built. Not an average.
     rest = np.linalg.norm(np.diff(pts, axis=0), axis=1, keepdims=True)
     rest[rest == 0] = 1e-9
