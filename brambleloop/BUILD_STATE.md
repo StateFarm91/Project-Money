@@ -374,6 +374,12 @@ still a guess.
 `tests/test_linkage.py` (new, 18), `test_crochet_topology.py` (34),
 `test_topology_adversarial.py` (18). Zero spend.
 
+**Full suite: 3,283 passing, 0 suites failing.** An earlier run of the same code reported
+3,282 with `test_deploy` failing on a 40-second wait for a background readiness job. That
+test passes in isolation, passes on re-run, and is in code this increment never touched --
+contention under a suite that saturates every core, confirmed by re-running rather than
+assumed by calling it a flake.
+
 **The authorised question is answered: yes.** Physically based relaxation transforms the
 validated CIR-derived topology into geometry that satisfies a physical floor the authored
 version could not, without changing the certified topology.
