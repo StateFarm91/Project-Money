@@ -7454,3 +7454,44 @@ suite asserted gravity had moved the fabric while the fabric moved 0.03mm. The
 one-value-in-two-places defect in a physical constant, which is the worst place for it: a
 stale copy of a calibrated number is indistinguishable from a real result. The calibrated
 value now lives only in `drape.py` and the test imports it.
+
+### CORRECTION to the "next increment" named above, before any of it was built
+
+I told the owner the next increment was inter-yarn friction and slip. Researching it first,
+as the standing rule requires, showed the first half of that is pointing the wrong way.
+
+FRICTION IS NOW SOURCED, and narrowly, which is worth having regardless: acrylic yarn
+coefficients of friction are published at **0.134-0.141 point contact and 0.186-0.243 line
+contact**. That is a real bound on a real parameter, not the six-order bracket that bending
+rigidity presented, and it is recorded here for whenever friction is built.
+
+But friction RESISTS relative sliding, so adding it makes a fabric STIFFER in bending, not
+softer. It is a principal source of bending hysteresis and non-linear stiffness in fabric
+mechanics. The observed defect is that the swatch is already too stiff and too plate-like, so
+friction alone would move away from the target rather than towards it. Naming it as the fix
+was reasoning by association -- "friction and slip" is a familiar phrase -- rather than by
+mechanism, and it did not survive contact with the literature.
+
+THE SHARPER DIAGNOSIS, and it is uncomfortable because it implicates the choice that made
+this increment work. Rest-curvature fixed two real defects and is correct as far as it goes.
+But taking the yarn as set in its relaxed shape makes the fabric resist ANY departure from
+that configuration, which turns it into an elastic plate. Real crochet is closer to a
+MECHANISM than a plate: its conformability comes from loops articulating against one another
+and from yarn sliding THROUGH the loops so tension redistributes between stitches. The model
+has fixed material coordinates -- every vertex is welded to its place along the yarn -- so no
+yarn can travel through a stitch, and the only compliance available is bending.
+
+So the two bending rest states bracket the problem rather than solving it:
+
+  rest = straight   internal pre-stress dominates gravity by 200-32,000x, drape stops
+                    responding to stiffness, and free-edge stitches evert. Measured.
+  rest = relaxed    stitches survive and drape responds correctly to stiffness, but the
+                    fabric is an elastic plate with no articulation. Measured.
+
+Yarn slip through loops is the mechanism that sits between them, and it is not a bounded
+increment: it means giving the solver material coordinates that move along the yarn, which
+changes what a vertex IS. That is an owner-level architectural decision, which is the
+boundary the authorisation drew, so it stops here rather than being started.
+
+NOT CLAIMED: that yarn slip would close the gap. It is the mechanism the evidence points at,
+and the honest status of that claim is a hypothesis with an argument behind it, not a result.
