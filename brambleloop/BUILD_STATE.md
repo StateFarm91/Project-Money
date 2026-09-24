@@ -368,6 +368,77 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-24 — Physically based yarn relaxation: the increment works; D still not passed
+
+`src/brambleloop/visual/relaxation.py` (new), `crochet_topology.py`, `stitch_shape.py`,
+`tests/test_linkage.py` (new, 18), `test_crochet_topology.py` (34),
+`test_topology_adversarial.py` (18). Zero spend.
+
+**The authorised question is answered: yes.** Physically based relaxation transforms the
+validated CIR-derived topology into geometry that satisfies a physical floor the authored
+version could not, without changing the certified topology.
+
+| measure | unrelaxed | relaxed |
+|---|---|---|
+| closest strand approach (segment to segment) | 0.609mm — **fails** the 1.50mm floor | **1.95mm — passes** |
+| stitches linked | all, at +/-1 | all, at +/-1 |
+| completed stitches shaped like HDC | all | all |
+| min gap anywhere on the trajectory | — | **never reached zero** |
+| yarn strain / length change | — | 1.0% / -0.07% |
+| gate verdict | **False** | **True** |
+
+Identical at 5x5, 7x7 and 10x10. Topology preservation is **by construction**: no vertex may
+move further than half the current smallest gap between non-adjacent segments, so no two
+strands can close that gap and cross. Enforced every iteration, not checked afterwards.
+
+**Bounded, as hoped.** A projection solver following Kaldor et al.'s
+inextensibility-by-projection. ~90s per swatch, no physics platform, no new runtime
+dependency. PyElastica was installed and TESTED rather than dismissed -- MIT, it works --
+and rejected for a measured reason: its self-contact is quadratic in element count and its
+contact is penalty-based, so it cannot promise non-penetration and worsens with size.
+
+#### Five defects, three of them in checks previously reported as passing
+
+21. **The interpenetration check was not measuring interpenetration.** It sampled vertices.
+    Segments here are ~3mm long, so two can cross clean through each other while all four
+    endpoints stay far apart. The authored geometry's true closest approach was **0.050mm**
+    against a 1.50mm floor; the check reported 2.06mm.
+22. **The linking-number check is not invariant on moved geometry.** A 0.15mm jiggle changes
+    its verdict. Proved rather than suspected: in one run the solver established that no
+    strand ever passed through another *while* the linking number claimed 39 of 42 linkages
+    had broken. Topology cannot change without a crossing. It now corroborates; it does not
+    gate.
+23. **The fabric depth was invented and never revisited.** `D = L * 0.55` predates deriving
+    yarn diameter from the stated 6mm hook, leaving a fabric 1.14 yarn diameters deep that
+    must hold three strands. That is what pinned the geometry between threading the V
+    (grazing its legs at 0.05mm) and clearing the legs (threading nothing). Now derived from
+    the yarn at 2.2 diameters.
+24. **A scale dependency I reported to the owner did not exist.** The sweep passed bend
+    compliance 0.03; the test took the `Material` default of 0.18, my first guess, which
+    flattens stitches. Corrected.
+25. **The last "misshapen" stitch is the free end of the yarn** -- always the last stitch
+    worked, loop still live because nothing fastens off. A boundary condition with a
+    physical cause, now reported on its own line rather than merged into a shape verdict.
+
+#### Parameter provenance
+
+Measured: segment rest lengths. Derived: yarn diameter (hook/1.8, cross-checked against the
+gauge to within 3%); fabric depth (2.2 diameters, bounded below by what must physically fit).
+Estimated but bounded by published weft-knit compression: the contact floor.
+**Estimated and weakly constrained: bend compliance.** It is the one number that moves the
+result and cannot presently be defended from the pattern. Grounding it in a measured yarn
+flexural rigidity is the first thing to do before trusting the shape the fabric settles into.
+
+#### D is NOT passed
+
+The topology gate passes on relaxed geometry. The realism bar does not. The render shows
+genuine emergent mechanics -- rows nesting, tension propagating, neighbouring stitches
+differing because their neighbours differ -- and still reads as smooth tubing in a lattice
+rather than wool. Material work (ply, twist, fibre) is explicitly not the answer while the
+macro-geometry reads as CGI.
+
+## Previously — last completed milestone
+
 ### 2026-09-24 — Crochet topology sprint: topology gate PASSES, photographic realism does NOT
 
 Commits `90d837c` through HEAD on `claude/repository-setup-nc9x6o`.
