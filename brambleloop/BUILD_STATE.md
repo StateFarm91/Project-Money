@@ -7757,3 +7757,98 @@ integrator was not racing his own department; applied once that file was free.
 Listing images, activation, OAuth refresh (static token, no refresh flow), shop-setup calls
 (`updateShop`, `createShopSection`, `createShopReturnPolicy`), listing properties/attributes,
 and any fetcher for the policy freshness watch — `record_snapshot` has zero callers in `src/`.
+
+## 2026-09-24 — Reliability / Cost Governance: the spend ceilings were never on
+
+Merged from an isolated worktree. Production read GET-only; nothing deployed, restarted or
+reconfigured. Boundary verified by diff. 35 new tests in `tests/test_spend_governance.py`,
+each quoting the production reading it was found from.
+
+### A correction to what I have been reporting all day
+
+I have repeatedly cited `/api/verify` "12 of 12 passing" as evidence that spend is
+controlled. **One of those twelve was green because it had no data.**
+
+`spend_limits_not_breached` reports `all(...)` over the configured spend limits. Nothing in
+`src/` ever calls `SpendGuard.set_limit` — verified: exactly one occurrence in the whole of
+`src/`, which is the method's own definition — so the table is empty and `all([])` is True.
+The production evidence field says `{"paused_scopes": []}`: it reports that no scope is
+paused, when no scope exists. **The check described as "the ceilings are on and unbreached"
+could not see whether any ceiling existed at all.**
+
+The empty table is also how advertising stays gated, so the gate is correctly closed. The
+defect is that a closed gate and a healthy ceiling were the same sentence.
+
+### Eight more, all one family
+
+2. **The governor read 3 of its 5 dimensions from a field nothing writes.** Same rows, same
+   minute: `/api/spend-report` attributed all CA$75.93 across three departments;
+   `/api/governor` called it `unattributed_share: 1.0`. `spend_report.record` writes the
+   `department` and `product_slug` COLUMNS; `governor.spend_by` read `detail[dimension]`.
+   Its "attribution sums to the bill or it is refused" guard could not catch this, because a
+   dimension reading nothing sums perfectly in the unattributed bucket.
+3. **In-batch hole in the monthly ceiling.** `check_budget` is called inside the per-image
+   loop while the ledger row is written after it. Evidence from real rows:
+   `gallery_observation` CA$23.65 across 33 rows carrying 4.18M input tokens — about
+   **twenty-one vision calls behind one ledger row**. Twenty of every twenty-one were
+   authorised against a month total that had not moved. Fixed via `uncommitted_cad`.
+4. **Cross-process race, still OPEN.** No reservation is written before a call; the estimate
+   is recorded after the fact. Overshoot is bounded only by concurrent callers times the
+   largest estimate. Needs a durable reservation table — a schema change. The same
+   lost-update shape inside `SpendGuard.authorize_spend` IS fixed, with `FOR UPDATE`.
+5. **Per-agent ceilings sum past the global one and are never consulted.** 24 agents declare
+   about CA$57/day, roughly CA$1,700/month, against a CA$100 month. They are checked in
+   exactly one place, which nearly every real call does not use. `/api/verify` asserted only
+   that a number was configured — `every_agent_has_a_cost_ceiling`, which is true and
+   nearly meaningless.
+6. **The daily ceiling deleted its own evidence.** `record_cost` checked before writing, so
+   the one call that crossed the ceiling wrote no row — and the monthly ceiling is summed
+   from those rows. The daily guard was lowering the number the monthly guard checks.
+7. **Orphaned work was recoverable only while the queue was idle.** `_reclaim_expired` ran
+   only when the pending query came back empty, so a job whose worker died holding the lease
+   was never reclaimed under a backlog — which is exactly when workers get killed.
+8. **`ops/lock.py` was not a lock.** Read-then-write, so two parallel departments could both
+   hold the lease; and staleness measured from acquisition, so any session running past three
+   hours had its lease stolen while alive. This session has been holding that lease all day.
+9. **One dead letter, three classifications** — `/api/status` said 1 defect while
+   `/api/verify` said 0 unexpected, about the same row in the same minute.
+
+Sustainability: `/api/status` loaded every job row six times per request; a `disk` health
+signal now exists measured in absolute free space rather than a share (10% of a 270GB volume
+is 27GB — the share version was the wrong instrument); `worker_restarts` read 0 across three
+container starts in 47 minutes because it counts a thread loop inside one process, so nothing
+could distinguish three deploys from a twenty-minute crash loop. Audit log grows ~4,700
+rows/day and **nothing prunes anything** — `purge_dead` exists and is called from nowhere.
+
+### One pre-existing assertion changed, and it was STRENGTHENED
+
+`test_agent_daily_cost_ceiling_is_enforced` asserted "refused spend is not recorded".
+`record_cost` runs after the provider has answered, so there is no spend left to refuse — the
+money has gone. Dropping the row made the single call that breached the daily ceiling the
+single call missing from the monthly ledger. The refusal assertions are kept verbatim; only
+the ledger-completeness line moved, and it moved to a stricter property. Reviewed by the
+integrator against the no-weakening rule and accepted on that reasoning.
+
+### Visual applied the one fix left for it
+
+`visual/inspect.py` carried the identical in-batch ceiling hole. The Reliability department
+correctly did not reach into a Visual-owned file; the integrator applied it.
+
+### OWNER DECISION REQUIRED — 2 minutes, CA$0
+
+`agents/registry.py` gives `market_radar` a CA$4.00/day ceiling. `spend_policy.ALLOCATION`
+states the gallery cadence costs **CA$8.70/day**. Both are in the repository, they
+contradict, and until it is resolved the ceiling stays unenforced. Either the ceiling rises
+or the cadence slows. **The department did not raise it — correctly, that is the owner's
+call.**
+
+Related and deliberate: after this deploys, the `spend` signal may go DEGRADED on the first
+full gallery day, because the ceiling is genuinely below the budgeted cadence. **That is a
+true reading. Do not raise the ceiling to silence it.**
+
+### Still open, needing a deploy or a schema change
+
+Durable spend reservation (the only remaining unbounded overshoot); per-agent enforcement
+before the call rather than after; `tempfile.mkdtemp` at 10 production call sites — the same
+call that left 29GB in `/tmp` on 2026-09-20, where only frequent container replacement is
+saving us; and a retention policy for the audit log, jobs and dead letters.

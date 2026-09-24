@@ -235,10 +235,19 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
 
     def _call(system, prompt, max_tokens):
         if db is not None:
+            # `uncommitted_cad` is this run's own spend, which is not in the ledger yet.
+            # Without it the ceiling is checked against a month total that does not include
+            # anything this batch has already spent, so every call after the first in a batch
+            # is authorised against a stale number. The same hole in `intel/vision.py` let
+            # about twenty-one vision calls sit behind a single ledger row -- twenty of every
+            # twenty-one authorised against a total that had not moved. Found by the
+            # Reliability department and left here for Visual to apply, because this file is
+            # Visual-owned and they were correct not to reach into it.
             billed["reserved"] += gw.check_budget(
                 db, model=provider.model,
                 input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
-                max_tokens=max_tokens)["estimate_cad"]
+                max_tokens=max_tokens,
+                uncommitted_cad=max(billed["actual"], billed["reserved"]))["estimate_cad"]
         response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
         billed["actual"] += round(
             response.input_tokens * provider.cost_per_1k_input_cad / 1000
