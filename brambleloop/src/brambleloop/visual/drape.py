@@ -54,6 +54,31 @@ WHERE THE NUMBERS COME FROM.
            measured bending length against the analytic (B/W g)^(1/3) checks the solver
            against beam theory rather than against my expectations.
 
+HOW B IS FIXED, AND WHY THIS IS CALIBRATION RATHER THAN TUNING. The bracket on yarn bending
+rigidity spans a factor of 735,000, so it cannot select a value by itself. The first attempt
+to narrow it analytically assumed the fabric's rigidity per unit width was the yarn's divided
+by the stitch pitch. The solver disagrees with that by about sixteen times -- at the value
+that mapping calls a 33mm bending length, beam theory predicts an 8mm tip deflection and the
+solver gives 0.5mm -- so the mapping was a guess, and an earlier argument that used it to
+exclude the lower bound was wrong for the same reason.
+
+Yarn-to-fabric homogenisation is the hard part of this problem and is not solved here. So the
+calibration is done the other way round, against the quantity that IS bounded by published
+measurement: the fabric's bending length. Thin cotton jersey is published at 0.5-1.4cm, and a
+6mm-hook chunky crochet is unambiguously stiffer than jersey, which puts a floor near 15mm;
+the ceiling comes from crochet of this weight visibly bending at swatch scale, which puts it
+below roughly 80mm. The geometric midpoint of that band is 34.6mm.
+
+The solver's own effective bending length is then MEASURED -- deflect a cantilever, invert
+delta = l^4 / 8c^3 -- and B is set so that measurement lands on the midpoint. What makes this
+calibration rather than taste is that the target is a published fabric property, the free
+parameter is the one genuinely unknown to six orders of magnitude, and the answer can be
+checked against something it was not fitted to: the resulting B is 1.45 times the free-fibre
+lower bound, which is an independent hard floor. A soft chunky acrylic yarn whose fibres are
+nearly free to slip, with a little coupling from twist, is exactly where that sits. Had the
+calibration demanded a B below the floor, or hundreds of times above it, the model would have
+been reported as failing rather than adopted.
+
 WHAT KEEPS THE TOPOLOGY. Everything that protected it in-plane still applies and is not
 relaxed here: segment rest lengths, self-contact with the same published floor, and the
 displacement cap that makes crossing geometrically impossible between one look at the
@@ -88,6 +113,12 @@ PROVENANCE = {
                         "checked against ASTM D1388 and against beam theory, not by eye",
     "shape_factor": "BOUNDED -- published shape factors run 0.59 (silk) to 1.0 (glass); "
                     "none published for acrylic, so the range is carried",
+    "bending_calibration": "CALIBRATED against a published fabric property, not tuned. The "
+                           "solver's effective bending length is measured from a cantilever "
+                           "deflection and B set so it lands on the geometric midpoint of "
+                           "the 15-80mm band that published jersey stiffness and observed "
+                           "crochet behaviour bracket. Cross-check it was not fitted to: the "
+                           "result is 1.45x the free-fibre hard lower bound",
     "rest_curvature": "The yarn is taken as set in the shape it relaxed into, following the reference method's own split between a relaxation phase and a simulation phase. Measuring bending against straight instead makes every formed loop pre-stressed and the fabric's drape stops responding to its stiffness at all -- tested, not assumed",
     "support_friction": "NOT MODELLED -- the support is frictionless, which is stated "
                         "because friction would resist sliding and the swatch is not "
