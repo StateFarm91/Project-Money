@@ -146,6 +146,96 @@ def test_the_standard_records_when_it_was_set():
     assert F.STANDARD_SET_AT == "2026-09-24"
 
 
+# ---- the product lock, enforced by provenance rather than by inspection ----
+
+def _composite_plan():
+    from brambleloop.visual.presentation import PresentationPlan
+    return (PresentationPlan()
+            .add("generate", touches_product=False, note="scene, room, light, model")
+            .add("warp_to_surface", touches_product=True)
+            .add("relight", touches_product=True)
+            .add("shadow_cast", touches_product=True)
+            .add("composite", touches_product=True)
+            .add("depth_of_field_blur", touches_product=True)
+            .add("grain", touches_product=True))
+
+
+def test_structure_preserving_operations_may_touch_the_product():
+    """Relighting, warping, blurring and compositing move existing pixels.
+
+    None of them has a model of what crochet is, so none can invent a stitch. Fabric that is
+    shadowed or blurred becomes harder to read; it does not become different fabric.
+    """
+    assert _composite_plan().lock_verdict()["verdict"] == "pass"
+
+
+def test_a_generative_operation_over_the_product_is_a_redesign():
+    """The failure mode is a plausible texture that is not the certified one."""
+    from brambleloop.visual.presentation import PresentationPlan
+    plan = (PresentationPlan()
+            .add("generate", touches_product=False)
+            .add("image_to_image", touches_product=True, note="make it look photographic"))
+    v = plan.lock_verdict()
+    assert v["verdict"] == "fail"
+    assert "image_to_image" in v["failed_checks"]
+
+
+def test_every_generative_name_is_refused_over_the_product():
+    """Including the ones that do not sound generative: enhance, refine, upscale, restore."""
+    from brambleloop.visual.presentation import GENERATIVE, PresentationPlan
+    for name in GENERATIVE:
+        plan = PresentationPlan().add(name, touches_product=True)
+        assert plan.lock_verdict()["verdict"] == "fail", f"{name} was allowed over the product"
+
+
+def test_generative_work_away_from_the_product_is_allowed_and_is_the_point():
+    """The rule is not 'no generative AI'. Scene, pose, light and model may all be generated."""
+    from brambleloop.visual.presentation import scene_generation_is_allowed
+    plan = _composite_plan()
+    assert scene_generation_is_allowed(plan)
+    assert plan.lock_verdict()["verdict"] == "pass"
+
+
+def test_an_unclassified_operation_may_not_touch_the_product():
+    """An operation nobody has classified is not assumed safe.
+
+    This is the gap a future technique arrives through: something new, plausibly harmless,
+    applied to the product because no rule named it. The default is refusal.
+    """
+    from brambleloop.visual.presentation import PresentationPlan
+    plan = PresentationPlan().add("neural_texture_fixup", touches_product=True)
+    v = plan.lock_verdict()
+    assert v["verdict"] == "fail"
+    assert "neural_texture_fixup" in v["failed_checks"]
+    # ...but the same unknown operation elsewhere in the frame is merely reported.
+    ok = PresentationPlan().add("composite", touches_product=True)
+    ok.add("neural_texture_fixup", touches_product=False)
+    assert ok.lock_verdict()["verdict"] == "pass"
+
+
+def test_an_undeclared_pipeline_is_unmeasurable_rather_than_safe():
+    from brambleloop.visual.presentation import PresentationPlan
+    assert PresentationPlan().lock_verdict()["verdict"] == "unmeasurable"
+
+
+def test_the_lock_raises_rather_than_returning_a_soft_answer():
+    from brambleloop.visual.presentation import PresentationPlan, ProductRedesigned
+    plan = PresentationPlan().add("inpaint", touches_product=True)
+    try:
+        plan.refuse_if_the_product_is_redesigned()
+    except ProductRedesigned as exc:
+        assert "redesign" in str(exc)
+    else:
+        raise AssertionError("a generative redraw of the product passed the lock")
+    _composite_plan().refuse_if_the_product_is_redesigned()
+
+
+def test_the_two_operation_sets_do_not_overlap():
+    """An operation that is both preserving and generative would decide by lookup order."""
+    from brambleloop.visual.presentation import GENERATIVE, STRUCTURE_PRESERVING
+    assert not STRUCTURE_PRESERVING & GENERATIVE
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0

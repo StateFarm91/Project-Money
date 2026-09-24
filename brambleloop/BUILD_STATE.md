@@ -6444,3 +6444,50 @@ session softening the rule while holding a nearly-good-enough result.
 **Owner visual approval is required before the visual architecture is accepted.** The first
 complete pipeline result is to be presented as actual images for inspection, not as judge
 scores, and preserved as a regression fixture once approved.
+
+## 2026-09-24 — milestone D architecture: the product lock is provenance, not inspection
+
+The obvious way to make a deterministic render look photographic is to hand it to a
+generative model and ask for realism. That is precisely the operation that redesigns the
+product, and twelve renders across three providers already measured what happens when a model
+is asked to produce certified crochet: product truth 0 of 12.
+
+**Measuring structure out of a finished photograph is the wrong instrument.** Once an image
+is lit, draped, blurred and compressed, recovering "is this the certified stitch pattern"
+from pixels is a vision judgement — costly, approximate, and most likely to return
+`unmeasurable` on exactly the cases that matter. A gate that can only sometimes tell whether
+the product survived is not a lock.
+
+**So the lock is provenance.** Every operation applied to the product region is declared, and
+it holds if and only if all of them are structure-preserving. That is a property of the
+pipeline rather than of a picture: deterministic, checkable before a penny is spent, and
+incapable of returning `unmeasurable`.
+
+The line is not a matter of degree:
+
+- **Structure-preserving** operations are functions of pixels already present — relight,
+  shade, tonal grade, warp onto a draped surface, perspective, depth-of-field blur, grain,
+  vignette, composite, occlusion mask, shadow cast, lens distortion, compression. None of
+  them has a model of what crochet is, so none can invent a stitch. Fabric that is shadowed
+  or blurred becomes harder to read; it does not become different fabric.
+- **Generative** operations sample new pixels — image-to-image, inpaint, outpaint, diffusion
+  upscale, enhance, refine, style transfer, face restore, texture synthesis. Every one can
+  produce a plausible crochet texture that is not the certified one, and plausible-but-wrong
+  is the only failure that reaches a customer.
+
+**Generative work away from the product is allowed and is the point.** Scene, environment,
+lighting design, pose, styling and the model may all be generated. The rule is not "no
+generative AI"; it is that generative AI may photograph the product and may not be the thing
+that draws it.
+
+**An unclassified operation may not touch the product.** That is the gap a future technique
+arrives through — something new, plausibly harmless, applied because no rule named it. The
+default is refusal. An undeclared pipeline reports `unmeasurable` rather than safe.
+
+This makes D's invariant enforceable before any image is bought, which also means the first
+paid experiment can be spent on whether the *result looks real* rather than on discovering
+that a technique quietly redrew the cardigan.
+
+**What is still unproven:** that a composite of this kind can reach photographic realism at
+all. Structure preservation is now guaranteed by construction; convincingness is not, and
+that is the question D actually has to answer with measured evidence.
