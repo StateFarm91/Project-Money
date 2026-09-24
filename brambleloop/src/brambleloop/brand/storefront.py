@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ..commerce import shop_package
 from . import bible
 
 SHOP_NAME = "Brambleloop Studio"
@@ -78,29 +79,21 @@ If something in one of our patterns does not add up, tell us. We fix the pattern
 out a corrected version, and send it to everyone who bought it — rather than answering your
 question and leaving the next person to find the same problem."""
 
-POLICIES: dict[str, str] = {
-    "delivery": (
-        "Patterns are digital. Your PDF is available to download immediately after purchase "
-        "from your Etsy account — nothing is posted to you and there is nothing to wait for."),
-    "returns": (
-        "Digital patterns cannot be returned once downloaded, and we want you to know that "
-        "before you buy rather than after. What we do instead: if a pattern contains an error, "
-        "we correct the pattern, re-issue it, and send the corrected file to everyone who "
-        "bought it. If you cannot open or download your file, message us and we will sort it "
-        "out. If a pattern is not what you expected, tell us — we would rather fix the listing "
-        "than argue about it."),
-    "licence": (
-        "Use the pattern for yourself, and sell the items you make from it. Please do not "
-        "resell, share, or republish the pattern file, the charts or the written instructions, "
-        "and please do not use our photographs or diagrams in your own listings."),
-    "support": (
-        "Message us through Etsy. We answer from the exact version of the pattern you bought, "
-        "so tell us which pattern and which row, and we can be specific."),
-    "privacy": (
-        "We only see what Etsy shares with us to fulfil your order. We do not sell or share "
-        "your information, and we do not add you to a mailing list because you bought "
-        "something."),
-}
+# The policies are not written here any more.
+#
+# They were, and all five of them were prose somebody typed once. The licence was the one
+# that mattered: it said "sell the items you make from it", with no limit, while
+# `commerce.terms` had decided that finished items may be sold "by individual makers and
+# small businesses, not manufactured at scale" and `commerce.seo`'s description block said a
+# third thing. Three answers to the most-asked question in the craft-pattern market, in one
+# repository, before a single sale -- which is requirement 40's drift failure, arriving
+# exactly the way #40 says it arrives: written at different times by different parts of the
+# system, and never read side by side.
+#
+# `commerce.shop_package` now renders all of them from the decisions that own them, so the
+# storefront shows what was decided rather than what was remembered. The name is kept because
+# the shop still has policies; what changed is where they come from.
+POLICIES: dict[str, str] = shop_package.policies()
 
 ANNOUNCEMENT_TEMPLATES: dict[str, str] = {
     "Christmas": ("Christmas blankets take real hours — this is the month to start. "
@@ -177,7 +170,10 @@ def check_storefront(store: Storefront) -> list[str]:
     if len(store.about) < ABOUT_MIN:
         problems.append(f"STORE_ABOUT_THIN: {len(store.about)} characters; an empty About is "
                         f"the first thing a cautious buyer notices")
-    for required in ("delivery", "returns", "licence", "support", "privacy"):
+    # The section list is the package's, not a copy of it. A second list is a second answer
+    # to "which policies does this shop have", and the AI disclosure is exactly the section
+    # a hand-maintained list forgets: it was not a policy section until Etsy made it one.
+    for required in shop_package.POLICY_SECTIONS:
         if not store.policies.get(required, "").strip():
             problems.append(f"STORE_POLICY_MISSING: {required}")
     returns = store.policies.get("returns", "").lower()
