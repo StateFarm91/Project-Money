@@ -77,16 +77,24 @@ def assess(size: str = "S") -> dict:
     })
 
     # --- D and E: not started, and said so rather than shown empty --------
+    from . import final_standard as F
+
     out.append({
         "milestone": "D", "name": "photographic presentation without structural drift",
         "status": NOT_STARTED,
-        "evidence": ("no presentation layer exists. The invariant it must satisfy is written "
-                     "down already: AI may photograph the product, it may not redesign it"),
+        "evidence": ("no presentation layer exists. Its invariant is already in code: "
+                     "`final_standard.product_lock_held` compares the product region's "
+                     "structure before and after presentation and fails the asset if "
+                     "anything moved, however much better it looks. AI may photograph the "
+                     "product; it may not redesign it"),
     })
     out.append({
-        "milestone": "E", "name": "listing asset passing Product Truth and realism together",
+        "milestone": "E", "name": "listing asset clearing all three floors at once",
         "status": NOT_STARTED,
-        "evidence": "waits on D; listable is still 0 of 10",
+        "evidence": (f"waits on D; listable is still 0 of 10. The bar is set and testable: "
+                     f"{', '.join(F.FLOORS)}, with identity clearing "
+                     f"{' and '.join(F.IDENTITY_HALVES)} separately. None compensates for "
+                     f"another and unmeasurable is never pass"),
     })
     return _ladder(out)
 

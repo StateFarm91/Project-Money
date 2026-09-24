@@ -6379,3 +6379,68 @@ call rather than stored, because a stored progress figure is what told this buil
 work left.
 
 Cost this increment: **CA$0.00.** No model called, nothing rendered, no provider touched.
+
+## 2026-09-24 — the final listing-image standard, set before anything can meet it
+
+The owner set the customer-facing standard. It is in code at `visual/final_standard.py`,
+written before the photographic bridge exists so it cannot be shaped by what that bridge
+turns out to be capable of — the same discipline `visual.reliability` used when it was
+written before the first render rate was measured.
+
+**The deterministic pipeline is not the aesthetic.** It makes Product Truth constructible; a
+customer must never be able to tell it is there. The reaction a finished listing image has to
+produce is "that is a beautiful photograph of a real person wearing a real crochet product" —
+not render, not CGI, not AI, not composite.
+
+### Three floors, independent, none compensating
+
+```
+product truth PASS + identity PASS + realism FAIL  ->  FAIL
+product truth PASS + realism  PASS + identity FAIL ->  FAIL
+identity      PASS + realism  PASS + truth    FAIL ->  FAIL
+```
+
+**Identity is itself two floors.** Face and whole-person morphology are checked separately and
+never averaged, because a generative model's failure mode when asked for a specific person is
+a plausible, subtly different one — and a single score would let a convincing face carry a
+wrong body across. A matching face on a different body fails; a matching body with a
+different face fails. Morphology covers stature, shoulders, torso, bust, waist, hips, limbs
+and overall build, which is also why a head-and-shoulders check can never clear it: a
+portrait has no hips in it.
+
+**UNMEASURABLE is never PASS**, and a missing floor cannot ship by omission — leaving a check
+out must not be easier than failing it.
+
+**Fail outranks unmeasurable.** A defect that was found is not softened by one that was not.
+
+### The product lock
+
+`product_lock_held(before, after)` compares the product region's structural measurements
+either side of the presentation stage — texture signature, geometry, counts — field by field
+rather than by score, because "mostly the same garment" is not something a certified pattern
+can promise. If the photographic stage changed the certified product, the asset fails **and
+the technique is what has to change**, not the check.
+
+### Realism is stated as requirements, not only as disqualifiers
+
+Absence of a defect is not presence of realism, so both lists exist: 15 things that must be
+present (skin texture and pores, believable hair, anatomically correct hands, realistic eyes,
+natural fabric folds, physically plausible crochet drape, coherent body/garment contact,
+correct occlusion, plausible gravity, coherent shadows, realistic lighting, believable depth
+of field, ordinary photographic imperfection, consistent camera characteristics, a believable
+real environment) and 12 that disqualify (plastic skin, beauty-filter appearance, impossible
+hands, floating garment, garment/body intersection, melted yarn, synthetic stitch texture,
+impossible shadows, excessive HDR, generic AI interior, fake typography, catalogue-perfect
+sterility).
+
+### What this changes about milestones D and E
+
+D's invariant is now testable rather than aspirational: the presentation stage must leave the
+measured product structure unchanged. E's bar is the three floors passing simultaneously, and
+no technical render — correct mesh, correct topology, correct dimensions, canonical model
+present — closes it. 14 tests pin all of this, and they exist specifically to stop a future
+session softening the rule while holding a nearly-good-enough result.
+
+**Owner visual approval is required before the visual architecture is accepted.** The first
+complete pipeline result is to be presented as actual images for inspection, not as judge
+scores, and preserved as a regression fixture once approved.
