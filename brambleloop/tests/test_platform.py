@@ -180,7 +180,18 @@ def test_agent_daily_cost_ceiling_is_enforced():
         assert False, "cost ceiling must refuse the overrun"
     except BudgetExceeded as e:
         assert "daily ceiling" in str(e)
-    assert abs(reg.spend_today("validator") - 0.90) < 1e-6  # refused spend is not recorded
+    # The refusal is what this gate is about and it is unchanged. What changed on
+    # 2026-09-24 is that the breaching spend now appears in the bill.
+    #
+    # This line asserted 0.90 -- "the refused spend is not recorded" -- and that was the
+    # wrong property to pin. `record_cost` is called *after* the provider has answered, so
+    # there is no spend to refuse by then: the money has left. Dropping the row made the
+    # single call that crossed the ceiling the single call missing from the ledger, and
+    # `gateway.anthropic.spent_this_month_cad` sums exactly these rows to enforce the
+    # monthly ceiling -- so the daily guard was quietly lowering the number the monthly
+    # guard checks against. A guard that erases its own evidence weakens the guard above it.
+    assert abs(reg.spend_today("validator") - 1.40) < 1e-6, (
+        "the spend that breached the ceiling must still appear in the bill")
 
 
 def test_ad_budget_breach_is_prevented_and_pauses_the_scope():

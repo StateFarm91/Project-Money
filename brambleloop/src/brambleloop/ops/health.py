@@ -67,7 +67,13 @@ SIGNALS: dict[str, str] = {
     "rendered_pages": "a browser worker for pages with no sanctioned endpoint",
     "model_gateway": "a model provider that can serve a request",
     "certificate_freshness": "how long since anything was certified",
-    "spend": "the ceilings are on and unbreached",
+    # Named for what it measures rather than for what it was assumed to measure. It read
+    # `paused` on a table with no rows and reported the ceilings healthy; the description
+    # said "the ceilings are on" and the code could not see whether any was on at all.
+    "spend": ("the scoped limits, the monthly model ceiling and each agent's daily "
+              "ceiling, with what each one is actually at"),
+    "disk": ("free space where this system writes, and the temporary directories its own "
+             "handlers left behind"),
 }
 
 # A worker that has not ticked in this long is not alive.
@@ -107,6 +113,10 @@ CANNOT_REPAIR: dict[str, str] = {
                           "is an escalation rather than an action"),
     "restore_an_integration": "a credential is the owner's to supply",
     "reverse_a_spend": "money that has left cannot be un-spent by a health check",
+    "reclaim_disk": ("a temporary directory may belong to a job that is still writing into "
+                     "it, so deleting it here would lose that job's work. The durable fix "
+                     "is at the call sites, which must use `TemporaryDirectory` rather than "
+                     "`mkdtemp`"),
 }
 
 
@@ -299,14 +309,246 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
             "" if days < CERTIFICATE_STALE_AFTER_DAYS else
             f"nothing certified for {round(days)} days: the chain has stopped producing"))
 
-    limits = list(db.scalars(select(SpendLimit)))
-    paused = [limit.scope for limit in limits if limit.paused]
-    readings.append(Reading(
-        "spend", DEGRADED if paused else HEALTHY,
-        {"limits": len(limits), "paused": paused},
-        f"{paused} paused by a breach" if paused else ""))
+    readings.append(_spend(db, now))
+
+    readings.append(_disk(runner_state))
 
     return readings
+
+
+def _spend(db, now: datetime) -> Reading:
+    """The ceilings that are actually on, and what they are actually at.
+
+    This signal is described as "the ceilings are on and unbreached" and it used to measure
+    one thing: that no `SpendLimit` row carries `paused`. Nothing in this system ever calls
+    `SpendGuard.set_limit`, so there are no rows -- production reported
+    `{"limits": 0, "paused": []}` and `healthy` on 2026-09-24. The ceiling was green because
+    there was no ceiling. That is this build's named defect exactly: a verdict computed from
+    the absence of evidence, and the more ceilings anybody forgets to configure, the greener
+    it gets.
+
+    So the signal now reads the ceilings that exist and bind:
+
+      * the `SpendLimit` scopes, if any, and whether a breach paused one. The count is in
+        the evidence so "none configured" can never again look like "none breached".
+      * the monthly model ceiling, which is the live control -- the one `check_budget`
+        refuses against before every call.
+      * each agent's declared daily ceiling against what that agent has actually spent
+        today, which nothing else in this system looks at.
+
+    Degraded means a ceiling was crossed, not that it is being approached: approaching is
+    `spend_policy.escalation`'s job and it reports with evidence at four-fifths. A health
+    signal that goes yellow on a normal working day is a health signal people turn off.
+    """
+    from sqlalchemy import select as _select
+
+    from ..core.models import Agent, CostEntry, SpendLimit
+
+    limits = list(db.scalars(_select(SpendLimit)))
+    paused = [limit.scope for limit in limits if limit.paused]
+
+    from ..finance.spend_policy import ceiling_cad
+    from ..gateway.routing import COST_KIND
+
+    month_spend = 0.0
+    today_by_agent: dict[str, float] = {}
+    today = now.date()
+    for row in db.scalars(_select(CostEntry)):
+        at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
+        amount = float(row.amount_cad or 0.0)
+        if row.kind == COST_KIND and (at.year, at.month) == (now.year, now.month):
+            month_spend += amount
+        if at.date() == today:
+            today_by_agent[row.agent or ""] = today_by_agent.get(row.agent or "", 0.0) + amount
+
+    ceiling = ceiling_cad()
+    over_agents = []
+    for agent in db.scalars(_select(Agent)):
+        spent = round(today_by_agent.get(agent.name, 0.0), 4)
+        if agent.daily_cost_ceiling_cad > 0 and spent > agent.daily_cost_ceiling_cad:
+            over_agents.append({"agent": agent.name, "spent_today_cad": spent,
+                                "daily_ceiling_cad": agent.daily_cost_ceiling_cad})
+
+    month_spend = round(month_spend, 6)
+    over_month = month_spend > ceiling
+    evidence = {
+        "limits": len(limits),
+        "paused": paused,
+        "model_spend_this_month_cad": month_spend,
+        "model_ceiling_cad": ceiling,
+        "share_of_model_ceiling": round(month_spend / ceiling, 4) if ceiling else None,
+        "agents_over_their_daily_ceiling": over_agents,
+        "what_this_cannot_see": (
+            "spend that was never written to a cost row. Every ceiling here is computed "
+            "from those rows, so a call that bills and records nothing is invisible to all "
+            "of them"),
+    }
+    reasons = []
+    if paused:
+        reasons.append(f"{paused} paused by a breach")
+    if over_month:
+        reasons.append(f"model spend CA${month_spend:.2f} is over its CA${ceiling:.2f} "
+                       f"monthly ceiling")
+    if over_agents:
+        reasons.append("; ".join(
+            f"{o['agent']} has spent CA${o['spent_today_cad']:.2f} today against a daily "
+            f"ceiling of CA${o['daily_ceiling_cad']:.2f}" for o in over_agents))
+    if not limits:
+        evidence["no_scope_is_configured"] = (
+            "no SpendLimit row exists, so the paused check above has nothing to look at. "
+            "It is not evidence that scoped spending is safe; it is evidence that no "
+            "scoped ceiling has been set. The live controls are the two below it")
+    return Reading("spend", DEGRADED if reasons else HEALTHY, evidence, "; ".join(reasons))
+
+
+# How little free space counts as close to failing, in gigabytes.
+#
+# Absolute rather than a share, and that is the correction rather than a convenience. A share
+# threshold was written first and it was the wrong instrument twice over: ten percent of a
+# 270 GB volume is 27 GB, which is not a risk to a workload whose largest write is a
+# few-megabyte render, and ten percent of a small container volume is a few hundred
+# megabytes, which is. A share answers "how full is this disk" when the question is "is
+# there room for the next write". The share is kept in the evidence because it is what a
+# person reads, and the verdict is taken from the gigabytes because that is what fails.
+DISK_LOW_FREE_GB = 1.0
+
+
+def _disk(runner_state: dict) -> Reading:
+    """Free space where the running container writes, and the temp directories it left.
+
+    Added because none of the other ten signals is about storage, and the failure it catches
+    has already happened once in this repository: the suite left 37,284 temporary
+    directories and 29 GB behind, and eleven suites failed on "No space left on device" with
+    no code change behind it. The production handlers use the same call that caused it --
+    `tempfile.mkdtemp`, which never removes what it creates -- in the continuity, offsite,
+    tournament, owned-asset, reference-pack and image-generation paths, and those run on a
+    cadence forever. Nothing could see the result, which is the part worth fixing first: a
+    filling disk is a slow failure that looks like nothing at all until every write fails at
+    once.
+
+    Read from `runner_state` rather than from this process's own filesystem, for the same
+    reason the worker heartbeat is: the process answering an HTTP request is not necessarily
+    the container doing the work, and a sweep that measures whichever machine happens to be
+    running it is a check that cannot see the thing it exists to measure. Absent means
+    `unknown`, never `healthy` -- an unreported disk is an unmeasured disk.
+
+    It removes nothing. Deleting a temporary directory another process is writing into is
+    how a running job loses the render it is holding.
+    """
+    facts = (runner_state or {}).get("disk")
+    if not isinstance(facts, dict) or not facts:
+        return Reading("disk", UNKNOWN, {"reported": False},
+                       "the running process did not report its disk, so this is unmeasured "
+                       "rather than fine")
+
+    reasons: list[str] = []
+    state = HEALTHY
+    for name, reading in (facts.get("filesystems") or {}).items():
+        free_gb = reading.get("free_gb")
+        if free_gb is None:
+            state = UNKNOWN if state == HEALTHY else state
+            continue
+        if free_gb < DISK_LOW_FREE_GB:
+            state = DEGRADED
+            reasons.append(f"{name} has {free_gb:.2f} GB free, under the "
+                           f"{DISK_LOW_FREE_GB:.2f} GB this workload needs to keep writing")
+    return Reading("disk", state, dict(facts), "; ".join(reasons))
+
+
+# Prefixes this system's own handlers pass to `tempfile.mkdtemp`. Listed rather than counting
+# everything in the temp directory, because the neighbours' litter is not this company's
+# signal, and a number that includes it is a number nobody can act on.
+TEMP_PREFIXES: tuple[str, ...] = (
+    "continuity-", "continuity-download-", "offsite-", "tournament-", "owned-asset-",
+    "reference-pack-", "generated-", "motif-chart-", "brambleloop-run-")
+
+
+def disk_facts() -> dict:
+    """Measure this container's disk. Called by the process that owns it, never by a reader.
+
+    Every value is a measurement or is absent. A filesystem that cannot be read contributes
+    an error rather than a reassuring number.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    tmp = tempfile.gettempdir()
+    roots = {"tmp": tmp,
+             "artifacts": os.environ.get("BRAMBLELOOP_ARTIFACT_DIR", "artifacts")}
+    filesystems: dict[str, dict] = {}
+    for name, path in roots.items():
+        try:
+            usage = shutil.disk_usage(path if os.path.isdir(path) else tmp)
+        except OSError as exc:  # pragma: no cover - an unreadable mount is not a disk state
+            filesystems[name] = {"error": str(exc)[:120]}
+            continue
+        filesystems[name] = {
+            "free_gb": round(usage.free / 1e9, 3),
+            "total_gb": round(usage.total / 1e9, 3),
+            "free_share": round(usage.free / usage.total, 4) if usage.total else None}
+
+    counts: dict[str, int] = {}
+    try:
+        names = os.listdir(tmp)
+    except OSError:  # pragma: no cover - an unreadable temp directory is not a disk state
+        names = []
+    for entry in names:
+        for prefix in TEMP_PREFIXES:
+            if entry.startswith(prefix):
+                counts[prefix] = counts.get(prefix, 0) + 1
+                break
+    return {
+        "filesystems": filesystems,
+        "temp_dirs_left_behind": sum(counts.values()),
+        "temp_dir_prefixes": dict(sorted(counts.items())),
+        "why_they_are_counted": (
+            "`tempfile.mkdtemp` never removes what it creates, and the handlers that use it "
+            "run on a cadence. Counted rather than cleaned: deleting a directory another "
+            "process is writing into loses that job's work"),
+    }
+
+
+BOOT_ACTION = "runtime.started"
+
+
+def container_starts(db, *, now: datetime | None = None, hours: int = 24) -> dict:
+    """How often this container has been replaced, and how many of those were not deploys.
+
+    The distinction is the whole value. A start on a commit an earlier start in the window
+    already used is a *restart* -- the container died and came back on the same code -- and
+    a start on a new commit is a deploy. `runner.STATE.worker_restarts` cannot tell them
+    apart and cannot even see either, because it resets with the process it counts in.
+
+    Reads rows, so it answers across container replacements, which is the only way a
+    question about container replacements can be answered.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(hours=hours)
+    rows = [r for r in db.scalars(
+        select(AuditLog).where(AuditLog.action == BOOT_ACTION).order_by(AuditLog.id))
+        if (_age_s(r.at, now) or 0) <= hours * 3600]
+    commits: list[str] = []
+    repeats = 0
+    for row in rows:
+        commit = str((row.detail or {}).get("commit") or "")
+        if commit and commit in commits:
+            repeats += 1
+        commits.append(commit)
+    return {
+        "window_hours": hours,
+        "since": since.isoformat(),
+        "starts": len(rows),
+        "restarts_on_a_commit_already_seen": repeats,
+        "distinct_commits": len({c for c in commits if c}),
+        "why": ("a start on a commit an earlier start already used is the container being "
+                "replaced without a deploy, which is the case a restart count exists for. "
+                "A start on a new commit is a deploy"),
+    }
 
 
 def _parse(value) -> datetime | None:
@@ -359,13 +601,19 @@ def remediation(db, readings: list[Reading]) -> dict:
     # and every one of them is a publication refused by shadow mode -- the system working.
     # Reporting those as a repair backlog would put a permanent false number on the console,
     # and a number that is always there is a number nobody reads.
-    from ..queue.durable import JobQueue
+    # `deliberate_refusal`, not `JobQueue.REFUSAL_MARKERS`. They answer different questions
+    # and this is the first one: *is this dead letter a defect somebody has to explain?*
+    # The markers answer the second -- *may this be re-driven?* -- and the two differ on a
+    # real row. A job that stood aside for the build that can run it is not a defect (the
+    # refusal worked) and IS re-drivable (the right build should take it). Reading the
+    # re-drive rule as the defect rule put that row on this console as a repair backlog and
+    # on `/api/verify` as nothing to explain, at the same moment, on 2026-09-24.
+    from ..queue.durable import deliberate_refusal
 
     dead = list(db.scalars(select(Job).where(Job.status == JobStatus.DEAD)))
     refusals, defects = [], []
     for job in dead:
-        error = (job.last_error or "").lower()
-        (refusals if any(m in error for m in JobQueue.REFUSAL_MARKERS)
+        (refusals if deliberate_refusal(job.job_type, job.last_error or "")
          else defects).append(job)
     if refusals:
         handled.append({"condition": "deliberate_refusals", "count": len(refusals),
@@ -399,6 +647,9 @@ def remediation(db, readings: list[Reading]) -> dict:
     if "spend" in bad:
         escalations.append({"signal": "spend", "needs": "owner_decision",
                             "why": CANNOT_REPAIR["reverse_a_spend"]})
+    if "disk" in bad:
+        escalations.append({"signal": "disk", "needs": "reclaim_disk",
+                            "why": CANNOT_REPAIR["reclaim_disk"]})
 
     return {
         "repaired_elsewhere": handled,
@@ -446,7 +697,8 @@ def state() -> dict:
                        "queue_stalled_after_s": QUEUE_STALLED_AFTER_S,
                        "progress_window_s": PROGRESS_WINDOW_S,
                        "certificate_stale_after_days": CERTIFICATE_STALE_AFTER_DAYS,
-                       "escalate_after_sweeps": ESCALATE_AFTER_SWEEPS},
+                       "escalate_after_sweeps": ESCALATE_AFTER_SWEEPS,
+                       "disk_low_free_gb": DISK_LOW_FREE_GB},
         "note": ("Online means useful work is progressing, not that HTTP returned 200. A "
                  "container can serve 200s, tick a worker, run a scheduler, hold an empty "
                  "queue and complete nothing for a week -- every liveness signal green, "

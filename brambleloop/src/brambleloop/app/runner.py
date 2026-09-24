@@ -32,6 +32,21 @@ from ..runtime.worker import Scheduler, Worker
 log = logging.getLogger("brambleloop.runner")
 
 
+def _disk_facts() -> dict:
+    """This container's free space and its own leftover temporary directories.
+
+    Wrapped so a failure to measure the disk can never stop the runner reporting its
+    liveness: an unmeasurable disk is reported as an error and read as `unknown`, which is
+    what it is, rather than taking the status endpoint down with it.
+    """
+    from ..ops.health import disk_facts
+
+    try:
+        return disk_facts()
+    except Exception as exc:  # noqa: BLE001 - measuring the disk must never break status
+        return {"error": f"{type(exc).__name__}: {exc}"[:200]}
+
+
 @dataclass
 class RunnerState:
     """What the dashboard needs to answer 'is anything actually running?'"""
@@ -64,6 +79,10 @@ class RunnerState:
             "scheduler_last_tick": iso(self.scheduler_last_tick),
             "scheduler_last_enqueued": list(self.scheduler_last_enqueued),
             "last_error": self.last_error,
+            # Measured here because this is the process that owns the disk. A health sweep
+            # reading its own filesystem measures whichever machine is answering the
+            # request, which in a split deployment is not the container doing the work.
+            "disk": _disk_facts(),
         }
 
     @property

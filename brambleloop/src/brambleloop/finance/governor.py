@@ -48,6 +48,38 @@ DIMENSIONS: dict[str, str] = {
 
 UNATTRIBUTED = "unattributed"
 
+# Where each dimension is actually stored on a CostEntry.
+#
+# This table exists because the absence of it cost three of the five dimensions. `product`
+# and `department` were read out of the `detail` JSON blob, and `spend_report.record` -- the
+# single writer the same owner instruction created -- writes them to the `product_slug` and
+# `department` *columns*. So this module read an empty blob key, found nothing, and filed
+# every dollar under `unattributed`. Measured on production 2026-09-24: `/api/spend-report`
+# attributed all CA$75.93 across three departments and `/api/governor` reported the same
+# CA$75.93 as 100% unattributed, from the same rows, in the same minute.
+#
+# The reconciliation guard below did not catch it and could not: it asserts that attributed
+# plus unattributed equals the bill, and a dimension that reads nothing puts the whole bill
+# in `unattributed`, where it still sums. A total that reconciles is not a dimension that
+# works, and "worse than no table, because it is acted on" is exactly what a table of one
+# row reading `unattributed: 100%` is.
+#
+# The `detail` key stays as a fallback rather than being dropped, because rows written before
+# the columns existed still carry it, and the old rows are the ones a history question asks
+# about.
+COLUMN_FOR: dict[str, str] = {"agent": "agent", "product": "product_slug",
+                              "department": "department"}
+DETAIL_KEY_FOR: dict[str, str] = {"product": "product", "department": "department",
+                                  "experiment": "experiment"}
+
+# A dimension no code writes cannot be distinguished from a dimension every row forgot, and
+# the two want different answers: one is a gap in the schema and the other is a gap in the
+# call sites. Nothing in this repository writes an experiment onto a cost row -- there is no
+# column and no `detail["experiment"]` writer -- so the dimension reports that it has no
+# writer rather than reporting 100% unattributed, which reads like sloppiness about money
+# that was in fact never tagged because nothing can tag it.
+NO_WRITER: frozenset[str] = frozenset({"experiment"})
+
 # Days of history before a spike means anything. Two weeks is the smallest window in which a
 # weekday effect and a weekend both appear.
 MIN_DAYS_FOR_BASELINE = 14
@@ -97,12 +129,13 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
     unattributed = 0.0
     for entry in entries:
         detail = entry.detail or {}
-        if dimension == "agent":
-            key = entry.agent or ""
-        elif dimension == "task":
+        if dimension == "task":
             key = job_types.get(entry.job_id or -1, "")
         else:
-            key = str(detail.get(dimension) or "")
+            column = COLUMN_FOR.get(dimension)
+            key = str(getattr(entry, column, "") or "").strip() if column else ""
+            if not key:
+                key = str(detail.get(DETAIL_KEY_FOR.get(dimension, dimension)) or "").strip()
         amount = float(entry.amount_cad or 0.0)
         if key:
             buckets[key] = buckets.get(key, 0.0) + amount
@@ -116,7 +149,11 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
             f"attribution sums to CA${accounted} against a bill of CA${total}. A table that "
             f"does not add up to the invoice is worse than none, because it is acted on")
 
-    return {
+    read_from = ("the job that spent it" if dimension == "task"
+                 else f"CostEntry.{COLUMN_FOR[dimension]}, falling back to detail"
+                 if dimension in COLUMN_FOR
+                 else f"detail[{DETAIL_KEY_FOR.get(dimension, dimension)!r}]")
+    out = {
         "dimension": dimension,
         "days": days,
         "total_cad": round(total, 6),
@@ -126,9 +163,23 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
         "unattributed_cad": round(unattributed, 6),
         "unattributed_share": round(unattributed / total, 4) if total else None,
         "reconciles": True,
+        # Where the number came from, so "100% unattributed" can be told apart from "this
+        # dimension is being read out of the wrong place". That distinction is what took
+        # three of the five dimensions out of service without any check going red.
+        "read_from": read_from,
         "note": ("the remainder is named rather than dropped: the spend nobody has a story "
                  "for is exactly the spend worth looking at"),
     }
+    if dimension in NO_WRITER:
+        out["has_writer"] = False
+        out["why_unattributed"] = (
+            f"nothing in this system writes a {dimension} onto a cost row -- there is no "
+            f"column for it and no writer for the detail key. These dollars are untagged "
+            f"because they cannot be tagged, which is a different fault from a call site "
+            f"that forgot, and it is fixed in a different place")
+    else:
+        out["has_writer"] = True
+    return out
 
 
 def attribution(db, *, days: int = 30, now: datetime | None = None) -> dict:

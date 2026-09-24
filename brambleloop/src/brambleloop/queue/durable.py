@@ -16,7 +16,7 @@ import random
 from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -142,11 +142,23 @@ class JobQueue:
             if is_postgres(self.db.engine):
                 q = q.with_for_update(skip_locked=True)
 
-            job = s.scalar(q)
+            # Expired leases are looked at first, not only when nothing else is runnable.
+            #
+            # This ran the reclaim only when the pending query came back empty, so a job
+            # whose worker died holding the lease was recoverable exactly while the queue
+            # was idle. Under a backlog -- which is when a worker is most likely to be
+            # killed, and the only time losing work costs anything -- every claim found
+            # newer pending work first and the orphan stayed RUNNING behind it,
+            # indefinitely. Nothing reports a job stuck in RUNNING, so it is not a delay
+            # anybody would see; it is work that quietly stops existing.
+            #
+            # Taking it first is also the right order on its own terms: a reclaimable job
+            # was enqueued before everything in the pending queue and has already waited a
+            # whole lease. It cannot spin -- `claim` increments `attempts`, so a job that
+            # keeps dying reaches `max_attempts` and dead-letters like any other.
+            job = self._reclaim_expired(s, now, job_types) or s.scalar(q)
             if job is None:
-                job = self._reclaim_expired(s, now, job_types)
-                if job is None:
-                    return None
+                return None
 
             job.status = JobStatus.RUNNING
             job.leased_by = worker
@@ -168,6 +180,12 @@ class JobQueue:
         )
         if job_types:
             q = q.where(Job.job_type.in_(list(job_types)))
+        # The same lock the pending claim takes. Without it two workers reclaiming at the
+        # same moment both read the same expired row, both set it RUNNING and both run the
+        # job -- which is precisely the double-execution `idempotency_key` exists to make
+        # impossible, arriving through the recovery path instead of the enqueue path.
+        if is_postgres(self.db.engine):
+            q = q.with_for_update(skip_locked=True)
         for job in s.scalars(q):
             exp = _aware(job.lease_expires_at)
             if exp is not None and exp <= now:
@@ -226,10 +244,22 @@ class JobQueue:
 
     # ---- inspection ----------------------------------------------------
     def counts(self) -> dict[str, int]:
+        """How many jobs are in each state, counted by the database.
+
+        This built every count by loading every matching row into Python -- six full table
+        scans, six times the whole `jobs` table materialised as objects, on an endpoint the
+        console polls. It was invisible at a few hundred rows and is not a fixed cost:
+        production completed 226 jobs in six hours on 2026-09-24, about 900 a day, so the
+        work this function does grows for as long as the company runs and never comes back
+        down. `/api/status` already took 0.8s. One grouped count is the same answer in one
+        round trip that does not move the rows at all.
+        """
         with self.db.session() as s:
-            out: dict[str, int] = {}
-            for st in JobStatus:
-                out[st.value] = len(list(s.scalars(select(Job).where(Job.status == st))))
+            out: dict[str, int] = {st.value: 0 for st in JobStatus}
+            rows = s.execute(
+                select(Job.status, func.count()).group_by(Job.status)).all()
+            for status, n in rows:
+                out[getattr(status, "value", status)] = int(n)
             return out
 
     def dead_letters(self) -> list[Job]:

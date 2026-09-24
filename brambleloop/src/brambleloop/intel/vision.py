@@ -365,10 +365,17 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     for item in queue:
         estimate = 0.0
         try:
+            # `uncommitted_cad` is this run's own spend, which is not in the ledger yet:
+            # this loop bills once, at the end, so without it every image after the first
+            # was checked against the month as it stood before the run began. The larger of
+            # what the run has actually cost and what it reserved, because the reservation
+            # is deliberately pessimistic and a ceiling check should not become optimistic
+            # by taking the smaller of two numbers.
             reservation = gw.check_budget(
                 db, model=provider.model,
                 input_tokens=len(analysis_prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
-                max_tokens=ANALYSIS_MAX_TOKENS)
+                max_tokens=ANALYSIS_MAX_TOKENS,
+                uncommitted_cad=max(spent, reserved))
             estimate = reservation["estimate_cad"]
             response = provider.see(ANALYSIS_SYSTEM, analysis_prompt(), [item.image_url],
                                     max_tokens=ANALYSIS_MAX_TOKENS)
