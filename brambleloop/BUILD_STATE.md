@@ -6689,3 +6689,84 @@ missing layer.
 - **Operating cost:** CA$0.00 per render, no recurring cost, no external service.
 - **Licensing:** Mitsuba BSD-3-Clause; the papers are references, not code to copy.
 - **Product Truth:** unaffected — both locks still hold, every vertex still traces to a cell.
+
+## 2026-09-24 — RESEARCH: the published crochet topology method, and what it proves
+
+Research run before implementation, as directed. The finding that matters is that a
+crochet-specific, fully parameterised, open-access method exists — and two of its published
+numbers explain the netting failure directly.
+
+### Primary source
+
+**Storck, Gerber, Steenbock, Kyosev (2022), "Topology based modelling of crochet
+structures", Journal of Industrial Textiles 52:1–18.** Open access via HSBI's repository.
+
+The method: each stitch is a **unit cell of parameterised key points along the yarn centre
+path**, driven by three shaping parameters — **L** (distance between stitches in a row,
+correlating with stitch length), **H** (stitch height), **D** (depth) — plus yarn diameter.
+A row is a list of key points; shifting a stitch by L along a dimension moves it along the
+row. Rows are built with a **left/right orientation distinction**, then shifted and rotated
+"so that the loops of the individual rows intermesh in a correct manner". Between rows there
+are explicit **transition unit cells, partially consisting of a chain stitch** — the turning
+chain. Yarn path is then interpolated with **Kochanek-Bartels splines** (tension, bias,
+continuity; the tangent equations are given in the paper) and extruded to the yarn diameter.
+
+### The two numbers that explain my failure
+
+From the published slip-stitch unit cell:
+
+```
+4a.x − 1a.x = 1.85 × L      a loop spans nearly TWO stitch widths
+2a.y − 1a.y = 1.23 × H      a key point rises 23% ABOVE the nominal stitch height
+3a.z − 5a.z = D             the depth separation between front and back of the cell
+```
+
+**My hand-authored stitch kept every point inside its own cell.** A real crochet loop reaches
+almost two stitch widths in x and arches above the row line in y — which is exactly how the
+next row's loops come down *through* it. Contained loops cannot interlock with their
+neighbours, and strands that meet without passing through one another are netting. The
+published proportions say the loops are supposed to overlap, and mine did not.
+
+My model also had **no turning-chain transition cell** between rows at all.
+
+### What the research proves, versus what we infer
+
+- **Proven by the paper:** the parameterisation (L, H, D), the three ratios above, the
+  unit-cell/shift/rotate assembly, the KB spline interpolation, and that the approach is
+  extensible — the authors state plainly that the program "can be easily extended with other
+  crochet stitch types by defining more parameterized key points for these accounting for the
+  spatial arrangement of the loops".
+- **Not in the paper:** half double crochet. They model **chain, slip stitch and single
+  crochet only**. Our benchmark is HDC, so the HDC unit cell is ours to define — constrained
+  by their published proportions rather than invented freely, and that distinction is
+  recorded rather than blurred.
+- **Reference scale:** their sample is L = 5mm with 0.5mm yarn (d/L = 0.1), a fine cotton.
+  Our benchmark is worsted at L = 6.9mm with ≈2mm yarn (d/L ≈ 0.29), so their absolute
+  numbers do not transfer; the ratios do.
+
+### Corroborating sources
+
+- **CT2Yarn** (arXiv 2609.06950, 2026) — micro-CT reconstruction of real crochet to a
+  continuous yarn centreline, with code and data released at github.com/netbeifeng/ct2yarn.
+  It is the source that pointed to Storck. It deliberately does **not** describe per-stitch
+  topology, so it is ground-truth geometry rather than a construction method.
+- **Guo, Lin, Narayanan, McCann (2020), "Representing Crochet with Stitch Meshes"** (SCF '20,
+  CMU Textiles Lab) — tiles carrying yarn geometry plus a "current loop" edge type modelling
+  the single live loop on the hook. ACM blocks automated retrieval and no public code was
+  reachable from this session, so it informs the architecture (tiles as unit cells, current
+  loop as an explicit edge) rather than supplying geometry.
+
+### Licensing and practicality
+
+Methods, equations and measured proportions are not copyrightable expression; implementing a
+published method and citing it is ordinary practice. We implement the key-point construction
+and the KB spline ourselves — the spline is a standard formulation and the paper states the
+tangent equations. The authors used a TexMind library for their own work; **we do not need
+it** and are not taking their code. No licence obstacle to proceeding.
+
+### Permanent research rule, adopted
+
+Before treating a missing dependency or capability as an architectural constraint, verify
+whether it is actually unavailable, impractical or incompatible — or merely not installed.
+The numpy error is the worked example: it was never tested, it was reported as a limit, and
+it made a failure look structural when it was not.
