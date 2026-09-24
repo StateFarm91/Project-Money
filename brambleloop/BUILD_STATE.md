@@ -7446,3 +7446,11 @@ all. Friction is listed as NOT MODELLED in the provenance for exactly this reaso
 Not claimed: that more iterations, a different B inside the band, or any rendering change
 closes this. The next honest increment is inter-yarn friction and slip, which is a mechanics
 addition rather than an appearance one.
+
+Suite **3,349 passing, 0 failing**, after the full run caught a regression this increment
+introduced: `test_drape` carried its own bending rigidity as a literal, chosen before the
+calibration existed, and the rest-curvature change left it twenty times too stiff -- so the
+suite asserted gravity had moved the fabric while the fabric moved 0.03mm. The
+one-value-in-two-places defect in a physical constant, which is the worst place for it: a
+stale copy of a calibrated number is indistinguishable from a real result. The calibrated
+value now lives only in `drape.py` and the test imports it.
