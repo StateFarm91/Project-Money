@@ -41,11 +41,11 @@ direction -- into where the yarn physically goes.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
-from . import linkage
+from . import linkage, stitch_shape
 
 # Published proportions (Storck et al. 2022), used as stated.
 LOOP_REACH = 1.85          # a loop spans this many stitch pitches in x
@@ -81,6 +81,10 @@ class Op:
     # The span that passes through the anchor's loop. This is the linkage, and the topology
     # validator checks exactly this.
     pull_through: tuple[int, int] = (0, 0)
+    # The strand the opening yarn-over leaves lying across the back of the stitch, below the
+    # V. A half double has one; a single crochet does not, and a double crochet's is consumed
+    # by the second pull-through. It is the stitch's signature, so the shape check names it.
+    third_loop: tuple[int, int] = (0, 0)
 
 
 @dataclass
@@ -201,9 +205,16 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         # Mirror end for end about the cell centre, and lay the points down in the reverse
         # order, because the yarn travels the other way. Everything another row must find is
         # symmetric about that centre, so it does not move.
+        # Mirror the cell about its own centre. Do NOT also reverse the order of the
+        # points: the yarn runs through a stitch in the order the stitch is made -- yarn
+        # over, insert, pull up, close -- and that sequence does not reverse when the row
+        # does. Mirroring alone already puts the entry on the right and the exit on the
+        # left, which is what working right to left means. Reversing as well made every
+        # cell run backwards, so consecutive stitches met end to end instead of end to
+        # start and the yarn jumped two stitch pitches between each pair. That 13.9mm jump
+        # sat under a continuity threshold of 2.6 pitches and was reported as continuous
+        # for as long as the threshold, rather than the joins, was what got checked.
         pts[:, 0] = L - pts[:, 0]
-        pts = pts[::-1].copy()
-        names = names[::-1]
 
     def span(first: str, last: str) -> tuple[int, int]:
         a, b = names.index(first), names.index(last)
@@ -279,7 +290,8 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
             pts = pts + np.array([fp * L, 0.0, 0.0])
             fab.ops.append(Op("hdc", r, fp, getattr(c, "loop", "both"), direction, pts,
                               front_loop=spans["front_loop"], back_loop=spans["back_loop"],
-                              pull_through=spans["pull_through"]))
+                              pull_through=spans["pull_through"],
+                              third_loop=spans["third_loop"]))
     return fab
 
 
@@ -429,12 +441,39 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     checks["total_points"] = len(pts)
     if len(pts) > 1:
         steps = np.linalg.norm(np.diff(pts, axis=0), axis=1)
-        gap = float(steps.max())
-        checks["largest_gap_mm"] = round(gap, 3)
+        checks["largest_gap_mm"] = round(float(steps.max()), 3)
         checks["median_step_mm"] = round(float(np.median(steps)), 3)
-        # A break in the strand shows up as a step far larger than the working spacing.
-        if gap > fab.L * 2.6:
-            findings.append(f"the yarn jumps {gap:.1f}mm, which is a break rather than a path")
+
+    # Continuity is checked at the JOINS between operations, not by thresholding the largest
+    # step anywhere in the path. The threshold version asked whether any step exceeded 2.6
+    # stitch pitches, and a real 13.9mm discontinuity -- every pair of adjacent stitches in
+    # every right-to-left row failed to meet -- sat quietly underneath it and was reported as
+    # continuous. What makes yarn continuous is that each operation begins where the last one
+    # ended, so that is what is measured, and the two kinds of join are judged by what the
+    # construction actually requires of them rather than by one shared number.
+    same_row, at_turn = [], []
+    for a, b in zip(fab.ops[:-1], fab.ops[1:]):
+        gap = float(np.linalg.norm(b.points[0] - a.points[-1]))
+        if a.kind == "hdc" and b.kind == "hdc" and a.row == b.row:
+            same_row.append(gap)
+        else:
+            at_turn.append(gap)
+    if same_row:
+        checks["largest_join_within_a_row_mm"] = round(max(same_row), 3)
+        # Consecutive stitches in a row stand one pitch apart, so the yarn between them
+        # cannot need more than that.
+        if max(same_row) > fab.L:
+            findings.append(
+                f"the yarn jumps {max(same_row):.1f}mm between neighbouring stitches in a "
+                f"row, further than the {fab.L:.1f}mm that separates them: the path is in "
+                f"pieces rather than continuous")
+    if at_turn:
+        checks["largest_join_at_a_turn_mm"] = round(max(at_turn), 3)
+        # A turn climbs a row and steps sideways; it cannot legitimately need more.
+        if max(at_turn) > fab.H + fab.L:
+            findings.append(
+                f"the yarn jumps {max(at_turn):.1f}mm at a row transition, further than "
+                f"climbing one row and stepping one stitch would need")
 
     # --- row-to-row connectivity -------------------------------------------
     checks["turning_chains"] = len(turns)
@@ -509,6 +548,23 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
         findings.append(
             f"{len(unmeasurable)} stitches touch the loop they are worked into, so their "
             f"linking number is undefined rather than zero")
+
+    # --- IS IT ACTUALLY A HALF DOUBLE CROCHET -------------------------------
+    # Linkage says a strand passes through the loop below. A straight rod dropped through a
+    # hole satisfies that, and so does a knitted loop. This asks the separate question of
+    # whether the thing doing the passing has the structure of the stitch the CIR ordered.
+    misshapen: list[tuple[int, int, str]] = []
+    for o in hdc:
+        complaints = stitch_shape.shape_report(o, fab.L, fab.H, fab.D)
+        if complaints:
+            misshapen.append((o.row, o.position, complaints[0]))
+    checks["stitches_shaped_like_hdc"] = len(hdc) - len(misshapen)
+    checks["misshapen"] = [f"r{r} p{p}: {m}" for r, p, m in misshapen[:4]]
+    if misshapen:
+        seen = sorted({m for _, _, m in misshapen})
+        findings.append(
+            f"{len(misshapen)} of {len(hdc)} stitches are not shaped like a half double "
+            f"crochet: {seen[0]}")
 
     # --- no impossible intersections ---------------------------------------
     # Yarn cannot occupy the same space as yarn. Sampled, because the exact test is
@@ -613,9 +669,89 @@ def settle(fab: Fabric, *, iterations: int = 60, stiffness: float = 0.16,
     at = 0
     for o in fab.ops:
         n = len(o.points)
-        out.ops.append(Op(o.kind, o.row, o.position, o.loop_target, o.direction,
-                          pts[at:at + n], o.front_loop, o.back_loop, o.pull_through))
+        # replace(), not a hand-listed constructor call. The hand-listed version silently
+        # dropped third_loop the moment that field was added -- every settled stitch claimed
+        # its third loop was at index zero, and half of them then failed the shape check for
+        # a reason that had nothing to do with their shape. Copying by field name means a
+        # field added later cannot be forgotten here.
+        out.ops.append(replace(o, points=pts[at:at + n]))
         at += n
+    return out
+
+
+def coverage(fab: Fabric) -> dict:
+    """Which semantic states this fabric actually contains.
+
+    Written because a 4x5 swatch was used to prove the topology and it turned out to contain
+    no front-loop stitch at all -- the one class that was broken. "Fifteen of fifteen linked"
+    was true and meant nothing. A fixture that does not contain a case cannot have tested it,
+    so the cases are enumerated and counted rather than assumed.
+    """
+    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    rows = sorted({o.row for o in hdc})
+    anchored = {(o.row, o.position) for o in hdc if o.row != (rows[0] if rows else None)}
+    states = {
+        "loop_target_both": sum(1 for o in hdc if o.loop_target == "both"),
+        "loop_target_back": sum(1 for o in hdc if o.loop_target == "back"),
+        "loop_target_front": sum(1 for o in hdc if o.loop_target == "front"),
+        "worked_left_to_right": sum(1 for o in hdc if o.direction > 0),
+        "worked_right_to_left": sum(1 for o in hdc if o.direction < 0),
+        "row_start_or_end": sum(1 for o in hdc
+                                if o.position in (min(x.position for x in hdc),
+                                                  max(x.position for x in hdc))),
+        "anchored_in_a_row_below": len(anchored),
+        "turning_chains": sum(1 for o in fab.ops if o.kind == "turn"),
+    }
+    # Each loop target must appear in BOTH working directions, because the cell is mirrored
+    # for right-to-left rows and a defect can live in one mirror only. Defect 4 did.
+    pairs = {(o.loop_target, o.direction) for o in hdc}
+    states["loop_target_x_direction"] = len(pairs)
+    missing = [k for k, v in states.items() if v == 0]
+    if len(pairs) < 6:
+        missing.append(f"only {len(pairs)} of 6 loop-target/direction combinations")
+    states["missing"] = missing
+    states["complete"] = not missing
+    return states
+
+
+def reconciles_with_gauge(fab: Fabric, twin, gauge, *,
+                          expected_mm_per_stitch: float | None = None) -> dict:
+    """Does the built geometry agree with the certified pattern's own numbers?
+
+    Two comparisons, and they are not equally strong.
+
+    The stitch pitch and row height are taken FROM the gauge, so agreement there confirms
+    the geometry was built to spec and nothing drifted -- it is not independent evidence
+    that the spec is right.
+
+    Yarn consumed per stitch is closer to independent: it comes from the grams the pattern
+    states, and nothing in this module knows that number. But converting grams to metres
+    needs a linear density that is assumed rather than stated, and the key-point path is a
+    polyline rather than the smooth curve real yarn follows, so it can catch a stitch that
+    eats twice the yarn it should and cannot adjudicate ten per cent. It is reported with
+    that limit attached rather than dressed up as a tight tolerance.
+    """
+    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    out: dict = {}
+    if not hdc:
+        return out
+    expected_pitch = 100.0 / gauge.stitches_per_10cm
+    expected_row = 100.0 / gauge.rows_per_10cm
+    out["stitch_pitch_mm"] = round(fab.L, 3)
+    out["expected_pitch_mm"] = round(expected_pitch, 3)
+    out["row_height_mm"] = round(fab.H, 3)
+    out["expected_row_height_mm"] = round(expected_row, 3)
+    out["pitch_matches_gauge"] = abs(fab.L - expected_pitch) < 0.05 * expected_pitch
+    out["row_height_matches_gauge"] = abs(fab.H - expected_row) < 0.05 * expected_row
+    out["yarn_mm_per_stitch"] = round(float(np.mean(
+        [np.linalg.norm(np.diff(o.points, axis=0), axis=1).sum() for o in hdc])), 2)
+    if expected_mm_per_stitch:
+        ratio = out["yarn_mm_per_stitch"] / expected_mm_per_stitch
+        out["yarn_vs_pattern_ratio"] = round(ratio, 3)
+        # A factor of two either way is a different stitch. Anything inside that is within
+        # what the assumed linear density and the polyline path can account for, and this
+        # check is not entitled to a stronger opinion than that.
+        out["yarn_per_stitch_is_the_right_order"] = 0.5 <= ratio <= 2.0
     return out
 
 

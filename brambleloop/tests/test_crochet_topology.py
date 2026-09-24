@@ -112,5 +112,38 @@ check("no interpenetration at scale",
 check("the yarn is one path", vb["total_points"] > 0)
 check("turning chains join the rows", vb["turning_chains"] >= 1)
 
+# --- semantic coverage --------------------------------------------------------
+# The guard against the mistake that hid defect 4: a fixture that does not contain a case
+# cannot have tested it.
+cov_small = CT.coverage(small)
+cov_big = CT.coverage(big)
+check("coverage reports the small swatch incomplete", not cov_small["complete"])
+check("coverage names what the small swatch is missing",
+      "loop_target_front" in cov_small["missing"], str(cov_small["missing"]))
+check("the large fixture covers every semantic state", cov_big["complete"],
+      str(cov_big["missing"]))
+check("every loop target is exercised in both working directions",
+      cov_big["loop_target_x_direction"] == 6, str(cov_big["loop_target_x_direction"]))
+
+# --- reconciliation with the certified pattern --------------------------------
+c = B.cardigan("S")
+i = B.SIZES.index("S")
+total = sum(build_twin(c, compile_cir(c), component=comp.name).stitch_total
+            * {"sleeve": 2, "pocket": 2}.get(comp.name, 1) for comp in c.components)
+expected_mm = B.YARN_G[i] * 2.25 * 1000.0 / total
+rec = CT.reconciles_with_gauge(big, t, c.gauge, expected_mm_per_stitch=expected_mm)
+check("stitch pitch matches the certified gauge", rec["pitch_matches_gauge"],
+      f"{rec['stitch_pitch_mm']} vs {rec['expected_pitch_mm']}")
+check("row height matches the certified gauge", rec["row_height_matches_gauge"],
+      f"{rec['row_height_mm']} vs {rec['expected_row_height_mm']}")
+check("yarn per stitch is the right order of magnitude",
+      rec["yarn_per_stitch_is_the_right_order"],
+      f"ratio {rec.get('yarn_vs_pattern_ratio')}")
+
+# --- shape --------------------------------------------------------------------
+check("every stitch is shaped like a half double crochet",
+      vb["stitches_shaped_like_hdc"] == vb["stitches_built"],
+      str(vb.get("misshapen")))
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)
