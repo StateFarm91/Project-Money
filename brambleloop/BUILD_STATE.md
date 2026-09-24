@@ -368,6 +368,93 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-24 — Crochet topology sprint: topology gate PASSES, photographic realism does NOT
+
+Commits `90d837c` through HEAD on `claude/repository-setup-nc9x6o`.
+`src/brambleloop/visual/{crochet_topology,linkage,stitch_shape}.py`,
+`tests/test_crochet_topology.py` (27), `tests/test_topology_adversarial.py` (17).
+
+**Status: conditions 1-5 of the sprint's success definition are met. Condition 6 is NOT.**
+The geometry is topologically correct and mechanically valid, and the PBR render does not yet
+read as real crochet. It reads as a regular lattice of identical modules. No claim is made
+that it does.
+
+#### What is now proven
+
+| invariant | how it is measured | result at 14x16 |
+|---|---|---|
+| stitch count / loop target | against the certified CIR | 224/224, targets match |
+| linkage | **linking number of two closed curves** | 208/208, all exactly +/-1 |
+| continuity | each operation begins where the last ended | within-row joins 0.007mm |
+| interpenetration | closest non-adjacent approach vs compressed contact | 5.49mm against a 1.50mm floor |
+| stitch shape | HDC morphology, features documented outside this repo | 224/224 |
+| semantic coverage | every loop target x every working direction | complete |
+| gauge | pitch and row height against the pattern | exact |
+| yardage | mm per stitch against the pattern's stated grams | 0.71x, stable to 0.3% across sizes |
+
+Sixteen defects were found and fixed during the sprint. Each is a commit message of its own.
+The recurring shape of them: **a quantity that had no source** (yarn diameter invented as a
+ratio when the pattern states a 6mm hook), **one value living in two places** (the contact
+distance, accepted at 0.45 diameters and relaxed to 1.0), **a check that could not see what
+it existed to measure** (grid repulsion comparing only within a cell; continuity
+thresholding the largest step, under which a real 13.9mm break sat unnoticed), and **a proof
+measured on a sample that could not contain the broken case** (the 4x5 swatch has no
+front-loop stitch).
+
+#### Approaches eliminated, with reasons
+
+- **Crossing parity on a sub-path.** Not a topological property: the answer moves with where
+  the path is cut. Replaced by linking number, which cannot.
+- **Storck et al.'s published ratios as HDC geometry.** Equations 3-7 of that paper describe
+  a SLIP STITCH; it models chains, slip stitches and single crochets and contains no half
+  double. Borrowing a flat stitch's 1.85L sideways reach gave every stitch a lean and merged
+  the row tops into a bar.
+- **Blind contact repulsion to fix interpenetration.** Topology-blind: at a linkage the
+  shortest way apart is straight out of the loop, so it took linkage from 15/15 to 5/15.
+  Clearance belongs in the construction.
+- **Relaxation as repair.** Once clearance is constructed, relaxation changes almost nothing,
+  which is the relationship it should have.
+
+#### The remaining blocker, and it is architectural
+
+The look of crochet does not come from a well-designed unit cell. Yuksel, Kaldor, James and
+Marschner's stitch-mesh pipeline is explicitly *interactive modelling followed by offline
+relaxation*: topology from tiles, then **physically-based yarn-level relaxation** that
+locally relaxes yarn into realistic shape while explicitly avoiding *yarn pull-through* --
+the same linkage-destroying failure this sprint hit twice. Guo, Lin, Narayanan and McCann
+adapt that to crochet with a *current loop* edge type for the loop held on the hook.
+
+Brambleloop has the topology half and does not have the relaxation half. `settle()` is a
+spring-and-repulsion pass that PRESERVES an authored shape; what produces convincing fabric
+is one that FINDS an equilibrium under tension. That is a real subsystem, not a tuning pass,
+and no amount of further hand-placing of key points will substitute for it.
+
+#### Is the architecture still viable
+
+Yes, and the sprint strengthened the case rather than weakening it. The deterministic chain
+CIR -> topology -> validation holds and is now defended by independent checks and 17
+adversarial fixtures. What is missing is a named, published, well-understood component with
+open implementations and, in CT2Yarn, a CC BY 4.0 dataset of real crocheted samples
+reconstructed as yarn centrelines -- which would also give the shape check something
+genuinely external to be calibrated against.
+
+#### Estimated remaining scope
+
+A yarn-level relaxation solver: inextensibility along the strand, bending resistance,
+contact with friction, and a pull-through guard that makes linkage inviolable rather than
+hoped for. Days rather than hours, and it needs its own acceptance gates. **Recommended as
+the next increment, and flagged for owner decision because it is a subsystem rather than a
+fix.**
+
+#### Cost and posture
+
+Zero spend. Everything in this sprint is deterministic and in-container: numpy, Mitsuba
+3.9.1 (BSD-3, pip, CPU). Experiment spend unchanged at CA$0.8276 of CA$4.00.
+`BRAMBLELOOP_PHASE=shadow`. Nothing published. Mitsuba is deliberately NOT in
+`requirements.txt`: production never renders and does not carry a 200MB path tracer.
+
+## Previously — last completed milestone
+
 ### 2026-09-24 — Crochet topology validated; both-loop linkage is INDETERMINATE, not passed
 
 `src/brambleloop/visual/crochet_topology.py`, `tests/test_crochet_topology.py` (18 passing).
