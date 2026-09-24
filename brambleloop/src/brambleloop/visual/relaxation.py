@@ -75,7 +75,12 @@ class Material:
     yarn_diameter_mm: float
     contact_rest: float = topo.RESTING_CONTACT
     contact_floor: float = topo.COMPRESSED_CONTACT
-    bend_compliance: float = 0.18
+    # 0.18 was a first guess and it is destructive: at that stiffness relaxation flattens
+    # the stitches, and a 5x5 swatch came out with none of its 25 stitches still shaped like
+    # a half double. It also produced a scale dependency that was not real -- a sweep at 0.03
+    # gives the same result at 5x5, 7x7 and 10x10 -- because the sweep passed 0.03 explicitly
+    # while the test took this default.
+    bend_compliance: float = 0.03
     provenance: dict = field(default_factory=lambda: dict(PROVENANCE))
 
     @property
@@ -87,7 +92,7 @@ class Material:
         return self.yarn_diameter_mm * self.contact_floor
 
 
-def material_for(fab: topo.Fabric, *, bend_compliance: float = 0.18) -> Material:
+def material_for(fab: topo.Fabric, *, bend_compliance: float = 0.03) -> Material:
     """The material of a fabric, taken from the fabric's own derived yarn."""
     return Material(yarn_diameter_mm=fab.yarn_diameter, bend_compliance=bend_compliance)
 

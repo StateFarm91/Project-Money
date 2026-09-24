@@ -653,11 +653,28 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     # hole satisfies that, and so does a knitted loop. This asks the separate question of
     # whether the thing doing the passing has the structure of the stitch the CIR ordered.
     misshapen: list[tuple[int, int, str]] = []
+    # The LAST stitch worked is the free end of the yarn. Its loop is still live -- in real
+    # crochet you fasten off, and nothing here does -- so it has no completed top to be
+    # shaped like, and relaxation pulls it about because nothing holds it. That is a boundary
+    # condition with a physical reason, not a malformed stitch, and the two are different
+    # facts: counting the yarn end as a shape failure would report a defect that is not
+    # there, and silently exempting it would hide one that might be. It is reported on its
+    # own line.
+    terminal = None
+    for o in fab.ops:
+        if o.kind == "hdc":
+            terminal = (o.row, o.position)
+    loose_end: list[str] = []
     for o in hdc:
         complaints = stitch_shape.shape_report(o, fab.L, fab.H, fab.D)
-        if complaints:
+        if not complaints:
+            continue
+        if (o.row, o.position) == terminal:
+            loose_end.append(complaints[0])
+        else:
             misshapen.append((o.row, o.position, complaints[0]))
-    checks["stitches_shaped_like_hdc"] = len(hdc) - len(misshapen)
+    checks["stitches_shaped_like_hdc"] = len(hdc) - len(misshapen) - len(loose_end)
+    checks["terminal_stitch_unfastened"] = bool(loose_end)
     checks["misshapen"] = [f"r{r} p{p}: {m}" for r, p, m in misshapen[:4]]
     if misshapen:
         seen = sorted({m for _, _, m in misshapen})
