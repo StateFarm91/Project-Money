@@ -64,7 +64,7 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["shape_report", "local_frame", "MORPHOLOGY", "Unframeable"]
+__all__ = ["shape_report", "local_frame", "shape_margins", "MORPHOLOGY", "Unframeable"]
 
 MORPHOLOGY = (
     "a third loop behind the fabric, below the top V",
@@ -175,3 +175,38 @@ def shape_report(op, L: float, H: float, D: float, frame) -> list[str]:
     if float(rise_axis[-1] - rise_axis.min()) < 0.25 * H:
         out.append("the stitch does not finish above the row it was worked into")
     return out
+
+
+def shape_margins(op, L: float, H: float, D: float, frame) -> dict:
+    """How far each morphology feature is from failing, in millimetres.
+
+    The pass/fail report cannot tell a stitch that is 0.02mm the wrong side of a threshold
+    from one that has been turned inside out, and those need different responses: the first
+    is a threshold with no tolerance, the second is a deformed product. When out-of-plane
+    freedom was first enabled, three edge stitches failed the third-loop test and this was
+    what separated the cases -- flat, every stitch sat 1.5 to 1.7mm clear with none within
+    0.5mm of the line, and draped, two of them had moved by +4.6mm and +7.0mm. That is not a
+    threshold being grazed, and it stopped the failure being written off as strictness.
+
+    Negative is correct in every entry, so the worst value is the maximum.
+    """
+    across, up, through = frame
+    pts = op.points
+    back = _span(pts, op.back_loop)
+    front = _span(pts, op.front_loop)
+    third = _span(pts, op.third_loop)
+    if len(back) < 2 or len(front) < 2 or len(third) < 1:
+        return {}
+    v_up = float(min((back @ up).min(), (front @ up).min()))
+    back_run = float((back[-1] @ across) - (back[0] @ across))
+    front_run = float((front[-1] @ across) - (front[0] @ across))
+    return {
+        "third_loop_below_v_mm": float((third @ up).mean() - v_up),
+        "third_loop_behind_front_mm": float((third @ through).mean()
+                                            - (front @ through).mean()),
+        "v_legs_opposed": -abs(back_run * front_run) if back_run * front_run < 0
+                          else abs(back_run * front_run),
+        "v_width_margin_mm": float(0.35 * L - max(abs(back_run), abs(front_run))),
+        "leg_separation_margin_mm": float(
+            0.25 * D - abs((front @ through).mean() - (back @ through).mean())),
+    }

@@ -143,5 +143,55 @@ br = DR.bending_bracket(FLAT.yarn_diameter, 444.0, 0.0094, 1345)
 check("the bending bracket spans orders of magnitude and says so",
       br["ratio"] > 1e4, "%.2e" % br["ratio"])
 
+# --- drape must not deform the stitches themselves ---------------------------------
+# Distinct from "does it still pass the shape check". A binary verdict cannot tell a stitch
+# 0.02mm the wrong side of a threshold from one turned inside out, and the two need opposite
+# responses. Measured in millimetres of margin, negative being correct.
+#
+# This exists because the first out-of-plane run failed three edge stitches on the third
+# loop, and the margins settled what kind of failure it was: flat, every stitch sat 1.5 to
+# 1.7mm clear with NONE within 0.5mm of the line; draped, two had moved by +4.6mm and
+# +7.0mm. Not a threshold being grazed -- genuinely everted stitches at the free edge, where
+# there are fewest contacts to hold them.
+from brambleloop.visual import stitch_shape as SS                 # noqa: E402
+
+
+def worst_third_loop_margin(fab):
+    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    by = {(o.row, o.position): o for o in hdc}
+    rws = sorted({r for r, _ in by})
+    worst = -1e9
+    for o in hdc:
+        ri = rws.index(o.row)
+        ahead = by.get((o.row, o.position + 1))
+        behind = by.get((o.row, o.position - 1))
+        anc = by.get((rws[ri - 1], o.position)) if ri > 0 else by.get((rws[ri + 1], o.position))
+        if anc is None:
+            continue
+        try:
+            a, u, t = SS.local_frame(o, ahead if ahead is not None else behind, anc,
+                                     neighbour_is_ahead=ahead is not None)
+        except SS.Unframeable:
+            continue
+        if ri == 0:
+            u, t = -u, -t
+        m = SS.shape_margins(o, fab.L, fab.H, fab.D, (a, u, t))
+        if m:
+            worst = max(worst, m["third_loop_below_v_mm"])
+    return worst
+
+
+flat_margin = worst_third_loop_margin(FLAT)
+drape_margin = worst_third_loop_margin(DRAPED)
+check("flat fabric keeps every third loop clearly below its V",
+      flat_margin < -0.5, "%.3f mm" % flat_margin)
+check("draping does not push any third loop above its V",
+      drape_margin < 0.0, "%.3f mm" % drape_margin)
+check("draping does not erode the third-loop margin by more than a yarn diameter",
+      drape_margin - flat_margin < FLAT.yarn_diameter,
+      "%.3f -> %.3f mm" % (flat_margin, drape_margin))
+check("the margin is reported in millimetres rather than as a verdict",
+      isinstance(drape_margin, float))
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)
