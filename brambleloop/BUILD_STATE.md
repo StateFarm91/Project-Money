@@ -6548,3 +6548,70 @@ would turn the strictest lock in the system into the easiest one to pass.
 Both locks hold, independently, before D spends anything. The first paid call therefore buys
 an answer about **realism**, which is genuinely unknown, rather than discovering that a
 technique quietly reshaped the cardigan.
+
+## 2026-09-24 — MILESTONE D = FAIL for deterministic 2D rendering. CA$0.00 spent.
+
+Reported rather than polished, per the owner's stop condition: architecture does not get to
+declare D solved, and a result that is technically correct and visibly synthetic is a failure.
+
+### What was tried, and what each looked like
+
+Three deterministic renderers over the benchmark cardigan's certified fabric:
+
+1. **Glyph raster** — each counted stitch drawn as a shape with legs, a top bar placed by its
+   loop target, relief highlights and seeded tension jitter. Reads as **plastic mesh**: too
+   open, ground showing through, stitches as blocks.
+2. **Corrected density** — rows overlapping at 0.62 of stitch height so the fabric closes up,
+   thicker strands, smaller holes. Reads as **machine-woven textile or pixel art**. Better
+   fabric, still not yarn.
+3. **Per-pixel lighting from a height field** — the standard way to make fabric look real
+   without a 3D engine. My implementation was **genuinely buggy** (output far too dark, the
+   autocontrast crushed the colour) and has been **removed rather than shipped**, because a
+   function that is present and does not work is worse than an absent one.
+
+Structure was correct in all three — guaranteed upstream and never in doubt.
+
+### The diagnosis, stated precisely
+
+The dominant failure is not lighting. It is that the fabric is **a lattice of identical
+glyphs, and no lighting model stops a lattice reading as a lattice.** What real crochet
+photography has that this structurally cannot: continuous tone across round strands, a fibre
+halo instead of an edge, ply twist, contact shadow where strands cross, and — probably the
+most telling — **tension that drifts across the whole panel** rather than jittering per
+stitch. Hand fabric breathes at the scale of the piece; local noise on a perfect grid reads
+as a textured grid.
+
+**What this does and does not establish.** It establishes that filled-vector glyph rendering
+fails. It does **not** establish that all deterministic rendering fails: proper normal-mapped
+or physically based rendering is a different class of work, and this container has no numpy,
+so it could not be tested efficiently. That distinction is kept deliberately.
+
+### The architectural consequence
+
+The deterministic layer **cannot be the photograph**. It has to be the authority that
+constrains one — which is what the owner's own architecture says (*deterministic authoritative
+representation → photographic presentation layer*). This experiment is what establishes that
+empirically rather than by assumption.
+
+### OWNER DECISION REQUIRED — a genuine tension in the standard
+
+The owner listed *depth/normal/segmentation guidance* and *product-preserving image-to-image*
+among candidate techniques. The provenance lock as built classifies image-to-image as
+generative and **fails it closed over the product region**. Both positions are defensible and
+they conflict:
+
+- **Hold the lock as built** → the product's pixels must be deterministic, so photographic
+  appearance has to come from physically based rendering or from real photography.
+- **Allow constrained image-to-image** → the product's pixels are model-drawn, so Product
+  Truth returns to pixel verification — the weaker instrument, and the one the 0-of-12
+  provider trial suggests is unreliable for crochet specifically.
+
+This decides whether the next increment is a bounded PBR renderer, a conditioned generative
+bridge with verification, or physical samples. It is not a decision to make unilaterally.
+
+### Independently blocking, and unchanged
+
+The canonical reference photography is still `blocked` on `skin_looks_real` and
+`processing_is_restrained`, both flagged `inheritable_failures`. Even a working product bridge
+cannot clear identity + realism on a model-bearing image until that is resolved, and the
+repair experiment already measured 3/3 identity held with realism not repaired.

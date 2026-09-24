@@ -81,12 +81,15 @@ def assess(size: str = "S") -> dict:
 
     out.append({
         "milestone": "D", "name": "photographic presentation without structural drift",
-        "status": NOT_STARTED,
-        "evidence": ("no presentation layer exists. Its invariant is already in code: "
-                     "`final_standard.product_lock_held` compares the product region's "
-                     "structure before and after presentation and fails the asset if "
-                     "anything moved, however much better it looks. AI may photograph the "
-                     "product; it may not redesign it"),
+        "status": FAIL,
+        "evidence": ("deterministic 2D rendering FAILED the realism floor (B-704). Three "
+                     "attempts: glyph raster reads as plastic mesh; corrected density reads "
+                     "as machine-woven textile; per-pixel lighting was buggy and removed "
+                     "rather than shipped. Structure was correct in all three -- the failure "
+                     "is that a lattice of identical glyphs reads as a lattice, which no "
+                     "lighting model fixes. Spend on this milestone so far: CA$0.00. Both "
+                     "product locks hold deterministically, so the next increment is an "
+                     "owner decision about technique, not a retry"),
     })
     out.append({
         "milestone": "E", "name": "listing asset clearing all three floors at once",
