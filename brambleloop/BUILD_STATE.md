@@ -6491,3 +6491,60 @@ that a technique quietly redrew the cardigan.
 **What is still unproven:** that a composite of this kind can reach photographic realism at
 all. Structure preservation is now guaranteed by construction; convincingness is not, and
 that is the question D actually has to answer with measured evidence.
+
+## 2026-09-24 — owner decisions: specification rule closed, second product lock added
+
+### Decision 1 — Brambleloop designs must be reconstructible from what they state
+
+Generalised as the owner set it: a construction fact that materially determines the finished
+object's geometry, placement, assembly, fit or visible appearance belongs in the authoritative
+source, not in a photograph or in maker intuition. `cir/specification.py` enforces it against
+the object rather than against a checklist of garment parts, so the same rule covers a
+basket's handle placement and a blanket's border attachment without naming either.
+
+**The asymmetry is the load-bearing part.** A CIR now declares `authored`:
+
+- `brambleloop` — we control the specification, so reconstructive gaps are refused at
+  certification. Defaults here, so a new design cannot inherit a benchmark's licence to be
+  vague.
+- `benchmark` — our record of someone else's pattern, allowed to be exactly as incomplete as
+  its source. Inventing a pocket placement to make the record look complete would make the
+  reconstruction agree with itself instead of with the real garment, which is the one thing a
+  benchmark exists to prevent.
+
+Measured: the purchased cardigan has **4 gaps, and they are precisely the two joins its
+pattern leaves to a photograph** — pocket placement and neckline attachment. The sleeve join,
+which the pattern does state, is correctly not reported. **All 11 existing catalogue products
+are already reconstructible with zero gaps**, so the rule holds for what is certified today
+rather than being aspirational.
+
+B therefore stays PARTIAL on the benchmark, truthfully, and Brambleloop products are capable
+of B = PASS by construction.
+
+### Decision 2 — the geometry lock, added before any paid experiment
+
+The provenance lock proves the product's pixels were never invented. That is necessary and
+insufficient, and the owner's framing is exact: **a transformation being deterministic does
+not automatically make it truthful.** A cardigan squashed 20% to fit a pose contains every
+certified stitch and is not the product the pattern makes.
+
+So Product Truth now needs two independent locks, reported separately and never averaged:
+
+| lock | question | how |
+|---|---|---|
+| structure / content | were these pixels drawn by a model? | provenance over declared operations |
+| geometry / fit | does the thing they depict still have the certified shape? | ratio comparison against object space |
+
+Certified ratios for the benchmark at size S: garment aspect 0.6764, stitch aspect 0.6552,
+sleeve-to-body 0.2179, pocket-to-body 0.0366, band-to-body 0.1140. Ratios rather than absolute
+sizes, because a photograph may show the garment at any scale — what it may not do is change
+its shape. Tolerance 2%: enough for a seam easing or a drape foreshortening, not enough for
+an image fitted to a frame.
+
+**Fails closed.** A ratio nobody measured is not a ratio that held — the specific defeat this
+guards against is a pipeline that simply declines to report the geometry it produced, which
+would turn the strictest lock in the system into the easiest one to pass.
+
+Both locks hold, independently, before D spends anything. The first paid call therefore buys
+an answer about **realism**, which is genuinely unknown, rather than discovering that a
+technique quietly reshaped the cardigan.

@@ -178,7 +178,7 @@ def cardigan(size: str = "XS") -> CIR:
     return CIR(
         slug=f"benchmark-side-to-side-cardigan-{size.lower()}",
         title=f"Benchmark side-to-side textured cardigan ({size})",
-        version="1.0.0", construction="flat_rows",
+        version="1.0.0", construction="flat_rows", authored="benchmark",
         components=[body, sleeve, pocket, ribbing],
         gauge=Gauge(GAUGE_STS, GAUGE_ROWS, stitch_type="hdc", hook_mm=HOOK_MM,
                     chains_per_10cm=GAUGE_CHAINS,

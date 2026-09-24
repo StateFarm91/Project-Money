@@ -236,6 +236,86 @@ def test_the_two_operation_sets_do_not_overlap():
     assert not STRUCTURE_PRESERVING & GENERATIVE
 
 
+# ---- the second product lock: geometry ------------------------------------
+
+def _certified():
+    from brambleloop.cir import assembly, benchmarks as B
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.visual import presentation as P
+    c = B.cardigan("S")
+    r = compile_cir(c)
+    tw = {x.name: build_twin(c, r, component=x.name) for x in c.components}
+    return P.certified_ratios(assembly.assemble(c, tw), c.gauge)
+
+
+def test_authentic_pixels_in_the_wrong_shape_still_fail_product_truth():
+    """The gap the provenance lock alone leaves open.
+
+    A cardigan squashed to fit a pose has every certified stitch in it and is not the
+    product the customer's pattern makes. Deterministic is not the same as truthful.
+    """
+    from brambleloop.visual.presentation import geometry_lock_held
+    cert = _certified()
+    squashed = dict(cert)
+    squashed["garment_aspect"] *= 1.20
+    v = geometry_lock_held(cert, squashed)
+    assert v.verdict == "fail"
+    assert "garment_aspect" in v.failed_checks
+    assert "deterministic does not make it truthful" in v.why
+
+
+def test_stretching_the_stitches_fails_even_when_the_garment_fits():
+    """Motif aspect is certified geometry: stretch it and every stitch is subtly wrong."""
+    from brambleloop.visual.presentation import geometry_lock_held
+    cert = _certified()
+    stretched = dict(cert)
+    stretched["stitch_aspect"] *= 1.15
+    assert geometry_lock_held(cert, stretched).verdict == "fail"
+
+
+def test_uniform_scale_is_free_because_ratios_are_what_is_certified():
+    """A photograph may show the garment at any size; it may not change its shape."""
+    from brambleloop.visual.presentation import geometry_lock_held
+    cert = _certified()
+    assert geometry_lock_held(cert, dict(cert)).verdict == "pass"
+
+
+def test_geometry_that_was_not_measured_is_unmeasurable_not_held():
+    """The way this lock would otherwise be defeated: decline to report your own geometry."""
+    from brambleloop.visual.presentation import geometry_lock_held
+    cert = _certified()
+    partial = {k: v for k, v in cert.items() if k != "stitch_aspect"}
+    v = geometry_lock_held(cert, partial)
+    assert v.verdict == "unmeasurable"
+    assert "stitch_aspect" in v.unjudged_checks
+    assert geometry_lock_held({}, cert).verdict == "unmeasurable"
+
+
+def test_the_two_product_locks_are_independent_and_do_not_average():
+    """Either failing fails Product Truth. That is why there are two locks, not one score."""
+    from brambleloop.visual.presentation import PresentationPlan, both_product_locks
+    cert = _certified()
+    clean = (PresentationPlan()
+             .add("generate", touches_product=False)
+             .add("composite", touches_product=True)
+             .add("relight", touches_product=True))
+    dirty = PresentationPlan().add("inpaint", touches_product=True)
+    squashed = dict(cert); squashed["garment_aspect"] *= 1.20
+
+    assert both_product_locks(clean, cert, dict(cert))["product_truth"] == "pass"
+    # Pixels authentic, shape wrong.
+    assert both_product_locks(clean, cert, squashed)["product_truth"] == "fail"
+    # Shape right, pixels invented.
+    assert both_product_locks(dirty, cert, dict(cert))["product_truth"] == "fail"
+
+
+def test_a_certified_object_reports_the_ratios_that_matter():
+    cert = _certified()
+    for key in ("garment_aspect", "stitch_aspect", "sleeve_to_body", "pocket_to_body"):
+        assert key in cert and cert[key] > 0
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0

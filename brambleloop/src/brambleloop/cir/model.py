@@ -351,6 +351,20 @@ class CIR:
     materials: list[Material] = field(default_factory=list)
     colors: dict[str, str] = field(default_factory=dict)
     risk_class: Literal["A", "B", "C"] = "A"
+    # Who wrote this design, which decides what it is allowed to leave unsaid.
+    #
+    # A `benchmark` CIR is Brambleloop's record of somebody else's pattern, and it must be
+    # allowed to be as incomplete as its source: the purchased cardigan gives pocket
+    # placement only in a photograph, and inventing a number to make the record look
+    # complete would be falsifying the benchmark. A `brambleloop` design has no such excuse,
+    # because we control its specification -- so it must state every fact needed to
+    # reconstruct the finished object, and `specification.reconstructive_gaps` refuses it if
+    # it does not.
+    #
+    # Defaults to `brambleloop`, so a new design is held to the standard unless it is
+    # explicitly declared a record of someone else's work. Failing closed is the point: the
+    # easy mistake is a product that quietly inherits a benchmark's permission to be vague.
+    authored: Literal["brambleloop", "benchmark"] = "brambleloop"
     designer_notes: str | None = None
     finished_size_note: str | None = None
     assembly: list[Seam] = field(default_factory=list)
