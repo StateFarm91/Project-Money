@@ -152,12 +152,28 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
     """
     # Depth of the loop the hook enters. Working through the back loop puts the pull-up
     # behind the anchor's front loop, which is then left lying loose on the face -- the ridge.
-    if loop_target == "back":
-        enter_z = -D * 0.45
-    elif loop_target == "front":
-        enter_z = +D * 0.45
-    else:
-        enter_z = 0.0
+    # Where through the fabric's depth this stitch's hook goes down, keyed to which strand
+    # it is being worked around. This used to be +/-0.45D, which put the descent level with
+    # the very leg it was supposed to pass around: measured segment to segment, the stem
+    # came within 0.05mm of the front loop it was threading, against a floor of 1.50mm. The
+    # vertex-sampled check reported 2.06mm of clearance for that.
+    #
+    # The legs of a V sit at about +/-0.43D. A strand passing BETWEEN them (both loops) has
+    # to run up the middle; one passing AROUND a single leg (back or front) has to clear it
+    # by a yarn's width, not brush along it.
+    # The hook always goes DOWN through the mouth of the V -- that is the only way into the
+    # fabric -- and what distinguishes the three loop targets is which side it comes back UP.
+    # Encircling the back leg means descending in front of it and rising behind it; the
+    # front leg is the mirror; both loops together means rising clear behind the whole V.
+    #
+    # An earlier attempt keyed the DESCENT to the target instead and pushed it outside the
+    # leg it was meant to go around, so the stem threaded nothing at all: 3 of 42 linked. An
+    # earlier one still put the descent level with the leg, so the stem grazed the very loop
+    # it was threading at 0.05mm.
+    leg = D * 0.43
+    clear = yarn * 0.95
+    enter_z = 0.0
+    exit_z = +(leg + clear) if loop_target == "front" else -(leg + clear)
 
     y0 = anchor_top_y                      # the top of the stitch below: where we enter
     yt = y0 + H                            # the top of this stitch
@@ -200,10 +216,10 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         # millimetres of yarn, not a fraction of H: ratios describe centre paths and are
         # silent about thickness, so a dive sized purely from H passed within 0.53mm of a
         # 2mm strand -- through it, not around it.
-        ("insert",       (c - 0.11 * L, y0 + 0.16 * H, enter_z + D * 0.50)),
-        ("through",      (c - 0.02 * L, y0 + 0.03 * H - yarn, enter_z + D * 0.08)),
-        ("behind",       (c + 0.10 * L, y0 - 0.04 * H - yarn, enter_z - D * 1.25)),
-        ("emerge",       (c + 0.11 * L, y0 + 0.16 * H, enter_z - D * 0.95)),
+        ("insert",       (c - 0.11 * L, y0 + 0.16 * H, enter_z + D * 0.16)),
+        ("through",      (c - 0.02 * L, y0 + 0.03 * H - yarn, enter_z)),
+        ("behind",       (c + 0.10 * L, y0 - 0.04 * H - yarn, exit_z)),
+        ("emerge",       (c + 0.11 * L, y0 + 0.16 * H, exit_z * 0.85)),
 
         # --- the post: upright, not leaning ------------------------------------
         # The two strands of the post are held close in x so they read as one column. Splayed
@@ -312,7 +328,6 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
     """Translate certified cells into one continuous crochet yarn path."""
     L = 10.0 / gauge.stitches_per_10cm * 10.0
     H = 10.0 / gauge.rows_per_10cm * 10.0
-    D = L * 0.55
     # Yarn diameter comes from the hook the pattern specifies, not from a ratio chosen
     # here. It had been L * 0.29 = 2.0mm, a number with no source, and the fabric rendered
     # as open lacework because the strands were about forty per cent too thin to touch.
@@ -324,6 +339,20 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
     # derived rather than picked.
     hook = getattr(gauge, "hook_mm", None)
     yarn_d = hook / 1.8 if hook else L * d_over_l
+
+    # Fabric depth, derived FROM the yarn rather than from the stitch pitch. It was L * 0.55
+    # = 3.79mm, a ratio invented before the yarn diameter was derived and never revisited
+    # afterwards, which left a fabric 1.14 yarn diameters deep. Three strands have to fit
+    # through that depth -- a back leg, a front leg, and the stem of the next row passing
+    # between them -- so a depth of barely one strand makes the V's opening too narrow for
+    # the yarn that has to thread it. That is what pinned the geometry between two failures
+    # it could not satisfy at once: threading the loop meant grazing its legs at 0.05mm, and
+    # clearing the legs meant not threading the loop at all.
+    #
+    # Two diameters is the floor for a fabric that must hold two strands through its depth;
+    # 2.2 leaves the stem room to pass between them. The multiplier is ESTIMATED -- it is
+    # not in the pattern -- but it is bounded below by what has to physically fit.
+    D = yarn_d * 2.2
     fab = Fabric(L=L, H=H, D=D, yarn_diameter=yarn_d)
 
     rows = sorted({c.row for c in twin.cells})
@@ -637,24 +666,19 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
             f"crochet: {seen[0]}")
 
     # --- no impossible intersections ---------------------------------------
-    # Yarn cannot occupy the same space as yarn. Sampled, because the exact test is
-    # quadratic and this is a diagnostic rather than a simulation.
-    if len(pts) > 40:
-        step = max(1, len(pts) // 600)
-        s = pts[::step]
-        diff = s[:, None, :] - s[None, :, :]
-        dist = np.linalg.norm(diff, axis=2)
-        idx = np.arange(len(s))
-        adjacent = np.abs(idx[:, None] - idx[None, :]) <= 3
-        np.fill_diagonal(dist, np.inf)
-        dist[adjacent] = np.inf
-        worst = float(dist.min())
-        checks["closest_non_adjacent_mm"] = round(worst, 3)
-        # Real yarn compresses where it crosses, so some overlap is physical; half a diameter
-        # is not.
-        if worst < fab.yarn_diameter * COMPRESSED_CONTACT:
-            findings.append(f"two strands come within {worst:.2f}mm, closer than yarn can "
-                            f"compress at {fab.yarn_diameter:.2f}mm diameter")
+    # Yarn cannot occupy the same space as yarn. Measured between SEGMENTS: the version this
+    # replaces sampled vertices, and reported 2.06mm of clearance for a fabric whose strands
+    # were 0.05mm apart. That is not a tighter tolerance on the same quantity, it is a
+    # different quantity -- two 3mm segments cross through each other while their four
+    # endpoints stay far apart, and it is the segment that cannot pass through anything.
+    gap, offenders = min_segment_separation(pts, fab.yarn_diameter)
+    checks["closest_non_adjacent_mm"] = round(gap, 4)
+    checks["closest_pair_segments"] = list(offenders)
+    floor = fab.yarn_diameter * COMPRESSED_CONTACT
+    checks["contact_floor_mm"] = round(floor, 3)
+    if gap < floor:
+        findings.append(f"two strands come within {gap:.3f}mm, closer than yarn can compress "
+                        f"at {fab.yarn_diameter:.2f}mm diameter (floor {floor:.2f}mm)")
 
     checks["passes"] = not findings
     checks["findings"] = findings
@@ -747,6 +771,69 @@ def settle(fab: Fabric, *, iterations: int = 60, stiffness: float = 0.16,
         out.ops.append(replace(o, points=pts[at:at + n]))
         at += n
     return out
+
+
+
+def closest_between_segments(p, u, q, v):
+    """Closest points between two batches of segments p+s*u and q+t*v, s,t in [0,1]."""
+    w = p - q
+    a = np.einsum("ij,ij->i", u, u)
+    b = np.einsum("ij,ij->i", u, v)
+    c = np.einsum("ij,ij->i", v, v)
+    dd = np.einsum("ij,ij->i", u, w)
+    e = np.einsum("ij,ij->i", v, w)
+    denom = a * c - b * b
+    parallel = denom < 1e-12
+    safe = np.where(parallel, 1.0, denom)
+    s_par = np.clip(np.where(parallel, 0.0, (b * e - c * dd) / safe), 0.0, 1.0)
+    t_par = np.clip((b * s_par + e) / np.where(c < 1e-12, 1.0, c), 0.0, 1.0)
+    s_par = np.clip((b * t_par - dd) / np.where(a < 1e-12, 1.0, a), 0.0, 1.0)
+    diff = (p + s_par[:, None] * u) - (q + t_par[:, None] * v)
+    return s_par, t_par, np.linalg.norm(diff, axis=1)
+
+
+def min_segment_separation(pts: np.ndarray, yarn_diameter: float) -> tuple[float, tuple]:
+    """Closest approach between two parts of the yarn that are not the same bend.
+
+    SEGMENT to segment, not vertex to vertex. The vertex-sampled version this replaces
+    reported 2.06mm for a path whose strands were really 0.05mm apart, because yarn segments
+    here are about 3mm long and two of them can cross clean through each other while all four
+    endpoints stay far apart. Vertex proximity is not strand proximity, and the strand is the
+    thing that cannot pass through itself.
+
+    Two exclusions, and both are needed:
+
+      * segments sharing a vertex, which touch by definition;
+      * segments closer together ALONG THE YARN than half the tightest bend it can make,
+        pi * radius. A strand doubling back on itself really is in contact with itself there,
+        and that is a bend, not an interpenetration.
+
+    The second is measured in arc length rather than in index. Index distance was the first
+    attempt and is not a physical quantity: these segments run from microns to millimetres,
+    so a fixed index gap means different things in different places.
+    """
+    a0 = pts[:-1]
+    d = np.diff(pts, axis=0)
+    seg = np.linalg.norm(d, axis=1)
+    arc = np.concatenate([[0.0], np.cumsum(seg)])
+    mid = 0.5 * (arc[:-1] + arc[1:])
+    live = np.nonzero(seg > 1e-6)[0]
+    apart = np.pi * (yarn_diameter / 2.0)
+
+    best = float("inf")
+    where: tuple = ()
+    for k, i in enumerate(live):
+        j = live[k + 1:]
+        j = j[(j - i > 1) & (np.abs(mid[j] - mid[i]) > apart)]
+        if not len(j):
+            continue
+        _, _, dist = closest_between_segments(
+            np.repeat(a0[i][None], len(j), 0), np.repeat(d[i][None], len(j), 0), a0[j], d[j])
+        m = int(dist.argmin())
+        if dist[m] < best:
+            best = float(dist[m])
+            where = (int(i), int(j[m]))
+    return best, where
 
 
 def coverage(fab: Fabric) -> dict:
