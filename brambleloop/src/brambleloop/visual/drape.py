@@ -88,6 +88,7 @@ PROVENANCE = {
                         "checked against ASTM D1388 and against beam theory, not by eye",
     "shape_factor": "BOUNDED -- published shape factors run 0.59 (silk) to 1.0 (glass); "
                     "none published for acrylic, so the range is carried",
+    "rest_curvature": "The yarn is taken as set in the shape it relaxed into, following the reference method's own split between a relaxation phase and a simulation phase. Measuring bending against straight instead makes every formed loop pre-stressed and the fabric's drape stops responding to its stiffness at all -- tested, not assumed",
     "support_friction": "NOT MODELLED -- the support is frictionless, which is stated "
                         "because friction would resist sliding and the swatch is not "
                         "claimed to be in the configuration friction would give",
@@ -154,6 +155,23 @@ class DrapeSetup:
     # choices have already proved able to masquerade as fabric properties here.
     down: tuple = (0.0, 0.0, -1.0)
     support_at: float | None = None       # plane the fabric rests on, along `down`
+    # Whether the yarn's REST shape is straight, or the shape it was relaxed into.
+    #
+    # This is the single most consequential physical choice in the module, so it is named
+    # rather than assumed. Measuring bending against straight treats every formed loop as
+    # pre-stressed, and since a crochet stitch is nothing but curvature, that internal stress
+    # dominates gravity by two to four orders of magnitude and sets the fabric's effective
+    # rigidity by itself -- which is exactly what the first sweep showed, with out-of-plane
+    # displacement identical across a 160-fold range of bending rigidity. A fabric whose
+    # drape does not respond to its own stiffness is not modelling drape.
+    #
+    # The reference method already separates these two phases: Kaldor et al. relax with a
+    # bending constant a thousand times lower than they simulate with, precisely because
+    # relaxation is finding the rest state rather than moving about it. The relaxation stage
+    # here has already done that, so for drape the yarn is taken as set in the configuration
+    # it relaxed into -- which is also what blocking does to a finished piece. Gravity then
+    # acts on a fabric at rest instead of fighting a stitch trying to unbend itself.
+    rest_is_relaxed_shape: bool = True
     clamp_fraction: float = 0.0           # fraction of the fabric held fixed, by +y
     iterations: int = 400
 
@@ -215,6 +233,11 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         cut = y.min() + (y.max() - y.min()) * (1.0 - setup.clamp_fraction)
         held = y >= cut
 
+    # The curvature the yarn is at rest in. Captured once, before anything moves.
+    lap_rest = np.zeros_like(pts)
+    if setup.rest_is_relaxed_shape:
+        lap_rest[1:-1] = (pts[:-2] - 2.0 * pts[1:-1] + pts[2:]) * 1e-3
+
     ell = float(np.median(rest_m))
     bend_coeff = setup.bending_rigidity_N_m2 / max(ell ** 3, 1e-30)
     # Step size scaled so the largest force moves a vertex a small fraction of a segment.
@@ -262,7 +285,7 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         force = grav_force.copy()
         lap = np.zeros_like(pts)
         lap[1:-1] = (pts[:-2] - 2.0 * pts[1:-1] + pts[2:]) * 1e-3
-        force += bend_coeff * lap
+        force += bend_coeff * (lap - lap_rest)
 
         # The FORCE step is capped, not the finished move. Scaling the whole update after
         # the constraints have run is what broke inextensibility in the first version: it
