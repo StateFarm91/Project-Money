@@ -45,6 +45,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from . import linkage
+
 # Published proportions (Storck et al. 2022), used as stated.
 LOOP_REACH = 1.85          # a loop spans this many stitch pitches in x
 CROWN_RISE = 1.23          # a key point rises this fraction of H above the base
@@ -52,6 +54,11 @@ CROWN_RISE = 1.23          # a key point rises this fraction of H above the base
 # the benchmark garment is worsted at L=6.9mm with roughly 2mm yarn, so ~0.29. Carried as a
 # parameter rather than a constant because it is a property of the yarn, not of crochet.
 DEFAULT_D_OVER_L = 0.29
+
+# Closing a single loop strand needs a third point off its own line, or the
+# 'loop' is a degenerate sliver bounding no area and nothing can pass through it.
+# The offset is behind the fabric, where the strand's own stitch body is.
+_AWAY = np.array([0.0, -6.0, 0.0])
 
 # The 27 cells of a uniform-grid neighbourhood, including the cell itself.
 _NEIGHBOURHOOD = tuple((i, j, k) for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1))
@@ -136,44 +143,59 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
     crown = y0 + CROWN_RISE * H            # published: a key point rises above the top
     c = 0.5 * L                            # the cell's centre: mirror-invariant
 
+    # Named, not numbered. The spans below are derived from these names, because when they
+    # were hand-counted indices both of them ran one point long and the error was invisible
+    # until a swatch large enough to contain a front-loop stitch was tested. A name cannot
+    # drift out of step with the point it names.
     p = [
         # --- yarn over: the wrap, before the hook enters anything ---------------
-        (0.00 * L, yt - 0.18 * H, +D * 0.62),
-        (0.22 * L, yt - 0.04 * H, +D * 0.34),
+        # This is the strand that makes a half double a HALF double, and it is why the stitch
+        # has a third loop lying across its back below the V. That strand is a feature, not a
+        # side effect, and the shape check looks for it by name.
+        ("yo_wrap",      (0.00 * L, yt - 0.18 * H, +D * 0.62)),
+        ("yo_settle",    (0.22 * L, yt - 0.04 * H, +D * 0.34)),
 
         # --- insert, and pull a loop THROUGH the anchor -------------------------
-        # Centred on the cell so the row above finds it in the same place whichever way it
-        # was worked. Down the near side of the anchor's loop, under it, up the far side --
-        # these three points are the linkage the validator tests.
+        # The hook enters in front of the anchor's V, passes THROUGH the opening it bounds,
+        # and comes out behind. It does not dive under and return: that routing crossed the
+        # opening twice in opposite directions, which is a linking number of zero -- yarn
+        # that went in and came back out the way it came, holding on to nothing.
+        #
+        # So the descent crosses inside the V's footprint and the ascent happens outside it,
+        # behind the back leg. That asymmetry is the linkage.
+        #
         # The dive clears the anchor strand by a yarn diameter. That clearance is in
         # millimetres of yarn, not a fraction of H: the published ratios describe centre
         # paths and are silent about thickness, so a dive sized purely from H passed within
-        # 0.53mm of a 2mm strand -- through it, not around it. What is being gone around has
-        # a radius, and every one of the fifteen stitches interpenetrated by the same amount
-        # because the same constant was wrong in all of them.
-        (c - 0.16 * L, y0 + 0.46 * H, enter_z + D * 1.05),
-        (c, y0 - 0.02 * H - yarn, enter_z),
-        (c + 0.16 * L, y0 + 0.46 * H, enter_z - D * 1.05),
+        # 0.53mm of a 2mm strand -- through it, not around it.
+        ("insert",       (c - 0.16 * L, y0 + 0.46 * H, enter_z + D * 0.52)),
+        ("through",      (c - 0.02 * L, y0 - 0.02 * H - yarn, enter_z + D * 0.08)),
+        ("behind",       (c + 0.10 * L, y0 - 0.10 * H - yarn, enter_z - D * 1.30)),
+        ("emerge",       (c + 0.16 * L, y0 + 0.46 * H, enter_z - D * 1.05)),
 
         # --- the pull-up rises, reaching along the row --------------------------
         # LOOP_REACH is imposed here: the loop extends nearly two pitches, overlapping the
         # neighbouring stitch, which is what lets the next row intermesh.
-        (c + 0.34 * L, y0 + 0.74 * H, -D * 0.34),
-        (LOOP_REACH * 0.52 * L, crown, +D * 0.08),
+        ("rise",         (c + 0.34 * L, y0 + 0.74 * H, -D * 0.34)),
+        ("reach",        (LOOP_REACH * 0.52 * L, crown, +D * 0.08)),
 
         # --- yarn over and pull through all three loops -------------------------
-        (c + 0.30 * L, yt - 0.12 * H, -D * 0.58),
-        (c - 0.06 * L, yt - 0.04 * H, -D * 0.38),
+        ("close_near",   (c + 0.30 * L, yt - 0.12 * H, -D * 0.58)),
+        ("third_loop",   (c - 0.06 * L, yt - 0.04 * H, -D * 0.38)),
 
-        # --- the two top loops: what the next row works into --------------------
-        # Symmetric about the centre, so they sit at the same fabric x either way.
-        (c - 0.34 * L, yt + 0.02 * H, -D * 0.50),          # back loop, start
-        (c + 0.34 * L, yt + 0.05 * H, -D * 0.46),          # back loop, end
-        (c + 0.40 * L, yt + 0.09 * H, +D * 0.04),
-        (c + 0.34 * L, yt + 0.11 * H, +D * 0.50),          # front loop, start
-        (c - 0.34 * L, yt + 0.07 * H, +D * 0.52),          # front loop, end
-        (1.00 * L, yt - 0.06 * H, +D * 0.22),              # away to the next stitch
+        # --- the two top loops: the two legs of one chain loop ------------------
+        # Symmetric about the centre, so they sit at the same fabric x either way. They run
+        # in opposite directions -- out along the back, home along the front -- which is why
+        # closing the V into a ring must not reverse one of them.
+        ("back_loop",    (c - 0.34 * L, yt + 0.02 * H, -D * 0.50)),
+        ("back_loop_e",  (c + 0.34 * L, yt + 0.05 * H, -D * 0.46)),
+        ("v_turn",       (c + 0.40 * L, yt + 0.09 * H, +D * 0.04)),
+        ("front_loop",   (c + 0.34 * L, yt + 0.11 * H, +D * 0.50)),
+        ("front_loop_e", (c - 0.34 * L, yt + 0.07 * H, +D * 0.52)),
+        ("away",         (1.00 * L, yt - 0.06 * H, +D * 0.22)),
     ]
+    names = [n for n, _ in p]
+    p = [xyz for _, xyz in p]
     pts = np.asarray(p, dtype=np.float64)
     if direction < 0:
         # Mirror end for end about the cell centre, and lay the points down in the reverse
@@ -181,18 +203,18 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         # symmetric about that centre, so it does not move.
         pts[:, 0] = L - pts[:, 0]
         pts = pts[::-1].copy()
-        spans = {"pull_through": (len(pts) - 6, len(pts) - 3),
-                 "back_loop": (len(pts) - 11, len(pts) - 10),
-                 "front_loop": (len(pts) - 14, len(pts) - 13)}
-    else:
-        # A loop ends where the comments above say it ends. Both spans used to run one point
-        # long, swallowing the point after the loop. For the back loop that point continues
-        # in the same direction, so the strand stayed a simple arc and encirclement still
-        # counted odd. For the front loop the extra point is the run-off to the next stitch,
-        # which doubles back in x: the strand became a hairpin, a passing yarn crossed the
-        # ribbon under it twice, and an even count reads as not linked. Every front-loop
-        # stitch failed and no other kind did.
-        spans = {"pull_through": (2, 5), "back_loop": (9, 10), "front_loop": (12, 13)}
+        names = names[::-1]
+
+    def span(first: str, last: str) -> tuple[int, int]:
+        a, b = names.index(first), names.index(last)
+        return (a, b) if a <= b else (b, a)
+
+    spans = {
+        "pull_through": span("insert", "emerge"),
+        "back_loop": span("back_loop", "back_loop_e"),
+        "front_loop": span("front_loop", "front_loop_e"),
+        "third_loop": span("third_loop", "third_loop"),
+    }
     return pts, spans
 
 
@@ -421,59 +443,72 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
                         f"joined into one piece")
 
     # --- THE LINKAGE CHECK --------------------------------------------------
-    # Every stitch above the first row must be drawn through the loop of the stitch below it.
+    # Every stitch above the first row must be drawn through the loop of the stitch below.
+    #
+    # This is measured as a LINKING NUMBER between two closed curves, which is an integer
+    # topological invariant. It replaced three separate hand-rolled tests -- a crossing
+    # parity, a ribbon-encirclement count and a ring-threading test -- and the reason is not
+    # that they failed but that they measured the wrong kind of property: each counted
+    # crossings on a sub-path cut at an arbitrary index, so the parity moved with the cut
+    # rather than with the yarn. Cut the same correct stitch two points earlier and the
+    # verdict flipped. A linking number cannot do that.
+    #
+    # Which curve depends on the loop target, and the three cases are genuinely different
+    # geometry, not three settings of one knob:
+    #
+    #   both  -- the two "loops" at a stitch top are the two legs of ONE chain loop. Working
+    #            under both means the hook goes through the opening that loop bounds, so the
+    #            curve is that whole loop, closed.
+    #   back  -- only the back leg is picked up, so the new yarn encircles that single strand
+    #   front -- likewise the front leg.
     linked, unlinked = 0, []
-    indeterminate: list[tuple[int, int]] = []
+    unmeasurable: list[tuple[int, int]] = []
+    numbers: list[int] = []
     by_key = {(o.row, o.position): o for o in hdc}
     for o in hdc:
         anchor = by_key.get((rows[rows.index(o.row) - 1], o.position)) \
             if rows.index(o.row) > 0 else None
         if anchor is None:
             continue
-        # Which strand this stitch was drawn around is the loop target, exactly. Working
-        # through both loops encircles the pair together, which is why plain fabric has no
-        # ridge: neither strand is left loose.
+        back = anchor.points[anchor.back_loop[0]:anchor.back_loop[1] + 1]
+        front = anchor.points[anchor.front_loop[0]:anchor.front_loop[1] + 1]
         if o.loop_target == "front":
-            strand = anchor.points[anchor.front_loop[0]:anchor.front_loop[1] + 1]
+            target = linkage.close_arc(np.vstack([front, front.mean(axis=0) + _AWAY]))
         elif o.loop_target == "back":
-            strand = anchor.points[anchor.back_loop[0]:anchor.back_loop[1] + 1]
+            target = linkage.close_arc(np.vstack([back, back.mean(axis=0) + _AWAY]))
         else:
-            strand = None            # both loops: tested against each in turn, below
-        a0, a1 = o.pull_through
-        pull = o.points[a0:min(a1 + 1, len(o.points))]
-        if strand is not None:
-            # One loop: the new yarn goes ROUND that strand.
-            through = _crossings_of_spanning_surface(pull, strand, fab.H * 4.0) % 2 == 1
-        else:
-            # Working through BOTH loops, the hook goes UNDER the pair: the stem encircles
-            # the two strands as a bundle. That is a third relation, and I cannot yet measure
-            # it. Encircling each strand separately is not it. Threading between them --
-            # which is what the previous version tested -- is a different relation entirely,
-            # and it counted crossings on a sub-path cut at an arbitrary point, so its parity
-            # moved with where the cut fell rather than with the topology. It reported 16 of
-            # these linked and 7 unlinked, and neither number meant anything.
-            #
-            # So this is recorded as indeterminate, not as a pass and not as a failure. A
-            # relation nobody has measured is not a relation that holds.
-            indeterminate.append((o.row, o.position))
+            # NOT front[::-1]. The two legs of a V already run in opposite directions --
+            # the yarn travels out along the back leg and returns along the front -- so
+            # reversing one folds the quadrilateral into a bowtie. A self-intersecting ring
+            # has a folded spanning surface, and every one of these stitches scored a
+            # linking number of 2: one crossing counted twice by the fold.
+            target = linkage.close_arc(np.vstack([back, front]))
+        try:
+            lk = linkage.link_with_open_path(target, o.points)
+        except (linkage.CurvesIntersect, ValueError):
+            unmeasurable.append((o.row, o.position))
             continue
-        if through:
+        numbers.append(lk)
+        if lk != 0:
             linked += 1
         else:
             unlinked.append((o.row, o.position))
-    checks["stitches_needing_linkage"] = linked + len(unlinked) + len(indeterminate)
-    checks["stitches_indeterminate"] = len(indeterminate)
-    if indeterminate:
-        findings.append(
-            f"{len(indeterminate)} stitches work through both loops, whose linkage this "
-            f"validator cannot yet measure. Not counted as linked")
+
+    checks["stitches_needing_linkage"] = linked + len(unlinked) + len(unmeasurable)
     checks["stitches_linked"] = linked
+    checks["stitches_unmeasurable"] = len(unmeasurable)
     checks["unlinked"] = unlinked[:8]
+    if numbers:
+        checks["linking_numbers"] = sorted(set(numbers))
     if unlinked:
         findings.append(
-            f"{len(unlinked)} of {linked + len(unlinked)} stitches pass BESIDE the loop below "
-            f"rather than through it. Strands that meet without passing through one another "
-            f"are netting, not fabric")
+            f"{len(unlinked)} of {linked + len(unlinked)} stitches have linking number zero "
+            f"with the loop below: they pass beside it, or dip under and come back the way "
+            f"they went. Strands that meet without passing through one another are netting")
+    if unmeasurable:
+        findings.append(
+            f"{len(unmeasurable)} stitches touch the loop they are worked into, so their "
+            f"linking number is undefined rather than zero")
 
     # --- no impossible intersections ---------------------------------------
     # Yarn cannot occupy the same space as yarn. Sampled, because the exact test is

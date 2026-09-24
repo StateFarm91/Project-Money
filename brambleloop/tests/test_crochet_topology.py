@@ -45,12 +45,18 @@ check("loop targets match the CIR", v["loop_targets_match_cir"] is True)
 check("no stitch passes beside the loop below", not v.get("unlinked"),
       str(v.get("unlinked")))
 
-# The both-loop relation is not measured. It must be reported as such and must never be
-# silently counted as linked -- an unmeasured relation is not a relation that holds.
-check("both-loop stitches are reported indeterminate, not linked",
-      v["stitches_indeterminate"] > 0
-      and v["stitches_linked"] + v["stitches_indeterminate"] == v["stitches_needing_linkage"])
-check("indeterminate linkage blocks the pass", v["passes"] is False)
+# Every stitch is measured. The both-loop case used to be unmeasurable and was reported as
+# such; it is now measured by linking number and must actually link.
+check("every stitch's linkage is measurable", v["stitches_unmeasurable"] == 0)
+check("every stitch is linked",
+      v["stitches_linked"] == v["stitches_needing_linkage"],
+      f"{v['stitches_linked']} of {v['stitches_needing_linkage']}")
+
+# A stitch is drawn through the loop below exactly once. Any other number is a different
+# stitch: 0 is yarn that went in and came back out, 2 was a bowtie ring counting one
+# crossing twice.
+check("every linking number is exactly one, in one sense or the other",
+      set(v["linking_numbers"]) <= {-1, 1}, str(v["linking_numbers"]))
 
 # --- interpenetration ---------------------------------------------------------
 # The dive that carries a stitch around the loop below clears it by a yarn diameter. Sized
