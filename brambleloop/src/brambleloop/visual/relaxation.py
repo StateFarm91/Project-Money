@@ -56,16 +56,60 @@ PROVENANCE = {
     "contact_floor": "estimated, bounded by observation -- published measurements of weft "
                      "knits give yarn unit width reductions of about 19% at 11% strain and "
                      "39% at 22%, so squeezing past roughly half a diameter is not physical",
-    "bend_compliance": "ESTIMATED, and genuinely weakly constrained. Yarn flexural rigidity "
-                       "is measurable and published in N/mm2 per tex, but no figure for this "
-                       "specific yarn is in evidence. What the solver needs is bending "
-                       "strength RELATIVE to inextensibility and contact, and that ratio is "
-                       "chosen, not sourced. It is the one number here that would move the "
-                       "result and cannot presently be defended from the pattern.",
+    "bend_compliance": "SOURCED, with a stated conversion and stated uncertainty. See "
+                       "KALDOR_RELAXATION below. The earlier value of 0.18, and the 0.03 "
+                       "that replaced it, were both chosen by which swatch looked better, "
+                       "which is not a way to pick a physical constant.",
     "rest_curvature": "sourced -- unstressed yarn is straight, so bending relaxes towards "
                       "zero curvature rather than towards the authored shape. Relaxing "
                       "towards the authored curvature would merely re-assert what was drawn",
 }
+
+
+# --------------------------------------------------------------------------------------
+# WHERE THE BENDING NUMBER COMES FROM
+#
+# Kaldor, James and Marschner, "Simulating Knitted Cloth at the Yarn Level" (SIGGRAPH 2008),
+# Table 1, which lists separate parameters for their RELAXATION phase and their simulation
+# phase. Relaxation is what this module does, so those are the applicable ones.
+#
+#     yarn radius        r = 0.125 cm
+#     linear density     m = 0.006 g/cm, i.e. 600 tex
+#     bending            k_bend    = 0.005 g cm^2 / s^2   (relaxation)
+#                        k_bend    = 5     g cm^2 / s^2   (simulation)
+#     contact            k_contact = 3250  g / s^2        (both)
+#
+# Their relaxation bending is a THOUSAND times softer than their simulation bending. That is
+# deliberate and it is the single most useful fact here: during settling, yarn is allowed to
+# be very floppy so the fabric can find its shape.
+#
+# APPLICABILITY, which is the part that decides whether these numbers may be borrowed. Their
+# yarn is comparable to the benchmark's rather than materially different: radius 1.25mm
+# against this fabric's 1.67mm, and 600 tex against the pattern's implied ~444 tex. Both are
+# chunky yarns of the same class. This is a transfer between similar yarns with the
+# difference stated, not a figure lifted from a fine filament and presented as ground truth.
+#
+# THE CONVERSION, and its uncertainty. This solver is a projection scheme, not a force
+# integrator, so Kaldor's stiffnesses cannot be used directly. What carries across is the
+# dimensionless ratio k_bend / (k_contact * l^2), which compares bending authority to contact
+# authority over a segment of length l. Inextensibility does not enter it: Kaldor constrain
+# length rather than penalise it, and so does this solver, so length is not a competing
+# energy in either.
+#
+#     Kaldor relaxation:  9.2e-6      Kaldor simulation:  9.2e-3
+#
+# Mapping that onto this solver's per-iteration weights (bend_compliance against a contact
+# gain of about 0.35) is an ORDER OF MAGNITUDE correspondence, not an equality. Two
+# projection schemes with the same ratio do not converge to identical geometry. So the honest
+# output is a justified RANGE spanning those two published settings, and the question to put
+# to the fabric is whether the result is stable across it.
+#
+# For reference: bend_compliance = 0.03, the value in use before this was researched, sits at
+# a ratio of 8.6e-2 -- roughly ten times stiffer than the stiffest published figure and four
+# orders of magnitude above the relaxation figure. It was outside the defensible range.
+KALDOR_RELAXATION = 9.2e-6
+KALDOR_SIMULATION = 9.2e-3
+CONTACT_AUTHORITY = 0.35
 
 
 @dataclass(frozen=True)
