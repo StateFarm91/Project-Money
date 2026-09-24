@@ -151,13 +151,27 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
     # were hand-counted indices both of them ran one point long and the error was invisible
     # until a swatch large enough to contain a front-loop stitch was tested. A name cannot
     # drift out of step with the point it names.
+    #
+    # PROPORTIONS. The published ratios this module started from -- a loop reaching 1.85L
+    # along the row, a crown rising 1.23H -- describe a SLIP STITCH. That paper models
+    # chains, slip stitches and single crochets, and no half double at all. A slip stitch is
+    # a flat stitch whose loops lie over their neighbours; a half double stands upright on a
+    # post. Borrowing the slip stitch's sideways reach gave every stitch a pronounced lean
+    # and merged the row tops into a continuous bar, because the reach was carrying each
+    # stitch most of a pitch sideways for a reason that does not apply to it.
+    #
+    # So the shape comes from the certified gauge and from documented half double anatomy
+    # instead: pitch and height are the gauge's own (here H/L is about 1.5, a stitch taller
+    # than it is wide), the post is upright, the top V spans most of a pitch so the next row
+    # can work into it while staying distinct from its neighbours, and the opening yarn over
+    # leaves its third loop across the back below the V.
     p = [
         # --- yarn over: the wrap, before the hook enters anything ---------------
         # This is the strand that makes a half double a HALF double, and it is why the stitch
-        # has a third loop lying across its back below the V. That strand is a feature, not a
-        # side effect, and the shape check looks for it by name.
-        ("yo_wrap",      (0.00 * L, yt - 0.18 * H, +D * 0.62)),
-        ("yo_settle",    (0.22 * L, yt - 0.04 * H, +D * 0.34)),
+        # has a third loop lying across its back below the V. Its y and z match "away" below
+        # exactly, so one stitch's exit IS the next stitch's entry and the join is seamless.
+        ("yo_wrap",      (0.00 * L, yt - 0.30 * H, +D * 0.46)),
+        ("yo_settle",    (0.20 * L, yt - 0.46 * H, +D * 0.26)),
 
         # --- insert, and pull a loop THROUGH the anchor -------------------------
         # The hook enters in front of the anchor's V, passes THROUGH the opening it bounds,
@@ -165,38 +179,33 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         # opening twice in opposite directions, which is a linking number of zero -- yarn
         # that went in and came back out the way it came, holding on to nothing.
         #
-        # So the descent crosses inside the V's footprint and the ascent happens outside it,
-        # behind the back leg. That asymmetry is the linkage.
-        #
         # The dive clears the anchor strand by a yarn diameter. That clearance is in
-        # millimetres of yarn, not a fraction of H: the published ratios describe centre
-        # paths and are silent about thickness, so a dive sized purely from H passed within
-        # 0.53mm of a 2mm strand -- through it, not around it.
-        ("insert",       (c - 0.16 * L, y0 + 0.46 * H, enter_z + D * 0.52)),
+        # millimetres of yarn, not a fraction of H: ratios describe centre paths and are
+        # silent about thickness, so a dive sized purely from H passed within 0.53mm of a
+        # 2mm strand -- through it, not around it.
+        ("insert",       (c - 0.16 * L, y0 + 0.40 * H, enter_z + D * 0.50)),
         ("through",      (c - 0.02 * L, y0 - 0.02 * H - yarn, enter_z + D * 0.08)),
-        ("behind",       (c + 0.10 * L, y0 - 0.10 * H - yarn, enter_z - D * 1.30)),
-        ("emerge",       (c + 0.16 * L, y0 + 0.46 * H, enter_z - D * 1.05)),
+        ("behind",       (c + 0.10 * L, y0 - 0.10 * H - yarn, enter_z - D * 1.25)),
+        ("emerge",       (c + 0.15 * L, y0 + 0.40 * H, enter_z - D * 0.95)),
 
-        # --- the pull-up rises, reaching along the row --------------------------
-        # LOOP_REACH is imposed here: the loop extends nearly two pitches, overlapping the
-        # neighbouring stitch, which is what lets the next row intermesh.
-        ("rise",         (c + 0.34 * L, y0 + 0.74 * H, -D * 0.34)),
-        ("reach",        (LOOP_REACH * 0.52 * L, crown, +D * 0.08)),
+        # --- the post: upright, not leaning ------------------------------------
+        ("rise",         (c + 0.10 * L, y0 + 0.74 * H, -D * 0.30)),
+        ("crown",        (c - 0.02 * L, yt - 0.20 * H, +D * 0.06)),
 
         # --- yarn over and pull through all three loops -------------------------
-        ("close_near",   (c + 0.30 * L, yt - 0.12 * H, -D * 0.58)),
-        ("third_loop",   (c - 0.06 * L, yt - 0.04 * H, -D * 0.38)),
+        ("close_near",   (c + 0.16 * L, yt - 0.14 * H, -D * 0.48)),
+        ("third_loop",   (c - 0.12 * L, yt - 0.07 * H, -D * 0.40)),
 
         # --- the two top loops: the two legs of one chain loop ------------------
         # Symmetric about the centre, so they sit at the same fabric x either way. They run
         # in opposite directions -- out along the back, home along the front -- which is why
         # closing the V into a ring must not reverse one of them.
-        ("back_loop",    (c - 0.34 * L, yt + 0.02 * H, -D * 0.50)),
-        ("back_loop_e",  (c + 0.34 * L, yt + 0.05 * H, -D * 0.46)),
-        ("v_turn",       (c + 0.40 * L, yt + 0.09 * H, +D * 0.04)),
-        ("front_loop",   (c + 0.34 * L, yt + 0.11 * H, +D * 0.50)),
-        ("front_loop_e", (c - 0.34 * L, yt + 0.07 * H, +D * 0.52)),
-        ("away",         (1.00 * L, yt - 0.06 * H, +D * 0.22)),
+        ("back_loop",    (c - 0.40 * L, yt + 0.02 * H, -D * 0.44)),
+        ("back_loop_e",  (c + 0.40 * L, yt + 0.06 * H, -D * 0.40)),
+        ("v_turn",       (c + 0.48 * L, yt + 0.10 * H, +D * 0.02)),
+        ("front_loop",   (c + 0.40 * L, yt + 0.13 * H, +D * 0.44)),
+        ("front_loop_e", (c - 0.40 * L, yt + 0.09 * H, +D * 0.46)),
+        ("away",         (1.00 * L, yt - 0.30 * H, +D * 0.46)),
     ]
     names = [n for n, _ in p]
     p = [xyz for _, xyz in p]
