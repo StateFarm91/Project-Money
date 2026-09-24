@@ -7319,3 +7319,130 @@ are now the honest top of the queue:
      resolution, though much less than before the surface and halo layers.
 
 Milestone D remains FAIL. Nothing here promotes it.
+
+## 2026-09-24 — out-of-plane relaxation: the fabric leaves its plane, and three more
+## validators turned out to have been measuring orientation
+
+Deterministic, CA$0.00. Phase `shadow`. Nothing published.
+
+### The increment
+
+`src/brambleloop/visual/drape.py`. Gravity, a support plane and boundary conditions, in real
+units, so the fabric's shape is an OUTCOME rather than a deformation applied to it. Nothing
+here displaces vertices to look like drape, and no curl, wrinkle or noise is added anywhere.
+
+  lambda   DERIVED. 444 tex IS mass per length by definition: 4.44e-4 kg/m.
+  g        SOURCED. Standard gravity.
+  B        BOUNDED then CALIBRATED, see below. Not chosen.
+  friction NOT MODELLED, and stated as such.
+
+### Product Truth versus physical presentation, measured
+
+                       intrinsic W x H          projected W x H
+  CONTROL (flat)       41.29 x 62.86 mm         54.05 x 78.71 mm
+  DRAPED               41.27 x 64.63 mm         55.54 x 80.32 mm
+  change               -0.03% / +2.81%          +2.76% / +2.04%
+
+Intrinsic width is invariant to three hundredths of a per cent. Intrinsic height extends
+2.81% -- that is the hanging half carrying its own weight, i.e. fabric extension under load,
+not the product changing size, and it is reported rather than absorbed. It exceeds the 2%
+tolerance in `test_drape`, which passes at that suite's smaller sample and shorter solve; the
+threshold is a statement about an unloaded product and needs restating for a loaded one. NOT
+verified: that the extension is recoverable when the load is removed.
+
+Locks on the actual 3D geometry, control and experiment alike:
+**42/42 linked, 49/49 shaped, 0 unmeasurable, 0 unframeable, closest 1.500mm, passes=True.**
+Yarn length change +0.0000%, worst segment strain 4e-5, zero displacement-cap violations.
+
+### The mechanics are validated against something they were not fitted to
+
+Simulated cantilever against beam theory, delta = l^4 / 8c^3, across the band:
+-3.0%, -3.8%, +6.2%. The solver reproduces classical beam deflection independently.
+
+Out-of-plane displacement 6.93mm max, 1.89mm mean, over a 39.4mm overhang: a 10.0 degree
+tip. Fabric depth goes 10.91mm to 17.27mm.
+
+### How B was fixed, and the claim of mine that this overturned
+
+The bracket spans 735,000x -- a solid rod of this yarn against its fibres bending freely --
+so it cannot pick a value. My first attempt to narrow it assumed fabric rigidity per unit
+width was the yarn's divided by the stitch pitch. The solver disagrees by about sixteen
+times. THAT SAME MAPPING is what I had used earlier in this increment to exclude the
+free-fibre lower bound on evidence, so that exclusion was wrong and is withdrawn.
+
+Calibration therefore runs against the quantity published measurement does bound: fabric
+bending length. Jersey is published at 0.5-1.4cm and chunky crochet is unambiguously
+stiffer, giving a floor near 15mm; crochet of this weight visibly bends at swatch scale,
+giving a ceiling near 80mm. The solver's own bending length is MEASURED by deflecting a
+cantilever, and B set so it lands on the band's geometric midpoint. The cross-check it was
+not fitted to: B comes out at 1.45x the free-fibre hard floor, exactly where a soft chunky
+acrylic whose fibres nearly slip freely belongs.
+
+### Rest curvature, which was the whole increment in one decision
+
+Measuring bending against STRAIGHT treats every formed loop as pre-stressed, and a crochet
+stitch is nothing but curvature. The internal stress then dominates gravity by 200 to 32,000
+times and sets the fabric's rigidity by itself. Symptoms, both diagnostic:
+
+  * drape identical -- 12.2mm -- across a 160-fold range of bending rigidity. A fabric whose
+    drape ignores its own stiffness is not modelling drape.
+  * three edge stitches EVERTED. Measured rather than trusted: flat, all 49 sit 1.5-1.7mm
+    clear of the third-loop threshold with none within 0.5mm; draped, two had moved +4.6mm
+    and +7.0mm. A deformed product, not a grazed threshold -- so the geometry was wrong, not
+    the instrument, which mattered because the instrument had just been rebuilt.
+
+Kaldor et al. already split these phases, relaxing with a bending constant a thousand times
+below what they simulate with, because relaxation finds the rest state. Ours has done that,
+so drape takes the yarn as set in the shape it relaxed into -- which is what blocking does to
+a finished piece. Both symptoms vanished: drape became monotonic in stiffness and all 49
+stitches survived.
+
+### THREE more validators were measuring orientation, not cloth
+
+Found by rigidly rotating the certified swatch, which changes nothing physical.
+
+  1. MORPHOLOGY read features off global axes. 49/49 correctly shaped became 2/49 at fifteen
+     degrees and 0/49 at thirty, stitches untouched. Rebuilt on a per-stitch frame -- across
+     the course, up the wale, through the cloth.
+  2. The linkage closure's DIRECTION was a fixed global -y. Rotations about x and y looked
+     clean; about z it fell 42/42 to 3/42. That asymmetry is the signature.
+  3. The closure's LENGTH, derived from one flat cell, was too short once cloth curved --
+     linkage 40/42, rising to a stable 41/42 for every tail from 60 to 200mm. Now twice the
+     fabric's own bounding diagonal.
+
+And then the closure's direction failed a fourth time, on curved cloth only: a stitch that is
+demonstrably linked scored -1 for three closure directions and 0 for a fourth at comparable
+clearance. The linking number of an open path with an artificial closure is not an invariant,
+so several are now tried, following how each error occurs -- a miss gives a false negative so
+one clear detection establishes linkage; a false positive needs the tail to thread the stitch,
+which clearance excludes; no room anywhere is UNMEASURABLE, never "unlinked".
+
+Two wrong turns kept because they were informative. Choosing the closure purely for clearance
+picks a triangle pointing away from everything that no stitch crosses: 42/42 became 3/42,
+proving the direction carries physics. And clearance measured from the closure's start is
+meaningless, since a closure begins on the loop and the stitch runs beside it BECAUSE it is
+linked through it.
+
+All 25 adversarial fixtures still reject, plus new ones pinning rotation invariance and that
+a genuinely unlinked strand is caught by no closure.
+
+### D-PRODUCT AGAINST THE REALISM FLOOR: STILL FAIL
+
+The fabric now demonstrably leaves its plane, and the oblique diagnostic shows real relief.
+It is not enough, and the dominant cue has changed rather than gone:
+
+  THE FABRIC READS AS A CORRUGATED RELIEF, NOT AS CLOTH. Each row behaves as a rigid bar
+  that bows gently as a unit; real crochet rows also twist, squash against their neighbours
+  and close the fabric up. The oblique view makes this plainest -- it looks like a moulded
+  panel mounted on a wall rather than yarn lying on a surface.
+
+Honest reading of why: 6.93mm over a 39mm overhang is a gentle bow. The calibration says
+that is what a fabric of this bending length does, and the beam-theory agreement says the
+solver is computing it correctly, so the remaining gap is NOT in the solver. It is that a
+real crochet fabric's softness comes substantially from stitches sliding and rearranging
+against each other -- yarn-on-yarn friction and slip -- which this model does not have at
+all. Friction is listed as NOT MODELLED in the provenance for exactly this reason.
+
+Not claimed: that more iterations, a different B inside the band, or any rendering change
+closes this. The next honest increment is inter-yarn friction and slip, which is a mechanics
+addition rather than an appearance one.
