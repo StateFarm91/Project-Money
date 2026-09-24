@@ -7260,4 +7260,9 @@ dismissed as a flake, because a wall-clock deadline in a test is a real fragilit
 the code under it is fine — the test's own docstring shows it was already hardened once for a
 related reason. Re-run clean without the render for a confirming number.
 
-Not claimed: that the 3,308 figure is the clean one until the uncontended re-run reports.
+UNCONTENDED RE-RUN: **3,309 passing, 0 suites failing.** The count differs from the
+contended run by exactly one — the test that timed out — which is the arithmetic the
+contention explanation predicts, so the diagnosis is confirmed rather than merely plausible.
+The fragility itself is real and stays recorded: a 40-second wall-clock wait will fail again
+on a loaded machine, and it is worth fixing the next time that file is touched. It is not
+this increment's to fix and has not been touched.
