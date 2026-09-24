@@ -436,17 +436,26 @@ CIR -> topology -> validation holds and is now defended by independent checks an
 adversarial fixtures. What is missing is a named, published, well-understood component with
 open implementations.
 
-**A caveat, verified rather than assumed.** CT2Yarn does publish a CC BY 4.0 dataset of 18
-micro-CT scans of real crocheted samples as yarn centrelines (Zenodo, 27.35GB raw or 2.27GB
-processed, downloadable per sample). Its README does NOT state a half double crochet sample:
-the categories are letters and shapes, chain stitches, single-stitch patches and tension
-variations, and the paper's stitch templates are a chain, a slip stitch and a single stitch.
+**A caveat, and it is now checked against the data rather than the prose about it.**
 
-So it can validate the yarn-path machinery -- linking number, continuity, interpenetration --
-against real crochet, which is worth doing and is the best independent test available. It
-cannot calibrate HDC morphology, because it appears not to contain any. An earlier draft of
-this section claimed it could; that claim was written from a search summary before the
-README had been read, and is corrected here.
+Verified by reading Zenodo record 22822228 directly: CC BY 4.0, 18 files, and they are
+`.nrrd` **micro-CT volumes** of 0.8-1.7GB each, not centrelines. The file names settle the
+stitch question on their own evidence -- `C_chain_stiches`, `O_chain_stiches`,
+`S_chain_stiches`, `single_stiches_patch2`, `single_stiches_patch3`, `two_tight`, plus
+letters and shapes (`bar`, `O`, `X`, `H`, `arrow`, `six`). Chains and single stitches. **No
+half double.**
+
+Unverified and left that way: the README says reconstructed centreline curves are released
+too, while the project's own `download_data.py` describes the GitHub release
+`data-processed-v1` as holding processed *volumes*. Which it is cannot be checked from this
+session -- github.com returns 403 for repositories outside this session's scope -- so no
+claim is made either way. If it is volumes, obtaining centrelines means running their
+reconstruction pipeline, which is a project rather than a download.
+
+So the independent-data test is worth wanting and is not cheaply reachable from here. An
+earlier draft of this section said the dataset would give the shape check something external
+to calibrate against; that was written from a search summary before any of this was checked,
+and it was wrong twice over -- the data is volumes, and it contains no half double.
 
 **That is the second time.** Storck et al. model chains, slip stitches and single crochets;
 CT2Yarn scans chains, slip stitches and single-stitch patches. The published crochet
