@@ -7173,3 +7173,91 @@ voids between them.
 
 That is the next increment, and it is a topology/geometry question rather than a rendering
 one, so it belongs before any further material work.
+
+### Heartbeat 2026-09-24T16:15Z — the see-through diagnosis sharpened, and it moved
+
+Production `/api/verify` 12 of 12 passing, phase `shadow`, 0 published against 148 refusals,
+worker alive, scheduler ticking, no dead letters. Model spend CA$75.55 of CA$100. CA$0.00
+spent this heartbeat.
+
+The openness was measured again, two more ways, and the answer is not the one the first
+number implied:
+
+  ORTHOGRAPHIC projection of the actual ply tubes     94.5% covered  ->   5.5% open
+  PERSPECTIVE render against an emissive backdrop                        20.0% open
+
+The fabric is therefore NOT mostly open when looked at flat. The gap between the two figures
+is PARALLAX: the fabric is 7.33mm deep, the small holes at its front and back do not line up,
+and a ray only ~9° off axis drifts 1.16mm sideways crossing that depth — about a third of a
+yarn diameter, which is enough to thread between layers that individually block it.
+
+So the defect is not "the fabric is too open". It is that the fabric is TOO DEEP FOR ITS HOLE
+STRUCTURE, and the two candidate causes are separable and both geometric:
+
+  1. `D = yarn_diameter * 2.2` is one of the few numbers here still labelled ESTIMATED. It
+     was bounded below by what must physically fit through the depth — a back leg, a front
+     leg, and the next row's stem passing between them — and never bounded ABOVE by anything.
+     A real half double crochet fabric's thickness relative to its yarn diameter is a
+     measurable, publishable quantity and has not yet been looked up.
+  2. The residual 5.5% of genuine orthographic holes, which is still more open than real hdc.
+
+Care is required on the first, because depth is exactly what un-pinned the earlier geometry:
+too shallow and threading the loop means grazing its legs, which is the interpenetration
+failure that `D` was raised to escape. Lowering it to improve an image without re-deriving it
+would be tuning a physical constant by eye, so the next action is RESEARCH — the published
+thickness-to-yarn-diameter ratio for half double crochet or an equivalent single-layer
+crochet fabric — before any value changes.
+
+Recorded here rather than acted on because the instruction is to research before inventing,
+and because the first attempt to measure this reported 96% covered by treating the yarn as a
+solid cylinder. Two of the three measurements of this one property have now been wrong in
+different directions, which is itself the reason to source the number rather than derive it
+from another render.
+
+RESEARCH RESULT, AND IT KILLS CANDIDATE 1. No published thickness-to-yarn-diameter ratio for
+crochet fabric was found; the knitting geometry literature (Chamberlain, Peirce, Leaf and
+Glaskin, Munden) models loop length, course and wale spacing but states no thickness formula,
+and the crochet-specific sources give none either. What the craft sources DO settle is the
+anatomy, and it points the opposite way: half double crochet's third loop "sits just behind
+the two usual front and back loops", so the top of an hdc stacks THREE strands through the
+fabric depth. That is 3 yarn diameters, about 10mm here, against the 7.33mm currently used.
+
+So the fabric is not too deep. If anything the estimate is low, and reducing `D` to close the
+parallax would have been tuning a physical constant to improve an image — exactly the move
+the directive forbids. Candidate 1 is withdrawn on evidence rather than left open.
+
+WHAT THAT LEAVES, and it is a sharper question than the one this heartbeat started with. The
+fabric is ~94.5% covered orthographically at a depth that the anatomy says is correct, and
+still shows 20% backdrop to the camera. Two contributions remain, and they are separable:
+
+  a. The residual ~5.5% of genuine holes, which is still more open than real hdc.
+  b. STAGING, which has not been examined at all. The swatch is rendered against a brightly
+     lit diffuse backdrop 29.7mm behind it — about four fabric thicknesses of empty air. Real
+     crochet in a product photograph rests ON its surface, so what shows through a hole is
+     contact shadow and reads as dark structure, not as a bright gap. Every hole in this
+     render is lit from behind by a surface no real photograph would have there.
+
+The Layer 5 macro corroborates (b) by eye, which is not authority but is consistent: the
+holes render as FLAT BRIGHT GREY, the colour of a distant lit surface, rather than as the
+dark recesses between layers that a fabric resting on a backdrop would show.
+
+(b) is a staging artefact and is NOT permission to declare the fabric solid — (a) is a real
+defect regardless. But it must be measured before (a) is attacked, because attacking fabric
+geometry to compensate for a backdrop that should not be 30mm behind the cloth would put an
+unphysical correction into the certified product to fix a lighting decision. Next action: put
+the backdrop at contact distance, re-measure see-through both ways, and attribute the 20%
+between (a) and (b) before changing any geometry.
+
+### Suite and honesty note for this heartbeat
+
+`bash run_tests.sh`: **3,308 passing, 1 suite failing.** The failure is
+`tests/test_deploy.py::test_a_reworded_owner_action_is_restated_in_place_not_queued_twice`,
+which asserts `the readiness job never ran` after waiting 40 seconds of WALL CLOCK for a
+background worker. It passes in isolation, it is untouched by this increment, and the root
+cause is load I inflicted myself: the suite was run concurrently with a 384-sample Mitsuba
+macro render holding a core, alongside four parallel test files. Recorded rather than
+dismissed as a flake, because a wall-clock deadline in a test is a real fragility even when
+the code under it is fine — the test's own docstring shows it was already hardened once for a
+related reason. Re-run clean without the render for a confirming number.
+
+Not claimed: that the 3,308 figure is the clean one until the uncontended re-run reports.
