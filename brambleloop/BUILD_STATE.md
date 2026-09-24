@@ -367,6 +367,67 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+
+### 2026-09-24 — Crochet topology validated; both-loop linkage is INDETERMINATE, not passed
+
+`src/brambleloop/visual/crochet_topology.py`, `tests/test_crochet_topology.py` (18 passing).
+Committed `90d837c`, pushed.
+
+**Status: topology does NOT pass. Nothing was rendered.** The gate is "validate topology
+before realism", and it is not cleared, so no material, light or camera was applied to this
+geometry. The diagnostic SVG is geometry only and is not a product image.
+
+At 14 rows x 16 stitches, against the certified benchmark CIR:
+
+| measure | value |
+|---|---|
+| stitches built / expected | 208 / 208 |
+| loop targets match the CIR | yes |
+| verified linked | 201 |
+| unlinked | 0 |
+| **indeterminate** | **7** |
+| closest non-adjacent approach | 1.98mm against 2.00mm yarn |
+| `validate(...)["passes"]` | **False** |
+
+**Four construction defects, each found by the validator, not by looking:**
+
+1. `settle()` averaged all segments to one rest length, dragging strands out of their loops:
+   linkage 15/15 -> 0/15. Rest length is now per segment. The docstring had asserted linkage
+   "cannot be undone" — asserted, not held. Corrected.
+2. The contact-repulsion grid compared only points in the same cell, so it could not see any
+   of the contacts it existed to relieve. Now scans the 27-cell neighbourhood.
+3. The dive around the loop below was sized as a fraction of row height, with no term for the
+   strand being 2mm thick. Every stitch passed 0.53mm from it — through it. Clearance is now
+   a yarn diameter.
+4. Both loop spans ran one point long. The front loop's extra point doubles back in x, making
+   the strand a hairpin, so a passing yarn crossed the ribbon under it twice and every
+   front-loop stitch read as unlinked.
+
+**Defect 4 was hidden by an unrepresentative sample.** The 4x5 swatch contains no front-loop
+stitch at all. The earlier "15 of 15 linked" could not have caught it. Validation now runs to
+14x16 and exercises all three loop targets.
+
+**Why 7 are indeterminate.** Working through both loops puts the hook under the pair, so the
+relation is encirclement of two strands as a bundle. The test in place asked whether the yarn
+threads *between* them — a different relation — and counted crossings on a sub-path cut at an
+arbitrary point, so its parity moved with the cut, not with the topology. It reported 16
+linked and 7 unlinked; neither number meant anything. Recorded as indeterminate. An unmeasured
+relation is not a relation that holds, and UNMEASURABLE is never PASS.
+
+**The checks are necessary but not sufficient — and the diagnostic proves it.** Linkage,
+continuity and interpenetration all pass on 201 stitches, but the rendered geometry does not
+read as crochet: stitch tops draw as straight horizontal bars rather than paired loops, and
+the intermeshing that makes crochet fabric is not visible. A geometry can satisfy every check
+here and still not be a half double crochet. No stitch-shape check exists yet.
+
+**Blocking the next increment**, in order:
+1. A correct both-loop linkage measure (encirclement of the strand pair as a bundle).
+2. A stitch-shape check, so passing the topology checks means the thing is recognisably an
+   HDC and not merely a connected non-intersecting curve.
+
+Neither is a rendering problem and neither is fixed by materials or lighting.
+
+## Previously — last completed milestone
 **2026-09-23 — the render-reliability standard, and the frame-reuse feature that was green
 and dead on arrival.**
 
