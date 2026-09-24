@@ -167,3 +167,64 @@ def ply_geometry(centreline: np.ndarray, spec: PlySpec) -> list[np.ndarray]:
         out.append(pts + spec.ply_offset_mm
                    * (np.cos(a)[:, None] * u + np.sin(a)[:, None] * v))
     return out
+
+
+# Acrylic staple fibre, 3.3 dtex, polyacrylonitrile at 1180 kg/m3. Diameter derived from
+# linear density and density, not looked up as a length: 18.9um, so a radius of 0.0094mm.
+FIBRE_DTEX = 3.3
+PAN_DENSITY_KG_M3 = 1180.0
+
+
+def fibre_radius_mm(dtex: float = FIBRE_DTEX, density: float = PAN_DENSITY_KG_M3) -> float:
+    lin = dtex * 1e-4 / 1000.0                 # g/10000m -> kg/m
+    area = lin / density                       # m^2
+    return float(np.sqrt(area / np.pi) * 1e3)  # m -> mm, radius
+
+
+def fibres_per_yarn(tex: float, dtex: float = FIBRE_DTEX) -> int:
+    return int(round(tex * 10.0 / dtex))
+
+
+def surface_fibres(ply_curves, spec: PlySpec, *, per_ply: int = 16,
+                   seed: int = 20260924):
+    """A sparse halo of surface fibres, sized by what the image can actually resolve.
+
+    WHY SPARSE, and why that is not a shortcut. A 444 tex yarn of 3.3 dtex acrylic holds
+    about 1345 fibres, 336 per ply. At the resolution of a listing photograph -- 1000 pixels
+    across a 54mm swatch, so 0.054mm per pixel -- a single 18.9 micron fibre is 0.35 pixels
+    wide. No individual fibre is resolvable. What reaches the image is the AGGREGATE: a soft
+    halo that breaks the silhouette, and a little texture where fibres cross the surface.
+    Rendering all 1345 would compute something the image cannot show, which is the exact
+    trade Montazeri et al.'s ply-based model exists to avoid.
+
+    So this is a rendering budget rather than a physical count, and it is stated as one:
+    16 per ply is 64 per yarn, roughly 5 per cent of the real fibre population. The fibre
+    RADIUS is derived and correct; the NUMBER is chosen for the image scale and is the one
+    number here that is neither measured nor derived.
+
+    Fibres are not noise sprinkled on the surface. Each one follows its ply, lies against it
+    for most of its length, and lifts away over a short span the way a fibre end does.
+    """
+    rng = np.random.default_rng(seed)
+    r_fib = fibre_radius_mm()
+    out = []
+    for ply in ply_curves:
+        n = len(ply)
+        tang, u, v = _parallel_transport_frames(ply)
+        for k in range(per_ply):
+            phase = rng.uniform(0, 2 * np.pi)
+            # A slow wander around the ply, so the fibre lies along it rather than crossing.
+            wander = phase + np.linspace(0, rng.uniform(-6.0, 6.0), n)
+            # Lift-off: mostly hugging the ply, rising over one short stretch.
+            lift = np.zeros(n)
+            start = rng.integers(0, max(n - 2, 1))
+            span = int(rng.integers(n // 40 + 2, n // 12 + 3))
+            end = min(start + span, n)
+            if end > start:
+                t = np.linspace(0, np.pi, end - start)
+                lift[start:end] = np.sin(t) * rng.uniform(0.10, 0.55)
+            radius = spec.ply_radius_mm + r_fib + lift
+            pts = ply + radius[:, None] * (np.cos(wander)[:, None] * u
+                                           + np.sin(wander)[:, None] * v)
+            out.append(pts)
+    return out, r_fib
