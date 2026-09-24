@@ -94,8 +94,105 @@ _AWAY = np.array([0.0, -6.0, 0.0])
 
 
 def _away_reach(fab) -> float:
-    """How far the fictitious closure must extend to be a wall rather than a flap."""
-    return 2.0 * float(np.hypot(fab.L, fab.H) + fab.D)
+    """How far the fictitious closure must extend to be a wall rather than a flap.
+
+    Derived from the FABRIC'S OWN EXTENT, not from one cell. The earlier version used twice
+    the cell diagonal plus fabric depth, which is correct for a flat swatch and too short for
+    a draped one: on curved cloth the direction that leaves a stitch has further to travel
+    before it is clear of the rest of the fabric, so yarn gets round the end of the tail
+    again. It showed up as linkage falling to 40 of 42 on a draped swatch while rising to a
+    stable 41 of 42 for every tail from 60mm to 200mm -- the same "verdict depends on the
+    size of an imaginary surface" signature as the 6mm tail, in a new place.
+
+    Twice the fabric's bounding diagonal cannot be rounded by anything inside that box, which
+    is every piece of yarn there is, so the bound holds for any configuration rather than for
+    the planar one it was measured in. The cell-based figure is kept as a floor for the
+    degenerate case of a fabric too small to have an extent worth measuring.
+    """
+    span = float(np.linalg.norm(np.ptp(fab.points, axis=0)))
+    return max(2.0 * span, 2.0 * float(np.hypot(fab.L, fab.H) + fab.D))
+
+
+def _clearance_to_path(a: np.ndarray, b: np.ndarray, path: np.ndarray,
+                       skip_mm: float = 0.0, samples: int = 160) -> float:
+    """Closest approach between the segment a-b and a polyline, ignoring the first skip_mm.
+
+    The skip matters. A closure begins ON the loop it closes, and the stitch being measured
+    runs right beside that loop BECAUSE IT IS LINKED THROUGH IT, so the first few millimetres
+    are always close to the path and always will be. Measuring from the start makes every
+    candidate direction score about the same small number and the choice between them falls
+    to noise -- which is how an attempt to pick the roomiest closure dropped a flat swatch
+    that scores 42 of 42 down to 3 of 42. What actually needs checking is whether the tail
+    punches through the stitch further out, so the near-loop stretch is excluded.
+    """
+    length = float(np.linalg.norm(b - a))
+    if length < 1e-9:
+        return float("inf")
+    t0 = min(skip_mm / length, 0.9)
+    t = np.linspace(t0, 1.0, samples)[:, None]
+    pts = a[None, :] * (1 - t) + b[None, :] * t
+    p0, p1 = path[:-1], path[1:]
+    d = p1 - p0
+    dd = np.einsum("ij,ij->i", d, d)
+    dd[dd < 1e-12] = 1e-12
+    w = pts[:, None, :] - p0[None, :, :]
+    u = np.clip(np.einsum("kij,ij->ki", w, d) / dd[None, :], 0.0, 1.0)
+    closest = p0[None, :, :] + u[:, :, None] * d[None, :, :]
+    return float(np.linalg.norm(pts[:, None, :] - closest, axis=2).min())
+
+
+def _encirclement(arc: np.ndarray, path: np.ndarray, fab, frame):
+    """Does `path` encircle the single strand `arc`? Returns (linked, determinate, detail).
+
+    A single top loop is a sliver bounding no area, so it is closed through a point off to
+    one side and the stitch must cross the triangle that spans. The linking number of an OPEN
+    path with such a ring is not a topological invariant on its own: it depends on the
+    closure, which is fictitious. On flat cloth one direction served for every stitch and the
+    dependence never showed. On curved cloth it does -- a stitch that is demonstrably linked
+    scored -1 for three closure directions and 0 for a fourth, at comparable clearance, so
+    the fourth was simply a triangle that missed the crossing.
+
+    So no single direction is trusted. Several are tried, and the rule follows the geometry
+    of how each error happens rather than being a vote for its own sake:
+
+      * A FALSE NEGATIVE is easy -- any triangle that misses the region the stitch passes
+        through returns zero -- so one clear detection is enough to establish linkage.
+      * A FALSE POSITIVE needs the fictitious tail to thread the stitch itself, which is what
+        the clearance test exists to exclude. Directions without room are not consulted.
+      * If NO direction has room, the answer is UNMEASURABLE, never "unlinked". A check that
+        cannot see its subject must not be the cheapest route to a verdict.
+
+    An unlinked stitch has no triangle that catches it, so it scores zero everywhere, which
+    is what keeps the adversarial fixtures rejected.
+    """
+    reach = _away_reach(fab)
+    centre = arc.mean(axis=0)
+    dirs = []
+    if frame is not None:
+        across, up, through = frame
+        dirs += [-up, through, -through, -up + through, -up - through, across, -across]
+    dirs += [np.array([0.0, -1.0, 0.0]), np.array([0.0, 0.0, -1.0]),
+             np.array([0.0, 0.0, 1.0])]
+    room_needed = fab.yarn_diameter * 0.35
+    tried = 0
+    for d in dirs:
+        n = float(np.linalg.norm(d))
+        if n < 1e-9:
+            continue
+        tip = centre + (d / n) * reach
+        if _clearance_to_path(centre, tip, path,
+                              skip_mm=2.0 * fab.yarn_diameter) < room_needed:
+            continue
+        tried += 1
+        try:
+            lk = linkage.link_with_open_path(linkage.close_arc(np.vstack([arc, tip])), path)
+        except (linkage.CurvesIntersect, ValueError):
+            continue
+        if lk != 0:
+            return True, True, lk
+    if tried == 0:
+        return False, False, 0
+    return False, True, 0
 
 
 def _away_vector(fab, down=None) -> np.ndarray:
@@ -731,13 +828,20 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
         if anchor is None:
             continue
         a_frame = frames.get((anchor.row, anchor.position))
-        away = _away_vector(fab, None if a_frame is None else -a_frame[1])
         back = anchor.points[anchor.back_loop[0]:anchor.back_loop[1] + 1]
         front = anchor.points[anchor.front_loop[0]:anchor.front_loop[1] + 1]
-        if o.loop_target == "front":
-            target = linkage.close_arc(np.vstack([front, front.mean(axis=0) + away]))
-        elif o.loop_target == "back":
-            target = linkage.close_arc(np.vstack([back, back.mean(axis=0) + away]))
+        if o.loop_target in ("front", "back"):
+            arc = front if o.loop_target == "front" else back
+            is_linked, determinate, lk = _encirclement(arc, o.points, fab, a_frame)
+            if not determinate:
+                unmeasurable.append((o.row, o.position))
+                continue
+            numbers.append(lk)
+            if is_linked:
+                linked += 1
+            else:
+                unlinked.append((o.row, o.position))
+            continue
         else:
             # NOT front[::-1]. The two legs of a V already run in opposite directions --
             # the yarn travels out along the back leg and returns along the front -- so

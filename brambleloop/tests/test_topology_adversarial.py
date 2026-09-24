@@ -367,5 +367,52 @@ for _axis in ("x", "y", "z"):
 check("no stitch is unmeasurable for want of a frame, foundation row included",
       _base.get("stitches_unframeable", 0) == 0, str(_base.get("stitches_unframeable")))
 
+# --- REGRESSION: encirclement must not depend on which closure was picked ----------------
+# Third time a verdict has turned out to rest on a property of an imaginary surface. The
+# closure's LENGTH was wrong twice -- 6mm let leaning stitches escape past the triangle's
+# edge, and the cell-derived length did the same once the fabric draped. Its DIRECTION was
+# wrong a third time, and only on curved cloth: a stitch that is demonstrably linked scored
+# -1 for three closure directions and 0 for a fourth at comparable clearance, so the fourth
+# was a triangle that missed the crossing, and the validator called the stitch unlinked.
+#
+# The linking number of an open path with an artificially closed ring is not an invariant on
+# its own. So several closures are tried and the rule follows how each error actually
+# happens: a miss is easy and gives a false negative, so one clear detection establishes
+# linkage; a false positive needs the tail to thread the stitch, which clearance excludes.
+#
+# The property that must hold, and that this pins, is that a genuinely unlinked stitch is
+# caught by NO closure. If any direction could manufacture a crossing, every fixture below
+# would start passing and the check would be decorative.
+_enc_f = honest()
+_enc_hdc = [o for o in _enc_f.ops if o.kind == "hdc"]
+_enc_by = {(o.row, o.position): o for o in _enc_hdc}
+_enc_rows = sorted({o.row for o in _enc_hdc})
+_single = [o for o in _enc_hdc if o.loop_target in ("front", "back")
+           and _enc_rows.index(o.row) > 0]
+check("the benchmark fabric actually exercises single-loop encirclement",
+      len(_single) > 0, str(len(_single)))
+
+_agree = 0
+for _o in _single[:12]:
+    _a = _enc_by[(_enc_rows[_enc_rows.index(_o.row) - 1], _o.position)]
+    _arc = (_a.points[_a.front_loop[0]:_a.front_loop[1] + 1] if _o.loop_target == "front"
+            else _a.points[_a.back_loop[0]:_a.back_loop[1] + 1])
+    _linked, _det, _ = _ct._encirclement(_arc, _o.points, _enc_f, None)
+    if _linked and _det:
+        _agree += 1
+check("every single-loop stitch of an honest fabric is found linked",
+      _agree == len(_single[:12]), "%d of %d" % (_agree, len(_single[:12])))
+
+# A strand that merely lies NEAR the loop, never through it, must be caught by no closure.
+_o = _single[0]
+_a = _enc_by[(_enc_rows[_enc_rows.index(_o.row) - 1], _o.position)]
+_arc = (_a.points[_a.front_loop[0]:_a.front_loop[1] + 1] if _o.loop_target == "front"
+        else _a.points[_a.back_loop[0]:_a.back_loop[1] + 1])
+_beside = _arc.mean(axis=0) + np.array([0.0, 0.0, 40.0]) + np.linspace(
+    -20, 20, 24)[:, None] * np.array([1.0, 0.0, 0.0])
+_lk, _det2, _ = _ct._encirclement(_arc, _beside, _enc_f, None)
+check("a strand passing beside the loop is not reported as encircling it",
+      (not _lk) and _det2, "linked=%s determinate=%s" % (_lk, _det2))
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)
