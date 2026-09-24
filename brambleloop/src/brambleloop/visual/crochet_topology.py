@@ -184,13 +184,17 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         # silent about thickness, so a dive sized purely from H passed within 0.53mm of a
         # 2mm strand -- through it, not around it.
         ("insert",       (c - 0.16 * L, y0 + 0.40 * H, enter_z + D * 0.50)),
-        ("through",      (c - 0.02 * L, y0 - 0.02 * H - yarn, enter_z + D * 0.08)),
-        ("behind",       (c + 0.10 * L, y0 - 0.10 * H - yarn, enter_z - D * 1.25)),
+        ("through",      (c - 0.02 * L, y0 + 0.03 * H - yarn, enter_z + D * 0.08)),
+        ("behind",       (c + 0.10 * L, y0 - 0.04 * H - yarn, enter_z - D * 1.25)),
         ("emerge",       (c + 0.15 * L, y0 + 0.40 * H, enter_z - D * 0.95)),
 
         # --- the post: upright, not leaning ------------------------------------
-        ("rise",         (c + 0.10 * L, y0 + 0.74 * H, -D * 0.30)),
-        ("crown",        (c - 0.02 * L, yt - 0.20 * H, +D * 0.06)),
+        # Held to the side of the cell centre. Dead centre is where the NEXT row's hook
+        # comes down, and the post's crown sat 0.3mm from it -- the two stitches occupied
+        # the same millimetre of space and only relaxation pulled them apart afterwards.
+        # Clearance belongs in the construction; relaxation is for contact, not for repair.
+        ("rise",         (c + 0.18 * L, y0 + 0.74 * H, -D * 0.30)),
+        ("crown",        (c + 0.20 * L, yt - 0.20 * H, +D * 0.14)),
 
         # --- yarn over and pull through all three loops -------------------------
         ("close_near",   (c + 0.16 * L, yt - 0.14 * H, -D * 0.48)),
