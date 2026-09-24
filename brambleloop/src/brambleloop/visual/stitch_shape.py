@@ -31,12 +31,40 @@ and nothing can be worked into it.
 Thresholds are deliberately loose. This check exists to reject a stitch that is the wrong
 KIND of thing, not to police millimetres, and a tight threshold here would be a tuned
 constant pretending to be a law.
+
+WHY EVERY MEASUREMENT IS TAKEN IN A LOCAL FRAME. The first version of this file read the
+features off the global axes: "behind" meant -z, "below" and "height" meant y, the V ran
+along x. That works for exactly as long as the fabric lies flat in the plane it was built in,
+and it is not a description of crochet -- it is a description of crochet lying still. Rigidly
+rotating the certified fabric, which changes no physical property of it whatsoever, collapsed
+the verdict from 49 of 49 stitches correctly shaped to 2 of 49 at fifteen degrees and 0 of 49
+at thirty. The stitches were not deformed. The instrument was measuring orientation.
+
+That mattered the moment the fabric was allowed out of its plane, because a draped fabric is
+a rotated one everywhere at once: each stitch sits on a surface with its own normal, and a
+row that curls has stitches whose "behind" points in a different direction from their
+neighbours'. Grandfathering the planar version would have meant every draped stitch failing a
+morphology check for a reason that has nothing to do with morphology, and the obvious
+response -- flattening the fabric until the check passed again -- would have been deforming a
+correct product to satisfy a broken instrument.
+
+So each stitch is measured against a frame built from its own neighbours:
+
+    ACROSS   the course direction, from this stitch towards the next along its row
+    UP       the wale direction, from the anchor it was worked into towards this stitch
+    THROUGH  across x up, which points out of the FRONT face of the fabric
+
+These are the same three directions the planar version assumed, derived per stitch instead of
+assumed globally, so on flat fabric the two agree exactly. Under rotation, drape or curl the
+frame travels with the cloth and the verdicts do not move. A stitch with no neighbour to
+build a frame from is reported UNMEASURABLE rather than passed, because a check that cannot
+see its subject must never be the cheapest way to get a pass.
 """
 from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["shape_report", "MORPHOLOGY"]
+__all__ = ["shape_report", "local_frame", "MORPHOLOGY", "Unframeable"]
 
 MORPHOLOGY = (
     "a third loop behind the fabric, below the top V",
@@ -47,13 +75,57 @@ MORPHOLOGY = (
 )
 
 
+class Unframeable(Exception):
+    """This stitch has no neighbours to orient it, so its shape cannot be measured."""
+
+
 def _span(points, lo_hi):
     a, b = lo_hi
     return points[a:b + 1]
 
 
-def shape_report(op, L: float, H: float, D: float) -> list[str]:
-    """Structural complaints about one stitch. Empty means it looks like an HDC."""
+def _unit(v):
+    n = float(np.linalg.norm(v))
+    if n < 1e-9:
+        raise Unframeable("a frame direction collapsed to zero length")
+    return v / n
+
+
+def local_frame(op, row_neighbour=None, anchor=None, neighbour_is_ahead: bool = True):
+    """The fabric's own three directions at this stitch: (across, up, through).
+
+    `row_neighbour` is an adjacent stitch in the SAME row and `anchor` the stitch in the row
+    below that this one was worked into. Both are ordinary stitches of the fabric, so the
+    frame bends with the cloth: this is what makes the morphology checks mean the same thing
+    on a flat swatch and on a draped one.
+
+    `neighbour_is_ahead` says whether `row_neighbour` sits at a higher fabric position, so
+    that ACROSS points consistently along the row regardless of which side had a neighbour to
+    offer. Getting that backwards would mirror the frame and turn every stitch's V into a
+    fold, which is why it is passed explicitly rather than guessed from coordinates.
+    """
+    if row_neighbour is None or anchor is None:
+        raise Unframeable("a stitch needs a neighbour along its row and the anchor below it")
+    here = op.points.mean(axis=0)
+    across = _unit((row_neighbour.points.mean(axis=0) - here)
+                   * (1.0 if neighbour_is_ahead else -1.0))
+    up_raw = here - anchor.points.mean(axis=0)
+    # Orthogonalise UP against ACROSS. They are close to perpendicular in flat fabric and
+    # drift apart as it deforms; projecting keeps the frame orthonormal without pretending
+    # the fabric is undeformed.
+    up = _unit(up_raw - np.dot(up_raw, across) * across)
+    through = _unit(np.cross(across, up))
+    return across, up, through
+
+
+def shape_report(op, L: float, H: float, D: float, frame) -> list[str]:
+    """Structural complaints about one stitch. Empty means it looks like an HDC.
+
+    `frame` is the (across, up, through) triple from `local_frame`. It is required rather
+    than defaulted to the global axes, because a default would silently reinstate exactly the
+    planar assumption this signature exists to remove.
+    """
+    across, up, through = frame
     out: list[str] = []
     pts = op.points
     back = _span(pts, op.back_loop)
@@ -62,20 +134,23 @@ def shape_report(op, L: float, H: float, D: float) -> list[str]:
     if len(back) < 2 or len(front) < 2 or len(third) < 1:
         return ["the stitch does not name its own loops"]
 
-    v_y = float(min(back[:, 1].min(), front[:, 1].min()))
+    def along(p, axis):
+        return np.asarray(p) @ axis
+
+    v_up = float(min(along(back, up).min(), along(front, up).min()))
 
     # --- the third loop -------------------------------------------------------
     # Behind the front leg, and below the V. A stitch drawn without the opening yarn over
     # has nothing here, and that is exactly the difference between this and a single crochet.
-    if third[:, 2].mean() >= front[:, 2].mean():
+    if along(third, through).mean() >= along(front, through).mean():
         out.append("no third loop behind the fabric: the opening yarn over is missing, "
                    "which makes this a single crochet rather than a half double")
-    if third[:, 1].mean() > v_y:
+    if along(third, up).mean() > v_up:
         out.append("the third loop sits above the top V instead of below it")
 
     # --- the top V ------------------------------------------------------------
-    back_run = float(back[-1, 0] - back[0, 0])
-    front_run = float(front[-1, 0] - front[0, 0])
+    back_run = float(along(back[-1], across) - along(back[0], across))
+    front_run = float(along(front[-1], across) - along(front[0], across))
     if back_run * front_run > 0:
         out.append("the two top loops run the same way, so they are a fold rather than a "
                    "loop and nothing can be worked into them")
@@ -84,11 +159,12 @@ def shape_report(op, L: float, H: float, D: float) -> list[str]:
         out.append(f"the top V spans {v_width:.1f}mm of a {L:.1f}mm stitch: too narrow for "
                    f"the next row to work into")
     # The two legs must be separated through the fabric, or there is no opening between them.
-    if abs(float(front[:, 2].mean() - back[:, 2].mean())) < 0.25 * D:
+    if abs(float(along(front, through).mean() - along(back, through).mean())) < 0.25 * D:
         out.append("the front and back loops lie on top of one another, leaving no opening")
 
     # --- the post -------------------------------------------------------------
-    rise = float(pts[:, 1].max() - pts[:, 1].min())
+    rise_axis = along(pts, up)
+    rise = float(rise_axis.max() - rise_axis.min())
     if not 0.55 * H <= rise <= 2.6 * H:
         out.append(f"the stitch rises {rise:.1f}mm where a row is {H:.1f}mm: this is not a "
                    f"half double's height")
@@ -96,6 +172,6 @@ def shape_report(op, L: float, H: float, D: float) -> list[str]:
     # --- it must climb --------------------------------------------------------
     # A stitch starts at the row below and finishes at its own top. One that ends lower than
     # it started is not standing up.
-    if float(pts[-1, 1] - pts[:, 1].min()) < 0.25 * H:
+    if float(rise_axis[-1] - rise_axis.min()) < 0.25 * H:
         out.append("the stitch does not finish above the row it was worked into")
     return out

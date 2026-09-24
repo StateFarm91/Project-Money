@@ -297,7 +297,7 @@ _orig = _ct._away_vector
 try:
     verdicts = {}
     for _tail in (12.0, 20.0, 35.0, 60.0, 120.0):
-        _ct._away_vector = (lambda t: (lambda fab: np.array([0.0, -t, 0.0])))(_tail)
+        _ct._away_vector = (lambda t: (lambda fab, down=None: np.array([0.0, -t, 0.0])))(_tail)
         _v = _ct.validate(_f, TWIN, max_rows=ROWS, max_cols=COLS)
         verdicts[_tail] = (_v["stitches_linked"], _v["stitches_needing_linkage"])
     check("the linkage verdict does not depend on the size of the fictitious closure",
@@ -305,8 +305,67 @@ try:
     check("the derived closure is long enough that yarn cannot round its end",
           np.linalg.norm(_orig(_f)) >= 2.0 * float(np.hypot(_f.L, _f.H) + _f.D) - 1e-9,
           "%.2fmm" % np.linalg.norm(_orig(_f)))
+    # The tail's DIRECTION had the same defect as its length and survived longer, because it
+    # is invisible while the fabric lies flat. It is aimed along the stitch's own down now,
+    # so it must follow an arbitrary direction handed to it rather than staying on -y.
+    _d = np.array([0.3, -0.8, 0.5])
+    _v = _orig(_f, _d)
+    check("the closure follows the fabric's local down rather than a global axis",
+          abs(float(np.dot(_v / np.linalg.norm(_v), _d / np.linalg.norm(_d))) - 1.0) < 1e-9,
+          str(_v))
 finally:
     _ct._away_vector = _orig
+
+# --- REGRESSION: the validators must measure the cloth, not its orientation ---------------
+# A rigid rotation changes no physical property of a fabric, so every verdict must be
+# identical under all of them. Both checks failed this before the fabric was allowed out of
+# its plane, and in different ways that are worth keeping distinct:
+#
+#   MORPHOLOGY read its features off the global axes -- "behind" was -z, "below" and height
+#   were y, the V ran along x. 49 of 49 correctly shaped became 2 of 49 at fifteen degrees
+#   and 0 of 49 at thirty. The stitches were untouched.
+#
+#   LINKAGE aimed its fictitious closure along a fixed global -y. Rotations about x and y
+#   left that pointing along the same part of the cloth and looked fine; rotation about z
+#   dropped it from 42 of 42 to 3 of 42. That asymmetry -- broken on one axis, clean on the
+#   others -- is the signature of a global direction standing in for a local one.
+#
+# This matters for drape rather than for rotation. A draped fabric is a rotated one
+# everywhere at once, each stitch on a surface with its own normal, so a validator that
+# assumes one global orientation fails every curved row. Had these been grandfathered, the
+# obvious response would have been to flatten correct geometry until the checks passed.
+_rot_f = honest()
+_base = verdict(_rot_f)
+
+
+def _rotated(fab, deg, axis):
+    import dataclasses
+    t = np.radians(deg)
+    c, sn = np.cos(t), np.sin(t)
+    R = {"x": np.array([[1, 0, 0], [0, c, -sn], [0, sn, c]]),
+         "y": np.array([[c, 0, sn], [0, 1, 0], [-sn, 0, c]]),
+         "z": np.array([[c, -sn, 0], [sn, c, 0], [0, 0, 1]])}[axis]
+    return dataclasses.replace(
+        fab, ops=[dataclasses.replace(o, points=o.points @ R.T) for o in fab.ops])
+
+
+for _axis in ("x", "y", "z"):
+    _same = True
+    _detail = ""
+    for _deg in (15, 30, 45, 90, 137):
+        _v = _ct.validate(_rotated(_rot_f, _deg, _axis), TWIN, max_rows=ROWS, max_cols=COLS)
+        if (_v["stitches_linked"], _v["stitches_shaped_like_hdc"],
+                _v.get("stitches_unframeable", 0)) != (
+                _base["stitches_linked"], _base["stitches_shaped_like_hdc"],
+                _base.get("stitches_unframeable", 0)):
+            _same = False
+            _detail = "%ddeg: linked %s shaped %s" % (
+                _deg, _v["stitches_linked"], _v["stitches_shaped_like_hdc"])
+            break
+    check("every verdict is invariant under rigid rotation about %s" % _axis, _same, _detail)
+
+check("no stitch is unmeasurable for want of a frame, foundation row included",
+      _base.get("stitches_unframeable", 0) == 0, str(_base.get("stitches_unframeable")))
 
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

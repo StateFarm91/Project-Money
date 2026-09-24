@@ -42,7 +42,8 @@ import numpy as np
 
 from . import crochet_topology as topo
 
-__all__ = ["Material", "RelaxationReport", "material_for", "relax", "PROVENANCE"]
+__all__ = ["Material", "RelaxationReport", "material_for", "relax",
+           "apply_contacts", "project_lengths", "PROVENANCE"]
 
 
 # Where each physical number comes from. The owner's instruction is to eliminate arbitrary
@@ -348,6 +349,66 @@ def min_segment_separation(pts: np.ndarray, skip: int = 4) -> float:
     return best
 
 
+
+def apply_contacts(pts, yarn_diameter, rest_sep, floor_sep):
+    """Push apart strands that are resting on one another. Returns how many pairs it moved.
+
+    Extracted from `relax` so that the drape solver uses THIS code rather than a copy of it.
+    Two implementations of contact would be two places for the floor, the gain and the clamp
+    to drift apart, and a second copy that quietly disagreed about when yarn is being
+    squeezed too hard is exactly how a solver starts pushing strands through their
+    neighbours.
+    """
+    seg_i, seg_j, sp, tp, dist = _segment_contacts(pts, rest_sep, yarn_diameter)
+    if not len(seg_i):
+        return 0
+    pa = pts[seg_i] + sp[:, None] * (pts[seg_i + 1] - pts[seg_i])
+    pb = pts[seg_j] + tp[:, None] * (pts[seg_j + 1] - pts[seg_j])
+    delta = pa - pb
+    n = np.linalg.norm(delta, axis=1)
+    n[n < 1e-9] = 1e-9
+    want = np.where(dist < floor_sep, floor_sep, rest_sep)
+    gain = np.where(dist < floor_sep, 1.0, 0.5)
+    grow = np.minimum((want - n) / n * gain, _MAX_CONTACT_GAIN)
+    push = grow[:, None] * delta * 0.5
+    for idx, w in ((seg_i, 1.0 - sp), (seg_i + 1, sp)):
+        np.add.at(pts, idx, +push * w[:, None])
+    for idx, w in ((seg_j, 1.0 - tp), (seg_j + 1, tp)):
+        np.add.at(pts, idx, -push * w[:, None])
+    return len(seg_i)
+
+
+def project_lengths(pts, rest, passes=_LENGTH_PASSES, fixed=None):
+    """Hold every segment at the length the certified geometry was built with.
+
+    `fixed` marks vertices a boundary condition holds in place. They must not be moved by the
+    projection, so a segment with one fixed end gives its whole correction to the free end.
+    Splitting the correction evenly and then resetting the fixed vertices afterwards -- which
+    is the obvious way to write this -- silently undoes half of every correction at the
+    boundary, and the error accumulates along the clamped edge rather than staying local.
+    """
+    if fixed is None:
+        w0 = w1 = None
+    else:
+        free = (~fixed).astype(float)
+        share = free[:-1] + free[1:]
+        share[share < 1e-9] = 1e-9
+        w0 = free[:-1] / share
+        w1 = free[1:] / share
+    for _ in range(passes):
+        d = np.diff(pts, axis=0)
+        ln = np.linalg.norm(d, axis=1)
+        ln[ln < 1e-9] = 1e-9
+        corr = ((ln - rest) / ln)[:, None] * d
+        if w0 is None:
+            pts[:-1] += corr * 0.5
+            pts[1:] -= corr * 0.5
+        else:
+            pts[:-1] += corr * w0[:, None]
+            pts[1:] -= corr * w1[:, None]
+    return pts
+
+
 def relax(fab: topo.Fabric, material: Material | None = None, *,
           iterations: int = 400,
           tolerance_mm: float = 1e-3) -> tuple[topo.Fabric, RelaxationReport]:
@@ -423,40 +484,12 @@ def relax(fab: topo.Fabric, material: Material | None = None, *,
         pts += lap * material.bend_compliance
 
         # --- contact ------------------------------------------------------------
-        seg_i, seg_j, sp, tp, dist = _segment_contacts(pts, rest_sep, fab.yarn_diameter)
-        if len(seg_i):
-            report.contacts_resolved += len(seg_i)
-            pa = pts[seg_i] + sp[:, None] * (pts[seg_i + 1] - pts[seg_i])
-            pb = pts[seg_j] + tp[:, None] * (pts[seg_j + 1] - pts[seg_j])
-            delta = pa - pb
-            n = np.linalg.norm(delta, axis=1)
-            n[n < 1e-9] = 1e-9
-            # Resistance rises steeply once strands are squeezed past the floor, which is
-            # how transverse yarn compression actually behaves.
-            want = np.where(dist < floor_sep, floor_sep, rest_sep)
-            gain = np.where(dist < floor_sep, 1.0, 0.5)
-            # CLAMPED. (want - n)/n diverges as two strands approach coincidence, so a pair
-            # that had nearly touched received an enormous shove and threw strands straight
-            # through their neighbours. That, not bending, was what destroyed linkage: the
-            # run with the WEAKER bending was the more broken one, because contact was doing
-            # the damage and bending had been holding the shape together.
-            grow = np.minimum((want - n) / n * gain, _MAX_CONTACT_GAIN)
-            push = grow[:, None] * delta * 0.5
-            # Share each correction with the endpoints that produced the closest point.
-            for idx, w in ((seg_i, 1.0 - sp), (seg_i + 1, sp)):
-                np.add.at(pts, idx, +push * w[:, None])
-            for idx, w in ((seg_j, 1.0 - tp), (seg_j + 1, tp)):
-                np.add.at(pts, idx, -push * w[:, None])
+        moved = apply_contacts(pts, fab.yarn_diameter, rest_sep, floor_sep)
+        report.contacts_resolved += moved
 
         # --- inextensibility -----------------------------------------------------
         # Last, and iterated, because it is the constraint allowed to win.
-        for _ in range(_LENGTH_PASSES):
-            d = np.diff(pts, axis=0)
-            ln = np.linalg.norm(d, axis=1)
-            ln[ln < 1e-9] = 1e-9
-            corr = ((ln - rest) / ln)[:, None] * d * 0.5
-            pts[:-1] += corr
-            pts[1:] -= corr
+        pts = project_lengths(pts, rest)
 
         # --- the cap --------------------------------------------------------------
         step = pts - before

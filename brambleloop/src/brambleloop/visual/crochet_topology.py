@@ -93,10 +93,36 @@ RESTING_CONTACT = 0.62
 _AWAY = np.array([0.0, -6.0, 0.0])
 
 
-def _away_vector(fab) -> np.ndarray:
-    """The fictitious closure offset, sized so real yarn cannot round its end."""
-    reach = float(np.hypot(fab.L, fab.H) + fab.D)
-    return np.array([0.0, -2.0 * reach, 0.0])
+def _away_reach(fab) -> float:
+    """How far the fictitious closure must extend to be a wall rather than a flap."""
+    return 2.0 * float(np.hypot(fab.L, fab.H) + fab.D)
+
+
+def _away_vector(fab, down=None) -> np.ndarray:
+    """The fictitious closure offset, sized AND AIMED so real yarn cannot get round it.
+
+    The length was derived earlier, after a fixed 6mm tail let leaning stitches escape past
+    the triangle's edge. The DIRECTION had the same defect and kept it longer, because it is
+    invisible while the fabric lies in the plane it was built in: a tail fixed along global
+    -y stops pointing away from the fabric as soon as the fabric turns. Rigidly rotating the
+    certified swatch about z -- which changes nothing physical -- dropped linkage from 42 of
+    42 to 3 of 42 at thirty degrees, while rotations about x and y, which leave -y pointing
+    along the same part of the cloth, were unaffected. That asymmetry is the signature of a
+    global direction being used for a local property.
+
+    It matters for drape rather than for rotation: a curled row has stitches whose "below"
+    points in a different direction from their neighbours', so no single global vector can
+    serve them all. `down` is the stitch's own -UP from its local frame; the global fallback
+    remains only for callers with no frame to offer.
+    """
+    reach = _away_reach(fab)
+    if down is None:
+        return np.array([0.0, -reach, 0.0])
+    d = np.asarray(down, dtype=float)
+    n = float(np.linalg.norm(d))
+    if n < 1e-9:
+        return np.array([0.0, -reach, 0.0])
+    return (d / n) * reach
 
 # The 27 cells of a uniform-grid neighbourhood, including the cell itself.
 _NEIGHBOURHOOD = tuple((i, j, k) for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1))
@@ -661,12 +687,51 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     unmeasurable: list[tuple[int, int]] = []
     numbers: list[int] = []
     by_key = {(o.row, o.position): o for o in hdc}
-    away = _away_vector(fab)
+
+    # The fabric's own three directions at every stitch, computed once and used by BOTH the
+    # linkage check (to aim the fictitious closure along the cloth's local down) and the
+    # morphology check (to measure the stitch's features against the cloth rather than
+    # against the world). Sharing one frame is deliberate: these two checks disagreeing about
+    # which way is "down" at the same stitch is a defect waiting to happen.
+    def _frame_for(o):
+        ahead = by_key.get((o.row, o.position + 1))
+        behind_n = by_key.get((o.row, o.position - 1))
+        ri = rows.index(o.row)
+        anchor_op = by_key.get((rows[ri - 1], o.position)) if ri > 0 else None
+        flip_up = False
+        if anchor_op is None and ri + 1 < len(rows):
+            # The foundation row has nothing below it, but the stitch ABOVE defines the same
+            # wale line, so the frame is recoverable rather than absent. Using it is not a
+            # concession: the wale direction is a property of the column of stitches, and
+            # either neighbour in that column determines it. Declaring the whole foundation
+            # row unmeasurable would have been the instrument giving up where the fabric is
+            # perfectly well defined.
+            anchor_op = by_key.get((rows[ri + 1], o.position))
+            flip_up = True
+        if anchor_op is None:
+            raise stitch_shape.Unframeable("no neighbour in this stitch's column")
+        across, up, through = stitch_shape.local_frame(
+            o, ahead if ahead is not None else behind_n, anchor_op,
+            neighbour_is_ahead=ahead is not None)
+        if flip_up:
+            up = -up
+            through = -through
+        return across, up, through
+
+    frames: dict = {}
+    for o in hdc:
+        try:
+            frames[(o.row, o.position)] = _frame_for(o)
+        except stitch_shape.Unframeable:
+            frames[(o.row, o.position)] = None
+
     for o in hdc:
         anchor = by_key.get((rows[rows.index(o.row) - 1], o.position)) \
             if rows.index(o.row) > 0 else None
         if anchor is None:
             continue
+        a_frame = frames.get((anchor.row, anchor.position))
+        away = _away_vector(fab, None if a_frame is None else -a_frame[1])
         back = anchor.points[anchor.back_loop[0]:anchor.back_loop[1] + 1]
         front = anchor.points[anchor.front_loop[0]:anchor.front_loop[1] + 1]
         if o.loop_target == "front":
@@ -724,15 +789,30 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
         if o.kind == "hdc":
             terminal = (o.row, o.position)
     loose_end: list[str] = []
+    unframeable: list[tuple[int, int]] = []
     for o in hdc:
-        complaints = stitch_shape.shape_report(o, fab.L, fab.H, fab.D)
+        # The frame this stitch's shape is measured in, built from its own neighbours so it
+        # travels with the cloth. Global axes were used here until a rigid rotation -- which
+        # changes nothing physical -- dropped the verdict from 49 of 49 correctly shaped to
+        # 0 of 49 at thirty degrees. See stitch_shape for why that had to go before the
+        # fabric was allowed out of its plane.
+        frame = frames.get((o.row, o.position))
+        if frame is None:
+            unframeable.append((o.row, o.position))
+            continue
+        complaints = stitch_shape.shape_report(o, fab.L, fab.H, fab.D, frame)
         if not complaints:
             continue
         if (o.row, o.position) == terminal:
             loose_end.append(complaints[0])
         else:
             misshapen.append((o.row, o.position, complaints[0]))
-    checks["stitches_shaped_like_hdc"] = len(hdc) - len(misshapen) - len(loose_end)
+    checks["stitches_shaped_like_hdc"] = (len(hdc) - len(misshapen) - len(loose_end)
+                                         - len(unframeable))
+    # A stitch with no neighbour to orient it is not a passing stitch. The foundation row has
+    # no anchor below it and so cannot be framed; that is a real limit of the measurement and
+    # is reported as one rather than absorbed into the pass count.
+    checks["stitches_unframeable"] = len(unframeable)
     checks["terminal_stitch_unfastened"] = bool(loose_end)
     checks["misshapen"] = [f"r{r} p{p}: {m}" for r, p, m in misshapen[:4]]
     if misshapen:
