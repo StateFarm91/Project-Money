@@ -7495,3 +7495,82 @@ boundary the authorisation drew, so it stops here rather than being started.
 
 NOT CLAIMED: that yarn slip would close the gap. It is the mechanism the evidence points at,
 and the honest status of that claim is a hypothesis with an argument behind it, not a result.
+
+## 2026-09-24 — RESEARCH: the literature does not use our configuration at all
+
+Research only, CA$0.00, nothing implemented. Full report at
+`brambleloop/research/YARN_SLIP_RESEARCH.md` (865 lines, every claim labelled SOURCED /
+INFERRED / UNKNOWN, 194 such labels).
+
+### The headline, and it overturns something I had assumed
+
+**Every established yarn-level method lets the yarn move relative to the loops.** Our welded
+material coordinates are a third option the literature does not use — and it is precisely the
+configuration in which bending is the only compliance left, which is exactly the symptom we
+measured. Two camps, both permitting yarn travel:
+
+  KALDOR / STITCH-MESH LINEAGE. Material coordinates are welded to spline control points,
+  and they even add an energy term to stop mass drifting inside the curve. But NOTHING PINS
+  A MATERIAL POINT TO A STITCH: loops are held only by penalty contact between arbitrary
+  segment pairs found at runtime, and the paper states its collision evaluation "makes no
+  assumptions about cloth topology". So yarn translates bodily through loops and the length
+  between neighbouring stitches is emergent rather than constrained.
+
+  EULERIAN-ON-LAGRANGIAN (Sueda / Cirio / Otaduy). Each loop-loop contact becomes a
+  permanent node carrying arc-length material coordinates as solver degrees of freedom,
+  q = (x, u, v), five DOF, where "yarns are allowed to slide at contact nodes".
+
+The experimental physics agrees: Poincloux et al. (PRX 2018) state "the yarn is not attached
+to these topological units and is allowed to slide from one stitch to another" and attribute
+knit drapability to exactly that. The only place sliding is forbidden is Sperl 2022's
+periodic homogenisation cell, which is never used for drape.
+
+### Three findings that bear on the rest-state bracketing we measured
+
+1. **Kaldor 2010 uses NEITHER of our brackets.** Discrete elastic rods with a non-straight
+   rest configuration PLUS a bounded PLASTIC MIGRATION of the rest state: rest curvature is
+   projected onto a ball of radius `p_plastic` around the current curvature and a ball of
+   radius `p_max_plastic` around the origin. That sits between straight and relaxed-shape —
+   the two ends we measured — and is roughly fifty lines of work.
+2. Kaldor 2008's relaxation runs bending stiffness 1000x below simulation with hard length
+   constraints replaced by soft ones and the yarn shrunk by c = 0.935; Stitch Meshes 2012
+   does the same. Their "relaxed shape" is a two-stage artefact, not a single-solve
+   equilibrium — which is what we have been treating ours as.
+3. A 2026 review notes frictional textiles exhibit MULTIPLE REST STATES. A frictionless
+   model may be being asked to pick a unique rest shape the real object does not possess.
+
+### The most actionable single result
+
+Poincloux et al. give a fully specified, one-parameter, experimentally validated
+redistribution law: yarn inextensible and bending-only, per-stitch allotment l = c + dw,
+with the constraint imposed GLOBALLY — mean(c) + d*mean(w) = const — rather than per stitch.
+Measured d = 0.86 for stockinette, predicting a geometric Poisson ratio of 0.46, which
+matched. Total yarn length is preserved exactly. That is the smallest representation change
+that is also the physically correct one.
+
+### The warning, taken seriously
+
+Sánchez-Banderas et al. (SIGGRAPH 2020) quantify the cost: stretch stiffness with respect to
+both spatial and material length is k/du, and du becomes a degree of freedom that can
+approach zero, so conditioning diverges. Naive remeshing by node collapse is documented as
+WRONG because it destroys the Eulerian coordinate. Their fix avoids remeshing entirely.
+
+### One thing worth recording about our own work
+
+Four citable mechanisms exist for preserving topology during sliding. Notably, **no published
+method certifies topology the way we do.** Our invariant is stricter than published practice.
+
+### Honest gaps, not papered over
+
+- Full text of Guo/Lin/Narayanan/McCann "Representing Crochet with Stitch Meshes" (SCF 2020)
+  COULD NOT BE OBTAINED — ACM returns 403 here and the CMU site is down. Abstract only, and
+  the reading that it carries no mechanics is labelled INFERRED, not established.
+- Cirio et al. full texts likewise unobtainable; the method was recovered from the granted
+  patents (US 10,810,333; US 11,250,187) by the same authors and cross-checked against
+  open-access re-derivations. Institutional access should be obtained before any full
+  rewrite.
+- **No crochet-specific yarn-level simulator exists in the literature at all.** There is
+  nothing to copy for half double crochet.
+- UNKNOWN: any yarn-consumption parameter for HDC; friction/hysteresis data for crochet
+  fabric; and any published ablation isolating sliding's contribution to drape. Nobody has
+  run the experiment we want to run.
