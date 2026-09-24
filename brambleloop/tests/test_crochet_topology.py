@@ -17,12 +17,18 @@ PASSED = FAILED = 0
 
 def check(name, cond, detail=""):
     global PASSED, FAILED
+    # "OK  " at the start of the line, not "PASS". run_tests.sh counts a suite's passes
+    # with grep -c '^OK', and counts a suite that exits clean while reporting none as a
+    # failure -- deliberately, because nine files once printed a different marker and their
+    # results silently stopped reaching the headline total for a whole session. These three
+    # files did exactly that again: 44 passes absent from a total of 3213, and two suites
+    # reported failing that were green.
     if cond:
         PASSED += 1
-        print(f"  PASS  {name}")
+        print("OK  ", name)
     else:
         FAILED += 1
-        print(f"  FAIL  {name} {detail}")
+        print("FAIL", name, detail)
 
 
 def swatch(rows, cols, settled=True):
