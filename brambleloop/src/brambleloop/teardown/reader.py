@@ -68,7 +68,15 @@ SECTION_CUES: dict[str, tuple[str, ...]] = {
     "gauge": ("gauge", "tension", "swatch"),
     "sizing": ("size", "sizes", "sizing", "finished measurements", "measurements",
                "dimensions"),
-    "abbreviations": ("abbreviation", "stitch key", "terms used", "us terms", "uk terms"),
+    # "us terms" and "uk terms" were cues here and they are not. A pattern that says which
+    # terminology it is written in has stated a terminology, not published a key -- and this
+    # company's own document proved it: its instructions heading reads "Instructions (US
+    # terms)", so `self_test()` reported an `abbreviations` section in a PDF that contained
+    # no abbreviations at all, and the same cue would have credited a competitor with a key
+    # they had not written. A check that cannot fail on the document it is pointed at is not
+    # measuring the document.
+    "abbreviations": ("abbreviation", "stitch key", "terms used", "stitches used",
+                      "key to the chart", "symbol key"),
     "technique_explanations": ("special stitches", "special stitch", "techniques",
                                "stitch guide", "how to work", "tutorial"),
     "construction_overview": ("construction", "pattern notes", "how it is made",

@@ -22,25 +22,84 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas as rl_canvas
 
+from ..brand import bible
 from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
-from . import substitution, value_stack
+from . import abbreviations, substitution, value_stack
 from .charts import (
     ChartSpec, crop_grids, detect_repeat, is_round, render_chart, render_legend,
     render_round_chart,
 )
+from .difficulty import difficulty as _difficulty
 
 PAGE_W, PAGE_H = LETTER
 MARGIN = 18 * mm
 
-INK = colors.HexColor("#1A2B3C")
-PINE = colors.HexColor("#244A3A")
-CREAM = colors.HexColor("#FAF6EB")
-GOLD = colors.HexColor("#C49545")
-MUTED = colors.HexColor("#6B7280")
-LINE = colors.HexColor("#D6CEBC")
+# Read from the brand system rather than restated here. `brand/bible.py` says "anything that
+# renders an asset reads from here", and this module held its own copy of the same six hex
+# codes -- so the brand was locked everywhere except in the one artefact the customer keeps.
+INK = colors.HexColor(bible.PALETTE["ink"])
+PINE = colors.HexColor(bible.PALETTE["pine"])
+CREAM = colors.HexColor(bible.PALETTE["cream"])
+GOLD = colors.HexColor(bible.PALETTE["gold"])
+LINE = colors.HexColor(bible.PALETTE["line"])
+
+# The smallest type this document may set, taken from the brand's own declared minimum. The
+# footer was at 8pt against a brand rule that says 9, which is the kind of drift a constant
+# in two places produces.
+MIN_BODY_PT = bible.TYPOGRAPHY["min_body_pt"]
+
+# WCAG 2.1 AA for text below 18pt. Stated as the measurement it is: a ratio of relative
+# luminance between the ink and the paper it sits on.
+MIN_CONTRAST = 4.5
+
+
+def _relative_luminance(colour) -> float:
+    def channel(v: float) -> float:
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
+    r, g, b = channel(colour.red), channel(colour.green), channel(colour.blue)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(fg, bg) -> float:
+    """Contrast ratio between two reportlab colours, 1.0 (invisible) to 21.0 (black on white)."""
+    a, b = _relative_luminance(fg), _relative_luminance(bg)
+    hi, lo = max(a, b), min(a, b)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _legible(fg, bg, *, minimum: float = MIN_CONTRAST):
+    """The brand colour, darkened only as far as it has to be to be readable on this paper.
+
+    The brand's `muted` grey measures 4.48:1 on the brand's cream -- a fraction under the AA
+    floor, and it is the colour of the yarn-tolerance note, the substitution caveats, the
+    chart instructions and the page numbers, which is most of the explanatory prose in the
+    document. Rather than move a palette that the storefront and the chart renderer also
+    read, the document darkens its own ink until it passes and leaves the brand alone.
+
+    Returns the original colour untouched when it already passes, so a future palette that
+    is legible on its own is rendered exactly as the brand specifies it.
+    """
+    out = colors.Color(fg.red, fg.green, fg.blue)
+    if contrast(out, bg) >= minimum:
+        return out
+    darker = _relative_luminance(out) < _relative_luminance(bg)
+    for _ in range(64):
+        if contrast(out, bg) >= minimum:
+            return out
+        factor = 0.97 if darker else 1.03
+        out = colors.Color(min(1.0, max(0.0, out.red * factor)),
+                           min(1.0, max(0.0, out.green * factor)),
+                           min(1.0, max(0.0, out.blue * factor)))
+    return out  # pragma: no cover - 64 steps reach black or white from any start
+
+
+MUTED = _legible(colors.HexColor(bible.PALETTE["muted"]), CREAM)
+# The cover's subtitle sits on the pine band, where the brand gold measures 3.65:1.
+GOLD_ON_PINE = _legible(GOLD, PINE)
 
 
 @dataclass
@@ -55,6 +114,12 @@ class PatternDocument:
     calibrated: bool
     terminology: str
     claims: list[str] = field(default_factory=list)
+    difficulty: str = ""
+    released_on: date | None = None
+    # What is wrong with this document, measured on the document rather than on the plan
+    # that produced it. Empty is the normal answer; a non-empty list is handed to the
+    # release chain, which is where a finding can actually stop something.
+    problems: list[str] = field(default_factory=list)
 
     def size_label(self) -> str:
         if not self.finished_size_cm:
@@ -78,10 +143,26 @@ class _Doc:
     `assets.build` says it means.
     """
 
-    def __init__(self, title: str):
+    def __init__(self, title: str, *, total_pages: int = 0, author: str = "",
+                 subject: str = ""):
         self.buf = io.BytesIO()
         self.c = rl_canvas.Canvas(self.buf, pagesize=LETTER, invariant=1)
         self.c.setTitle(title)
+        # Set because a PDF with no author and no subject is an untitled file in a downloads
+        # folder six months later, and because assistive software reads them first.
+        if author:
+            self.c.setAuthor(author)
+        if subject:
+            self.c.setSubject(subject)
+        # The document's natural language, in the catalogue where assistive software looks
+        # for it. reportlab has no setter for this, so it is written to the catalogue
+        # directly; without it a screen reader guesses the language from the system locale
+        # and reads an English pattern in whatever voice that produces.
+        self.c.setCatalogEntry("Lang", "en-GB")
+        # Known only on the second pass. A footer that says "page 5" cannot tell a customer
+        # whether their download stopped early; "page 5 of 7" can, which is the cheapest
+        # download-integrity check a buyer can run without any software at all.
+        self.total_pages = total_pages
         self.pages = 0
         self.y = PAGE_H - MARGIN
 
@@ -96,13 +177,14 @@ class _Doc:
         self.y = PAGE_H - MARGIN
         if running_head:
             self.c.setFillColor(MUTED)
-            self.c.setFont("Helvetica", 8)
+            self.c.setFont("Helvetica", MIN_BODY_PT)
             self.c.drawString(MARGIN, PAGE_H - MARGIN + 6 * mm, running_head.upper())
 
     def _footer(self) -> None:
         self.c.setFillColor(MUTED)
-        self.c.setFont("Helvetica", 8)
-        self.c.drawRightString(PAGE_W - MARGIN, MARGIN - 8 * mm, f"page {self.pages}")
+        self.c.setFont("Helvetica", MIN_BODY_PT)
+        self.c.drawRightString(PAGE_W - MARGIN, MARGIN - 8 * mm,
+                               f"page {self.pages} of {self.total_pages or self.pages}")
 
     def space(self, amount: float) -> None:
         self.y -= amount
@@ -134,11 +216,17 @@ class _Doc:
             self.c.drawString(MARGIN, self.y, line)
             self.y -= leading
 
-    def kv(self, key: str, value: str) -> None:
+    def kv(self, key: str, value: str, *, upper: bool = True) -> None:
+        """A label and its value. `upper` is off for anything the maker has to type-match.
+
+        An abbreviation is a lowercase token in every crochet pattern ever printed, and a
+        key that shouts "CH" at a beginner who is looking for "ch" in the instructions has
+        made them do a translation the document was supposed to do for them.
+        """
         self.need(5 * mm)
         self.c.setFont("Helvetica-Bold", 9)
         self.c.setFillColor(MUTED)
-        self.c.drawString(MARGIN, self.y, key.upper())
+        self.c.drawString(MARGIN, self.y, key.upper() if upper else key)
         self.c.setFont("Helvetica", 10)
         self.c.setFillColor(INK)
         self.c.drawString(MARGIN + 42 * mm, self.y, value)
@@ -197,6 +285,9 @@ AI_DISCLOSURE = (
 )
 
 
+COPYRIGHT_HOLDER = "Brambleloop Studio"
+
+
 def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       twin: TwinModel | None = None,
                       designer: str = "Brambleloop Studio",
@@ -206,6 +297,17 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
     defect we would be charging money for, and the release chain is supposed to make that
     impossible rather than merely unlikely.
+
+    Refuses a terminology it cannot render truthfully, for the same reason. `cir.writer`
+    localises sc, dc, tr and the shaping stitches into UK terms and leaves the post stitches,
+    the bobble and the cable crossings as their canonical codes -- and `fpdc` read as UK
+    terms names a stitch half the height of the one the pattern was compiled against. A
+    document that quietly instructs the wrong stitch is worse than one that does not exist.
+
+    `released_on` is an argument rather than a reading of the clock wherever the caller knows
+    the release date. Left to default it takes today's date, which is a wall-clock input to a
+    render whose whole point is to be a pure function of the certified CIR -- see
+    `_Doc`'s note on the hash.
     """
     result = compile_cir(cir)
     if not result.ok:
@@ -216,8 +318,65 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     twin = twin or build_twin(cir, result)
     released_on = released_on or date.today()
 
-    doc = _Doc(f"{cir.title} - {designer}")
+    stalled = sorted(set(abbreviations.unlocalised(terminology))
+                     & set(twin.stitch_types_used))
+    if stalled:
+        raise ValueError(
+            f"refusing to render a {terminology.upper()}-terms PDF containing "
+            f"{stalled}: cir.writer prints those stitches as their canonical US codes, and "
+            f"a {terminology.upper()} maker reading them would work a different stitch from "
+            f"the one this pattern was compiled against"
+        )
+
+    text = write_pattern(cir, result, terminology=terminology,
+                         width_cm=twin.width_cm, height_cm=twin.height_cm)
+
+    # Rendered once and reused by both passes. The page count is not knowable until the
+    # document has been laid out, and laying it out twice must not mean drawing a
+    # two-thousand-pixel chart twice.
+    art = _chart_art(cir, twin)
+
+    # Laid out until the count it prints is the count it has. Printing "of 7" on a document
+    # that turned out to be 8 pages long is worse than printing nothing, because a customer
+    # would then believe a complete file was truncated. Two passes settle every document in
+    # the catalogue; the loop exists so that one that does not is caught here rather than
+    # sold, and its guarantee is asserted rather than assumed.
+    total = 0
+    for _ in range(4):
+        doc, claims, problems = _render(cir, twin, result, text=text, art=art,
+                                        terminology=terminology, designer=designer,
+                                        released_on=released_on, total_pages=total)
+        if doc.pages == total:
+            break
+        total = doc.pages
+    else:  # pragma: no cover - no document in the catalogue oscillates
+        raise ValueError(
+            f"{cir.slug}: the page count does not settle, so the footer would state a "
+            f"length the document does not have")
+    return PatternDocument(
+        pdf_bytes=doc.finish(),
+        pages=doc.pages,
+        finished_size_cm=((twin.width_cm, twin.height_cm)
+                          if twin.width_cm and twin.height_cm else None),
+        yardage_by_color=dict(twin.yarn_metres_by_color),
+        yardage_tolerance=twin.yardage_tolerance,
+        calibrated=twin.calibrated,
+        terminology=terminology,
+        claims=claims,
+        difficulty=_difficulty(cir, twin),
+        released_on=released_on,
+        problems=problems,
+    )
+
+
+def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
+            terminology: str, designer: str, released_on: date,
+            total_pages: int) -> tuple["_Doc", list[str], list[str]]:
+    """Lay the document out. Called twice: once to count the pages, once to print them."""
+    doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
+               subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}")
     head = f"{cir.title} - v{cir.version}"
+    problems: list[str] = []
 
     # -- cover -------------------------------------------------------------
     doc.new_page()
@@ -229,7 +388,7 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     doc.c.setFont("Helvetica-Bold", 26)
     doc.c.drawString(MARGIN, PAGE_H - 38 * mm, cir.title)
     doc.c.setFont("Helvetica", 11)
-    doc.c.setFillColor(GOLD)
+    doc.c.setFillColor(GOLD_ON_PINE)
     doc.c.drawString(MARGIN, PAGE_H - 48 * mm,
                      f"Crochet pattern - {terminology} terms - version {cir.version}")
     doc.y = PAGE_H - 78 * mm
@@ -255,7 +414,21 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     doc.new_page(head)
     doc.heading("Materials")
     for m in cir.materials:
-        doc.kv(m.color_id or m.name, f"{m.name} ({m.yarn_weight})")
+        described = f"{m.name} ({m.yarn_weight})"
+        if m.colorway:
+            # The colourway was in the CIR and in the written instructions, and the
+            # materials list -- the page a buyer takes to the yarn shop -- dropped it.
+            described += f", colourway {m.colorway}"
+        doc.kv(m.color_id or m.name, described)
+    if cir.gauge and cir.gauge.hook_mm:
+        doc.kv("hook", f"{cir.gauge.hook_mm:g} mm, or whatever hook gets you the gauge below")
+    # The special-stitch methods are part of what this document asks the maker to do, so the
+    # tools they require belong on the shopping list too: without this the pattern told a
+    # maker to slip stitches onto a cable needle on page 3 and listed only yarn on page 2.
+    instructed = "\n".join([text] + [abbreviations.METHOD.get(code, "")
+                                     for code in sorted(twin.stitch_types_used)])
+    for tool in _tools_required(cir, instructed):
+        doc.kv(tool[0], tool[1])
     doc.space(3 * mm)
     doc.heading("How much yarn", size=12)
     if twin.yarn_metres_by_color:
@@ -279,6 +452,34 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         "above; if your gauge differs, your finished piece will differ by the same "
         "proportion. The stitch counts in this pattern are correct at any gauge -- only the "
         "measurements change.", size=10)
+
+    # -- the row gauge the fabric actually has -----------------------------
+    #
+    # The sentence above is true of the width and only half true of the length. The width is
+    # the stitch gauge multiplied by the stitch count; the length is accumulated row by row
+    # using each row's own stitch height, so a pattern whose gauge is stated in sc and whose
+    # fabric is mostly dc is *twice* as long as the stated row gauge implies.
+    #
+    # Found by reading the shipped document as a buyer: the Cloudline blanket states 18 rows
+    # = 10 cm, and its own progress table says 88 rows come to 97 cm, which is 9 rows to 10
+    # cm. A maker who checks their work against the stated gauge at row 22 finds the fabric
+    # apparently twice as long as it should be and rips out a correct blanket. Both numbers
+    # were right; the document simply never printed the one that reconciles them.
+    fabric = _fabric_row_gauge(twin)
+    if fabric and cir.gauge:
+        drift = abs(fabric - cir.gauge.rows_per_10cm) / cir.gauge.rows_per_10cm
+        if drift >= ROW_GAUGE_DRIFT:
+            doc.space(2 * mm)
+            doc.kv("swatch row gauge", f"{cir.gauge.rows_per_10cm} rows = 10 cm in "
+                                       f"{cir.gauge.stitch_type}")
+            doc.kv("this fabric", f"about {fabric:.0f} rows = 10 cm")
+            doc.para(
+                f"Those two numbers are both right and they are not the same number. The "
+                f"swatch gauge is measured over plain {cir.gauge.stitch_type}; this pattern "
+                f"is worked in taller stitches as well, so its rows stack up faster. Check "
+                f"your stitches across against the swatch gauge, and check your rows against "
+                f"the measurements in 'Checking your progress' below, which are the "
+                f"fabric's own.", size=9, color=MUTED)
 
     # -- how to know it is going right (#7) --------------------------------
     #
@@ -354,11 +555,67 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
             f"yarn each stitch takes by an amount that has to be measured on a swatch, not "
             f"read off a table.", size=9, color=MUTED)
 
+    # -- abbreviations ------------------------------------------------------
+    #
+    # The section this document did not have. Everything below is the document's own
+    # vocabulary: each entry is a token that appears in the instructions overleaf, and the
+    # meanings come from the canonical stitch registry rather than being restated here, so
+    # the key cannot disagree with the compiler about what a code means. See
+    # `publish/abbreviations.py` for why a key derived from the chart could not do this.
+    doc.new_page(head)
+    doc.heading("Abbreviations")
+    doc.para(f"This pattern is written in {terminology.upper()} terms. Every abbreviation it "
+             f"uses is below; nothing in the instructions is left to be looked up "
+             f"elsewhere.", size=10)
+    doc.space(2 * mm)
+    key = abbreviations.stitch_key(text, terminology)
+    for entry in key:
+        doc.kv(entry.token, entry.means, upper=False)
+    missing = abbreviations.undefined_tokens(text, terminology)
+    if missing:
+        # Reported rather than silently omitted: a key that is quietly short is worse than
+        # no key, because the maker stops expecting to find things in it.
+        problems.append(
+            f"PDF_ABBREVIATION_UNDEFINED: {sorted(missing)} appear in the instructions and "
+            f"the stitch key cannot define them, so a maker meets a word the document never "
+            f"explains")
+
+    notation = abbreviations.notation_key(text)
+    if notation:
+        doc.space(3 * mm)
+        doc.heading("How to read a row", size=12)
+        for entry in notation:
+            doc.kv(entry.token, entry.means, upper=False)
+
+    methods = [e for e in key if e.method]
+    if methods:
+        doc.space(3 * mm)
+        doc.heading("Special stitches", size=12)
+        doc.para("These are the stitches in this pattern that are not simply worked into the "
+                 "top of the stitch below. Work one of each before you start the piece.",
+                 size=10)
+        for entry in methods:
+            doc.space(1 * mm)
+            doc.kv(entry.token, entry.means, upper=False)
+            doc.para(entry.method, size=9, color=MUTED)
+    cables = abbreviations.CABLE_CODES & set(twin.stitch_types_used)
+    if cables:
+        doc.para(abbreviations.CABLE_DIRECTION_NOTE, size=9, color=MUTED)
+        # Honest about what the document cannot say. The canonical `Stitch` record has no
+        # field for which side the held stitches wait on, so a cable held at the front and
+        # one held at the back are the same op to every check in this system -- and they are
+        # mirror images in the fabric. Naming a side here would print a fact the compiler
+        # never verified, which is the failure this company exists not to have.
+        problems.append(
+            f"PDF_CABLE_DIRECTION_UNSPECIFIED: {sorted(cables)} cross four stitches over "
+            f"each other and the CIR records no crossing direction, so the document cannot "
+            f"tell a maker whether the held stitches wait at the front or the back. The "
+            f"piece is makeable and its cables may mirror the product photography. Needs a "
+            f"field on cir.stitches.Stitch before the document can state it")
+
     # -- instructions ------------------------------------------------------
     doc.new_page(head)
     doc.heading(f"Instructions ({terminology} terms)")
-    text = write_pattern(cir, result, terminology=terminology,
-                         width_cm=twin.width_cm, height_cm=twin.height_cm)
     for block in text.split("\n"):
         if not block.strip():
             doc.space(2 * mm)
@@ -375,82 +632,150 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # -- charts ------------------------------------------------------------
     doc.new_page(head)
     doc.heading("Chart")
-    if is_round(cir, twin):
-        # A ragged grid is not a chart of a disc, and "read odd rows right to left" is
-        # flat-fabric advice: every round is worked in the same direction.
-        doc.para("This piece is worked in the round, so the chart is drawn as rounds: round "
-                 "1 at the centre, each ring outward one round. Count the wedges in a ring "
-                 "and you get the stitch count in the written line for that round, because "
-                 "both come from the same verified data. V marks an increase and A a "
-                 "decrease.", size=9, color=MUTED)
-        doc.space(2 * mm)
-        doc.image(render_round_chart(cir, twin, ChartSpec(cell_px=22)), running_head=head)
-        rep_cols = rep_rows = 0
-        show_repeat = False
-    else:
-        grid, colour_grid = twin.chart_grid(), twin.color_grid()
-        full_cols = max((len(r) for r in grid), default=0)
-        full_rows = len(grid)
-        rep_cols, rep_rows = detect_repeat(grid, colour_grid)
-        across, up = (full_cols // rep_cols if rep_cols else 1,
-                      full_rows // rep_rows if rep_rows else 1)
-
-        # A whole-blanket chart on one page gives each stitch about a pixel. Where the
-        # fabric is genuinely built from a repeat, chart the repeat and say how to place it
-        # -- which is both readable and how mosaic patterns are actually published.
-        show_repeat = (across > 1 or up > 1) and full_cols > 48
-    if show_repeat:
-        doc.para(f"This chart shows one repeat: {rep_cols} stitches wide and {rep_rows} rows "
-                 f"tall. Work it {across} times across and {up} times up for the finished "
-                 f"size. The full piece is {full_cols} stitches by {full_rows} rows. The "
-                 f"chart is generated from the same verified data as the written "
-                 f"instructions, so the two cannot disagree. Read odd rows right to left and "
-                 f"even rows left to right.", size=9, color=MUTED)
-        doc.space(2 * mm)
-        grids = crop_grids(grid, colour_grid, rep_cols, rep_rows)
-        caption = f"{cir.title} - one repeat ({rep_cols} sts x {rep_rows} rows)"
-        doc.image(render_chart(cir, twin, ChartSpec(cell_px=20), grids=grids,
-                               caption=caption), running_head=head)
-    else:
-        doc.para("The chart below is generated from the same verified data as the written "
-                 "instructions above. Read odd rows right to left and even rows left to "
-                 "right.", size=9, color=MUTED)
-        doc.space(2 * mm)
-        doc.image(render_chart(cir, twin, ChartSpec(cell_px=22)), running_head=head)
-    doc.image(render_legend(cir, twin), running_head=head)
+    doc.para(art["caption"], size=9, color=MUTED)
+    doc.space(2 * mm)
+    doc.image(art["chart"], running_head=head)
+    doc.image(art["legend"], running_head=head)
+    doc.space(2 * mm)
+    # The legend is a picture, so nothing in it is searchable, selectable or readable by a
+    # screen reader. The same key exists in text on the Abbreviations page; this line says so
+    # rather than leaving a maker who cannot see the image with no route to it.
+    doc.para("The stitch key in the image above is also written out under Abbreviations, "
+             "earlier in this document.", size=9, color=MUTED)
 
     # -- licence -----------------------------------------------------------
     doc.new_page(head)
     doc.heading("Terms and support")
     doc.para(LICENCE)
     doc.space(3 * mm)
-    doc.para("If anything in this pattern does not add up, tell us and we will fix the "
-             "pattern itself, not just answer your question. Every report is checked against "
-             "the compiler that validated this release.", size=10)
+    doc.para("If anything in this pattern does not add up, tell us through the shop you "
+             "bought it from and we will fix the pattern itself, not just answer your "
+             "question. Every report is checked against the compiler that validated this "
+             "release.", size=10)
     doc.space(3 * mm)
+    # A licence with no owner and no date is a paragraph of good intentions, and a support
+    # promise with no pattern id is one nobody can act on. Neither line was in the document.
+    #
+    # Set as prose rather than as a labelled row on purpose: a labelled row is a
+    # heading-shaped line, and the teardown reader's architecture schedule would then read
+    # the licence as its own addressable section. It is a paragraph on the support page, and
+    # the reader is right to report it as a mention and let the analyst decide.
+    credit = "" if designer == COPYRIGHT_HOLDER else f" Designed by {designer}."
+    doc.para(f"(c) {released_on.year} {COPYRIGHT_HOLDER}. All rights reserved.{credit}",
+             size=9, color=MUTED)
+    doc.space(2 * mm)
     doc.kv("release version", cir.version)
+    doc.kv("released", released_on.isoformat())
     doc.kv("terminology", f"{terminology} terms")
+    doc.kv("pattern id", f"{cir.slug}@{cir.version}")
+    doc.space(3 * mm)
+    doc.para(f"This document is {doc.total_pages or doc.pages} pages. If your copy is "
+             f"shorter than that, the download did not finish; ask for it again rather than "
+             f"working from a partial pattern.", size=9, color=MUTED)
 
-    return PatternDocument(
-        pdf_bytes=doc.finish(),
-        pages=doc.pages,
-        finished_size_cm=((twin.width_cm, twin.height_cm)
-                          if twin.width_cm and twin.height_cm else None),
-        yardage_by_color=dict(twin.yarn_metres_by_color),
-        yardage_tolerance=twin.yardage_tolerance,
-        calibrated=twin.calibrated,
-        terminology=terminology,
-        claims=claims,
-    )
+    return doc, claims, problems
 
 
-def _difficulty(cir: CIR, twin: TwinModel) -> str:
-    """Stated from what the pattern actually contains, not from marketing instinct."""
-    advanced = {"tr", "dc_inc", "dc_dec"}
-    used = twin.stitch_types_used
-    colors_used = len([c for c in twin.colors_used if c])
-    if used & advanced or colors_used > 3:
-        return "intermediate"
-    if colors_used > 1 or cir.construction != "flat_rows":
-        return "confident beginner"
-    return "beginner"
+# How far the fabric's own row gauge may sit from the swatch gauge before the document has to
+# reconcile the two out loud. Set at a tenth because a maker checking their work cannot tell
+# a 10% difference from their own tension, and can tell a 50% one -- which is what a pattern
+# stated in sc and worked in dc actually produces.
+ROW_GAUGE_DRIFT = 0.10
+
+
+def _fabric_row_gauge(twin: TwinModel) -> float | None:
+    """How many rows of *this pattern's fabric* make 10 cm, from the twin's own height.
+
+    Read off the twin rather than re-derived from the stitch heights, so it cannot become a
+    second opinion about a measurement the twin has already made.
+    """
+    rows = len(twin.row_widths)
+    if not rows or not twin.height_cm:
+        return None
+    return rows / twin.height_cm * 10.0
+
+
+def _tools_required(cir: CIR, text: str) -> list[tuple[str, str]]:
+    """Everything other than yarn and a hook that the instructions in *this* document ask for.
+
+    A materials list is the page a buyer takes to the shop, and this one listed yarn and
+    nothing else while the finishing section told them to weave in the ends and pin the piece
+    out to size. Each entry is here because a line of this document requires it, so the list
+    cannot drift into a generic "you will need" block promising tools the pattern never uses.
+    """
+    low = text.lower()
+    out: list[tuple[str, str]] = []
+    if "weave in" in low or "fasten off" in low:
+        out.append(("tapestry needle",
+                    "blunt, with an eye big enough for your yarn, for weaving in the ends"))
+    if "pin it out" in low or "block the finished" in low:
+        out.append(("blocking pins and a surface",
+                    "for pinning the piece out damp to the finished measurements"))
+    if "marker" in low:
+        out.append(("stitch marker", "to mark the first stitch of each round"))
+    if "cable needle" in low:
+        out.append(("cable needle",
+                    "or a short double-pointed needle, to hold the crossing stitches"))
+    if "stitch holder" in low or "waste yarn" in low:
+        out.append(("stitch holder or waste yarn",
+                    "for the stitches set aside and worked later"))
+    return out
+
+
+def _chart_art(cir: CIR, twin: TwinModel) -> dict:
+    """The chart, its legend and the sentence that explains them, rendered once.
+
+    Lifted out of the page loop because the document is now laid out twice -- once to learn
+    how many pages it has, once to print that number in the footer -- and a two-thousand-pixel
+    chart must not be drawn twice to find that out.
+    """
+    if is_round(cir, twin):
+        # A ragged grid is not a chart of a disc, and "read odd rows right to left" is
+        # flat-fabric advice: every round is worked in the same direction.
+        return {
+            "chart": render_round_chart(cir, twin, ChartSpec(cell_px=22)),
+            "legend": render_legend(cir, twin),
+            "caption": ("This piece is worked in the round, so the chart is drawn as rounds: "
+                        "round 1 at the centre, each ring outward one round. Count the "
+                        "wedges in a ring and you get the stitch count in the written line "
+                        "for that round, because both come from the same verified data. V "
+                        "marks an increase and A a decrease."),
+        }
+
+    grid, colour_grid = twin.chart_grid(), twin.color_grid()
+    full_cols = max((len(r) for r in grid), default=0)
+    full_rows = len(grid)
+    rep_cols, rep_rows = detect_repeat(grid, colour_grid)
+    across, up = (full_cols // rep_cols if rep_cols else 1,
+                  full_rows // rep_rows if rep_rows else 1)
+
+    # A whole-blanket chart on one page gives each stitch about a pixel. Where the fabric is
+    # genuinely built from a repeat, chart the repeat and say how to place it -- which is
+    # both readable and how mosaic patterns are actually published.
+    if (across > 1 or up > 1) and full_cols > 48:
+        grids = crop_grids(grid, colour_grid, rep_cols, rep_rows)
+        return {
+            "chart": render_chart(cir, twin, ChartSpec(cell_px=20), grids=grids,
+                                  caption=f"{cir.title} - one repeat "
+                                          f"({rep_cols} sts x {rep_rows} rows)"),
+            "legend": render_legend(cir, twin),
+            "caption": (f"This chart shows one repeat: {rep_cols} stitches wide and "
+                        f"{rep_rows} rows tall. Work it {_times(across)} across and "
+                        f"{_times(up)} up for the finished size. The full piece is "
+                        f"{full_cols} stitches by {full_rows} rows. The chart is generated "
+                        f"from the same verified data as the written instructions, so the "
+                        f"two cannot disagree. Read odd rows right to left and even rows "
+                        f"left to right."),
+        }
+    return {
+        "chart": render_chart(cir, twin, ChartSpec(cell_px=22)),
+        "legend": render_legend(cir, twin),
+        "caption": ("The chart below is generated from the same verified data as the written "
+                    "instructions above. Read odd rows right to left and even rows left to "
+                    "right."),
+    }
+
+
+def _times(n: int) -> str:
+    """'once', not '1 times'. The shipped document said the second one."""
+    return "once" if n == 1 else f"{n} times"

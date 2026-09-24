@@ -5,10 +5,12 @@ hero whose fabric render had no internal contrast, and everything upstream repor
 the plan was correct, the renderer ran, the file was written. The defect existed only in the
 pixels and nothing was looking at the pixels.
 
-So these tests build the failures as images and assert they are caught. The background is
-inferred from the corners rather than assumed from the palette -- a check that hardcodes cream
-passes a blank frame the day the brand changes, and the blank frame is what it was written to
-catch.
+So these tests build the failures as images and assert they are caught. The background is the
+frame's dominant colour rather than an assumption from the palette -- a check that hardcodes
+cream passes a blank frame the day the brand changes, and the blank frame is what it was
+written to catch. (It read the corners in its first version; the test below at
+`test_a_full_bleed_frame_is_flat_rather_than_empty` is why it does not any more, and this
+paragraph said "corners" for longer than the code did.)
 """
 from __future__ import annotations
 
