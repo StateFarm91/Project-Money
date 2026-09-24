@@ -278,5 +278,35 @@ check("the break is measured at the joins, not as a largest step",
 check("the honest fabric is shaped like half double crochet", not shape_findings(base),
       str(verdict(base)["findings"])[:130])
 
+# --- REGRESSION: the fictitious closure must be big enough to be a wall ------------------
+# The encirclement test closes a single top loop through a point off to one side and asks
+# whether the stitch crosses the triangle that spans. That triangle is not yarn, so the
+# stitch must not be able to leave through its EDGE -- if it can, a stitch that genuinely
+# wraps the strand scores zero for a reason that has nothing to do with crochet.
+#
+# At a fixed 6mm tail that is exactly what happened. The identical-stitch control was
+# unaffected, so the defect stayed invisible until stitches began to lean under hand
+# tension, at which point eleven of forty-two CERTIFIED stitches read as unlinked. The same
+# fabric scored 42/42 at every tail from 12mm to 60mm. A verdict that depends on the size of
+# an imaginary surface is measuring the surface, not the fabric, so the tail is now derived
+# from the fabric and this test pins the invariance.
+import brambleloop.visual.crochet_topology as _ct
+
+_f = honest()
+_orig = _ct._away_vector
+try:
+    verdicts = {}
+    for _tail in (12.0, 20.0, 35.0, 60.0, 120.0):
+        _ct._away_vector = (lambda t: (lambda fab: np.array([0.0, -t, 0.0])))(_tail)
+        _v = _ct.validate(_f, TWIN, max_rows=ROWS, max_cols=COLS)
+        verdicts[_tail] = (_v["stitches_linked"], _v["stitches_needing_linkage"])
+    check("the linkage verdict does not depend on the size of the fictitious closure",
+          len(set(verdicts.values())) == 1, str(verdicts))
+    check("the derived closure is long enough that yarn cannot round its end",
+          np.linalg.norm(_orig(_f)) >= 2.0 * float(np.hypot(_f.L, _f.H) + _f.D) - 1e-9,
+          "%.2fmm" % np.linalg.norm(_orig(_f)))
+finally:
+    _ct._away_vector = _orig
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

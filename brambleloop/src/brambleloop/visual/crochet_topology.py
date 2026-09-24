@@ -75,7 +75,28 @@ RESTING_CONTACT = 0.62
 # Closing a single loop strand needs a third point off its own line, or the
 # 'loop' is a degenerate sliver bounding no area and nothing can pass through it.
 # The offset is behind the fabric, where the strand's own stitch body is.
+# How far the fictitious closure reaches. A single top loop is a degenerate sliver bounding
+# no area, so to ask whether a stitch ENCIRCLES that strand the loop is closed through a
+# point off to one side, and the stitch must cross the triangle this spans.
+#
+# The triangle is fictitious, so its only requirement is that real yarn cannot leave through
+# its EDGE -- if it can, a stitch that genuinely wraps the strand scores zero because it
+# went around the surface rather than through it. That is a check failing to see what it
+# exists to measure, and it happened: at a fixed 6mm the identical-stitch control was fine,
+# but once stitches leaned the yarn began escaping past the edge and eleven of forty-two
+# certified stitches read as unlinked. The same fabric scored 42/42 at every tail from 12mm
+# to 60mm, so the verdict was a property of the tail length, not of the crochet.
+#
+# So it is derived rather than chosen: no path can get further from its anchor loop than the
+# cell's diagonal plus the fabric depth, and twice that cannot be rounded. `_AWAY` remains
+# as the fallback for callers without a fabric to measure.
 _AWAY = np.array([0.0, -6.0, 0.0])
+
+
+def _away_vector(fab) -> np.ndarray:
+    """The fictitious closure offset, sized so real yarn cannot round its end."""
+    reach = float(np.hypot(fab.L, fab.H) + fab.D)
+    return np.array([0.0, -2.0 * reach, 0.0])
 
 # The 27 cells of a uniform-grid neighbourhood, including the cell itself.
 _NEIGHBOURHOOD = tuple((i, j, k) for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1))
@@ -324,8 +345,15 @@ def _turning_chain(L: float, H: float, D: float, direction: int,
 
 
 def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = None,
-          d_over_l: float = DEFAULT_D_OVER_L) -> Fabric:
-    """Translate certified cells into one continuous crochet yarn path."""
+          d_over_l: float = DEFAULT_D_OVER_L, hand=None) -> Fabric:
+    """Translate certified cells into one continuous crochet yarn path.
+
+    `hand` optionally supplies a HandTension, which gives each stitch its own loop length.
+    Per Munden that scales the stitch ENVELOPE -- width and height -- and nothing else: the
+    yarn diameter comes from the hook and does not change because a stitch was worked
+    tighter, so `yarn_d` and `D` stay outside the perturbation. Stitch count, stitch type,
+    loop target, working direction and the order the hook makes them in are untouched.
+    """
     L = 10.0 / gauge.stitches_per_10cm * 10.0
     H = 10.0 / gauge.rows_per_10cm * 10.0
     # Yarn diameter comes from the hook the pattern specifies, not from a ratio chosen
@@ -364,6 +392,21 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
     if max_cols:
         ncols = min(ncols, max_cols)
 
+    # Hand tension, if a hand is making this rather than a machine. The field is anchored so
+    # every row still spans exactly ncols * L and the rows still total len(rows) * H; what
+    # varies is how that fixed span is divided between the stitches.
+    if hand is not None:
+        from .hand_tension import tension_field
+        cell_w, row_h, _ = tension_field(len(rows), ncols, L, H, hand)
+    else:
+        cell_w = np.full((len(rows), ncols), L)
+        row_h = np.full(len(rows), H)
+    # Left edge of each stitch, accumulated along the row. A loose stitch pushes the ones
+    # after it along, exactly as it does in the hand; the anchor guarantees the row still
+    # ends where the certified fabric ends.
+    left = np.concatenate([np.zeros((len(rows), 1)), np.cumsum(cell_w, axis=1)], axis=1)
+    top = np.concatenate([[0.0], np.cumsum(row_h)])
+
     for ri, r in enumerate(rows):
         direction = 1 if ri % 2 == 0 else -1
         cells = [c for c in by_row[r]
@@ -373,20 +416,35 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
         # which the continuity check caught as a 35mm break.
         cells.sort(key=lambda x: getattr(x, "fabric_position", x.position),
                    reverse=direction < 0)
-        anchor_top_y = ri * H
+        anchor_top_y = top[ri]
         if ri and fab.ops:
             # At the end of the row just worked, not at x=0. Emitting it at the origin left
             # the yarn jumping the full width of the panel at every reversal -- 35mm, which
             # the continuity check reported as a break rather than a path.
             tail = fab.ops[-1].points[-1]
-            turn = _turning_chain(L, H, D, direction, anchor_top_y)
+            turn = _turning_chain(L, row_h[ri], D, direction, anchor_top_y)
             turn = turn + np.array([tail[0] - turn[0, 0], 0.0, 0.0])
             fab.ops.append(Op("turn", r, -1, "both", direction, turn))
         for c in cells:
             fp = getattr(c, "fabric_position", c.position)
-            pts, spans = _hdc_cell(L, H, D, direction, getattr(c, "loop", "both"),
+            pts, spans = _hdc_cell(cell_w[ri, fp], row_h[ri], D, direction,
+                                   getattr(c, "loop", "both"),
                                    anchor_top_y, fab.yarn_diameter)
-            pts = pts + np.array([fp * L, 0.0, 0.0])
+            pts = pts + np.array([left[ri, fp], 0.0, 0.0])
+            if ri:
+                # THE STITCH LEANS. With varying widths, row ri's stitch centres no longer
+                # sit above row ri-1's, so a cell placed squarely on its own centre reaches
+                # down for an anchor that has moved -- which is exactly what the validator
+                # caught: linkage fell to 38 of 42. The hook does not have this problem,
+                # because it goes into the stitch that is actually there, wherever the
+                # previous row left it. So the cell's foot is placed on the anchor's centre
+                # and its top on its own, and the stitch leans between them. Leaning is what
+                # real crochet does when tension varies; it is not a correction applied to
+                # make a check pass, and the check is what proved it was needed.
+                own_c = left[ri, fp] + 0.5 * cell_w[ri, fp]
+                anchor_c = left[ri - 1, fp] + 0.5 * cell_w[ri - 1, fp]
+                lean = np.clip(1.0 - (pts[:, 1] - anchor_top_y) / row_h[ri], 0.0, 1.0)
+                pts[:, 0] += (anchor_c - own_c) * lean
             fab.ops.append(Op("hdc", r, fp, getattr(c, "loop", "both"), direction, pts,
                               front_loop=spans["front_loop"], back_loop=spans["back_loop"],
                               pull_through=spans["pull_through"],
@@ -603,6 +661,7 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     unmeasurable: list[tuple[int, int]] = []
     numbers: list[int] = []
     by_key = {(o.row, o.position): o for o in hdc}
+    away = _away_vector(fab)
     for o in hdc:
         anchor = by_key.get((rows[rows.index(o.row) - 1], o.position)) \
             if rows.index(o.row) > 0 else None
@@ -611,9 +670,9 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
         back = anchor.points[anchor.back_loop[0]:anchor.back_loop[1] + 1]
         front = anchor.points[anchor.front_loop[0]:anchor.front_loop[1] + 1]
         if o.loop_target == "front":
-            target = linkage.close_arc(np.vstack([front, front.mean(axis=0) + _AWAY]))
+            target = linkage.close_arc(np.vstack([front, front.mean(axis=0) + away]))
         elif o.loop_target == "back":
-            target = linkage.close_arc(np.vstack([back, back.mean(axis=0) + _AWAY]))
+            target = linkage.close_arc(np.vstack([back, back.mean(axis=0) + away]))
         else:
             # NOT front[::-1]. The two legs of a V already run in opposite directions --
             # the yarn travels out along the back leg and returns along the front -- so

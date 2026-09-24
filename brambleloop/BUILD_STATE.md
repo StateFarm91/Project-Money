@@ -7055,3 +7055,121 @@ Before treating a missing dependency or capability as an architectural constrain
 whether it is actually unavailable, impractical or incompatible — or merely not installed.
 The numpy error is the worked example: it was never tested, it was reported as a limit, and
 it made a failure look structural when it was not.
+
+## 2026-09-24 — Layer 5: hand tension, and a validator that could not see leaning stitches
+
+Deterministic, CA$0.00 spent. Phase remains `shadow`. Nothing published.
+
+### What was built
+
+`src/brambleloop/visual/hand_tension.py`, plus its wiring into `crochet_topology.build()`
+behind an optional `hand=` argument.
+
+The control path with `hand=None` is NOT bit-identical to Layer 4, and the first draft of
+this section said it was. Checked rather than asserted, against the previous revision of the
+module: 159 of 2754 coordinates differ, by at most 2.8e-14 mm. The cause is understood and
+benign — stitch positions now come from a cumulative sum of per-stitch widths instead of
+`fp * L`, and those agree only to the last bit of a double. 28 femtometres against a 3.33mm
+yarn is physically nothing, and every lock returns the same verdict. But "bit-identical" is a
+precise claim, it was made from reasoning rather than measurement, and it was false.
+
+The varied quantity is LOOP LENGTH, not stitch width, because loop length is what a hand
+actually controls. Munden (1959) established for plain knitted fabric that courses/cm ×
+loop length and wales/cm × loop length are both constants, so stitch width and height each
+scale linearly with loop length: one perturbation drives both by a published relation rather
+than by two invented ones.
+
+  MAGNITUDE          total CV 5% of loop length. BOUNDED BY TWO INDEPENDENT SOURCES rather
+                     than chosen: machine-knitting quality literature puts loop-length
+                     irregularity at 4% for "detectable" and 10% for "clearly noticeable";
+                     craft practice calls a swatch uneven when two places differ by half a
+                     stitch, which at 14.5 sts/10cm is 3.4%. 5% sits deliberately between.
+  CORRELATION        three behaviours the craft sources actually describe, and nothing else:
+                     drift over ~12cm, a per-row tension, and per-stitch jitter. Variance
+                     split 45/35/20 is labelled a BOUNDED ESTIMATE, not sourced.
+  ANCHOR             every row spans exactly ncols × L and the rows total exactly nrows × H,
+                     held to 1.4e-14 mm. Local variation cannot accumulate into garment drift.
+
+### What the anchor costs, stated because the flattering number was available
+
+The specified 5% is a property of the generated field. The anchor is a constraint on that
+same field and removes its long-wavelength part: renormalising each row's widths subtracts
+that row's mean, deleting the row term from the widths outright and most of the drift with
+it. What survives to be SEEN is 2.5% in stitch width and 3.2% in row height, measured over
+many seeds. That is not leakage — it is the physical content of the anchor, since a maker
+checking gauge against the pattern performs exactly this correction. `realised_variation()`
+measures it rather than asserting it, and the tests require the reported observable figure
+to be strictly less than the specified one.
+
+### Three defects this increment found, two of them mine and one older
+
+1. THE FIELD WAS NOT ZERO-MEAN. The drift field normalised by standard deviation but not by
+   mean. With a correlation length longer than the swatch the filtered field went nearly
+   constant, dividing by its tiny standard deviation amplified the residual mean to about
+   -8, and stitch widths came out NEGATIVE. The anchor then divided by a negative row sum,
+   flipped the signs back, and returned plausible positive widths with the variation crushed
+   to a tenth of its specified size. Every printed value looked reasonable. Only measuring
+   the realised statistic caught it. Rebuilt as a sum of low-frequency modes, which has no
+   such pathology: over a large piece it gives the intended deviation, and over a patch
+   smaller than one wavelength it gives a gentle gradient, which is what a slow drift looks
+   like when only 5cm of it is visible.
+
+2. THE DRIFT WAS PERIODIC. Three modes all at the correlation length sum to a field that
+   repeats every 12cm — over a garment that is regular banding at a fixed pitch, the
+   opposite of wandering. The correlation test caught it as rows twelve apart (one
+   wavelength) resembling each other MORE than adjacent rows. Fixed by spreading the
+   wavelengths over a half-octave either side. Row-mean correlation now falls from +0.28 at
+   lag 1 to +0.03 at 21cm.
+
+3. THE ENCIRCLEMENT CHECK COULD NOT SEE A LEANING STITCH — older, and the more serious.
+   A single top loop is a degenerate sliver bounding no area, so it is closed through a
+   point off to one side and the stitch must cross the triangle that spans. That triangle is
+   fictitious, so its only requirement is that real yarn cannot leave through its EDGE. At a
+   fixed 6mm tail it could. The identical-stitch control was unaffected, so the defect stayed
+   invisible for as long as every stitch sat squarely above its anchor; once stitches leaned,
+   ELEVEN OF FORTY-TWO CERTIFIED STITCHES READ AS UNLINKED. The same fabric scored 42/42 at
+   every tail from 12mm to 60mm. A verdict that depends on the size of an imaginary surface
+   is measuring the surface, not the crochet. The tail is now DERIVED — twice the cell
+   diagonal plus fabric depth, 39.8mm here — and a regression test pins the verdict's
+   invariance across tail lengths. The 18 adversarial fixtures still reject every broken
+   fabric, so the check was made able to see, not made lenient.
+
+   This is the same defect family as every previous one here: a check that cannot see what
+   it exists to measure. It is worth noting that the increment that exposed it was not
+   looking for it.
+
+### The stitch leans, and that is physics rather than a fix for a failing check
+
+With varying widths, row r's stitch centres no longer sit above row r-1's. A cell placed
+squarely on its own centre reaches down for an anchor that has moved, and linkage fell to
+38/42. The hook does not have this problem: it goes into the stitch that is actually there.
+So a cell's foot is placed on its anchor's centre and its top on its own, and the stitch
+leans between them — which is what real crochet does when tension varies.
+
+### Locks, re-run on the actual varied geometry
+
+                      as built                     after relaxation
+  control    42/42 linked, 49/49 shaped    42/42, closest 1.500mm, passes=True
+  hand       42/42 linked, 49/49 shaped    42/42, closest 1.500mm, passes=True
+
+Linking numbers ∈ {-1,+1}, 0 unmeasurable, `crossing_impossible=True`, finished dimensions
+54.0 × 78.7 × 10.9mm against the control's 54.0 × 78.6 × 10.9mm. Stitch count, stitch type,
+loop targets, joins, gauge and provenance all unchanged.
+
+### Verdict against the realism floor: D REMAINS FAIL
+
+Layer 5 did what it was authorised to do. Perfect repetition is no longer the dominant CG
+cue: rows waver, stitch widths vary, the edge is no longer a ruled line. It is no longer the
+loudest defect, so the next one is now clearly visible and has been MEASURED rather than
+eyeballed — the first attempt to measure it geometrically was wrong, reporting 96% coverage
+by treating the yarn as a solid cylinder when the rendered yarn is four ply tubes with real
+voids between them.
+
+  THE FABRIC IS SEE-THROUGH. Rendering against an emissive backdrop and counting what shows
+  through the interior: 20.0% without the fibre halo, 19.2% with it. The halo closes less
+  than one point, so this is STRUCTURAL, not a fibre-coverage problem. A real half double
+  crochet fabric is what crocheters call solid — it is used for blankets and garments
+  precisely because it is opaque. At ~19% visible backdrop this reads as lace.
+
+That is the next increment, and it is a topology/geometry question rather than a rendering
+one, so it belongs before any further material work.
