@@ -6025,3 +6025,73 @@ executor work will move it. It is stuck on one question, and the next deploy is 
 can any available image provider reproduce a certified crochet chart. Until that has an
 answer, five ready requirements is an accurate count of work that cannot be completed rather
 than a backlog anybody can burn down.
+
+## 2026-09-24 — the three-way provider comparison is complete, and it settles the question
+
+Deployed `2e6864d`. `nano-banana-2` rendered for the first time, job 3588. All three
+credentialled providers have now been measured on the same two certified products, the same
+CIR-derived prompt, the same chart reference, the same independent judges and the same floors,
+under render method `v5-tiling-is-named-so-it-can-be-avoided`.
+
+| | gpt-image-2 | flux-2-pro | nano-banana-2 |
+|---|---|---|---|
+| renders | 4 | 4 | 4 |
+| texture clear | 0.00 | 0.50 | 0.00 |
+| structural clear | 1.00 | 1.00 | 0.75 |
+| **product truth match** | **0.00** | **0.00** | **0.00** |
+| photographic realism clear | 0.00 | 0.00 | 0.00 |
+| **usable as listing asset** | **0.00** | **0.00** | **0.00** |
+| CA$ per render | 0.0411 | 0.0274 | 0.1384 |
+| CA$ per usable | — | — | — |
+
+Trial verdict: **`keep_the_incumbent`** — "nano-banana-2 tiled on every render too, so the
+blocker is not specific to gpt-image-2. That is a finding about rendering crochet rather than
+about either provider, and switching would cost money and change nothing." Nothing was
+switched; the image stack remains the owner's decision, as instructed.
+
+The most expensive candidate was also the worst. `nano-banana-2` is the one whose provider
+entry claims "fine-grained fabric and material texture at up to 4K", and it tiled on every
+render, lost a quarter of its structural clears, and added `drape` and `yarn_is_believable`
+to the failure set at 3.4x the incumbent's price per image.
+
+### What twelve renders across three providers actually establish
+
+**Product truth: 0 of 12.** Not one render on any provider reproduced the certified stitch
+chart. This is the number that matters and it was never the number the experiment was
+authorised to chase — tiling was. Tiling turns out to be the visible symptom; the chart is
+the disease. `texture_not_repeating` failed 10 of 12; `product_truth` failed 12 of 12.
+
+Under B-651's rule this is systematic, not stochastic, and its prescribed response is a
+method change rather than a retry. But three method versions (v3, v4, v5) and three providers
+have now failed the same floor, which moves the diagnosis up a level: the variable that keeps
+changing is not the one that matters.
+
+**The non-negotiable already said this.** "Patterns are software releases. Never create a
+beauty image and ask a model to guess the instructions." The product-first render path asks a
+diffusion model to draw a specific combinatorial stitch structure and then judges whether it
+matches the chart — which is a model guessing the instructions, wearing a picture. The rule
+was written for pattern text and applies unchanged to pattern imagery. Nothing in twelve
+renders suggests the next prompt, the next provider or the next method version escapes it.
+
+### The recommendation, for the owner rather than for the next session
+
+Certified-product listing photography does not appear to be obtainable from text-to-image
+generation, at any price any of the three vendors charges. Two routes remain and they are a
+product decision, not a technical one:
+
+1. **Deterministic fabric rendering from the CIR.** Brambleloop already compiles a CIR and
+   builds a digital twin; rendering the fabric programmatically from the chart would make
+   product truth true *by construction* rather than by a judge catching its absence. This is
+   the same move the pattern text already made, applied to the picture. It is buildable here
+   and needs no vendor.
+2. **Real photography of real objects.** Physically crocheted samples, photographed. This
+   clears every floor at once by not being generated, and it is the only route that also
+   satisfies the physical-proof gate — but it needs a person and hands.
+
+They are not exclusive: (1) serves the chart and schematic frames, (2) serves the beauty and
+worn frames. Recorded as evidence with a recommendation rather than acted on, because the
+owner's instruction on the image stack was explicit: bring the measured evidence first.
+
+Spend: this run CA$0.5536, experiment total **CA$0.8276 of CA$4.00**. The cumulative ceiling
+worked on its first real use — `prior_spend_cad: 0.274` was carried into the run rather than
+reset, exactly as B-687 intended, and the incumbent arm was reused rather than re-bought.
