@@ -200,18 +200,23 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         # millimetres of yarn, not a fraction of H: ratios describe centre paths and are
         # silent about thickness, so a dive sized purely from H passed within 0.53mm of a
         # 2mm strand -- through it, not around it.
-        ("insert",       (c - 0.16 * L, y0 + 0.40 * H, enter_z + D * 0.50)),
+        ("insert",       (c - 0.11 * L, y0 + 0.16 * H, enter_z + D * 0.50)),
         ("through",      (c - 0.02 * L, y0 + 0.03 * H - yarn, enter_z + D * 0.08)),
         ("behind",       (c + 0.10 * L, y0 - 0.04 * H - yarn, enter_z - D * 1.25)),
-        ("emerge",       (c + 0.15 * L, y0 + 0.40 * H, enter_z - D * 0.95)),
+        ("emerge",       (c + 0.11 * L, y0 + 0.16 * H, enter_z - D * 0.95)),
 
         # --- the post: upright, not leaning ------------------------------------
+        # The two strands of the post are held close in x so they read as one column. Splayed
+        # apart they rendered as a thin J-hook hanging off a rail rather than the upright
+        # post that gives a half double its height. The post also starts low, just above the
+        # V it was worked into, because starting it partway up the row left an empty band
+        # between every pair of rows in a fabric that should be dense.
         # Held to the side of the cell centre. Dead centre is where the NEXT row's hook
         # comes down, and the post's crown sat 0.3mm from it -- the two stitches occupied
         # the same millimetre of space and only relaxation pulled them apart afterwards.
         # Clearance belongs in the construction; relaxation is for contact, not for repair.
-        ("rise",         (c + 0.18 * L, y0 + 0.74 * H, -D * 0.30)),
-        ("crown",        (c + 0.20 * L, yt - 0.20 * H, +D * 0.14)),
+        ("rise",         (c + 0.15 * L, y0 + 0.62 * H, -D * 0.30)),
+        ("crown",        (c + 0.16 * L, yt - 0.16 * H, +D * 0.14)),
 
         # --- yarn over and pull through all three loops -------------------------
         ("close_near",   (c + 0.16 * L, yt - 0.14 * H, -D * 0.48)),
@@ -225,11 +230,27 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
         # Symmetric about the centre, so they sit at the same fabric x either way. They run
         # in opposite directions -- out along the back, home along the front -- which is why
         # closing the V into a ring must not reverse one of them.
-        ("back_loop",    (c - 0.365 * L, yt + 0.02 * H, -D * 0.44)),
-        ("back_loop_e",  (c + 0.365 * L, yt + 0.06 * H, -D * 0.40)),
-        ("v_turn",       (c + 0.445 * L, yt + 0.10 * H, +D * 0.02)),
-        ("front_loop",   (c + 0.365 * L, yt + 0.13 * H, +D * 0.44)),
-        ("front_loop_e", (c - 0.365 * L, yt + 0.09 * H, +D * 0.46)),
+        # A flattened loop lying horizontally, not a wedge. The legs run level and
+        # parallel, separated through the fabric rather than in height, joined by a rounded
+        # turn. Sloped legs meeting at a point rendered as a row of arrowheads.
+        #
+        # The loop is traversed OUT to the left and HOME to the right, so it finishes at the
+        # right-hand end -- next to where the following stitch begins. Traversed the other
+        # way it finished at the left and the yarn then had to sweep the full width of the
+        # cell to reach the next stitch. That sweep, paired with the back leg, is what drew
+        # the arrowheads: they were never the V, they were the yarn travelling back across a
+        # stitch it had already finished.
+        #
+        # The point set stays symmetric about the cell centre, so the row above still finds
+        # the loops in the same place whichever way this row was worked. Only the order of
+        # travel mirrors.
+        ("back_loop",    (c + 0.300 * L, yt + 0.045 * H, -D * 0.42)),
+        ("back_loop_e",  (c - 0.300 * L, yt + 0.055 * H, -D * 0.40)),
+        ("v_turn_a",     (c - 0.400 * L, yt + 0.060 * H, -D * 0.22)),
+        ("v_turn",       (c - 0.435 * L, yt + 0.065 * H, +D * 0.02)),
+        ("v_turn_b",     (c - 0.400 * L, yt + 0.070 * H, +D * 0.26)),
+        ("front_loop",   (c - 0.300 * L, yt + 0.075 * H, +D * 0.42)),
+        ("front_loop_e", (c + 0.300 * L, yt + 0.065 * H, +D * 0.44)),
         ("away",         (1.00 * L, yt - 0.30 * H, +D * 0.46)),
     ]
     names = [n for n, _ in p]
