@@ -7266,3 +7266,56 @@ contention explanation predicts, so the diagnosis is confirmed rather than merel
 The fragility itself is real and stays recorded: a 40-second wall-clock wait will fail again
 on a loaded machine, and it is worth fixing the next time that file is touched. It is not
 this increment's to fix and has not been touched.
+
+## 2026-09-24 — the see-through defect was mostly STAGING, and no geometry was changed
+
+Deterministic, CA$0.00. Phase `shadow`. Suite green at 3,309.
+
+The attribution the previous section demanded, run before touching any geometry.
+
+First, a correction to how I had framed it: moving the backdrop cannot change the geometric
+escape fraction. A ray that gets through the fabric gets through whatever is behind it, so
+the 20% figure is a true property of this fabric and this camera and it still stands. What
+staging changes is whether the escaped rays land on a BRIGHT distant surface or on a surface
+the fabric is shadowing. That is the part that decides whether holes read as lace or as
+fabric texture, and it is the only part that was ever in question.
+
+  backdrop 29.7mm behind (as rendered all session)   hole pixels 0.2357, 0.37 of interior mean
+  backdrop 0.3mm behind, i.e. resting on it          hole pixels 0.1674, 0.28 of interior mean
+
+Holes darken by 29%, and the visual change is larger than that number suggests: with contact
+staging the swatch reads as SOLID FABRIC lying on a surface. The gaps become dark recesses
+between rows — which is what they are — rather than windows onto a lit backdrop. The lace
+appearance is gone, and `yarn_stage_far.png` and `yarn_stage_contact.png` are committed side
+by side as the evidence.
+
+WHAT THIS MEANS, AND WHAT IT DOES NOT. It does not mean the fabric is optically solid; 20%
+of interior rays still escape it, and the residual ~5.5% of genuine orthographic holes is
+still a real if minor difference from real hdc. What it means is that the defect I had
+promoted to "the next increment" was substantially an artefact of photographing a fabric
+suspended 30mm in front of a lit wall, which is not how fabric is photographed.
+
+The reason to record this prominently is that the obvious response to the 20% figure was to
+close the fabric up, and the two levers for that — reducing depth, or thickening the stitch —
+would both have altered the certified product to compensate for a lighting decision. The
+depth lever was already withdrawn this session on anatomical evidence. Had the staging not
+been checked first, the second lever would have looked justified, would have improved every
+render, and would have been wrong. NO GEOMETRY WAS CHANGED, and none is warranted by this.
+
+### Where D-product actually stands now
+
+Honest assessment against the realism floor, not a promotion. The contact-staged Layer 5
+swatch is the most convincing render this project has produced: stitch definition is legible,
+rows read as rows, the yarn has ply twist, fibre striation and a halo, and hand tension has
+removed the machine-perfect repetition. Two things keep it from clearing the floor, and both
+are now the honest top of the queue:
+
+  1. THE FABRIC IS PERFECTLY FLAT AND RIGID. It lies in a plane like a stiff mat. Real
+     crochet drapes, buckles slightly out of plane, and curls at its edges; a swatch photo
+     always shows some of that. This is the largest remaining CG cue by a distance, and it is
+     a mechanics question — the relaxation solver currently has no out-of-plane freedom and
+     nothing pulls the fabric out of its plane.
+  2. The yarn still reads slightly as smooth cord rather than as spun fibre at listing
+     resolution, though much less than before the surface and halo layers.
+
+Milestone D remains FAIL. Nothing here promotes it.
