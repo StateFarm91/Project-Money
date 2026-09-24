@@ -7574,3 +7574,90 @@ method certifies topology the way we do.** Our invariant is stricter than publis
 - UNKNOWN: any yarn-consumption parameter for HDC; friction/hysteresis data for crochet
   fabric; and any published ablation isolating sliding's contribution to drape. Nobody has
   run the experiment we want to run.
+
+## 2026-09-24 — SEO / Marketplace Research department: the children's category
+
+Merged from an isolated worktree. CA$0.00, Shadow Mode, no Etsy API call, no account.
+Boundary verified by diff before merge: nothing under `visual/**`, `cir/**`, BUILD_STATE or
+DECISION_LOG was touched. 30 tests, verified green by the integrator rather than taken on
+report.
+
+Delivered: `research/CHILDRENS_CATEGORY.md`, `intel/childrens.py` (taxonomy and safety
+constraints as dated sourced data plus deterministic checks), `tests/test_childrens.py`.
+
+### The finding that changes what we may sell
+
+**Etsy's Children and Baby Products policy, effective 2026-06-02, prohibits PATTERNS,
+DESIGNS AND INSTRUCTIONS for making prohibited children's items — not only the items.** A
+shop can be actioned for a PDF. So crib bumpers, crib liners, infant loungers, inclined
+sleepers and neck floats are out as patterns, not merely as products. Two further hard
+refusals come from regulation rather than platform: crocheted baby slings and carriers
+(16 CFR 1228 / ASTM F2907-22, load-bearing infant containment) and children's loose-fitting
+sleepwear (Canada SOR/2016-169 flammability to size 14X — untreated crochet is not flame
+resistant).
+
+Constraints that bite on ordinary crochet products:
+
+  * **Small parts under 36 months are BANNED, not warnable** (16 CFR 1501; Canada SOR/2011-17
+    s.7(1), s.31 on eyes and noses). Consequence: embroidered or crocheted-on faces become
+    the Brambleloop default and safety eyes exist only as a labelled 3+ variant. That is a
+    real merchandising cost, because a safety-eye photograph is the genre's visual
+    signature — and it is simultaneously the cleanest differentiator available to us.
+  * 3-to-under-6 with a small part requires the 16 CFR 1500.19 cautionary statement.
+  * Drawstrings: a hood or neck tie on children's upper outerwear 2T-12 is on the
+    substantial-product-hazard list. A chained tie through a hooded cardigan neckline is the
+    obvious crochet solution and it is the prohibited one.
+  * Safe sleep (AAP 2022): baby blankets and loveys need an explicit supervised-use
+    statement. Commercially awkward, since the baby blanket is this audience's most
+    merchandised object.
+  * CPSIA does not attach to us — it attaches to the physical product — but a buyer who
+    sells finished items becomes the manufacturer, so every children's pattern carries a
+    pointer rather than advice.
+
+### Market, measured rather than asserted
+
+Wikimedia monthly pageviews 2025-09 to 2026-08: `Amigurumi` swings 1.92x peak to trough,
+peaking in December; `Baby_shower` swings 1.60x, peaking in September and TROUGHING in
+December. The two are counter-seasonal, so a children's portfolio pairing toys with
+baby-occasion products is materially flatter than one built on toys alone. Labelled a proxy
+for interest, not purchase intent. It is the first actual series behind the
+"baby demand is year-round" line that was already sitting in `radar/opportunity.py`.
+
+Price and velocity from a third-party top-100 (EtsyHunt, 2026-09-01, estimates, unverified):
+five of the top ten crochet pattern listings are children's toys; single amigurumi patterns
+cluster at $5.76-$6.00. Two of the top-ten mechanics are ones we are forbidden to use —
+licensed-character IP and 20,000-pattern bundles of other people's work — so the addressable
+top of the shelf is smaller than the chart looks. That is an argument in our favour.
+
+**Recommended entry order, weighted by obligation and verifiability rather than by demand:
+nursery decor and keepsake/baby blankets first, amigurumi second with an embroidered-face
+default, children's fitted garments last.**
+
+### A defect this surfaced in existing code
+
+`commerce/search.py: listing_attributes()` sends a HAND-BUILT attribute dict that has never
+been verified against Etsy's real property list, and it carries no children's audience key.
+That is this codebase's recurring defect family again — a value asserted rather than
+measured — and it now has a category that would expose it on day one.
+
+### Genuinely blocked, with no owner action arising
+
+1. Etsy policy text verbatim: `etsy.com` returns HTTP 403 to this environment, verified by
+   direct request. The prohibition list is built from search-result quotations of Etsy's own
+   page, and the module records this per-source via `unfetched_sources()` rather than as a
+   caveat in prose, with a test asserting the enumeration works.
+2. Attribute schema for taxonomy node 66 needs one `getPropertiesByTaxonomyId(66)` call,
+   which the department was instructed not to make. No schema was invented.
+3. Listing counts and review distributions per sub-category need the Etsy credential. No
+   number was invented.
+4. The exact 16 CFR 1500.19 warning string renders as an image in the regulation; the
+   constant is marked as needing one confirmation from a rendered copy before any live
+   listing carries it.
+
+### Held at the merge queue, deliberately
+
+The department recommends adding a sixth policy surface to `gates/platform_policy.py` for
+the Children and Baby Products policy. NOT APPLIED YET: the Etsy/Commerce department is
+concurrently working on shop policy and may be in that file. Applying it now would be the
+integrator racing his own department. It is queued for the integration point after
+Etsy/Commerce reports.
