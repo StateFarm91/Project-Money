@@ -6615,3 +6615,77 @@ The canonical reference photography is still `blocked` on `skin_looks_real` and
 `processing_is_restrained`, both flagged `inheritable_failures`. Even a working product bridge
 cannot clear identity + realism on a model-bearing image until that is resolved, and the
 repair experiment already measured 3/3 identity held with realism not repaired.
+
+## 2026-09-24 — D-product yarn-level spike: FAIL on realism, blocker isolated, CA$0.00
+
+Owner directed research first, then the smallest legitimate yarn-level proof. Done in that
+order. The result fails the bar and the failure is precisely located.
+
+### The infrastructure answer changed completely
+
+**No Blender, no GPU, no render worker, no cloud cost.** Mitsuba 3 (`pip install mitsuba`,
+BSD-3-Clause) is a full physically based path tracer with `linearcurve` primitives built for
+hair and fibre. It installs into the existing venv and renders on CPU in-process. Every image
+in this experiment cost **CA$0.00** and required no new deployment.
+
+**A correction to the previous D report.** I recorded "this container has no numpy" as a
+constraint. I never tested it — numpy installs in seconds and there is 27GB free. That was an
+assumption presented as a finding, and it made the earlier failure look more structural than
+it was. numpy is now in `requirements.txt`; mitsuba deliberately is not, because the deployed
+service never renders and should not carry 200MB it cannot use.
+
+### What works
+
+Rendering, material and relaxation are solved:
+
+- round strands with genuine contact shadows and inter-strand occlusion;
+- a fibrous, non-plastic surface response;
+- neighbour-aware relaxation — structural springs along the strand plus contact repulsion
+  between non-adjacent vertices, so stitches visibly affect their neighbours;
+- **low-frequency tension drift across the whole panel**, which is the specific fix for the
+  B-704 diagnosis: local jitter on a regular grid still reads as a regular grid, and hand
+  fabric varies over dozens of stitches rather than per stitch.
+
+Every vertex carries provenance back to a cell the compiler counted, so the geometry is
+auditable and not merely deterministic. Loop targeting produces **genuinely free strands** —
+a back-loop stitch leaves the anchor's front loop unattached, lying across the face with
+nothing drawn through it. The ridge is geometry now, not shading.
+
+### What fails, and it is topology
+
+Two iterations. The first routed the yarn *near* the anchor and back up, producing a net of
+struts and bars — proximity is not linkage. Adding encirclement and three post strands (a
+half double leaves the yarn-over, the pull-up and the closing all standing in the same place)
+produced real density and visible courses. **It still does not read as crochet.** It reads as
+coarse netting.
+
+The blocker is **not** material, renderer, relaxation or computational practicality. It is
+that hand-authoring the yarn route for a crochet stitch is the hard part, and my route is an
+informed approximation rather than the real thing.
+
+### The research that already solves it
+
+- **Representing Crochet with Stitch Meshes** — Guo, Lin, Narayanan, McCann (CMU Textiles
+  Lab, SCF 2020). A tile library where each tile *contains yarn geometry*, plus a special
+  "current loop" edge type modelling the single live loop on the hook. That edge type is
+  exactly the knitting/crochet distinction: knitting holds a queue of live loops on a needle,
+  crochet holds one. https://dl.acm.org/doi/10.1145/3424630.3425409
+- **CT2Yarn** (2026) — micro-CT reconstruction of real crochet into a continuous yarn
+  centreline with ply-level geometry. Ground truth for what these curves should be.
+  https://arxiv.org/html/2609.06950v1
+- **Stitch meshes** (Yuksel et al., TOG 2012) and **mechanics-aware yarn deformation**
+  (Sperl et al., 2021) for the relaxation layer.
+
+### Proposed next increment — NOT BUILT, awaiting authorisation
+
+Replace the hand-written stitch path with a **per-stitch-type yarn geometry tile library**
+adapted from the CMU face types: chain, slip stitch, single, half double, double, each with
+back-loop and front-loop variants, connected through a current-loop edge. The CIR side, the
+renderer, the material and the relaxation already exist and are proven; this is the one
+missing layer.
+
+- **Scope:** the tile library plus connection logic. No new infrastructure.
+- **Compute:** CPU, in-container, minutes per swatch.
+- **Operating cost:** CA$0.00 per render, no recurring cost, no external service.
+- **Licensing:** Mitsuba BSD-3-Clause; the papers are references, not code to copy.
+- **Product Truth:** unaffected — both locks still hold, every vertex still traces to a cell.

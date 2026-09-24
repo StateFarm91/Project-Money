@@ -82,7 +82,12 @@ def assess(size: str = "S") -> dict:
     out.append({
         "milestone": "D", "name": "photographic presentation without structural drift",
         "status": FAIL,
-        "evidence": ("deterministic 2D rendering FAILED the realism floor (B-704). Three "
+        "evidence": ("2D glyph rendering failed (B-704); the yarn-level spike then "
+                     "failed on TOPOLOGY, not rendering (B-705): Mitsuba PBR, material and "
+                     "neighbour-aware relaxation all work at CA$0.00 per image in-container, "
+                     "but hand-authored crochet stitch geometry reads as netting. Next "
+                     "increment is a stitch-type yarn tile library, awaiting authorisation. "
+                     "Prior detail: three "
                      "attempts: glyph raster reads as plastic mesh; corrected density reads "
                      "as machine-woven textile; per-pixel lighting was buggy and removed "
                      "rather than shipped. Structure was correct in all three -- the failure "
