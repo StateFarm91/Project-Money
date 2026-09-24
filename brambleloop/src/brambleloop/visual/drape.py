@@ -97,11 +97,23 @@ from . import crochet_topology as topo
 from . import relaxation as rx
 
 __all__ = ["DrapeSetup", "DrapeReport", "drape", "areal_mass", "bending_bracket",
-           "cantilever_test", "intrinsic_dimensions", "PROVENANCE"]
+           "cantilever_test", "intrinsic_dimensions", "CALIBRATED_BENDING_N_M2",
+           "PROVENANCE"]
 
 STANDARD_GRAVITY = 9.80665            # m/s^2, sourced
 ACRYLIC_DENSITY = 1180.0              # kg/m^3, already used to derive fibre radius
 ACRYLIC_MODULUS = 2.5e9               # Pa, bounded: acrylic bulk modulus is quoted 2.2-3.2
+
+# The calibrated yarn bending rigidity, derived by the procedure documented above: the
+# solver's own effective bending length is measured from a cantilever deflection and this is
+# the value that puts it on the geometric midpoint of the 15-80mm band that published jersey
+# stiffness and observed crochet behaviour bracket. It comes out at 1.45x the free-fibre hard
+# lower bound, a cross-check it was not fitted to.
+#
+# It lives here and nowhere else. It was briefly a literal in the test suite as well, chosen
+# before the calibration existed and left twenty times too stiff afterwards, which showed up
+# as a test asserting gravity had moved the fabric while the fabric moved 0.03mm.
+CALIBRATED_BENDING_N_M2 = 3.0e-8
 
 PROVENANCE = {
     "linear_density": "DERIVED -- 444 tex is mass per length by definition, 4.44e-4 kg/m",
@@ -177,8 +189,8 @@ def areal_mass(fab: topo.Fabric, tex: float) -> dict:
 class DrapeSetup:
     """The boundary conditions. These are the physics that decides the configuration."""
 
-    bending_rigidity_N_m2: float
     linear_density_kg_m: float
+    bending_rigidity_N_m2: float = CALIBRATED_BENDING_N_M2
     gravity: float = STANDARD_GRAVITY
     # Which way is down, in fabric coordinates. The fabric is authored in the xy plane with
     # +y up the rows, so a swatch lying on a table has gravity along -z and one hanging has
