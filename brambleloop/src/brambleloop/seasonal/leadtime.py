@@ -357,6 +357,14 @@ def plan_for_seasonal_event(event, *, make_hours: float, skill: str = "intermedi
 
 @dataclass(frozen=True)
 class MakeTimeEstimate:
+    """Make-time for the whole finished object, not for one of its pieces.
+
+    `hours` and `stitches` count every instance the pattern says to work, so a set of four
+    coasters reports four coasters. `components` is how many *distinct* pieces the pattern
+    defines and `pieces` is how many get crocheted -- they differ exactly when some
+    `Component.make` is above one, which is the case this estimate used to get wrong.
+    """
+
     hours: float
     stitches: int
     colour_changes: int
@@ -364,11 +372,18 @@ class MakeTimeEstimate:
     lane: str
     basis: str
     evidence: str
+    pieces: int = 0
+    # Per distinct component: its name, how many of it, and the hours for one and for all of
+    # them. Carried because a total is unauditable on its own -- with the breakdown a reader
+    # can see which piece dominates the make, and whether the multiplicity was applied.
+    per_component: tuple[dict, ...] = ()
 
     def to_dict(self) -> dict:
         return {"hours": self.hours, "stitches": self.stitches,
                 "colour_changes": self.colour_changes, "components": self.components,
-                "lane": self.lane, "basis": self.basis, "evidence": self.evidence}
+                "pieces": self.pieces, "lane": self.lane, "basis": self.basis,
+                "evidence": self.evidence,
+                "per_component": [dict(c) for c in self.per_component]}
 
 
 def colour_changes(twin) -> int:
@@ -390,24 +405,95 @@ def colour_changes(twin) -> int:
     return total
 
 
-def estimate_make_hours(twins, assumptions: Assumptions = DEFAULT) -> MakeTimeEstimate:
-    """Estimate customer make-time from the twins of a pattern's components."""
+def makes_of(cir) -> dict[str, int]:
+    """How many of each component the CIR says to work.
+
+    The one place this mapping is read. `Component.make` is the CIR's own statement of
+    multiplicity -- `writer.write_pattern` prints "(make 4)" from it and `assembly` counts
+    copies from it -- so anything estimating make-time has to come here rather than assume
+    one of everything.
+    """
+    return {c.name: c.make for c in cir.components}
+
+
+def estimate_make_hours(twins, assumptions: Assumptions = DEFAULT, *,
+                        makes: dict[str, int]) -> MakeTimeEstimate:
+    """Customer make-time for the whole finished object, multiplicity included.
+
+    `makes` is required and is not allowed to be silently incomplete. A twin holds *one*
+    instance of a component however many the pattern says to make, so for two years this
+    function reported 1.1 hours for a set of four coasters that takes about four and a half --
+    a quarter of the truth, in the figure that decides whether a customer can finish by
+    Christmas and the figure a listing quotes to a buyer. `products/launch0.make_time` had
+    spotted it and multiplied afterwards, and `calibrate_from_samples` had not, which is how
+    an under-counted stitch total became a *measured* stitch rate four times too slow.
+
+    Defaulting an absent count to one is what made that possible, so there is no default: a
+    component with no entry in `makes` raises. `makes_of(cir)` is the supported way to build
+    it, and `estimate_for(cir, result)` does both so a caller cannot forget.
+    """
     twins = list(twins)
     if not twins:
         raise ValueError("a pattern with no components has no make time")
-    stitches = sum(t.stitch_total for t in twins)
-    changes = sum(colour_changes(t) for t in twins)
     if assumptions.stitches_per_hour <= 0:
         raise ValueError("stitches per hour must be positive")
 
-    hours = (stitches / assumptions.stitches_per_hour
-             + changes * assumptions.hours_per_colour_change
-             + len(twins) * assumptions.finishing_hours_per_component)
-    hours = round(hours, 2)
+    names = [t.component for t in twins]
+    duplicates = sorted({n for n in names if names.count(n) > 1})
+    if duplicates:
+        raise ValueError(
+            f"two twins for the same component {duplicates}: multiplicity belongs in `makes`, "
+            f"not in a repeated twin, or the same piece is counted under one name twice")
+    missing = sorted(n for n in names if n not in makes)
+    if missing:
+        raise ValueError(
+            f"no `make` count for component(s) {missing}: refusing to assume one of each, "
+            f"because assuming it is what under-reported every multi-piece make. Pass "
+            f"`makes=makes_of(cir)` or call `estimate_for(cir, result)`")
+    bad = sorted(n for n in names if not isinstance(makes[n], int) or makes[n] < 1)
+    if bad:
+        raise ValueError(f"make counts must be whole numbers of at least one: {bad}")
+
+    rate = assumptions.stitches_per_hour
+    breakdown: list[dict] = []
+    total_hours = 0.0
+    stitches = 0
+    changes = 0
+    for twin in twins:
+        n = makes[twin.component]
+        each_changes = colour_changes(twin)
+        each_hours = (twin.stitch_total / rate
+                      + each_changes * assumptions.hours_per_colour_change
+                      + assumptions.finishing_hours_per_component)
+        total_hours += n * each_hours
+        stitches += n * twin.stitch_total
+        changes += n * each_changes
+        breakdown.append({"component": twin.component, "make": n,
+                          "stitches_each": twin.stitch_total,
+                          "hours_each": round(each_hours, 2),
+                          "hours": round(n * each_hours, 2)})
+
+    hours = round(total_hours, 2)
+    pieces = sum(makes[n] for n in names)
     return MakeTimeEstimate(
         hours=hours, stitches=stitches, colour_changes=changes, components=len(twins),
-        lane=classify(hours), basis="derived from the digital twin",
-        evidence=assumptions.source_of("stitches_per_hour"))
+        pieces=pieces, lane=classify(hours), basis="derived from the digital twin",
+        evidence=assumptions.source_of("stitches_per_hour"),
+        per_component=tuple(breakdown))
+
+
+def estimate_for(cir, result, assumptions: Assumptions = DEFAULT,
+                 calibration: float = 1.0) -> MakeTimeEstimate:
+    """Make-time for a compiled pattern, reading multiplicity from the CIR itself.
+
+    The entry point every caller should use: it builds one twin per component and takes the
+    `make` counts from the same CIR, so the estimate cannot be one piece short of the product.
+    """
+    from ..cir.twin import build_twin
+
+    twins = [build_twin(cir, result, component=c.name, calibration=calibration)
+             for c in cir.components]
+    return estimate_make_hours(twins, assumptions, makes=makes_of(cir))
 
 
 def calibrate_from_samples(db, assumptions: Assumptions = DEFAULT) -> tuple[Assumptions, dict]:
@@ -446,12 +532,13 @@ def calibrate_from_samples(db, assumptions: Assumptions = DEFAULT) -> tuple[Assu
         try:
             from ..cir.compiler import compile_cir
             from ..cir.model import CIR
-            from ..cir.twin import build_twin
 
             cir = CIR.from_dict(sample["cir"])
             compiled = compile_cir(cir)
-            twins = [build_twin(cir, compiled, component=c.name) for c in cir.components]
-            stitches = sum(t.stitch_total for t in twins)
+            # Through `estimate_for`, so the divisor counts every piece the tester actually
+            # crocheted. Counting one of each here is how the rate a tester's hands produced
+            # would have graduated to "measured" at a quarter of its real value.
+            stitches = estimate_for(cir, compiled, assumptions).stitches
         except Exception:  # noqa: BLE001 - one unreadable sample must not stop calibration
             continue
         if stitches and sample["hours"] > 0:
@@ -516,7 +603,6 @@ def catalogue_plans(db, today: date | None = None,
 
     from ..cir.compiler import compile_cir
     from ..cir.model import CIR
-    from ..cir.twin import build_twin
     from ..core.models import PatternVersion, Product
     from ..radar.market import SEASONAL_EVENTS
 
@@ -535,8 +621,7 @@ def catalogue_plans(db, today: date | None = None,
             try:
                 cir = CIR.from_dict(version.cir_json)
                 compiled = compile_cir(cir)
-                twins = [build_twin(cir, compiled, component=c.name) for c in cir.components]
-                estimate = estimate_make_hours(twins, base)
+                estimate = estimate_for(cir, compiled, base)
             except Exception as e:  # noqa: BLE001 - one bad pattern must not empty the room
                 products.append({"slug": product.slug, "error": f"{type(e).__name__}: {e}"})
                 continue

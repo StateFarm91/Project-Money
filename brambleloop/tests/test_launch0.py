@@ -460,12 +460,32 @@ def test_an_inverted_price_band_raises():
 
 
 def test_make_time_is_multiplied_by_the_pieces_the_pattern_makes():
-    """A set of four coasters is not a one-piece make, and the listing must not say it is."""
+    """A set of four coasters is not a one-piece make, and the listing must not say it is.
+
+    Checked against an independent single-coaster estimate, not against the row's own total
+    divided by four: the previous version of this test asserted
+    `hours_total == hours_per_piece * 4` where `hours_per_piece` was the number the total had
+    been computed from, so it held for any figure whatsoever. It passed throughout the period
+    when this function was building a twin for the first component only.
+    """
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.seasonal import leadtime
+
     rows = {r["variant"]: r for r in l0.make_time(l0.candidate("hexagon-coaster-set"))["variants"]}
     row = rows["set_of_four"]
     assert row["pieces"] == 4
-    assert abs(row["hours_total"] - row["hours_per_piece"] * 4) < 0.05, row
     assert row["evidence"] == "assumed"
+
+    cir = l0.cir_for([v for v in l0.candidate("hexagon-coaster-set").variants
+                      if v.key == "set_of_four"][0].build)
+    compiled = compile_cir(cir)
+    assert sum(c.make for c in cir.components) == 4
+    one = leadtime.estimate_make_hours(
+        [build_twin(cir, compiled, component=cir.components[0].name)],
+        makes={cir.components[0].name: 1})
+    assert abs(row["hours_total"] - one.hours * 4) < 0.05, (row, one.hours)
+    assert [c["make"] for c in row["per_component"]] == [4]
 
 
 def test_make_time_is_labelled_an_estimate_because_the_stitch_rate_is_assumed():

@@ -532,16 +532,19 @@ def product_truth(cand: Candidate) -> dict:
 
 
 def make_time(cand: Candidate) -> dict:
-    """Customer make-hours per variant, corrected for how many pieces the pattern makes.
+    """Customer make-hours per variant, for the whole object the buyer receives.
 
-    Measures: `seasonal.leadtime.estimate_make_hours` on each variant's twin, multiplied by
-    `Component.make`.
-    Why: the correction is the point. `estimate_make_hours` sums the stitches in the twin, and
-    a twin holds one instance of a component however many the pattern says to make -- so it
-    reports 1.1 hours for a set of four coasters that takes about four and a half. A listing
-    that quotes the uncorrected figure is telling the buyer a make-time a quarter of the real
-    one, which is the kind of small wrongness that produces a one-star review about honesty.
-    Reported here rather than fixed in `seasonal/**`, which another department owns.
+    Measures: `seasonal.leadtime.estimate_for`, which reads `Component.make` from the CIR.
+    Why: a twin holds *one* instance of a component however many the pattern says to make, so
+    the estimator used to report 1.1 hours for a set of four coasters that takes about four and
+    a half -- a quarter of the truth, in the number a listing quotes to a buyer. This function
+    used to correct for it locally, on the grounds that `seasonal/**` belonged to another
+    department, and the local correction was wrong in its own way: it built a twin for the
+    *first* component only and multiplied that by the total piece count, so a body-plus-two-ears
+    product had the body counted three times and the ears not at all. Two copies of one value,
+    both wrong, is the shape of the defect this codebase keeps meeting. The multiplicity now
+    lives in the estimator, `estimate_for` builds one twin per component, and this reports what
+    it returns.
     """
     from ..seasonal import leadtime
 
@@ -553,17 +556,16 @@ def make_time(cand: Candidate) -> dict:
             rows.append({"variant": v.key, "hours": None,
                          "why": "does not compile, so no twin and no estimate"})
             continue
-        twin = build_twin(cir, result)
-        est = leadtime.estimate_make_hours([twin])
-        pieces = sum(c.make for c in cir.components)
-        total = round(est.hours * pieces, 2)
+        est = leadtime.estimate_for(cir, result)
+        each = ", ".join(f"{c['make']}x {c['component']} at {c['hours_each']} h"
+                         for c in est.per_component)
         rows.append({
-            "variant": v.key, "pieces": pieces,
-            "hours_per_piece": est.hours, "hours_total": total,
-            "lane_per_piece": est.lane, "lane_total": leadtime.classify(total),
+            "variant": v.key, "pieces": est.pieces,
+            "hours_total": est.hours, "lane_total": est.lane,
+            "per_component": [dict(c) for c in est.per_component],
             "evidence": est.evidence,
-            "why": (f"{est.hours} h for one piece from the twin's {est.stitches} stitches, "
-                    f"x{pieces} pieces the pattern makes"),
+            "why": (f"{est.hours} h for the whole make, from {est.stitches} stitches across "
+                    f"{est.pieces} piece(s): {each}"),
         })
     return {"slug": cand.slug, "variants": rows, "label": ESTIMATED,
             "basis": ("derived from the twin's stitch count at an assumed 700 stitches an "

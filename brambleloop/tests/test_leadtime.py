@@ -207,7 +207,7 @@ def test_make_time_is_derived_from_the_twin_rather_than_typed_in():
     compiled = compile_cir(cir)
     twins = [build_twin(cir, compiled, component=c.name) for c in cir.components]
 
-    estimate = lt.estimate_make_hours(twins)
+    estimate = lt.estimate_make_hours(twins, makes=lt.makes_of(cir))
     assert estimate.stitches == sum(t.stitch_total for t in twins)
     assert estimate.hours > 0
     assert estimate.lane == lt.classify(estimate.hours)
@@ -215,16 +215,133 @@ def test_make_time_is_derived_from_the_twin_rather_than_typed_in():
     assert "twin" in estimate.basis
 
     # Finishing is per piece and is the term optimistic estimates drop, so it must be visible.
-    doubled = lt.estimate_make_hours(twins + twins)
-    assert doubled.components == 2
+    doubled = lt.estimate_make_hours(twins, makes={c.name: 2 for c in cir.components})
+    assert doubled.pieces == 2 * estimate.pieces
     assert doubled.hours > 2 * (estimate.hours - lt.DEFAULT.finishing_hours_per_component)
 
     try:
-        lt.estimate_make_hours([])
+        lt.estimate_make_hours([], makes={})
     except ValueError:
         pass
     else:
         raise AssertionError("a pattern with no components was given a make time")
+
+
+def test_make_time_counts_every_piece_the_pattern_says_to_work():
+    """A twin holds one coaster. The buyer receives four.
+
+    `Component.make` is the CIR's statement of multiplicity and the estimator did not read it,
+    so a set of four reported the make-time of one -- in the figure that decides whether a
+    customer can finish before the event, and the figure a listing quotes to a buyer. The
+    check is against an independently computed single-instance estimate rather than against the
+    total's own arithmetic, because a total compared with itself divided by four would pass on
+    any number at all.
+    """
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from tests import fixtures
+
+    cir = fixtures.good_mosaic_panel()
+    compiled = compile_cir(cir)
+    twin = build_twin(cir, compiled, component=cir.components[0].name)
+    one = lt.estimate_make_hours([twin], makes={twin.component: 1})
+
+    cir.components[0].make = 4
+    four = lt.estimate_for(cir, compiled)
+
+    assert four.pieces == 4 and four.components == 1
+    assert four.stitches == 4 * twin.stitch_total
+    assert four.colour_changes == 4 * one.colour_changes
+    # Tolerance is four times the 2dp rounding of the single-piece figure, and is still two
+    # orders of magnitude tighter than the error it exists to catch.
+    assert abs(four.hours - 4 * one.hours) < 0.05, (four.hours, one.hours)
+    assert four.lane == lt.classify(four.hours)
+    # The breakdown has to show the multiplicity, or a total is unauditable.
+    assert four.per_component[0]["make"] == 4
+    assert abs(four.per_component[0]["hours_each"] - one.hours) < 0.02, four.per_component
+
+
+def test_the_estimator_refuses_to_assume_one_of_each():
+    """Defaulting the count to one is the defect, so there is no default.
+
+    Both refusals are the same rule from opposite sides: a component whose multiplicity nobody
+    stated, and a multiplicity expressed by repeating the twin instead (which silently loses
+    whichever count the caller meant, and would have made `pieces` disagree with the CIR).
+    """
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from tests import fixtures
+
+    cir = fixtures.good_mosaic_panel()
+    compiled = compile_cir(cir)
+    twin = build_twin(cir, compiled, component=cir.components[0].name)
+
+    try:
+        lt.estimate_make_hours([twin], makes={})
+    except ValueError as e:
+        assert "refusing to assume one of each" in str(e), e
+    else:
+        raise AssertionError("a component with no stated make count was given a make time")
+
+    try:
+        lt.estimate_make_hours([twin, twin], makes={twin.component: 1})
+    except ValueError as e:
+        assert "multiplicity belongs in `makes`" in str(e), e
+    else:
+        raise AssertionError("the same component was counted twice under one name")
+
+    for bad in ({twin.component: 0}, {twin.component: 1.5}):
+        try:
+            lt.estimate_make_hours([twin], makes=bad)
+        except ValueError as e:
+            assert "whole numbers of at least one" in str(e), e
+        else:
+            raise AssertionError(f"accepted a make count of {bad}")
+
+
+def test_calibration_divides_by_the_stitches_the_tester_actually_worked():
+    """The worst version of the same bug: a wrong number wearing the `measured` label.
+
+    `calibrate_from_samples` is the only route from assumed to measured. It divided the
+    tester's reported hours into the stitches of *one* of each component, so a tester who
+    crocheted a set of four and reported four and a half hours would have established a stitch
+    rate four times too slow -- and every seasonal launch date in the company would then have
+    been derived from it with a `measured` label on it.
+    """
+    import tempfile
+
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import PatternVersion, PhysicalTest, Product
+    from tests import fixtures
+
+    cir = fixtures.good_mosaic_panel()
+    cir.components[0].make = 4
+    compiled = compile_cir(cir)
+    twin = build_twin(cir, compiled, component=cir.components[0].name)
+    hours = 4.5
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/calib-make.sqlite")
+    db.create_all()
+    with db.session() as s:
+        product = Product(slug=cir.slug, title=cir.title)
+        s.add(product)
+        s.flush()
+        s.add(PatternVersion(product_id=product.id, version=cir.version,
+                             cir_json=cir.to_dict(), certified=True))
+        s.add(PhysicalTest(product_slug=cir.slug, version=cir.version, tester_ref="t-1",
+                           passed=True, measured={"hours": hours}))
+        s.commit()
+
+    assumptions, report = lt.calibrate_from_samples(db)
+    assert report["samples_usable"] == 1, report
+    expected = round(4 * twin.stitch_total / hours, 1)
+    assert report["measured_rate"] == expected, (report, expected)
+    # And the value it would have reported before the fix, which must not come back.
+    assert report["measured_rate"] != round(twin.stitch_total / hours, 1)
+    assert assumptions.source_of("stitches_per_hour") == "measured"
 
 
 def test_colour_changes_are_counted_in_the_order_a_person_crochets():
