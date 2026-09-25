@@ -8905,3 +8905,94 @@ resolve to nothing, which to a buyer looks like theft rather than a mistake.
 `test_deploy::test_scheduler_tick_endpoint_is_idempotent_within_a_window` failed **in-suite** under
 four concurrent lanes ("the readiness job never ran") and passes in isolation, 32 of 32. It did not
 reproduce in this morning's clean run. Load-dependent, not diagnosed, and not papered over.
+
+## 2026-09-25 — Lane A: the falsification returned NO, and found we have been measuring the wrong thing
+
+Merged. Boundary clean: exactly five files. Every new option defaults off except a
+measurement-only watch. **Milestone D remains FAIL**, nothing weakened, no lock or threshold
+moved. `test_drape` 102 → **124**, `test_crochet_topology` 34 → **43**, all 28 adversarial
+fixtures still REJECT.
+
+### The answer to the question that was asked
+
+**No.** Tensile stitch linkage paired with the co-rotational rest state does **not** produce
+materially more cloth-like behaviour. The force works exactly as derived — it holds the certified
+links shut, **1.75 mm of opening reduced to 0.040 mm** — and free-edge stitches still evert,
+**worse** than with co-rotation alone (+2.418 mm against +1.121; flat baseline −1.540, committed
+default −1.599). The force is **inert on the committed model**: margin identical to three decimal
+places, droop within 0.5%. No committed result moves.
+
+The force has **no free parameter**. It acts between each stitch's `pull_through` span and the
+anchor's own top-loop legs — the same arcs `validate` closes into the ring it measures the linking
+number against — and `certified_linkage_pairs()` is now the **single definition** of which stitch
+was worked into which, iterated by `validate` itself, so the relation the validator certifies and
+the relation the solver pulls on cannot drift apart. Its only number, the rest separation, is
+measured off the certified geometry. Blind to rigid motion (<1e-9 mm), opens by 0.0002 mm when the
+fabric is wrapped on a 125 mm cylinder so it does not fight conforming, and moves the fabric by
+exactly 0.0 mm when the rest separations are inflated — it is tension only.
+
+Eversion is **geometry, not the instrument**: the three failing stitches read +1.409 / +1.169 /
++0.875 in their own co-rotated frames with rigid-fit residuals of 1.68 / 1.48 / 1.52 mm on a 6.90
+mm pitch. Every one is in the **foundation row** — the free tip, and the one row with no certified
+linkage at all, because it was worked into nothing. The tensile link cannot hold what nothing was
+worked into.
+
+### The finding that reframes the programme, which I reproduced independently before merging
+
+**Switch gravity off and the frame-invariant fabric moves anyway.**
+
+| | gravity on | gravity off |
+|---|---|---|
+| committed model | 0.4123 mm rms | **0.0004 mm** |
+| frame-invariant | 0.7443 mm | **0.8140 mm** |
+
+It moves **more with gravity off than with it on**. That is not drape — it is a load-independent
+instability, and `within_row_fraction`, the metric this whole realism programme has been reading,
+**was measuring it** (0.1104 at zero gravity). The driver: **the certified relaxed fabric is not an
+equilibrium of `drape`'s own contact model** — 1.5000 mm clearance against a 2.0667 mm rest
+separation — and the committed model's only defence against that rearrangement is the spurious
+rotational stiffness wave 3 identified.
+
+So the next mechanism is specific, falsifiable, and needs neither Stage 0 nor Stage 1: **make the
+flat certified fabric an equilibrium of the solver it is dropped into.** Until it is, no experiment
+that removes the rotational stiffness can be read, because the first thing it measures is the
+fabric settling out of a state it was never in equilibrium in.
+
+### A second diagnosis: with the rest state in the vertex frame, the solve climbs
+
+Bending energy gained 1.03e-5 J while gravity releases 1.85e-6 J — **5.6× what drives it** — within
+50 iterations, then oscillating, where the committed solve descends monotonically. The *energy* was
+verified correct first (a 3-vertex chain charges co-rotational and world energies identically to
+1.00000 at every angle, and a pure 25° rotation costs 5.7e-37 J), so **the energy is right and the
+force is wrong**: the implemented term is a lumped Laplacian, and the co-rotational target moves
+with the configuration so the two chase each other. `energy_gradient_bending` (off by default)
+replaces it, and with it **eversion disappears and every lock passes at both swatch sizes**.
+
+### The non-monotone validity is the INSTRUMENT, and the lock was not touched
+
+Three independent lines. **No strand ever passed another, continuously**: min gap 1.5000 mm, cap
+exceeded 0, crossing impossible in every run, including the one reporting 17/20 linked — and a
+linking number between real closed curves cannot change without a crossing. The certified link had
+opened by only 0.0697 mm against rest separations of 2.18–2.48 mm. And directly: the three
+"unlinked" stitches are found linked by **52 / 57 / 50 of ~370 random closure directions**, while
+`_encirclement`'s structured ten find none. On correct geometry ~40% of directions detect; on
+deformed cloth 14%. **`_encirclement` produces a false negative on strongly deformed cloth.**
+Nothing about it was changed — diagnosis written first, defect pinned by a check, and enlarging the
+closure set left as owner-visible work on a lock all 28 adversarial fixtures are calibrated against.
+
+**The guard is cheap and it is monotone where the gate is not.** One topology pass 97.673 ms; one
+certified-linkage closest-approach pass **0.081 ms** — 1,200× cheaper, free against the solve.
+`watch_linkage` (on, measurement-only) records the worst opening over the whole run: 0.3083 →
+0.6465 → 1.1409 → 1.7527 mm, never falling, across PASS→FAIL→FAIL→FAIL→**PASS**→FAIL. **A run
+ending at 1600 iterations reports a clean gate and a 1.7527 mm worst opening.** Stated limitation:
+it sees a link opening, not a stitch's shape failing with its link intact; a continuous morphology
+guard would cost 2.168 ms/iteration and is deliberately **not** wired in, because a guard needs a
+decided policy for what it does when it fires.
+
+### Articulation
+
+Neither articulation nor mere displacement. A second measure was derived — `articulation_profile`,
+the second difference of the surface normal, exactly zero for a rigid panel and for a uniform
+cylinder — reported **with its measured floor** (flat 0.519°, 500 mm cylinder 0.720°, 125 mm
+cylinder 2.057°), and it **does not rescue the result**: gradient+co-rotation+linkage reads 1.619°
+against the committed default's 3.388°, i.e. lower.
