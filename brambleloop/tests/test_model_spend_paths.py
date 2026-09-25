@@ -170,12 +170,13 @@ def test_the_scan_finds_the_provider_calls_that_are_actually_there():
     """A scanner that finds nothing passes every other test in this file.
 
     So the instrument is checked before it is believed: the six call sites wave 2 says it
-    fixed, plus the five Visual ones this session fixed, must all be present and all be
-    guarded. If a rename makes one of them invisible to the scan, this fails rather than the
+    fixed, plus the seven this session closed across five Visual modules, must all be
+    present in the scan and all be guarded. If a rename makes one of them invisible to the scan, this fails rather than the
     scan quietly reporting a clean tree.
     """
     found = scan_tree()
     sites = _sites(found["provider_calls"])
+    guarded = {(r["file"], r["function"]) for r in found["provider_calls"] if r["guarded"]}
     for site in (
             ("brambleloop/intel/vision.py", "analyse"),
             ("brambleloop/culture/classify.py", "classify"),
@@ -192,6 +193,7 @@ def test_the_scan_finds_the_provider_calls_that_are_actually_there():
             ("brambleloop/visual/tournament.py", "_judge"),
     ):
         assert site in sites, f"the scan no longer sees {site}; the instrument is broken"
+        assert site in guarded, f"{site} lost its ceiling check"
     assert len(found["provider_calls"]) >= 13
 
 

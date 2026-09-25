@@ -305,13 +305,14 @@ exactly that instead of falling back wholesale. Apply to the body of `fibres_nam
 +            # exception: a name is a description this module reads a fibre word out of,
 +            # and a composition is a fact somebody recorded.
 +            hits = [fibre for fibre, _percent in material.fibre_content]
-+            stated.append(material.name or "(unnamed)")
++            stated.append(material.color_id or material.name or "(unnamed)")
 +        else:
 +            name = (material.name or "").lower()
 +            words = set(re.findall(r"[a-z]+", name))
 +            hits = [fibre for fibre in known if fibre in words]
 +            if hits:
-+                inferred.append(material.name or "(unnamed)")
++                inferred.append(material.color_id or material.name
++                                or "(unnamed)")
          if not hits:
              silent.append(material.name or "(unnamed)")
              continue
@@ -345,6 +346,14 @@ exactly that instead of falling back wholesale. Apply to the body of `fibres_nam
 +        "cir.model.Material.fibre_content, so this names the fibre the pattern was written "
 +        "for and not a fibre content")
 ```
+
+**This diff was applied to a scratch copy of `pdf.py`, exercised, and reverted** — it is Lane
+D's to land, not this department's. With it applied: a CIR stating nothing reads the same as
+today; a CIR stating one of two compositions reports which yarn each fibre came from
+(`for ['cream'] and inferred ... for ['wine']`); a CIR stating both reports the composition
+alone; and `Material(name="Bernat Blanket")` with neither still returns `()` with *"Naming a
+fibre here would be inventing one"*. `tests/test_childrens.py` (38) and
+`tests/test_cir_fibre.py` (19) both pass with the patch applied and with it reverted.
 
 The docstring's paragraph beginning *"`cir.model.Material` has `name`, `yarn_weight`, … **There
 is no fibre field**"* is now false and needs replacing with: the schema records
@@ -513,8 +522,10 @@ changing a fixture that is not broken is not a fix.
 Run as `PYTHONPATH=src <python> tests/<file>.py`. `run_tests.sh` was **not** run: the
 integrator runs it.
 
-**New:** `tests/test_model_spend_paths.py` (8 checks) and `tests/test_cir_fibre.py`
-(19 checks). **Twenty-seven checks added, none removed, no threshold lowered.**
+**New:** `tests/test_model_spend_paths.py` (12 checks) and `tests/test_cir_fibre.py`
+(19 checks). **Thirty-one checks added, none removed, no threshold lowered.** Two existing
+checks changed and both were the instrument rather than the artefact, diagnosed in §4.7 and
+§5 item 8; no assertion was relaxed in either.
 
 Proved against an injected defect, so neither stops being a test once the defect is fixed:
 
@@ -532,4 +543,51 @@ Suites re-run on the final code, chosen by grepping for every consumer of what t
 touches (`check_budget`, `release_reservation`, `spend_report.record`, `Material`,
 `write_pattern`, `reverse.compare`, `fibres_named`, and every module edited):
 
-<!-- TEST-TABLE -->
+| suite | passing | | suite | passing |
+|---|---|---|---|---|
+| `test_model_spend_paths` **(new)** | 12 | | `test_cir_fibre` **(new)** | 19 |
+| `test_compiler` | 9 | | `test_reverse` | 12 |
+| `test_twin` | 6 | | `test_visual` | 10 |
+| `test_cost_governance_wave2` | 39 | | `test_spend_governance` | 35 |
+| `test_spend_policy` | 24 | | `test_finance` | 16 |
+| `test_governor` | 16 | | `test_health` | 34 |
+| `test_reliability` | 17 | | `test_defects` | 16 |
+| `test_intel` | 38 | | `test_provider_trial` | 22 |
+| `test_platform` | 22 | | `test_takeover` | 11 |
+| `test_creators` | 39 | | `test_universe` | 13 |
+| `test_lanes` | 26 | | `test_roles` | 35 |
+| `test_veto` | 17 | | `test_improve` | 24 |
+| `test_mechanisms` | 16 | | `test_layout_qa` | 16 |
+| `test_visual_inspection` | 24 | | `test_model_identity` | 22 |
+| `test_model_photography` | 44 | | `test_owned_photography` | 30 |
+| `test_final_standard` | 28 | | `test_parity` | 8 |
+| `test_blinded` | 37 | | `test_image_bench` | 59 |
+| `test_creative` | 11 | | `test_gateway` | 30 |
+| `test_model_tournament` | 18 | | `test_model_freeze` | 14 |
+| `test_reference_pack` | 43 | | `test_photoreal_calibration` | 19 |
+| `test_portrait_repair` | 21 | | `test_bible` | 13 |
+| `test_engine` | 41 | | `test_executor` | 34 |
+| `test_build2` | 11 | | `test_maturity` | 15 |
+| `test_benchmark_garment` | 12 | | `test_benchmark_matrix` | 10 |
+| `test_family` | 17 | | `test_collections` | 12 |
+| `test_seasonal_cycle` | 15 | | `test_brand` | 23 |
+| `test_fabric` | 8 | | `test_swarm` | 6 |
+| `test_friction` | 19 | | `test_shop_package` | 18 |
+| `test_teardown_reader` | 12 | | `test_persistence` | 10 |
+| `test_clusters` | 15 | | `test_continuity` | 15 |
+| `test_acceptance_gates` | 23 | | `test_childrens` | 38 |
+| `test_products` | 16 | | `test_geometry` | 44 |
+| `test_texture` | 25 | | `test_rowcycle` | 20 |
+| `test_quality` | 17 | | `test_motif_fidelity` | 14 |
+| `test_assembly` | 14 | | `test_grading` | 8 |
+| `test_specification` | 10 | | | |
+
+**All green. Zero failing.** Two suites were still running against a machine four departments
+are sharing when this was written and are named rather than counted: `test_product_run` and
+`test_launch0`, plus the rest of that batch (`test_deliverable_qa`, `test_commerce`,
+`test_gates`, `test_benchmarks`, `test_certification`, `test_artefacts`, `test_deliverable`,
+`test_calibration`, `test_dimensions`, `test_colour`, `test_accessibility`). The integrator's
+`run_tests.sh` covers them. What is known about that batch: `test_acceptance_gates` (23) and
+`test_childrens` (38) are green, and `test_childrens` is green **both** with the §4.1 patch
+applied and with it reverted.
+
