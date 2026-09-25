@@ -31,11 +31,11 @@ from ..core.models import PatternVersion, Product
 from ..gates.policy import ListingDraft, check_listing
 from ..core.models import ListingAsset
 from ..gates.asset_truth import check_assets
-from ..publish.charts import ChartSpec, render_any_chart, render_legend
+from ..publish.charts import render_legend
 from ..publish.listing_assets import build_frames, check_frame_plan
 from ..products import launch0 as products_launch0
 from ..publish.pdf import (
-    TERMINOLOGIES, build_pattern_pdf, childrens_statements, pattern_filename,
+    TERMINOLOGIES, build_pattern_pdf, chart_image, childrens_statements, pattern_filename,
 )
 from ..radar.market import shopping_window
 from ..radar.opportunity import POOL, _event
@@ -198,7 +198,14 @@ def handle_assets_build(ctx: JobContext) -> dict:
     import io
 
     chart_png = io.BytesIO()
-    render_any_chart(cir, twin, ChartSpec(cell_px=26)).save(chart_png, format="PNG")
+    # The chart the customer's document prints, not a second one.
+    #
+    # This stored `render_any_chart` at the default spec: the whole piece, which for a
+    # seventy-round nesting basket is 1.21 mm per ring and 2.1 pt round numbers. So one
+    # release produced two charts of the same product -- the legible one inside the PDF and
+    # an illegible one with a URL on it. `publish.pdf.chart_image` chooses on the size a ring
+    # or cell actually lands at on the page, and it is the one the buyer sees.
+    chart_image(cir, twin).save(chart_png, format="PNG")
     chart = store.put(f"{slug}/{version}/chart.png", chart_png.getvalue(), "image/png")
 
     legend_png = io.BytesIO()
