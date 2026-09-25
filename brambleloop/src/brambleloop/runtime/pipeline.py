@@ -1043,3 +1043,9 @@ def _benchmark_quality(db, slug: str) -> dict | None:
             if detail.get("slug") == slug and "materially_inferior" in detail:
                 return detail
     return None
+
+
+@handlers.register("marketing.ads_readiness")
+def handle_ads_readiness(ctx: JobContext) -> dict:
+    from ..growth.ads_readiness import tick
+    return tick(ctx.db)

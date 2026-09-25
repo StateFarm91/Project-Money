@@ -4,15 +4,16 @@ Design constraints that matter because nobody is watching at 3am:
 
   - A worker that dies mid-job must not strand that job. Jobs are *leased*, not assigned; an
     expired lease is reclaimable.
-  - A job that would publish, message or spend must never run twice. That is what
-    `idempotency_key` buys: the uniqueness is enforced by the database, not by a code path
-    that can be forgotten.
+  - Idempotency keys prevent duplicate enqueues. Recovery may execute an attempt again;
+    publication, messaging and spending require effect-level idempotency or reconciliation.
+    Lease tokens prevent an old attempt overwriting the replacement's queue state.
   - A job that keeps failing must stop, loudly, in a dead-letter state rather than retrying
     forever and burning money.
 """
 from __future__ import annotations
 
 import random
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
@@ -58,6 +59,10 @@ class DuplicateJob(Exception):
         super().__init__(f"job with idempotency key {key!r} already exists (id={existing_id})")
         self.key = key
         self.existing_id = existing_id
+
+
+class LeaseLost(RuntimeError):
+    """This attempt no longer owns the job; it must not change its successor's state."""
 
 
 def _aware(dt: datetime | None) -> datetime | None:
@@ -128,6 +133,8 @@ class JobQueue:
         """
         now = utcnow()
         with self.db.session() as s:
+            if not is_postgres(self.db.engine):
+                s.execute(text("BEGIN IMMEDIATE"))
             q = (
                 select(Job)
                 .where(
@@ -162,6 +169,7 @@ class JobQueue:
 
             job.status = JobStatus.RUNNING
             job.leased_by = worker
+            job.lease_token = uuid.uuid4().hex
             job.lease_expires_at = now + timedelta(seconds=self.lease_seconds)
             job.attempts += 1
             job.started_at = job.started_at or now
@@ -175,7 +183,7 @@ class JobQueue:
         """Take back a job whose worker died holding the lease."""
         q = (
             select(Job)
-            .where(Job.status == JobStatus.RUNNING)
+            .where(Job.status == JobStatus.RUNNING, Job.lease_expires_at <= now)
             .order_by(Job.priority.asc(), Job.id.asc())
         )
         if job_types:
@@ -198,11 +206,25 @@ class JobQueue:
         return None
 
     # ---- completing ----------------------------------------------------
-    def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0) -> None:
+    def _owned(self, s, job_id: int, lease_token: str | None):
+        if not is_postgres(self.db.engine):
+            s.execute(text("BEGIN IMMEDIATE"))
+        q = select(Job).where(Job.id == job_id)
+        if is_postgres(self.db.engine):
+            q = q.with_for_update()
+        job = s.scalar(q)
+        if job is None:
+            raise KeyError(f"no job {job_id}")
+        if lease_token is not None and (
+            job.status != JobStatus.RUNNING or job.lease_token != lease_token
+        ):
+            raise LeaseLost(f"job {job_id}: lease no longer owned")
+        return job
+
+    def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0,
+                 *, lease_token: str | None = None) -> None:
         with self.db.session() as s:
-            job = s.get(Job, job_id)
-            if job is None:
-                raise KeyError(f"no job {job_id}")
+            job = self._owned(s, job_id, lease_token)
             job.status = JobStatus.DONE
             job.outputs = outputs or {}
             job.finished_at = utcnow()
@@ -210,12 +232,11 @@ class JobQueue:
             job.lease_expires_at = None
             job.cost_cad = (job.cost_cad or 0.0) + cost_cad
 
-    def fail(self, job_id: int, error: str, *, retry: bool = True) -> Job:
+    def fail(self, job_id: int, error: str, *, retry: bool = True,
+             lease_token: str | None = None) -> Job:
         """Record a failure and either schedule a backed-off retry or dead-letter the job."""
         with self.db.session() as s:
-            job = s.get(Job, job_id)
-            if job is None:
-                raise KeyError(f"no job {job_id}")
+            job = self._owned(s, job_id, lease_token)
             job.last_error = error[:4000]
             job.leased_by = None
             job.lease_expires_at = None
@@ -235,10 +256,12 @@ class JobQueue:
             s.expunge(job)
             return job
 
-    def heartbeat(self, job_id: int) -> None:
+    def heartbeat(self, job_id: int, *, lease_token: str | None = None) -> None:
         """Extend a lease for a job that is legitimately still running."""
         with self.db.session() as s:
-            job = s.get(Job, job_id)
+            job = self._owned(s, job_id, lease_token)
+            if lease_token is not None and _aware(job.lease_expires_at) <= utcnow():
+                raise LeaseLost(f"job {job_id}: expired lease cannot be renewed")
             if job and job.status == JobStatus.RUNNING:
                 job.lease_expires_at = utcnow() + timedelta(seconds=self.lease_seconds)
 

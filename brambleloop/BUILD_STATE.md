@@ -9262,3 +9262,14 @@ only the owner can remove in Shop Manager.
 **Visual / crochet realism remains OPEN and is not superseded.** Milestone D is still FAIL. It
 resumes at the identified next step: the certified relaxed fabric is not an equilibrium of
 `drape`'s own contact model.
+
+## 2026-09-25 — Codex continuous-operation audit (staged, not deployed)
+
+Independent checkout from `7122ec0`; existing integration/cloud-pilot/baseline work preserved.
+See `research/CONTINUOUS_OPERATIONS_AUDIT_2026-09-25.md` for the evidence matrix and rollout.
+Production observed at that commit: Postgres/worker/scheduler live, verification 12/12,
+zero publication/ad spend. This does not establish unattended coding or automatic development
+lane refill. Added staged queue fencing, serialized budget admission, opt-in department lanes,
+and durable Ads preparation/countdown. Estimated October 4 recheck derives from the September
+25 report; fresh Etsy evidence remains required. Visual pipeline and Launch-0 gates unchanged.
+Deployment and broader coding automation remain unverified and are not claimed complete.

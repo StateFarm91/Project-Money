@@ -27,7 +27,8 @@ from datetime import datetime, timezone
 from ..core.db import Database
 from ..core.models import Phase
 from ..runtime import pipeline  # noqa: F401  -- registers job handlers
-from ..runtime.worker import Scheduler, Worker
+from ..runtime.worker import Scheduler, Worker, handlers
+from ..runtime.lanes import partitions
 
 log = logging.getLogger("brambleloop.runner")
 
@@ -59,6 +60,7 @@ class RunnerState:
     scheduler_last_tick: datetime | None = None
     scheduler_last_enqueued: list[str] = field(default_factory=list)
     last_error: str = ""
+    lanes: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         def iso(d: datetime | None) -> str | None:
@@ -68,6 +70,11 @@ class RunnerState:
         if self.worker_last_tick is not None:
             age = (datetime.now(timezone.utc) - self.worker_last_tick).total_seconds()
             alive = age < 120
+        if self.lanes:
+            ticks = [value.get("last_tick") for value in self.lanes.values()]
+            alive = all(tick is not None and
+                        (_now() - datetime.fromisoformat(tick)).total_seconds() < 120
+                        for tick in ticks)
         return {
             "enabled": self.enabled,
             "worker": self.worker_name,
@@ -82,6 +89,7 @@ class RunnerState:
             # Measured here because this is the process that owns the disk. A health sweep
             # reading its own filesystem measures whichever machine is answering the
             # request, which in a split deployment is not the container doing the work.
+            "lanes": {key: dict(value) for key, value in self.lanes.items()},
             "disk": _disk_facts(),
         }
 
@@ -133,27 +141,32 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event) -> None:
+def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
+                 job_types=None, lane="company") -> None:
     """Claim and run jobs until told to stop.
 
     Wrapped in its own restart loop. An unhandled exception escaping the worker must not
     silently leave the container serving HTTP with nothing processing the queue -- that is the
     failure mode where the dashboard looks healthy and the company has quietly stopped.
     """
+    STATE.lanes[lane] = {"worker": name, "last_tick": None, "restarts": 0, "last_error": ""}
     STATE.worker_name = name
     STATE.worker_started_at = _now()
     if _START_DELAY > 0 and stop.wait(_START_DELAY):
         return
     while not stop.is_set():
         try:
-            worker = Worker(db, name, phase=phase)
+            worker = Worker(db, name, phase=phase, job_types=job_types)
             while not stop.is_set():
                 did_work = worker.run_once()
                 STATE.worker_last_tick = _now()
+                STATE.lanes[lane]["last_tick"] = STATE.worker_last_tick.isoformat()
                 if not did_work:
                     stop.wait(_IDLE_SLEEP)
         except Exception as e:  # noqa: BLE001
             STATE.worker_restarts += 1
+            STATE.lanes[lane]["restarts"] += 1
+            STATE.lanes[lane]["last_error"] = f"{type(e).__name__}: {e}"
             STATE.last_error = f"{type(e).__name__}: {e}"
             log.exception("embedded worker crashed; restarting")
             stop.wait(min(60.0, 2.0 * STATE.worker_restarts))
@@ -181,14 +194,21 @@ _threads: list[threading.Thread] = []
 
 def start(db: Database) -> RunnerState:
     """Start the embedded worker and scheduler. Idempotent within a process."""
+    _threads[:] = [t for t in _threads if t.is_alive()]
     if _threads or os.environ.get("BRAMBLELOOP_EMBEDDED_WORKER", "1") != "1":
         return STATE
     _stop.clear()  # a previous stop() must not silently disarm a fresh start
     phase = Phase(os.environ.get("BRAMBLELOOP_PHASE", "shadow"))
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"web-{os.getpid()}"
     STATE.enabled = True
-    for target, args in ((_worker_loop, (db, name, phase, _stop)),
-                         (_scheduler_loop, (db, _stop))):
+    lanes = partitions(handlers.known(), os.environ.get("BRAMBLELOOP_WORKER_LANES", "serial"))
+    STATE.lanes.clear()
+    STATE.worker_last_tick = None
+    STATE.scheduler_last_tick = None
+    targets = [(_worker_loop, (db, f"{name}-{lane}", phase, _stop, types, lane))
+               for lane, types in lanes.items() if types is None or types]
+    targets.append((_scheduler_loop, (db, _stop)))
+    for target, args in targets:
         t = threading.Thread(target=target, args=args, daemon=True,
                              name=f"brambleloop-{target.__name__}")
         t.start()
@@ -201,8 +221,8 @@ def stop(timeout: float = 5.0) -> None:
     _stop.set()
     for t in _threads:
         t.join(timeout=timeout)
-    _threads.clear()
-    STATE.enabled = False
+    _threads[:] = [t for t in _threads if t.is_alive()]
+    STATE.enabled = bool(_threads)
 
 
 def wait_for_tick(timeout: float = 10.0) -> bool:
