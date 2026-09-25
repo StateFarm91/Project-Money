@@ -7933,3 +7933,63 @@ nothing to catch, which is the failure this codebase keeps finding elsewhere.
   * **`twin.calibrated` is False catalogue-wide.** Nothing in the deliverable has been checked
     against a physically worked sample. That remains the largest unmeasured risk in the
     product, and the document says so where it matters.
+
+### Heartbeat 2026-09-25T00:14Z — the four departments are LIVE, and the blind check now says so
+
+Production is running `8bef34d`, which is the fully integrated tree. **Correction to the
+previous status report: there was never a deploy pending anybody's word.** Railway deploys
+from the branch, so each push WAS the deploy, and all four departments' work has been live
+since it landed. Saying it was "queued" described a step that does not exist here.
+
+The Reliability department predicted four observable effects. All four verified in
+production, by reading it rather than by assuming the code implies it:
+
+  1. `dead_letter_defects` is **0**, now agreeing with `/api/verify`, classified by a single
+     source (`queue.durable.deliberate_refusal`). Previously the two endpoints reported 1 and
+     0 about the same row in the same minute.
+  2. `spend_limits_not_breached` now carries its own limits:
+     `{"paused_scopes": [], "scopes_configured": 0, "what_this_cannot_see": "a scope nobody
+     configured. With none configured this check passes by absence..."}`. **It still passes,
+     correctly — nothing is breached — but it can no longer be read as "the ceilings are
+     on".** The check did not become stricter; it became honest about what it cannot see.
+     This is the fix that matters most, because that check is one of the twelve I have been
+     citing all day as evidence that spend is controlled.
+  3. `every_agent_has_a_cost_ceiling` now carries `spent_today_against_ceiling` — real
+     measurement per agent, rather than asserting only that a number was configured.
+  4. `/api/health-signals` now has a twelfth signal, `disk`.
+
+`/api/verify`: **12 of 12 passing** — and that sentence now means something narrower and
+truer than it did yesterday.
+
+`market_radar` reads `spent_today 0.00 / ceiling 4.00`: no gallery run has happened today, so
+the predicted DEGRADED has not fired. It remains a true future reading and the owner decision
+below still stands.
+
+Full suite re-run this heartbeat; result recorded below rather than predicted.
+
+### OWNER DECISIONS OUTSTANDING — batched, none urgent enough to stop work
+
+  1. **`market_radar` ceiling, 2 min, CA$0.** `agents/registry.py` says CA$4.00/day;
+     `spend_policy.ALLOCATION` says the gallery cadence costs CA$8.70/day. Both in the repo,
+     they contradict, and the ceiling stays unenforced until resolved. Either the ceiling
+     rises or the cadence slows. Consequence of waiting: the first full gallery day reports
+     DEGRADED, which is true and must not be silenced by raising the ceiling to match.
+  2. **Paste Etsy's five policy pages into the policy watch, 25 min, CA$0.** `etsy.com`
+     returns 403 to this environment, so the freshness gate has read NOTHING and has been
+     green by having no data. Consequence of waiting: we would not notice an Etsy policy
+     change before it affected a live shop.
+  3. **Decide the GST/HST position, 20 min, CA$0-250.** Software must not take a tax
+     position. CRA primary: CA$30,000 threshold, effective from the sale that crosses it,
+     29 days to register.
+  4. **Legal review of customer-use terms, 30 min, max CA$500.** `enforceable` stays false
+     until then.
+  5. **Confirm the Canadian fee stack on the first transaction, 5 min, CA$0.** Sources
+     disagree on a ~1.15% Regulatory Operating Fee; on a CA$7 pattern it decides whether the
+     pricing floor holds.
+  6. **Set each listing's AI attribution in Shop Manager, 10 min + ~1 min/listing, CA$0.**
+     Etsy's API has no AI/disclosure/attribution field, so no software can set it.
+  7. **Visual Stage 0: crochet a 20x30 HDC swatch, mark it, load it in 8 steps, photograph;
+     plus one load-unload cycle. Half a day, cost = one ball of yarn.** It measures whether
+     per-stitch yarn allotment varies in HDC at all. **If that variance sits at noise,
+     redistribution is not the mechanism and the whole Visual programme redirects** — for
+     half a day instead of building for three.
