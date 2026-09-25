@@ -8591,3 +8591,151 @@ to them. `twin.calibrated` is False catalogue-wide. `TwinModel` exposes only a t
 milestones still interpolate linearly, and `stitches.Stitch` still has no crossing direction —
 `PDF_CABLE_DIRECTION_UNSPECIFIED` remains the only problem any catalogue document reports. The
 last two are `cir/**`, which the Visual Department owns.
+
+## 2026-09-25 — Wave 3: the children's statement set ships, and the drape energy is not a material energy
+
+Both Wave-3 lanes returned, were reviewed, merged and re-verified. Boundaries clean on both;
+secret scans found nothing; CA$0 spent by both.
+
+### Children's Safety Deliverable — the last deliverable gap on two of three Launch-0 products
+
+`required_statements()` computed an obligation that nothing consumed. It is now rendered on its
+own page of the customer document, in both terminologies, for children's products only, and
+**gated on the rendered document**: `build_pattern_pdf` extracts the text from the finished bytes
+and refuses if a required statement is missing. Refusal rather than a `problems` entry, because
+`runtime/release.py` audits problems **without blocking on them** — a finding would have been
+recorded and shipped.
+
+- `STATEMENT_SET` holds obligation, heading, customer text, marker, source and derived facts;
+  `STATEMENTS` is now **derived from it** rather than maintained beside it, so the obligation and
+  the sentence cannot drift. The ten obligations are byte-identical to the old table.
+- The facts are derived, not typed per product: audience band, finished dimensions from the twin,
+  colours, fibre, compile date. One table gives the blanket "79 x 97 cm … acrylic" and the basket
+  "15 x 9 cm … cotton".
+- Seven of ten statements cite a `SOURCES` entry. **The three that cannot print "Source: none.
+  This is Brambleloop Studio's own practice rather than a published rule."** That is the right
+  answer and it is the one a lesser version of this work would have papered over.
+- Measured: 8 documents (3 basket variants + 1 blanket, US and UK) each carry all five required
+  statements by pypdf extraction; `harvest-table-runner` carries no statement marker at all.
+
+**16 CFR 1500.19 — the caveat is discharged, and the constant was wrong.** The old
+`CHOKING_WARNING` read as one line with a spaced hyphen and a full stop the rule does not set;
+1500.19(d)(1) requires at least two lines, so it **could not have satisfied the rule it quoted**.
+Three primary retrievals on 2026-09-25 (eCFR, 15 U.S.C. 1278(a)(2), and the 1995 Federal Register
+bitmap `ER27FE95.001`, sha256 recorded) confirm the regulation renders the statement as an image
+and that no machine-readable copy exists. The text is now the rule's three lines — and it is
+labelled a **transcription of a bitmap, a weaker instrument than reading prose**, under a new
+retrieval kind `RENDERED_IMAGE` that is deliberately kept out of `unfetched_sources()` so a page
+that was read is not reported as unread. Nothing ships on the safety alert symbol (a glyph, not a
+string); neither Launch-0 product is in the 3-to-6 band that needs it.
+
+**The fibre blocker, diagnosed rather than papered over.** `cir.model.Material` still records no
+fibre. The fibre *class* is nevertheless already customer-facing and already parsed out of
+`Material.name` by `publish/substitution.py`, so it is read from there against the same closed
+vocabulary — and the statement says in as many words that it names **the fibre the pattern was
+written for and not a fibre content for the finished item**, because the maker's yarn decides
+that. It fails closed: a material naming no recognised fibre makes the render refuse. The CIR
+change is specified for the Visual/CIR owner rather than made: `Material.fibre_content`, validated
+to sum to 100 when non-empty, defaulting empty so an omission is refused rather than assumed.
+
+**`statement_rendering_gap()` was the wrong instrument** — a grep over source files answers "does
+a file mention the topic", which a *comment* satisfies, so it would have reported the gap closed
+on a false pass. It now renders every Launch-0 children's variant and reads the extracted PDF
+text; the old reading survives under `source_grep` with its limitation named.
+`childrens_view()["as_built"]` was passing a hard-coded `()` — honest when nothing was rendered, a
+constant that could not notice the gap closing.
+
+**Listing copy** carries only what a buyer needs before they pay (age suitability, safe sleep,
+selling finished items, and the choking statement where required), each exclusion recorded with
+its reason, printing the statements' own words — requirement 40's four-divergent-licences lesson
+applied to safety text. Deliberately not claimed: 15 U.S.C. 1278(c)'s advertising requirement
+attaches to a toy, and **we sell a PDF**; the statement is on the list for our own
+gift-suitability reason and the module says so.
+
+**Then the caller's side, which was mine:** `handle_listing_seo` passed neither the statements nor
+the audit, so the live chain would have built a children's listing with no safety section and the
+auditor would have failed it at the *end* of a release. Fixed, and checked on a listing the real
+pipeline produced — reading the CIR back out of the warehouse rather than rebuilding it, because
+the defect was in the wiring and a unit test of either end would have passed throughout.
+
+**Recorded, not fixed:** `nordic-forest-mosaic-throw-baby` is a children's title with **no
+children's assignment**. It would render with no safety block while every other gate passed, and
+it does not ship only because it fails the colourwork gate — **luck, not design.**
+`childrens_titles_without_an_assignment()` now reports it. That is a merchandising decision for
+the owner: assign the audience or change the name.
+
+### Visual wave 3 — the bending energy is not a material energy, and the cantilever cannot converge
+
+Milestone D **remains FAIL**, nothing weakened, no threshold moved,
+`CALIBRATED_BENDING_N_M2` unchanged, every new option defaults off, `test_drape` 55 → 102 checks
+with nothing deleted.
+
+**The defect, which I reproduced independently on my own build before merging:** the rest
+curvature is stored as a world-space second difference, so *turning finished cloth without
+deforming it costs energy*. Pure translation reads **1.535e-33 J**; a 5° rotation reads
+**9.881e-06 J**, the equivalent of lifting every stitch **1.1717 mm** — against **1.586 mm** of
+droop from the entire gravitational drive of the standard solve. It grows as 1−cos θ, so it is a
+spring, and the penalty scales with how curved the rest state already is. A crochet loop is
+nothing but curvature (mean turning angle 1.394 rad). **An energy that charges each stitch for
+turning, in proportion to how much of a stitch it is, is an energy that holds rows rigid** — the
+corrugated-relief symptom, finally stated as a mechanism rather than a look.
+
+**The cantilever cannot be converged, established rather than assumed.** The implemented bending
+force is the second difference *once*, where the gradient of the documented energy is the second
+difference *twice* — settled by central differences: the analytic gradient matches to 3e-8 while
+the implemented force differs from it by 69% of the gradient's norm, with the opposite sign at 3
+of 18 components. A second difference once is a **string under tension B/l²**, not a beam, and a
+string clamped at one end has no shallow equilibrium. Measured to **51,200 iterations**: 32.4 mm
+out of plane on a 57.5 mm swatch, still falling, 44% of the way to its own force law's
+equilibrium. **A collapse in progress, not an unsettled drape** — more iterations will not fix it.
+
+**B re-derived by an instrument with nothing to converge** (impose a cylindrical curvature,
+evaluate the energy in closed form, invert ASTM's own `G = W g c³`): linear to 1.0004 over a 4×
+curvature sweep. It immediately showed why no bending length from this model was ever a material
+property — world-space bending length grows with swatch size (57.6 mm at 5×5 to 98.5 mm at 12×10,
+same yarn, same B) while the frame-invariant one holds at 21.56 mm across all four sizes. The
+honest answer for B is **a bracket, 1.24e-7 to 1.27e-6 N m², 4× to 42× the committed value**, with
+three stated conditions: frame invariance on, bend direction (1.60× anisotropy), and whether the
+87 artificial hops count (worth 10.2×). The constant was **not moved** — a 10× bracket is not a
+calibration, and moving it moves every committed result. Wave 2's INFERRED "a convergent
+calibration would demand a larger B" is confirmed and quantified. The withdrawn "1.45× the
+free-fibre floor" cross-check was still being asserted in three places in `drape.py`; all three
+now record the withdrawal instead, and it is restored nowhere.
+
+**Every Product Truth lock re-run on real geometry**, on the 5×5 and on a 10×8 (1494 vertices —
+the larger swatch queued), including two configurations the validators had never seen: the fabric
+wrapped round 500 mm and 125 mm cylinders, curved everywhere and planar nowhere. Every stitch
+stays linked and shaped, the topology gate passes, and **intrinsic width moves −0.0000% under a
+pure bend while every stitch moves** — the intrinsic/projected separation holding exactly, which
+is the whole reason those are two quantities. **No validator was passing because the fabric was
+planar.** The larger swatch behaves like the small one on every lock, and its within-row relief is
+*lower* (0.0031 against 0.0083), consistent with rotational stiffness dominating.
+
+**A new lock finding, recorded rather than patched:** with frame invariance on, the product's
+validity is **not monotone in the iteration count** — valid at 100, broken at 200/400/800, valid
+again at 1600, broken at 3200 and 6400. Same at the derived B, so it is geometry rather than
+stiffness or the instrument. **Every Product Truth lock is evaluated at the END of a solve and
+therefore cannot see a solve that passed through a broken product.** That applies to the committed
+default too: nothing establishes its descent is monotone in validity, only that the endpoints
+tested are valid. Continuous per-iteration validation was not added because it costs a topology
+pass per iteration, which is the dominant cost of the solve.
+
+**The missing mechanism, named:** there is **no tensile linkage between stitches**. Contact is
+purely repulsive — `_segment_contacts` returns only pairs closer than `rest_sep`, so
+`apply_contacts` can only push apart. Nothing represents a stitch being *pulled through* the loop
+below it, and in the committed model that cohesion was being supplied **accidentally** by the
+spurious world-frame rotational stiffness, which is exactly why removing it everts free-edge
+stitches. **The linkage exists as a `validate` check and not as a force.** Falsifiable, needs no
+Stage 0, and is not Stage 1.
+
+**Two corrections to the Wave 2 record** (numbers, not results): the solver's length scale is
+4.0860 mm, not the recorded 3.1427 mm, because `drape()` takes the median over the whole path
+including artificial hops — a factor of 2.20 on every prestress ratio derived from it, which makes
+Wave 2's headline "Kaldor bounded prestress = 2.22× gravity" read **1.010× gravity**. Kaldor's
+bound and gravity on a vertex are equal to within 1% on this fabric, a cleaner version of Wave 2's
+own finding. No Wave 2 result is withdrawn.
+
+Per-stitch colour in `cir/**` was **not started**, correctly: it changes the CIR contract across
+the dataclass, the compiler's count arithmetic, the writer, the independent reverse compiler
+(decision B-005 forbids shared parsing, so it needs its own colour grammar), the twin, the chart
+renderer and eleven existing CIRs, and a half-changed contract is worse than an unchanged one.
