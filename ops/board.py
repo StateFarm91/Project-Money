@@ -39,6 +39,14 @@ Three consequences, each aimed at one of the ways the rule has been broken:
 
 WHAT THIS DELIBERATELY DOES NOT DO. It does not merge, deploy, or promote anything. It
 reports, and it says when a lane is free to be refilled. Integration stays a decision.
+
+WHAT IT CANNOT DO ON ITS OWN, AND WHERE THAT LIVES. Everything here is correct about the
+jobs it is handed, and nothing here remembers what those jobs were. The job list is built in
+memory by the caller, and on 2026-09-25 the container restarted with four lanes running: the
+list went with the process, the `/tmp` logs went with the container, and this module had
+nothing to be right about. `registry.py` is the durable half -- it persists where each lane's
+evidence lives, not what its state was, and calls `read` below to recompute the verdict. The
+one rule is implemented here and only here.
 """
 from __future__ import annotations
 
@@ -170,7 +178,21 @@ def read(job: Job, *, now: float | None = None, table=None) -> dict:
                 "why": ("no terminal evidence, no recognisable result, and no live process: "
                         "the job stopped before finishing")}
 
-    code = int(end.group(1)) if end.re is _EXIT else 0
+    # The exit code is PARSED out of the sentinel, not recognised. It used to be taken only
+    # when `job.terminal` was this module's own `_EXIT` object -- an `is` test on a compiled
+    # pattern -- so every job told about its own sentinel convention reported exit code 0,
+    # and therefore COMPLETE, no matter what it exited with. `SUITE EXIT 1` read as a clean
+    # pass. So did the same default pattern recompiled from a durable record, which is how
+    # this was found: a lane whose suite failed and whose work was merged came back green
+    # from the tool whose entire purpose is not doing that. A failing job that reads COMPLETE
+    # is the worst answer this module can give, so the number is read from the sentinel
+    # itself, and only a sentinel with no numeric group is treated as a clean stop.
+    code = 0
+    if end.re.groups:
+        try:
+            code = int(end.group(1))
+        except (TypeError, ValueError):
+            code = 0
     headline = None
     if job.result is not None:
         m = job.result.search(text)

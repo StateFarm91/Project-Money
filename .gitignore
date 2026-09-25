@@ -17,3 +17,9 @@ tmp/
 
 # agent worktrees are working state, never repository content
 .claude/worktrees/
+
+# The job board's durable record (ops/registry.py). It names machine-local evidence paths
+# and container identities, so it is working state like ops/LOCK -- it survives a restart
+# because the checkout does, which is the whole requirement. The integration record that
+# matters long term is the merge commit itself, and that is already in git.
+ops/JOBS.json
