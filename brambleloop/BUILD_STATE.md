@@ -8509,3 +8509,85 @@ as failing inside the suite and passing in isolation. In the full run of 2026-09
 **test_deploy 32 of 32, exit clean, inside the suite**. Recorded as not reproduced rather than as
 fixed — nothing was changed to address it, and a failure that cannot be reproduced has not been
 explained.
+
+## 2026-09-25 — Deliverable QA II merged: both terminologies ship, and the UK document was wrong twice
+
+Boundary clean; secret scan found nothing. `runtime/release.py` was edited by both this
+department and Reliability II; the merge is clean and verified — `work_dir` survives at all five
+sites and `handle_assets_build` reads coherently. 41 + 39 + 33 + 18 checks re-run green after the
+merge.
+
+### The listing claimed two documents and one shipped
+
+`assets.build` rendered `pattern-us.pdf` alone while the listing title said "US and UK Terms",
+the description said "US and UK terminology", the FAQ said "the UK equivalent for every stitch in
+the key" and a Pinterest pin said "US and UK terms". **A live customer-facing falsehood**, fixed
+by shipping what is claimed rather than narrowing the claim. Both documents are now rendered,
+stored and attached, keyed on `pdf.TERMINOLOGIES` / `pdf.pattern_filename` — neither `assets` nor
+`store.publish` names a file any more. The FAQ line was false in its own right and is corrected:
+a key lists one terminology's tokens.
+
+### Two defects a localised *token* cannot reach, found by rendering and reading the UK PDF
+
+- **Every UK PDF stated its gauge "in sc" on the cover and "in dc" on the instructions page.**
+  One gauge, two stitches, one file. `cir.gauge.stitch_type` is a US abbreviation and only
+  `cir.writer` localised it; `publish/pdf.py` printed it raw in three places. `sc` is not a UK
+  abbreviation at all, so it was also a word the document's own key could never define — a UK
+  maker resolving it swatches a treble, **three times the height the gauge was measured at**.
+- **Every special-stitch method said "double crochet"** — in UK terms the stitch a US pattern
+  calls single crochet, **half the height**. A UK document whose token was correctly localised to
+  `fptr` then told the maker, in the paragraph that teaches the stitch, to finish it as a double
+  crochet. `unlocalised()` cannot see this: it renders ops through the writer and never sees a
+  method paragraph. `METHOD` now holds no stitch name at all — each arrives as `{dc}` resolved
+  from `cir.stitches` — and the guard is on the templates rather than on a render, because
+  "double crochet" is simultaneously the right word and the wrong word.
+
+### The licence had four copies, not three
+
+The fourth was **the PDF — the copy the customer keeps** — and it granted an *unlimited* right to
+sell finished items and *no* teaching right, against a decision saying the opposite on both.
+Requirement 40's consistency check could not see it because it was called with
+`terms.render(terms, "pdf")`: the decision rendered *for* the PDF surface rather than the PDF.
+`commerce.terms.BRAMBLELOOP_TERMS` is now the canonical Launch-0 licence in source, the PDF
+constant is deleted, and the consistency check runs on text extracted from the real document,
+with a companion case proving it fails on a hand-written surface. That closes owner decision D4's
+"eliminate divergent copies".
+
+On D4's timing: **no concrete legal reason was found that review must precede first sale** — own
+copyright work, own jurisdiction, no regulated disclosure. `enforceable` stays False and the page
+says so; review is scheduled before material scale.
+
+Side effect worth its own line: printing the terms next to the support paragraph showed the terms
+promising questions "answered by email". **There is no support mailbox.** Corrected.
+
+### Findings ranked, and two more instruments that could not fail
+
+- **The chart showed a repeat the pattern does not have, at 1.9 mm per cell.** `detect_repeat`
+  required a row period that divides the row count and starts at row 1; **8 of 16 designs satisfy
+  neither**. The cabled throw's chart read "one repeat: 8 stitches wide and 121 rows tall" three
+  pages after "Repeat rows 2-5 29 more times", and rendered as a 16 mm ribbon down a 216 mm page.
+  It now asks `cir.rowcycle`, the detector the written pattern already collapses to. Cells went
+  **1.9–4.3 mm → 5.1–7.5 mm** catalogue-wide.
+- **Nothing measured the chart's type size** — it is pixels in an image, so the source fixture
+  cannot see it — and the gate standing in for it was `full_cols > 48`, which the 48-stitch table
+  runner failed by one stitch. The floor is now derived and measured where the cell lands on the
+  page.
+- **`undefined_tokens` could not come out badly**: it built the key from the text it then checked,
+  with `pragma: no cover` on the unreachable branch, under a docstring calling itself "the check
+  that matters", and ran on one section of eight. Now runs on the whole document against the key
+  actually printed, in both vocabularies.
+- The document told the maker to follow a colour key that existed only as pixels, and the sentence
+  saying where to look described squares to readers of a round chart. `sc` and `cable1x1` drew the
+  same glyph. The chart's small type was 4.48:1 against a floor the rest of the document had been
+  raised to. The colour cue's legibility was a lightness threshold rather than a measurement —
+  3.9:1 on plain mid-grey, on the feature that exists for makers who cannot use hue.
+
+### Still open, recorded not fixed
+
+The round chart's readable unit (ring width) is not measured — returned as `cell_mm: None` so it
+reads *not applicable* rather than *checked*. Chart row and column labels sit just under 9pt. The
+legend image still bakes its text into pixels, with both keys now in text elsewhere and pointers
+to them. `twin.calibrated` is False catalogue-wide. `TwinModel` exposes only a total height, so
+milestones still interpolate linearly, and `stitches.Stitch` still has no crossing direction —
+`PDF_CABLE_DIRECTION_UNSPECIFIED` remains the only problem any catalogue document reports. The
+last two are `cir/**`, which the Visual Department owns.
