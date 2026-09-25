@@ -304,6 +304,28 @@ One new item. It does not repeat the six already batched in BUILD_STATE, which s
   activated. If the deletion fails, the report names the listing id and the title to remove in
   Shop Manager. That run is the evidence section 3.3 is missing.
 
+### What was run, and the one failure that is not this work's
+
+Suites run individually in this worktree (`run_tests.sh` was not run, by instruction):
+`test_etsy` 15, `test_etsy_transport` 27, `test_listing_schema` 14, `test_shop_package` 18,
+`test_etsy_capability` 9, `test_launch` 24, `test_platform_policy` 13,
+`test_capability_gates` 22, `test_acceptance_gates` 23, `test_provenance` 11, `test_radar` 32,
+`test_deliverable` 14, `test_dependency` 9, `test_executor` 34, `test_gates` 33, `test_intel`
+38, `test_access` 8, `test_model_access` -- all passing.
+
+`test_deploy` reports one failure:
+`test_scheduler_tick_endpoint_is_idempotent_within_a_window` -- "a repeated tick re-enqueued
+['infra_heartbeat', 'health_sweep']". It **passes when run on its own**, it concerns the
+scheduler's idempotence window and two infrastructure jobs, and nothing in this work touches
+the scheduler. It is recorded here rather than left out, because a failure nobody wrote down
+is a failure somebody else has to rediscover. It looks like the same family as the
+already-diagnosed expiring test: a check whose correctness depends on an unstated condition,
+here what ran before it in the same process. Not fixed here -- it is not this department's
+file and guessing at someone else's timing invariant is how a real defect gets pinned shut.
+
+This container also lacks the project's `.venv`; `sqlalchemy`, `pillow`, `reportlab`, `fastapi`
+and `httpx` were installed into the system interpreter to make the suites runnable at all.
+
 ### The environment this code reads
 
 Every one of these is read from the environment and **none of them is ever written to this
