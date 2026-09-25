@@ -113,6 +113,7 @@ import numpy as np
 
 from . import crochet_topology as topo
 from . import relaxation as rx
+from . import stitch_shape as ss
 
 __all__ = ["DrapeSetup", "DrapeReport", "drape", "areal_mass", "bending_bracket",
            "cantilever_test", "intrinsic_dimensions", "CALIBRATED_BENDING_N_M2",
@@ -122,7 +123,7 @@ __all__ = ["DrapeSetup", "DrapeReport", "drape", "areal_mass", "bending_bracket"
            "derive_bending_rigidity", "cantilever_equilibrium_bound",
            "TARGET_BENDING_LENGTH_MM", "linkage_holds", "linkage_rest_separations",
            "apply_stitch_linkage", "linkage_extension", "LINKAGE_GAIN",
-           "articulation_profile"]
+           "articulation_profile", "worst_third_loop_margin"]
 
 STANDARD_GRAVITY = 9.80665            # m/s^2, sourced
 ACRYLIC_DENSITY = 1180.0              # kg/m^3, already used to derive fibre radius
@@ -208,6 +209,49 @@ PROVENANCE = {
                               "how much plasticity a run accumulates depends on its "
                               "iteration count. Measured, not assumed away: see "
                               "research/VISUAL_WAVE2.md",
+    "contact_rest_is_relaxed_shape": "MEASURED, per pair, off the certified geometry; no new "
+                                     "constant, OFF BY DEFAULT. `RESTING_CONTACT = 0.62` is "
+                                     "labelled ESTIMATED in relaxation.PROVENANCE and is one "
+                                     "number for every pair in every fabric. `relax` balances "
+                                     "contact against a bending term that pulls the yarn "
+                                     "towards STRAIGHT; `drape` replaces that with one that is "
+                                     "zero at the relaxed shape, which deletes the force that "
+                                     "was holding contact back. What is DERIVED is that the "
+                                     "configuration relaxation produced is the one both terms "
+                                     "should call stress free; what is MEASURED is each pair's "
+                                     "own separation; what remains UNKNOWN is this yarn's true "
+                                     "compressed separation, which is Stage 0's question and "
+                                     "Stage 0 is deferred. The hard floor COMPRESSED_CONTACT "
+                                     "is untouched. See research/VISUAL_WAVE5.md",
+    "bend_on_yarn_only": "DERIVED, no new constant, OFF BY DEFAULT. The stored path is not all "
+                         "yarn: 87 of 473 segments on the certified 5x5 are artificial hops "
+                         "between ops and 20 are sub-micron joins, the shortest 28 NANOMETRES, "
+                         "and `genuine_yarn_vertices` has identified them since "
+                         "research/VISUAL_WAVE3.md. MEASURED: one loaded iteration of the "
+                         "co-rotational gradient form injects 9.7564e-06 J of bending energy, "
+                         "of which 3.99e-13 J is on the 312 genuine yarn vertices and the rest "
+                         "is on the other 162 -- the co-rotational frame is fitted to edge "
+                         "DIRECTIONS, and a 28-nanometre segment's direction is not a "
+                         "continuous function of the configuration. What this COSTS is real "
+                         "and is measured: the mask alone makes the fabric 1.47x floppier at "
+                         "the same B. See research/VISUAL_WAVE5.md",
+    "monotone_descent": "DERIVED, no new constant, OFF BY DEFAULT. Rejects any iteration whose "
+                        "finished configuration raises the total energy and retries at half "
+                        "the force step. The comparison bound is 64*eps, a floating-point "
+                        "rounding bound for a sum over ~2,000 squared residuals, not a "
+                        "tolerance on the mechanics; an iteration in which the hard contact "
+                        "floor had to be enforced is exempt. It is a CHECK rather than a fix: "
+                        "it never fires on the committed default or on the reconciled "
+                        "configuration, and it DEADLOCKS the unreconciled co-rotational scheme, "
+                        "which is what 'not a descent direction' looks like when it is measured",
+    "guard_morphology": "The COMMITTED morphology lock, evaluated every iteration instead of "
+                        "only at the end, OFF BY DEFAULT. Nothing is invented: the criterion is "
+                        "`third_loop_below_v_mm >= 0`, the same line stitch_shape draws and "
+                        "crochet_topology.validate counts. When it fires it reverts and halves; "
+                        "if no step keeps the product valid the solve STALLS and says so. It "
+                        "stands aside on an input that is already broken. 2.168ms an iteration "
+                        "against 97.673ms for a full topology pass, which is why this half of "
+                        "continuous validation is affordable and that half is not",
     "support_friction": "NOT MODELLED -- the support is frictionless, which is stated "
                         "because friction would resist sliding and the swatch is not "
                         "claimed to be in the configuration friction would give",
@@ -387,6 +431,110 @@ class DrapeSetup:
     # tuned: there is no new constant in it. Off by default because it changes the shape of
     # every solve and every committed Visual result was produced without it.
     energy_gradient_bending: bool = False
+    # THE CONTACT REST STATE, TAKEN OFF THE CERTIFIED GEOMETRY. OFF BY DEFAULT.
+    #
+    # `rest_is_relaxed_shape` already says the yarn is taken as SET in the shape relaxation
+    # left it in, for bending. Contact does not say it: it aims every pair at one constant,
+    # `RESTING_CONTACT = 0.62` of a diameter, which `relaxation.PROVENANCE` labels ESTIMATED.
+    # So the handover from `relax` to `drape` is not force free. `relax` balances contact
+    # against a bending term that pulls the yarn towards STRAIGHT; `drape` replaces that with
+    # a bending term that is zero at the relaxed shape, which deletes exactly the force that
+    # was holding contact back, and whatever contact still wants is then unopposed.
+    #
+    # MEASURED on the certified 5x5, research/VISUAL_WAVE5.md: 96 pairs are in contact, 93
+    # within 0.02mm of the target and 43 within 0.0001mm, and TWO carry 91 per cent of the
+    # deficit -- the same intra-stitch fold in two top-row stitches, bridged by a 2.1485mm
+    # inextensible segment, sitting on the compressed floor 0.5667mm short. The whole residual
+    # is worth 0.0011mm rms of lifetime motion under the null case (B = 0, gravity off), so it
+    # is REAL and it is SMALL, and it is not the mechanism wave 4 attributed the
+    # load-independent drift to.
+    #
+    # With this on, the soft target of a pair that was already in contact at the rest
+    # configuration is that pair's OWN measured separation. It can only lower a target, never
+    # raise one; the hard floor `COMPRESSED_CONTACT` is untouched and still enforced at full
+    # gain; a contact that forms during the solve is treated exactly as it is today. DERIVED
+    # and MEASURED, no new constant.
+    contact_rest_is_relaxed_shape: bool = False
+    # MONOTONE DESCENT ON THE ENERGY THIS MODULE DOCUMENTS. OFF BY DEFAULT.
+    #
+    # The one fact that decides this: at the certified configuration, with the rest state
+    # taken as the relaxed shape, the bending energy is EXACTLY ZERO -- lap = lap_rest and the
+    # co-rotational R is the identity -- and the energy is a sum of squares, so zero is its
+    # GLOBAL MINIMUM. With gravity off there is nothing else to minimise. Any motion at all is
+    # therefore the solve climbing out of the global minimum of its own energy, and no
+    # interpretation of the result is available until it stops doing that.
+    #
+    # MEASURED, research/VISUAL_WAVE5.md, gravity off, 400 iterations, rms from the certified
+    # state: committed default 0.000408mm, the gradient form 0.000759mm, and co-rotation
+    # 0.814mm -- 2,000 times further, from a starting residual that is identical to six
+    # decimal places in every configuration. The certified state IS an equilibrium of this
+    # solver to within a thousandth of a millimetre. What the co-rotational rest state does is
+    # make that equilibrium UNSTABLE, because the target `R(p).lap_rest` is refitted from the
+    # configuration every iteration and the frozen-R gradient is not the gradient of an
+    # energy in which R also moves.
+    #
+    # With this on, an iteration whose finished configuration RAISES the total energy is
+    # reverted and retried at half the force step, reusing the revert-and-halve the clearance
+    # guarantee already runs on. There is no new constant: the comparison is against the
+    # previous accepted energy plus a floating-point noise bound, and an iteration in which
+    # the hard contact floor had to be enforced is exempt, because un-squeezing yarn is not
+    # optional and is not a descent step.
+    monotone_descent: bool = False
+    # THE CONTINUOUS MORPHOLOGY GUARD. OFF BY DEFAULT.
+    #
+    # Every Product Truth lock in this repository is evaluated at the END of a solve.
+    # research/VISUAL_WAVE3.md measured a run that is valid at 100 iterations, broken at 200,
+    # 400 and 800, valid again at 1600 and broken at 3200: a 1600-iteration run of that
+    # configuration ends clean having spent 1,400 iterations with four of twenty-five stitches
+    # everted, and no end-of-solve gate can see that it happened.
+    #
+    # `watch_linkage` closed half of that gap: it sees a certified link OPEN, monotonically,
+    # at 0.081ms an iteration. It cannot see a stitch's SHAPE fail with its link intact, which
+    # is what actually breaks in these runs.
+    #
+    # WHAT THE GUARD DOES WHEN IT FIRES, and why that and not something else. It reverts the
+    # iteration and retries at half the force step -- the machinery the clearance guarantee
+    # already runs -- and if no step keeps the product valid the solve STALLS and says so.
+    # It does not raise, because a transient is not a reason to throw away a run; it does not
+    # carry on and report, because that is the behaviour being fixed.
+    #
+    # ITS CRITERION IS NOT AN INVENTED THRESHOLD. It is the committed morphology lock itself:
+    # a stitch is broken when its third loop is no longer below its V, `margin >= 0`, which is
+    # the same line `stitch_shape` draws and `crochet_topology.validate` counts. The guard
+    # evaluates the lock more often; it does not move it. And it only ever fires on a fabric
+    # that STARTS valid -- if the configuration handed in is already broken the guard records
+    # that and stands aside, because a guard that deadlocks on its own input is measuring the
+    # input rather than the solve.
+    #
+    # COST, measured in research/VISUAL_WAVE4.md: 2.168ms an iteration against 97.673ms for a
+    # full topology pass. About 9 per cent of a 400-iteration solve, which is why this is the
+    # half of continuous validation that is affordable and the topology pass is not.
+    guard_morphology: bool = False
+    # BEND ONLY WHERE THERE IS YARN TO BEND. OFF BY DEFAULT.
+    #
+    # `genuine_yarn_vertices` has identified since research/VISUAL_WAVE3.md that the stored
+    # path is not all yarn: on the certified 5x5 swatch, 87 of 473 segments are artificial
+    # hops between ops, up to 6.73mm, and 20 are sub-micron joins where one stitch's point
+    # list meets the next -- the shortest 28 NANOMETRES. A second difference taken across
+    # either is not a bend in any yarn. Wave 3 recorded that the bending term does not exclude
+    # them and did not change it, because including them is worth 10.2x in the derived B and
+    # that is an owner-visible number.
+    #
+    # WHAT MADE IT UNAVOIDABLE. The co-rotational frame is fitted to each vertex's two EDGE
+    # DIRECTIONS. At a 28-nanometre join an edge direction is numerically meaningless -- a
+    # nanometre of motion turns it through 2 degrees -- so the fitted rotation there is not a
+    # continuous function of the configuration, and it is refitted every iteration. MEASURED,
+    # research/VISUAL_WAVE5.md: one iteration of `grad + co-rotation` under gravity, from the
+    # certified state made an exact equilibrium of contact, injects 9.7564e-06 J of bending
+    # energy -- more than the entire gravitational budget of the committed 800-iteration solve
+    # -- and 9.7564e-06 J of it is on the 162 artefact vertices against 4.0e-13 J on the 312
+    # genuine ones. Not 90 per cent. 99.99996 per cent.
+    #
+    # With this on, the bending residual is zero at any vertex either of whose segments is not
+    # yarn, so neither force law charges for a bend that is not in the fabric, and no
+    # co-rotational frame is ever fitted to a direction that does not exist. DERIVED, and the
+    # classification is the one wave 3 already built and pinned; no new constant.
+    bend_on_yarn_only: bool = False
     clamp_fraction: float = 0.0           # fraction of the fabric held fixed, by +y
     iterations: int = 400
     # Check the certified linkage every iteration rather than only at the end. Cheap -- it is
@@ -432,9 +580,42 @@ class DrapeReport:
     linkage_max_extension_mm: float = 0.0
     linkage_final_extension_mm: float = 0.0
     linkage_worst_iteration: int = -1
+    # The energy this module documents, at the start and at the end of the run, in the form
+    # the configuration is supposed to be minimising. `energy_rise_J` is positive when the
+    # solve finished HIGHER than it started, which with gravity off means it climbed out of
+    # the global minimum of its own energy.
+    energy_start_J: float = 0.0
+    energy_final_J: float = 0.0
+    energy_max_J: float = 0.0
+    # Iterations thrown away by `monotone_descent` because they raised the energy, and
+    # iterations exempted from it because the hard contact floor had to be enforced.
+    energy_rejections: int = 0
+    floor_enforced_iterations: int = 0
+    # The continuous morphology guard. `margin_max_mm` is the worst third-loop margin over
+    # every ACCEPTED iteration of the run, not the value at its end, so a solve that passed
+    # through a broken product and came back cannot report clean. It reads -1e9 when
+    # `guard_morphology` is off, which means NOT MEASURED and not "nothing happened": the
+    # measurement costs 2.168ms an iteration and is not levied on a solve that did not ask
+    # for it.
+    margin_start_mm: float = 0.0
+    margin_max_mm: float = -1e9
+    margin_worst_iteration: int = -1
+    morphology_rejections: int = 0
+    morphology_guard_stood_aside: bool = False
+    stalled: bool = False
+    contact_pair_rest_used: int = 0
+    # How many vertices the bending term actually acted on. Equal to the vertex count unless
+    # `bend_on_yarn_only` excluded the path's hops and joins.
+    bending_vertices: int = 0
+
+    @property
+    def energy_rise_J(self) -> float:
+        return self.energy_final_J - self.energy_start_J
 
     def as_dict(self):
-        return dict(self.__dict__)
+        d = dict(self.__dict__)
+        d["energy_rise_J"] = self.energy_rise_J
+        return d
 
 
 def _segment_lengths(pts):
@@ -609,6 +790,48 @@ def bending_energy_J(pts: np.ndarray, lap_rest: np.ndarray, bending_rigidity_N_m
     if mask is not None:
         sq = sq[mask]
     return 0.5 * k * float(sq.sum())
+
+
+def worst_third_loop_margin(fab: topo.Fabric) -> float:
+    """The worst stitch's third-loop margin, in millimetres, NEGATIVE being correct.
+
+    The committed morphology lock is a count -- how many stitches are still shaped like a half
+    double crochet -- and a count cannot distinguish a stitch 0.02mm the wrong side of the line
+    from one turned inside out. This is the same quantity as a distance, which is what makes an
+    eversion diagnosable instead of merely countable: flat, every stitch of the certified 5x5
+    sits 1.5 to 1.7mm clear; everted, they read +2 to +7mm.
+
+    It lives HERE because it is now used in three places -- the suite, the research tables and
+    the continuous guard below -- and three copies of an instrument is how a lock gets
+    "corrected" in one of them to match a wrong expectation. The definition is unchanged from
+    the one `tests/test_drape.py` has asserted against since the first out-of-plane run, and a
+    check pins that it still reads the committed figures.
+
+    Returns -1e9 for a fabric with no frameable stitch, which is the same convention the
+    suite's copy used: no measurable stitch is not a measured failure.
+    """
+    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    by = {(o.row, o.position): o for o in hdc}
+    rws = sorted({r for r, _ in by})
+    worst = -1e9
+    for o in hdc:
+        ri = rws.index(o.row)
+        ahead = by.get((o.row, o.position + 1))
+        behind = by.get((o.row, o.position - 1))
+        anc = by.get((rws[ri - 1], o.position)) if ri > 0 else by.get((rws[ri + 1], o.position))
+        if anc is None:
+            continue
+        try:
+            a, u, t = ss.local_frame(o, ahead if ahead is not None else behind, anc,
+                                     neighbour_is_ahead=ahead is not None)
+        except ss.Unframeable:
+            continue
+        if ri == 0:
+            u, t = -u, -t
+        m = ss.shape_margins(o, fab.L, fab.H, fab.D, (a, u, t))
+        if m:
+            worst = max(worst, m["third_loop_below_v_mm"])
+    return worst
 
 
 def _median_segment_m(pts: np.ndarray) -> float:
@@ -1146,6 +1369,52 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     rest_sep = material.rest_separation_mm
     floor_sep = material.floor_separation_mm
 
+    # The per-pair contact rest state, measured off the configuration the rest state belongs
+    # to -- the same configuration the bending rest curvature and the linkage rest separations
+    # are measured off, so all three terms describe one fabric rather than three.
+    pair_rest = None
+    if setup.contact_rest_is_relaxed_shape:
+        pair_rest = rx.contact_rest_separations(rest_frame_pts, fab.yarn_diameter,
+                                                rest_sep, floor_sep)
+        report.contact_pair_rest_used = len(pair_rest)
+    contact_stats: dict = {}
+
+    # Which vertices have yarn on both sides. Measured once, from the REST configuration: no
+    # vertex is ever added, removed or reconnected here and segment lengths are held, so a
+    # hop stays a hop and a join stays a join for the whole solve.
+    yarn_mask = (genuine_yarn_vertices(rest_frame_pts)
+                 if setup.bend_on_yarn_only else None)
+    if yarn_mask is not None:
+        report.bending_vertices = int(yarn_mask.sum())
+
+    # The total energy the configuration is supposed to be minimising, evaluated exactly.
+    # Gravitational potential is m g h with h the height along -down; the origin of h is
+    # arbitrary and cancels in every comparison made with it.
+    def total_energy(p):
+        e = bending_energy_J(p, lap_rest, setup.bending_rigidity_N_m2, ell,
+                             rest_pts=rest_frame_pts,
+                             frame_invariant=setup.frame_invariant_rest,
+                             mask=yarn_mask)
+        if setup.gravity:
+            e += float((mass * setup.gravity * (-(p @ down) * 1e-3)).sum())
+        return e
+
+    energy = total_energy(pts)
+    report.energy_start_J = energy
+    report.energy_max_J = energy
+
+    # The morphology guard's starting reading. A configuration that is already broken when it
+    # is handed in cannot be guarded -- every step would be rejected and the solve would
+    # report a stall that is a property of its input -- so the guard records that and stands
+    # aside rather than deadlocking.
+    guard_on = setup.guard_morphology
+    if setup.guard_morphology:
+        report.margin_start_mm = worst_third_loop_margin(fab)
+        report.margin_max_mm = report.margin_start_mm
+        if report.margin_start_mm >= 0.0:
+            guard_on = False
+            report.morphology_guard_stood_aside = True
+
     # The certified stitch-to-stitch linkage, and the separation each link was worked at.
     # Built from the REST configuration, so the constraint is a property of the product
     # rather than of wherever the solve happens to have got to.
@@ -1200,6 +1469,8 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         else:
             oriented = lap_rest
         resid = lap - oriented
+        if yarn_mask is not None:
+            resid[~yarn_mask] = 0.0
         if setup.energy_gradient_bending:
             # -D^T applied to the residual: the second difference taken twice, which is the
             # gradient of E = (B/2 l^3) sum |lap - lap_rest|^2 and therefore a genuine
@@ -1234,7 +1505,9 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             apply_stitch_linkage(pts, holds, link_rest, fixed=held)
             pts[held] = before[held]
 
-        rx.apply_contacts(pts, fab.yarn_diameter, rest_sep, floor_sep)
+        rx.apply_contacts(pts, fab.yarn_diameter, rest_sep, floor_sep,
+                          pair_rest=pair_rest, stats=contact_stats)
+        floor_hit = int(contact_stats.get("floor_pairs", 0)) > 0
         pts[held] = before[held]
 
         if setup.support_at is not None:
@@ -1268,8 +1541,55 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
                 scale *= 0.5
                 report.retries += 1
                 if scale < 1e-6:
+                    report.stalled = True
                     break
                 continue
+
+        # MONOTONE ACCEPTANCE. Evaluated on the FINISHED configuration -- after the linkage,
+        # after contact, after the length projection -- because that is the configuration the
+        # iteration actually produces, and a step that descends before the constraints run and
+        # climbs after them has still climbed.
+        #
+        # The comparison bound is floating point, not physics: the energy is a sum over ~2,000
+        # squared residuals, so its own rounding is of order sqrt(n)*eps times its magnitude,
+        # and 64*eps bounds that with room to spare. It is not a tolerance on the mechanics and
+        # it does not scale with anything physical.
+        if setup.monotone_descent:
+            if floor_hit:
+                # The hard floor had to be enforced: yarn was squeezed past the published
+                # compression limit and pushing it back is not optional and is not a descent
+                # step. Exempting it is what keeps the non-interpenetration guarantee ahead of
+                # the energy criterion rather than behind it.
+                report.floor_enforced_iterations += 1
+                energy = total_energy(pts)
+            else:
+                trial = total_energy(pts)
+                if trial > energy + 64.0 * np.finfo(float).eps * max(abs(energy), abs(trial)):
+                    pts = before
+                    scale *= 0.5
+                    report.energy_rejections += 1
+                    if scale < 1e-6:
+                        report.stalled = True
+                        break
+                    continue
+                energy = trial
+            report.energy_max_J = max(report.energy_max_J, energy)
+
+        # THE CONTINUOUS MORPHOLOGY GUARD. The criterion is the committed lock, not a number
+        # chosen here: a stitch is broken when its third loop is no longer below its V.
+        if guard_on:
+            m = worst_third_loop_margin(replace(fab, ops=_rewrite(fab, pts)))
+            if m >= 0.0:
+                pts = before
+                scale *= 0.5
+                report.morphology_rejections += 1
+                if scale < 1e-6:
+                    report.stalled = True
+                    break
+                continue
+            if m > report.margin_max_mm:
+                report.margin_max_mm = m
+                report.margin_worst_iteration = it + 1
         scale = min(scale * 1.05, 1.0)
         report.largest_step_mm = max(report.largest_step_mm, worst)
         report.final_step_mm = worst
@@ -1310,6 +1630,11 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             return float(2.0 * np.arcsin(np.clip(v / (2.0 * ell), 0.0, 1.0)))
         report.rest_migration_max_rad = _as_angle(float(moved.max()))
         report.rest_migration_mean_rad = _as_angle(float(moved.mean()))
+
+    # The energy at the end, always, in the form this configuration is supposed to be
+    # minimising. Evaluated once rather than every iteration so the control costs nothing.
+    report.energy_final_J = total_energy(pts)
+    report.energy_max_J = max(report.energy_max_J, report.energy_final_J)
 
     now = _segment_lengths(pts)
     report.length_change_pct = float(100.0 * (now.sum() - rest.sum()) / rest.sum())

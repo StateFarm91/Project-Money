@@ -82,6 +82,95 @@ def test_the_broken_lighting_helpers_are_absent_rather_than_shipped_broken():
     assert not hasattr(render, "lit_fabric")
 
 
+# ------------------------------------------------------------------------------------------
+# WAVE 5 -- the physically based scene, committed so a comparison can be repeated.
+#
+# Mitsuba is NOT a dependency (requirements.txt says so and why), so nothing here renders.
+# What is tested is everything above the renderer: what gets drawn, what deliberately does
+# not, and that the staging is one fixed description rather than a sentence in a commit
+# message. research/VISUAL_WAVE5.md.
+# ------------------------------------------------------------------------------------------
+import numpy as np                                                    # noqa: E402
+from brambleloop.visual import crochet_topology as CT                 # noqa: E402
+from brambleloop.visual import drape as DR                            # noqa: E402
+from brambleloop.visual import pbr_scene as PS                        # noqa: E402
+from brambleloop.visual import relaxation as RX                       # noqa: E402
+
+
+def _fabric():
+    c, t = _twin()
+    return RX.relax(CT.settle(CT.build(t, c.gauge, max_rows=3, max_cols=3)),
+                    iterations=120)[0]
+
+
+def test_the_scene_does_not_draw_the_paths_artificial_hops_as_yarn():
+    fab = _fabric()
+    seg = np.linalg.norm(np.diff(np.asarray(fab.points, float), axis=0), axis=1)
+    bad = int(((seg >= DR.JUMP_SEGMENT_MM) | (seg <= DR.DEGENERATE_SEGMENT_MM)).sum())
+    strands = PS.fabric_strands(fab, per_segment=1)
+    assert bad > 0, "this fixture is supposed to contain hops and joins"
+    # One cut per artefact segment, so the strand count is bounded by it and is never one.
+    assert 1 < len(strands) <= bad + 1, (len(strands), bad)
+    for s in strands:
+        d = np.linalg.norm(np.diff(s, axis=0), axis=1)
+        assert d.max() < DR.JUMP_SEGMENT_MM and d.min() > DR.DEGENERATE_SEGMENT_MM
+
+
+def test_smoothing_interpolates_and_never_moves_a_control_point():
+    fab = _fabric()
+    raw = PS.fabric_strands(fab, per_segment=1)
+    smooth = PS.fabric_strands(fab, per_segment=6)
+    assert len(raw) == len(smooth)
+    for a, b in zip(raw, smooth):
+        assert len(b) >= len(a)
+        # every control point still appears in the smoothed strand
+        for p in a:
+            assert np.abs(b - p).sum(axis=1).min() < 1e-9
+
+
+def test_the_curve_file_carries_the_fabrics_own_yarn_radius():
+    import tempfile, os
+    fab = _fabric()
+    path = os.path.join(tempfile.mkdtemp(), "c.txt")
+    strands, verts = PS.write_curve_file(fab, path)
+    text = open(path).read().strip().splitlines()
+    radii = {round(float(line.split()[3]), 5) for line in text if line.strip()}
+    assert radii == {round(fab.yarn_diameter / 2.0, 5)}, radii
+    assert verts == sum(len(s) for s in PS.fabric_strands(fab)) and strands > 1
+
+
+def test_two_fabrics_compared_under_this_scene_get_the_same_camera_and_lights():
+    # The point of committing the staging: everything but the curve file is identical for two
+    # renders framed by the same fabric, and that is checkable rather than asserted in prose.
+    flat = _fabric()
+    draped = DR.drape(flat, DR.DrapeSetup(
+        linear_density_kg_m=DR.areal_mass(flat, 444.0)["linear_density_kg_m"],
+        clamp_fraction=0.5, iterations=60))[0]
+    assert PS.framing_centre(draped) != PS.framing_centre(flat), "the drape moved nothing"
+    centre = PS.framing_centre(flat)
+    a = PS.scene_dict("flat.txt", centre)
+    b = PS.scene_dict("draped.txt", centre)
+    for key in ("sensor", "integrator", "backdrop", "key", "fill"):
+        assert a[key] == b[key], key
+    assert a["yarn"]["bsdf"] == b["yarn"]["bsdf"]
+    assert a["yarn"]["filename"] != b["yarn"]["filename"]
+    # and the camera is framed ON the reference, not on whatever it is pointed at
+    assert a["sensor"]["to_world"][2] == tuple(centre)
+    assert a["sensor"]["to_world"][1] != tuple(centre)
+
+
+def test_the_scene_states_which_yarn_layers_it_does_not_reproduce():
+    # The Layer 1-5 ladder -- plies, fibre, surface fuzz, hand -- is a separate committed
+    # result at a far higher standard than this scene reaches. A comparison instrument that
+    # did not say so would read as a claim about appearance.
+    doc = PS.__doc__ + str(PS.STAGING)
+    assert "never committed" in PS.__doc__
+    assert "Layer 1-5" in doc
+    assert "fibre halo" in PS.STAGING["not_reproduced"]
+    assert "ply wobble" in PS.STAGING["not_reproduced"]
+    assert "surface fuzz" in PS.STAGING["not_reproduced"]
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0
