@@ -19,6 +19,16 @@ Do this, in order:
 3. `python3 ops/lock.py acquire <your session id>`; if it exits 3 another session holds the
    lease — append one line to `brambleloop/BUILD_STATE.md` changelog, commit, push, stop.
    Otherwise commit and push `ops/LOCK` immediately.
+   **Acquiring the lease prints the job board.** Any lane it lists is a lane whose own
+   terminal evidence says it finished and which nobody has acted on, or one whose evidence
+   cannot be established. Read each one's evidence before starting new work, then
+   `python3 ops/registry.py ack <name>`. This is printed rather than left to be asked for
+   because the second of the two historical failures was nobody re-reading a finished suite
+   for 47 minutes — a survey somebody has to remember to run is that failure with more
+   machinery behind it. `python3 ops/registry.py survey` prints the whole board at any time.
+   When you start a long background job, enrol it first —
+   `python3 ops/registry.py enrol <name> <log path> <lane> [branch] [process marker]` — so
+   that a container replacement cannot take the job list with it.
 4. Execute the **next highest-value unblocked action** listed at the bottom of BUILD_STATE.
    Follow the Execution Directive order: platform layer → release gates → Market Radar →
    product pipeline → publishing/pricing → growth/support → Shadow Mode → acceptance tests →

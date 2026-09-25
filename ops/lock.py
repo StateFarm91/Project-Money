@@ -66,6 +66,51 @@ def _age_hours(lease):
     return float("inf")
 
 
+def _show_unread_lanes():
+    """Print every enrolled lane whose own evidence needs somebody, on the way into a session.
+
+    WHY A LOCK SCRIPT PRINTS A JOB BOARD.
+
+    `ops/registry.py` made a lane's verdict durable and re-derivable, and `ops/board.py`
+    computes it from the job's own terminal evidence rather than from anybody's belief.
+    Between them they close "the coordinator has to remember WHAT ran". They do not close
+    "the coordinator has to remember TO LOOK" -- and that second one is the 47-minute failure
+    exactly: no self-match, no lost list, nothing wrong with the evidence. The suite had
+    finished, the result was in the file, and nobody re-read it. A survey nobody runs is a
+    log nobody re-reads with more machinery behind it.
+
+    So the survey stops being something to remember and becomes a side effect of the one step
+    a session cannot skip. Every heartbeat begins by taking this lease; from here on, taking
+    it prints the lanes whose completion is established and unacknowledged, and the lanes
+    whose evidence cannot be established at all.
+
+    Three properties, each deliberate:
+      * It prints; it decides nothing. Acknowledging a lane is still an act, made by the
+        caller, with `registry.py ack`. A watcher that clears its own alerts is back to
+        reading completion from watcher state.
+      * It never changes this script's exit code. The lease is the answer to `acquire`, and
+        a board that cannot be built must not be able to stop a session working.
+      * It never raises. An absent, empty or corrupt registry prints one honest line.
+    """
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import registry
+
+        rows = registry.Registry().survey()["needs_attention"]
+    except Exception as exc:                                       # noqa: BLE001
+        print(f"job board unavailable ({type(exc).__name__}); lanes were NOT checked")
+        return
+    if not rows:
+        return
+    print(f"\n{len(rows)} lane(s) need attention before new work is started:")
+    for row in rows:
+        age = row.get("age_s")
+        age = f", {age / 60:.0f} min" if isinstance(age, (int, float)) else ""
+        print(f"  [{row.get('state')}] {row.get('job')} ({row.get('lane') or 'no lane'}{age})"
+              f"  {row.get('evidence') or row.get('why', '')}"[:160])
+    print("  read each one's evidence, then `python3 ops/registry.py ack <name>`.\n")
+
+
 def _create_exclusively(payload):
     """Create the lock file only if it does not exist. Returns False if somebody won first."""
     try:
@@ -88,11 +133,13 @@ if cmd == "status":
 if cmd == "acquire":
     if _create_exclusively(_lease(sid)):
         print("acquired")
+        _show_unread_lanes()
         sys.exit(0)
     cur = read()
     if cur and cur.get("session") == sid:
         LOCK.write_text(_lease(sid))
         print("acquired")
+        _show_unread_lanes()
         sys.exit(0)
     age = _age_hours(cur)
     if age < STALE_HOURS:
@@ -104,6 +151,9 @@ if cmd == "acquire":
     tmp.write_text(_lease(sid))
     os.replace(tmp, LOCK)
     print(f"stale lease ({age:.1f}h) from {(cur or {}).get('session')} taken over")
+    # A takeover is the case where the board matters most: whatever the dead session was
+    # watching finished without it, and its evidence is sitting there.
+    _show_unread_lanes()
     sys.exit(0)
 
 if cmd == "refresh":
