@@ -8739,3 +8739,45 @@ Per-stitch colour in `cir/**` was **not started**, correctly: it changes the CIR
 the dataclass, the compiler's count arithmetic, the writer, the independent reverse compiler
 (decision B-005 forbids shared parsing, so it needs its own colour grammar), the twin, the chart
 renderer and eleven existing CIRs, and a half-changed contract is worse than an unchanged one.
+
+## 2026-09-25T08:15Z heartbeat — one value that meant both "no" and "nobody looked"
+
+Lease acquired and pushed. Production verified before any work: `/api/verify` **12 of 12**,
+health `ok` on the deployed commit, worker alive. Reliability II's new mechanisms are live and
+quiet — `reservations_expired_unreleased_cad` **0.0**, `reservations_live` **0**,
+`temp_dirs_left_behind` **0**, which is the reading that would have shown a call site taking a
+reservation and not releasing it.
+
+### The gate this closed
+
+`childrens_assignment` returned `None` for two different states: a candidate that declares no
+children's sub-category, which is a **decision**, and a slug no candidate mentions at all, which
+is an **omission**. The renderer keys the safety block on that answer, so on the second reading a
+document titled "(Baby)" rendered with no safety statements — silently, with every other gate
+passing. One value meaning both a "no" and a "nobody looked", which is this codebase's recurring
+defect wearing its plainest form.
+
+`nordic-forest-mosaic-throw-baby` was that product, reported by the children's lane yesterday as
+a merchandising decision for the owner. It is **assigned** now (`baby_blanket`, `under_3`) rather
+than exempted: a baby blanket is a baby blanket, and the title is the merchandising decision
+already made by whoever wrote it. It renders at 9 pages carrying its full statement set, verified
+by extraction from the rendered document.
+
+`childrens_decision()` separates the three states — ASSIGNED, NOT_FOR_CHILDREN with a reason,
+UNDECIDED — and `build_pattern_pdf` **refuses** the undecided case. That does not decide an
+audience; the catalogue is where that belongs. It requires that somebody did, as an assignment or
+as an exemption with its reason, and the refusal names both places to put it. Two sources for one
+product's audience are checked against each other rather than silently merged.
+
+The survey check is kept and **turned around**: an empty survey and a broken survey look
+identical from outside, so it now removes the assignment and shows the survey finding the original
+product again. One existing fixture changed its title along with its slug, because "Cloudline
+Textured Baby Blanket" under an unassigned slug had become the exact case the refusal exists for;
+the property it tests is unchanged.
+
+### Still open
+
+- **`Material.fibre_content`** in `cir/**`, specified precisely by the children's lane. Until it
+  lands, the fibre statement names the fibre the pattern was *written for* and says so.
+- **OWNER ACTION, unchanged:** authorise the Etsy app once in a browser. 15 minutes, CA$0, no
+  fee. Detail in `research/ETSY_TRANSPORT.md` §5.1.
