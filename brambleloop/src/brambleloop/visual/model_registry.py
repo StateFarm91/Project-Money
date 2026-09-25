@@ -195,12 +195,11 @@ def observe(db, image_ref: str, *, provider=None) -> dict:
     provider = provider or gw.provider_for(TASK)
     estimate, held = 0.0, None
     try:
-        # Checked before the call, not merely billed after it. `BudgetExceeded` and its
-        # `AgentCeilingExceeded` subclass are both `PermanentError`, so a refusal arrives at
-        # the same `except` as a provider failure and leaves the same `{"error": ...}` --
-        # which `drift_check` already treats as maximum drift. An unmeasured dimension is not
-        # a matching one, and a dimension unmeasured because the day's permission is spent is
-        # still unmeasured.
+        # Checked before the call, not merely billed after it. A refusal leaves the same
+        # `{"error": ...}` a failed call does, which `drift_check` already reads as maximum
+        # drift: an unmeasured dimension is not a matching one, and a dimension unmeasured
+        # because the day's permission is spent is still unmeasured. The `ceiling` key below
+        # is the one thing that distinguishes them, and it exists for the caller in a loop.
         if db is not None:
             budget = gw.check_budget(
                 db, model=provider.model,

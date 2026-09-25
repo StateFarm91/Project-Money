@@ -599,7 +599,8 @@ touches (`check_budget`, `release_reservation`, `spend_report.record`, `Material
 | `test_artefacts` | 23 | | `test_deliverable` | 14 |
 | `test_calibration` | 27 | | `test_dimensions` | 17 |
 | `test_colour` | 7 | | `test_accessibility` | 9 |
+| `test_deliverable_qa` | 48 | | | |
 
-**Eighty-two suites, 1,744 checks, all green, zero failing.** `test_childrens` is green **both** with
+**Eighty-three suites, 1,792 checks, all green, zero failing.** `test_childrens` is green **both** with
 the §4.1 patch applied and with it reverted.
 
