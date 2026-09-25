@@ -107,6 +107,21 @@ class BudgetExceeded(PermanentError):
     """The monthly model ceiling would be crossed by this call."""
 
 
+class AgentCeilingExceeded(BudgetExceeded):
+    """This agent's daily permission is spent. The month may still have room.
+
+    A subclass so every `except BudgetExceeded` already in the codebase keeps refusing, and so
+    the two can be told apart where the difference matters -- because they are different
+    facts. The monthly ceiling is the authorised budget and crossing it stops the company. An
+    agent's daily ceiling is a *permission*: the owner's ruling of 2026-09-25 is explicit that
+    per-agent ceilings are permissions rather than additive allocations, which is why
+    twenty-four agents declaring about CA$57 a day against a CA$100 month is not an
+    over-commitment. Hitting one means this agent is finished for today and the work resumes at
+    the next UTC day, so it is a pause rather than a defect, and the message says which
+    ceiling and what to do.
+    """
+
+
 class ProviderUnusable(PermanentError):
     """The key authenticates and the account cannot serve a request."""
 
@@ -168,12 +183,50 @@ def estimate_cad(model: str, *, input_tokens: int, output_tokens: int) -> float:
     return round(usd * USD_TO_CAD * ESTIMATE_PADDING, 6)
 
 
+def agent_daily_ceiling(db, agent: str, *, now: datetime | None = None) -> dict | None:
+    """This agent's daily permission and what it has spent against it today.
+
+    `None` when the name has no `Agent` row. That is not a ceiling of zero and it is not a
+    ceiling of infinity -- it is a spender the registry has never heard of, which production
+    has four of (`gateway`, `publishing`, `intel`, and whatever gets added next). Inventing a
+    ceiling for them here would be enforcing a number nobody authorised; reporting the absence
+    is what `spend_report.per_agent_today` already does, under
+    `spenders_with_no_agent_row`.
+    """
+    from ..agents.registry import PermissionDenied, Registry
+
+    if not agent:
+        return None
+    registry = Registry(db)
+    try:
+        row = registry.get(agent)
+    except PermissionDenied:
+        return None
+    ceiling = float(row.daily_cost_ceiling_cad or 0.0)
+    if ceiling <= 0:
+        return None
+    return {"agent": agent, "daily_ceiling_cad": ceiling,
+            "spent_today_cad": registry.spend_today(agent, now=now)}
+
+
 def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
-                 now: datetime | None = None, uncommitted_cad: float = 0.0) -> dict:
+                 now: datetime | None = None, uncommitted_cad: float = 0.0,
+                 agent: str = "", purpose: str = "", job_id: int | None = None,
+                 reserve: bool = True, holder: str | None = None,
+                 ttl_seconds: int | None = None) -> dict:
     """Refuse a call that would cross the ceiling, before it is made.
 
     Assumes the model writes its entire output allowance. It usually does not, and budgeting
     for the usual case is how a ceiling becomes a target.
+
+    Three things are checked, in the order the owner's ruling of 2026-09-25 puts them in:
+
+    1. **The authorised monthly ceiling**, which is the budget. It counts the billed month,
+       this caller's own unbilled spend, and every *other* caller's live reservation.
+    2. **This agent's daily ceiling**, which is a permission rather than a share of the
+       budget. `AgentCeilingExceeded` says which ceiling and that the work resumes tomorrow.
+    3. Nothing else. A purpose's monthly allocation is `spend_policy.may_spend`'s job and is
+       asked once per batch by the handler, not once per call.
 
     `uncommitted_cad` is money this caller has already spent and has not yet written to a
     cost row. It exists because the ceiling is read from rows and the callers that spend the
@@ -189,25 +242,91 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
     its running *actual* spend plus what it has estimated for calls still unbilled -- the
     same pessimism the padding applies, for the same reason.
 
-    This closes the half of the race that happens inside one process. The other half -- two
-    agents in different processes checking the same total before either writes a row -- is
-    not fixable from here, because there is nowhere durable to put a reservation. That needs
-    a schema change and is named in the audit rather than pretended away.
+    **The cross-process half is now closed too, and it is a row rather than an argument.** A
+    live reservation from another holder is counted against the month, and this call writes
+    one of its own before returning, which the caller releases when it bills
+    (`release_reservation`). An unreleased reservation expires, so a holder that dies holds
+    budget for its TTL rather than for the rest of the month -- `finance.reservations` has the
+    reasoning. `reserve=False` is for a caller that only wants the arithmetic, and it is not
+    what a caller about to spend money should pass.
     """
+    from ..finance import reservations
+
+    me = holder or reservations.holder_id()
     spent = spent_this_month_cad(db, now=now)
-    committed = round(spent + max(0.0, float(uncommitted_cad or 0.0)), 6)
+    mine = max(0.0, float(uncommitted_cad or 0.0))
+    others = reservations.outstanding(db, exclude_holder=me, now=now)
+    committed = round(spent + mine + others["cad"], 6)
     ceiling = monthly_ceiling_cad()
     estimate = estimate_cad(model, input_tokens=input_tokens, output_tokens=max_tokens)
+
+    # 1. The authorised month. This is the budget, and it is the one that stops the company.
     if committed + estimate > ceiling:
         raise BudgetExceeded(
             f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
-            f"already spent this month (CA${spent:.4f} billed, "
-            f"CA${committed - spent:.4f} spent by this run and not yet billed) and a "
-            f"ceiling of CA${ceiling:.2f}. Refused before the call rather than found on "
-            f"the invoice")
+            f"already committed this month (CA${spent:.4f} billed, "
+            f"CA${mine:.4f} spent by this run and not yet billed, "
+            f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
+            f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
+            f"than found on the invoice. The way past this is the owner raising the ceiling "
+            f"with measured usage attached, not a cheaper model")
+
+    # 2. This agent's daily permission. Second, because the month is authoritative and a
+    #    per-agent ceiling is a permission rather than a slice of it.
+    permission = agent_daily_ceiling(db, agent, now=now)
+    if permission is not None:
+        today = permission["spent_today_cad"]
+        allowed = permission["daily_ceiling_cad"]
+        if today + mine + estimate > allowed:
+            raise AgentCeilingExceeded(
+                f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
+                f"CA${today + mine:.4f} of it (CA${today:.4f} billed, CA${mine:.4f} unbilled "
+                f"in this run); this call is estimated at CA${estimate:.4f}. Refused before "
+                f"the call. This is a daily permission, not the budget -- the month still "
+                f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
+                f"work resumes at the next UTC day. To do more today, either lower the work "
+                f"this agent asks for (the cadence is derived from this ceiling, so it will "
+                f"follow) or have the owner raise the agent's ceiling in "
+                f"`agents.registry.DEFAULT_AGENTS`")
+
+    # 3. Written down before the call, so another process reading the same month sees it.
+    reservation_id = None
+    if reserve:
+        # `now` is threaded through deliberately. Without it the row's expiry is stamped from
+        # the wall clock while every reader of it is asking about `now`, so a caller that
+        # supplies a timestamp writes a reservation that reads as already expired -- a
+        # reservation that protects nothing, in exactly the callers that are most careful
+        # about which instant they mean.
+        reservation_id = reservations.reserve(
+            db, amount_cad=estimate, holder=me, agent=agent, purpose=purpose, model=model,
+            job_id=job_id, now=now,
+            ttl_seconds=(reservations.DEFAULT_TTL_SECONDS if ttl_seconds is None
+                         else ttl_seconds))
+
     return {"spent_cad": spent, "committed_cad": committed, "ceiling_cad": ceiling,
             "estimate_cad": estimate,
-            "headroom_cad": round(ceiling - committed - estimate, 6)}
+            "headroom_cad": round(ceiling - committed - estimate, 6),
+            "uncommitted_cad": round(mine, 6),
+            "reserved_by_others_cad": others["cad"],
+            "reserved_by_others_count": others["count"],
+            "expired_unreleased_cad": others["expired_unreleased_cad"],
+            "agent_permission": permission,
+            "holder": me,
+            "reservation_id": reservation_id}
+
+
+def release_reservation(db, reservation_id: int | None, *,
+                        actual_cad: float | None = None) -> bool:
+    """Give back what `check_budget` reserved, with the bill when the caller has it.
+
+    Called in a `finally`, or immediately after the provider answers. A caller that forgets
+    is not a leak that lasts: the reservation expires. It is, though, a caller that holds
+    budget nobody is spending for up to five minutes, which is why
+    `reservations.sweep` records the abandonment instead of quietly tidying it away.
+    """
+    from ..finance import reservations
+
+    return reservations.release(db, reservation_id, actual_cad=actual_cad)
 
 
 @dataclass
@@ -370,10 +489,12 @@ def probe(db, *, provider: AnthropicProvider | None = None,
     if not provider.key():
         record["reason"] = "no ANTHROPIC_API_KEY in this environment"
     else:
+        budget: dict = {}
         try:
             budget = check_budget(db, model=provider.model,
                                   input_tokens=len(PROBE_PROMPT) // 4,
-                                  max_tokens=PROBE_MAX_TOKENS, now=now)
+                                  max_tokens=PROBE_MAX_TOKENS, now=now,
+                                  agent="gateway", purpose="model.probe", job_id=job_id)
             response = provider.complete("", PROBE_PROMPT, max_tokens=PROBE_MAX_TOKENS)
         except BudgetExceeded as exc:
             record["reason"] = f"budget: {exc}"
@@ -411,6 +532,11 @@ def probe(db, *, provider: AnthropicProvider | None = None,
             from ..ops import funding
 
             record["funding"] = funding.cleared(db)
+        finally:
+            # Released whichever way the call went. A probe that failed still took the
+            # reservation, and a reservation nobody gives back holds budget until it expires.
+            release_reservation(db, budget.get("reservation_id"),
+                               actual_cad=record.get("cost_cad"))
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action="model.probe", artifact=provider.model,
@@ -529,11 +655,13 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
             "there is no picture in this system to prove the capability against -- and a "
             "vision probe with no image is the thing it exists to refuse")
     else:
+        budget: dict = {}
         try:
             budget = check_budget(
                 db, model=provider.model,
                 input_tokens=len(VISION_PROBE_PROMPT) // 4 + IMAGE_TOKENS_ESTIMATE,
-                max_tokens=VISION_PROBE_MAX_TOKENS, now=now)
+                max_tokens=VISION_PROBE_MAX_TOKENS, now=now,
+                agent="gateway", purpose=VISION_PROBE_ACTION, job_id=job_id)
             response = provider.see("", VISION_PROBE_PROMPT, [image_url],
                                     max_tokens=VISION_PROBE_MAX_TOKENS)
         except BudgetExceeded as exc:
@@ -581,6 +709,9 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
             from ..ops import funding
 
             record["funding"] = funding.cleared(db)
+        finally:
+            release_reservation(db, budget.get("reservation_id"),
+                               actual_cad=record.get("cost_cad"))
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=VISION_PROBE_ACTION,

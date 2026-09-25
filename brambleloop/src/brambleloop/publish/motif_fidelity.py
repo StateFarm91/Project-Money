@@ -281,15 +281,25 @@ def chart_image(cir, twin, *, work_dir: str = "") -> str:
 
     Returns "" rather than raising: a chart that will not render is a reason not to
     condition on one, never a reason to fail the render.
+
+    **The chart is written into the caller's directory or not at all.** This fell back to
+    `tempfile.mkdtemp`, which removes nothing, and it could not own a `TemporaryDirectory`
+    instead: the path it returns is handed straight to `images.generate` as a conditioning
+    reference, so a directory cleaned up here would be a reference to a file that no longer
+    exists. The lifetime belongs to the render, which is the caller. Both production callers
+    -- owned and model photography -- already receive a directory from their handler and pass
+    it through; without one this returns "" and the render is unconditioned, which is the
+    same fallback a chart that will not draw already takes.
     """
-    import tempfile
     from pathlib import Path
 
     from .charts import ChartSpec, render_chart
 
+    if not work_dir:
+        return ""
     try:
         chart = render_chart(cir, twin, ChartSpec(cell_px=18))
-        out = Path(work_dir or tempfile.mkdtemp(prefix="motif-chart-")) / "chart-ref.png"
+        out = Path(work_dir) / "chart-ref.png"
         out.parent.mkdir(parents=True, exist_ok=True)
         chart.save(str(out))
         return str(out)
@@ -298,42 +308,56 @@ def chart_image(cir, twin, *, work_dir: str = "") -> str:
 
 
 def check(db, image_ref: str, cir, twin, *, provider=None, judger=None) -> dict:
-    """Render the chart, show both, and decide. Blocks a customer-facing asset unless match."""
-    import tempfile
+    """Render the chart, show both, and decide. Blocks a customer-facing asset unless match.
+
+    The chart is drawn for this comparison and for nothing else -- it is deterministic output
+    from the certified CIR, so it can be redrawn at any time for nothing -- which is why this
+    one owns its directory and removes it on the way out. Only the judge reads the file, and
+    the judge has answered by the time the block ends. `chart_retained` says so in the record
+    rather than leaving a path that quietly stops resolving.
+    """
     from pathlib import Path
 
+    from ..core import workspace
     from ..gateway import anthropic as gw
     from .charts import ChartSpec, render_chart
 
     want = expected(cir, twin)
     chart_path = ""
-    try:
-        chart = render_chart(cir, twin, ChartSpec(cell_px=18))
-        chart_path = str(Path(tempfile.mkdtemp(prefix="motif-chart-")) / "chart.png")
-        chart.save(chart_path)
-    except Exception as exc:  # noqa: BLE001 - a chart that will not render is a refusal
-        return {"verdict": UNMEASURABLE, "expected": want,
-                "why": f"the chart could not be rendered to compare against: {exc}"[:200]}
+    with workspace.work_dir(None, prefix="motif-chart-") as root:
+        try:
+            chart = render_chart(cir, twin, ChartSpec(cell_px=18))
+            chart_path = str(Path(root) / "chart.png")
+            chart.save(chart_path)
+        except Exception as exc:  # noqa: BLE001 - a chart that will not render is a refusal
+            return {"verdict": UNMEASURABLE, "expected": want,
+                    "why": f"the chart could not be rendered to compare against: {exc}"[:200]}
 
-    if judger is not None:
-        answer = judger(image_ref, chart_path)
-    else:
-        provider = provider or gw.provider_for(TASK)
-        try:
-            response = provider.see(SYSTEM, prompt(), [image_ref, chart_path],
-                                    max_tokens=MAX_TOKENS)
-        except Exception as exc:  # noqa: BLE001
-            return {"verdict": UNMEASURABLE, "expected": want,
-                    "why": f"the comparison call failed: {exc}"[:240]}
-        try:
-            answer = parse(response.text)
-        except (MotifRefused, ValueError) as exc:
-            return {"verdict": UNMEASURABLE, "expected": want,
-                    "why": f"the answer could not be read: {exc}"[:240]}
+        if judger is not None:
+            answer = judger(image_ref, chart_path)
+        else:
+            provider = provider or gw.provider_for(TASK)
+            try:
+                response = provider.see(SYSTEM, prompt(), [image_ref, chart_path],
+                                        max_tokens=MAX_TOKENS)
+            except Exception as exc:  # noqa: BLE001
+                return {"verdict": UNMEASURABLE, "expected": want,
+                        "why": f"the comparison call failed: {exc}"[:240]}
+            try:
+                answer = parse(response.text)
+            except (MotifRefused, ValueError) as exc:
+                return {"verdict": UNMEASURABLE, "expected": want,
+                        "why": f"the answer could not be read: {exc}"[:240]}
 
     out = judge(answer, want)
     out["expected"] = want
     out["chart"] = chart_path
+    out["chart_retained"] = False
+    out["why_chart_is_not_kept"] = (
+        "the chart is deterministic output from the certified CIR, so it is redrawn for "
+        "nothing whenever it is wanted again. Keeping it would be a rendered image per "
+        "asset check on a disk nothing prunes, and the path above is what was shown to the "
+        "judge rather than a file to fetch")
     out["blocks_customer_facing_asset"] = out["verdict"] != MATCH
     out["why_unmeasurable_blocks_too"] = (
         "an image whose fabric nobody could check is not an image whose fabric is right. "

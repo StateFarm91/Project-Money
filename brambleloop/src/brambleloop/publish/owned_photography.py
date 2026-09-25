@@ -232,7 +232,23 @@ def motif_sentence(cir) -> str:
 def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
          work_dir: str | None = None, provider_key: str = "", generator=None,
          inspector=None, motif_judger=None) -> dict:
-    """Render one owned product image and judge it. Returns a record, never an assertion."""
+    """Render one owned product image and judge it. Returns a record, never an assertion.
+
+    A caller that supplies no `work_dir` gets one for the length of the render rather than a
+    render with no chart conditioning it. `motif_fidelity.chart_image` stopped inventing a
+    directory it could not clean up on 2026-09-25, and without this the absent directory would
+    have become an absent chart, silently -- the picture would still be made, still judged, and
+    judged against nothing. The render's bytes are in the artifact store before this returns,
+    so the directory has nothing left to hold.
+    """
+    from ..core import workspace
+
+    if not work_dir:
+        with workspace.work_dir(None, prefix="owned-asset-") as work:
+            return make(db, cir, twin, occasion=occasion, env=env, work_dir=work,
+                        provider_key=provider_key, generator=generator, inspector=inspector,
+                        motif_judger=motif_judger)
+
     from ..gateway import images
     from ..visual import inspect as inspection_mod
 

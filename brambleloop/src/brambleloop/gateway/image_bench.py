@@ -747,12 +747,22 @@ def decide(results: list[Result], *, unmeasured: list[dict] | None = None) -> di
 
 
 def run(db, *, generator=None, judge=None, env: dict | None = None,
-        reuse: bool = True) -> dict:
+        reuse: bool = True, work_dir: str | None = None) -> dict:
     """Render, judge blind, and report. Refuses to start without a way to render.
 
     The judge never learns which model made an image. A judge told the brand grades the
     brand, and this one is choosing between brands.
+
+    **This run owns the directory its renders land in.** `images.generate` used to fall back
+    to `tempfile.mkdtemp`, which removes nothing, and this function passed it no directory at
+    all -- so a benchmark of thirty renders a candidate left every one of them on the disk for
+    ever, and only Railway replacing the container kept that disk alive. The lifetime belongs
+    to whoever consumes the bytes, and here that is this function: the renders exist to be
+    judged, and the judging is finished before it returns. Everything that outlives the run --
+    the scores, the per-trial evidence, the cumulative spend -- is in the database by then.
+    `work_dir` lets a caller supply its own directory, which is then left alone.
     """
+    from ..core import workspace
     from . import images
 
     if generator is None and not images.configured(env):
@@ -762,6 +772,20 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                            "published specifications would be a literature review with a "
                            "score column"),
                 "plan": plan(), "eligible": eligible()}
+
+    with workspace.work_dir(work_dir, prefix="generated-") as work:
+        return _run_inside(db, generator=generator, judge=judge, env=env, reuse=reuse,
+                           work_dir=work)
+
+
+def _run_inside(db, *, generator, judge, env, reuse, work_dir: str) -> dict:
+    """The run itself, inside a working directory guaranteed to exist and guaranteed to go.
+
+    A separate function rather than a nested block so the body keeps its indentation and a
+    reviewer can see that nothing about the measurement changed when the directory got an
+    owner.
+    """
+    from . import images
 
     spent = 0.0
     results: list[Result] = []
@@ -797,7 +821,8 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
         # gets checked expensively.
         if generator is None and candidate.key in have:
             if not images.reference_proven(db, candidate.key):
-                proof = images.reference_probe(db, candidate.key, env=env)
+                proof = images.reference_probe(db, candidate.key, env=env,
+                                               work_dir=work_dir)
                 spent += float(proof.get("cad") or 0.0)
                 if not proof.get("ok"):
                     unmeasured.append({
@@ -848,7 +873,8 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                 try:
                     size = f"{candidate.resolution}x{candidate.resolution}"
                     face = images.generate(BY_KEY_TRIAL[CANONICAL_TRIAL].prompt, env=env,
-                                           provider_key=candidate.key, size=size)
+                                           provider_key=candidate.key, size=size,
+                                           work_dir=work_dir)
                     spent += float(face.get("cad") or candidate.cad_per_image)
                     reference = face.get("image_ref") or ""
                 except (PermanentError, TransientError) as exc:
@@ -882,7 +908,8 @@ def run(db, *, generator=None, judge=None, env: dict | None = None,
                                 if generator else
                                 images.generate(trial.prompt, env=env,
                                                 provider_key=candidate.key,
-                                                reference_urls=refs, size=size))
+                                                reference_urls=refs, size=size,
+                                                work_dir=work_dir))
                     spent += float(rendered.get("cad") or candidate.cad_per_image)
                     dimensions = ((IDENTITY_DIMENSION,) if trial.needs_reference
                                   else RUBRIC)
@@ -995,21 +1022,30 @@ def _judge(db, images_shown, dimensions: tuple[Dimension, ...]) -> str:
     from . import anthropic as gw
 
     provider = gw.provider_for(JUDGE_TASK)
-    estimate = gw.check_budget(
+    # This is the call the 2026-09-24 audit named as the worst case for the cross-process
+    # race: the blind judging is the larger half of the benchmark's bill, it runs in a loop,
+    # and one call can estimate double figures. It now reserves before spending and releases
+    # after, and it names its agent so `creative_director`'s daily ceiling binds here too.
+    budget = gw.check_budget(
         db, model=provider.model,
         input_tokens=len(score_prompt(dimensions)) // 4
                      + gw.IMAGE_TOKENS_ESTIMATE * max(
                          1, len([images_shown] if isinstance(images_shown, str)
                                 else images_shown)),
-        max_tokens=JUDGE_MAX_TOKENS)["estimate_cad"]
+        max_tokens=JUDGE_MAX_TOKENS, agent="creative_director", purpose=JUDGE_TASK)
+    estimate = budget["estimate_cad"]
     shown = [images_shown] if isinstance(images_shown, str) else list(images_shown)
-    response = provider.see("", score_prompt(dimensions), shown,
-                            max_tokens=JUDGE_MAX_TOKENS)
+    try:
+        response = provider.see("", score_prompt(dimensions), shown,
+                                max_tokens=JUDGE_MAX_TOKENS)
+    except BaseException:
+        gw.release_reservation(db, budget["reservation_id"])
+        raise
+    cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                 + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+    gw.release_reservation(db, budget["reservation_id"], actual_cad=cost)
     spend_report.record(
-        db, agent="creative_director",
-        amount_cad=round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
-                         + response.output_tokens * provider.cost_per_1k_output_cad / 1000,
-                         8),
+        db, agent="creative_director", amount_cad=cost,
         estimated_cad=estimate, purpose=JUDGE_TASK, provider="anthropic",
         model=provider.model, department="creative",
         tokens_in=response.input_tokens, tokens_out=response.output_tokens,

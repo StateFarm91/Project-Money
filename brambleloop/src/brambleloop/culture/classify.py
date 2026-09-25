@@ -120,15 +120,23 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     provider = provider or gw.provider_for(TASK)
     flagged = sorted(t for t in topics if sensitive(t))
     estimate = 0.0
+    # The reservation this call holds while it runs, released below whatever happens. The
+    # `agent` is what makes the daily ceiling bind: this spends as `market_radar`, and until
+    # 2026-09-25 that agent's CA$4.00/day was checked by nothing on this path.
+    reservation = None
 
     try:
         if db is not None:
-            estimate = gw.check_budget(
+            budget = gw.check_budget(
                 db, model=provider.model, input_tokens=len(prompt(topics)) // 4,
-                max_tokens=CLASSIFY_MAX_TOKENS)["estimate_cad"]
+                max_tokens=CLASSIFY_MAX_TOKENS, agent="market_radar", purpose=TASK)
+            estimate = budget["estimate_cad"]
+            reservation = budget["reservation_id"]
         response = provider.complete(CLASSIFY_SYSTEM, prompt(topics),
                                      max_tokens=CLASSIFY_MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
+        if db is not None:
+            gw.release_reservation(db, reservation)
         return {"filed": {}, "sensitive": flagged, "reason": str(exc)[:300],
                 "note": ("nothing was filed and the reason is above. An unfiled topic list "
                          "is not an empty culture")}
@@ -136,11 +144,11 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     if db is not None:
         from ..finance import spend_report
 
+        cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                     + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        gw.release_reservation(db, reservation, actual_cad=cost)
         spend_report.record(
-            db, agent="market_radar",
-            amount_cad=round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
-                             + response.output_tokens * provider.cost_per_1k_output_cad
-                             / 1000, 8),
+            db, agent="market_radar", amount_cad=cost,
             estimated_cad=estimate, purpose=TASK, provider="anthropic",
             model=provider.model, department="culture",
             tokens_in=response.input_tokens, tokens_out=response.output_tokens,

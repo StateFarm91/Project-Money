@@ -616,10 +616,27 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     gives one and a path on this disk when it returns the bytes inline. Google returns
     inline base64 and never a URL, so a caller that only read `url` would treat every
     successful Google render as an answer with no picture in it.
+
+    **`work_dir` is required, and the refusal below is the fix for a real leak.** This used to
+    fall back to `tempfile.mkdtemp`, which removes nothing, and it could not be changed to
+    `TemporaryDirectory` here for a reason worth writing down: the returned `path` has to
+    outlive this call, so a directory this function cleaned up would hand every caller a path
+    to a file that no longer exists. The lifetime belongs to whoever consumes the bytes, and
+    every production caller but two already passed one. The two that did not -- the image
+    benchmark and this module's own reference probe -- are exactly where the `generated-`
+    directories in production came from. A render whose bytes nobody owns is the leak, so it
+    is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
+    caller that got a temporary directory had a slow disk failure nobody could attribute.
     """
     import base64
-    import tempfile
     from pathlib import Path
+
+    if not work_dir:
+        raise ImagesRefused(
+            "generate() needs a work_dir: the path it returns has to outlive the call, so "
+            "this function cannot own the directory and will not create one nobody owns. "
+            "Wrap the work in `core.workspace.work_dir(None, prefix=\"generated-\")` and "
+            "pass it in -- that is what removes the render when the work is finished")
 
     e = env if env is not None else os.environ
     # `provider_key` is how the benchmark asks for a specific candidate. Without it this
@@ -679,7 +696,7 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     # canonical identity pack of #200 -- the frozen reference every future listing is
     # conditioned on -- cannot be a set of links that stop resolving over lunch. A reference
     # that expires is not a lock.
-    root = Path(work_dir or tempfile.mkdtemp(prefix="generated-"))
+    root = Path(work_dir)
     root.mkdir(parents=True, exist_ok=True)
     if b64:
         raw = base64.b64decode(b64)
@@ -723,16 +740,23 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
     that gets checked expensively.
     """
     from ..agents.registry import Registry
+    from ..core import workspace
 
+    # The probe owns the two renders it makes: nothing outside it ever reads them, because
+    # what it reports is whether conditioning worked and what it cost. So the directory lives
+    # exactly as long as the probe does. This is the call that left the `generated-`
+    # directories production is counting -- it ran four times a day through
+    # `ops.capability_probes` and passed no `work_dir`, so every run made one more.
     record: dict = {"provider": provider_key, "ok": False, "why": ""}
     try:
-        first = generate("A plain ceramic mug on a white background, product photograph.",
-                         env=env, provider_key=provider_key, work_dir=work_dir)
-        second = generate("The same mug as the reference image, now on a wooden table.",
-                          env=env, provider_key=provider_key,
-                          reference_urls=[first["image_ref"]], work_dir=work_dir)
-        record.update(ok=True, cad=round(first["cad"] + second["cad"], 6),
-                      bytes=second.get("bytes"))
+        with workspace.work_dir(work_dir, prefix="generated-") as root:
+            first = generate("A plain ceramic mug on a white background, product photograph.",
+                             env=env, provider_key=provider_key, work_dir=root)
+            second = generate("The same mug as the reference image, now on a wooden table.",
+                              env=env, provider_key=provider_key,
+                              reference_urls=[first["image_ref"]], work_dir=root)
+            record.update(ok=True, cad=round(first["cad"] + second["cad"], 6),
+                          bytes=second.get("bytes"))
     except Exception as exc:  # noqa: BLE001 - every failure means "do not run the schedule"
         record["why"] = f"{type(exc).__name__}: {str(exc)[:300]}"
 

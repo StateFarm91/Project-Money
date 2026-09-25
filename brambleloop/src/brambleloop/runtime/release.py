@@ -804,61 +804,64 @@ def handle_continuity(ctx: JobContext) -> dict:
     GREEN by the authority matrix: no publication, no spend, no customer contact. The
     connection string is redacted before anything is recorded.
     """
-    import tempfile
+    from ..core import continuity, workspace
 
-    from ..core import continuity
+    # The directory holds the export the restore is proved against, so it has to live until
+    # `continuity.retain` has read the file -- which is why the whole body is inside the
+    # block rather than only the restore. It used to be `tempfile.mkdtemp`, which removes
+    # nothing, on a daily cadence, writing a multi-megabyte archive each time.
+    with workspace.work_dir(ctx.job.inputs.get("work_dir"),
+                            prefix="continuity-") as work:
+        proof = continuity.prove_restore(ctx.db, work)
+        detail = proof.to_dict()
+        detail["source"] = proof.export.source          # already redacted
+        detail["bytes"] = proof.export.bytes_written
+        detail["work_dir_is_durable"] = False
 
-    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="continuity-")
-    proof = continuity.prove_restore(ctx.db, work)
-    detail = proof.to_dict()
-    detail["source"] = proof.export.source          # already redacted
-    detail["bytes"] = proof.export.bytes_written
-    detail["work_dir_is_durable"] = False
+        ctx.audit("continuity.verified" if proof.ok else "continuity.failed", detail=detail)
 
-    ctx.audit("continuity.verified" if proof.ok else "continuity.failed", detail=detail)
+        if not proof.ok:
+            # A continuity failure is not a log line to scroll past: it means the company's
+            # unrecoverable history is not actually recoverable. Raised as a correlated incident
+            # so it re-uses the existing P1 machinery -- one incident that counts repeats rather
+            # than a new row every scheduled run.
+            from sqlalchemy import select
 
-    if not proof.ok:
-        # A continuity failure is not a log line to scroll past: it means the company's
-        # unrecoverable history is not actually recoverable. Raised as a correlated incident
-        # so it re-uses the existing P1 machinery -- one incident that counts repeats rather
-        # than a new row every scheduled run.
-        from sqlalchemy import select
+            from ..core.models import Incident
 
-        from ..core.models import Incident
+            signature = "continuity.restore_unproven"
+            with ctx.db.session() as s:
+                existing = s.scalar(select(Incident).where(
+                    Incident.signature == signature, Incident.resolved == False))  # noqa: E712
+                if existing is None:
+                    s.add(Incident(
+                        severity="P1", signature=signature,
+                        summary="the continuity export could not be restored, so the "
+                                "company's non-rederivable history is not recoverable",
+                        detail=detail, halts_publication=False))
+                else:
+                    existing.report_count += 1
+                    existing.detail = detail
 
-        signature = "continuity.restore_unproven"
-        with ctx.db.session() as s:
-            existing = s.scalar(select(Incident).where(
-                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
-            if existing is None:
-                s.add(Incident(
-                    severity="P1", signature=signature,
-                    summary="the continuity export could not be restored, so the "
-                            "company's non-rederivable history is not recoverable",
-                    detail=detail, halts_publication=False))
-            else:
-                existing.report_count += 1
-                existing.detail = detail
+        # Only a proved export is retained. Keeping one that failed its own restore would put a
+        # file nobody can use where the next operator will find it and believe it.
+        if proof.ok:
+            retained = continuity.retain(ctx.db, proof.export.path, proof.export)
+            detail["retained"] = retained
+            ctx.audit("continuity.retained", detail=retained)
 
-    # Only a proved export is retained. Keeping one that failed its own restore would put a
-    # file nobody can use where the next operator will find it and believe it.
-    if proof.ok:
-        retained = continuity.retain(ctx.db, proof.export.path, proof.export)
-        detail["retained"] = retained
-        ctx.audit("continuity.retained", detail=retained)
-
-    # Recorded every run. The archive now survives the container -- it is held in the
-    # database, which is what a redeploy and a crash cannot take away. It does not survive
-    # the provider disappearing, which is the failure #51 actually names, so the claim stops
-    # exactly where the evidence does and the owner queue carries the off-provider decision.
-    ctx.audit("continuity.storage_not_offsite", detail={
-        "reason": "the retained archive lives in the database it describes, so it survives "
-                  "a container replacement, a redeploy and a crash, and not the loss of the "
-                  "provider. An off-provider copy needs a bucket and a credential, which is "
-                  "an owner decision and is not claimed here.",
-        "retained_archives": continuity.RETAINED_ARCHIVES,
-    })
-    return detail
+        # Recorded every run. The archive now survives the container -- it is held in the
+        # database, which is what a redeploy and a crash cannot take away. It does not survive
+        # the provider disappearing, which is the failure #51 actually names, so the claim stops
+        # exactly where the evidence does and the owner queue carries the off-provider decision.
+        ctx.audit("continuity.storage_not_offsite", detail={
+            "reason": "the retained archive lives in the database it describes, so it survives "
+                      "a container replacement, a redeploy and a crash, and not the loss of the "
+                      "provider. An off-provider copy needs a bucket and a credential, which is "
+                      "an owner decision and is not claimed here.",
+            "retained_archives": continuity.RETAINED_ARCHIVES,
+        })
+        return detail
 
 
 @handlers.register("seasonal.sentinel")
@@ -2491,24 +2494,42 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
             "channel": result["channel"], "measures": result["measures"]}
 
 
-# Images judged per run. Raised from ten on 2026-09-20: see the cadence comment in
-# `runtime.worker` for why the old number was a ceiling decision rather than a depth one.
-GALLERY_BATCH = 25
+# The cadence this handler runs on, by name. The *period* is read from
+# `runtime.worker.CADENCES` and the *batch* is derived from the ceiling at run time, so there
+# is no images-per-run constant here any more.
+#
+# There was: `GALLERY_BATCH = 25`, which with a two-hourly period is three hundred images a
+# day and, at the padded per-image estimate, about CA$8.70 of spend under a `market_radar`
+# ceiling of CA$4.00. Two authorised numbers in two files with nothing reconciling them. The
+# owner ruled on 2026-09-25 to keep the CA$4.00 and adapt the cadence, so the number is gone
+# rather than corrected -- a corrected literal drifts again the next time either side moves.
+GALLERY_CADENCE = "gallery_analysis"
 
 
 @handlers.register("intel.gallery_analysis")
 def handle_gallery_analysis(ctx: JobContext) -> dict:
-    """Judge a batch of observed gallery images, once the capability has been proven (#209).
+    """Judge as many observed gallery images as the ceiling allows, in listing-recency order.
 
-    Two-hourly, twenty-five images a run, in listing-recency order because that is the order
-    commercial value arrives in. It was ten every four hours, set against the old CA$25
-    ceiling, which put the benchmark's visual evidence nineteen days away; the owner's
-    quality-first policy names MJs analysis depth as something not to reduce for cost, so the
-    rate is now set by how fast the evidence is worth having.
+    Requirement 209. Recency order because that is the order commercial value arrives in.
 
-    Self-limiting by construction: once the backlog empties this judges only new and changed
-    listings, so the standing cost falls to whatever the benchmark shop publishes. A rate
-    that stayed high against an empty queue would be waste rather than depth.
+    **The batch size is derived from the budget, not declared beside it.** It used to be
+    `GALLERY_BATCH = 25` on a two-hourly cadence -- three hundred images a day, about CA$8.70
+    of spend, under a `market_radar` ceiling of CA$4.00 a day that nothing on this path
+    checked. Two owner-derived numbers in two files, each defensible, disagreeing by a factor
+    of two. The owner ruled on 2026-09-25: keep the CA$4.00 and adapt the cadence. So the
+    batch is computed every run from that ceiling and this cadence's own period, and the
+    per-image estimate is the padded one the ceiling check uses rather than the measured mean,
+    because a batch sized on the average overshoots on the expensive half of it.
+
+    **A run that fits nothing is a report, not a failure.** The images stay queued and the
+    next run takes them. Three separate stops are reported by name, because they mean
+    different things and have different answers: the agent's daily permission (wait for
+    tomorrow), this purpose's share of the month (`may_spend` -- wait, or have the share
+    raised), and the authorised monthly ceiling (an owner decision with measured usage
+    attached). None of them is ever answered by a cheaper model.
+
+    Still self-limiting: once the backlog empties this judges only new and changed listings,
+    so the standing cost falls to whatever the benchmark shop publishes.
 
     Refuses to run before a vision probe has succeeded. Writing the call is not the same as
     the call working, and an analysis run against a broken vision path would record a batch
@@ -2518,10 +2539,11 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
     picture or a description of the depicted design.
     """
     from ..finance import spend_policy
-    from ..gateway.anthropic import vision_usable
+    from ..gateway import anthropic as gw
     from ..intel import benchmarks, vision
+    from .worker import cadence_seconds
 
-    if not vision_usable(ctx.db):
+    if not gw.vision_usable(ctx.db):
         ctx.audit("intel.gallery_analysis_blocked",
                   detail={"reason": "no vision probe has succeeded"})
         return {"ran": False,
@@ -2530,10 +2552,8 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                            "refusals")}
 
     # This purpose's share of the month, checked before the batch rather than discovered at
-    # the ceiling. Measured at about CA$0.029 an image, the raised cadence is CA$8.70 a day
-    # while the backlog drains -- fine for four days and CA$260 a month if the queue never
-    # empties, and a capability whose safety depends on an assumption about a queue has no
-    # guard at all.
+    # the ceiling. Unchanged: it is a stop rather than a rate, and folding it into the batch
+    # arithmetic below would quietly re-decide it.
     allowance = spend_policy.may_spend(ctx.db, vision.TASK)
     if not allowance["may_spend"]:
         ctx.audit("intel.gallery_analysis_capped", detail=allowance)
@@ -2541,15 +2561,91 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
                 "constrained": ("benchmark gallery analysis stopped at its share of the "
                                 "month rather than being run on a weaker model")}
 
-    result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=GALLERY_BATCH,
+    # How many images fit, from the ceiling and this cadence's own period. The per-image
+    # figure is read from the same estimator the pre-call ceiling check uses, so the batch and
+    # the guard cannot be sized on different arithmetic.
+    fit = spend_policy.work_that_fits(
+        ctx.db, agent=vision.AGENT, purpose=vision.TASK,
+        period_seconds=cadence_seconds(GALLERY_CADENCE),
+        unit_cost_cad=vision.per_image_estimate_cad())
+    if fit["units"] < 1:
+        ctx.audit("intel.gallery_analysis_capped", detail=fit)
+        return {"ran": False, "reason": fit["why"], "allowance": fit,
+                "binding_ceiling": fit["binding_ceiling"],
+                "constrained": ("benchmark gallery analysis judged nothing this run because "
+                                "the cadence is sized to fit the authorised ceiling. The "
+                                "backlog is unchanged and the next run takes it")}
+
+    result = vision.analyse(ctx.db, benchmarks.MJS_KEY, limit=fit["units"],
                             job_id=ctx.job.id)
     ctx.audit("intel.gallery_analysis", detail={
         "judged": result["judged"], "attempted": result["attempted"],
         "remaining": result["remaining"], "cost_cad": result["cost_cad"],
+        "batch_derived_from": fit["binding_ceiling"],
+        "batch_units": fit["units"], "stopped_by": result.get("stopped_by", ""),
         "failures": result["failures"][:5]})
     return {"ran": True, "judged": result["judged"], "attempted": result["attempted"],
             "remaining": result["remaining"], "cost_cad": result["cost_cad"],
+            "batch_units": fit["units"], "binding_ceiling": fit["binding_ceiling"],
+            "stopped_by": result.get("stopped_by", ""),
             "failures": len(result["failures"])}
+
+
+@handlers.register("ops.retention")
+def handle_retention(ctx: JobContext) -> dict:
+    """Prune what nothing reads, and never what a gate counts (2026-09-25).
+
+    Nothing pruned anything before this. The audit log grows about 4,700 rows a day, the job
+    table about 900 and the dead-letter queue 21; `JobQueue.purge_dead` existed and was called
+    from nowhere in `src/`, which is a function without a policy behind it. At those rates the
+    audit log passes 1.7 million rows within a year, on the Postgres instance that is the main
+    cost under the CA$20/month infrastructure ceiling.
+
+    The policy is in `ops.retention` and the reasoning with it. What matters here is what it
+    will not do: it does not touch `cost_entries` or the ledger, it keeps every audit action a
+    gate counts over all time, it keeps the most recent rows of every action whatever their
+    age, it never removes a dead letter that is a defect, and it refuses to run at all when the
+    code reads an audit action the policy has no decision about -- because that is precisely
+    the state in which a retention run quietly lowers a number somebody is gating on.
+
+    The refusal is recorded and returned rather than raised. A retention run that declines to
+    run is not a failure of the queue, and dead-lettering it would turn "somebody added a
+    reader" into an incident with the wrong name on it.
+
+    GREEN: it deletes rows this policy names in this system's own operational tables. No
+    publication, no spend, no customer contact.
+    """
+    from ..ops import retention
+
+    try:
+        result = retention.apply(ctx.db)
+    except retention.RetentionRefused as exc:
+        ctx.audit("ops.retention_refused",
+                  detail={"why": str(exc)[:600],
+                          "unknown_read_actions": retention.unknown_read_actions()})
+        return {"ran": False, "reason": str(exc)[:600],
+                "unknown_read_actions": retention.unknown_read_actions(),
+                "what_to_do": ("add each action to `ops.retention.KNOWN_READ_ACTIONS` with "
+                               "how it is read. Nothing was deleted")}
+
+    # The policy in force is recorded with the run, not only the outcome. A deletion whose
+    # horizon and protected list are not in the row beside it is a deletion a future session
+    # cannot check against the policy it was made under -- and the policy is the part that will
+    # have moved by then.
+    ctx.audit("ops.retention", detail={
+        "removed": result["removed"],
+        "reservations": result["reservations"],
+        "audit_kept_protected": result["audit_log"]["kept_because_protected"],
+        "jobs_kept": result["jobs"]["kept"],
+        "dead_letters_kept": result["dead_letters"]["kept"],
+        "policy": retention.state()})
+    return {"ran": True, "removed": result["removed"],
+            "reservations": result["reservations"],
+            "kept": {"audit_protected": result["audit_log"]["kept_because_protected"],
+                     "audit_recent_per_action":
+                         result["audit_log"]["kept_because_recent_for_their_action"],
+                     "jobs": result["jobs"]["kept"],
+                     "dead_letters": result["dead_letters"]["kept"]}}
 
 
 @handlers.register("ops.offsite_archive")
@@ -2570,12 +2666,14 @@ def handle_offsite_archive(ctx: JobContext) -> dict:
     owner provisioned, and reads it back. No publication, no model spend, no customer
     contact.
     """
-    import tempfile
+    from ..core import offsite, workspace
 
-    from ..core import offsite
-
-    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="offsite-")
-    record = offsite.archive(ctx.db, work_dir=work)
+    # Only the archive needs the directory -- it writes the export there and uploads it, and
+    # everything below this reads the database -- so the block is exactly that call. It was
+    # `tempfile.mkdtemp`, which left one directory holding a full compressed export behind
+    # every day this cadence ran.
+    with workspace.work_dir(ctx.job.inputs.get("work_dir"), prefix="offsite-") as work:
+        record = offsite.archive(ctx.db, work_dir=work)
 
     pruned: dict = {"skipped": "the archive did not complete, so nothing was aged out"}
     if record.get("ok"):
@@ -2669,7 +2767,11 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
                 "constrained": ("the image-provider benchmark stopped at its share of the "
                                 "month rather than being judged on a weaker model")}
 
-    result = image_bench.run(ctx.db, env=dict(os.environ))
+    # `run` owns the directory its renders land in and removes it when the judging is done --
+    # the renders exist to be judged and nothing outside the run reads them. A `work_dir` from
+    # the job inputs overrides that, for an operator who wants to keep the images.
+    result = image_bench.run(ctx.db, env=dict(os.environ),
+                             work_dir=ctx.job.inputs.get("work_dir"))
     decision = result.get("decision") or {}
     ctx.audit("image.benchmark" if result.get("ran") else "image.benchmark_blocked", detail={
         "ran": result.get("ran"),
@@ -2733,8 +2835,8 @@ def handle_model_tournament(ctx: JobContext) -> dict:
     twenty-four faces, and a changed brief does.
     """
     import os
-    import tempfile
 
+    from ..core import workspace
     from ..finance import spend_policy
     from ..visual import brief, tournament
 
@@ -2761,64 +2863,69 @@ def handle_model_tournament(ctx: JobContext) -> dict:
                 "awaiting": "owner selection"}
 
     env = dict(os.environ)
-    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="tournament-")
-    field = tournament.generate_candidates(
-        ctx.db, count=ctx.job.inputs.get("count") or tournament.DEFAULT_CANDIDATES,
-        env=env, work_dir=work)
-    if not field.get("ran") or not field.get("candidates"):
-        # A field of nothing is recorded with its reasons rather than returned quietly. The
-        # first live run produced no candidates and the only trace was a job-completed
-        # count; why every render or screen failed was not readable from anywhere.
-        detail = {**field, "brief_fingerprint": _brief_fingerprint(), "finalists": [],
-                  "clear_both_floors": [],
-                  "why_empty": ("no candidate survived generation and screening. The "
-                                "per-candidate reasons are in `failures`")}
-        ctx.audit(tournament.TOURNAMENT_ACTION, detail=detail)
-        return {"ran": bool(field.get("ran")), "candidates": 0,
-                "failures": field.get("failures", [])[:5]}
+    # The whole run is inside the block because the renders live in this directory and the
+    # presentation reads them: releasing it earlier would delete the images the package is
+    # built from. It was `tempfile.mkdtemp`, which is the worst of the ten sites -- a
+    # tournament renders a field of candidate images and kept every one of them forever.
+    with workspace.work_dir(ctx.job.inputs.get("work_dir"),
+                            prefix="tournament-") as work:
+        field = tournament.generate_candidates(
+            ctx.db, count=ctx.job.inputs.get("count") or tournament.DEFAULT_CANDIDATES,
+            env=env, work_dir=work)
+        if not field.get("ran") or not field.get("candidates"):
+            # A field of nothing is recorded with its reasons rather than returned quietly. The
+            # first live run produced no candidates and the only trace was a job-completed
+            # count; why every render or screen failed was not readable from anywhere.
+            detail = {**field, "brief_fingerprint": _brief_fingerprint(), "finalists": [],
+                      "clear_both_floors": [],
+                      "why_empty": ("no candidate survived generation and screening. The "
+                                    "per-candidate reasons are in `failures`")}
+            ctx.audit(tournament.TOURNAMENT_ACTION, detail=detail)
+            return {"ran": bool(field.get("ran")), "candidates": 0,
+                    "failures": field.get("failures", [])[:5]}
 
-    finalists = field["candidates"][:brief.TARGET_FINALISTS]
-    results = [tournament.stress_test(ctx.db, f, env=env, work_dir=work) for f in finalists]
-    package = tournament.present(ctx.db, results)
-    package["field"] = {"generated": field["generated"], "excluded": field["excluded"],
-                        "failures": field["failures"][:5], "provider": field["provider"]}
-    package["spent_cad"] = round(
-        float(field.get("spent_cad") or 0.0)
-        + sum(float(r.get("spent_cad") or 0.0) for r in results), 4)
-    package["brief_fingerprint"] = _brief_fingerprint()
+        finalists = field["candidates"][:brief.TARGET_FINALISTS]
+        results = [tournament.stress_test(ctx.db, f, env=env, work_dir=work) for f in finalists]
+        package = tournament.present(ctx.db, results)
+        package["field"] = {"generated": field["generated"], "excluded": field["excluded"],
+                            "failures": field["failures"][:5], "provider": field["provider"]}
+        package["spent_cad"] = round(
+            float(field.get("spent_cad") or 0.0)
+            + sum(float(r.get("spent_cad") or 0.0) for r in results), 4)
+        package["brief_fingerprint"] = _brief_fingerprint()
 
-    ctx.audit(tournament.TOURNAMENT_ACTION, detail=package)
+        ctx.audit(tournament.TOURNAMENT_ACTION, detail=package)
 
-    # The owner asked to be shown the finalists. That is a consequential decision, so it
-    # goes in the one owner queue rather than into a log somebody might read.
-    from sqlalchemy import select
+        # The owner asked to be shown the finalists. That is a consequential decision, so it
+        # goes in the one owner queue rather than into a log somebody might read.
+        from sqlalchemy import select
 
-    from ..core.models import OwnerAction
+        from ..core.models import OwnerAction
 
-    with ctx.db.session() as s:
-        open_row = s.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == "canonical_model_selection",
-            OwnerAction.done == False))  # noqa: E712
-        if open_row is None:
-            s.add(OwnerAction(
-                requirement_key="canonical_model_selection",
-                action=("Choose the permanent Brambleloop model from the finalists at "
-                        "/api/model-tournament, then confirm the selection."),
-                reason=(f"{len(results)} finalists were stress-tested across "
-                        f"{len(brief.STRESS_SCENES)} controlled scenes; "
-                        f"{len(package['clear_both_floors'])} cleared both hard floors "
-                        f"(facial identity and whole-person morphology, independently). "
-                        f"Nothing selects itself: a candidate that became canonical by "
-                        f"topping a table is an identity nobody chose."),
-                max_cost_cad=0.0, minutes=10,
-                consequence_of_delay=("Every model-bearing frame stays blocked, because a "
-                                      "drift check with no reference pack is unavailable "
-                                      "rather than passing."),
-                blocks="all model-led listing imagery and the creative parity gate"))
+        with ctx.db.session() as s:
+            open_row = s.scalar(select(OwnerAction).where(
+                OwnerAction.requirement_key == "canonical_model_selection",
+                OwnerAction.done == False))  # noqa: E712
+            if open_row is None:
+                s.add(OwnerAction(
+                    requirement_key="canonical_model_selection",
+                    action=("Choose the permanent Brambleloop model from the finalists at "
+                            "/api/model-tournament, then confirm the selection."),
+                    reason=(f"{len(results)} finalists were stress-tested across "
+                            f"{len(brief.STRESS_SCENES)} controlled scenes; "
+                            f"{len(package['clear_both_floors'])} cleared both hard floors "
+                            f"(facial identity and whole-person morphology, independently). "
+                            f"Nothing selects itself: a candidate that became canonical by "
+                            f"topping a table is an identity nobody chose."),
+                    max_cost_cad=0.0, minutes=10,
+                    consequence_of_delay=("Every model-bearing frame stays blocked, because a "
+                                          "drift check with no reference pack is unavailable "
+                                          "rather than passing."),
+                    blocks="all model-led listing imagery and the creative parity gate"))
 
-    return {"ran": True, "finalists": len(results),
-            "clear_both_floors": package["clear_both_floors"],
-            "spent_cad": package["spent_cad"], "selected": None}
+        return {"ran": True, "finalists": len(results),
+                "clear_both_floors": package["clear_both_floors"],
+                "spent_cad": package["spent_cad"], "selected": None}
 
 
 @handlers.register("visual.portrait_repair")
@@ -2992,10 +3099,10 @@ def handle_owned_photography(ctx: JobContext) -> dict:
     so the cadence costs nothing after the first run and a new release gets its own picture.
     """
     import os
-    import tempfile
 
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
+    from ..core import workspace
     from ..gateway import images
     from ..products.builder import for_slug
     from ..publish import owned_photography
@@ -3025,11 +3132,15 @@ def handle_owned_photography(ctx: JobContext) -> dict:
         return {"ran": False, "reason": f"{slug} does not compile, so there is nothing true "
                                         f"to photograph"}
 
-    record = owned_photography.make(
-        ctx.db, cir, build_twin(cir, result),
-        occasion=ctx.job.inputs.get("occasion", ""),
-        env=dict(os.environ),
-        work_dir=ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="owned-asset-"))
+    # The render and its verdict both happen inside `make`, which puts the bytes it must keep
+    # in the artifact store before it returns, so the directory is only needed for that call.
+    # It was `tempfile.mkdtemp`, on a cadence, writing rendered photography.
+    with workspace.work_dir(ctx.job.inputs.get("work_dir"),
+                            prefix="owned-asset-") as work:
+        record = owned_photography.make(
+            ctx.db, cir, build_twin(cir, result),
+            occasion=ctx.job.inputs.get("occasion", ""),
+            env=dict(os.environ), work_dir=work)
     ctx.audit(owned_photography.ACTION, detail=record)
     return {"ran": True, "slug": slug, "made": record.get("made"),
             "verdict": record.get("verdict"), "why": record.get("why"),
@@ -3324,8 +3435,8 @@ def handle_model_reference_pack(ctx: JobContext) -> dict:
     approval as an owner action. There is no branch in here that selects.
     """
     import os
-    import tempfile
 
+    from ..core import workspace
     from ..finance import spend_policy
     from ..visual import reference_pack
 
@@ -3354,8 +3465,13 @@ def handle_model_reference_pack(ctx: JobContext) -> dict:
                 "awaiting": "owner approval"}
 
     env = dict(os.environ)
-    work = ctx.job.inputs.get("work_dir") or tempfile.mkdtemp(prefix="reference-pack-")
-    package = reference_pack.build(ctx.db, env=env, work_dir=work)
+    # `reference_pack.build` keeps the frames it must not lose in the artifact store before
+    # it returns -- that is what the 2026-09-22 404s bought -- so the working directory is
+    # only needed for the build itself. It was `tempfile.mkdtemp`, and this handler renders
+    # eight images a run.
+    with workspace.work_dir(ctx.job.inputs.get("work_dir"),
+                            prefix="reference-pack-") as work:
+        package = reference_pack.build(ctx.db, env=env, work_dir=work)
     package["candidate_fingerprint"] = _candidate_fingerprint()
     ctx.audit(reference_pack.PACK_ACTION, detail=package)
 

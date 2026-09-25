@@ -296,6 +296,37 @@ ANALYSIS_SYSTEM = (
 TASK = "gallery_observation"
 ANALYSIS_MAX_TOKENS = 1200
 
+# Whose permission this spends under. Named once for the same reason `TASK` is: the ceiling
+# check, the ledger row and the cadence that sizes the batch all have to be talking about the
+# same agent, and a name written three times is a name that will disagree with itself.
+AGENT = "market_radar"
+
+
+def per_image_estimate_cad(model: str | None = None) -> float:
+    """What one gallery image is expected to cost, on the arithmetic the ceiling uses.
+
+    The same estimator, the same padding, the same image-token figure as the `check_budget`
+    call in `analyse` below -- because this number is what the cadence's batch size is derived
+    from, and a batch sized on one estimate against a guard enforced on another is two numbers
+    disagreeing about the same money, which is the defect this whole change is about.
+
+    Deliberately the padded estimate rather than the measured mean. The measured mean this
+    month is about CA$0.034 an image and the padded estimate is about CA$0.062; sizing on the
+    mean would plan a batch the second half of which the guard refuses. This build has already
+    been wrong about the image-token figure twice, both times optimistically -- see
+    `gateway.anthropic.IMAGE_TOKENS_ESTIMATE`, which carries the story.
+    """
+    from ..gateway import anthropic as gw
+    from ..gateway import routing
+
+    if model is None:
+        _, tier = routing.route(TASK)
+        model = tier.model
+    return gw.estimate_cad(model,
+                           input_tokens=len(analysis_prompt()) // 4
+                                        + gw.IMAGE_TOKENS_ESTIMATE,
+                           output_tokens=ANALYSIS_MAX_TOKENS)
+
 
 def analysis_prompt() -> str:
     """The question, built from the closed vocabulary so the two cannot drift apart."""
@@ -362,8 +393,10 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
 
     judged, failures, spent = 0, [], 0.0
     reserved, tokens_in, tokens_out = 0.0, 0, 0
+    stopped_by = ""
     for item in queue:
         estimate = 0.0
+        held = None
         try:
             # `uncommitted_cad` is this run's own spend, which is not in the ledger yet:
             # this loop bills once, at the end, so without it every image after the first
@@ -371,20 +404,39 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
             # what the run has actually cost and what it reserved, because the reservation
             # is deliberately pessimistic and a ceiling check should not become optimistic
             # by taking the smaller of two numbers.
+            #
+            # `agent` is new on 2026-09-25 and is the reason a run can now stop part-way:
+            # `market_radar` may spend CA$4.00 a day, that ceiling was checked by nothing on
+            # this path, and the handler sizes the batch to fit it. A batch that still runs
+            # out is a batch the day's other cadences have eaten into, which is exactly when
+            # a permission should bite.
             reservation = gw.check_budget(
                 db, model=provider.model,
                 input_tokens=len(analysis_prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
                 max_tokens=ANALYSIS_MAX_TOKENS,
-                uncommitted_cad=max(spent, reserved))
+                uncommitted_cad=max(spent, reserved),
+                agent=AGENT, purpose=TASK, job_id=job_id)
             estimate = reservation["estimate_cad"]
+            held = reservation["reservation_id"]
             response = provider.see(ANALYSIS_SYSTEM, analysis_prompt(), [item.image_url],
                                     max_tokens=ANALYSIS_MAX_TOKENS)
+        except gw.AgentCeilingExceeded as exc:
+            # This agent is finished for today. The month may well have room, so this is
+            # reported as a stop with a named ceiling rather than as a failure -- the images
+            # are still pending and the next run takes them.
+            gw.release_reservation(db, held)
+            stopped_by = "agent_daily_ceiling"
+            failures.append({"key": item.key, "why": f"agent ceiling: {exc}"})
+            break
         except gw.BudgetExceeded as exc:
             # The ceiling is not a per-image failure; it ends the run. Continuing would
             # attempt the same refusal once per remaining image.
+            gw.release_reservation(db, held)
+            stopped_by = "monthly_model_ceiling"
             failures.append({"key": item.key, "why": f"budget: {exc}"})
             break
         except (PermanentError, TransientError) as exc:
+            gw.release_reservation(db, held)
             failures.append({"key": item.key, "why": str(exc)[:200]})
             _mark_failed(db, item)
             continue
@@ -392,6 +444,11 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         cost = round(
             response.input_tokens * provider.cost_per_1k_input_cad / 1000
             + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        # Released as soon as the call has answered, with what it actually cost. Holding it
+        # until the end of the run would make this loop block itself: twenty-five images
+        # reserving pessimistically and releasing nothing is a run that refuses its own
+        # later images against money it had already spent and counted once.
+        gw.release_reservation(db, held, actual_cad=cost)
         spent += cost
         reserved += estimate
         tokens_in += response.input_tokens
@@ -422,6 +479,7 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         # Counted over the whole catalogue, not over a page of it, and not saturating.
         **{"remaining": backlog["unjudged"], "backlog": backlog},
         "failures": failures,
+        "stopped_by": stopped_by,
         "cost_cad": round(spent, 8),
         "note": ("nothing was judged and the backlog is not empty, which is a failure rather "
                  "than a quiet success -- the reasons are above"
@@ -439,7 +497,7 @@ def _bill(db, spent: float, judged: int, job_id: int | None, *, provider,
     from ..finance import spend_report
 
     spend_report.record(
-        db, agent="market_radar", amount_cad=round(spent, 8),
+        db, agent=AGENT, amount_cad=round(spent, 8),
         estimated_cad=round(reserved, 8), purpose=TASK, provider="anthropic",
         model=provider.model, department="intel", job_id=job_id,
         tokens_in=tokens_in, tokens_out=tokens_out,

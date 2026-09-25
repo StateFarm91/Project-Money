@@ -136,21 +136,34 @@ def read_listing(image_ref: str, *, db=None, provider=None) -> dict:
 
     provider = provider or gw.provider_for(TASK)
     estimate = 0.0
+    reservation = None
     if db is not None:
-        estimate = gw.check_budget(
+        # `agent` is what makes `creative_director`'s daily ceiling bind on this path, and the
+        # reservation is what stops two of these in two processes both finding room in the
+        # same month. Both were absent until 2026-09-25.
+        budget = gw.check_budget(
             db, model=provider.model,
             input_tokens=len(read_prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
-            max_tokens=READ_MAX_TOKENS)["estimate_cad"]
-    response = provider.see(READ_SYSTEM, read_prompt(), [image_ref],
-                            max_tokens=READ_MAX_TOKENS)
+            max_tokens=READ_MAX_TOKENS, agent="creative_director", purpose=TASK)
+        estimate = budget["estimate_cad"]
+        reservation = budget["reservation_id"]
+    try:
+        response = provider.see(READ_SYSTEM, read_prompt(), [image_ref],
+                                max_tokens=READ_MAX_TOKENS)
+    except BaseException:
+        # Released on the way out, including on a refusal: a reservation a failed call never
+        # gives back holds budget nobody is spending until it expires.
+        if db is not None:
+            gw.release_reservation(db, reservation)
+        raise
     if db is not None:
         from ..finance import spend_report
 
+        cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                     + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        gw.release_reservation(db, reservation, actual_cad=cost)
         spend_report.record(
-            db, agent="creative_director",
-            amount_cad=round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
-                             + response.output_tokens * provider.cost_per_1k_output_cad
-                             / 1000, 8),
+            db, agent="creative_director", amount_cad=cost,
             estimated_cad=estimate, purpose=TASK, provider="anthropic",
             model=provider.model, department="creative",
             tokens_in=response.input_tokens, tokens_out=response.output_tokens,

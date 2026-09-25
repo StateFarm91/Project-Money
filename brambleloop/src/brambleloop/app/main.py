@@ -837,8 +837,19 @@ def api_continuity_export(authorization: str = Header(default="")) -> Response:
     be reachable without the operator credential. `opsauth` refuses everybody when the token
     is unset, which is the safe direction: the opposite default would serve the company to
     the internet in the window between deploying this and remembering to set the variable.
+
+    A `TemporaryDirectory` is the wrong tool at this one call site and the reason is worth
+    stating: the response has not been sent when this function returns, so a block that
+    removed the directory on the way out would delete the export before a byte of it reached
+    the operator. The cleanup is a background task instead, which the server runs *after* the
+    body is sent -- so the export still leaves nothing behind, and it leaves nothing behind at
+    the only moment that is safe. `tempfile.mkdtemp` left a full database export on the disk
+    for every download anybody ever made.
     """
+    import shutil
     import tempfile
+
+    from starlette.background import BackgroundTask
 
     from ..core import continuity
 
@@ -851,7 +862,14 @@ def api_continuity_export(authorization: str = Header(default="")) -> Response:
         return JSONResponse({"error": "operator credential required"}, status_code=401)
 
     work = tempfile.mkdtemp(prefix="continuity-download-")
-    result = continuity.export(db, f"{work}/brambleloop-export.jsonl")
+    try:
+        result = continuity.export(db, f"{work}/brambleloop-export.jsonl")
+    except Exception:
+        # An export that failed has no response to attach the cleanup to, so it is cleaned up
+        # here. Without this the failing path is the one that leaks, which is the path most
+        # likely to be retried.
+        shutil.rmtree(work, ignore_errors=True)
+        raise
     Registry(db).audit("orchestrator", "continuity.exported",
                        detail={"digest": result.digest, "rows": result.total_rows,
                                "bytes": result.bytes_written, "source": result.source})
@@ -860,6 +878,7 @@ def api_continuity_export(authorization: str = Header(default="")) -> Response:
         filename=f"brambleloop-export-{result.created_at:%Y%m%dT%H%M%SZ}.jsonl",
         headers={"X-Brambleloop-Export-Digest": result.digest,
                  "X-Brambleloop-Export-Rows": str(result.total_rows)},
+        background=BackgroundTask(shutil.rmtree, work, ignore_errors=True),
     )
 
 

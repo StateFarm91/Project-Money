@@ -321,13 +321,29 @@ class JobQueue:
 
         Requires explicit job types: there is no "purge everything", because the one thing a
         dead-letter queue must never do is lose a failure nobody looked at.
+
+        A job something else points at is skipped. `audit_log.job_id`, `cost_entries.job_id`
+        and `spend_reservations.job_id` are real foreign keys, so deleting such a row either
+        raises an integrity error or -- on a database with the constraint off -- orphans the
+        evidence, and the money rows are the ones every ceiling in the company is computed
+        from. This was never hit because nothing called this function; `ops.retention` now
+        does, and it reports the same count separately.
         """
+        from ..core.models import AuditLog, CostEntry, SpendReservation
+
         removed = 0
         with self.db.session() as s:
+            referenced: set[int] = set()
+            for table in (AuditLog, CostEntry, SpendReservation):
+                referenced.update(
+                    job_id for (job_id,) in s.execute(
+                        select(table.job_id).where(table.job_id.is_not(None))).all())
             q = select(Job).where(Job.status == JobStatus.DEAD,
                                   Job.job_type.in_(job_types))
             for job in s.scalars(q):
                 if before is not None and (job.finished_at or job.created_at) >= before:
+                    continue
+                if job.id in referenced:
                     continue
                 s.delete(job)
                 removed += 1

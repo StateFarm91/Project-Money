@@ -229,7 +229,23 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
     It does not decide whether the listing may use the sequence -- `sequence` does, because
     a decision made per frame cannot see that the fit shot answered for the body and the
     detail shot answered for the fabric.
+
+    Like `sequence`, a caller that supplies no `work_dir` gets one for the length of the frame.
+    The chart this writes is handed to the generator as a conditioning reference, so without a
+    directory there is no chart and the frame would be judged against nothing -- silently. The
+    render itself is stored in the artifact store before this returns, so the directory has
+    nothing left to hold by then.
     """
+    from ..core import workspace
+
+    if not work_dir:
+        with workspace.work_dir(None, prefix="model-frame-") as work:
+            return make(db, cir, twin, shot=shot, occasion=occasion, env=env, work_dir=work,
+                        provider_key=provider_key, generator=generator, observer=observer,
+                        inspector=inspector, motif_judger=motif_judger,
+                        realism_judger=realism_judger, styling_judger=styling_judger,
+                        chart_reference=chart_reference)
+
     from ..gateway import images
     from ..ops import funding
     from ..publish import motif_fidelity, owned_photography as owned
@@ -444,8 +460,21 @@ def sequence(db, cir, twin, **kw) -> dict:
     Combined conservatively in both directions: an authoritative frame's verdict stands even
     when another frame happens to read better, and a shared floor takes the worst answer any
     frame gave. Nothing here averages, and `unverifiable` is never on the pass side.
+
+    A caller that supplies no `work_dir` gets one for the length of the sequence rather than a
+    sequence with no chart in it. This was `tempfile.mkdtemp`'s doing, one layer down: when
+    `motif_fidelity.chart_image` stopped inventing a directory it could not clean up
+    (2026-09-25), a caller with no `work_dir` would have lost chart conditioning *silently* --
+    the sequence would still render, still report, and be judged against no chart. A silent
+    downgrade is worse than the leak it replaced, so the directory is created here, where the
+    sequence that consumes it can also end it.
     """
+    from ..core import workspace
     from . import motif_fidelity
+
+    if not kw.get("work_dir"):
+        with workspace.work_dir(None, prefix="model-frame-") as work:
+            return sequence(db, cir, twin, work_dir=work, **kw)
 
     # One chart for the whole sequence. Two frames shown two renders of the same chart
     # would almost certainly agree, and "almost certainly" is not what a listing showing
