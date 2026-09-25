@@ -195,13 +195,33 @@ def check_terminology(cir, docs: dict) -> Check:
                      f"word", "publish.abbreviations.unlocalised, measured against the writer")
 
     for terminology, doc in sorted(docs.items()):
-        text = extracted_text(doc.pdf_bytes)
-        missing = ab.undefined_tokens(text, terminology)
-        if missing:
+        # This used to call `ab.undefined_tokens(text, terminology)` with no `defined`, which
+        # that function's own docstring calls vacuous: the key is then derived from the same
+        # string being checked, so every token is in the key by construction and the failing
+        # branch is unreachable. It could only ever report PASS, and did -- on eight documents
+        # containing an abbreviation no key defined. A gate that cannot fail is not a gate.
+        #
+        # The honest measurement needs the key the document actually PRINTED, which is in
+        # scope in `pdf.py` and not here. So this reads that verdict rather than re-deriving
+        # it: re-deriving would put one value in two places, which is how the first version
+        # drifted into vacuity. `pdf` measures the document's whole prose against its printed
+        # key -- a comparison that can fail, and has.
+        undefined = [p for p in doc.problems if p.startswith("PDF_ABBREVIATION_UNDEFINED")]
+        if undefined:
             return Check("terminology", FAIL,
-                         f"the {terminology} document uses {missing} and its key does not "
-                         f"define them", "publish.abbreviations.undefined_tokens on the "
-                                         "text extracted from the rendered document")
+                         f"the {terminology} document uses an abbreviation its printed key "
+                         f"does not define: {undefined[0]}",
+                         "publish.pdf's key-completeness check, measured on the document's "
+                         "whole prose against the key it actually printed")
+        # And the guard that stops this becoming absence-of-evidence again: `pdf`'s check
+        # finds nothing in an empty string too. If the prose never reached the document, the
+        # verdict above is silence rather than a pass, and silence must not read as clean.
+        if not (doc.prose or "").strip():
+            return Check("terminology", UNVERIFIABLE,
+                         f"the {terminology} document carries no prose, so the "
+                         f"key-completeness check had nothing to measure and its silence "
+                         f"cannot be read as a pass",
+                         "PatternDocument.prose, checked before trusting an empty problem list")
     return Check("terminology", PASS,
                  "every stitch in both documents is defined by that document's own key, and "
                  "the writer localises every code UK renders differently",

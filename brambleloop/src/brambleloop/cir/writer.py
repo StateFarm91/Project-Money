@@ -193,7 +193,8 @@ FINISHING_HEADING = "## Finishing"
 
 
 def finishing_lines(cir: CIR, *, width_cm: float | None = None,
-                    height_cm: float | None = None) -> list[str]:
+                    height_cm: float | None = None,
+                    result: "CompileResult | None" = None) -> list[str]:
     """How the work stops being work in progress.
 
     Every Brambleloop pattern shipped without this, and nobody noticed until the teardown
@@ -224,7 +225,37 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
         out.append(f"This pattern uses {colours} colours, so there is an end to secure at "
                    f"every join and every change.")
 
-    if width_cm and height_cm:
+    # "Pin it out and leave it to dry flat" is the one instruction in this document that can
+    # destroy a finished object. It is correct for anything that IS flat -- a blanket, a
+    # runner, a disc coaster -- and ruinous for a vessel: flattening a damp basket sets a
+    # crease across the wall and it does not come back. The shape is not guessed at; it is
+    # the same `cir.geometry` classification the twin records, so this branches on the
+    # measured object rather than on the title or the slug.
+    #
+    # DISC stays with the flat wording deliberately: a coaster is flat, and a pattern that
+    # hedged on every round piece would teach makers to ignore the finishing section.
+    upright = ()
+    if result is not None:
+        from . import geometry as _geom
+
+        # Inverted on purpose: NOT-flat rather than a list of the solid shapes. The
+        # classifier already answers disc / tube / cone / dome / vessel / shaped / gathered,
+        # and enumerating the six solid ones would mean a seventh added later silently
+        # inherits "leave it to dry flat" -- a new shape would default to the one wording
+        # that can destroy the object. A flat piece produces no revolution at all, so an
+        # empty measurement keeps the flat wording and only a measured non-disc changes it.
+        upright = tuple(sorted({
+            rev.shape for rev in _geom.measure_all(cir, result).values()
+            if rev.shape != _geom.DISC}))
+
+    if upright:
+        # No pinning measurement is offered: the stated size of a vessel is a diameter and a
+        # height, and pinning to a width would be pinning it flat by another name.
+        out.append("Do not block this piece flat. It is worked in the round and pressing it "
+                   "out would crease the wall: damp-finish it standing up, easing it to the "
+                   "stated measurements with your hands and letting it dry in its own shape, "
+                   "stuffed lightly with a towel if it needs help standing.")
+    elif width_cm and height_cm:
         out.append(f"Block the finished piece to {width_cm:.0f} x {height_cm:.0f} cm: pin "
                    f"it out damp to those measurements, easing rather than stretching, and "
                    f"leave it to dry flat. Those are the dimensions this pattern's gauge "
@@ -338,6 +369,6 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
 
     out.extend(assembly_lines(cir))
     out.append("")
-    out.extend(finishing_lines(cir, width_cm=width_cm, height_cm=height_cm))
+    out.extend(finishing_lines(cir, width_cm=width_cm, height_cm=height_cm, result=result))
 
     return "\n".join(out).rstrip() + "\n"

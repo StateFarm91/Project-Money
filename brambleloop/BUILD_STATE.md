@@ -9262,3 +9262,124 @@ only the owner can remove in Shop Manager.
 **Visual / crochet realism remains OPEN and is not superseded.** Milestone D is still FAIL. It
 resumes at the identified next step: the certified relaxed fabric is not an equilibrium of
 `drape`'s own contact model.
+
+## 2026-09-25 — Build 2 wave: five lanes plus one cloud pilot, integrated
+
+Five department lanes ran in isolated worktrees and were merged through the single coordinator
+queue, each verified by me against its own terminal evidence rather than its report.
+
+### The ordering constraint no single lane could see
+
+Lane E proved, and I reproduced independently, that `etsy_oauth._token_request` builds its
+exception out of Etsy's response body and falls back to the **whole body** when Etsy names
+neither `error` nor `error_description`. That text reaches `AuditLog.detail["error"]` and
+`Job.last_error`; both tables are in `continuity.NON_REDERIVABLE` and absent from
+`EXCLUDED_TABLES`, so they ride `/api/continuity/export`, the offsite archive and `pg_dump`
+**in the clear**, while `oauth_credentials` (ciphertext) is excluded. A provider echoing the
+credential into an error body would put it in plaintext somewhere more exposed than the sealed
+row. The callback path already redacted the identical body; the refresh path did not. The
+finding is that asymmetry, not a missing mechanism.
+
+It was unreachable only because nothing had ever made an authenticated Etsy call. Lane A's new
+`/api/etsy/exercise` drives `rotations` 0 -> 3 on a first full run, so it is precisely the
+trigger. The fix therefore landed in the same tree, before the endpoint can ever be called.
+Neither is deployed yet, so both arrive together.
+
+Lane E's five reproduction checks asserted the leak was PRESENT and are inverted to assert it
+is closed, plus three added checks that the audit row still exists and still fingerprints the
+token -- a test passing because nothing was recorded would prove nothing. Removing the scrub
+turns them red, so they are the tripwire. 87 passing.
+
+### Corrections I made to lane reports
+
+- **Lane A** said "no existing code modified"; `app/main.py` gained 89 lines. The substantive
+  claim held: zero deletions, and `integrations/etsy.py` absent from the diff, so `activate()`
+  is untouched. Its `mode` query parameter IS validated (a typo returns 409, not a draft).
+- **Lane A's suite was invisible to the harness.** `test_etsy_exercise.py` printed
+  `  ok  <name>`; `run_tests.sh` counts `^OK`. All 31 checks passed and none reached the total.
+  `run_tests.sh` detected it ("SUITE REPORTED NO PASSES") rather than miscounting. Format fixed.
+- **Lane C's finding #5 is overstated and is NOT a first-sale blocker.** It reported that
+  `_engineered_cir("nursery-nesting-baskets")` and `("hexagon-coaster-set")` return `None`, so
+  "two of three Launch-0 products have no CIR route". They return None because `ENGINEERED` is
+  keyed `market-basket-trio` / `hexie-coaster-set` while Launch-0 declares
+  `nursery-nesting-baskets` / `hexagon-coaster-set`. **Launch-0 does not build through
+  `_engineered_cir`; it builds through `launch0.BUILDERS`, and all six variant builders resolve
+  to real CIRs** (verified by running them). Real defect -- the same product named differently
+  in two registries -- but a class B inconsistency, not a launch blocker.
+- **Lane D's sqlalchemy-dependent results were unverified** (wrong venv). Re-run here:
+  `test_etsy_surfaces`, `test_commerce`, `test_launch`, `test_intel`, `test_certification` pass.
+
+### A defect in my own module, found by Lane C
+
+`gates/first_customer.check_terminology` called `ab.undefined_tokens(text, terminology)` with
+no `defined`. That function's own docstring calls this form vacuous: the key is derived from
+the same string, so every token is in it by construction and the failing branch is unreachable.
+**The check could only ever report PASS, and did, on eight documents containing an undefined
+abbreviation.** Now reads `pdf`'s key-completeness verdict, measured on the document's whole
+prose against the key it actually printed -- rather than re-deriving it, which would put one
+value in two places again -- plus a guard that empty prose reads UNVERIFIABLE, not PASS,
+because that check finds nothing in an empty string too.
+
+### The instruction that could destroy the object
+
+`cir/writer.finishing_lines` told every maker to "pin it out damp ... and leave it to dry flat".
+Correct for a blanket, a runner and a disc coaster; ruinous for a basket. Now branches on
+`cir.geometry`'s own classification, inverted as **not-DISC** rather than a list of the solid
+shapes, so a shape nobody has written yet cannot silently inherit the wording that destroys the
+object. Verified across all six Launch-0 builders: three baskets upright, blanket/runner/coaster
+unchanged.
+
+### Lane D: this shop cannot see its own orders
+
+The 2026-09-25 grant is `listings_r listings_w listings_d shops_r shops_w`. Every receipt,
+payment and ledger operation needs `transactions_r`, and a refresh grant carries the same scope
+as the original, so refreshing can never widen it. `SCOPES_WANTED`/`SCOPES_REQUIRED` widened
+after verifying nothing hard-fails on a wanted-but-ungranted scope: `TokenProvider.access`
+refuses per operation, nothing calls a receipt operation, and `finish` reports the shortfall as
+`scopes_not_granted`. Until the owner re-authorises, the gap is DISCLOSED rather than breaking.
+Not a first-sale blocker: Etsy delivers the file without us; what breaks is everything after.
+
+Also from Lane D: **no ad-spend ceiling is enforceable in code** -- Etsy Ads has no endpoint,
+scope or field, so the only control is that nobody turns it on. Recorded as a promise, not a
+ceiling. And the pricing floor rested on an incomplete fee model; now CA$6.50 reads modelled
+13.7% take with a stated worst case of 32.3%, rather than folding an unverified rate into a
+constant.
+
+### Visual (Lane B): the certified fabric is an equilibrium, and the instability was not yarn
+
+Gravity off, 800 iterations: **1.58e-17 mm rms** on the 5x5, 2.43e-17 on the 10x8, converged at
+iteration 1. The reconciled configuration then descends its own energy under load for the first
+time and does nothing with the load removed, against wave 4's 109% and 98% load-INdependent
+motion. Two corrections to wave 4: the disequilibrium is **two pairs of 96**, and as a
+displacement it is worth 0.0011 mm rms, not the 0.814 mm it was invoked to explain -- the seed
+of an instability, not the mechanism. One loaded iteration injects 9.7564e-06 J of which
+3.99e-13 J is on the 312 genuine yarn vertices: **99.99996% was never yarn**, but the 162
+artificial hops and sub-micron joins, whose edge directions the co-rotational frame cannot fit.
+
+**Milestone D: FAIL, unchanged, nothing weakened, no threshold moved**; 28/28 adversarial
+fixtures still REJECT. The conformability metric reads LOWER for the reconciled configuration,
+because wave 3's 18-20x rise is now known to have BEEN the instability.
+
+**The repository's best renders are not of the fabric being measured.** They come from
+`visual/yarn.py`'s separate geometry generator; `drape` acts on `crochet_topology.Fabric`.
+Three waves of mechanics were measured on one object while the pictures showed another. The
+scene is now committed as data. Mitsuba was installed into the shared venv; `requirements.txt`
+deliberately unchanged.
+
+### Cloud pilot
+
+One bounded cloud session (`claude/cloud-pilot-products-audit`) audited the four unowned product
+modules, additive only. Boundary verified independently: six files, all inside the declared
+list. Found three real defects of the recurring family -- `NEEDS_THE_CHAIN` was a stale second
+copy of the canonical chain missing a stage; an unclassified customisation read as cleared; a
+coaster listing stated the size asked for rather than the size made. Cost US$9.71, separately
+metered. Assessment in `research/CLOUD_SESSIONS.md`; the operator board **cannot see a cloud
+session at all** (`ops/board.py` reads `/proc`), so such work is accepted only on its own
+terminal evidence: a pushed branch.
+
+### Still open, unchanged
+
+`twin.calibrated` is False catalogue-wide -- the largest unmeasured risk. `ArtifactStore.durable`
+is False, which fails `fulfilment_and_download` for all five Launch-0 variants. Nothing has been
+run against real Etsy: the whole Etsy deliverable is IMPLEMENTED + LOCALLY_TESTED. CA$0.00 spent
+this wave; nothing published, activated or deployed; `BRAMBLELOOP_PHASE=shadow`.

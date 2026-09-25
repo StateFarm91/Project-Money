@@ -1983,6 +1983,41 @@ def test_support_does_not_send_a_buyer_looking_for_a_column_that_does_not_exist(
     assert c.answer("can I use this as a car seat cover?").escalated
 
 
+def test_a_vessel_is_never_told_to_dry_flat_and_a_flat_piece_still_is():
+    """The one instruction in the document that can destroy the finished object.
+
+    "Pin it out damp and leave it to dry flat" is right for a blanket, a runner and a disc
+    coaster, and ruinous for a basket: flattening a damp vessel creases the wall and it does
+    not come back. Branched on `cir.geometry`'s own classification, so it follows the measured
+    object rather than the title.
+    """
+    from brambleloop.cir import compiler, geometry, writer
+    from brambleloop.products import launch0 as l0
+
+    upright, flat = [], []
+    for key, build in sorted(l0.BUILDERS.items()):
+        cir = build()
+        result = compiler.compile_cir(cir)
+        text = writer.write_pattern(cir, result)
+        shapes = {r.shape for r in geometry.measure_all(cir, result).values()}
+        solid = shapes - {geometry.DISC}
+        (upright if solid else flat).append(key)
+        if solid:
+            assert "dry flat" not in text, f"{key} is {sorted(solid)} and was told to dry flat"
+            assert "Do not block this piece flat" in text, key
+        else:
+            assert "dry flat" in text, f"{key} is flat and lost its blocking instruction"
+
+    # Not vacuous in either direction: the catalogue really does contain both kinds, so
+    # neither branch is being asserted about an empty list.
+    assert upright and flat, (upright, flat)
+
+    # And the rule is NOT-disc rather than a list of solid shapes, so a shape nobody has
+    # written yet cannot silently inherit the wording that destroys the object.
+    made_up = type("R", (), {"shape": "helix-nobody-has-implemented"})()
+    assert made_up.shape != geometry.DISC
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

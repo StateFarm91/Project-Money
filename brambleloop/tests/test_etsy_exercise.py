@@ -779,7 +779,11 @@ if __name__ == "__main__":
         try:
             fn()
             passed += 1
-            print(f"  ok  {name}")
+            # `OK` at column zero, because that is what run_tests.sh counts
+            # (`grep -c '^OK'`). Printed as "  ok  ", every one of these checks passed
+            # and none of them reached the total -- the suite ran, exited clean, and was
+            # invisible to the thing that reports whether the suite ran.
+            print(f"OK   {name}")
         except Exception:
             failed += 1
             print(f"FAIL  {name}")
