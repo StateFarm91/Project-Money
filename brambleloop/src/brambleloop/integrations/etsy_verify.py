@@ -36,9 +36,11 @@ NOT_RETURNED = "NOT_RETURNED"
 # every listing's type as missing.
 RESPONSE_ALIASES = {"type": ("listing_type", "type")}
 
-# Fields Etsy's ShopListing response does not carry at all, so their absence is expected
-# rather than suspicious. `state` on create is in here because this client stopped sending it
-# (createDraftListing has no state property) -- the read-back asserts state separately.
+# Fields this system may send that are not compared field-by-field. The upload parameters
+# (`image`, `file`, `name`, `rank`, `alt_text`, `overwrite`, `is_watermarked`) are not listing
+# properties and Etsy's ShopListing response does not carry them. `state` is excluded for the
+# opposite reason: Etsy does return it, and it is checked on its own against `expect_state`
+# because it is the one field whose value decides whether a customer can reach the listing.
 NOT_IN_RESPONSE = frozenset({"state", "image", "file", "name", "rank", "alt_text",
                              "overwrite", "is_watermarked"})
 

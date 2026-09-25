@@ -70,6 +70,7 @@ code would have hit:
 | Activation, implemented and triple-gated: phase, owner authority, and a Launch-0 authorisation passed to the call | `integrations/etsy.py:EtsyClient.activate` |
 | Authenticated reads: shop, user, listing with images, listing images | `EtsyClient.get_shop / get_me / get_listing / get_listing_images` |
 | Deletion that reads the listing back and refuses unless its state is the one expected | `EtsyClient.delete_listing` |
+| `publish()` now takes listing images, uploads them, and reports `activatable` separately from `published` | `EtsyClient.publish`, `PublishOutcome.activatable` |
 | Three authorities (READ / DRAFT_WRITE / ACTIVATE) in place of one publish-or-refuse gate | `integrations/etsy.py:Authority`, `refusal_for` |
 | Per-endpoint encoding: form, multipart and JSON channels, with the Content-Type set from the channel used | `integrations/http.py:UrllibTransport` |
 | OAuth 2.0 authorization-code grant with PKCE, refresh grant, rotation, expiry skew, scope checking, redacted logging | `integrations/etsy_oauth.py` |
@@ -250,6 +251,16 @@ these tests still passes.
 Not touched, as instructed: `visual/**`, `cir/**`, `publish/pdf.py`,
 `runtime/release.py:assets.build`, `BUILD_STATE.md`, `DECISION_LOG.md`.
 
+### The distinction `PublishOutcome` was missing
+
+`publish()` reported `published=True` when the draft was created and the file attached. That
+sentence was true about the requests and false about the listing: with no image, the draft
+could never go live. `PublishOutcome.activatable` is now the separate question -- draft
+created, file attached **and** at least one image uploaded -- and `publish()` records a problem
+naming Etsy's own rule when it is handed no image bytes. `tests/test_etsy.py` asserts that
+today's call is not activatable, which is the honest state of the publish path and was
+previously invisible.
+
 **One thing this work needs and does not own.** The probe uploads bytes. The pattern PDF and
 the listing imagery are release artefacts, and artifact bytes in this system are not durable
 without object storage, so a real end-to-end publish still depends on the storage decision
@@ -292,6 +303,23 @@ One new item. It does not repeat the six already batched in BUILD_STATE, which s
   it, reads it back from Etsy, verifies remote state field by field, and deletes it. Nothing is
   activated. If the deletion fails, the report names the listing id and the title to remove in
   Shop Manager. That run is the evidence section 3.3 is missing.
+
+### The environment this code reads
+
+Every one of these is read from the environment and **none of them is ever written to this
+repository**. No value is logged: tokens appear in reports as an eight-character SHA-256
+fingerprint.
+
+| Variable | Required | What it is |
+|---|---|---|
+| `ETSY_KEYSTRING` (or `ETSY_API_KEY`) | yes | the app's keystring. Both names are accepted because two documents in this repository named the same value differently, and a name mismatch that presents as "no credentials" is the most expensive kind of typo |
+| `ETSY_SHARED_SECRET` | yes | sent as `keystring:shared_secret` in `x-api-key`, which Etsy's live response confirms is the required format |
+| `ETSY_SHOP_ID` | yes | the shop every write is addressed to |
+| `ETSY_REFRESH_TOKEN` | yes, for writes | the 90-day token the system refreshes access with |
+| `ETSY_REDIRECT_URI` | for authorising | the exact registered https callback |
+| `ETSY_ACCESS_TOKEN` | no | a pasted one-hour token. With no `ETSY_ACCESS_TOKEN_EXPIRES_AT` it is treated as **already expired**, forcing one refresh rather than sending a token of unknown age |
+| `ETSY_SCOPES` | no | what Etsy granted, space-separated, so a scope refusal happens here rather than as a 403 |
+| `ETSY_SHADOW_WRITE` | no | `1` lets the probe create and delete one draft in the real shop. Never enables activation |
 
 ---
 

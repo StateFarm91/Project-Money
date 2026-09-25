@@ -443,11 +443,19 @@ def gaps() -> list[dict]:
                     "browser authorisation from the owner, which no code path can supply: "
                     "Etsy has no key-only route to a write scope"),
          "blocks_launch": True},
-        {"gap": "character sets are not checked before sending",
+        # This entry said "character sets are not checked before sending" after the check was
+        # written, which made the gap list wrong in the direction that matters least and is
+        # noticed least. `build_payload` calls `check_payload`, so the check exists; what does
+        # not exist is any confirmation that our reading of the character sets matches Etsy's
+        # enforcement of them.
+        {"gap": "the character-set rules are enforced from a reading, not from Etsy",
          "clause": "title_character_set",
-         "detail": ("titles, tags and materials are checked for length and count and not "
-                    "for what they are made of. A material written '100% cotton' is refused "
-                    "by Etsy and by nothing here"),
+         "detail": ("integrations.etsy.build_payload refuses a material written "
+                    "'100% cotton' and a title with two ampersands, from the regexes in "
+                    "Etsy's property descriptions. No listing has ever been refused by Etsy "
+                    "for a character, so whether these rules are stricter or looser than "
+                    "Etsy's is unknown; stricter costs a refusal we could have avoided, "
+                    "looser costs a rejected listing at publish time"),
          "blocks_launch": False},
         {"gap": "the taxonomy id has never been read back from Etsy",
          "clause": "taxonomy_id_unverified",
@@ -463,12 +471,13 @@ def gaps() -> list[dict]:
                     "listing property. If the patterns node requires one, every listing is "
                     "refused and the message will name a property id"),
          "blocks_launch": False},
-        {"gap": "a duplicated material spends a scarce slot",
+        {"gap": "duplicate materials are collapsed here and not upstream",
          "clause": "material_character_set",
-         "detail": ("the publish step passes one material per CIR material entry, and a CIR "
-                    "carries one entry per colour, so an eight-colour blanket sends the "
-                    "same yarn eight times. Above thirteen colours the listing is refused "
-                    "outright"),
+         "detail": ("a CIR carries one material entry per colour, so an eight-colour blanket "
+                    "arrives with the same yarn eight times and above thirteen colours would "
+                    "be refused outright. integrations.etsy.build_payload collapses them, "
+                    "preserving order, which fixes the listing and leaves the CIR-to-listing "
+                    "mapping still producing the duplicates"),
          "blocks_launch": False},
     ]
 
