@@ -8224,3 +8224,100 @@ days runway, every assumption reported as assumed.
      economics need deciding first.
   5. Baby wearables grading — `intel.childrens` carries CYC chest tables only; head
      circumference is a different published chart, cheap to land.
+
+## 2026-09-25 — Visual wave 2: three honest negatives, and two corrections to what I reported
+
+Merged from an isolated worktree, boundary clean (only `visual/**`, its own tests, research).
+**159 checks across five suites, 0 failing** — 34 + 28 + 18 + 24 + 55, up from 136. All 28
+adversarial fixtures still reject. No threshold lowered, nothing deleted, no committed result
+restarted or weakened. CA$0.00. **Milestone D: still FAIL, and none of this was a
+conformability mechanism.** Stage 1 not begun.
+
+### Item 1 — Kaldor plastic rest state: built, sourced, measured, NOT adopted
+
+Off by default (`plastic_rest_migration: bool = False`, verified). Mechanism and both
+parameter values SOURCED; the angular-to-second-difference mapping DERIVED and kept exact
+(`2l·sin(θ/2)`) rather than linearised, because this swatch's mean turning angle is 1.394 rad
+where linearising errs by a third.
+
+**It does what the research said and it makes the symptom worse.** The bound is real and now
+quantified: it converts the rest-state choice from **285–753× gravity** (straight) or **0×**
+(frozen relaxed) into a bounded **2.22×** — the "sits between our two brackets" claim is now a
+number. Stiffness response is restored but weak: over 144× of B, straight rest gives a 2.2×
+spread and is non-monotonic, Kaldor gives 4.6× monotonic, the committed default gives 102×.
+
+But the new `relief_profile()` measures within-row share of relief variance falling from
+**0.8% to 0.0%**. The fabric droops 2.8× further and does so as an even purer function of
+position along the cantilever. **The plastic rest state erases exactly the local stitch-scale
+stress whose variation between neighbours is the only thing that could make one stitch move
+differently from its neighbour.** Not adopted.
+
+Not safe across the bracket either: at B/12 it everts stitches to +1.728mm and fails the
+gate. Diagnosed as geometry rather than instrument — 1.7mm past the line is not grazing, and
+the same instrument reads −1.599 on the default at the same B and iteration count.
+
+Two further findings: `p_plastic` is **saturated** — droop varies 1.66× over a 500× range of
+it, so it is a stitch-integrity dial and not a drape dial. And with plasticity on, the
+starting rest state is forgotten, so **`rest_is_relaxed_shape` — the decision the entire
+previous increment turned on — stops meaning anything.**
+
+### Item 2 — recovery: ELASTIC. And a number I reported was a transient.
+
+The invalidity is fixed properly (the rest state is now passable) and the trap pinned by two
+tests. At **25,600 release iterations the solve converges** — final step 1.00e-05 mm, the
+only converged solve in this work — and **83.6% of droop and 75.0% of the intrinsic-height
+extension recover.** A never-loaded control rules out contact inflation (drift 0.0001mm).
+
+**CORRECTION.** I reported "+2.81% intrinsic height under load" as a measured property of the
+fabric, and said only that I had not verified whether it recovers. It is worse than
+unverified: **it is not an equilibrium property at all.** On this fixture the same figure
+reads +0.136% at 800 iterations, +2.042% at 3200, and +0.102% at convergence. The number I
+gave was an unconverged transient that happened to be sampled at 6000 iterations. The honest
+statement is that the loaded extension at equilibrium is about 0.1%, and it largely recovers.
+
+Consequence recorded and deliberately NOT patched: `test_drape`'s `< 4%` intrinsic-height
+tolerance — which I wrote — bounds that transient, and would fail on nothing but running the
+solver longer.
+
+### Item 3 — under-convergence, and it costs more of the calibration than I claimed
+
+At 400 iterations the tip drop is **constant across a 2.3× overhang range** (0.680→0.730mm,
+identical to four decimal places for the three longest). The falling tip angle I reported is
+`atan(const/reach)` — arithmetic, not stiffness. Per-iteration progress is overhang-
+independent by construction; the clearance cap is **not** the limit (0.101mm cap against a
+3.1e-3mm largest step, zero retries). Tip drop becomes monotonic in overhang at 1600
+iterations and tip angle at 6400. **None of 25 runs converged.**
+
+Two further instrumental causes: the angle's denominator was NOMINAL overhang rather than
+measured (free extent 16.06 vs nominal 17.27mm), now reported alongside with existing keys
+unchanged so no committed figure moves; and **a five-row swatch cannot form a short
+cantilever** — the shortest overhang frees one row plus its turning chain, and a one-row
+specimen is not a beam.
+
+**CORRECTION, and this is the commercially relevant one.** I told the owner that B landing at
+1.45× the free-fibre floor was "a cross-check it was not fitted to". That claim is materially
+weaker than I made it sound. Inverted bending length spans **2.00× across overhang at 6400
+iterations, 3.02× at 400, and 2.09× for one unchanged fabric across the iteration range**
+(76.69 → 36.75mm at the longest overhang). The 34.6mm target is producible at four different
+overhangs depending on iteration count, so **`CALIBRATED_BENDING_N_M2` was set as much by run
+configuration as by the target.** Every column is still falling at 6400, so a convergent
+calibration would demand a LARGER B.
+
+The department did not change the constant, which is right: that would be acting on an
+extrapolation. Incidental: the calibration procedure exists only as prose — **no code or test
+re-derives it.**
+
+### One of the department's own new checks failed, and the instrument was right
+
+It asserted `within_row_fraction > 0.3` against a fixture whose arithmetic gives exactly
+0.235006. Diagnosed before touching either: the metric was correct and the threshold invented.
+Replaced with the two fixtures the construction pins exactly — row-only displacement scores 0,
+across-row-only scores 1.
+
+### Net position
+
+**This increment made the calibration less certain, not more. That is the real result**, and
+it is worth more than a confident number would have been. The recommended next step is
+instrumental, needs no Stage 0, and is not Stage 1: converge the cantilever inversion and
+re-derive B in code with a test stating its conditions; use a larger swatch for cantilever
+work; state a converged iteration count per quantity.
