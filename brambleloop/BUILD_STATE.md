@@ -8781,3 +8781,127 @@ the property it tests is unchanged.
   lands, the fibre statement names the fibre the pattern was *written for* and says so.
 - **OWNER ACTION, unchanged:** authorise the Etsy app once in a browser. 15 minutes, CA$0, no
   fee. Detail in `research/ETSY_TRANSPORT.md` §5.1.
+
+## 2026-09-25 — Wave 4: three lanes integrated, and the coordinator was calling failures clean
+
+Lanes E, C and B merged and re-verified; A (tensile linkage) and D (chart/legend) still running.
+Boundaries clean on all three, secret scans clean, CA$0 spent by every lane.
+
+### The coordinator was reporting failed jobs as COMPLETE
+
+`board.py` decided the exit code by **pattern identity**: `code = int(...) if end.re is _EXIT
+else 0` — an `is` test on a compiled regex object. So **every job told about its own sentinel
+convention reported exit code 0 and read COMPLETE however it exited.** `SUITE EXIT 1` was a clean
+pass. I reproduced it independently before merging: a job exiting 1 under its own sentinel read
+`complete`, `exit_code 0`. A failing job reading COMPLETE is the worst answer that module can
+give, and it was in the module built to stop verdicts being computed from absent evidence.
+
+Also found there: **"it is in the branch" was erasing "its suite failed"** — integration became
+the headline and overwrote the evidence state. `evidence_state` now travels beside `state`, so
+merged work whose suite failed stays in `needs_attention`.
+
+### Lane E — the night is durable now
+
+`ops/registry.py` plus `ops/JOBS.json`: identity, lane, evidence **location**, the job's own
+sentinel **convention** (not cosmetic — `NO_SENTINEL` exists because a job can finish under a
+convention the reader was not told about), process marker, container identity at enrolment, git
+coordinates, and acknowledgement. **No state, status or verdict is persisted** — a stored verdict
+is a watcher's state, which is the one thing the rule forbids — and a test asserts the file
+contains no such key.
+
+Two states only a durable record can express, both computed: `INTERRUPTED` (recorded container
+differs **and** no sentinel — which also closes the self-match defect in its restart form, where a
+new job carrying the same marker would have made the old one read RUNNING) and `EVIDENCE_LOST`
+(the recorded log is gone across a restart — not MISSING, and emphatically not COMPLETE).
+`INTEGRATED` is `git merge-base --is-ancestor`, re-asked every read, with a recorded commit
+outranking the branch tip because a squash leaves the lane's own commits unreachable; a branch
+reset after the merge reports `INTEGRATION_UNVERIFIED` rather than continuing to assert
+INTEGRATED. Where integration cannot be computed it says `unknown`, **not** not-integrated.
+
+The restart regression test demands the survey from a genuinely fresh interpreter with one lane's
+log deleted, and it fails against this morning's code: `ModuleNotFoundError` — there was nothing
+durable to import. 21 existing checks untouched, 65 new.
+
+### Lane C — the one authenticated round trip is prepared, and a fake run promotes nothing
+
+Eight ordered steps with a sweep at step 0 that deletes any draft a previous run stranded, which
+is what makes it safe to attempt twice. **50 failure signatures** across 7 steps — ENVIRONMENT 18,
+ETSY_CONTRACT_DRIFT 12, OUR_BUG 12, CONFIRMED 8 — each naming the single change that follows. No
+entry says "investigate", and a test asserts that.
+
+The signature that justifies the whole exercise: a comma-joined tag list Etsy misreads returns
+**201, and Etsy holds one tag containing a comma**. No status code anywhere says anything is
+wrong; only the read-back sees it.
+
+Three states are kept apart in the code, in `gaps()` and in the report:
+`verification_matrix()` **refuses** to emit VERIFIED_AGAINST_ETSY for a claim with no recorded
+observation, and promotion requires both that requests went to `openapi.etsy.com` **and** that the
+confirming signature fired — **so a perfect run against the fake promotes nothing, and that is a
+test rather than a convention.** Today: 4 IMPLEMENTED, 4 LOCALLY_TESTED, 4 VERIFIED_AGAINST_ETSY,
+and the four verified are exactly the four unauthenticated ping facts, none about a write.
+
+Secrets are scrubbed by field name and by value, seeded with the credentials the process holds,
+fingerprinted the way the reprs already were — proved by a test where the fake echoes the
+`Authorization` header back inside an error body.
+
+### Lane B — no Visual call gets a special exemption
+
+Seven provider calls across five modules each wrote a ledger row naming an agent and **none told
+the pre-call guard which agent it was**; four of the five never called `check_budget` at all. All
+seven now check and release through the one durable mechanism.
+
+**A defect Lane B's own change would have introduced, caught before it landed:** `BudgetExceeded`
+is a `PermanentError`, and `tournament.generate_candidates` already caught `PermanentError` per
+candidate and continued — so adding the guard would have recorded a ceiling refusal as *that
+candidate screened badly* and rendered the next one, paying for an image to ask a question the
+budget had already refused. In `stress_test` it was worse: a finalist would have been
+**disqualified because the budget ran out**, on the run that decides the brand's permanent
+identity. Both now stop and report `stopped_by`, and a run with no judged scene floors at
+`unverifiable` rather than `fail`.
+
+**Measured, not asserted:** an AST scan of every module in `src/` — 15 provider call sites, 13
+guarded, the 2 exceptions pinned by exact equality in both directions. And the bigger finding:
+**image generation is outside the mechanism entirely.** 11 call sites in 9 functions, none passing
+through `check_budget` and **none able to** — it prices per token against `PRICES_USD_PER_MTOK`
+while an image is priced per image, and three image models are not in that table at all. Pinned,
+with an assertion that those keys are still unpriced, so the day someone prices them the test says
+to re-read the finding.
+
+`Material.fibre_content` is built: closed vocabulary, whole percents summing to 100, normalised
+descending **because `CIR.fingerprint` hashes `to_dict` and is the pipeline's idempotency key**, so
+declaration order would give one design two fingerprints. The reverse compiler has its **own**
+grammar per decision B-005 and reads back a hand-retyped line; `compare()` raises on a document
+that lost the composition, invented one, or attached it to the wrong yarn. **The eleven Launch-0
+CIRs get no values** — generic yarn descriptions with no ball band state no composition, so
+nothing is recorded, and empty means "not stated" rather than "no fibre concerns".
+
+### One value, two clocks — found by a check that expired
+
+`check_budget` threads `now` into a reservation's expiry; `release_reservation` could not take one
+and read the wall clock. A caller reasoning about a fixed instant wrote a reservation at that
+instant and released it against a different one, and `release` correctly answered False. Green in
+the configuration everybody runs, wrong in the one that reasons about time — and invisible until
+the frozen date drifted past the 300-second TTL, which is how it surfaced today. **Both lanes
+found it independently and diagnosed it identically.** Fixed in the code; the check now freezes
+both halves. A scan of `finance.reservations` and the gateway confirms no asymmetric pair is left.
+
+### My own dispatch error, corrected
+
+My Wave-4 brief named `brand/bible.py` where Reliability II had named `visual/bible.py`. Verified:
+`brand/bible.py` contains no provider call and no ledger write; `visual/bible.py` has the hole.
+Lane B was right to treat it as in scope, and Lane D has been told `brand/bible.py` is not fenced
+off after all — which lets it close its palette-duplication defect properly instead of handing the
+diff to somebody else.
+
+### `gates/first_customer.py` — built by the integrator
+
+Nine areas, four states, and it never authorises publication. Detail in DECISION_LOG. It found a
+first-customer blocker nothing had named: **`fulfilment_and_download` FAILs for every Launch-0
+variant** because `ArtifactStore.durable` is False in a container — a paid download that can
+resolve to nothing, which to a buyer looks like theft rather than a mistake.
+
+### Recorded, not fixed
+
+`test_deploy::test_scheduler_tick_endpoint_is_idempotent_within_a_window` failed **in-suite** under
+four concurrent lanes ("the readiness job never ran") and passes in isolation, 32 of 32. It did not
+reproduce in this morning's clean run. Load-dependent, not diagnosed, and not papered over.
