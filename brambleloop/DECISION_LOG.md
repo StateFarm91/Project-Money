@@ -813,3 +813,58 @@ Current reading, 5 variants: `final_pdf`, `terminology`, `counts_and_constructio
 `gauge_and_size_claims` UNRESOLVED; `listing_claims` and `imagery` UNVERIFIABLE (nothing built
 yet); `etsy_remote_state` UNVERIFIABLE; `fulfilment_and_download` FAIL. **Nothing is ready for
 owner review, and nothing pretends to be.**
+
+## 2026-09-25 — Build 2 five-lane wave + cloud pilot
+
+**D-W5-1. The refresh-path redaction lands before the exercise endpoint can be called, in the
+same tree.** Lane E's leak was unreachable only because nothing had ever made an authenticated
+Etsy call; Lane A's endpoint drives `rotations` 0 -> 3 on its first full run. Sequencing these
+across two deploys would have meant a window in which the trigger existed and the fix did not.
+Neither is deployed yet, so they arrive together. Reasoning: a leak whose only blocker is "the
+feature that triggers it does not exist yet" stops being theoretical the moment that feature
+merges, and the merge is ours to time.
+
+**D-W5-2. Redaction is applied where the exception message is built, not at each caller, and is
+seeded from the form's secret-named fields only.** Seeding from `form.values()` would register
+`grant_type`'s value ("refresh_token") as a secret and fingerprint that word throughout the
+message. Per-caller redaction would depend on every future raiser remembering.
+
+**D-W5-3. `SCOPES_WANTED` is widened with `transactions_r` BEFORE the owner re-authorises.**
+Verified first that nothing hard-fails on a wanted-but-ungranted scope: `TokenProvider.access`
+refuses per operation out of `SCOPES_REQUIRED`, nothing calls a receipt operation, and `finish`
+reports the shortfall as `scopes_not_granted`. So the effect until re-authorisation is that the
+gap is DISCLOSED rather than that anything breaks. The alternative -- widening at the moment of
+re-authorisation -- would have meant the owner re-approving the same five scopes and believing
+the order path was fixed.
+
+**D-W5-4. `check_terminology` READS `pdf`'s key-completeness verdict rather than re-deriving
+it.** Re-deriving is what made it vacuous in the first place: the key came from the same string
+being checked. The honest measurement needs the key the document actually printed, which is in
+scope in `pdf` and not in the gate. A second implementation would be one value in two places,
+which is the sibling defect. The guard -- empty prose reads UNVERIFIABLE, not PASS -- exists
+because `pdf`'s check also finds nothing in an empty string, and silence must not read as clean.
+
+**D-W5-5. `finishing_lines` branches on NOT-DISC rather than on a list of the solid shapes.**
+The classifier answers disc / tube / cone / dome / vessel / shaped / gathered. Enumerating the
+six solid ones means a seventh added later silently inherits "leave it to dry flat" -- a new
+shape defaulting to the one wording that destroys the object. Inverted, an unrecognised shape
+defaults to safe. A flat piece produces no revolution at all, so the flat wording is preserved
+by an empty measurement rather than by an enumeration.
+
+**D-W5-6. Cloud sessions are not enrolled on the operator board, and are accepted only on a
+pushed branch.** `ops/board.py` decides liveness from `/proc`, which is machine-local by
+construction, so the board cannot see a cloud container. Recording one as a board job would be
+a check that cannot see the thing it exists to measure. This follows the standing coordinator
+rule: completion comes from the job's own terminal evidence, never from a watcher's state. For
+a cloud session that evidence is a pushed branch, observable from any container.
+
+**D-W5-7. Lane C's finding #5 is downgraded from class A to class B, with the measurement.**
+It reported that two of three Launch-0 products have no CIR route because
+`_engineered_cir("nursery-nesting-baskets")` returns None. Launch-0 does not build through
+`_engineered_cir`; it builds through `launch0.BUILDERS`, and all six variant builders were run
+and resolve to real CIRs. The genuine defect is that the same products are keyed
+`market-basket-trio` / `hexie-coaster-set` in `ENGINEERED` and
+`nursery-nesting-baskets` / `hexagon-coaster-set` in Launch-0. Recorded rather than fixed in
+this wave: renaming a registry key touches the radar, the portfolio and the product row, which
+is a merchandising decision and not an integration one. Per the finish-line rule, an
+improvement that remains possible is not made into a launch prerequisite.
