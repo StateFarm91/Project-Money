@@ -28,6 +28,53 @@ LISTING_RENEWAL_MONTHS = 4      # a listing runs four months before it renews
 MIN_PRICE_CAD = 3.00
 
 
+# ---------------------------------------------------------------------------
+# The fees this model does not include
+# ---------------------------------------------------------------------------
+#
+# Added 2026-09-25 by the Etsy surface registry work, which found the reason they cannot
+# simply be added: `intel/etsy_surfaces.py` records that the string "offsite" appears **zero**
+# times in Etsy's published OpenAPI document -- not as an endpoint, not as a setting, and not
+# as a fee line on a receipt, a payment or a ledger entry. So the largest fee this shop may
+# pay is one that cannot be read back from a settlement, and Etsy's own fee schedule at
+# etsy.com/legal/fees is HTTP 403 to every automated request from this environment.
+#
+# The wrong fix is to pick a rate off a third-party blog and fold it into TRANSACTION_FEE.
+# That would turn a figure nobody has verified into a figure that looks measured, and every
+# number downstream would inherit the confidence without the evidence. The right fix is to
+# make the incompleteness travel with the answer: `fees()` is unchanged and still returns the
+# modelled fees, `worst_case_fees()` shows what the same price looks like if the secondary
+# rates are right, and `FeeBreakdown.to_dict` carries the names of what is missing so no
+# consumer of this module can quote a take rate as complete.
+
+#: (key, what it is, basis, rate if the secondary source is right, when it applies)
+UNMODELLED_FEES: tuple[tuple[str, str, str, float, str], ...] = (
+    ("offsite_ads",
+     "Etsy's fee on an order it attributes to an advert it placed off Etsy",
+     "SECONDARY -- third-party reports of 12% or 15%; etsy.com/legal/fees is 403 from here",
+     0.15,
+     "only on attributed orders, and reportedly compulsory below a revenue threshold"),
+    ("regulatory_operating_fee",
+     "a country-specific operating fee Etsy charges in some jurisdictions",
+     "SECONDARY and contested -- some third-party sources report ~1.15% for Canada and "
+     "others report none",
+     0.0115,
+     "every order, if Canada carries it at all"),
+    ("currency_conversion",
+     "Etsy's conversion charge when the buyer pays in a currency other than the shop's",
+     "SECONDARY -- commonly reported at 2.5%; unreadable from here",
+     0.025,
+     "orders paid in a currency other than CAD, which for an international pattern shop is "
+     "most of them"),
+)
+
+#: The single worst case: every unmodelled fee applying at its reported rate at once. It is
+#: not a forecast and must never be quoted as one -- offsite attribution and currency
+#: conversion will not both apply to every order. It is the floor's floor: if the price
+#: survives this, no fee surprise can take it under water.
+WORST_CASE_EXTRA_RATE = round(sum(rate for _k, _w, _b, rate, _when in UNMODELLED_FEES), 4)
+
+
 @dataclass(frozen=True)
 class FeeBreakdown:
     price_cad: float
@@ -47,12 +94,23 @@ class FeeBreakdown:
     def take_rate(self) -> float:
         return round(self.total_fees / self.price_cad, 4) if self.price_cad else 0.0
 
+    @property
+    def unmodelled(self) -> tuple[str, ...]:
+        """The fees this breakdown does not contain, by name.
+
+        Carried on the object rather than written in a comment, because a take rate quoted
+        without it reads as the whole cost of selling and is not.
+        """
+        return tuple(k for k, _w, _b, _r, _when in UNMODELLED_FEES)
+
     def to_dict(self) -> dict:
         return {"price_cad": self.price_cad, "transaction_fee": round(self.transaction_fee, 4),
                 "payment_fee": round(self.payment_fee, 4),
                 "listing_amortised": round(self.listing_amortised, 4),
                 "total_fees": self.total_fees, "net_cad": self.net_cad,
-                "take_rate": self.take_rate}
+                "take_rate": self.take_rate,
+                "unmodelled_fees": list(self.unmodelled),
+                "take_rate_is_a_floor": True}
 
 
 def fees(price_cad: float, expected_sales_per_listing_period: float = 10.0) -> FeeBreakdown:
@@ -69,6 +127,35 @@ def fees(price_cad: float, expected_sales_per_listing_period: float = 10.0) -> F
         payment_fee=price_cad * PAYMENT_PERCENT + PAYMENT_FLAT_CAD,
         listing_amortised=LISTING_FEE_CAD / n,
     )
+
+
+def worst_case_fees(price_cad: float,
+                    expected_sales_per_listing_period: float = 10.0) -> dict:
+    """The same price with every unmodelled fee applied at its reported rate.
+
+    Returns a dict rather than a `FeeBreakdown` deliberately: a second FeeBreakdown would be
+    passed around and eventually quoted as *the* fee model, and these rates are secondary and
+    contested. A dict with `basis` on every line resists that.
+    """
+    modelled = fees(price_cad, expected_sales_per_listing_period)
+    extras = [{"key": key, "what": what, "basis": basis, "rate": rate,
+               "applies_when": when, "amount_cad": round(price_cad * rate, 4)}
+              for key, what, basis, rate, when in UNMODELLED_FEES]
+    extra_total = round(sum(e["amount_cad"] for e in extras), 4)
+    total = round(modelled.total_fees + extra_total, 4)
+    return {
+        "price_cad": round(price_cad, 2),
+        "modelled": modelled.to_dict(),
+        "unmodelled": extras,
+        "unmodelled_total_cad": extra_total,
+        "worst_case_total_fees_cad": total,
+        "worst_case_net_cad": round(price_cad - total, 4),
+        "worst_case_take_rate": round(total / price_cad, 4) if price_cad else 0.0,
+        "note": "Not a forecast. Offsite attribution and currency conversion will not both "
+                "apply to every order. This is the answer to 'what if every uncertain fee "
+                "is real at once', and it is the only figure here that cannot be an "
+                "understatement.",
+    }
 
 
 @dataclass
@@ -155,6 +242,23 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
     if f.net_cad < 1.0:
         warnings.append(f"net CA${f.net_cad:.2f} per sale after fees: this SKU earns its "
                         f"place through reviews and cross-sell, not margin")
+
+    # The take rate above is a floor, not the cost of selling. Etsy publishes no API for
+    # Offsite Ads -- the word does not appear once in its OpenAPI document, not even as a fee
+    # line -- so the largest charge this shop may face cannot be read back from a settlement
+    # and cannot be ceilinged in code. The only defence software has is a price that survives
+    # it, so the decision says out loud what the worst case does to the margin.
+    worst = worst_case_fees(price, expected_sales)
+    warnings.append(
+        f"take rate {f.take_rate:.1%} excludes {', '.join(f.unmodelled)}; if all three apply "
+        f"at their reported rates the take rate is {worst['worst_case_take_rate']:.1%} and "
+        f"the net is CA${worst['worst_case_net_cad']:.2f}. Those rates are SECONDARY -- "
+        f"etsy.com/legal/fees is 403 to automated readers")
+    if worst["worst_case_net_cad"] < 0:
+        warnings.append(
+            f"CA${price:.2f} does not survive the worst-case fee stack at all "
+            f"(net CA${worst['worst_case_net_cad']:.2f}): an attributed order at this price "
+            f"would cost money to fulfil")
     return PriceDecision(slug=slug, price_cad=round(price, 2), floor_cad=round(lo, 2),
                          ceiling_cad=round(hi, 2), net_cad=f.net_cad, take_rate=f.take_rate,
                          reasons=reasons, warnings=warnings)
