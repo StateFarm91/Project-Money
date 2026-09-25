@@ -145,5 +145,62 @@ with TemporaryDirectory() as tmp:
     check("an output with no result and no sentinel and no process is still STALLED",
           B.read(truncated, table=[])["state"] == B.STALLED)
 
+
+# --- REGRESSION 3: a log that exists and cannot be read ----------------------------------
+# `read` used to call `read_text` bare, so a log path that exists and refuses its bytes -- a
+# directory where a file should be, a permission the container lost -- raised out of `read`,
+# out of `board`, and out of `registry.survey`. That is not one lane's problem: it is every
+# lane's, because it destroys the one call that answers for all of them while their finished
+# evidence sits on disk. Evidence that exists and goes unread is the whole defect family.
+with TemporaryDirectory() as tmp:
+    unreadable = Path(tmp) / "wedged.log"
+    unreadable.mkdir()
+    j = B.Job(name="wedged", log=unreadable, result=RESULT, marker="lane-wedged")
+    r = B.read(j, table=[])
+    check("a log whose bytes cannot be read is EVIDENCE_UNREADABLE, not an exception",
+          r["state"] == B.EVIDENCE_UNREADABLE, str(r))
+    check("and not MISSING, because writing nothing and refusing to be read differ",
+          r["state"] != B.MISSING and "having written nothing" in r["why"], str(r))
+
+    finished = _job(tmp, "TOTAL PASSING: 3469 ; suites failing: 0\nEXIT 0\n", name="ok")
+    out = B.board([j, finished], now=os.stat(finished.log).st_mtime + 47 * 60, table=[])
+    check("one unreadable lane does not stop the board answering about the others",
+          {x["job"] for x in out["rows"]} == {"wedged", "ok"}, str(out["rows"]))
+    check("the finished lane is still surfaced as finished-and-unread beside it",
+          "ok" in [x["job"] for x in out["needs_attention"]], str(out["needs_attention"]))
+    check("the unreadable lane is surfaced and is not refillable",
+          "wedged" in [x["job"] for x in out["needs_attention"]]
+          and "wedged" not in out["refillable"], str(out["refillable"]))
+
+
+# --- REGRESSION 4: the age of a completion was the filesystem's opinion -------------------
+# COMPLETE_UNREPORTED is regression 2 named as a state, and it fired on the log's mtime.
+# An mtime is not something the job wrote: a copied, restored or relocated log carries a
+# fresh one, so a suite that finished 47 minutes ago reads COMPLETE and silently leaves
+# `needs_attention`. The age now comes from a stamp the job wrote when one exists, and every
+# finished row says which of the two it used.
+with TemporaryDirectory() as tmp:
+    stopped = time.time() - 47 * 60
+    body = (f"TOTAL PASSING: 3469 ; suites failing: 0\nFINISHED AT {stopped:.0f}\nEXIT 0\n")
+    stamp = re.compile(r"FINISHED AT (\S+)")
+
+    copied = _job(tmp, body, name="copied")               # mtime is now, by construction
+    check("a copied log with no stamp reads COMPLETE: the 47 minutes are invisible",
+          B.read(copied, table=[])["state"] == B.COMPLETE)
+    check("and the row discloses that the age is the filesystem's",
+          B.read(copied, table=[])["age_source"] == "mtime")
+
+    told = B.Job(name="copied", log=copied.log, result=RESULT, marker="x", finished=stamp)
+    r = B.read(told, table=[])
+    check("with the job's own stamp the same bytes read COMPLETE_UNREPORTED",
+          r["state"] == B.COMPLETE_UNREPORTED, str(r))
+    check("and the age is the job's, not the filesystem's",
+          r["age_source"] == "job" and r["age_s"] >= 47 * 60 - 5, str(r))
+    check("an ISO 8601 stamp is read too, not only epoch seconds",
+          B._stamp("2026-09-25T17:24:00Z") == B._stamp("2026-09-25T17:24:00+00:00")
+          and B._stamp("2026-09-25T17:24:00Z") is not None)
+    check("a stamp that will not parse is refused rather than read as the epoch",
+          B._stamp("never") is None and B._stamp("") is None)
+
 print(f"\n  {PASSED} passing, {FAILED_N} failing")
 sys.exit(1 if FAILED_N else 0)

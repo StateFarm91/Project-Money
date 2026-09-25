@@ -132,10 +132,16 @@ FAILED = B.FAILED
 STALLED = B.STALLED
 NO_SENTINEL = B.NO_SENTINEL
 MISSING = B.MISSING
+EVIDENCE_UNREADABLE = B.EVIDENCE_UNREADABLE
 
 COMPLETE_REPORTED = "complete_reported"
 INTERRUPTED = "interrupted"
 EVIDENCE_LOST = "evidence_lost"
+# This lane's own row could not be turned into a verdict at all -- a corrupt record, a
+# pattern that no longer compiles, a git call that threw. It is a state rather than an
+# exception because an exception here is not one lane's problem: it is every lane's, since
+# it comes out of `survey` and takes the whole board with it. See `_row_or_refusal`.
+UNREADABLE_RECORD = "unreadable_record"
 INTEGRATED = "integrated"
 INTEGRATION_UNVERIFIED = "integration_unverified"
 UNENROLLED = "unenrolled"
@@ -148,7 +154,8 @@ INTEGRATION_CONTRADICTED = "contradicted"
 INTEGRATION_NOT_RECORDED = "not_recorded"
 
 _ATTENTION = (COMPLETE_UNREPORTED, FAILED, STALLED, NO_SENTINEL, INTERRUPTED,
-              EVIDENCE_LOST, INTEGRATION_UNVERIFIED)
+              EVIDENCE_LOST, EVIDENCE_UNREADABLE, UNREADABLE_RECORD,
+              INTEGRATION_UNVERIFIED)
 _REFILLABLE = (COMPLETE, COMPLETE_UNREPORTED, COMPLETE_REPORTED, INTEGRATED)
 
 
@@ -332,6 +339,11 @@ class Registry:
             "terminal": job.terminal.pattern,
             "terminal_flags": int(job.terminal.flags),
             "result": job.result.pattern if job.result is not None else None,
+            # The job's own stop-time convention, persisted for the same reason `terminal` is:
+            # a restarted process that fell back to "no stamp" would silently go back to
+            # reading the age off the filesystem, which is the thing `board.age_source`
+            # exists to stop being invisible.
+            "finished": job.finished.pattern if job.finished is not None else None,
             "marker": job.marker,
             "host": self._epoch(),
             "branch": branch if branch is not None else prior.get("branch"),
@@ -415,8 +427,9 @@ class Registry:
         terminal = re.compile(rec.get("terminal") or B._EXIT.pattern,
                               rec.get("terminal_flags", int(B._EXIT.flags)))
         result = re.compile(rec["result"]) if rec.get("result") else None
+        finished = re.compile(rec["finished"]) if rec.get("finished") else None
         return B.Job(name=rec["name"], log=Path(rec["log"]), terminal=terminal,
-                     result=result, marker=rec.get("marker", ""))
+                     result=result, marker=rec.get("marker", ""), finished=finished)
 
     def recall(self, name: str, *, now: float | None = None, table=None,
                epoch: dict | None = None) -> dict:
@@ -426,8 +439,8 @@ class Registry:
             return {"job": name, "state": UNENROLLED, "evidence": None,
                     "why": ("the registry has no record of this job, so nothing about it can "
                             "be established; it was never enrolled, or the registry was lost")}
-        return self._row(rec, now=now, table=table,
-                         epoch=self._epoch() if epoch is None else epoch)
+        return self._row_or_refusal(rec, now=now, table=table,
+                                    epoch=self._epoch() if epoch is None else epoch)
 
     def survey(self, *, now: float | None = None, table=None,
                epoch: dict | None = None) -> dict:
@@ -437,7 +450,7 @@ class Registry:
         """
         data = self.load()
         here = self._epoch() if epoch is None else epoch
-        rows = [self._row(r, now=now, table=table, epoch=here)
+        rows = [self._row_or_refusal(r, now=now, table=table, epoch=here)
                 for _, r in sorted(data["jobs"].items())]
         return {
             "rows": rows,
@@ -458,6 +471,40 @@ class Registry:
         }
 
     # -- the verdict ---------------------------------------------------------------------
+    def _row_or_refusal(self, rec: dict, *, now, table, epoch: dict) -> dict:
+        """One lane's verdict, or a named refusal -- never an exception out of `survey`.
+
+        THE REASON THIS WRAPPER EXISTS, because a bare try/except deserves an argument.
+
+        `survey`'s promise is that the caller does not have to remember what ran. That promise
+        is void if one lane can make the call raise: a corrupt record, a `terminal` pattern
+        that no longer compiles, a log path that is a directory, a git binary that is gone --
+        any one of them used to come out of `survey` as a traceback, and a traceback is not a
+        board. The operator then does what the integrator did on 2026-09-25: reconstructs the
+        night from `git log`, by hand, while the completed evidence of every OTHER lane sits
+        on disk unread. The one rule is not "compute a verdict from the job's own evidence
+        when nothing goes wrong"; a watcher that falls over is a watcher that forgets.
+
+        So a lane that cannot be read reports that, as itself, in the row where it belongs,
+        and the other lanes are answered. `UNREADABLE_RECORD` is in `_ATTENTION`, so it is
+        surfaced rather than swallowed, and it is never in `_REFILLABLE`.
+        """
+        try:
+            return self._row(rec, now=now, table=table, epoch=epoch)
+        except Exception as exc:                                   # noqa: BLE001
+            return {"job": str(rec.get("name") or "<unnamed>"),
+                    "lane": rec.get("lane", ""),
+                    "state": UNREADABLE_RECORD,
+                    "evidence": None,
+                    "evidence_state": UNREADABLE_RECORD,
+                    "evidence_path": rec.get("log"),
+                    "error": type(exc).__name__,
+                    "why": ("this lane's registry record could not be turned into a verdict "
+                            f"({type(exc).__name__}). Nothing about it is established -- it "
+                            "is not complete and it is not failed -- and it is reported here "
+                            "rather than raised so that every other lane still gets an "
+                            "answer")}
+
     def _row(self, rec: dict, *, now, table, epoch: dict) -> dict:
         now = now or time.time()
         job = self._job(rec)
@@ -534,7 +581,8 @@ class Registry:
 
         row = {**base, "state": state,
                "evidence": ev.get("evidence"), "exit_code": ev.get("exit_code"),
-               "age_s": ev.get("age_s"), "pids": ev.get("pids"), "why": ev["why"]}
+               "age_s": ev.get("age_s"), "age_source": ev.get("age_source"),
+               "pids": ev.get("pids"), "why": ev["why"]}
         return self._with_integration(row, integ)
 
     @staticmethod

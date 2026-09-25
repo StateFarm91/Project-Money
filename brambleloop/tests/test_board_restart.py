@@ -485,5 +485,123 @@ with TemporaryDirectory() as tmp:
     check("forgetting a lane it never had is not an error",
           reg.forget("never") is False)
 
+
+# --- THE PATH THAT WAS STILL OPEN: evidence that exists and goes unread -------------------
+#
+# The question the registry was checked against: is there any path by which a completed job's
+# authoritative evidence exists and goes unread? There was one, and it needed nobody to
+# forget anything. `board.read` did a bare `read_text` and `survey` had no guard around a
+# row, so a single lane whose log path could not be read raised out of the survey -- and the
+# survey is the one call that answers for EVERY lane. One broken log therefore buried the
+# finished suites whose results were sitting on disk, and handed the operator a traceback in
+# place of a board, which is the 2026-09-25 morning again: reconstruct the night by hand.
+with TemporaryDirectory() as tmp:
+    path = Path(tmp) / "JOBS.json"
+    reg = R.Registry(path, epoch=lambda: dict(BEFORE), git=R.git_at(tmp))
+
+    done = log(tmp, "done", "TOTAL PASSING: 3469 ; suites failing: 0\nEXIT 0\n",
+               age_s=47 * 60)
+    reg.enrol(B.Job(name="done", log=done, result=RESULT, marker="lane-done"), lane="A")
+
+    # A log path that exists and whose bytes cannot be read. A directory is the cheapest
+    # faithful version of that and needs no permission games to reproduce in CI.
+    broken = Path(tmp) / "broken.log"
+    broken.mkdir()
+    reg.enrol(B.Job(name="broken", log=broken, marker="lane-broken"), lane="B")
+
+    out = reg.survey(table=[], epoch=dict(BEFORE))
+    rows = {r["job"]: r for r in out["rows"]}
+
+    check("an unreadable log does not take the survey down with it",
+          set(rows) == {"broken", "done"}, str(sorted(rows)))
+    check("the finished lane's own evidence is still read and quoted",
+          rows["done"]["evidence"] == "TOTAL PASSING: 3469 ; suites failing: 0",
+          str(rows["done"]))
+    check("and it is still surfaced as finished-and-unreported",
+          rows["done"]["state"] == R.COMPLETE_UNREPORTED, str(rows["done"]))
+    check("the unreadable lane is named as unreadable, not complete and not missing",
+          rows["broken"]["state"] == R.EVIDENCE_UNREADABLE, str(rows["broken"]))
+    check("it says which fact is missing rather than inventing one",
+          "NOT complete" in rows["broken"]["why"], str(rows["broken"]))
+    check("it is pulled to attention",
+          "broken" in [r["job"] for r in out["needs_attention"]])
+    check("and it is never reported refillable, because nothing was established",
+          "broken" not in out["refillable"], str(out["refillable"]))
+
+# A record that cannot be turned into a verdict at all is the same defect one level up: it
+# has to be one lane's answer, not every lane's exception.
+with TemporaryDirectory() as tmp:
+    path = Path(tmp) / "JOBS.json"
+    reg = R.Registry(path, epoch=lambda: dict(BEFORE), git=R.git_at(tmp))
+    good = log(tmp, "good", "EXIT 0\n")
+    reg.enrol(B.Job(name="good", log=good, marker="lane-good"), lane="A")
+    reg.enrol(B.Job(name="poison", log=log(tmp, "poison", "EXIT 0\n")), lane="B")
+
+    data = json.loads(path.read_text())
+    # A sentinel convention that no longer compiles. Written by hand because that is how it
+    # would arrive: an edited registry, or a pattern from a build whose regex dialect moved.
+    data["jobs"]["poison"]["terminal"] = "EXIT (\\d+"
+    path.write_text(json.dumps(data))
+
+    out = reg.survey(table=[], epoch=dict(BEFORE))
+    rows = {r["job"]: r for r in out["rows"]}
+    check("a record that will not compile is one lane's refusal, not the board's",
+          rows.get("poison", {}).get("state") == R.UNREADABLE_RECORD, str(rows.get("poison")))
+    check("and the lane beside it is still answered from its own evidence",
+          rows["good"]["state"] in (R.COMPLETE, R.COMPLETE_UNREPORTED), str(rows["good"]))
+    check("the unreadable record is surfaced and is not refillable",
+          "poison" in [r["job"] for r in out["needs_attention"]]
+          and "poison" not in out["refillable"], str(out["refillable"]))
+    check("recall of that one lane refuses in the same words rather than raising",
+          reg.recall("poison", table=[], epoch=dict(BEFORE))["state"] == R.UNREADABLE_RECORD)
+
+
+# --- the age of a completion was the filesystem's opinion, not the job's ------------------
+#
+# COMPLETE_UNREPORTED is the 47-minute failure, named. It fired on `now - log.stat().st_mtime`
+# -- and an mtime is not evidence the job wrote. Copy the log, restore it from an archive,
+# move one into place or touch it, and a lane that finished an hour ago reads COMPLETE, drops
+# out of `needs_attention`, and goes unread for exactly the reason the state exists.
+STAMP = re.compile(r"FINISHED AT (\S+)")
+
+with TemporaryDirectory() as tmp:
+    path = Path(tmp) / "JOBS.json"
+    reg = R.Registry(path, epoch=lambda: dict(BEFORE), git=R.git_at(tmp))
+
+    stopped = time.time() - 47 * 60
+    body = ("TOTAL PASSING: 3469 ; suites failing: 0\n"
+            f"FINISHED AT {stopped:.0f}\nEXIT 0\n")
+
+    # The suite stopped 47 minutes ago and its log was then COPIED, so the mtime is now and
+    # only the job's own stamp still knows when it stopped.
+    copied = log(tmp, "copied", body)
+    reg.enrol(B.Job(name="copied", log=copied, result=RESULT, marker="lane-copied"),
+              lane="A")
+    without = reg.recall("copied", table=[], epoch=dict(BEFORE))
+    check("with no stamp the age is the mtime's, and the copied log reads merely COMPLETE",
+          without["state"] == R.COMPLETE and without["age_source"] == "mtime", str(without))
+
+    reg.enrol(B.Job(name="copied", log=copied, result=RESULT, marker="lane-copied",
+                    finished=STAMP), lane="A")
+    stamped = reg.recall("copied", table=[], epoch=dict(BEFORE))
+    check("with the job's own stamp the same log is COMPLETE_UNREPORTED again",
+          stamped["state"] == R.COMPLETE_UNREPORTED, str(stamped))
+    check("and the row says the age came from the job rather than from the filesystem",
+          stamped["age_source"] == "job" and stamped["age_s"] >= 47 * 60 - 5, str(stamped))
+    check("the stamp convention survives the restart with the job, as the sentinel does",
+          json.loads(path.read_text())["jobs"]["copied"]["finished"] == STAMP.pattern)
+    check("a stamped lane is surfaced by a survey that was handed no job list",
+          "copied" in [r["job"] for r in
+                       reg.survey(table=[], epoch=dict(BEFORE))["needs_attention"]])
+
+    # An unparseable stamp must fall back and SAY it fell back, not silently become 1970.
+    junk = log(tmp, "junk", "TOTAL PASSING: 1 ; suites failing: 0\n"
+                            "FINISHED AT never\nEXIT 0\n")
+    reg.enrol(B.Job(name="junk", log=junk, result=RESULT, finished=STAMP), lane="A")
+    row = reg.recall("junk", table=[], epoch=dict(BEFORE))
+    check("a stamp that will not parse falls back to the mtime and discloses it",
+          row["age_source"] == "mtime" and row["state"] == R.COMPLETE, str(row))
+
+
 print(f"\n  {PASSED} passing, {FAILED_N} failing")
 sys.exit(1 if FAILED_N else 0)
