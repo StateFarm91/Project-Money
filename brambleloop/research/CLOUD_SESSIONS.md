@@ -60,11 +60,21 @@ diff.
 Everything still merges through the single coordinator queue. A cloud branch is merged by me, after
 its blast-radius suite runs on the integrated tree. Cloud work does not gain deployment authority.
 
-### Spend accounting — SEPARATE POOL
-Cloud sessions draw on the $250 promotional cloud credit, not on the constrained interactive weekly
-allowance, and not on the CA$20/month recurring infrastructure ceiling (they are not infrastructure;
-nothing recurring is provisioned). So cloud work does relieve the interactive constraint, which was
-the owner's actual question.
+### Spend accounting — PARTLY UNKNOWN, and I corrected myself here
+Cloud sessions do **not** touch the CA$20/month recurring infrastructure ceiling: nothing recurring
+is provisioned, the container is ephemeral. That part is certain.
+
+Whether they relieve the constrained interactive weekly allowance — the owner's actual question — is
+**UNKNOWN**, and I initially asserted otherwise without evidence. The dispatched pilot's own session
+record reports `rateLimitType: "seven_day"` with `status: "allowed_warning"`, which is the same
+seven-day account limit the interactive session is constrained by. That is evidence *against* a
+clean separate pool, though it does not by itself prove the $250 promotional credit fails to offset
+the usage.
+
+Treating this as settled would be a verdict computed from absence of evidence. It is not settled.
+Until it is, the honest position is: cloud sessions add *parallelism* (work proceeds in another
+container while this one works) but may **not** add *quota*. The pilot itself is the cheapest way to
+observe which, since its consumption is attributable to one bounded task.
 
 ## The class of work cloud sessions can take
 
