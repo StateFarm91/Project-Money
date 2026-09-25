@@ -48,19 +48,22 @@ launch actually is.
 
 ## DEPARTMENTS
 
-| department | active task | READY backlog | blocker | launch-critical | worktree | spend | integration |
-|---|---|---|---|---|---|---|---|
-| **Visual** | Research only: yarn sliding / material coordinates | 4 (#72,#75,#130,#202) | owner-level architecture decision on yarn slip | **YES** — critical path | main branch | CA$0 | owns `visual/**`+`cir/**` exclusively |
-| **SEO / Marketplace Research** | Children's category, safety/regulatory reality, Etsy taxonomy | new, not in registry | none | opens a product direction | isolated | CA$0 | awaiting first report |
-| **Pattern / PDF / Deliverable QA** | Audit the customer's PDF end to end, ranked by customer harm | new, not in registry | may need CIR coordination | **YES** — it is the product | isolated | CA$0 | awaiting first report |
-| **Etsy / Commerce** | Shop config package, digital-goods policy, listing schema, CA jurisdiction | new, not in registry | Etsy account owner-gated | **YES** — launch-day failure if schema short | isolated | CA$0 | awaiting first report |
-| **Reliability / Cost Governance** | Observability audit, concurrent-spend races, failure paths | new, not in registry | deploys reserved to integrator | protects everything else | isolated | CA$0 | awaiting first report |
-| **Catalogue / Product Planning** | NOT DISPATCHED | — | needs the children's research first | indirect | — | — | would duplicate SEO |
-| **Customer Experience** | NOT DISPATCHED | — | overlaps shop package file set | indirect | — | — | folded into Etsy/Commerce |
-| **Analytics / Learning** | NOT DISPATCHED | 0 genuinely ready | infra built; rest needs real customers | no | — | — | dispatching would manufacture completion |
+Wave 2 as authorised closed on 2026-09-25: **all four business lanes returned, were reviewed,
+merged and re-verified, and the suite is green at 3,647 with 0 failing.** Wave 3 was dispatched
+the same day rather than leaving a ready lane idle.
 
-Three departments the owner listed are deliberately not running, on the owner's own rule
-against agents that exist to look busy.
+| department | active task | blocker | launch-critical | worktree | spend | state |
+|---|---|---|---|---|---|---|
+| **Visual** | Wave 3: Kaldor-2010 plastic rest-state migration, corrected recovery experiment, ASTM convergence and a re-derived B | Stage 0 DEFERRED by owner D7; Stage 1 not to begin on knit analogy alone | **YES** — critical path | isolated | CA$0 | RUNNING |
+| **Children's Safety Deliverable** | Wave 3: render the required statement set in the customer document and gate it | fibre content is not a CIR field; may return a specified CIR change rather than make one | **YES** — the last deliverable gap on two of three Launch-0 products | isolated | CA$0 | RUNNING |
+| **Etsy / Commerce** | Wave 2 complete: transport closed, `image` part-name defect found, `updateListing` has no price | **OWNER ACTION**: one browser OAuth, 15 min, CA$0 | **YES** | merged | CA$0 | MERGED 48d1be5 |
+| **Pattern / PDF / Deliverable QA** | Wave 2 complete: both terminologies ship; UK gauge and UK method were wrong; licence had a fourth copy in the PDF | none | **YES** — it is the product | merged | CA$0 | MERGED 07c07aa |
+| **Reliability / Cost Governance** | Wave 2 complete: cadence derived from the ceiling, per-agent permissions, durable reservations, retention | needs the deploy for one additive table | protects everything else | merged | CA$0 | MERGED (this branch) |
+| **Catalogue / Product Planning** | NOT DISPATCHED | would collide with the children's lane in `products/launch0.py` | indirect | — | — | held |
+| **Analytics / Learning** | NOT DISPATCHED | 0 genuinely ready; the rest needs real customers | no | — | — | dispatching would manufacture completion |
+
+Two departments the owner listed are deliberately not running, on the owner's own rule against
+agents that exist to look busy. Customer Experience stays folded into Etsy/Commerce.
 
 ---
 
@@ -122,3 +125,37 @@ Two items closed honestly as NEGATIVE results:
    this iteration count. Every bending length quoted so far therefore rests on the
    small-deflection inversion, which is now named as an approximation rather than relied on
    silently.
+
+
+---
+
+## WHAT THE INTEGRATOR FIXED DIRECTLY, 2026-09-25
+
+Three defects of the recurring family, each found while verifying somebody else's work:
+
+1. **Make-time could not see `Component.make`.** A set of four coasters reported the make-time
+   of one. Two separate corrections existed and both were wrong — `launch0.make_time`
+   multiplied the FIRST component's twin by the total piece count, and
+   `calibrate_from_samples`, the only route from assumed to *measured*, did not correct at all.
+   The count is now required and cannot be defaulted.
+2. **The claim checks never read the designer notes.** "No long floats for small fingers to
+   catch" on a fabric with no floats in it — literally true, describing stranded colourwork,
+   offered as child-safety reassurance for a hazard the product does not have. The checker
+   existed and the twin held the fact; the text was never passed in.
+3. **`motif_fidelity.chart_colours` counted stitch codes.** 13 of 16 catalogue patterns work
+   two stitches and two colours, so the wrong instrument returned the right number; the three
+   single-colour textured products reported 2, 4 and 3 colours. Every verdict now also carries
+   `colour_test`, because both MATCH branches claimed the colours agreed even when the judge's
+   description carried no count to compare.
+
+## OWNER ACTION REQUIRED — one item, 15 minutes, CA$0, no fee
+
+Authorise the Etsy app once in a browser: register the app, set the exact https callback, put
+`ETSY_KEYSTRING` / `ETSY_SHARED_SECRET` / `ETSY_REDIRECT_URI` in the environment, open the
+authorize URL the probe prints, capture `ETSY_REFRESH_TOKEN`. Detail in
+`brambleloop/research/ETSY_TRANSPORT.md` section 5.1.
+
+**Why it must be the owner:** Etsy has no key-only route to a write scope. **No fee is
+involved** — Etsy charges on publication, which none of this work performs. Consequence of
+waiting: every Etsy write stays unexercised against the real API, so three launch blockers stay
+open on missing evidence rather than on missing capability.
