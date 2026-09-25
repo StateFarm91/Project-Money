@@ -751,3 +751,65 @@ These are not re-decidable by a future session without the owner:
 | B-711 | 2026-09-24 | Out-of-plane freedom is granted by mechanics, not by deformation, and three more validators turned out to be measuring orientation rather than cloth. | Gravity, a support plane and boundary conditions in real units -- linear density is the tex definition, gravity is standard, and bending rigidity is bounded then calibrated rather than chosen. The validators had to be rebuilt first, and the instrument that found them was a rigid rotation, which changes no physical property of a fabric so any verdict that moves is the instrument's: morphology read its features off the global axes and fell from 49 of 49 correctly shaped to 0 of 49 at thirty degrees with the stitches untouched; the linkage closure's direction was a fixed global -y and fell 42 of 42 to 3 of 42 about z alone, an asymmetry that is itself the signature of a global direction standing in for a local one; and the closure's length, derived from one flat cell, was too short once cloth curved. All three now come from a per-stitch frame built from the fabric's own neighbours. The single most consequential physical choice is the yarn's rest curvature, and it was decided by measurement rather than preference: measuring bending against straight treats every formed loop as pre-stressed, and since a crochet stitch is nothing but curvature that internal stress dominates gravity by two to four orders of magnitude -- drape came out identical across a 160-fold range of bending rigidity, which means it was not modelling drape, and three edge stitches everted by +4.6mm and +7.0mm against a threshold no stitch was within 0.5mm of when flat. Taking the yarn as set in the shape it relaxed into, which is what blocking does and what the reference method's own relaxation phase is for, fixed both at once. The result is validated against something it was not fitted to: a simulated cantilever agrees with beam theory to -3.0%, -3.8% and +6.2% across the band, and Product Truth is preserved exactly -- 42/42 linked, 49/49 shaped, yarn length change +0.0000%, intrinsic width invariant to -0.03% while projected width moves +2.76%. | No |
 | B-712 | 2026-09-24 | Calibration runs against the quantity published measurement bounds, and a claim I made earlier in the same increment is withdrawn. | Yarn bending rigidity is bracketed by a factor of 735,000 -- a coherent solid rod against the same fibres bending independently -- so the bracket cannot select a value. My first attempt to narrow it assumed fabric rigidity per unit width was the yarn's divided by the stitch pitch; the solver disagrees by about sixteen times, and that same mapping is what I had used to exclude the free-fibre lower bound on evidence, so the exclusion was unfounded and is withdrawn. Yarn-to-fabric homogenisation is the hard part and is not solved here, so the calibration runs the other way: fabric bending length IS bounded by published measurement, with thin cotton jersey at 0.5-1.4cm giving a floor near 15mm since chunky crochet is unambiguously stiffer, and crochet of this weight visibly bending at swatch scale giving a ceiling near 80mm. The solver's own effective bending length is then measured by deflecting a cantilever and inverting the beam relation, and B set so that measurement lands on the band's geometric midpoint. What makes this calibration rather than taste is that the target is a published property, the free parameter is the one genuinely unknown to six orders of magnitude, and the answer survives a check it was not fitted to: B comes out at 1.45 times the free-fibre hard lower bound, exactly where a soft chunky acrylic whose fibres nearly slip freely belongs. Had it demanded a value below that floor or hundreds of times above it, the model would have been reported as failing rather than adopted. | No |
 | B-713 | 2026-09-24 | Recorded correction: I named inter-yarn friction as the next increment by association rather than by mechanism, and researching it first showed it points the wrong way. | Friction resists relative sliding, so it makes fabric STIFFER in bending and is a principal source of bending hysteresis -- and the measured defect is that the swatch is already too stiff and too plate-like, so building it would have moved away from the target while looking like progress. The research was not wasted: acrylic yarn friction is published at 0.134-0.141 for point contact and 0.186-0.243 for line contact, a genuinely narrow bound on a real parameter, and it is recorded for whenever friction is built. The sharper diagnosis implicates the choice that made this increment work. Rest-curvature is correct as far as it goes, but taking the yarn as set in its relaxed shape makes the fabric resist any departure from that configuration, which turns it into an elastic plate; real crochet is closer to a mechanism, its conformability coming from loops articulating and from yarn sliding THROUGH the loops so tension redistributes between stitches. The model welds every vertex to its place along the yarn, so no yarn can travel through a stitch and bending is the only compliance available. The two rest states therefore bracket the problem rather than solve it -- straight gives eversion and stiffness-blind drape, relaxed gives correct stitches and a plate -- and the mechanism between them is material coordinates that move along the yarn, which changes what a vertex is. That is an owner-level architectural decision, which is the boundary the authorisation drew, so it stops here. Not claimed: that yarn slip would close the gap; it is where the evidence points, which is a hypothesis with an argument behind it rather than a result. | Yes, on evidence |
+
+## 2026-09-25 — Parallel Wave 4 authorised, and a first-customer gate that cannot say yes
+
+**Owner decision, verbatim in substance:** proceed with lanes A (Visual tensile linkage), B
+(Visual spend governance + `Material.fibre_content`), D (Deliverable QA chart/legend) and E
+(coordinator durability) concurrently; hold Catalogue; prepare Lane C's authenticated
+shadow-write report and failure taxonomy now and execute exactly one controlled round trip when
+OAuth credentials exist. Preserve the clean production baseline and every Product Truth and
+refusal gate. Integrate each lane as it lands rather than waiting for the wave.
+
+**Five lanes dispatched** in isolated worktrees with non-overlapping module ownership, because
+two of them work inside `visual/` and two inside `publish/`:
+
+| lane | owns |
+|---|---|
+| A Visual | `visual/drape.py`, `relaxation.py`, `crochet_topology.py`, `stitch_shape.py`, `hand_tension.py` + their tests |
+| B Visual/Reliability | `visual/inspect.py`, `model_registry.py`, `photoreal.py`, `tournament.py`, `brand/bible.py`, all of `cir/**` |
+| C Etsy/Commerce | `integrations/**`, `publish/listing_schema.py`, `tests/fake_etsy.py` |
+| D Deliverable QA | `publish/charts.py`, `pdf.py`, `abbreviations.py`, `value_stack.py` |
+| E Coordinator | `ops/board.py` and any new `ops/` file |
+
+Cross-boundary changes are **specified as diffs in each lane's report** for the integrator to
+apply, not reached for. Lane B's `pdf.fibres_named` switch and Lane D's possible `brand/bible.py`
+change are both handled that way, because Lane D owns `pdf.py` and Lane B owns `bible.py`.
+
+**Decision: Lane A is a falsification experiment, and is briefed as one.** It may not tune
+against appearance before the mechanics have a result, and if tensile linkage plus co-rotation
+fails to produce materially more cloth-like behaviour it reports the failure and diagnoses it
+rather than adding forces until something looks right. Milestone D stays FAIL until the existing
+realism standard is genuinely met.
+
+### `gates/first_customer.py` — built by the integrator, because it belongs to no lane
+
+The owner's rule: **do not reinterpret Launch-0 as beta quality; automated PASS alone does not
+authorize publication; owner review remains required; do not falsely mark `twin.calibrated`
+True.** Three design decisions follow, and each is enforced by the code rather than by a
+document:
+
+1. **Four states, not two.** `UNVERIFIABLE` (could not be checked here, and why) and
+   `UNRESOLVED` (needs a physical act nobody has performed) are separate from `PASS` and
+   `FAIL`, and **both block**. A gate whose "could not check" counts as "checked" reports green
+   on a listing nobody looked at, which is this repository's recurring defect in the most
+   expensive possible place.
+2. **`authorises_publication` is a constant `False` with its reason attached**, and a test
+   asserts the module contains no path that could set it True — including on an all-PASS gate,
+   which is the interesting case. A caller who wants a yes has to go and ask a person.
+3. **A gate with a silent area refuses to exist.** Nine areas minus the ones nobody reported is
+   not nine, so `ProductGate` raises rather than letting a reader count coverage that is not
+   there. Every `Check` must also state what it read and where; a state with no instrument is an
+   opinion.
+
+**It found a first-customer blocker nothing had named:** `fulfilment_and_download` is **FAIL**
+for every Launch-0 variant, because `ArtifactStore.durable` is False in a container. The release
+chain has audited `assets.storage_not_durable` all along and nobody had called it what it is — a
+paid download that can resolve to nothing, which is the worst available first-customer outcome
+because it looks like theft rather than like a mistake.
+
+Current reading, 5 variants: `final_pdf`, `terminology`, `counts_and_construction` and
+`licence_and_safety_statements` **PASS on measured evidence** for all five;
+`gauge_and_size_claims` UNRESOLVED; `listing_claims` and `imagery` UNVERIFIABLE (nothing built
+yet); `etsy_remote_state` UNVERIFIABLE; `fulfilment_and_download` FAIL. **Nothing is ready for
+owner review, and nothing pretends to be.**
