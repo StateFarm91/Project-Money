@@ -159,3 +159,60 @@ authorize URL the probe prints, capture `ETSY_REFRESH_TOKEN`. Detail in
 involved** — Etsy charges on publication, which none of this work performs. Consequence of
 waiting: every Etsy write stays unexercised against the real API, so three launch blockers stay
 open on missing evidence rather than on missing capability.
+
+
+---
+
+## 2026-09-25, late — one lane running, and one problem explicitly held open
+
+### Etsy OAuth callback — BUILDING
+
+The owner went to the Etsy app's Callback URLs screen and asked for the exact URL to paste.
+**There was none to give.** `OAuthApp.from_env` reads `redirect_uri` verbatim from
+`ETSY_REDIRECT_URI` and validates only that it starts with `https://`, so no route is implied by
+the implementation; a grep for a callback or oauth route across `src/` returns nothing; and six
+plausible paths all return **404 in production**. Behind that, `etsy_oauth.exchange()` has **no
+caller anywhere**, and the PKCE verifier is documented as held in the calling process only, so a
+browser round trip could not have bridged it.
+
+The "15-minute owner action" this board has carried for two days was therefore not completable.
+That is an error in our own reporting, not a change in the facts, and it is corrected here.
+
+A dedicated lane is building it as production authentication infrastructure: a real HTTPS
+callback route, server-side custody of state and the PKCE verifier, single-use expiring
+cryptographic state, the four rejection cases distinguished, an operator guard at both ends,
+reuse of the existing `exchange` rather than a second OAuth implementation, durable rotation-safe
+token custody that never touches a repository file, a log or a response body, and adversarial
+tests for replay, wrong state, expired state, missing verifier, malformed callback, exchange
+failure and duplicate callback.
+
+**Verified independently by the integrator against Etsy's current primary documentation**, before
+reviewing any of the lane's work:
+
+| our constant | Etsy's current documentation | agrees |
+|---|---|---|
+| `AUTHORIZE_URL = https://www.etsy.com/oauth/connect` | same | yes |
+| `TOKEN_URL = https://api.etsy.com/v3/public/oauth/token` | same, for exchange **and** refresh | yes |
+| `ACCESS_TOKEN_SECONDS = 3600` | access tokens last 1 hour | yes |
+| `REFRESH_TOKEN_DAYS = 90` | refresh tokens have "a longer functional lifetime (90 days)" | yes |
+
+That **resolves an UNKNOWN this repository has carried**: `ETSY_TRANSPORT.md` §3.3 recorded that
+"two Etsy documents give two hosts" for the token endpoint. Etsy's current authentication page
+gives `api.etsy.com`, which is what `TOKEN_URL` already uses, with `TOKEN_URL_ALTERNATE` retried
+on a 404 — the defensive arrangement turns out to lead with the documented host. Still
+**unexercised** until a real exchange happens; documented and exercised are different states and
+stay that way.
+
+Also confirmed from the same page, against the existing code's own assertions: redirect-URI
+matching is case-sensitive and exact (http for https, a trailing slash, a capital in the protocol
+or a missing subdomain each fail), and `state` is optional for a PKCE client but recommended —
+which is what `authorize_url` already does and why it refuses an empty one.
+
+### Visual / crochet realism — OPEN, and not superseded
+
+The owner's instruction, recorded so no later reader mistakes the silence for closure:
+**this OAuth work does not supersede the realism problem.** Milestone D remains FAIL. The next
+Visual step is already identified and needs neither Stage 0 nor Stage 1: the certified relaxed
+fabric is **not an equilibrium of `drape`'s own contact model**, proven by a fabric that moves
+0.8140 mm with gravity off against 0.7443 mm with it on. Visual resumes there once Etsy
+authentication is proven.
