@@ -48,12 +48,30 @@ BASKET_SIZES = (
 )
 
 
+def diameter_cm(stitches: int, gauge: Gauge) -> float:
+    """The diameter a round of `stitches` actually makes at this gauge.
+
+    The inverse of `base_stitches_for`, and the reason it exists: that function rounds the
+    wanted size to a multiple of `wedges` and floors it at two rounds' worth, so the size
+    asked for and the size made are two different numbers. This module's own docstring says
+    "the stitch count becomes the diameter that goes on the listing" -- that is this, and the
+    listings are built from it rather than from the request.
+    """
+    return (stitches / gauge.stitches_per_10cm * 10.0) / math.pi
+
+
 def base_stitches_for(across_cm: float, gauge: Gauge, wedges: int = 6) -> int:
     """The base stitch count that lands nearest the wanted diameter.
 
     A flat disc's circumference is its diameter times pi, and one round of the standard
     increase adds `wedges` stitches, so the count has to be a multiple of `wedges` -- an
     off-multiple base leaves one wedge short and the disc cups on one side.
+
+    The count that comes back is therefore not the size asked for: it is rounded to a whole
+    number of wedges, and floored at `wedges * 2` because one increase round is not a disc.
+    Feed it back through `diameter_cm` to find out what was actually made. The floor is the
+    one that matters -- below about 7 cm at a coaster gauge it discards the request entirely
+    and the piece comes out nearly twice the size asked for.
     """
     circumference = across_cm * math.pi
     stitches = circumference * gauge.stitches_per_10cm / 10.0
@@ -131,8 +149,9 @@ def build_basket(size: str = "medium", version: str = "1.0.0") -> CIR:
             "firmly it stands up depends on the yarn and the maker's tension, so nothing is "
             "claimed about that until a physical sample says so."),
         finished_size_note=(
-            f"About {spec.across_cm:.0f} cm across and {spec.tall_cm:.0f} cm tall at the "
-            f"stated gauge, measured from the base."),
+            f"About {diameter_cm(base_count, COTTON_GAUGE):.0f} cm across and "
+            f"{wall_rounds * row_cm:.0f} cm tall at the stated gauge, measured from the "
+            f"base."),
     )
 
 
@@ -140,6 +159,14 @@ def build_hexagon_coaster(across_cm: float = 10.0, make: int = 4,
                           version: str = "1.0.0") -> CIR:
     """A six-sided coaster, worked in joined rounds with the increases stacked at the corners."""
     count = base_stitches_for(across_cm, COASTER_GAUGE)
+    # The size on the listing is the size the stitch count makes, not the size that was
+    # asked for. `base_stitches_for` rounds to a whole wedge and floors at twelve stitches,
+    # so `across_cm` is a request and `diameter_cm(count, ...)` is the answer -- and the
+    # listing has to carry the answer. Printing the request made the note independent of
+    # every number under it: `build_hexagon_coaster(across_cm=1.0)` produced a 1.9 cm coaster
+    # and told the buyer it was 1 cm, and no test could see it because the only round pieces
+    # anything measures are the three BASKET_SIZES, whose rounding is under half a
+    # centimetre.
     rows = _disc_rounds(count, "cream")
     # A contrast round one in from the edge reads as a border without a second yarn join on
     # every round.
@@ -161,8 +188,9 @@ def build_hexagon_coaster(across_cm: float = 10.0, make: int = 4,
                               foundation=0, foundation_kind="magic_ring", make=make,
                               note="Six wedges, with the increase stacked at each corner.")],
         finished_size_note=(
-            f"About {across_cm:.0f} cm across the points at the stated gauge. Lies flat: the "
-            f"radius grows at one row height per round, which is what makes a flat disc."),
+            f"About {diameter_cm(count, COASTER_GAUGE):.1f} cm across the points at the "
+            f"stated gauge. Lies flat: the radius grows at one row height per round, which "
+            f"is what makes a flat disc."),
     )
 
 
