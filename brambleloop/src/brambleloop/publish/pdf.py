@@ -400,6 +400,40 @@ def childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     return launch0.childrens_assignment(cir.slug)
 
 
+def _refuse_an_undecided_childrens_title(cir: CIR, childrens) -> None:
+    """A pattern whose own title says "child" cannot be rendered on nobody's decision.
+
+    `childrens_assignment` answers None both for a product a candidate has deliberately
+    placed outside the children's category and for a product no candidate mentions at all --
+    one value for a decision and for an omission. On the second reading a document titled
+    "(Baby)" renders with no safety block, silently, with every other gate passing. That was
+    true of `nordic-forest-mosaic-throw-baby`, which did not ship only because an unrelated
+    colourwork gate failed: luck standing in for a gate.
+
+    So the renderer asks `childrens_decision`, which separates them, and refuses the
+    undecided case. This does not decide the audience -- that is a merchandising call and the
+    catalogue is where it belongs. It requires that somebody made it: an assignment in
+    `EXTRA_CHILDRENS_ASSIGNMENTS`, or an exemption with a reason in
+    `NOT_MERCHANDISED_TO_A_CHILD`.
+    """
+    if childrens is not None:
+        return
+    from ..products import launch0
+
+    words = launch0.child_words_in(cir.title, cir.slug)
+    if not words:
+        return
+    state, _why = launch0.childrens_decision(cir.slug)
+    if state != launch0.UNDECIDED:
+        return
+    raise ValueError(
+        f"{cir.slug}: the title {cir.title!r} reads as a children's product ({', '.join(words)}) "
+        f"and nothing has decided whether it is one. Refusing to render a document that would "
+        f"carry no safety statements on nobody's decision. Assign it in "
+        f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the exemption and its reason "
+        f"in products.launch0.NOT_MERCHANDISED_TO_A_CHILD")
+
+
 def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:
     """The fibre this pattern is written for, read from the CIR's own materials.
 
@@ -564,6 +598,7 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # the catalogue; the loop exists so that one that does not is caught here rather than
     # sold, and its guarantee is asserted rather than assumed.
     childrens = childrens if childrens is not None else childrens_assignment(cir)
+    _refuse_an_undecided_childrens_title(cir, childrens)
 
     total = 0
     for _ in range(4):

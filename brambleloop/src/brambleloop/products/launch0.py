@@ -481,6 +481,32 @@ def candidate(slug: str) -> Candidate:
 _CIR_AUDIENCE: dict[str, tuple[str, str]] | None = None
 
 
+# Children's assignments for CIRs that are not Launch-0 candidate variants.
+#
+# `nordic-forest-mosaic-throw-baby` is the one that made this table necessary. Its title is
+# "Nordic Forest Overlay Mosaic Blanket (Baby)", nothing in the catalogue assigned it an
+# audience, and so it would have rendered with no safety block while every other gate passed.
+# It does not ship today only because it fails the colourwork gate -- luck, not design.
+#
+# Assigned rather than declared exempt, because a baby blanket is a baby blanket: the title is
+# the merchandising decision, already made by whoever wrote it. The conservative reading is
+# also the honest one here.
+EXTRA_CHILDRENS_ASSIGNMENTS: dict[str, tuple[str, str]] = {
+    "nordic-forest-mosaic-throw-baby": ("baby_blanket", ch.UNDER_3),
+}
+
+# Slugs whose title carries a child word and which are deliberately NOT merchandised to a
+# child, each with the reason. Empty today, and it is meant to stay small: the point is that
+# an exemption has to be written down by somebody, because the alternative reading of silence
+# is "nobody looked".
+NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {}
+
+# The three answers to "is this for a child", which used to be two.
+ASSIGNED = "assigned"
+NOT_FOR_CHILDREN = "not_for_children"
+UNDECIDED = "undecided"
+
+
 def _cir_audience_map() -> dict[str, tuple[str, str]]:
     global _CIR_AUDIENCE
     if _CIR_AUDIENCE is None:
@@ -491,18 +517,71 @@ def _cir_audience_map() -> dict[str, tuple[str, str]]:
             for v in cand.variants:
                 out[cir_for(v.build).slug] = (cand.subcategory,
                                               cand.audience or ch.UNDER_3)
+        for slug, pair in EXTRA_CHILDRENS_ASSIGNMENTS.items():
+            if slug in out and out[slug] != pair:
+                raise ValueError(
+                    f"{slug} is assigned {out[slug]} by a candidate and {pair} by "
+                    f"EXTRA_CHILDRENS_ASSIGNMENTS; one product cannot have two audiences")
+            out[slug] = pair
         _CIR_AUDIENCE = out
     return _CIR_AUDIENCE
+
+
+def _decided_not_for_children() -> dict[str, str]:
+    """Slugs a candidate has explicitly placed outside the children's category, with why."""
+    out = dict(NOT_MERCHANDISED_TO_A_CHILD)
+    for cand in CANDIDATES:
+        if cand.subcategory is not None:
+            continue
+        for v in cand.variants:
+            out.setdefault(cir_for(v.build).slug,
+                           "the candidate declares no children's sub-category")
+    return out
+
+
+def childrens_decision(cir_slug: str) -> tuple[str, object]:
+    """Whether this product is merchandised to a child, or whether nobody has said.
+
+    Measures: the candidate assignments, the extra assignments, and the explicit exemptions.
+    Why: `childrens_assignment` returns None for two different states -- "a candidate declared
+    no children's sub-category", which is a decision, and "this slug is in no candidate at
+    all", which is an omission. One value meaning both is why a product titled "(Baby)" could
+    reach a customer with no safety block and no gate able to say so: the renderer asked a
+    question whose "no" and whose "nobody looked" were the same answer.
+
+    Returns `(ASSIGNED, (subcategory, audience))`, `(NOT_FOR_CHILDREN, reason)`, or
+    `(UNDECIDED, None)`.
+    """
+    pair = _cir_audience_map().get(cir_slug)
+    if pair is not None:
+        return (ASSIGNED, pair)
+    exempt = _decided_not_for_children().get(cir_slug)
+    if exempt is not None:
+        return (NOT_FOR_CHILDREN, exempt)
+    return (UNDECIDED, None)
+
+
+def child_words_in(*texts: str) -> tuple[str, ...]:
+    """Which child-audience words appear as whole words in this text.
+
+    Shared by the survey and by the renderer's refusal, so a word added here cannot start
+    being reported without also starting to block.
+    """
+    words = set(re.findall(r"[a-z]+", " ".join(texts).lower()))
+    return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
 
 
 def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
     """The children's sub-category and age band a CIR slug is merchandised into, or None.
 
-    Measures: the slug of every variant CIR of every candidate that declares a sub-category.
+    Measures: the slug of every variant CIR of every candidate that declares a sub-category,
+    plus `EXTRA_CHILDRENS_ASSIGNMENTS`.
     Why: the renderer needs one answer to "is this for a child", and the honest place for it
-    is the catalogue rather than the pattern. None means "not merchandised to a child",
-    stated rather than omitted -- the same discipline as `Candidate.subcategory` being an
-    explicit None and the `over_twelve` age band existing at all.
+    is the catalogue rather than the pattern.
+
+    None here still means "no children's block", which is what a renderer needs. It does NOT
+    distinguish a decision from an omission -- ask `childrens_decision` for that, which is
+    what `publish.pdf` refuses on.
     """
     return _cir_audience_map().get(cir_slug)
 
@@ -542,13 +621,15 @@ def childrens_titles_without_an_assignment() -> list[dict]:
     out = []
     for key in sorted(makers):
         cir = makers[key]()                               # type: ignore[operator]
-        words = set(re.findall(r"[a-z]+", f"{cir.title} {cir.slug}".lower()))
-        hits = tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
-        if hits and childrens_assignment(cir.slug) is None:
+        hits = child_words_in(cir.title, cir.slug)
+        state, _why = childrens_decision(cir.slug)
+        if hits and state == UNDECIDED:
             out.append({"slug": cir.slug, "title": cir.title, "words": hits,
-                        "why": ("the title reads as a children's product and no candidate "
-                                "assigns it a children's sub-category, so publish/pdf.py "
-                                "will set no safety block on it")})
+                        "why": ("the title reads as a children's product and nothing has "
+                                "decided either way -- not an assignment and not an "
+                                "exemption. `publish.pdf.build_pattern_pdf` refuses to "
+                                "render it, so this list is what has to be decided rather "
+                                "than what has already gone out")})
     return out
 
 

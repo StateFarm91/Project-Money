@@ -346,22 +346,37 @@ def test_the_rendering_gap_reads_the_artefact_rather_than_grepping_the_source():
 
 
 def test_a_childrens_title_with_no_audience_assignment_is_reported():
-    """The safety block is keyed on the assignment, so a missing assignment is silent.
+    """The safety block is keyed on the assignment, so a missing assignment was silent.
 
     Found by this check: `nordic-forest-mosaic-throw-baby` is titled "Nordic Forest Overlay
-    Mosaic Blanket (Baby)", carries no children's sub-category, and would therefore render
-    with no safety block while every other gate passed. It is excluded from Launch-0 on the
-    colourwork gate, so nothing ships today -- which is luck, not design. Reported rather
-    than blocking, because whether a product is merchandised to a child is a decision and a
-    title word is evidence for it.
+    Mosaic Blanket (Baby)", carried no children's sub-category, and would therefore have
+    rendered with no safety block while every other gate passed. It is excluded from Launch-0
+    on the colourwork gate, so nothing shipped -- which was luck, not design.
+
+    Closed on 2026-09-25: it is assigned, the renderer now refuses an undecided children's
+    title outright, and the survey is empty. The check is kept and turned around, because an
+    empty survey and a broken survey look identical from here. It removes the assignment and
+    shows the survey finding the original product again.
     """
-    unassigned = {row["slug"] for row in l0.childrens_titles_without_an_assignment()}
-    assert "nordic-forest-mosaic-throw-baby" in unassigned, unassigned
-    # And the products that DO carry an assignment are not in the list.
-    assert "cloudline-baby-blanket" not in unassigned
-    assert "market-basket-small" not in unassigned
-    for row in l0.childrens_titles_without_an_assignment():
-        assert row["words"] and row["why"]
+    assert l0.childrens_titles_without_an_assignment() == [], "the survey should be empty now"
+
+    import brambleloop.products.launch0 as mod
+
+    saved_extra, saved_cache = mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE
+    try:
+        mod.EXTRA_CHILDRENS_ASSIGNMENTS = {}
+        mod._CIR_AUDIENCE = None
+        rows = mod.childrens_titles_without_an_assignment()
+        unassigned = {row["slug"] for row in rows}
+        assert "nordic-forest-mosaic-throw-baby" in unassigned, unassigned
+        # And the products that DO carry an assignment are still not in the list.
+        assert "cloudline-baby-blanket" not in unassigned
+        assert "market-basket-small" not in unassigned
+        for row in rows:
+            assert row["words"] and row["why"]
+    finally:
+        mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE = saved_extra, saved_cache
+    assert l0.childrens_titles_without_an_assignment() == [], "the fixture leaked"
 
 
 def test_the_audience_assignment_is_computed_from_the_candidates_not_listed_twice():
@@ -594,6 +609,67 @@ def test_the_report_runs_end_to_end_and_answers_the_hard_rule():
     assert report["cir_capability"]["per_stitch_colour"] in (True, False)
     assert report["never_published"]
     assert report["prices"] and report["make_time"]
+
+
+def test_a_decision_not_to_merchandise_to_a_child_is_told_apart_from_nobody_deciding():
+    """`childrens_assignment` answered None for both, which is one value for two states.
+
+    A candidate that declares no children's sub-category has decided. A slug no candidate
+    mentions has not been looked at. The renderer keys the safety block on that answer, so on
+    the second reading a document titled "(Baby)" renders with no safety statements, silently,
+    with every other gate passing. That was true of `nordic-forest-mosaic-throw-baby`, which
+    did not ship only because an unrelated colourwork gate failed.
+    """
+    state, detail = l0.childrens_decision("cloudline-baby-blanket")
+    assert state == l0.ASSIGNED and detail == ("baby_blanket", "under_3"), (state, detail)
+
+    state, why = l0.childrens_decision("harvest-table-runner")
+    assert state == l0.NOT_FOR_CHILDREN and why, "a decided exemption has to carry its reason"
+
+    state, detail = l0.childrens_decision("a-slug-no-candidate-has-ever-mentioned")
+    assert state == l0.UNDECIDED and detail is None
+
+    # And the answer the renderer takes is unchanged for both of the last two, which is why
+    # the old single value could not tell them apart.
+    assert l0.childrens_assignment("harvest-table-runner") is None
+    assert l0.childrens_assignment("a-slug-no-candidate-has-ever-mentioned") is None
+
+
+def test_the_baby_blanket_nobody_assigned_is_assigned_now():
+    """The instance that made the class visible. A baby blanket is a baby blanket."""
+    assert l0.childrens_decision("nordic-forest-mosaic-throw-baby") == \
+        (l0.ASSIGNED, ("baby_blanket", "under_3"))
+
+
+def test_every_childrens_title_this_repository_can_build_has_a_decision():
+    """Empty, and the detector that produces it is shown to still work.
+
+    A survey that returns nothing because it is broken looks exactly like a survey that
+    returns nothing because there is nothing to report, which is the failure this file is
+    full of. So the same detector is run against a title that genuinely has no decision.
+    """
+    assert l0.childrens_titles_without_an_assignment() == []
+    assert l0.child_words_in("Unlisted Baby Blanket", "unlisted-baby-thing") == ("baby",)
+    assert l0.childrens_decision("unlisted-baby-thing")[0] == l0.UNDECIDED
+
+
+def test_two_sources_cannot_give_one_product_two_audiences():
+    """The extra table is a second source for the same fact, so it is checked against the first."""
+    import brambleloop.products.launch0 as mod
+
+    saved_extra, saved_cache = mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE
+    try:
+        mod.EXTRA_CHILDRENS_ASSIGNMENTS = {"cloudline-baby-blanket": ("lovey", "three_to_six")}
+        mod._CIR_AUDIENCE = None
+        try:
+            mod._cir_audience_map()
+        except ValueError as e:
+            assert "cannot have two audiences" in str(e), e
+        else:
+            raise AssertionError("one product was given two audiences")
+    finally:
+        mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE = saved_extra, saved_cache
+
 
 
 if __name__ == "__main__":

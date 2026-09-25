@@ -1236,7 +1236,15 @@ def test_a_childrens_document_missing_a_statement_is_refused_rather_than_shipped
 
     # The same CIR with no children's assignment renders fine: the gate is about the
     # audience, not about the yarn name.
+    #
+    # The title changes with the slug, and it has to. `build_pattern_pdf` now refuses a
+    # pattern whose own title says "baby" when nothing has decided whether it is a children's
+    # product, so leaving the title as "Cloudline Textured Baby Blanket" here would make this
+    # fixture the exact case that refusal exists for -- a document that would carry no safety
+    # statements with nobody having decided that was right. The property under test is
+    # unchanged: a product with no children's assignment gets no safety block and renders.
     cir.slug = "not-a-childrens-product"
+    cir.title = "Cloudline Textured Throw"
     assert build_pattern_pdf(cir, released_on=RELEASED).pages > 1
 
 
@@ -1273,6 +1281,49 @@ def test_every_statement_in_the_block_shows_its_source_or_says_it_has_none():
     assert "cpsc.gov" in flat and "publications.aap.org" in flat
     for key in ch.unsourced_statements():
         assert ch.STATEMENT_SET[key].source is None, key
+
+
+def test_a_childrens_title_nobody_has_decided_about_is_refused_rather_than_rendered():
+    """The renderer will not put out a document that carries no safety block on nobody's call.
+
+    It does not decide the audience -- that is a merchandising decision and the catalogue is
+    where it belongs. It requires that somebody made one: an assignment, or an exemption with
+    a reason. Proved against an injected product, because every product in the repository now
+    has a decision and a check that can only pass is not a check.
+    """
+    from brambleloop.cir.model import CIR
+    from brambleloop.products import builder
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    base = builder.build(builder.CATALOGUE["cloudline-baby-blanket"])
+    orphan = CIR.from_dict({**base.to_dict(), "slug": "unlisted-baby-thing",
+                            "title": "Unlisted Baby Blanket"})
+    try:
+        build_pattern_pdf(orphan)
+    except ValueError as e:
+        assert "nothing has decided" in str(e), e
+        assert "EXTRA_CHILDRENS_ASSIGNMENTS" in str(e), "the refusal has to say how to fix it"
+    else:
+        raise AssertionError("a children's title with no decision was rendered")
+
+    # A title with no child word in it is untouched by any of this.
+    runner = builder.build(builder.CATALOGUE["harvest-table-runner"])
+    assert build_pattern_pdf(runner).pages > 0
+
+
+def test_the_newly_assigned_baby_blanket_now_carries_its_safety_block():
+    """The instance: it rendered with no statements and every other gate passed."""
+    from brambleloop.products import nordic_forest
+    from brambleloop.publish.pdf import build_pattern_pdf, childrens_statements_in
+    from brambleloop.products import launch0 as launch
+
+    cir = nordic_forest.build("baby")
+    assignment = launch.childrens_assignment(cir.slug)
+    assert assignment is not None, "the product that motivated the gate lost its assignment"
+    doc = build_pattern_pdf(cir)
+    carried = childrens_statements_in(doc.pdf_bytes, assignment)
+    assert carried["complete"], carried
+
 
 if __name__ == "__main__":
     fails = 0
