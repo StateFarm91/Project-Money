@@ -203,9 +203,16 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
     object and a piece still on the hook, and every benchmark in the category says so.
 
     Derived, not written: the ends come from the colours the CIR actually uses and the
-    blocking measurements from the twin. Nothing here claims anything about a fibre this
-    schema does not record -- the ball band is cited instead, which is where that fact
-    actually lives.
+    blocking measurements from the twin. Nothing here claims anything about a fibre --
+    the ball band is cited instead.
+
+    That sentence used to end "a fibre this schema does not record", and the schema records
+    one now (`Material.fibre_content`, added 2026-09-25). The ball band is still what is
+    cited here, and for a better reason than the schema's silence: the buyer of a *pattern*
+    chooses their own yarn, so the composition this pattern was written for is not the
+    composition of the object in their hands. `write_pattern` prints the stated content on
+    the Materials line, where it describes the yarn it belongs to; care instructions stay
+    with the yarn the maker actually bought.
     """
     out = [FINISHING_HEADING,
            "Fasten off and weave in all ends on the wrong side. Thread each end through at "
@@ -232,6 +239,45 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
     return out
 
 
+def fibre_content_phrase(material) -> str:
+    """"55% cotton, 45% linen", or "" when the source does not state a composition.
+
+    Empty is the honest output for a yarn nobody has a composition for, and it is the one
+    the rest of the document is built to handle: `publish/pdf.py`'s children's gate reports
+    `fibre_and_care` unrenderable and refuses the product rather than printing a guess. A
+    phrase invented from the yarn *name* -- "worsted acrylic" becoming "100% acrylic" --
+    would satisfy that gate with something no source said, which is the one failure the
+    field was added to make impossible.
+
+    The order is the material's own, which `Material.__post_init__` has already normalised
+    to descending percentage. The writer does not re-sort: two places deciding an order is
+    two places that can come to disagree about it.
+    """
+    return ", ".join(f"{percent}% {fibre}"
+                     for fibre, percent in (material.fibre_content or ()))
+
+
+def material_line(material) -> str:
+    """One material as the buyer reads it on the Materials line.
+
+    `name (colorway), 55% cotton, 45% linen` -- the composition appended to the yarn the
+    pattern was written for, and only where the CIR states one.
+
+    The buyer needs this here rather than in a footnote: fibre decides whether a garment is
+    wearable against a child's skin, whether it can be machine washed, and whether an
+    allergy rules the project out, and all three are decisions made before the yarn is
+    bought. It is on the same line as the yarn it belongs to because a composition floating
+    free of the yarn it describes is the kind of fact that gets attached to the wrong one.
+
+    `cir.reverse.parse_fibre_content` reads this back with its own grammar, which is the
+    round trip B-005 requires. It does not import this function and this function does not
+    import it: a round trip through shared code proves nothing.
+    """
+    head = f"{material.name} ({material.colorway})" if material.colorway else material.name
+    fibres = fibre_content_phrase(material)
+    return f"{head}, {fibres}" if fibres else head
+
+
 def collapses_rows(cir: CIR) -> bool:
     """True when the written pattern will collapse a repeated block into an instruction.
 
@@ -255,8 +301,7 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
             f"{_term(g.stitch_type, terminology)}{hook}"
         )
     if cir.materials:
-        out.append("Materials: " + "; ".join(
-            f"{m.name} ({m.colorway})" if m.colorway else m.name for m in cir.materials))
+        out.append("Materials: " + "; ".join(material_line(m) for m in cir.materials))
     out.append(f"Terminology: {terminology.upper()} terms")
     out.append("")
 

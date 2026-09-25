@@ -49,6 +49,11 @@ REALISM_MAX_TOKENS = 900
 # judgement -- ten physical-realism checks and whether a picture says what its caption claims
 # -- on the tier meant for extraction.
 TASK = "asset_inspection"
+# Who is spending, named once. This was a literal in the `spend_report.record` call and
+# nowhere else, so the ledger knew whose money it was and the pre-call guard did not -- the
+# exact shape of the hole. One constant, read by both, so the ceiling that binds and the row
+# that is billed cannot come to disagree about which agent made the call.
+AGENT = "quality_director"
 
 # What a description is allowed to be about. Closed for the same reason every other
 # vocabulary here is: an open field accepts "a lovely blanket", and a semantic check whose
@@ -234,6 +239,7 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
 
     def _call(system, prompt, max_tokens):
+        held = None
         if db is not None:
             # `uncommitted_cad` is this run's own spend, which is not in the ledger yet.
             # Without it the ceiling is checked against a month total that does not include
@@ -243,17 +249,41 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
             # twenty-one authorised against a total that had not moved. Found by the
             # Reliability department and left here for Visual to apply, because this file is
             # Visual-owned and they were correct not to reach into it.
-            billed["reserved"] += gw.check_budget(
+            #
+            # `agent` and `purpose` are what make `quality_director`'s daily permission bind
+            # on this path. Without them `check_budget` checked the month and nothing else,
+            # so the one number this call site was measured against (CA$8.84 of
+            # `asset_inspection` across 504 calls in the month to 2026-09-25) was checked by
+            # nobody. A Visual call gets no exemption the other five spend paths do not get.
+            budget = gw.check_budget(
                 db, model=provider.model,
                 input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
                 max_tokens=max_tokens,
-                uncommitted_cad=max(billed["actual"], billed["reserved"]))["estimate_cad"]
-        response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
-        billed["actual"] += round(
+                uncommitted_cad=max(billed["actual"], billed["reserved"]),
+                agent=AGENT, purpose=TASK)
+            billed["reserved"] += budget["estimate_cad"]
+            held = budget["reservation_id"]
+        try:
+            response = provider.see(system, prompt, [image_ref], max_tokens=max_tokens)
+        except BaseException:
+            # Released on the way out, including on a refusal. A reservation a failed call
+            # never gives back holds budget nobody is spending until its TTL expires, and
+            # this function makes two calls in a row: the second would be checked against a
+            # month carrying the first one's abandoned claim.
+            if db is not None:
+                gw.release_reservation(db, held)
+            raise
+        cost = round(
             response.input_tokens * provider.cost_per_1k_input_cad / 1000
             + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        billed["actual"] += cost
         billed["tokens_in"] += response.input_tokens
         billed["tokens_out"] += response.output_tokens
+        # Given back with the bill rather than left to expire. The estimate is padded on
+        # purpose and the actual is usually a third of it, so holding the estimate for the
+        # full TTL after the provider has answered reserves money nobody is going to spend.
+        if db is not None:
+            gw.release_reservation(db, held, actual_cad=cost)
         return response
 
     try:
@@ -281,7 +311,7 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
         from ..finance import spend_report
 
         spend_report.record(
-            db, agent="quality_director", amount_cad=billed["actual"],
+            db, agent=AGENT, amount_cad=billed["actual"],
             estimated_cad=billed["reserved"], purpose=TASK, provider="anthropic",
             model=provider.model, department="quality",
             tokens_in=billed["tokens_in"], tokens_out=billed["tokens_out"],

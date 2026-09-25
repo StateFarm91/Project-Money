@@ -179,13 +179,120 @@ class Gauge:
             raise ValueError("gauge must be positive")
 
 
+# The closed vocabulary a fibre content may draw from.
+#
+# Closed for the reason every other vocabulary in this schema is closed: an open field
+# accepts "soft yarn", and a composition statement whose fibre word nobody recognises cannot
+# be checked, substituted against, or printed to a buyer who is choosing for a baby.
+#
+# **It is deliberately the same seventeen words `publish.substitution.FIBRE_CLASSES` already
+# uses**, so that there is one definition in this company of what a fibre word is. The
+# schema cannot import `publish` -- `publish` reads `cir`, and the arrow must not turn round
+# -- so this is a second copy of one fact, which is the drift this repository keeps meeting.
+# `tests/test_cir_fibre.py::test_the_two_fibre_vocabularies_are_the_same_seventeen_words` fails
+# the moment they disagree, and the diff that deletes the copy (deriving `FIBRE_CLASSES`
+# from here) is written out for the owner of `publish/substitution.py` in
+# `research/VISUAL_GOVERNANCE.md`.
+#
+# `microfibre`/`microfiber` are one fibre under two spellings, and `merino` is a wool named
+# as its own word. Both are how the existing table reads, and correcting the taxonomy here
+# would silently put this field out of step with the module that already reads fibres for
+# the substitution guidance.
+FIBRES: tuple[str, ...] = (
+    "acrylic", "alpaca", "bamboo", "cashmere", "cotton", "hemp", "linen", "merino",
+    "microfiber", "microfibre", "mohair", "nylon", "polyester", "ramie", "silk", "wool",
+    "yak",
+)
+
+
 @dataclass
 class Material:
+    """One yarn the pattern is written for.
+
+    `fibre_content` is what the *source* states about this yarn's composition, as
+    `(fibre, percent)` pairs summing to 100 -- `(("cotton", 55), ("linen", 45))`.
+
+    **It defaults to empty and an empty value means "not stated", never "no fibre
+    concerns".** That direction is the whole point of the field. `publish/substitution.py`
+    reads a fibre *class* out of `name` ("worsted acrylic" -> synthetic) and
+    `publish/pdf.fibres_named` reads a fibre *word* out of the same field, and both are
+    honest readings of a yarn description -- but a yarn description is not a composition.
+    "worsted acrylic" is not "100% acrylic", and nothing may upgrade one into the other.
+    So this field is populated only where the fact is genuinely known from a source that
+    states it, and a consumer that needs a composition refuses when it is empty rather than
+    inferring one from the name.
+
+    None of the eleven Launch-0 CIRs states it today, and none is given a value here: their
+    materials are generic yarn descriptions (`"worsted acrylic"`, `"dk cotton"`) with no
+    manufacturer, no product and no ball band behind them, so there is no source to read a
+    composition from. Writing `(("acrylic", 100),)` because the word "acrylic" appears is
+    exactly the inference this field exists to make unnecessary.
+    """
+
     name: str
     yarn_weight: str | None = None
     colorway: str | None = None
     metres_estimate: float | None = None
     color_id: str | None = None
+    fibre_content: tuple[tuple[str, int], ...] = ()
+
+    def __post_init__(self) -> None:
+        # Normalised here rather than trusted, because this arrives three ways: typed by a
+        # product module, round-tripped through `CIR.from_dict` (where JSON has turned every
+        # tuple into a list), and read back off a document. A field validated in one of the
+        # three is a field validated in none.
+        raw = self.fibre_content or ()
+        if isinstance(raw, dict):  # a mapping is an ordering nobody declared
+            raise ValueError(
+                f"material {self.name!r}: fibre_content must be a sequence of "
+                f"(fibre, percent) pairs, not a mapping -- the order is what a buyer reads")
+        pairs: list[tuple[str, int]] = []
+        seen: set[str] = set()
+        for item in raw:
+            try:
+                fibre, percent = item
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"material {self.name!r}: {item!r} is not a (fibre, percent) pair"
+                ) from None
+            fibre = str(fibre).strip().lower()
+            if fibre not in FIBRES:
+                raise ValueError(
+                    f"material {self.name!r}: {fibre!r} is not a fibre this schema knows. "
+                    f"The vocabulary is closed on purpose: a composition nobody can check "
+                    f"is not a composition. Known: {list(FIBRES)}")
+            if fibre in seen:
+                raise ValueError(
+                    f"material {self.name!r}: {fibre!r} is stated twice. One fibre, one "
+                    f"percentage, or the total is arithmetic nobody can follow")
+            # `bool` is an `int` in Python and `True` would silently become 1%.
+            if isinstance(percent, bool) or not isinstance(percent, int):
+                raise ValueError(
+                    f"material {self.name!r}: the percentage for {fibre!r} is "
+                    f"{percent!r}; fibre content is stated in whole percent")
+            if not 1 <= percent <= 100:
+                raise ValueError(
+                    f"material {self.name!r}: {fibre!r} at {percent}% is outside 1..100")
+            seen.add(fibre)
+            pairs.append((fibre, percent))
+        if pairs and sum(p for _, p in pairs) != 100:
+            raise ValueError(
+                f"material {self.name!r}: fibre content sums to "
+                f"{sum(p for _, p in pairs)}%, not 100%. A composition that does not "
+                f"account for the whole yarn is a composition with something unstated in "
+                f"it, and the unstated part is exactly what a buyer with an allergy needs")
+        # Descending by percentage, ties broken alphabetically. Two reasons, both about one
+        # fact having one representation. `CIR.fingerprint` hashes `to_dict` and is the
+        # pipeline's idempotency key, so declaration order would give one design two
+        # fingerprints and re-run certification for nothing. And descending order by weight
+        # is how a composition is customarily written, so the document gets the customary
+        # form without the writer deciding it in a second place.
+        self.fibre_content = tuple(sorted(pairs, key=lambda p: (-p[1], p[0])))
+
+    @property
+    def states_fibre_content(self) -> bool:
+        """True only when the source stated a composition. Empty is not a clean bill."""
+        return bool(self.fibre_content)
 
 
 @dataclass(frozen=True)

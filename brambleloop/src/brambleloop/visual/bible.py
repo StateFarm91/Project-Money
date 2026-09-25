@@ -39,6 +39,9 @@ from ..core.resilience import PermanentError, TransientError
 
 TASK = "asset_inspection"
 MAX_TOKENS = 900
+# Named once, read by the pre-call check and by the ledger row, so the ceiling that binds
+# and the money that is billed cannot come to disagree about whose call this was.
+AGENT = "creative_director"
 
 BIBLE_VERSION = "v1-makeup-expression-wardrobe-lighting-and-what-was-refused"
 
@@ -188,16 +191,30 @@ def judge(image_ref: str, *, db=None, provider=None,
     from ..gateway import anthropic as gw
 
     provider = provider or gw.provider_for(TASK)
+    estimate, held = 0.0, None
     try:
+        # The estimate is sized on the prompt this call will actually send -- `prompt(axes)`,
+        # not `prompt()`. A frame asked about three axes sends a shorter prompt than one
+        # asked about all of them, and a guard sized on a prompt the caller is not sending is
+        # arithmetic about a different call.
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(prompt(axes)) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=MAX_TOKENS, agent=AGENT, purpose=TASK)
+            estimate, held = budget["estimate_cad"], budget["reservation_id"]
         response = provider.see(SYSTEM, prompt(axes), [image_ref], max_tokens=MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
+        if db is not None:
+            gw.release_reservation(db, held)
         return {"judged": False, "error": str(exc)[:200], "answers": {}}
 
     if db is not None:
         cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
                      + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
-            db, agent="creative_director", amount_cad=cost, estimated_cad=cost,
+            db, agent=AGENT, amount_cad=cost, estimated_cad=estimate,
             purpose=TASK, provider="anthropic", model=provider.model,
             department="creative", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens,

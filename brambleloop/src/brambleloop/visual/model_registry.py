@@ -35,6 +35,18 @@ from . import identity
 OBSERVE_FIELDS: tuple[str, ...] = identity.DRIFT_DIMENSIONS
 
 TASK = "asset_inspection"
+# Who is spending, named once per path rather than as a literal inside the ledger call.
+# Every spend path in this module wrote a `spend_report.record` row naming its agent and
+# called nothing before the provider, so the agent was a fact the bill knew and the guard
+# did not. `check_budget` and `spend_report.record` now read the same constant, because an
+# agent ceiling enforced against one name and billed against another enforces nothing.
+#
+# Two names, deliberately, because the two are different work under different permissions:
+# reading drift off a rendered face is quality's, and the hair comparison is the creative
+# director's gate on a revision. Both were already billed this way before this change; this
+# only makes the pre-call check agree with the row.
+OBSERVE_AGENT = "quality_director"
+HAIR_AGENT = "creative_director"
 # Thirteen dimensions and a phrase each. 300 fitted the five face dimensions it was written
 # for; the body half would have been cut off mid-object and refused as unparseable, which is
 # the same defect that cost sixteen benchmark samples.
@@ -181,18 +193,46 @@ def observe(db, image_ref: str, *, provider=None) -> dict:
     from ..gateway import anthropic as gw
 
     provider = provider or gw.provider_for(TASK)
+    estimate, held = 0.0, None
     try:
+        # Checked before the call, not merely billed after it. A refusal leaves the same
+        # `{"error": ...}` a failed call does, which `drift_check` already reads as maximum
+        # drift: an unmeasured dimension is not a matching one, and a dimension unmeasured
+        # because the day's permission is spent is still unmeasured. The `ceiling` key below
+        # is the one thing that distinguishes them, and it exists for the caller in a loop.
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(observe_prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=OBSERVE_MAX_TOKENS, agent=OBSERVE_AGENT, purpose=TASK)
+            estimate, held = budget["estimate_cad"], budget["reservation_id"]
         response = provider.see(OBSERVE_SYSTEM, observe_prompt(), [image_ref],
                                 max_tokens=OBSERVE_MAX_TOKENS)
+    except gw.BudgetExceeded as exc:
+        # A ceiling refusal is marked so a *loop* can tell it from a model that failed.
+        # Both are "nobody looked", and `identity.drift_check` is right to read either as
+        # not-a-match -- but a caller that goes on to the next scene after this one spends
+        # another image render to ask a question the budget has already refused, and scores
+        # a finalist down for it. `ceiling` is additive: every existing reader still sees an
+        # `error` and still treats the dimension as unmeasured.
+        if db is not None:
+            gw.release_reservation(db, held)
+        return {"error": str(exc)[:200],
+                "ceiling": ("agent_daily_ceiling"
+                            if isinstance(exc, gw.AgentCeilingExceeded)
+                            else "monthly_model_ceiling")}
     except (PermanentError, TransientError) as exc:
+        if db is not None:
+            gw.release_reservation(db, held)
         return {"error": str(exc)[:200]}
 
     if db is not None:
+        cost = round(
+            response.input_tokens * provider.cost_per_1k_input_cad / 1000
+            + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
-            db, agent="quality_director",
-            amount_cad=round(
-                response.input_tokens * provider.cost_per_1k_input_cad / 1000
-                + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8),
+            db, agent=OBSERVE_AGENT, amount_cad=cost, estimated_cad=estimate,
             purpose=TASK, provider="anthropic", model=provider.model,
             department="quality", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
@@ -255,19 +295,45 @@ def compare_identity(db, reference_ref: str, candidate_ref: str, *, provider=Non
         return {"error": "a comparison needs two images"}
 
     provider = provider or gw.provider_for(TASK)
+    estimate, held = 0.0, None
     try:
+        # Two images, so two image allowances in the estimate. Sizing a two-image call on one
+        # image's tokens is how a guard stays green while the bill doubles -- the same
+        # optimism the padded estimator exists to refuse.
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(compare_prompt()) // 4 + 2 * gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=COMPARE_MAX_TOKENS, agent=OBSERVE_AGENT, purpose=TASK)
+            estimate, held = budget["estimate_cad"], budget["reservation_id"]
         response = provider.see(COMPARE_SYSTEM, compare_prompt(),
                                 [reference_ref, candidate_ref],
                                 max_tokens=COMPARE_MAX_TOKENS)
+    except gw.BudgetExceeded as exc:
+        # A ceiling refusal is marked so a *loop* can tell it from a model that failed.
+        # Both are "nobody looked", and `identity.drift_check` is right to read either as
+        # not-a-match -- but a caller that goes on to the next scene after this one spends
+        # another image render to ask a question the budget has already refused, and scores
+        # a finalist down for it. `ceiling` is additive: every existing reader still sees an
+        # `error` and still treats the dimension as unmeasured.
+        if db is not None:
+            gw.release_reservation(db, held)
+        return {"error": str(exc)[:200],
+                "ceiling": ("agent_daily_ceiling"
+                            if isinstance(exc, gw.AgentCeilingExceeded)
+                            else "monthly_model_ceiling")}
     except (PermanentError, TransientError) as exc:
+        if db is not None:
+            gw.release_reservation(db, held)
         return {"error": str(exc)[:200]}
 
     if db is not None:
+        cost = round(
+            response.input_tokens * provider.cost_per_1k_input_cad / 1000
+            + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
-            db, agent="quality_director",
-            amount_cad=round(
-                response.input_tokens * provider.cost_per_1k_input_cad / 1000
-                + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8),
+            db, agent=OBSERVE_AGENT, amount_cad=cost, estimated_cad=estimate,
             purpose=TASK, provider="anthropic", model=provider.model,
             department="quality", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
@@ -336,17 +402,44 @@ def compare_hair(db, reference_ref: str, candidate_ref: str, *, provider=None) -
     from ..gateway import anthropic as gw
 
     provider = provider or gw.provider_for(TASK)
+    estimate, held = 0.0, None
     try:
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(hair_prompt()) // 4 + 2 * gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=HAIR_MAX_TOKENS, agent=HAIR_AGENT, purpose=TASK)
+            estimate, held = budget["estimate_cad"], budget["reservation_id"]
         response = provider.see(HAIR_SYSTEM, hair_prompt(),
                                 [reference_ref, candidate_ref], max_tokens=HAIR_MAX_TOKENS)
+    except gw.BudgetExceeded as exc:
+        # A ceiling refusal is marked so a *loop* can tell it from a model that failed.
+        # Both are "nobody looked", and `identity.drift_check` is right to read either as
+        # not-a-match -- but a caller that goes on to the next scene after this one spends
+        # another image render to ask a question the budget has already refused, and scores
+        # a finalist down for it. `ceiling` is additive: every existing reader still sees an
+        # `error` and still treats the dimension as unmeasured.
+        if db is not None:
+            gw.release_reservation(db, held)
+        return {"error": str(exc)[:200],
+                "ceiling": ("agent_daily_ceiling"
+                            if isinstance(exc, gw.AgentCeilingExceeded)
+                            else "monthly_model_ceiling")}
     except (PermanentError, TransientError) as exc:
+        if db is not None:
+            gw.release_reservation(db, held)
         return {"error": str(exc)[:200]}
 
     if db is not None:
         cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
                      + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        # `estimated_cad` was the actual cost, which made the estimate-versus-actual column
+        # of the spend report a tautology on this path: it reported perfect estimation
+        # because it was comparing the bill with itself. It is the padded pre-call estimate
+        # now, which is the number that was actually reserved against the ceiling.
+        gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
-            db, agent="creative_director", amount_cad=cost, estimated_cad=cost,
+            db, agent=HAIR_AGENT, amount_cad=cost, estimated_cad=estimate,
             purpose=TASK, provider="anthropic", model=provider.model,
             department="creative", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})

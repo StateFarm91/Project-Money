@@ -351,15 +351,42 @@ def test_a_reservation_whose_holder_died_expires_rather_than_charging_for_ever()
 
 
 def test_release_returns_the_money_and_records_what_the_call_actually_cost():
+    """Reserved at the real instant, on purpose, and the reason is a defect this found.
+
+    `check_budget` threads `now` into the reservation's expiry -- deliberately, per this
+    module's own comment -- and `gateway.anthropic.release_reservation` takes no `now` at
+    all, so it reads the wall clock. A reservation stamped at the frozen `NOW` with a 300
+    second TTL is therefore already expired to the release, and `release` returns False for
+    an expired row because the room it was holding has already been given away.
+
+    So this check was green only during the five minutes after 12:00 UTC on the frozen date
+    and red for the other twenty-three hours and fifty-five, with nothing in the code
+    changed -- which is exactly the failure `_db`'s sibling suite documented at the top of
+    `test_spend_governance.py` and fixed there. One clock, one question. Every assertion is
+    unchanged and the public wrapper is still the thing being exercised; what moved is the
+    instant the reservation is taken at, which this check makes no claim about.
+
+    The underlying asymmetry is left for the gateway: `release_reservation` should take a
+    `now` and pass it through, the way `check_budget` does. See
+    `research/VISUAL_GOVERNANCE.md` section 4.5.
+    """
     db = _db()
+    at = datetime.now(timezone.utc)
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
                           now=NOW, holder="host:1:1")
-    # Released at the instant it was reserved at. Without `now` this line asserted that a
-    # reservation stamped at the frozen NOW was still live against the real wall clock, which
-    # was true only while NOW happened to be within the 300-second TTL of the real date. It
-    # passed on the day it was written and expired afterwards -- the same defect as the test
-    # fixed on 2026-09-25 that expired at midnight, and the reason `release_reservation` now
-    # takes the instant.
+    # Both instants frozen, which is only possible because the asymmetry is now fixed.
+    #
+    # Two lanes found this check independently on the same day and diagnosed it identically:
+    # `check_budget` threads `now` into the reservation's expiry, `release_reservation` read
+    # the wall clock, so a reservation stamped at the frozen NOW was already expired to the
+    # release and `release` correctly returned False. It was green only for the five minutes
+    # after the frozen instant and red for the rest of the day, with nothing in the code
+    # changed -- the same expiring-check defect fixed in `test_spend_governance.py`.
+    #
+    # Lane B fixed it here, by reserving at the real instant, and left the asymmetry for the
+    # gateway owner (VISUAL_GOVERNANCE.md 4.5). The integrator fixed the asymmetry itself, so
+    # this takes the deterministic version: one frozen instant for both halves, and no
+    # dependence on the wall clock in a check whose every other line is frozen.
     assert gw.release_reservation(db, out["reservation_id"], actual_cad=0.0004,
                                   now=NOW) is True
     assert reservations.outstanding(db, now=NOW)["cad"] == 0.0

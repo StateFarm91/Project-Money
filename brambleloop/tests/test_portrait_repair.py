@@ -32,7 +32,7 @@ def _judges(*, realism_false=(), drift=(), unmeasurable=()):
         checks[name] = False
 
     class _Realism:
-        model = "test"
+        model = "claude-sonnet-5"  # priced: the pre-call ceiling check refuses an unpriced model
         cost_per_1k_input_cad = 0.0
         cost_per_1k_output_cad = 0.0
 
@@ -127,7 +127,7 @@ def test_an_unmade_realism_check_is_not_a_passed_one():
     del checks["skin_looks_real"]
 
     class _Partial:
-        model = "test"
+        model = "claude-sonnet-5"  # priced: the pre-call ceiling check refuses an unpriced model
         cost_per_1k_input_cad = 0.0
         cost_per_1k_output_cad = 0.0
 
@@ -376,7 +376,7 @@ def test_a_check_a_portrait_cannot_answer_does_not_block_the_repair():
     del checks["hands_are_right"]
 
     class _NoHands:
-        model = "test"
+        model = "claude-sonnet-5"  # priced: the pre-call ceiling check refuses an unpriced model
         cost_per_1k_input_cad = 0.0
         cost_per_1k_output_cad = 0.0
 
