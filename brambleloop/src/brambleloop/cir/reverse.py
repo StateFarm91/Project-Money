@@ -264,6 +264,59 @@ def parse_assembly(text: str) -> list[tuple]:
     return steps
 
 
+# The fibre content, read back out of the document. Its own patterns and its own vocabulary
+# check, because a round trip through the writer's formatting proves nothing (B-005). This
+# file deliberately does not import `cir.writer.material_line`; it reads percent signs.
+_MATERIALS_LINE_RE = re.compile(r"^Materials:\s*(.+?)\s*$", re.I | re.M)
+_FIBRE_PCT_RE = re.compile(r"(\d{1,3})\s*%\s*([A-Za-z]+)")
+
+
+def parse_fibre_content(text: str) -> tuple[tuple[tuple[str, int], ...], ...]:
+    """Each material's stated composition, in document order. `()` when none is stated.
+
+    Returns one entry per material the Materials line lists -- an empty tuple for a material
+    that states no composition, so a document that states it for the first yarn and not the
+    second is distinguishable from one that states it for neither. That distinction is the
+    reason this returns a shape rather than a flat set: "unstated" and "stated as something
+    else" need different fixes, and a reader that flattens them can tell you only that
+    something is wrong.
+
+    Read with no knowledge of the CIR and with no knowledge of how the writer spelled it.
+    A percent sign followed by a word is the only thing this looks for, which is a grammar a
+    human retyping the line would also satisfy, and it is the property that makes this a
+    check rather than a comparison of one function with itself.
+
+    `ParseProblem` on a percentage a composition cannot have. A document is allowed to be
+    silent; it is not allowed to say something arithmetically impossible, because that is a
+    document a buyer would read and act on.
+    """
+    match = _MATERIALS_LINE_RE.search(text or "")
+    if not match:
+        return ()
+    out: list[tuple[tuple[str, int], ...]] = []
+    for chunk in match.group(1).split(";"):
+        pairs: list[tuple[str, int]] = []
+        seen: set[str] = set()
+        for raw_percent, raw_fibre in _FIBRE_PCT_RE.findall(chunk):
+            fibre = raw_fibre.lower()
+            percent = int(raw_percent)
+            if not 1 <= percent <= 100:
+                raise ParseProblem(
+                    f"the materials line states {fibre!r} at {percent}%, which is not a "
+                    f"share of a yarn", chunk.strip())
+            if fibre in seen:
+                raise ParseProblem(
+                    f"the materials line states {fibre!r} twice for one yarn", chunk.strip())
+            seen.add(fibre)
+            pairs.append((fibre, percent))
+        if pairs and sum(p for _, p in pairs) != 100:
+            raise ParseProblem(
+                f"the materials line states a fibre content summing to "
+                f"{sum(p for _, p in pairs)}%, not 100%", chunk.strip())
+        out.append(tuple(pairs))
+    return tuple(out)
+
+
 def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
     """Parse customer-facing text with no knowledge of the source CIR.
 
@@ -367,6 +420,29 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
                 ERROR, "REVERSE_CONSTRUCTION_MISMATCH",
                 f"customer text describes {stated} but the validated pattern is "
                 f"{'/'.join(sorted(expected))}; joining leaves a seam and spiralling does not"))
+
+    # Fibre content is a product fact a buyer acts on -- an allergy, a child's skin, a wash
+    # cycle -- so a document that has lost it, gained one nobody validated, or attached it to
+    # the wrong yarn is describing a different product. Checked here rather than left to the
+    # PDF gate because this is the only reader in the chain that sees the customer's own
+    # words without the structure that produced them.
+    #
+    # Silence on both sides is not a finding. Every CIR in this repository states no
+    # composition today and every document prints none, which is the honest pair; making
+    # that a finding would report a known gap as a defect eleven times over and bury the
+    # real ones. The moment either side says something, they must say the same thing.
+    try:
+        printed_fibres = parse_fibre_content(text)
+    except ParseProblem as e:
+        return [Finding(ERROR, "REVERSE_PARSE", f"customer text could not be parsed: {e}")]
+    expected_fibres = tuple(tuple(m.fibre_content) for m in cir.materials)
+    if (any(expected_fibres) or any(printed_fibres)) and printed_fibres != expected_fibres:
+        findings.append(Finding(
+            ERROR, "REVERSE_FIBRE_CONTENT",
+            f"fibre content differs from the validated design: CIR states "
+            f"{[list(f) for f in expected_fibres]}, customer text states "
+            f"{[list(f) for f in printed_fibres]}. A composition a buyer reads and acts on "
+            f"is a product fact, not presentation"))
 
     # The finishing is part of the pattern too. A document that has lost its assembly steps
     # leaves a maker with pieces and no object.

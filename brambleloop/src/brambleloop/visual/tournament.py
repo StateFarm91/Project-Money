@@ -42,6 +42,12 @@ PRESENTATION_VERSION = "v2-images-kept-and-three-valued-floors"
 CANDIDATE_ACTION = "model.candidate"
 
 JUDGE_TASK = "image_benchmark_judging"
+# Who is spending and what for, named once. Both were literals inside the ledger call and
+# nowhere else, so the bill carried the agent and the purpose and the pre-call guard carried
+# neither -- there being no pre-call guard on this path at all. `check_budget` and
+# `spend_report.record` read these, so the permission that binds is the permission that pays.
+JUDGE_AGENT = "creative_director"
+JUDGE_PURPOSE = "model_tournament"
 SCREEN_MAX_TOKENS = 600
 
 # The spread. Each note changes what she looks like without changing what she is for: every
@@ -239,18 +245,48 @@ def screen_prompt() -> str:
 
 
 def _judge(db, image_refs: list[str], system: str, prompt: str, max_tokens: int) -> str:
+    """One judging call, checked against the ceiling before it is made.
+
+    This wrote a ledger row and called no guard, on a path that runs once per candidate in a
+    field of candidates -- the shape where an unchecked estimate compounds fastest.
+
+    It raises `BudgetExceeded` rather than returning an error string, and `generate_candidates`
+    catches it separately and **stops**. That second half is not decoration. `BudgetExceeded`
+    is a `PermanentError`, so a refusal would otherwise have landed in the batch loop's
+    general handler, been recorded as this candidate's screen failure, and let the loop
+    render the next candidate -- paying for an image, on a path no ceiling check reaches,
+    to ask a question the budget has already refused. A screen that could not be made is
+    not a screen the candidate failed.
+    """
     from ..finance import spend_report
     from ..gateway import anthropic as gw
 
     provider = gw.provider_for(JUDGE_TASK)
-    response = provider.see(system, prompt, image_refs, max_tokens=max_tokens)
+    estimate, held = 0.0, None
     if db is not None:
+        # One image allowance per image actually shown. A comparison judged on four frames
+        # costs four times a single-frame screen, and an estimate that counts one of them
+        # would be checked against the wrong call.
+        shown = max(1, len(image_refs))
+        budget = gw.check_budget(
+            db, model=provider.model,
+            input_tokens=len(prompt) // 4 + shown * gw.IMAGE_TOKENS_ESTIMATE,
+            max_tokens=max_tokens, agent=JUDGE_AGENT, purpose=JUDGE_PURPOSE)
+        estimate, held = budget["estimate_cad"], budget["reservation_id"]
+    try:
+        response = provider.see(system, prompt, image_refs, max_tokens=max_tokens)
+    except BaseException:
+        if db is not None:
+            gw.release_reservation(db, held)
+        raise
+    if db is not None:
+        cost = round(
+            response.input_tokens * provider.cost_per_1k_input_cad / 1000
+            + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
-            db, agent="creative_director",
-            amount_cad=round(
-                response.input_tokens * provider.cost_per_1k_input_cad / 1000
-                + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8),
-            purpose="model_tournament", provider="anthropic", model=provider.model,
+            db, agent=JUDGE_AGENT, amount_cad=cost, estimated_cad=estimate,
+            purpose=JUDGE_PURPOSE, provider="anthropic", model=provider.model,
             department="creative", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
     return response.text
@@ -287,9 +323,12 @@ def generate_candidates(db, *, count: int = DEFAULT_CANDIDATES, env: dict | None
     if not provider and generator is None:
         return {"ran": False, "reason": "no image provider holds a credential"}
 
+    from ..gateway import anthropic as gw
+
     made: list[dict] = []
     failures: list[dict] = []
     spent = 0.0
+    stopped_by = ""
     for index, note in enumerate(SEED_NOTES[:count]):
         key = f"cand-{index:02d}"
         try:
@@ -303,6 +342,21 @@ def generate_candidates(db, *, count: int = DEFAULT_CANDIDATES, env: dict | None
             answer = (judge or (lambda *_a, **_k: _judge(
                 db, [ref], SCREEN_SYSTEM, screen_prompt(), SCREEN_MAX_TOKENS)))(db, ref)
             screened = parse_screen(answer)
+        except gw.BudgetExceeded as exc:
+            # The ceiling ends the run; it is not a candidate that screened badly.
+            #
+            # `BudgetExceeded` is a `PermanentError`, so without this it landed in the
+            # general handler below, was recorded as this candidate's screen failure, and
+            # the loop went on to render the next one -- paying for an image (image renders
+            # pass through no ceiling check at all) to ask a question the budget has already
+            # refused, once per remaining seed note. The same shape `intel/vision.py`
+            # stops on, for the same reason.
+            stopped_by = ("agent_daily_ceiling"
+                          if isinstance(exc, gw.AgentCeilingExceeded)
+                          else "monthly_model_ceiling")
+            failures.append({"candidate": key, "stage": "screen",
+                             "why": f"{type(exc).__name__}: {str(exc)[:220]}"})
+            break
         except (PermanentError, TransientError, TournamentRefused, ValueError) as exc:
             failures.append({"candidate": key, "stage": "render" if "render" in locals()
                              else "screen", "why": f"{type(exc).__name__}: {str(exc)[:220]}"})
@@ -329,7 +383,13 @@ def generate_candidates(db, *, count: int = DEFAULT_CANDIDATES, env: dict | None
     eligible.sort(key=lambda c: (-c["mean"], c["key"]))
     return {"ran": True, "generated": len(made), "failures": failures,
             "excluded": excluded, "candidates": eligible, "spent_cad": round(spent, 4),
-            "provider": provider}
+            "provider": provider,
+            # Named rather than left to be inferred from a short field. A tournament that
+            # screened four of twelve candidates because the day's permission ran out is not
+            # a tournament with eight bad candidates in it, and the reader has to be able to
+            # tell. Empty means the field was worked through.
+            "stopped_by": stopped_by,
+            "field_complete": not stopped_by}
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +412,10 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
     seen = (reference_observer or model_registry.observe)(db, reference)
     if seen.get("error") or seen.get("no_person"):
         return {"finalist": finalist["key"], "usable": False,
+                # A ceiling refusal here is "nobody was allowed to look", which is a
+                # different next move from "the portrait could not be read": the run is
+                # re-driven tomorrow rather than the finalist re-rendered.
+                "stopped_by": seen.get("ceiling", ""),
                 "why": f"the reference portrait could not be read: {seen.get('error', '')}"}
 
     # The pack a finalist is measured against is her own portrait. What matters is that the
@@ -369,6 +433,7 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
 
     scenes: list[dict] = []
     spent = 0.0
+    stopped_by = ""
     for key, prompt in brief.STRESS_SCENES:
         if key == "neutral_reference":
             continue
@@ -382,6 +447,27 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
             spent += float(render.get("cad") or 0.0)
             ref = render.get("image_ref") or ""
             observed = (observer or model_registry.compare_identity)(db, reference, ref)
+            if observed.get("ceiling"):
+                # The comparison was refused by a ceiling, not answered badly.
+                #
+                # `compare_identity` returns an error dict rather than raising, and
+                # `identity.drift_check` reads a dict with no dimensions in it as maximum
+                # drift -- which is correct for a judge that failed and wrong for a judge
+                # nobody was allowed to ask. Scoring it would disqualify a finalist because
+                # the budget ran out, on a run whose whole purpose is deciding whether she
+                # can be the canonical identity -- and promotion is a one-way door, since
+                # a second canonical is refused outright. So the run stops and says so.
+                #
+                # (The name of the function that refuses it is deliberately not written
+                # here: `test_no_function_in_the_tournament_selects_a_canonical_model`
+                # asserts that bare name is absent from this module, and a comment is not a
+                # reason to loosen a guard that exists to stop this module promoting
+                # anybody.)
+                stopped_by = observed["ceiling"]
+                scenes.append({"scene": key, "rendered": False, "image_ref": ref,
+                               "image_made_but_not_judged": True,
+                               "why": observed.get("error", "")[:200]})
+                break
             verdict = identity.drift_check(observed, provisional)
         except (PermanentError, TransientError) as exc:
             scenes.append({"scene": key, "rendered": False, "why": str(exc)[:200]})
@@ -428,6 +514,9 @@ def stress_test(db, finalist: dict, *, env: dict | None = None, work_dir: str | 
         "screen_mean": finalist.get("mean"),
         "reference_observation": seen,
         "unpinned_fields": unpinned,
+        # Empty when every scene was attempted. Named because a stress test that judged two
+        # of eight scenes because the permission ran out is not a finalist who failed six.
+        "stopped_by": stopped_by,
         "scenes": scenes, "scenes_rendered": len(rendered),
         "scenes_expected": len(brief.STRESS_SCENES) - 1,
         "complete": len(rendered) == len(brief.STRESS_SCENES) - 1,

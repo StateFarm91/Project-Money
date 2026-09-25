@@ -31,6 +31,13 @@ from ..core.resilience import PermanentError, TransientError
 
 TASK = "asset_inspection"
 MAX_TOKENS = 900
+# Named once, and read by both the pre-call check and the ledger row. `publishing` has no
+# `Agent` row in `agents.registry.DEFAULT_AGENTS` -- `spend_report.per_agent_today` reports
+# it under `spenders_with_no_agent_row` -- so no daily permission binds here and
+# `check_budget` invents none. What does bind is the authorised month and the cross-process
+# reservation, which is the whole budget rather than a permission, and which this path had
+# no part in at all until now.
+AGENT = "publishing"
 
 # The owner's named rejections, each as a property that is either present or not. Phrased so
 # that `True` means the photograph is *sound* on that axis, which keeps the gate's arithmetic
@@ -89,16 +96,31 @@ def judge(image_ref: str, *, db=None, provider=None) -> dict:
     from ..gateway import anthropic as gw
 
     provider = provider or gw.provider_for(TASK)
+    estimate, held = 0.0, None
     try:
+        # Checked before the call. This path wrote a ledger row and called no guard at all,
+        # so the only thing standing between it and the monthly ceiling was the row it wrote
+        # afterwards -- a measurement, not a control. `judged: False` with the refusal in
+        # `error` is the right outcome: `gate` reads an unread frame as `unjudged`, never as
+        # `clear`, so a refused call cannot pass a frame.
+        if db is not None:
+            budget = gw.check_budget(
+                db, model=provider.model,
+                input_tokens=len(prompt()) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+                max_tokens=MAX_TOKENS, agent=AGENT, purpose=TASK)
+            estimate, held = budget["estimate_cad"], budget["reservation_id"]
         response = provider.see(SYSTEM, prompt(), [image_ref], max_tokens=MAX_TOKENS)
     except (PermanentError, TransientError) as exc:
+        if db is not None:
+            gw.release_reservation(db, held)
         return {"judged": False, "error": str(exc)[:200], "checks": {}}
 
     if db is not None:
         cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
                      + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+        gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
-            db, agent="publishing", amount_cad=cost, estimated_cad=cost, purpose=TASK,
+            db, agent=AGENT, amount_cad=cost, estimated_cad=estimate, purpose=TASK,
             provider="anthropic", model=provider.model, department="creative",
             tokens_in=response.input_tokens, tokens_out=response.output_tokens,
             detail={"price_basis": "assumed", "check": "photographic_realism"})

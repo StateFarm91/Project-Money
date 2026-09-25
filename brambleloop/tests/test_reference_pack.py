@@ -665,7 +665,7 @@ def test_the_approval_question_reopens_while_a_ready_pack_is_waiting():
     from brambleloop.visual import photoreal
 
     class _Sound:
-        model = "test"
+        model = "claude-sonnet-5"  # priced: the pre-call ceiling check refuses an unpriced model
         cost_per_1k_input_cad = 0.0
         cost_per_1k_output_cad = 0.0
 

@@ -31,7 +31,7 @@ class _SoundReference:
     them all tests of that one gate.
     """
 
-    model = "test"
+    model = "claude-sonnet-5"  # priced: the pre-call ceiling check refuses an unpriced model
     cost_per_1k_input_cad = 0.0
     cost_per_1k_output_cad = 0.0
 

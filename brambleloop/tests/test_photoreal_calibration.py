@@ -31,7 +31,7 @@ def _db() -> Database:
 class _Judge:
     """A provider that answers however the test needs, and records what it was shown."""
 
-    model = "test-model"
+    model = "claude-sonnet-5"  # priced: the pre-call ceiling check refuses an unpriced model
     cost_per_1k_input_cad = 0.0
     cost_per_1k_output_cad = 0.0
 
@@ -154,7 +154,7 @@ def test_the_three_checks_that_block_our_renders_are_reported_as_discriminating(
 class _Ref:
     """A judge with a fixed answer, standing in for the vision model."""
 
-    model = "test"
+    model = "claude-sonnet-5"  # priced: the pre-call ceiling check refuses an unpriced model
     cost_per_1k_input_cad = 0.0
     cost_per_1k_output_cad = 0.0
 

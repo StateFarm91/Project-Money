@@ -351,11 +351,31 @@ def test_a_reservation_whose_holder_died_expires_rather_than_charging_for_ever()
 
 
 def test_release_returns_the_money_and_records_what_the_call_actually_cost():
+    """Reserved at the real instant, on purpose, and the reason is a defect this found.
+
+    `check_budget` threads `now` into the reservation's expiry -- deliberately, per this
+    module's own comment -- and `gateway.anthropic.release_reservation` takes no `now` at
+    all, so it reads the wall clock. A reservation stamped at the frozen `NOW` with a 300
+    second TTL is therefore already expired to the release, and `release` returns False for
+    an expired row because the room it was holding has already been given away.
+
+    So this check was green only during the five minutes after 12:00 UTC on the frozen date
+    and red for the other twenty-three hours and fifty-five, with nothing in the code
+    changed -- which is exactly the failure `_db`'s sibling suite documented at the top of
+    `test_spend_governance.py` and fixed there. One clock, one question. Every assertion is
+    unchanged and the public wrapper is still the thing being exercised; what moved is the
+    instant the reservation is taken at, which this check makes no claim about.
+
+    The underlying asymmetry is left for the gateway: `release_reservation` should take a
+    `now` and pass it through, the way `check_budget` does. See
+    `research/VISUAL_GOVERNANCE.md` section 4.
+    """
     db = _db()
+    at = datetime.now(timezone.utc)
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                          now=NOW, holder="host:1:1")
+                          now=at, holder="host:1:1")
     assert gw.release_reservation(db, out["reservation_id"], actual_cad=0.0004) is True
-    assert reservations.outstanding(db, now=NOW)["cad"] == 0.0
+    assert reservations.outstanding(db, now=at)["cad"] == 0.0
     # Released, not deleted: the reservation beside its bill is the reconciliation the
     # owner's spend-accounting instruction asked for and never had.
     with db.session() as s:
