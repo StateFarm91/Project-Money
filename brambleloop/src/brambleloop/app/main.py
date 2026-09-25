@@ -3912,6 +3912,95 @@ server log, or in the audit record of this request.</footer>
     })
 
 
+# ---- the one controlled Etsy round trip -----------------------------------
+#
+# `etsy_probe.run_exercise` has existed, tested against `tests/fake_etsy.py` including every
+# failure path, since 2026-09-25, and until now it had no caller but a CLI `main()`. The
+# credential it needs is sealed in this deployment's Postgres under this deployment's
+# `BRAMBLELOOP_SECRET_KEY`, so **this process is the only one that can run it** -- which is
+# why the trigger is here rather than in a runbook.
+#
+# The guard is `opsauth`, exactly as `/api/continuity/export`, `/api/queue/requeue` and
+# `/api/etsy/oauth/start`: 401 on a wrong or absent credential, **503 when the token is
+# unset**, because unconfigured-means-closed is the only default that does not serve the
+# company to the internet during the window between a deploy and remembering to set a
+# variable.
+#
+# POST rather than GET: it writes to a real shop. A GET is fetched by link previewers, by
+# browser prefetch and by anything that follows a URL out of a log, and none of those may
+# create a draft.
+
+
+def _etsy_credential_health() -> dict:
+    """The credential's state, for a refusal that needs to say why it refused."""
+    from ..core import oauth_store
+
+    return oauth_store.credential_health(db)
+
+
+def _verify_snapshot() -> dict:
+    """`/api/verify`'s own answer, as data, so the exercise can report it after cleanup.
+
+    Called rather than duplicated: a second copy of the twelve checks would drift from the
+    first, and the whole value of the check is that it is the same one the outside world
+    reads.
+    """
+    import json as _json
+
+    response = api_verify()
+    try:
+        return _json.loads(bytes(response.body).decode())
+    except Exception as exc:  # noqa: BLE001 - an unreadable verdict is a finding, not a crash
+        return {"ok": False, "error": f"/api/verify was unreadable: {exc}"}
+
+
+@app.post("/api/etsy/exercise")
+def api_etsy_exercise(mode: str = "full",
+                      authorization: str = Header(default="")) -> JSONResponse:
+    """Run the prepared shadow-write exercise against the real shop. Authenticated.
+
+    `mode=full` runs the eight steps: sweep, identity, one clearly marked DRAFT, image,
+    update, read-back, contract verification, delete, verify the delete -- then reads the
+    shop back independently, reconciles the durable draft ledger, and proves refresh-token
+    rotation. `mode=rotation` runs the rotation proof alone: two authenticated shop reads, no
+    draft, nothing to clean up, and the safest form the evidence takes.
+
+    **Nothing on this path can activate or publish.** The client is built with
+    `owner_authorised=False`, which `EtsyClient.refusal()` checks before anything else, and
+    `etsy_exercise._client` refuses to start the run at all if that client ever reports an
+    activation authority. `activate()` is unchanged; the exercise calls it once with no
+    Launch-0 authorisation so that the refusal is recorded as an observation rather than a
+    claim.
+
+    **CA$0.** Etsy charges its listing fee at publication, which this never performs.
+    """
+    from ..integrations import etsy_exercise
+
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    try:
+        report = etsy_exercise.run(db, mode=mode, verify=_verify_snapshot)
+    except etsy_exercise.ExerciseBusy as e:
+        return JSONResponse({"error": str(e), "retry": "when the run in flight finishes"},
+                            status_code=409)
+    except etsy_exercise.ExerciseRefused as e:
+        return JSONResponse({"error": str(e), "credential": _etsy_credential_health()},
+                            status_code=409)
+
+    Registry(db).audit("orchestrator", "etsy.exercise",
+                       detail={"mode": report.get("mode"), "ok": report.get("ok"),
+                               "status": report.get("status"),
+                               "shop_is_clean": report.get("shop_is_clean"),
+                               "rotations": (report.get("after") or {})
+                               .get("oauth", {}).get("rotations")})
+    return JSONResponse(report, status_code=200 if report.get("ok") else 502)
+
+
 # ---- dashboard ------------------------------------------------------------
 
 _CSS = """

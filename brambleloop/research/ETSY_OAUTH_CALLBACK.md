@@ -583,3 +583,135 @@ step 5 is gone.
 - **`BRAMBLELOOP_PHASE=shadow`** throughout.
 - **Committed on the worktree branch. Nothing pushed, nothing merged, nothing deployed.** The
   integrator performs the merge, the deploy and the production verification.
+
+---
+
+## 9. Proving the rotation fix — design, safety and what it establishes
+
+**Written:** 2026-09-25 (UTC). **State:** IMPLEMENTED and LOCALLY_TESTED. `rotations: 0` in
+production at the time of writing, so **nothing here has been observed against Etsy**.
+
+### 9.1 The defect, restated exactly
+
+`Credentials.from_env` built a `TokenProvider` with **no `on_refresh`**, against an Etsy that
+issues a **new** refresh token on every refresh (SOURCED: Etsy's own example response, §2).
+The old refresh token is spent. So the system worked for one hour, kept working as long as the
+process lived, and then — at the next container replacement, which this platform performs
+several times an hour — presented a token Etsy had already invalidated. `invalid_grant`. Which
+looks exactly like a revoked app.
+
+Two things must be shown, and they are different things:
+
+1. **Etsy really rotates**, and the value it returns is written to the store.
+2. **The stored value survives the process/container boundary** and is accepted by Etsy. This
+   is the half the defect actually broke; (1) alone passed under the defect too, which is
+   precisely why nobody noticed.
+
+### 9.2 What forces a refresh
+
+Not waiting an hour, and not touching anything at Etsy. `TokenProvider.token()` refreshes when
+its `TokenSet` is expired, and `TokenSet.expired()` compares against `expires_at`. A credential
+built from the sealed store with no live access token **already** carries `expires_at = 0.0` —
+the value `Credentials.from_env` gives it, meaning "of unknown age, treat as dead". So every
+production process already forces one refresh on its first Etsy call; `_force_expiry` sets the
+same documented value explicitly so that the refresh happens *now*, under observation, instead
+of at whatever moment the hour runs out.
+
+The call that carries the refreshed token is a **shop read**. It creates nothing, changes
+nothing, publishes nothing and costs nothing.
+
+### 9.3 The two rounds
+
+**Round A — Etsy rotates, and we seal what it gave us.** A credential built by
+`Credentials.from_env(db=db)` spends the stored refresh token. Four things are then checked:
+
+- `TokenProvider.history[-1]["refresh_token_rotated"]` — that the token Etsy returned *differs*
+  from the one sent. This is the sourced claim under test, observed rather than assumed.
+- `oauth_credentials.rotations` rose by exactly one.
+- the stored fingerprint changed.
+- **the fingerprint the database now holds equals the fingerprint of the token this process is
+  holding live.** That last equality is the one that separates "we refreshed" from "we
+  refreshed and stored what we got", and it is the check the defect fails.
+
+**Round B — the sealed credential survives the boundary.** Every object from round A is
+dropped. A *new* `Credentials.from_env(db=db)` is built; its refresh token can only have come
+from `oauth_store.load_refresh_token` — a read of Postgres and an unseal under
+`BRAMBLELOOP_SECRET_KEY`. It is asserted to be carrying round A's *stored* fingerprint and
+nothing else, and then it spends it against Etsy. **Etsy accepting it is the proof.** Under the
+defect, round B presents the token from before round A, which Etsy has already spent, and
+answers `invalid_grant`.
+
+The result is three distinct fingerprints, `rotations` up by two, and `openable: true`
+throughout. No credential value appears anywhere; every identity in the report is an
+eight-character SHA-256 fingerprint.
+
+### 9.3b What the counter will read afterwards
+
+`rotations` goes **0 to 3** on the first `mode=full` run, and the first of the three is the
+one worth understanding. The exercise's own first authenticated call already forces a refresh:
+a credential built from the sealed store carries no live access token, so
+`Credentials.from_env` gives it `expires_at = 0.0` and `TokenProvider` refreshes before the
+first request reaches Etsy. Rounds A and B then add two more. `mode=rotation` alone goes 0 to
+2, for the same reason in reverse -- round A *is* that first forced refresh.
+
+`rotations: 0` in production therefore never meant "the fix is untested". It meant **nothing
+had ever made an authenticated Etsy call at all**, which is exactly what §5 of
+`ETSY_TRANSPORT.md` said and is the thing this trigger changes.
+
+### 9.4 Safety — what each refresh risks, and how it is bounded
+
+A refresh **spends** a refresh token, so the failure worth designing against is a refresh that
+succeeds while the seal write does not: the row would then hold a dead credential and the
+company would be locked out until the owner re-authorises in a browser. Four bounds:
+
+- **Round A is checked completely before round B is allowed to start**, including the stored
+  fingerprint equalling the live one. A failure costs one rotation, stops, and emits an owner
+  action naming the re-authorisation — rather than costing two and being reported once.
+- **There are never more than two rounds.**
+- **The proof runs after the shop has been confirmed clean**, so a credential failure can never
+  strand a draft.
+- **It is separately triggerable** — `POST /api/etsy/exercise?mode=rotation` — which is the
+  safest form the evidence takes: two authenticated shop reads, no draft, no write, nothing to
+  clean up. It is the one to run first.
+
+The residual risk is the same one ordinary operation carries: any refresh at all can be the one
+whose write fails. This makes that moment observed instead of unobserved.
+
+### 9.5 What it does not establish, and the free way to close it
+
+Round B's objects are new; **the interpreter is not**. A real container replacement adds one
+thing this cannot: that no Python object survived at all.
+
+That gap closes for **CA$0 and with no second container**, because this platform replaces the
+container on every deploy and the first Etsy call from a new container presents the stored
+token. So the confirmation is a *reading*, not a run: after the next restart,
+`GET /api/etsy/oauth/status` showing `rotations` **above the number this run left** with
+`openable: true` is the container-boundary proof. The report prints that number to compare
+against. No run, no draft, no spend.
+
+### 9.6 The injected defect
+
+Two tests reinstate the bug rather than describing it. `_persisting_on_refresh` is replaced by
+one that returns `None` — the exact shape of the old code — and then:
+
+- the proof reports round A as **failed** with the store unmoved and the word "spent" in its
+  danger note, and refuses to run round B;
+- driven directly, a credential rebuilt from the untouched store is refused by the fake with
+  `invalid_grant`, which is the failure that would have arrived on day two with nobody
+  watching.
+
+A test that has never failed is a test nobody has reason to believe.
+
+### 9.7 Standing rules, confirmed for this work
+
+- **CA$0.** No model call, no paid API, no listing fee. Every request is a read, a draft
+  operation or a token refresh, and Etsy charges for none of them.
+- **No listing was activated or published, and `activate()`'s three gates are byte-for-byte
+  unchanged** — pinned by a SHA-256 of its source in `tests/test_etsy_exercise.py`.
+- **No existing listing and no unrelated shop setting is touched.** The only listing this path
+  can address is one it created, titled `DO NOT BUY - …`, in state DRAFT for its entire
+  lifetime.
+- **No secret is in this repository**, in any log, report, artifact or exception body. The test
+  suite's key and operator token are obvious test literals used against a loopback server.
+- **`BRAMBLELOOP_PHASE=shadow`** throughout.
+- **Committed on the worktree branch. Nothing pushed, nothing merged, nothing deployed.**
