@@ -116,9 +116,11 @@ def test_the_image_gap_is_recorded_as_a_launch_blocker():
     assert any("image" in g["gap"] for g in blockers), blockers
     assert any("form-encoded" in g["gap"] for g in blockers), blockers
     assert any("authenticated against Etsy" in g["gap"] for g in blockers), blockers
-    assert all("confirmed by Etsy" in g["gap"] or "authenticated" in g["gap"]
-               for g in blockers), (
-        "a launch blocker here should now be about unconfirmed behaviour, not missing code")
+    # A launch blocker here is now about unconfirmed behaviour rather than missing code, and
+    # the check for that is the verification state rather than the wording: not one blocker
+    # may be VERIFIED_AGAINST_ETSY, because a blocker Etsy has confirmed is not a blocker.
+    assert all(g["verification"] in (S.IMPLEMENTED, S.LOCALLY_TESTED) for g in blockers), \
+        [(g["gap"], g["verification"]) for g in blockers]
     for gap in S.gaps():
         assert gap["clause"] in S.CLAUSES_BY_KEY, (
             f"{gap['clause']} is not a clause; a gap that rests on nothing cannot stop "
@@ -200,6 +202,109 @@ def test_describe_carries_the_whole_contract_for_the_readiness_report():
     assert out["write_scope"] == "listings_w"
     assert len(out["clauses"]) == len(S.CLAUSES)
     assert out["gaps"], "a contract with no gaps has not been compared to anything"
+    assert out["verification_states"] == list(S.VERIFICATION_STATES)
+    assert out["verification_matrix"], "the readiness report needs the three states"
+    assert sum(out["verification_summary"].values()) == len(out["verification_matrix"])
+
+
+# ---- the three states ------------------------------------------------------
+
+
+def test_the_three_states_are_three_and_every_claim_is_in_exactly_one():
+    """Measures that IMPLEMENTED, LOCALLY_TESTED and VERIFIED_AGAINST_ETSY stay apart.
+
+    Two states -- done and not done -- is what makes a large build dishonest here, because
+    "the code exists", "our own server accepts it" and "Etsy accepts it" are three different
+    amounts of evidence and only the third is worth anything on launch day.
+    """
+    assert S.VERIFICATION_STATES == (S.IMPLEMENTED, S.LOCALLY_TESTED,
+                                     S.VERIFIED_AGAINST_ETSY)
+    rows = S.verification_matrix()
+    claims = [r["claim"] for r in rows]
+    assert len(claims) == len(set(claims)), "a claim appears twice and could be in two states"
+    for row in rows:
+        assert row["state"] in S.VERIFICATION_STATES, row
+        assert row["what"].strip() and row["graduates_by"].strip(), row
+        assert row["evidence"].strip(), row
+    # All three are actually in use. A matrix where everything is IMPLEMENTED has not made
+    # the distinction, it has just renamed one state.
+    assert len(set(r["state"] for r in rows)) == 3, S.verification_summary()
+
+
+def test_only_the_four_unauthenticated_pings_are_verified_against_etsy():
+    """Measures that the green column is exactly what Etsy has actually said, and no more.
+
+    Four facts, all from the three unauthenticated requests of 2026-09-25: that Etsy is
+    reachable through our own transport, the keystring:shared_secret header format, 403
+    rather than 401, and that Etsy refuses on the API key before reading a body. Nothing
+    about encodings, images, taxonomy or deletion is in there, because no authenticated
+    request has ever been made.
+    """
+    verified = [r for r in S.verification_matrix()
+                if r["state"] == S.VERIFIED_AGAINST_ETSY]
+    assert len(verified) == 4, [r["claim"] for r in verified]
+    for row in verified:
+        assert row["observed_on"] == "2026-09-25", row
+        assert row["evidence"] != "none; the code exists and has not run", row
+    # And none of them is about a write. Every write claim is at most LOCALLY_TESTED.
+    for claim in ("form_encoded_create", "multipart_image_upload", "array_encoding_tags",
+                  "delete_removes_draft", "taxonomy_patterns_id"):
+        row = [r for r in S.verification_matrix() if r["claim"] == claim][0]
+        assert row["state"] != S.VERIFIED_AGAINST_ETSY, row
+
+
+def test_a_claim_cannot_be_promoted_by_being_believed():
+    """Measures the enforcement: VERIFIED_AGAINST_ETSY needs a recorded observation.
+
+    The failure mode this prevents is the cheap one -- somebody edits a state to green
+    because the tests pass. The state and the observation live in two places and the matrix
+    refuses to emit one without the other.
+    """
+    original = S._MATRIX
+    try:
+        S._MATRIX = original + ({"claim": "invented_claim",
+                                 "state": S.VERIFIED_AGAINST_ETSY,
+                                 "blocks_launch": False, "what": "x", "graduates_by": "y"},)
+        try:
+            S.verification_matrix()
+        except S.SchemaRefused as e:
+            assert "ETSY_VERIFIED_FACTS" in str(e), e
+        else:
+            raise AssertionError("a claim promoted itself to VERIFIED_AGAINST_ETSY")
+
+        # A state that is not one of the three is refused for the same reason.
+        S._MATRIX = original + ({"claim": "invented_claim", "state": "PROBABLY_FINE",
+                                 "blocks_launch": False, "what": "x", "graduates_by": "y"},)
+        try:
+            S.verification_matrix()
+        except S.SchemaRefused as e:
+            assert "PROBABLY_FINE" in str(e), e
+        else:
+            raise AssertionError("an invented state was accepted")
+    finally:
+        S._MATRIX = original
+
+
+def test_every_gap_states_its_evidential_status_and_cannot_invent_a_claim():
+    """Measures that the gap list and the matrix cannot describe different worlds."""
+    states = {r["claim"]: r["state"] for r in S.verification_matrix()}
+    for gap in S.gaps():
+        assert gap["verification"] in S.VERIFICATION_STATES, gap
+        if gap.get("claim"):
+            assert gap["verification"] == states[gap["claim"]], gap
+
+    original = S._MATRIX
+    try:
+        # A gap naming a claim nobody tracks is refused rather than quietly stamped.
+        S._MATRIX = tuple(r for r in original if r["claim"] != "delete_removes_draft")
+        try:
+            S.gaps()
+        except S.SchemaRefused as e:
+            assert "delete_removes_draft" in str(e), e
+        else:
+            raise AssertionError("a gap rested on a claim with no evidential status")
+    finally:
+        S._MATRIX = original
 
 
 if __name__ == "__main__":

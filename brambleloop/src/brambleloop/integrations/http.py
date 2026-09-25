@@ -29,10 +29,18 @@ What is exercised and what is not, as of 2026-09-25:
   parser (`tests/fake_etsy.py`), and **never against Etsy**, because Etsy refuses on the API
   key before it looks at a body, so no unauthenticated request can teach us anything about
   body handling. A parseable body is not a proof that Etsy accepts it.
+
+This module also holds `Redactor`, because the boundary where a secret escapes is the
+boundary where bytes become data, and that is here rather than wherever somebody prints a
+report. It removes a secret both by field name and by value, so a token echoed back inside an
+error message -- prose, in a field nobody predicted, from a server that had no business
+repeating it -- is replaced by a fingerprint instead of being hoped about.
 """
 from __future__ import annotations
 
+import hashlib
 import json as jsonlib
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -54,9 +62,16 @@ def form_body(fields: dict[str, Any]) -> bytes:
     """Encode `application/x-www-form-urlencoded`, the way Etsy's two write endpoints want it.
 
     Booleans become `true`/`false` rather than Python's `True`/`False`, which Etsy's parser
-    would read as a string and not as a boolean. Lists arrive already flattened by the
-    caller: how Etsy wants an array in a form body is an open question recorded in
-    `etsy.ARRAY_ENCODING`, and it is not a question a byte-level encoder should answer.
+    would read as a string and not as a boolean.
+
+    A value that arrives as a **list** is emitted as repeated keys (`tags=a&tags=b`). That is
+    not this encoder choosing a reading of Etsy's document: the choice is
+    `etsy.ARRAY_ENCODING`, and it decides whether a list ever reaches here at all. With
+    `ARRAY_ENCODING == "comma"` -- today's setting -- `etsy.form_fields` joins the list before
+    this function sees it and every value below is a string. This branch exists so that
+    flipping that one constant changes the bytes on the wire without changing anything else,
+    which is the whole point of naming the decision: the day a real 400 settles it, one
+    constant moves and no code is written under time pressure.
     """
     pairs: list[tuple[str, str]] = []
     for key, value in fields.items():
@@ -64,6 +79,10 @@ def form_body(fields: dict[str, Any]) -> bytes:
             pairs.append((key, "true" if value else "false"))
         elif value is None:
             continue
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                pairs.append((key, "true" if item is True else
+                              "false" if item is False else str(item)))
         else:
             pairs.append((key, str(value)))
     return urllib.parse.urlencode(pairs).encode("utf-8")
@@ -96,6 +115,99 @@ def multipart_body(part: FilePart,
     chunks.append(part.data)
     chunks.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
     return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
+# ---------------------------------------------------------------------------
+# Redaction, applied where a response becomes a report
+
+
+def fingerprint(secret: str) -> str:
+    """Eight hex characters of a SHA-256, so two secrets can be told apart in a report.
+
+    Never the secret, never a prefix of it. Identical to `etsy_oauth.fingerprint` by
+    construction: the two modules must agree or the same token would appear under two
+    identities in one report. Restated here rather than imported because `etsy_oauth` imports
+    a transport and this module must not depend on the thing that depends on it.
+    """
+    if not secret:
+        return "absent"
+    return hashlib.sha256(secret.encode()).hexdigest()[:8]
+
+
+# Key names whose *value* is a secret whatever it looks like. Matched case-insensitively on
+# the whole key, so `listing_id` is not caught by `id` and `token_type` is not caught by
+# `token` -- a redactor that eats ordinary fields is one somebody switches off.
+SECRET_KEYS = frozenset({
+    "access_token", "refresh_token", "token", "id_token", "code", "client_secret",
+    "shared_secret", "secret", "keystring", "api_key", "x-api-key", "apikey",
+    "authorization", "password", "code_verifier", "verifier", "private_key",
+})
+
+# What an Etsy token looks like on the wire: the granting user's numeric id, a dot, then the
+# token body. Matched so that a token appearing inside a *sentence* -- an error message, a
+# traceback, a field this code has never heard of -- is redacted too. The boundary cannot
+# depend on Etsy putting its secrets only in fields we predicted.
+TOKEN_SHAPED = re.compile(r"\b\d{5,}\.[A-Za-z0-9_-]{16,}\b")
+
+
+class Redactor:
+    """Removes secrets from anything on its way into a report.
+
+    Two mechanisms, because either alone fails:
+
+    - **By key name.** `{"access_token": "..."}` is redacted whatever the value is. This
+      catches a token in a field we expected.
+    - **By value.** Every secret this process actually holds is registered, and any string
+      containing one has it replaced. This catches a token echoed back inside an error
+      message, a URL, a header dump or a field Etsy added after this code was written -- the
+      cases where redacting by key name would have quietly passed the secret through.
+
+    A redacted value becomes `***<fingerprint>`, so two appearances of the same token are
+    visibly the same token and neither is the token. That is the property the existing
+    `TokenSet`/`Credentials`/`OAuthApp` reprs already have; this extends it from the objects
+    to the bytes that came back.
+    """
+
+    # Shorter than this and a "secret" is not distinctive enough to substring-match safely:
+    # replacing every occurrence of a three-character token would mangle the report.
+    MIN_SECRET_LENGTH = 8
+
+    def __init__(self, secrets: Any = ()) -> None:
+        self._secrets: list[str] = []
+        for secret in secrets or ():
+            self.add(secret)
+
+    def add(self, secret: Any) -> None:
+        text = str(secret or "")
+        if len(text) >= self.MIN_SECRET_LENGTH and text not in self._secrets:
+            self._secrets.append(text)
+
+    def string(self, text: str) -> str:
+        for secret in self._secrets:
+            if secret in text:
+                text = text.replace(secret, f"***{fingerprint(secret)}")
+        return TOKEN_SHAPED.sub(lambda m: f"***{fingerprint(m.group(0))}", text)
+
+    def __call__(self, value: Any, *, _key: str = "") -> Any:
+        if isinstance(value, dict):
+            out: dict[Any, Any] = {}
+            for key, item in value.items():
+                if str(key).strip().lower() in SECRET_KEYS:
+                    out[key] = (f"***{fingerprint(str(item))}"
+                                if isinstance(item, (str, int, float)) else "***")
+                else:
+                    out[key] = self(item, _key=str(key))
+            return out
+        if isinstance(value, (list, tuple)):
+            return [self(item, _key=_key) for item in value]
+        if isinstance(value, str):
+            return self.string(value)
+        return value
+
+
+def redact(value: Any, secrets: Any = ()) -> Any:
+    """One-shot redaction. `Redactor` when the same secrets are scrubbed repeatedly."""
+    return Redactor(secrets)(value)
 
 
 def _escape(value: str) -> str:

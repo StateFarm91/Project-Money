@@ -231,6 +231,54 @@ these tests still passes.
 
 **Nothing in this work has been deployed and no listing, draft or shop exists on Etsy.**
 
+Every row of that table now has a **signature** in `integrations/etsy_probe.TAXONOMY`: what we
+send, what each possible response looks like, which of three causes it indicates, and the one
+change that follows. See section 7.
+
+---
+
+## 3.4 The three states, and why there are three
+
+Written down here because it is the thing most easily lost. Every claim about the Etsy write
+path is in exactly one of:
+
+| State | What it means | What establishes it |
+|---|---|---|
+| **IMPLEMENTED** | the code exists and is reachable | somebody wrote it |
+| **LOCALLY_TESTED** | exercised end to end against `tests/fake_etsy.py`, failure paths included | a green local suite |
+| **VERIFIED_AGAINST_ETSY** | observed in a real response from `openapi.etsy.com`, with the observation written down | a live request |
+
+They are three rather than two because "done / not done" is what makes this kind of work
+dishonest. `tests/fake_etsy.py` is a server built from Etsy's document **by the same hand that
+read that document to write the client**, so a passing test says our client agrees with our
+reading. If the reading is wrong, the client and the fake are wrong together and every test
+still passes. **One successful fake-shop run is not evidence of Etsy's behaviour, and no
+number of them adds up to one.**
+
+Today: 4 claims IMPLEMENTED, 4 LOCALLY_TESTED, 4 VERIFIED_AGAINST_ETSY -- and the four verified
+are exactly the four facts from the unauthenticated pings in 3.1. Not one concerns a write.
+
+Where it is recorded, in all three places:
+
+- **In the code.** `publish/listing_schema.py` holds the three constants, `ETSY_VERIFIED_FACTS`
+  (the four observations, each with its date and the sentence Etsy returned), and
+  `verification_matrix()`, which **refuses** to emit VERIFIED_AGAINST_ETSY for a claim
+  `ETSY_VERIFIED_FACTS` carries no observation for. A claim cannot be promoted by being
+  believed.
+- **In `gaps()`.** Every gap carries `verification`, stamped from the matrix rather than
+  written beside it, and a gap naming a claim the matrix does not track is refused. The gap
+  list and the matrix cannot describe different worlds.
+- **In the report the run emits.** `claims()` gives every claim a `state_before` and a
+  `state_after`. A claim moves to VERIFIED_AGAINST_ETSY only when **both** are true: the
+  requests went to `openapi.etsy.com`, and this run produced the confirming signature for that
+  claim. A run against the fake produces identical findings and promotes nothing. That is a
+  test (`test_a_green_run_against_the_fake_cannot_promote_anything_to_verified_against_etsy`),
+  not a convention.
+
+A claim the run *contradicted* is marked CONTRADICTED rather than quietly demoted, and a claim
+the run *could not check* keeps its state with a note saying so -- because "we have not looked",
+"we looked and it was wrong" and "we could not look" are three different facts.
+
 ---
 
 ## 4. What changed outside this department's own files
@@ -298,11 +346,13 @@ One new item. It does not repeat the six already batched in BUILD_STATE, which s
 - **Consequence of waiting:** the shop cannot be built by software at all, and the first real
   Etsy request would be made on the day the shop opens -- which is the situation this whole
   module exists to prevent. Shadow-mode work continues unblocked meanwhile.
-- **What happens the moment it is done:** with `ETSY_SHADOW_WRITE=1` the probe creates one
-  clearly-marked draft ("DO NOT BUY - Brambleloop transport test"), uploads an image, updates
-  it, reads it back from Etsy, verifies remote state field by field, and deletes it. Nothing is
-  activated. If the deletion fails, the report names the listing id and the title to remove in
-  Shop Manager. That run is the evidence section 3.3 is missing.
+- **What happens the moment it is done:** with `ETSY_SHADOW_WRITE=1` the probe runs the eight
+  steps in section 7.1 -- identity, one clearly-marked draft, image, update, read-back,
+  contract verification, delete, verify the delete -- and classifies every outcome against the
+  taxonomy in 7.2, so the run costs one attempt rather than five. Nothing is activated. It is
+  safe to run twice, it sweeps anything an earlier attempt stranded, and if a deletion fails
+  the report names the listing id and title to remove in Shop Manager. That run is the
+  evidence section 3.3 is missing.
 
 ### What was run, and the one failure that is not this work's
 
@@ -354,6 +404,124 @@ fingerprint.
   listing page.** Those are product questions and the probe deliberately makes no product.
 - **Whether `help.etsy.com`'s rules have changed.** Still 403 to automated readers, still the
   owner action the predecessor raised.
+
+## 7. The prepared run: one attempt, not five
+
+The owner's authorisation buys one cheap opportunity to learn eight things at once. If the run
+is improvised when the credentials arrive, each surprise costs a round trip and a re-run; if
+every outcome is named beforehand, the run costs one attempt. This section is that
+preparation. It is all in `integrations/etsy_probe.py` and it is exercised, including every
+failure path, against `tests/fake_etsy.py`.
+
+`PYTHONPATH=src python3 -m brambleloop.integrations.etsy_probe --taxonomy` prints the whole
+table without touching the network.
+
+### 7.1 What the run does, in this exact order
+
+| # | Step | What it establishes that nothing before it did |
+|---|---|---|
+| 0 | ping, then **sweep** | that Etsy is reachable with no token (and so whether a later failure is the network); and it deletes any test draft a **previous** run left, which is what makes this safe to run twice |
+| 1 | authenticated identity + shop read | `getMe` and `getShop`: that the grant worked, the token is live, the scopes are there and `ETSY_SHOP_ID` is ours |
+| 2 | create the test draft | that Etsy accepts our form-encoded `createDraftListing`. Title: "DO NOT BUY - Brambleloop transport test &lt;marker&gt;" |
+| 3 | upload an image | that a multipart part named `image` reaches Etsy -- and whether a 1x1 PNG is acceptable at all |
+| 4 | update permitted fields | that a form-encoded PATCH is accepted |
+| 5 | read the listing back | a **separate request**. The write's own 200 is Etsy repeating our data at us; no mismatch can appear in it |
+| 6 | verify taxonomy / properties / encoding / remote values | the only step that produces evidence about content. Reads `getSellerTaxonomyNodes` and `getPropertiesByTaxonomyId` and compares |
+| 7 | delete the test draft | after re-reading the listing's state and refusing unless it is the draft we expect |
+| 8 | verify the cleanup | reads it back and requires a 404. A 204 is Etsy accepting the request, which is a different claim |
+
+Activation is not on that list. `activate()` keeps all three of its gates -- phase, owner
+authority, and a Launch-0 string passed to the call -- and step 4b proves all three refuse,
+for free, without sending anything. **CA$0**: Etsy charges no fee for an app, a draft, an
+upload or a deletion, and charges its listing fee on publication, which this never performs.
+
+**Idempotent and self-cleaning.** The draft is recorded in `left_behind` the moment it is
+created and removed from it only when step 8 confirms Etsy no longer holds it. A failure at
+any step returns a report rather than raising, always carries `left_behind` (empty when the
+shop is clean) and `shop_is_clean`, and when anything is stranded it emits an **owner action**
+naming the listing id and title for manual removal in Shop Manager. A second run sweeps what
+the first could not remove, so the shop ends with one listing set, not two.
+
+### 7.2 The failure taxonomy
+
+Three causes, because the difference decides who fixes what:
+
+- **OUR_BUG** -- we sent something wrong. The fix is in this repository. Includes the two
+  outcomes that look like successes: a wrong taxonomy integer, and an array encoding Etsy
+  stores without complaint.
+- **ETSY_CONTRACT_DRIFT** -- Etsy behaves differently from Etsy's own published document. The
+  reading was right and the document is stale; `listing_schema.READ_ON` needs refreshing
+  alongside whatever code changes.
+- **ENVIRONMENT** -- credentials, scopes, network or an outage. No code change at all; most
+  end at the owner.
+
+A fourth label, **CONFIRMED**, covers the outcomes that turn a claim into a fact, so the table
+covers the whole outcome space and not only the bad half. Outcomes marked `settles: false` --
+a network failure, a refused credential, a check that could not run -- leave the claim exactly
+where it was: "we could not look" is not "it is broken".
+
+50 signatures across the seven steps. The ones that answer section 3.3 directly:
+
+| Claim | We send | Signal | Cause | The single change |
+|---|---|---|---|---|
+| form-encoded create | POST, `application/x-www-form-urlencoded`, 7 required fields | **201 + listing_id** | CONFIRMED | none |
+| | | 415 | drift | switch this one call to the `json` channel -- one argument to `_call` |
+| | | 400 "Required parameters missing" naming a field we sent | our bug | fix the name in `ListingPayload.to_dict` |
+| | | 400 naming a field the document's `required` array omits | drift | add it to `listing_schema.REQUIRED_TO_CREATE` and to the payload |
+| multipart image | binary in a part named `image`, `image/png` | **201 + listing_image_id** | CONFIRMED | none |
+| | | 400 "No image supplied" / parts listed | our bug | the encoder's part name or boundary; the old transport sent `file` |
+| | | 415 | drift | re-read the `uploadListingImage` request body |
+| | | 400 naming the format | drift | send JPEG; drop PNG from `IMAGE_CONTENT_TYPES` |
+| 1x1 PNG acceptable | a generated one-pixel PNG | 400/413 naming a dimension, size or ratio | our bug (the **fixture**) | `png(width, height)` at the size Etsy names. The transport claim stays LOCALLY_TESTED until an image is accepted |
+| **tags: comma vs repeated keys** | `tags=a,b` (`ARRAY_ENCODING = "comma"`) | 400 naming tags or materials | our bug | `ARRAY_ENCODING = "repeat"` |
+| | | **201, then Etsy holds ONE tag containing a comma** | our bug | `ARRAY_ENCODING = "repeat"`. *No status code anywhere says anything is wrong* -- only the read-back comparison sees it |
+| | | Etsy returns exactly the tags we sent | CONFIRMED | none; the ambiguity closes |
+| OAuth token host | refresh grant to `api.etsy.com`, `openapi.etsy.com` on 404 | 200 from the first | CONFIRMED | none |
+| | | 404 then 200 from the second | drift | `etsy_oauth.TOKEN_URL` to the openapi host |
+| | | 404 from both | drift | re-read the authentication page |
+| | | 400 `invalid_grant` | environment | none in code; the rotated refresh token was not persisted. Owner re-authorises |
+| `TAXONOMY_PATTERNS = 66` | taxonomy_id 66, then `getSellerTaxonomyNodes` | node absent, or named something other than Patterns -- **with a 201 either way** | our bug | `TAXONOMY_PATTERNS` = the id in `taxonomy_candidates`, which the same report prints |
+| | | the listing carries a different taxonomy_id than we sent | drift | `TAXONOMY_PATTERNS` = the id Etsy returned; record that the node redirects |
+| node requires a property | `getPropertiesByTaxonomyId` | 400 on **every** create, naming a property id | our bug | a build task: implement `updateListingProperty`; the gap becomes a launch blocker |
+| | | `is_required` property, create still 201 | our bug | same, but it bites at activation instead |
+| `deleteListing` removes a draft | DELETE, then GET | **204 then 404** | CONFIRMED | none |
+| | | 204 then 200, still there | drift | owner action for Shop Manager; `delete_listing` returns the observed state. **Do not re-run** -- each run would leave another draft |
+| | | 204 then 200 in state `removed`/`expired` | drift | Etsy soft-deletes: change step 8's expectation to that state, and make the sweep match on title rather than absence |
+| | | 403 naming `listings_d` | environment | owner re-authorises with the delete scope; the draft is named for manual removal |
+
+An outcome no signature matches comes back as `UNCLASSIFIED` with no cause, and the report
+says plainly that this is a gap in `TAXONOMY` rather than a question for the reader. **No entry
+says "investigate"**; a test asserts it.
+
+### 7.3 Secrets
+
+No access token, refresh token, keystring, shared secret or authorization code appears in any
+log, report, fixture or test. `http.Redactor` removes a secret two ways, because either alone
+fails: by **field name** (`access_token`, `authorization`, `code`, ...) and by **value**, seeded
+with the credentials the process actually holds, so a token echoed back inside an error
+message, a URL or a field Etsy added after this code was written is caught too. A redacted
+value becomes `***<8 hex of SHA-256>` -- the same fingerprint property `TokenSet`, `OAuthApp`
+and `Credentials` reprs already have, extended from the objects to the bytes that came back.
+Redaction happens where a response becomes a report, not where a report is printed. A test
+makes the fake echo the `Authorization` header back inside an error body and asserts the token
+does not reach the report.
+
+### 7.4 What is still unknowable until the credentials exist
+
+Everything in 3.3 and everything in 7.2 above. The taxonomy makes each outcome *classifiable
+on sight*; it does not make any of them *known*. Also still unknowable: whether a 140-character
+title or a CA$9.99 price behaves as expected on a real listing page (product questions, and
+this run deliberately makes no product), and Etsy's Canadian fee stack (`etsy.com/legal/fees`
+is still 403 to automated readers from here).
+
+One dependency outside this department's files: `etsy_oauth.SCOPES_REQUIRED` has no entry for
+`getSellerTaxonomyNodes` or `getPropertiesByTaxonomyId`, and `missing_scopes` refuses an
+operation it does not know rather than guessing. Both endpoints carry root-level `api_key`
+security in Etsy's document, so the entries are empty tuples. Without them the run still
+completes and still cleans up, but the taxonomy and property claims stay IMPLEMENTED -- so the
+run says so, in the step record, naming the exact two lines.
+
+---
 
 ## Sources
 
