@@ -33,6 +33,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 import pypdf  # noqa: E402
+from reportlab.lib.units import mm  # noqa: E402
 
 from brambleloop.brand import bible  # noqa: E402
 from brambleloop.cir import stitches  # noqa: E402
@@ -72,6 +73,27 @@ def _twin_for(cir):
     result = compile_cir(cir)
     assert result.ok, [str(f) for f in result.errors]
     return result, build_twin(cir, result)
+
+
+# Rendered documents, reused across the checks below.
+#
+# Several of these read the whole catalogue in both terminologies -- which is the point, since
+# the defects that reached customers were in the three designs a convenient fixture leaves out
+# -- and rendering thirty-two multi-page documents once per check is the same document over and
+# over. The render is deterministic for a fixed release date, which is a property this file
+# proves separately, so caching it cannot hide a difference between two renders.
+#
+# Keyed on everything that changes the bytes. A cache keyed on less than that is how a check
+# becomes a label.
+_DOCS: dict[tuple, object] = {}
+
+
+def _doc_for(cir, twin, terminology="US"):
+    key = (cir.slug, cir.version, terminology, RELEASED)
+    if key not in _DOCS:
+        _DOCS[key] = build_pattern_pdf(cir, twin=twin, terminology=terminology,
+                                       released_on=RELEASED)
+    return _DOCS[key]
 
 
 def _text_of(doc) -> str:
@@ -592,6 +614,535 @@ def test_a_terminology_note_is_not_a_stitch_key():
         (root / "purchase" / "pattern.pdf").write_bytes(doc.pdf_bytes)
         out = reader.read("purchase/pattern.pdf", env={LIBRARY_ENV: str(root)})
     assert "abbreviations" in out["sections"], sorted(out["sections"])
+
+
+# ---- 8. both terminologies ship, and the UK one is a UK document ----------
+
+
+def test_both_terminologies_render_for_every_shippable_design():
+    """The claim was live and the file was not.
+
+    The listing title says "US and UK Terms", the description says "in US and in UK
+    terminology", the shop FAQ says "Both" and a Pinterest pin says "US and UK terms". Until
+    this change `assets.build` rendered `pattern-us.pdf` and nothing else, so every one of
+    those was a claim about a file that did not exist.
+
+    Run over every design the pipeline can ship rather than one fixture, because a UK render
+    is where terminology defects live and a single-design check would have found none of the
+    three that were there.
+    """
+    for cir in _designs():
+        _, twin = _twin_for(cir)
+        docs = {t: _doc_for(cir, twin, t) for t in pdf_mod.TERMINOLOGIES}
+        assert set(docs) == {"US", "UK"}, sorted(docs)
+        for terminology, doc in docs.items():
+            assert doc.pages > 1, (cir.slug, terminology)
+            assert doc.terminology == terminology
+            assert f"{terminology} terms" in _flat(doc), (cir.slug, terminology)
+            # Nothing but the crossing-direction gap, which is the CIR's and is reported.
+            assert all(p.startswith("PDF_CABLE_DIRECTION_UNSPECIFIED")
+                       for p in doc.problems), (cir.slug, terminology, doc.problems)
+        # Two files, not one file labelled twice.
+        assert docs["US"].pdf_bytes != docs["UK"].pdf_bytes, cir.slug
+
+
+def test_the_two_documents_are_delivered_under_names_that_tell_them_apart():
+    """A buyer with two PDFs in a downloads folder has to be able to tell which is which."""
+    assert pdf_mod.pattern_filename("US") == "pattern-us.pdf"
+    assert pdf_mod.pattern_filename("UK") == "pattern-uk.pdf"
+    try:
+        pdf_mod.pattern_filename("AU")
+    except ValueError as e:
+        assert "not a terminology" in str(e), str(e)
+    else:
+        raise AssertionError("a terminology this company does not publish was given a filename")
+
+
+def test_every_place_that_ships_the_customer_pdf_ships_every_terminology():
+    """Read off the sources, because a second render site is how one of them ships one file.
+
+    Two handlers put the customer's document in front of a buyer: `assets.build`, which stores
+    it and records its hash, and `store.publish`, which uploads it to the listing. Both held
+    the literal `pattern-us.pdf`, so either could have gained the UK file without the other.
+    Both now loop over `TERMINOLOGIES` and neither names a file directly.
+
+    The same shape as the date-pinning walk below and for the same reason: the defect is the
+    *absence* of a call, and no render proves an absence.
+    """
+    import inspect
+
+    from brambleloop.runtime import pipeline as pipeline_mod
+    from brambleloop.runtime import release as release_mod
+
+    for module in (release_mod, pipeline_mod):
+        source = inspect.getsource(module)
+        # The closing quote is part of the pattern: the literal is what matters, and both
+        # modules still describe in a comment what they used to do.
+        assert 'pattern-us.pdf"' not in source, (
+            module.__name__ + " names the US file directly, so a UK file can be forgotten "
+            "in one place and not the other")
+        assert "pattern_filename(" in source, module.__name__
+        assert "for t in TERMINOLOGIES" in source, module.__name__
+
+
+def test_a_uk_document_states_its_gauge_in_uk_terms_everywhere_it_states_it():
+    """The defect a localised token cannot catch.
+
+    `cir.gauge.stitch_type` is a canonical code, which is a US abbreviation. `cir.writer`
+    localises it on the instructions page; `publish.pdf` printed it raw in three other places.
+    So a UK document said "16 sts x 18 rows = 10 cm in sc" on its cover and "10cm in dc" on
+    page 4 -- one gauge, two stitches, and `sc` is not a UK abbreviation at all, so it is also
+    a word that document's own key never defines.
+
+    A UK maker who resolves `sc` against their own vocabulary swatches a treble: three times
+    the height the gauge was measured at, and every stated measurement wrong with it.
+    """
+    for cir in _designs():
+        if not cir.gauge:
+            continue
+        _, twin = _twin_for(cir)
+        us_token = ab.token(cir.gauge.stitch_type, "US")
+        uk_token = ab.token(cir.gauge.stitch_type, "UK")
+        uk = _flat(_doc_for(cir, twin, "UK"))
+        gauge_lines = [line for line in uk.split(". ") if "rows = 10" in line]
+        assert gauge_lines, cir.slug
+        for line in gauge_lines:
+            assert ab._contains(line.lower(), uk_token.lower()), (cir.slug, line)
+            if us_token.lower() != uk_token.lower():
+                assert not ab._contains(line.lower(), us_token.lower()), (cir.slug, line)
+
+
+def test_the_special_stitch_method_names_its_stitches_in_the_documents_terminology():
+    """The same wrong-stitch harm as the terminology defect, arriving through prose.
+
+    Every method paragraph said "double crochet". In UK terms that is the stitch a US pattern
+    calls single crochet -- half the height of the one the pattern was compiled against -- so a
+    UK document whose token was correctly localised to `fptr` went on, in the paragraph that
+    actually teaches the stitch, to tell the maker to finish it as a double crochet. Every post
+    stitch at half height, cables that do not stand up, a throw about half its stated length.
+
+    `unlocalised()` cannot see this: it renders ops through the writer, and a method paragraph
+    is not an op.
+    """
+    fpdc_us = ab.method("fpdc", "US")
+    fpdc_uk = ab.method("fpdc", "UK")
+    assert "double crochet" in fpdc_us and "treble crochet" in fpdc_uk, (fpdc_us, fpdc_uk)
+    assert fpdc_us != fpdc_uk, "the method paragraph did not change with the terminology"
+
+    # And in the rendered document, not only in the helper.
+    cable = build_cable_throw()
+    _, twin = _twin_for(cable)
+    uk = _flat(build_pattern_pdf(cable, twin=twin, terminology="UK", released_on=RELEASED))
+    us = _flat(build_pattern_pdf(cable, twin=twin, terminology="US", released_on=RELEASED))
+    assert " ".join(fpdc_uk.split()) in uk
+    assert " ".join(fpdc_us.split()) in us
+
+
+def test_no_method_paragraph_spells_a_terminology_sensitive_stitch_name_out():
+    """The guard, on the templates, because a UK render cannot be checked for this.
+
+    "double crochet" is the US name of `dc` and the UK name of `sc` -- the same eleven
+    characters whether it is right or wrong -- so looking for wrong words in a rendered UK
+    document cannot distinguish the two. The checkable property is the stronger one: a method
+    paragraph names no stitch except through the registry.
+    """
+    assert ab.method_names_no_stitch_literally() == (), \
+        ab.method_names_no_stitch_literally()
+    # And the guard fails on the defect it was written for, injected rather than waited for.
+    original = dict(ab.METHOD)
+    try:
+        ab.METHOD["fpdc"] = "Finish as a double crochet."
+        assert "fpdc" in ab.method_names_no_stitch_literally()
+    finally:
+        ab.METHOD.clear()
+        ab.METHOD.update(original)
+
+
+# ---- 9. the key check that could not come out badly -----------------------
+
+
+def test_the_key_completeness_check_is_measured_on_the_whole_document():
+    """It was run on the instruction text against a key derived from the instruction text.
+
+    That is a comparison with one possible answer: `stitch_key(text)` contains every token
+    `text` contains, so `undefined_tokens(text)` was empty by construction. The unreachable
+    branch carried a `pragma: no cover` saying so, under a docstring calling itself "the
+    inverse check, and the one that matters".
+
+    Meanwhile the document sets a cover, a gauge block, a materials list and a finishing
+    section that the key has never been shown, and one of them named `sc` in a UK document.
+    """
+    cir = for_slug("cloudline-baby-blanket")
+    result, twin = _twin_for(cir)
+    text = write_pattern(cir, result, terminology="US")
+
+    # Given the key that was printed, a token the document contains and the key does not is
+    # reported. This is the branch that was unreachable.
+    assert ab.undefined_tokens("Gauge: 10 cm in sc", "US", defined={"dc"}) == ["sc"]
+    assert ab.undefined_tokens("Gauge: 10 cm in sc", "US", defined={"sc"}) == []
+    # And the other terminology's abbreviations count, which is the case the real defect was.
+    # `sc` is not a UK rendering of anything, so a UK-only scan had nothing to look for.
+    assert ab.undefined_tokens("Gauge: 10 cm in sc", "UK", defined={"dc"}) == ["sc"]
+    # A token that only ever appears inside a longer defined one is not undefined: the UK
+    # rendering of `inc` is "dc inc", which contains the US rendering "inc".
+    assert ab.undefined_tokens("[dc inc in next st] x 6", "UK",
+                               defined={"dc", "dc inc"}) == []
+
+    # And the real documents pass it, on their whole prose rather than on one section.
+    for design in _designs():
+        _, design_twin = _twin_for(design)
+        for terminology in pdf_mod.TERMINOLOGIES:
+            doc = _doc_for(design, design_twin, terminology)
+            assert not any(p.startswith("PDF_ABBREVIATION_UNDEFINED")
+                           for p in doc.problems), (design.slug, terminology, doc.problems)
+            # The prose the check reads is the document's own words, and there is more of it
+            # than the instructions.
+            assert len(doc.prose) > len(text), (design.slug, terminology)
+
+    # The document still refuses to be quiet about it if the defect returns: with the gauge
+    # line un-localised, a UK render reports the undefined token rather than shipping it.
+    original = pdf_mod._gauge_stitch
+    try:
+        pdf_mod._gauge_stitch = lambda c, t: c.gauge.stitch_type
+        broken = build_pattern_pdf(cir, twin=twin, terminology="UK", released_on=RELEASED)
+        assert any(p.startswith("PDF_ABBREVIATION_UNDEFINED") and "'sc'" in p
+                   for p in broken.problems), broken.problems
+    finally:
+        pdf_mod._gauge_stitch = original
+
+
+# ---- 10. one licence, and a check that can see the PDF --------------------
+
+
+def test_the_licence_in_the_real_pdf_is_the_one_the_company_decided():
+    """Requirement 40's check, run against the document instead of against itself.
+
+    `terms.consistency(pdf_text, ...)` was called with `terms.render(terms, "pdf")` -- the
+    decision rendered for the PDF surface, not the PDF. So it compared the decision with
+    itself on the one surface that had actually diverged, and reported three surfaces
+    consistent while the customer's own document granted an unlimited right to sell finished
+    items and said nothing about teaching.
+
+    This extracts the text from the rendered PDF and asks the same question of it.
+    """
+    from brambleloop.commerce import shop_package as package
+    from brambleloop.commerce import terms as customer_terms
+
+    cir = for_slug("cloudline-baby-blanket")
+    doc = build_pattern_pdf(cir, released_on=RELEASED)
+    verdict = customer_terms.consistency(
+        _flat(doc), package.policies()["licence"], package.faq_text())
+    assert verdict["consistent"] is True, verdict["divergences"]
+
+    # And the check can fail on this surface, which is what it could not do before.
+    hand_written = ("This pattern is for your personal use. You may sell finished items you "
+                    "make from it.")
+    broken = customer_terms.consistency(
+        hand_written, package.policies()["licence"], package.faq_text())
+    assert broken["consistent"] is False
+    assert {d["surface"] for d in broken["divergences"]} == {"pdf"}, broken["divergences"]
+
+
+def test_no_surface_holds_licence_prose_of_its_own():
+    """Four surfaces, one source. Read off the sources, because prose does not announce itself.
+
+    The old copies, in their own words: `commerce.terms` decided "by individual makers and
+    small businesses, not manufactured at scale"; `brand.storefront` said "sell the items you
+    make from it"; `commerce.seo` said "Sell what you make"; `publish.pdf` said "You may sell
+    finished items you make from it". Three of those granted an unlimited commercial licence
+    that was never decided.
+    """
+    import inspect
+
+    from brambleloop.commerce import seo
+    from brambleloop.commerce import terms as customer_terms
+
+    decided = customer_terms.BRAMBLELOOP_TERMS.sentence(customer_terms.FINISHED_ITEM_SALE)
+    # The constant is gone, not merely unused: a module-level licence paragraph is the thing
+    # that gets printed by the next person who needs one.
+    assert not hasattr(pdf_mod, "LICENCE"), \
+        "publish.pdf holds a licence paragraph of its own again"
+    for module in (pdf_mod, seo):
+        source = inspect.getsource(module)
+        assert "customer_terms" in source or "commerce import terms" in source, module.__name__
+
+    # None of the old wordings reaches a buyer on either surface. Checked on the rendered
+    # output rather than the source, because both modules quote the old copies in comments so
+    # that the next reader knows what this was for.
+    rendered = _flat(build_pattern_pdf(for_slug("cloudline-baby-blanket"),
+                                       released_on=RELEASED))
+    for phrase in ("sell finished items you make from it", "Sell what you make",
+                   "sell the items you make from it"):
+        assert phrase not in rendered, phrase
+    assert decided in rendered, "the PDF does not state the licence that was decided"
+
+    # The listing description renders it, so the two most-read surfaces say the same thing.
+    listing = seo.build_description(
+        "Cloudline Baby Blanket", size_label="97 x 97 cm", yardage_lines=[],
+        tolerance_pct=20, difficulty="beginner", colors=["cream"], terminology="US",
+        gauge_line="16 sts x 18 rows = 10 cm in sc", stitches=["sc", "dc"])
+    assert decided in listing, listing
+
+
+def test_the_support_route_the_terms_promise_is_the_one_the_document_names():
+    """A term that names a channel this company does not have.
+
+    The licence block said "questions are answered by email" directly above the PDF's own
+    paragraph telling buyers to ask through the shop they bought it from. There is no support
+    mailbox; the shop's message thread is the route, and it is the route the document has
+    always named. Printing the two side by side is what made it visible.
+    """
+    from brambleloop.commerce import terms as customer_terms
+
+    sentence = customer_terms.BRAMBLELOOP_TERMS.sentence(customer_terms.SUPPORT_POLICY)
+    assert "shop" in sentence and "email" not in sentence, sentence
+    rendered = _flat(build_pattern_pdf(for_slug("cloudline-baby-blanket"),
+                                       released_on=RELEASED))
+    assert sentence in rendered
+    assert "tell us through the shop you bought it from" in rendered
+
+
+# ---- 11. the chart's own text -------------------------------------------
+
+
+def test_the_chart_reads_the_brand_palette_rather_than_a_second_copy_of_it():
+    """The last asset where the brand was not actually locked.
+
+    `brand/bible.py` says "anything that renders an asset reads from here". `publish.charts`
+    held six of those hex codes as RGB triples -- which is how a duplicate survives a search
+    for the hex string that would have found it. The PDF was corrected on 2026-09-24 and the
+    chart inside it was not.
+    """
+    import inspect
+
+    from brambleloop.publish import charts
+
+    source = inspect.getsource(charts)
+    assert "(26, 43, 60)" not in source and "(250, 246, 235)" not in source, \
+        "the chart renderer still holds its own copy of the palette"
+    for name, value in (("ink", charts.INK), ("pine", charts.PINE), ("cream", charts.CREAM),
+                        ("gold", charts.GOLD), ("line", charts.LINE)):
+        assert value == bible.rgb255(name), (name, value)
+
+
+def test_the_charts_own_small_type_clears_the_contrast_floor():
+    """Half the type in the document was measured and half was not.
+
+    The PDF darkens its own prose until it clears WCAG AA; the chart and legend images inside
+    that same PDF kept the raw palette, and `muted` on `cream` is 4.48:1. Those are the row
+    numbers and stitch numbers a maker reads with the work in their hands.
+    """
+    from brambleloop.publish import charts
+
+    def as_unit(rgb):
+        return tuple(c / 255 for c in rgb)
+
+    assert bible.contrast_ratio(as_unit(bible.rgb255("muted")),
+                                as_unit(charts.CREAM)) < bible.MIN_TEXT_CONTRAST, \
+        "the brand palette now passes on its own; this guard can be simplified"
+    assert bible.contrast_ratio(as_unit(charts.MUTED),
+                                as_unit(charts.CREAM)) >= bible.MIN_TEXT_CONTRAST
+    # One implementation of the rule, not two.
+    assert pdf_mod.MIN_CONTRAST == bible.MIN_TEXT_CONTRAST
+
+
+def test_the_letter_on_a_chart_square_is_legible_on_any_yarn_colour():
+    """The accessibility feature failing in the case it exists for.
+
+    `_readable_on` claimed to pick the colour "a human can actually read" and decided from a
+    weighted-average lightness against a hand-set threshold of 0.55, which is not a contrast
+    measurement and does not have to agree with one. What it draws is the per-colour letter --
+    the thing that makes a mosaic chart readable by a maker who cannot tell the yarns apart by
+    hue -- and yarn colourways arrive from the CIR as arbitrary hex, so a threshold standing in
+    for the measurement will eventually meet the colour it is wrong about. On the brand's own
+    `muted` it chose cream at 4.48:1.
+    """
+    from brambleloop.publish import charts
+
+    for name in bible.PALETTE:
+        bg = bible.rgb255(name)
+        fg = charts._readable_on(bg)
+        ratio = bible.contrast_ratio(tuple(c / 255 for c in fg), tuple(c / 255 for c in bg))
+        assert ratio >= bible.MIN_TEXT_CONTRAST, (name, fg, ratio)
+    # And on a colourway that is neither brand nor convenient.
+    for hexv in ("#808080", "#7F7F7F", "#00FF00", "#FFFF00", "#123456"):
+        bg = tuple(int(hexv[i:i + 2], 16) for i in (1, 3, 5))
+        fg = charts._readable_on(bg)
+        ratio = bible.contrast_ratio(tuple(c / 255 for c in fg), tuple(c / 255 for c in bg))
+        assert ratio >= bible.MIN_TEXT_CONTRAST, (hexv, fg, ratio)
+
+
+def test_the_colour_key_the_document_tells_a_maker_to_use_exists_in_text():
+    """The document instructed a maker to rely on a key it had only drawn.
+
+    The chart marks every square with its yarn's letter and the printing note says in so many
+    words "follow the letters rather than the shading". The letter-to-yarn mapping existed in
+    one place: the rendered legend image -- unsearchable, unselectable, invisible to a screen
+    reader, and gone entirely on a reader that dropped the images.
+
+    And the note that says where to look has to match the chart in front of the reader: a round
+    chart has no squares, and carries its letter on the round number.
+    """
+    from brambleloop.publish import charts
+
+    flat = for_slug("cloudline-baby-blanket")
+    _, flat_twin = _twin_for(flat)
+    rendered = _flat(build_pattern_pdf(flat, twin=flat_twin, released_on=RELEASED))
+    assert "Colour key" in rendered
+    assert charts.COLOUR_CUE_NOTE_FLAT in rendered
+    for name, cue in charts.color_letters(flat).items():
+        assert f"{cue} {name}" in rendered, (cue, name, "letter and yarn are not paired")
+        assert flat.colors[name] in rendered, name
+
+    round_cir = build_hexagon_coaster()
+    _, round_twin = _twin_for(round_cir)
+    round_text = _flat(build_pattern_pdf(round_cir, twin=round_twin, released_on=RELEASED))
+    assert charts.COLOUR_CUE_NOTE_ROUND in round_text
+    assert charts.COLOUR_CUE_NOTE_FLAT not in round_text, \
+        "a round chart is being described as a grid of squares"
+
+    # A one-colour pattern gets no colour key, because there is nothing to tell apart.
+    plain = build_cable_throw()
+    _, plain_twin = _twin_for(plain)
+    assert "Colour key" not in _flat(build_pattern_pdf(plain, twin=plain_twin,
+                                                       released_on=RELEASED))
+
+
+def test_the_greyscale_warning_names_the_colours_that_merge():
+    """The one sentence in the document nobody has ever read had the arithmetic wrong in it.
+
+    It said "two of these colours are close in lightness" however many pairs merged. No pattern
+    in the catalogue fails the greyscale check, so the claim's only sample could not contain the
+    broken case -- and on a four-colour pattern where three merge, "two" sends a maker looking
+    for a pair that is not the problem.
+    """
+    from brambleloop.publish import value_stack
+
+    # Nothing in the catalogue triggers it, which is why this is constructed.
+    for cir in _designs():
+        reading = value_stack.print_safety(cir)
+        if reading.get("measurable"):
+            assert reading.get("prints") is not False, (cir.slug, reading["weakest_pair"])
+
+    merged = for_slug("cloudline-baby-blanket")
+    original = dict(merged.colors)
+    try:
+        merged.colors.update({name: "#6B7280" for name in original})
+        reading = value_stack.print_safety(merged)
+        assert reading["prints"] is False, reading
+        assert reading["merging_pairs"], reading
+        _, twin = _twin_for(merged)
+        rendered = _flat(build_pattern_pdf(merged, twin=twin, released_on=RELEASED))
+        assert "two of these colours" not in rendered
+        for pair in reading["merging_pairs"]:
+            assert " / ".join(pair["between"]) in rendered, (pair, "the pair is not named")
+    finally:
+        merged.colors.clear()
+        merged.colors.update(original)
+
+
+# ---- 12. the chart page ---------------------------------------------------
+
+
+def test_the_chart_shows_the_repeat_the_written_instructions_use():
+    """Two repeat detectors, one fabric, two answers -- and the chart printed the wrong one.
+
+    `charts.detect_repeat` searches for a row period that divides the row count and starts at
+    row 1. Eight of the sixteen shippable designs satisfy neither: they open with setup rows and
+    then repeat a block whose period is not a divisor of the total. So it answered "the repeat
+    is the whole fabric", and the cabled throw's chart page said "this chart shows one repeat:
+    8 stitches wide and 121 rows tall" three pages after written instructions saying "Repeat
+    rows 2-5 29 more times".
+
+    `cir.rowcycle` is the canonical detector: the written pattern collapses to it and the
+    reverse compiler expands it back, which is the property the validation chain rests on. The
+    chart asks it rather than keeping a second opinion.
+    """
+    from brambleloop.cir.rowcycle import detect_cycle
+    from brambleloop.publish import charts
+
+    disagreed = []
+    for cir in _designs():
+        _, twin = _twin_for(cir)
+        if len(cir.components) != 1:
+            continue
+        grid = twin.chart_grid()
+        if len(cir.components[0].rows) != len(grid):
+            continue
+        _, rep_rows = charts.detect_repeat(grid, twin.color_grid())
+        cycle = detect_cycle(cir.components[0].rows)
+        if cycle and cycle.end < rep_rows:
+            disagreed.append(cir.slug)
+            assert charts.row_block(cir, twin) == (cycle.start, cycle.end, cycle.repeats)
+    assert len(disagreed) >= 6, (
+        "the two detectors now agree everywhere, which would make this check vacuous: "
+        + str(disagreed))
+
+    # And the caption says the same thing the instructions say, in the same numbers.
+    cable = build_cable_throw()
+    result, twin = _twin_for(cable)
+    art = pdf_mod._chart_art(cable, twin)
+    assert "rows 2 to 5 29 times more" in art["caption"], art["caption"]
+    assert "Repeat rows 2-5 29 more times" in write_pattern(cable, result), \
+        "the written instructions no longer say what the caption was matched against"
+    assert "121 rows tall" not in art["caption"]
+
+
+def test_no_chart_cell_is_smaller_than_the_brand_allows_type_to_be():
+    """The chart's type is pixels in an image, so nothing was measuring it.
+
+    The source-level check above holds every `size=` and `setFont` in this module to the brand's
+    9pt minimum. The chart's glyphs escaped it entirely: they are drawn into a PNG at some
+    pixel size and then scaled by `_Doc.image` to fit the page, so how large they end up is a
+    property of neither the renderer nor the document on its own.
+
+    Measured, the cabled throw's chart was 1.9 mm per cell -- a 16 mm wide ribbon down a 216 mm
+    page -- and the gate meant to prevent that was `full_cols > 48`, a proxy for legibility that
+    the 48-stitch harvest table runner failed by one stitch.
+    """
+    for cir in _designs():
+        _, twin = _twin_for(cir)
+        art = pdf_mod._chart_art(cir, twin)
+        assert art["problems"] == [], (cir.slug, art["problems"])
+        if art["cell_mm"] is not None:
+            assert art["cell_mm"] >= pdf_mod.CHART_MIN_CELL_MM, (cir.slug, art["cell_mm"])
+
+    # The floor is the brand's own minimum type size, converted through the ratio the chart
+    # renderer sets its glyphs at -- not a number chosen to pass.
+    assert pdf_mod.CHART_MIN_CELL_MM == pdf_mod.MIN_BODY_PT / pdf_mod.CHART_GLYPH_RATIO / mm
+
+    # And the check reports rather than passing quietly when a chart cannot be made legible.
+    tall = for_slug("cloudline-baby-blanket")
+    _, tall_twin = _twin_for(tall)
+    original = pdf_mod.CHART_MIN_CELL_MM
+    try:
+        pdf_mod.CHART_MIN_CELL_MM = 50.0
+        art = pdf_mod._chart_art(tall, tall_twin)
+        assert any(p.startswith("PDF_CHART_CELL_BELOW_BRAND_MINIMUM")
+                   for p in art["problems"]), art["problems"]
+        assert "mm on the page" in art["problems"][0]
+    finally:
+        pdf_mod.CHART_MIN_CELL_MM = original
+
+
+def test_no_two_stitches_share_a_chart_glyph():
+    """One mark, one stitch. `sc` and `cable1x1` were both "x".
+
+    Nothing in the catalogue uses `cable1x1`, so the two had never appeared in one chart and the
+    collision was invisible -- a defect whose only sample could not contain it. A chart drawing
+    two different stitches with one mark, above a legend listing that mark twice, is a maker
+    working the wrong stitch off the chart this product is sold on.
+    """
+    from brambleloop.publish import charts
+
+    seen: dict[str, str] = {}
+    for code, glyph in sorted(charts.GLYPHS.items()):
+        assert glyph not in seen, (glyph, seen[glyph], code)
+        seen[glyph] = code
+    # Every registered stitch has one, so none falls back to the first letter of its code --
+    # which drew both post stitches and the bobble as "b" before they were given marks.
+    assert set(charts.GLYPHS) == set(stitches.known_codes()), (
+        sorted(set(stitches.known_codes()) - set(charts.GLYPHS)))
 
 
 if __name__ == "__main__":

@@ -396,9 +396,10 @@ def faq(terms: customer_terms.Terms | None = None) -> list[dict]:
             f"participant needs their own copy."),
         "us_or_uk_terms": (
             "US or UK crochet terms?",
-            "Both. Every pattern names the terminology it is written in and lists the "
-            "equivalent terms in its stitch key, so a UK crocheter can work a US pattern "
-            "without translating it in their head."),
+            "Both, as two files. Every pattern is delivered as two PDFs: one written "
+            "throughout in US terms and one written throughout in UK terms, each with its "
+            "own stitch key. A UK crocheter does not have to translate a US pattern in "
+            "their head, and nobody has to work out which stitch a word means."),
         "what_if_there_is_a_mistake": (
             "What if there is a mistake in the pattern?",
             f"Tell us the pattern and the row. {support}. If the pattern is wrong we fix "

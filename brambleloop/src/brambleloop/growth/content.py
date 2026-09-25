@@ -89,7 +89,9 @@ having crocheted every size ourselves.
 **Can I make it bigger or smaller?** The stitch counts hold at any gauge — only the
 measurements change. Work a swatch first.
 
-**US or UK terms?** Written in US terms, with the UK equivalent for every stitch in the key.
+**US or UK terms?** Both, as two files. Every pattern is delivered as two PDFs -- one
+written throughout in US terms and one written throughout in UK terms, each with its own
+stitch key. Nothing is left to be translated in your head.
 """
     return Piece("article", f"{f.title} — pattern notes", body,
                  detail={"intent": "search and reassurance, not a sales page"})

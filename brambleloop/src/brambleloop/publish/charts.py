@@ -15,16 +15,42 @@ from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
 
+from ..brand import bible
 from ..cir.model import CIR
 from ..cir.twin import TwinModel
 
-# Brand palette (Brand Model Bible): pine, cream, gold, wine, ink.
-INK = (26, 43, 60)
-PINE = (36, 74, 58)
-CREAM = (250, 246, 235)
-GOLD = (196, 149, 69)
-LINE = (214, 206, 188)
-MUTED = (107, 114, 128)
+
+# The brand palette, read from the brand system rather than restated here.
+#
+# `brand/bible.py` says "anything that renders an asset reads from here", and this module held
+# its own copies of six of those hex codes -- written out as RGB triples, which is how a
+# duplicate survives a search for the hex string that would have found it. The customer's PDF
+# was corrected on 2026-09-24 and the chart inside it was not, so the chart was the last asset
+# where the brand was not actually locked. The values are byte-identical; nothing about any
+# render changes, which is the point.
+INK = bible.rgb255("ink")
+PINE = bible.rgb255("pine")
+CREAM = bible.rgb255("cream")
+GOLD = bible.rgb255("gold")
+LINE = bible.rgb255("line")
+
+
+def _legible_on(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Brand ink darkened until it clears the text-contrast floor on this background.
+
+    The same rule, from the same place, as the PDF that embeds these images. `muted` on `cream`
+    measures 4.48:1 -- under WCAG AA for text below 18pt -- and it is the colour of the chart's
+    row and stitch numbers, its caption and the legend's colour-cue note. Those are the labels
+    a maker reads with the work in their hands, and they were the half of the document's type
+    that nothing measured: the PDF darkened its own prose and the pictures inside it kept the
+    raw palette.
+    """
+    r, g, b = bible.legible(tuple(c / 255 for c in fg), tuple(c / 255 for c in bg))
+    return (round(r * 255), round(g * 255), round(b * 255))
+
+
+# Every use of MUTED in this module is small type on the chart's cream ground.
+MUTED = _legible_on(bible.rgb255("muted"), CREAM)
 
 # Stitch glyphs. Deliberately ASCII-safe: a chart that depends on an exotic font renders as
 # empty boxes on someone else's machine, and we cannot see that happen.
@@ -33,7 +59,13 @@ GLYPHS: dict[str, str] = {
     "inc": "V", "dec": "A", "dc_inc": "W", "dc_dec": "M", "sk": "-",
     # Texture. A stitch with no glyph falls back to the first character of its code, which
     # would have drawn both post stitches and the bobble as "b".
-    "fpdc": "]", "bpdc": "[", "bob": "O", "cable2x2": "X", "cable1x1": "x",
+    #
+    # `cable1x1` was "x", which is also `sc`. Nothing in the catalogue uses `cable1x1`, so the
+    # two had never appeared in one chart and the collision was invisible -- a defect whose only
+    # sample could not contain it. A chart drawing two different stitches with one mark, over a
+    # legend listing that mark twice, is a maker working the wrong stitch off a chart the whole
+    # product is sold on. "/" is the single crossing to "X"'s double.
+    "fpdc": "]", "bpdc": "[", "bob": "O", "cable2x2": "X", "cable1x1": "/",
 }
 
 
@@ -78,6 +110,19 @@ def reset_render_flags() -> None:
 # A, B, C... in the CIR's own colour order, which is the order the legend and the written
 # instructions already use. An index, not a rename: the colour keeps its name everywhere.
 _CUE_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+# How to find a colour's letter on the chart, which depends on the chart.
+#
+# Stated once, here, because the legend image and the PDF's text colour key both have to say
+# it and a picture and a paragraph disagreeing about where to look is worse than either alone.
+COLOUR_CUE_NOTE_FLAT = (
+    "Each square on the chart carries its yarn's letter in the top-left corner; the symbol in "
+    "the middle of the square is the stitch."
+)
+COLOUR_CUE_NOTE_ROUND = (
+    "Each round number on the chart carries its yarn's letter, where that whole round is "
+    "worked in one colour, so the chart can be read without relying on colour."
+)
 
 
 def color_letters(cir: CIR) -> dict[str, str]:
@@ -133,9 +178,30 @@ def _hex_to_rgb(value: str | None, fallback: tuple[int, int, int] = CREAM):
 
 
 def _readable_on(bg: tuple[int, int, int]) -> tuple[int, int, int]:
-    """Pick ink or cream for text, whichever a human can actually read on this square."""
-    luminance = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) / 255
-    return INK if luminance > 0.55 else CREAM
+    """Ink or cream on this square, whichever measures better -- and moved until it passes.
+
+    Said it picked "whichever a human can actually read" and decided on a weighted-average
+    lightness against a hand-set threshold of 0.55, which is not a contrast measurement and
+    does not have to agree with one. On the brand's own `muted` it chose cream at 4.48:1,
+    under the AA floor for text this size.
+
+    That matters more here than anywhere else in the document, because what this colour draws
+    is the per-colour letter cue -- the thing that makes a mosaic chart readable by a maker who
+    cannot distinguish the yarns by hue. An accessibility feature rendered below the contrast
+    floor is the feature failing in the case it exists for. Yarn colourways come out of the CIR
+    as arbitrary hex, so any threshold standing in for the measurement will eventually be given
+    the colour it is wrong about.
+
+    Both candidates are moved away from the background until they clear the floor, and the
+    better *result* is taken. Ranking the two before moving them is a subtler version of the
+    same mistake: on a mid-lightness yarn the brand cream measures fractionally better than the
+    brand ink and cannot be improved, because it is already nearly white, while the ink can be
+    darkened all the way to legible. Picking the leader of the unimproved pair chose the one
+    with nowhere to go and landed at 3.9:1 on a plain mid-grey.
+    """
+    ground = tuple(c / 255 for c in bg)
+    return max((_legible_on(INK, bg), _legible_on(CREAM, bg)),
+               key=lambda fg: bible.contrast_ratio(tuple(c / 255 for c in fg), ground))
 
 
 def detect_repeat(grid: list[list[str]], colors: list[list[str | None]]
@@ -195,15 +261,57 @@ class ChartSpec:
     show_glyphs: bool = True
 
 
-def _cell_size(twin: TwinModel, spec: ChartSpec) -> int:
+def cell_size(twin: TwinModel, spec: ChartSpec,
+              grids: tuple[list[list[str]], list[list[str | None]]] | None = None) -> int:
     """Shrink cells rather than emit an image nobody can open.
 
     A 160-stitch blanket at 26px per cell is over four thousand pixels wide. Scaling down is
     better than truncating: a chart missing its right-hand edge is worse than a small chart.
+
+    Public, and called by `render_chart` rather than repeated inside it, because the caller has
+    to be able to ask how big a cell will be *before* deciding whether this chart is the one to
+    print. The expression lived in two places -- here for a full chart and inline in
+    `render_chart` for a cropped one -- and nothing outside could ask either of them.
     """
-    widest = max(twin.row_widths.values(), default=1)
+    if grids is not None:
+        widest = max((len(r) for r in grids[0]), default=1)
+    else:
+        widest = max(twin.row_widths.values(), default=1)
     usable = spec.max_width_px - 2 * spec.margin_px
     return max(6, min(spec.cell_px, usable // max(1, widest)))
+
+
+def row_block(cir: CIR, twin: TwinModel) -> tuple[int, int, int] | None:
+    """The rows the chart should show, as (first, last, further_repeats), 1-indexed.
+
+    **Asks the writer's own repeat detector rather than a second one.** `detect_repeat` searches
+    for a row period that *divides* the row count and starts at row 1, and eight of the sixteen
+    shippable designs satisfy neither: they open with setup rows and then repeat a block whose
+    period is not a divisor of the total. So `detect_repeat` reported "no vertical repeat" and
+    the chart page printed the whole fabric -- 121 rows of a cabled throw, captioned "this chart
+    shows one repeat: 8 stitches wide and 121 rows tall", three pages after written instructions
+    that say "Repeat rows 2-5 29 more times".
+
+    Two repeat detectors, one fabric, two answers, and the chart printed the wrong one. The
+    rowcycle detector is the canonical one: the written pattern collapses to it and the reverse
+    compiler expands it back, which is the property the whole validation chain rests on.
+
+    Returns the block from row 1 through the end of the first repeat, so no row is left out of
+    the chart -- a chart that silently started at row 2 would be a new defect, not a fix.
+    """
+    from ..cir.rowcycle import detect_cycle
+
+    # Only where the grid is this component's rows. A multi-component piece charts something
+    # else, and guessing which rows those are is how a chart stops matching its instructions.
+    if len(cir.components) != 1:
+        return None
+    rows = cir.components[0].rows
+    if len(rows) != len(twin.chart_grid()):
+        return None
+    cycle = detect_cycle(rows)
+    if cycle is None:
+        return None
+    return cycle.start, cycle.end, cycle.repeats
 
 
 # Below this a cell cannot carry a legible letter as well as a stitch glyph, which is the
@@ -220,9 +328,7 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     numbered on alternating sides because that is the side the maker is working from.
     """
     spec = spec or ChartSpec()
-    cell = _cell_size(twin, spec) if grids is None else max(
-        6, min(spec.cell_px,
-               (spec.max_width_px - 2 * spec.margin_px) // max(1, len(grids[0][0]))))
+    cell = cell_size(twin, spec, grids)
     glyph_font = _font(max(7, int(cell * 0.62)))
     label_font = _font(max(9, int(cell * 0.55)))
 
@@ -509,8 +615,17 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
                anchor="lm")
         y += row_h
     if cues:
-        d.text((24, y + 6), "Each square on the chart carries its yarn's letter, so the "
-                            "chart can be read without relying on colour.",
+        # Where the letter actually is, per chart kind.
+        #
+        # This said "each square on the chart carries its yarn's letter" for every pattern,
+        # and a round chart has no squares: `render_round_chart` appends the letter to the
+        # round *number*, and only for a round worked entirely in one colour. So on the one
+        # construction where the reader most needs telling where to look, the legend described
+        # a chart that was not in front of them. The flat chart's letter sits in the corner of
+        # the square and the symbol in the middle is the stitch, which is also worth saying:
+        # several stitch glyphs are themselves capital letters.
+        d.text((24, y + 6), COLOUR_CUE_NOTE_ROUND if is_round(cir, twin)
+                            else COLOUR_CUE_NOTE_FLAT,
                font=body, fill=MUTED)
     return img
 

@@ -59,6 +59,16 @@ OPTIONS: dict[str, dict[str, str]] = {
     SUPPORT_POLICY: {
         "version_aware_email": ("questions are answered by email, from the exact version of "
                                 "the pattern that was bought"),
+        # Added 2026-09-25, and the chosen option, because the one above named a channel this
+        # company does not have. There is no support mailbox; the shop's message thread is the
+        # route, and it is the route the pattern PDF has always told buyers to use. Printing
+        # the two side by side on one page is what made the difference visible: the licence
+        # block said "answered by email" directly above a paragraph saying "tell us through
+        # the shop you bought it from". A term that names an unreachable channel is worse than
+        # a narrower one, because the buyer who tries it concludes nobody is there.
+        "version_aware_shop_message": ("questions are answered through the shop the pattern "
+                                       "was bought from, against the exact version that was "
+                                       "bought"),
     },
     VERSION_POLICY: {
         "free_updates_forever": ("corrections and revisions are free forever, and buyers are "
@@ -129,15 +139,36 @@ class Terms:
 # The terms this company has actually chosen. Recorded here rather than assembled per product,
 # because per-product terms are how three products end up with three answers to the craft-fair
 # question.
+#
+# **This is the canonical Launch-0 licence, and it is the only one.** Owner ruling
+# 2026-09-25: one conservative source, every surface renders from it, no divergent copies.
+# Conservative means what the four sentences below say -- the buyer's own use, finished items
+# sold by individual makers and small businesses, no manufacture at scale, and no passing on
+# the file, the charts or the photographs.
+#
+# Four surfaces now render from here: the pattern PDF (`publish.pdf.licence_paragraphs`), the
+# listing description (`commerce.seo`), the shop's policies and FAQ (`commerce.shop_package`,
+# which `brand.storefront` reads) and the content FAQ (`growth.content`). None of them holds
+# licence prose of its own, and `consistency()` is run against text extracted from the real
+# PDF rather than against this module's own rendering of it.
+#
+# **No legal reason found that professional review must precede the first sale.** These are
+# terms this company offers about its own copyright work in its own jurisdiction; nothing
+# here is a regulated disclosure, a consumer-law notice or a statement whose absence voids a
+# sale. `enforceable` stays False and says so on the page, which is the honest word for an
+# unreviewed term. Review is scheduled before material scale -- owner decision 4 in
+# BUILD_STATE, 30 minutes, max CA$500 -- and is not a launch blocker.
 BRAMBLELOOP_TERMS = Terms(
     choices={
         PDF_USE: "personal_and_teaching",
         FINISHED_ITEM_SALE: "permitted_small_scale",
         REDISTRIBUTION: "prohibited",
-        SUPPORT_POLICY: "version_aware_email",
+        SUPPORT_POLICY: "version_aware_shop_message",
         VERSION_POLICY: "free_updates_forever",
     },
-    decided_on="2026-09-19",
+    # The five axes were decided on 2026-09-19; the support channel was amended on 2026-09-25
+    # when the PDF began rendering from here and named a mailbox that does not exist.
+    decided_on="2026-09-25",
     decided_by="build",
     legal_review=None,
 )
