@@ -601,6 +601,20 @@ touches (`check_budget`, `release_reservation`, `spend_report.record`, `Material
 | `test_colour` | 7 | | `test_accessibility` | 9 |
 | `test_deliverable_qa` | 48 | | | |
 
-**Eighty-three suites, 1,792 checks, all green, zero failing.** `test_childrens` is green **both** with
-the §4.1 patch applied and with it reverted.
+**Eighty-three suites, 1,792 checks, all green, zero failing.** `test_childrens` is green
+**both** with the §4.1 patch applied and with it reverted.
+
+**One suite is not in that table and is named rather than counted: `test_product_run`.** It is
+the longest suite in the repository -- one department's run of it took thirteen minutes of CPU
+on this machine today -- and four departments were sharing the box; it was still running when
+this was written and has **not** been seen to pass on this diff. What is known about the ground
+it covers: `test_products`, `test_geometry`, `test_texture`, `test_rowcycle`, `test_quality`,
+`test_assembly`, `test_grading`, `test_specification`, `test_certification`, `test_gates`,
+`test_deliverable`, `test_artefacts`, `test_acceptance_gates`, `test_launch0`, `test_childrens`
+and `test_deliverable_qa` (48, the heaviest PDF suite) are all green, and
+`test_cir_fibre::test_the_composition_reaches_the_customers_document` renders a real PDF and
+reads it back. The integrator's `run_tests.sh` is where `test_product_run` gets its answer.
+
+Every suite above was re-run on the **final** code, after the last commit, not on an earlier
+state of it.
 
