@@ -204,5 +204,147 @@ check("draping does not erode the third-loop margin by more than a yarn diameter
 check("the margin is reported in millimetres rather than as a verdict",
       isinstance(drape_margin, float))
 
+# --- the rest state is now an option, and the default must not have moved ----------
+# Kaldor-2010 bounded plastic rest-state migration is implemented as a NAMED, SOURCED option.
+# It changes the fabric's shape, so the thing that most needs a check is that nothing reaches
+# it by accident: every committed Visual result was produced without it.
+from dataclasses import replace                                   # noqa: E402
+
+_probe = DR.DrapeSetup(linear_density_kg_m=1e-4)
+check("bounded plastic rest migration is off unless it is asked for",
+      _probe.plastic_rest_migration is False)
+check("the default run reports no rest migration whatsoever",
+      REPORT.rest_migration_max_rad == 0.0 and REPORT.rest_migration_mean_rad == 0.0)
+check("Kaldor's own published plasticity parameters are the ones carried",
+      (_probe.p_plastic_rad, _probe.p_max_plastic_rad) == (0.01, 2.5))
+check("the plastic option's provenance separates what is sourced from what is not",
+      all(w in DR.PROVENANCE["plastic_rest_migration"]
+          for w in ("SOURCED", "DERIVED", "UNKNOWN")))
+
+# The angular-to-curvature mapping is an identity for equal segments, not a linearisation,
+# and that matters because a crochet loop's turning angles are NOT small -- this swatch's mean
+# is about 1.4 radians. A small-angle version would misplace the plasticity radii by a third.
+_exact = True
+for _th in (0.01, 0.5, 1.4, 3.0):
+    _L = 0.004
+    _d1 = np.array([1.0, 0.0, 0.0])
+    _d2 = np.array([np.cos(_th), np.sin(_th), 0.0])
+    _exact &= abs(float(np.linalg.norm(_L * (_d2 - _d1)))
+                  - DR.angular_radius_to_lap(_th, _L)) < 1e-15
+check("the angular-to-curvature mapping is exact for equal segments, not linearised", _exact)
+check("the mapping saturates at a half turn rather than running past it",
+      abs(DR.angular_radius_to_lap(4.0, 0.004) - DR.angular_radius_to_lap(np.pi, 0.004)) < 1e-18)
+
+# --- the relief metric is tested on fabrics whose answer is known ------------------
+# The corrugated-relief symptom -- rows bowing as rigid bars -- is the dominant remaining
+# realism cue, and a measurement of it is worthless if it cannot tell the two cases apart.
+def _shift(fab, fn):
+    ops = []
+    for o in fab.ops:
+        q = o.points.copy()
+        if o.kind == "hdc":
+            q[:, 2] += fn(o)
+        ops.append(replace(o, points=q))
+    return replace(fab, ops=ops)
+
+
+# The two endpoints are exact rather than thresholds, because a threshold here would be a
+# guess. The first version of this check asserted "> 0.3" against a fixture whose arithmetic
+# gives 0.235006, and the instrument was right while the number was invented -- so the fixtures
+# are now the two cases whose answer the construction pins to a single value.
+_mean_pos = np.mean([o.position for o in FLAT.ops if o.kind == "hdc"])
+_rows_only = _shift(FLAT, lambda o: 0.5 * o.row)
+_across_only = _shift(FLAT, lambda o: 0.4 * (o.position - _mean_pos))
+_pr_rows = DR.relief_profile(FLAT, _rows_only)
+_pr_across = DR.relief_profile(FLAT, _across_only)
+check("displacement that depends only on the row scores as no cross-row variation at all",
+      _pr_rows["within_row_fraction"] < 1e-12, "%.3e" % _pr_rows["within_row_fraction"])
+check("displacement that varies only ACROSS the row scores as entirely cross-row variation",
+      abs(_pr_across["within_row_fraction"] - 1.0) < 1e-12,
+      "%.12f" % _pr_across["within_row_fraction"])
+check("the relief metric reports millimetres alongside the fraction",
+      _pr_across["within_row_rms_mm"] > 0.0 and _pr_across["total_rms_mm"] > 0.0)
+
+# --- an explicit rest curvature must reproduce the captured default exactly ---------
+LAP0 = DR.rest_curvature_of(FLAT)
+_short = replace(SETUP, iterations=120)
+_a, _ = DR.drape(FLAT, _short)
+_b, _ = DR.drape(FLAT, _short, rest_curvature=LAP0)
+check("supplying the rest curvature explicitly reproduces the captured default exactly",
+      np.array_equal(_a.points, _b.points))
+_shape_ok = False
+try:
+    DR.drape(FLAT, _short, rest_curvature=LAP0[:-3])
+except ValueError:
+    _shape_ok = True
+check("a rest curvature of the wrong shape is refused rather than broadcast", _shape_ok)
+
+# --- THE TRAP THAT INVALIDATED THE FIRST RECOVERY EXPERIMENT ------------------------
+# `rest_is_relaxed_shape` captures rest curvature at the START of the call, so releasing
+# gravity on an already-draped fabric leaves the DRAPED shape as its own rest state: there is
+# no restoring force by construction and the experiment cannot detect recovery whichever
+# answer is true. This pins the trap so that nobody runs that experiment that way again.
+_load = replace(SETUP, iterations=400)
+_loaded, _ = DR.drape(FLAT, _load, rest_curvature=LAP0)
+_off = replace(SETUP, gravity=0.0, iterations=400)
+_released, _ = DR.drape(_loaded, _off, rest_curvature=LAP0)
+_trap, _ = DR.drape(_loaded, _off)
+_moved_ok = float(np.abs(_released.points - _loaded.points).max())
+_moved_trap = float(np.abs(_trap.points - _loaded.points).max())
+check("releasing the load against the ORIGINAL rest curvature produces a restoring motion",
+      _moved_ok > 3.0 * max(_moved_trap, 1e-9),
+      "%.4f mm vs %.4f mm" % (_moved_ok, _moved_trap))
+check("capturing rest at the start of the release call leaves almost no restoring force, "
+      "which is why the first recovery experiment was invalid",
+      _moved_trap < 0.25 * _moved_ok, "%.4f mm" % _moved_trap)
+
+# --- Product Truth survives the plastic option too ----------------------------------
+# It is off by default; it must still not be able to break the product when it is on.
+_plastic = replace(SETUP, iterations=400, plastic_rest_migration=True)
+_pl, _prep = DR.drape(FLAT, _plastic)
+_pg = CT.validate(_pl, TWIN, max_rows=ROWS, max_cols=COLS)
+check("plastic rest migration actually migrated the rest state, so it is being measured",
+      _prep.rest_migration_max_rad > 0.0, "%.4f rad" % _prep.rest_migration_max_rad)
+check("plastic rest migration leaves the stitch count and loop targets untouched",
+      _pg["stitches_built"] == before["stitches_built"] and
+      [o.loop_target for o in _pl.ops] == [o.loop_target for o in FLAT.ops])
+check("plastic rest migration keeps every stitch linked",
+      _pg["stitches_linked"] == _pg["stitches_needing_linkage"],
+      "%s/%s" % (_pg["stitches_linked"], _pg["stitches_needing_linkage"]))
+check("plastic rest migration preserves total yarn length",
+      abs(_prep.length_change_pct) < 0.5, "%.4f%%" % _prep.length_change_pct)
+check("plastic rest migration never let a strand reach another",
+      _prep.min_gap_seen_mm > 0.0 and _prep.crossing_impossible)
+
+# --- convergence is now reportable, which the ASTM result turned on -----------------
+# `largest_step_mm` is a maximum over the whole run and cannot distinguish a solve that
+# finished from one that ran out of iterations still moving. Every bending length quoted from
+# this solver depends on which of those it was, so the report has to be able to say.
+check("the report distinguishes a finished solve from one that ran out of iterations",
+      (REPORT.converged is False and REPORT.final_step_mm >= 1e-5) or
+      (REPORT.converged is True and REPORT.final_step_mm < 1e-5),
+      "converged=%s final_step=%.3e" % (REPORT.converged, REPORT.final_step_mm))
+check("the final step is reported, not only the largest one over the run",
+      REPORT.final_step_mm > 0.0 and REPORT.final_step_mm <= REPORT.largest_step_mm,
+      "%.3e <= %.3e" % (REPORT.final_step_mm, REPORT.largest_step_mm))
+
+# --- the cantilever instrument must report what it actually measured ----------------
+# `overhang_mm` is the length the clamp fraction ASKS for. The clamp is a threshold on y and
+# the swatch has five discrete rows, so the length actually left free is quantised to row
+# boundaries -- and since the tip angle is arctan(drop / overhang), a denominator that is wrong
+# non-monotonically puts a wiggle into the angle that is not a property of the fabric. Both are
+# now reported; the nominal one is unchanged so no committed figure moves.
+_ct = DR.cantilever_test(FLAT, replace(SETUP, iterations=150),
+                         overhang_fractions=(0.4, 0.5))
+check("the cantilever test reports the overhang it measured, not only the one asked for",
+      all({"free_extent_mm", "angle_on_measured_overhang_deg", "converged"} <= set(st)
+          for st in _ct["steps"]))
+check("the nominal and measured overhangs do differ, which is why both are reported",
+      any(abs(st["free_extent_mm"] - st["overhang_mm"]) > 0.01 for st in _ct["steps"]),
+      str([(round(st["overhang_mm"], 3), round(st["free_extent_mm"], 3))
+           for st in _ct["steps"]]))
+check("the cantilever test states whether each step's solve converged",
+      all(isinstance(st["converged"], bool) for st in _ct["steps"]))
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)
