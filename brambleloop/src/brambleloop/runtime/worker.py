@@ -381,20 +381,47 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Two-hourly. Drains the gallery-observation backlog once a vision probe has actually
     # succeeded, and refuses to run before that.
     #
-    # Reconciled 2026-09-20. It was ten images every four hours -- sixty a day against a
-    # backlog of eleven hundred, which is nineteen days before the benchmark's visual
-    # evidence is complete, and the reason for the number was the old ceiling. MJs
-    # intelligence is the owner's second spending priority and analysis depth is named as
-    # something not to reduce for cost. Twenty-five images every two hours is three hundred
-    # a day: the backlog closes in four days rather than three weeks, at roughly CA$4.80 a
-    # day while it lasts.
+    # **The period is here and the batch size is not, and that is the fix.** This said
+    # twenty-five images every two hours, with a comment stating the cost -- CA$8.70 a day --
+    # against `market_radar`'s authorised CA$4.00. Two owner-derived numbers, written in two
+    # files, neither aware of the other, and nothing enforcing the smaller one on this path.
+    # The owner ruled on 2026-09-25: keep the CA$4.00 and adapt the cadence. So the handler
+    # now asks `finance.spend_policy.work_that_fits` how many images fit inside the ceiling
+    # this run, using *this* period. The rate follows the ceiling automatically and the two
+    # cannot disagree, because the batch is no longer written down anywhere.
     #
-    # It is self-limiting, which is what makes the rate safe to raise: once the backlog is
-    # empty the handler judges only new and changed listings, so the standing cost falls to
-    # whatever the benchmark shop publishes. A rate that stayed high against an empty queue
-    # would be the waste clause, not the quality one.
+    # The period stays a freshness decision rather than a cost one: two hours is how stale
+    # the benchmark's visual evidence is allowed to get, and pacing the day's permission
+    # across twelve runs is what keeps the agent's other cadences -- the culture sweep, the
+    # radar scans, the probes -- from finding the budget spent at 00:05.
+    #
+    # It is also self-limiting: once the backlog is empty the handler judges only new and
+    # changed listings, so the standing cost falls to whatever the benchmark shop publishes.
     ("gallery_analysis", "market_radar", "intel.gallery_analysis", 2 * 60 * 60),
+    # Daily. Retention: the audit log grows about 4,700 rows a day, the job table 900 and the
+    # dead-letter queue 21, and until 2026-09-25 nothing pruned any of them -- `purge_dead`
+    # existed and was called from nowhere. Daily rather than weekly because a daily run
+    # deletes a day's worth and a weekly one deletes a week's worth in one transaction, and
+    # the second is the shape that times out on a table that has grown. It removes nothing a
+    # gate reads and refuses to run at all when it finds an audit action nobody has decided
+    # about; `ops.retention` carries the reasoning.
+    ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
 ]
+
+
+def cadence_seconds(name: str) -> int:
+    """The declared period of one cadence, read from the table that schedules it.
+
+    A handler that needs to know its own rate -- to pace a budget across the day, say -- has
+    to read it from here rather than restate it, because a period written twice is the defect
+    that put a CA$8.70/day batch under a CA$4.00/day ceiling.
+    """
+    for cadence, _agent, _job_type, period in CADENCES:
+        if cadence == name:
+            return int(period)
+    raise KeyError(
+        f"no cadence named {name!r}. The schedule is the list above; a handler asking about "
+        f"a cadence that is not scheduled is asking about a rate nothing sets")
 
 # Requirement 179's eight meta-agents, one daily cadence each, generated from the roster so
 # that the roles, the agents and the cadences cannot drift apart. Daily and read-only: each

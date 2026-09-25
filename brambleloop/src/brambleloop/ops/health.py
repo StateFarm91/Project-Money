@@ -115,8 +115,10 @@ CANNOT_REPAIR: dict[str, str] = {
     "reverse_a_spend": "money that has left cannot be un-spent by a health check",
     "reclaim_disk": ("a temporary directory may belong to a job that is still writing into "
                      "it, so deleting it here would lose that job's work. The durable fix "
-                     "is at the call sites, which must use `TemporaryDirectory` rather than "
-                     "`mkdtemp`"),
+                     "was at the call sites and was made on 2026-09-25: every production "
+                     "handler now scopes its working directory to the work, through "
+                     "`core.workspace.work_dir`. Anything still counted below is either a "
+                     "run in flight or a process that died holding one"),
 }
 
 
@@ -334,7 +336,13 @@ def _spend(db, now: datetime) -> Reading:
       * the monthly model ceiling, which is the live control -- the one `check_budget`
         refuses against before every call.
       * each agent's declared daily ceiling against what that agent has actually spent
-        today, which nothing else in this system looks at.
+        today. Since 2026-09-25 that ceiling also *binds*, before the call, as a permission
+        rather than as a share of the budget -- so an agent appearing here is a permission
+        that was crossed by rows written before the enforcement existed, or by a path that
+        does not pass its agent to `check_budget`.
+      * money reserved and not yet billed, because `check_budget` now counts live
+        reservations as well as ledger rows. A reader that could not see them would report a
+        smaller number than the guard enforces against.
 
     Degraded means a ceiling was crossed, not that it is being approached: approaching is
     `spend_policy.escalation`'s job and it reports with evidence at four-fifths. A health
@@ -369,6 +377,15 @@ def _spend(db, now: datetime) -> Reading:
             over_agents.append({"agent": agent.name, "spent_today_cad": spent,
                                 "daily_ceiling_cad": agent.daily_cost_ceiling_cad})
 
+    # Money claimed and not yet billed. Added 2026-09-25 with the reservations themselves: a
+    # ceiling now counts live reservations as well as rows, so a reader that could not see them
+    # would be reading a smaller number than the guard enforces against. `expired_unreleased`
+    # is the one to watch -- it is call sites that take a reservation and do not give it back,
+    # and it is the only way this mechanism can make the ceiling stricter than the truth.
+    from ..finance import reservations as _reservations
+
+    held = _reservations.outstanding_in(db, now=now)
+
     month_spend = round(month_spend, 6)
     over_month = month_spend > ceiling
     evidence = {
@@ -378,10 +395,14 @@ def _spend(db, now: datetime) -> Reading:
         "model_ceiling_cad": ceiling,
         "share_of_model_ceiling": round(month_spend / ceiling, 4) if ceiling else None,
         "agents_over_their_daily_ceiling": over_agents,
+        "reserved_but_not_yet_billed_cad": held["cad"],
+        "reservations_live": held["count"],
+        "reservations_expired_unreleased_cad": held["expired_unreleased_cad"],
+        "reservations_expired_unreleased": len(held["expired_unreleased"]),
         "what_this_cannot_see": (
-            "spend that was never written to a cost row. Every ceiling here is computed "
-            "from those rows, so a call that bills and records nothing is invisible to all "
-            "of them"),
+            "spend that was never written to a cost row and never reserved. Every ceiling "
+            "here is computed from those two, so a call that bills nothing and reserves "
+            "nothing is invisible to all of them"),
     }
     reasons = []
     if paused:
@@ -419,12 +440,19 @@ def _disk(runner_state: dict) -> Reading:
     Added because none of the other ten signals is about storage, and the failure it catches
     has already happened once in this repository: the suite left 37,284 temporary
     directories and 29 GB behind, and eleven suites failed on "No space left on device" with
-    no code change behind it. The production handlers use the same call that caused it --
+    no code change behind it. The production handlers used the same call that caused it --
     `tempfile.mkdtemp`, which never removes what it creates -- in the continuity, offsite,
     tournament, owned-asset, reference-pack and image-generation paths, and those run on a
-    cadence forever. Nothing could see the result, which is the part worth fixing first: a
+    cadence forever. Nothing could see the result, which is the part that was fixed first: a
     filling disk is a slow failure that looks like nothing at all until every write fails at
     once.
+
+    Those ten call sites were converted on 2026-09-25 (`core.workspace.work_dir`), so the
+    count below has changed meaning: it used to be an accumulation and is now a census of
+    work in flight plus whatever a process that died was holding. The signal is kept and the
+    threshold is unchanged, because a leak reappearing at a new call site looks exactly like
+    the old one from here, and a counter removed once the bug is fixed is a counter that has
+    to be re-invented the next time.
 
     Read from `runner_state` rather than from this process's own filesystem, for the same
     reason the worker heartbeat is: the process answering an HTTP request is not necessarily
@@ -455,12 +483,20 @@ def _disk(runner_state: dict) -> Reading:
     return Reading("disk", state, dict(facts), "; ".join(reasons))
 
 
-# Prefixes this system's own handlers pass to `tempfile.mkdtemp`. Listed rather than counting
-# everything in the temp directory, because the neighbours' litter is not this company's
-# signal, and a number that includes it is a number nobody can act on.
+# Prefixes this system's own handlers give their working directories. Listed rather than
+# counting everything in the temp directory, because the neighbours' litter is not this
+# company's signal, and a number that includes it is a number nobody can act on.
+#
+# Every prefix any call site passes has to be here or the leftovers it makes are invisible to
+# the one signal that exists to see them, so a test reads the prefixes out of the source and
+# refuses a call site this list has not heard of. That check is why the four
+# `TemporaryDirectory` prefixes below were added: they were already in production, already
+# capable of surviving a killed process, and not counted.
 TEMP_PREFIXES: tuple[str, ...] = (
     "continuity-", "continuity-download-", "offsite-", "tournament-", "owned-asset-",
-    "reference-pack-", "generated-", "motif-chart-", "brambleloop-run-")
+    "reference-pack-", "generated-", "motif-chart-", "brambleloop-run-",
+    "model-frame-", "cycle-proof-", "portrait-repair-", "provider-trial-",
+    "teardown-proof-", "reader-selftest-")
 
 
 def disk_facts() -> dict:
@@ -503,9 +539,11 @@ def disk_facts() -> dict:
         "temp_dirs_left_behind": sum(counts.values()),
         "temp_dir_prefixes": dict(sorted(counts.items())),
         "why_they_are_counted": (
-            "`tempfile.mkdtemp` never removes what it creates, and the handlers that use it "
-            "run on a cadence. Counted rather than cleaned: deleting a directory another "
-            "process is writing into loses that job's work"),
+            "the handlers that make these run on a cadence, and until 2026-09-25 they used "
+            "`tempfile.mkdtemp`, which never removes what it creates. They now scope the "
+            "directory to the work, so a number that keeps climbing here is either work in "
+            "flight or a new call site that forgot. Counted rather than cleaned: deleting a "
+            "directory another process is writing into loses that job's work"),
     }
 
 

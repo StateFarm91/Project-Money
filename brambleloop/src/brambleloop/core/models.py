@@ -206,6 +206,58 @@ class SpendLimit(Base):
     day: Mapped[str] = mapped_column(String(10), default="")
 
 
+class SpendReservation(Base):
+    """Money a caller is about to spend, written down before the call and released after it.
+
+    The gap this closes was the last unbounded overshoot in the monthly model ceiling.
+    `gateway.anthropic.check_budget` reads the month from `cost_entries`, decides, and
+    returns; the provider call then runs for seconds, and only afterwards is a cost row
+    written. Two callers in two processes both read CA$99 of a CA$100 month, both find room,
+    and both spend. Nothing anywhere was written down in between: `spend_report`'s docstring
+    said "the reservation and the bill are kept side by side", and the reservation was a local
+    variable in one module and an `estimated_cad` column filled in *after* the fact. So the
+    overshoot was bounded only by (concurrent callers) x (largest single estimate), and the
+    image benchmark can estimate double figures in one call.
+
+    **A reservation must expire, or it becomes a phantom charge.** A holder that dies between
+    reserving and releasing would otherwise hold budget for the rest of the month against a
+    call that never happened -- and the container is replaced several times an hour, so this
+    is the normal case rather than the unlucky one. `expires_at` is set from the caller's own
+    bound on how long its call can take, and a reservation past it counts for nothing. That
+    makes the failure mode a brief over-reservation instead of a permanent one.
+
+    Rows are kept after release rather than deleted, because a reservation beside the bill it
+    turned into is the reconciliation the spend policy asked for and could not have. Retention
+    prunes them once both numbers are in the ledger.
+    """
+
+    __tablename__ = "spend_reservations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    # Who is holding it: host, process and thread. Deliberately not an agent name -- the
+    # question this answers is "is the thing that took this still alive", and two threads of
+    # one process are two callers racing each other.
+    holder: Mapped[str] = mapped_column(String(120), default="", index=True)
+    agent: Mapped[str] = mapped_column(String(64), default="", index=True)
+    purpose: Mapped[str] = mapped_column(String(60), default="", index=True)
+    model: Mapped[str] = mapped_column(String(80), default="")
+    amount_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True)
+    released_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True)
+    # What the call actually cost, when the caller knew. Null means released without a figure,
+    # which is not the same as free and is reported as such.
+    actual_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (
+        Index("ix_spend_reservations_live", "released_at", "expires_at"),
+    )
+
+
 class Product(Base):
     __tablename__ = "products"
 

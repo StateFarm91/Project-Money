@@ -34,7 +34,7 @@ is the one that would never appear in any log.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 # The one ceiling. Combined model, vision and image-generation spend, per calendar month.
 # Raised from CA$25 on 2026-09-20. Infrastructure is a separate ceiling (CA$20) and is not
@@ -158,6 +158,125 @@ REFUSED_JUSTIFICATION = "the cheaper option was adequate"
 ALLOCATION: dict[str, float] = {
     "gallery_observation": 0.40,
 }
+
+
+SECONDS_PER_DAY = int(timedelta(days=1).total_seconds())
+
+
+def runs_per_day(period_seconds: int) -> int:
+    """How many times a cadence of this period fires in a UTC day. At least one.
+
+    The day is UTC because that is the day the ceilings reset on. A rate paced against the
+    host's local day would divide a UTC budget by a number of hours that depends on a
+    container setting nobody records -- the same defect `registry.spend_today` was fixed for.
+    """
+    return max(1, SECONDS_PER_DAY // max(1, int(period_seconds)))
+
+
+def work_that_fits(db, *, agent: str, purpose: str, period_seconds: int,
+                   unit_cost_cad: float, now: datetime | None = None) -> dict:
+    """How many units of work this cadence may do *this run*, derived from the ceiling.
+
+    **This exists because a cadence and a ceiling were two numbers that disagreed.** The
+    gallery-observation cadence was twenty-five images every two hours, and the comment
+    beside it stated the cost: CA$8.70 a day. `market_radar`'s authorised daily ceiling is
+    CA$4.00. Both were owner-derived, both were written down, and neither knew about the
+    other -- so the batch size was a literal that had drifted to twice the budget and nothing
+    in the system could notice, because the ceiling was enforced by nobody on that path.
+
+    The owner ruled on 2026-09-25: keep the CA$4.00, adapt the cadence to fit it. So the batch
+    is no longer a number at all. It is computed here, from the ceiling, every run -- which is
+    the only form of "one value, one place" that survives somebody editing a cadence next
+    month. Change the ceiling in `agents.registry.DEFAULT_AGENTS` and the rate follows. Change
+    the period in `runtime.worker.CADENCES` and the per-run batch follows. Neither can drift
+    from the other again, because there is only one of them.
+
+    **Paced across the day, not spent at midnight.** The agent's *remaining* ceiling is
+    divided by the number of times this cadence fires in a day. Without the division, the
+    first run of each day would take the whole permission and every later cadence of the same
+    agent -- the culture sweep, the radar scans, the probes -- would find it spent.
+
+    The divisor is runs-per-day rather than runs-*left*-today, which is a choice with two
+    reasons. The first is that the policy above says in as many words that a ceiling is not a
+    target: an unspent morning should not license a burst at 22:00, and dividing what is left
+    by what is left to do would license exactly that. The second is operational. A batch is one
+    job, a job holds a lease of five minutes (`queue.durable.DEFAULT_LEASE_SECONDS`), and a run
+    that outlives its lease can be reclaimed and re-driven by another worker -- which is
+    duplicate spend arriving through the recovery path. A fixed divisor keeps the batch small
+    and the run short; a shrinking one produces a run sixty images long at the end of a quiet
+    day. It still adapts downwards, which is the direction that matters: another cadence
+    spending lowers `remaining`, so the rest of the day's batches get smaller rather than being
+    refused.
+
+    **Three bounds, and the report says which one binds.** The agent's daily ceiling (a
+    permission, paced), the month's authorised ceiling (the budget, a hard stop), and nothing
+    else: a purpose's share of the month is `may_spend`'s job and is asked once per batch by
+    the handler rather than folded in here, because it is a stop rather than a rate and
+    turning it into one would re-decide it.
+
+    The unit cost passed in must be the *padded* estimate the ceiling check uses, not the
+    measured mean. A batch sized on the average overshoots on the expensive half of the batch,
+    and this build has already been wrong about this number twice in the optimistic direction.
+    """
+    from ..gateway.anthropic import agent_daily_ceiling, monthly_ceiling_cad
+    from . import spend_report
+
+    now = now or datetime.now(timezone.utc)
+    unit = round(float(unit_cost_cad or 0.0), 8)
+    runs = runs_per_day(period_seconds)
+
+    bounds: dict[str, dict] = {}
+
+    permission = agent_daily_ceiling(db, agent, now=now)
+    if permission is not None:
+        remaining = max(0.0, permission["daily_ceiling_cad"] - permission["spent_today_cad"])
+        bounds["agent_daily_ceiling"] = {
+            "cad_available_now": round(remaining / runs, 6),
+            "ceiling_cad": permission["daily_ceiling_cad"],
+            "spent_today_cad": permission["spent_today_cad"],
+            "runs_per_day": runs,
+            "why": (f"{agent} may spend CA${permission['daily_ceiling_cad']:.2f} a day and "
+                    f"has spent CA${permission['spent_today_cad']:.4f} of it; this cadence "
+                    f"fires {runs} times a day, so one run's share of what is left is "
+                    f"CA${remaining / runs:.4f}"),
+        }
+
+    produced = spend_report.what_it_bought(db, now=now)
+    month_remaining = max(0.0, monthly_ceiling_cad() - float(produced["spent_cad"]))
+    bounds["monthly_model_ceiling"] = {
+        "cad_available_now": round(month_remaining, 6),
+        "ceiling_cad": monthly_ceiling_cad(),
+        "spent_month_cad": round(float(produced["spent_cad"]), 6),
+        "why": ("the authorised month is the budget and is not paced: it is a hard stop, and "
+                "a batch is never planned larger than the room left in it"),
+    }
+
+    binding, available = min(
+        ((name, b["cad_available_now"]) for name, b in bounds.items()),
+        key=lambda kv: kv[1])
+    units = int(available // unit) if unit > 0 else 0
+
+    return {
+        "units": units,
+        "unit_cost_cad": unit,
+        "cad_available_now": round(available, 6),
+        "binding_ceiling": binding,
+        "bounds": bounds,
+        "period_seconds": int(period_seconds),
+        "runs_per_day": runs,
+        "derived_not_declared": (
+            "this batch size is computed from the ceiling every run. There is no batch "
+            "constant to drift from the budget, which is what a CA$8.70/day cadence under a "
+            "CA$4.00/day ceiling was"),
+        "why": (f"CA${available:.4f} is available to this cadence now under its "
+                f"{binding.replace('_', ' ')}, and one unit is estimated at CA${unit:.4f}"
+                if units else
+                f"nothing fits: CA${available:.4f} is available under this cadence's "
+                f"{binding.replace('_', ' ')} and one unit is estimated at CA${unit:.4f}. "
+                f"The work is not lost -- it is still queued, and the next run takes it once "
+                f"the ceiling has room. Raising the rate is an owner decision about the "
+                f"ceiling, not a number to edit here"),
+    }
 
 
 def may_spend(db, purpose: str, *, now: datetime | None = None) -> dict:

@@ -55,7 +55,13 @@ DEFAULT_AGENTS: list[dict] = [
                             # The off-provider half of #51. Separate from `ops.continuity`
                             # because a local restore proving out is not an archive existing
                             # anywhere this provider's failure would not reach (B-524).
-                            "ops.offsite_archive"],
+                            "ops.offsite_archive",
+                            # Retention (2026-09-25). Nothing pruned anything: 4,700 audit
+                            # rows a day, 900 jobs, 21 dead letters, on the database that is
+                            # the main cost under the CA$20/month infrastructure ceiling.
+                            # `ops.retention` holds the policy and refuses to run when the
+                            # code reads an audit action it has no decision about.
+                            "ops.retention"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
@@ -282,7 +288,7 @@ class Registry:
         return agent
 
     # ---- cost ceilings -------------------------------------------------
-    def spend_today(self, agent_name: str) -> float:
+    def spend_today(self, agent_name: str, *, now: datetime | None = None) -> float:
         """This agent's spend on the current UTC day.
 
         UTC, because every other timestamp in this system is and the rows being summed are
@@ -290,8 +296,14 @@ class Registry:
         set to UTC the window being summed and the window the rows were stamped in are
         different windows -- a ceiling that resets at the wrong hour, silently, and only on
         some machines.
+
+        `now` was added when this became a pre-call guard rather than only a post-call one.
+        A ceiling check that takes a timestamp for one of its two numbers and the wall clock
+        for the other is asking two clocks about the same day: it agrees with itself while
+        the frozen date happens to be today and disagrees after the next UTC midnight, which
+        is a defect this repository has already had twice.
         """
-        today = utcnow().date()
+        today = (now or utcnow()).astimezone(timezone.utc).date()
         with self.db.session() as s:
             entries = s.scalars(select(CostEntry).where(CostEntry.agent == agent_name))
             return round(

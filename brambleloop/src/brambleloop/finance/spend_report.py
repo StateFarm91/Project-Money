@@ -171,9 +171,15 @@ def per_agent_today(db, *, now: datetime | None = None) -> dict:
     `/api/verify` asserted only that a number was configured.
 
     A reader, not a guard. It cannot refuse a spend that has already happened; it makes the
-    overrun visible, which is the thing that was missing. Enforcement belongs before the
-    call, in `gateway.anthropic.check_budget`, and moving it there changes what the running
-    system will refuse -- an owner-visible behaviour change rather than a reporting fix.
+    overrun visible, which was the thing missing on 2026-09-24.
+
+    **Enforcement now exists and is somewhere else.** On the owner's ruling of 2026-09-25,
+    `gateway.anthropic.check_budget` checks the agent's ceiling *before* the call and raises
+    `AgentCeilingExceeded`, as a permission rather than as a share of the budget -- the global
+    monthly ceiling stays authoritative. So an agent appearing in `over` below now means one of
+    two things, and they are different faults: rows written before the enforcement existed, or
+    a spend path that does not pass its `agent` to `check_budget` (the `visual/**` writers
+    still do not). This reader is what tells them apart, which is why it stayed a reader.
 
     All kinds, not just `llm`. An agent's daily ceiling is a limit on what that agent may
     spend, and a ceiling that ignores whichever kinds were added later is a ceiling that

@@ -340,10 +340,9 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
     wrong is corruption, and it is the one that must never be reported as a successful
     backup.
     """
-    import tempfile
     from pathlib import Path as _Path
 
-    from . import continuity
+    from . import continuity, workspace
     from .db import Database
     from .models import AuditLog
 
@@ -361,47 +360,53 @@ def archive(db, *, env: dict[str, str] | None = None, work_dir: str | Path | Non
         record.update(reason=f"no {ENDPOINT_VAR} in this environment", stage="configuration")
 
     if not record["reason"]:
-        root = _Path(work_dir or tempfile.mkdtemp())
-        root.mkdir(parents=True, exist_ok=True)
-        export_path = root / "continuity.jsonl"
-        try:
-            record["stage"] = "export"
-            result = continuity.export(db, export_path)
-            payload, raw_bytes = continuity._compress(export_path)
-            key = object_key(result.digest, now)
+        # Everything this directory holds -- the export, the compressed payload, the restored
+        # copy and the scratch SQLite database the restore is proved into -- exists only for
+        # the proof, and the proof is finished by the end of this block. It was
+        # `tempfile.mkdtemp` with no prefix at all, so the leftovers were not even
+        # attributable to this module in the disk signal's count.
+        with workspace.work_dir(work_dir, prefix="offsite-") as work:
+            root = _Path(work)
+            root.mkdir(parents=True, exist_ok=True)
+            export_path = root / "continuity.jsonl"
+            try:
+                record["stage"] = "export"
+                result = continuity.export(db, export_path)
+                payload, raw_bytes = continuity._compress(export_path)
+                key = object_key(result.digest, now)
 
-            record["stage"] = "upload"
-            written = send(key, payload, env=env)
+                record["stage"] = "upload"
+                written = send(key, payload, env=env)
 
-            record["stage"] = "read_back"
-            came_back = fetch(key, env=env)
-            if hashlib.sha256(came_back).hexdigest() != hashlib.sha256(payload).hexdigest():
-                raise ArchiveCorrupt(
-                    "what came back is not what went up. A backup that differs from its "
-                    "source is worse than no backup, because it is discovered on the day "
-                    "it is needed")
+                record["stage"] = "read_back"
+                came_back = fetch(key, env=env)
+                if hashlib.sha256(came_back).hexdigest() != hashlib.sha256(payload).hexdigest():
+                    raise ArchiveCorrupt(
+                        "what came back is not what went up. A backup that differs from its "
+                        "source is worse than no backup, because it is discovered on the day "
+                        "it is needed")
 
-            record["stage"] = "restore"
-            import gzip
+                record["stage"] = "restore"
+                import gzip
 
-            restored_path = root / "restored.jsonl"
-            restored_path.write_bytes(gzip.decompress(came_back))
-            scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}")
-            scratch.create_all()
-            counts = continuity.restore(restored_path, scratch)
+                restored_path = root / "restored.jsonl"
+                restored_path.write_bytes(gzip.decompress(came_back))
+                scratch = Database(f"sqlite:///{root / 'restore-proof.sqlite'}")
+                scratch.create_all()
+                counts = continuity.restore(restored_path, scratch)
 
-            record.update({
-                "ok": True, "stage": "complete", "key": key,
-                "digest": result.digest, "raw_bytes": raw_bytes,
-                "stored_bytes": written["bytes"], "bucket": written.get("bucket", ""),
-                "host": written.get("host", ""),
-                "tables_restored": len(counts),
-                "rows_restored": sum(counts.values()),
-                "survives": {"container_replacement": True, "redeploy": True,
-                             "provider_loss": True},
-            })
-        except (PermanentError, TransientError) as exc:
-            record["reason"] = f"{record['stage']}: {str(exc)[:360]}"
+                record.update({
+                    "ok": True, "stage": "complete", "key": key,
+                    "digest": result.digest, "raw_bytes": raw_bytes,
+                    "stored_bytes": written["bytes"], "bucket": written.get("bucket", ""),
+                    "host": written.get("host", ""),
+                    "tables_restored": len(counts),
+                    "rows_restored": sum(counts.values()),
+                    "survives": {"container_replacement": True, "redeploy": True,
+                                 "provider_loss": True},
+                })
+            except (PermanentError, TransientError) as exc:
+                record["reason"] = f"{record['stage']}: {str(exc)[:360]}"
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=PROBE_ACTION,

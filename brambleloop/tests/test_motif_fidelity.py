@@ -71,7 +71,17 @@ def test_fabric_that_cannot_be_seen_is_unmeasurable_and_still_blocks():
 
 
 def test_the_comparison_is_against_the_chart_rather_than_a_sentence():
-    """A generator that produced squares will happily be told they are diamonds."""
+    """A generator that produced squares will happily be told they are diamonds.
+
+    The chart's existence is asserted *at the moment the judge is handed it*, which is when
+    this check's property is true or false. It used to be asserted after `check` returned, and
+    that pinned a second property nobody meant: that the chart outlives the comparison. It did,
+    because `check` wrote it with `tempfile.mkdtemp` and nothing removed it -- a rendered image
+    per asset check, for ever, on the disk that ran out of space in this repository once
+    already. `check` now owns and removes its chart (2026-09-25), so the assertion moved to
+    where the question is actually being asked. Everything else here is unchanged, and the new
+    position is the stronger test: it proves the judge was handed a file rather than a path.
+    """
     import tempfile
 
     cir, twin = _subject()
@@ -80,6 +90,7 @@ def test_the_comparison_is_against_the_chart_rather_than_a_sentence():
     def judger(image_ref, chart_ref):
         seen["image"] = image_ref
         seen["chart"] = chart_ref
+        seen["chart_existed_when_the_judge_saw_it"] = Path(chart_ref).is_file()
         return _answer()
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -88,7 +99,12 @@ def test_the_comparison_is_against_the_chart_rather_than_a_sentence():
         out = mf.check(None, str(image), cir, twin, judger=judger)
 
     assert seen["image"].endswith("asset.png")
-    assert Path(seen["chart"]).is_file(), "the chart was not rendered to compare against"
+    assert seen["chart_existed_when_the_judge_saw_it"], (
+        "the chart was not rendered to compare against")
+    assert out["chart_retained"] is False, (
+        "the chart is deterministic output from a certified CIR and is redrawn for nothing, "
+        "so it is not kept -- and the record has to say so rather than leave a path that "
+        "stops resolving")
     assert out["verdict"] == mf.MATCH
     assert out["blocks_customer_facing_asset"] is False
     assert out["expected"]["chart_rows"] == 88
