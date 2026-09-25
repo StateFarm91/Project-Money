@@ -8321,3 +8321,77 @@ it is worth more than a confident number would have been. The recommended next s
 instrumental, needs no Stage 0, and is not Stage 1: converge the cantilever inversion and
 re-derive B in code with a test stating its conditions; use a larger swatch for cantilever
 work; state a converged iteration count per quantity.
+
+## 2026-09-25 — Etsy/Commerce II: the transport gap is closed, and exercised as far as an auth wall allows
+
+Merged from an isolated worktree. Boundary clean. Secret scan on the diff: the only match is
+`keystring="keystring-value"`, a test placeholder. **Nothing activated, nothing deployed,
+nothing spent, nothing exists on Etsy.** 15 + 27 + 14 + 18 + 24 + 13 checks re-run green by
+the integrator.
+
+### Built
+
+`uploadListingImage`, with a finding the audit could not have produced: **the old transport
+hard-coded the multipart part name `file` for every upload. Etsy's parameter is `image`.**
+That is a well-formed request in which Etsy finds no image — it would have failed silently on
+launch day. `updateListing` as PATCH (not PUT/POST), form-encoded, whitelisted to Etsy's 24
+writable fields. `activate` implemented and **triple-gated** — phase, owner authority, and a
+Launch-0 authorisation string passed to the call — **and never called against Etsy.** OAuth
+authorization-code grant with PKCE, refresh, and token rotation persisted via callback rather
+than to the repo (the static token was a day-two failure: Etsy's access token lives one hour).
+Per-endpoint encoding channels, so the Content-Type header cannot disagree with the bytes.
+
+**A second finding of the same kind: `updateListing` has no `price` property at all.** Price
+lives in `updateListingInventory` — PUT, and genuinely `application/json`. Sending a price to
+`updateListing` returns **200 and changes nothing.** Refused client-side with that
+explanation.
+
+### What is PROVEN, and by what
+
+Three live requests to Etsy's `openapi-ping`, CA$0, creating nothing — **the first Etsy call
+this system has ever made.** They establish: Etsy is reachable from this environment through
+our own transport; Etsy itself confirms the `keystring:shared_secret` header format; a bad key
+returns **403, not 401**; and **Etsy refuses on the API key before reading a body**, which
+means no unauthenticated request can ever confirm an encoding.
+
+Against `tests/fake_etsy.py` — a real HTTP server built from Etsy's OpenAPI and its two real
+error strings, bodies parsed by `parse_qsl` and Python's `email`, reached through the real
+transport — the full sequence is green: **11 of 11 fields matched on read-back, state=draft,
+1 image, shop empty afterwards.** A JSON body on a form endpoint is **415**, so the old
+encoding was contract-INVALID rather than merely unusual. An image in a part named `file` is
+**400**. A `quantity` PATCH returns **200 and changes nothing**, caught only by read-back.
+PKCE matches RFC 7636's published vector.
+
+### The epistemics, which are the best part of this work
+
+`listing_schema.gaps()` keeps the image and encoding gaps as launch blockers, but **rewritten
+from "this system does not do it" to "Etsy has never confirmed that this system does it
+correctly"** — plus a third: nothing has ever authenticated against Etsy. That is the correct
+distinction and it is the one this codebase keeps having to relearn. A fake server proves the
+contract we believe in; it cannot prove the contract Etsy has.
+
+Also corrected: **`publish()` reported `published=True` for drafts that could never go live.**
+It now reports `activatable` separately, today's call is not activatable, and a test asserts
+it. No caller supplies image bytes yet — listing imagery is a release artefact and the bytes
+are not durable without object storage, which is an existing owner decision.
+
+### OWNER ACTION REQUIRED — 15 minutes, CA$0, no fee
+
+**Authorise the Etsy app once in a browser.** Register app → set the exact https callback →
+put `ETSY_KEYSTRING`, `ETSY_SHARED_SECRET`, `ETSY_REDIRECT_URI` in the environment → open the
+authorize URL the probe prints → capture `ETSY_REFRESH_TOKEN`. Detail in §5.1 of
+`research/ETSY_TRANSPORT.md`.
+
+**Why it must be you:** Etsy has no key-only route to a write scope. The department did not
+attempt to work around it, which is correct. **No fee is involved — Etsy charges on
+publication, which none of this work performs.** Consequence of waiting: every write remains
+unexercised against the real API, so the three launch blockers stay open on evidence rather
+than on capability.
+
+### Recorded, not fixed
+
+`test_deploy::test_scheduler_tick_endpoint_is_idempotent_within_a_window` reportedly fails
+inside the suite and passes in isolation. **Verified passing in isolation by the integrator
+(exit 0); the in-suite behaviour is under test in the full run now.** Same family as the
+expiring test fixed earlier — a check whose result depends on conditions it does not state.
+Recorded rather than omitted, and not yet diagnosed.
