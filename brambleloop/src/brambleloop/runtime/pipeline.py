@@ -372,8 +372,9 @@ def handle_certify(ctx: JobContext) -> dict:
     listing = ListingDraft(
         title=f"{cir.title} | Crochet Pattern PDF with Charts",
         description=(f"{cir.title}. Written pattern with stitch counts for every row, "
-                     f"US and UK terminology. Drafted and checked with AI assistance and "
-                     f"validated by an automated pattern compiler before release."),
+                     f"as two PDFs -- one written throughout in US terms and one in UK "
+                     f"terms. Drafted and checked with AI assistance and validated by an "
+                     f"automated pattern compiler before release."),
         tags=["crochet pattern", "mosaic blanket", "pdf pattern"],
         price_cad=11.99,
     )
@@ -597,7 +598,8 @@ def handle_store_publish(ctx: JobContext) -> dict:
     # The bytes have to exist. Without durable storage they may not, and the client refuses
     # an empty upload rather than creating a listing that delivers nothing.
     from ..core.artifacts import ArtifactStore
-    from ..publish.pdf import build_pattern_pdf
+    from ..core.resilience import PermanentError, TransientError
+    from ..publish.pdf import TERMINOLOGIES, build_pattern_pdf, pattern_filename
 
     result = compile_cir(cir)
     twin = build_twin(cir, result)
@@ -607,13 +609,54 @@ def handle_store_publish(ctx: JobContext) -> dict:
     # different files for no reason connected to the pattern.
     from .release import _released_on
 
-    doc = build_pattern_pdf(cir, twin=twin, terminology="US",
-                            released_on=_released_on(ctx, slug, version))
+    released_on = _released_on(ctx, slug, version)
+    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on)
+            for t in TERMINOLOGIES}
+    doc = docs["US"]
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
-    stored = store.put(f"{slug}/{version}/pattern-us.pdf", doc.pdf_bytes, "application/pdf")
+    stored_by_terminology = {
+        t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
+                     "application/pdf")
+        for t, d in docs.items()}
+    stored = stored_by_terminology["US"]
 
-    outcome = client.publish(payload=payload, filename=f"{slug}-pattern.pdf",
+    # The uploaded name comes from the same place as the stored one. It was spelled out here,
+    # so the file in the buyer's downloads folder and the file in the artifact store could have
+    # been named by two different rules.
+    outcome = client.publish(payload=payload,
+                             filename=f"{slug}-{pattern_filename('US')}",
                              data=doc.pdf_bytes)
+
+    # The second file, attached after the first.
+    #
+    # `assets.build` renders both terminologies and the listing claims both, so a listing that
+    # delivers only the US document takes money for something it did not sell. `client.publish`
+    # creates the draft and attaches one file, which is the right shape for the transaction it
+    # names; the rest are ordinary `attach_file` calls against a listing that now exists.
+    #
+    # Recorded per file rather than folded into one boolean: a listing with the US pattern and
+    # no UK pattern is a real, deliverable, partly-wrong state, and "published: true" would
+    # hide it. That is the half-done case this handler already refuses to round off.
+    extra_files: dict[str, bool] = {}
+    extra_problems: list[str] = []
+    if outcome.listing_id and outcome.file_uploaded:
+        for terminology in TERMINOLOGIES[1:]:
+            try:
+                extra_files[terminology] = client.attach_file(
+                    outcome.listing_id,
+                    filename=f"{slug}-{pattern_filename(terminology)}",
+                    data=docs[terminology].pdf_bytes)
+            except (TransientError, PermanentError) as e:
+                extra_files[terminology] = False
+                extra_problems.append(
+                    f"listing {outcome.listing_id} has the US pattern attached and not the "
+                    f"{terminology} one, which the listing copy promises: {e}")
+            else:
+                if not extra_files[terminology]:
+                    extra_problems.append(
+                        f"listing {outcome.listing_id} accepted the {terminology} pattern "
+                        f"upload without returning a file id, so the buyer may receive only "
+                        f"the US document the listing copy promises alongside it")
 
     if outcome.listing_id:
         with ctx.db.session() as s:
@@ -628,7 +671,12 @@ def handle_store_publish(ctx: JobContext) -> dict:
               detail={"etsy_listing_id": outcome.listing_id,
                       "file_uploaded": outcome.file_uploaded,
                       "pdf_sha256": stored.sha256,
-                      "problems": outcome.problems[:3]})
+                      "pdf_sha256_by_terminology": {
+                          t: art.sha256
+                          for t, art in sorted(stored_by_terminology.items())},
+                      "files_attached_by_terminology": {
+                          "US": outcome.file_uploaded, **extra_files},
+                      "problems": (outcome.problems + extra_problems)[:5]})
 
     if outcome.needs_completion:
         # A listing on Etsy with no file attached would take money and deliver nothing.
@@ -642,7 +690,9 @@ def handle_store_publish(ctx: JobContext) -> dict:
 
     return {"slug": slug, "version": version, "published": outcome.published,
             "etsy_listing_id": outcome.listing_id,
-            "file_uploaded": outcome.file_uploaded, "problems": outcome.problems}
+            "file_uploaded": outcome.file_uploaded,
+            "files_attached_by_terminology": {"US": outcome.file_uploaded, **extra_files},
+            "problems": outcome.problems + extra_problems}
 
 
 @handlers.register("ops.heartbeat")

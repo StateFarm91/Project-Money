@@ -17,6 +17,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from . import terms as customer_terms
+
 TITLE_MAX = 140
 TAG_MAX_CHARS = 20
 TAG_MAX_COUNT = 13
@@ -141,7 +143,13 @@ def build_description(product_title: str, *, size_label: str | None,
                       gauge_line: str | None, stitches: list[str],
                       season: str | None = None, pages: int | None = None,
                       collapsed_repeats: bool = False) -> str:
-    """Assemble the description entirely from verified pattern facts."""
+    """Assemble the description entirely from verified pattern facts.
+
+    `terminology` is still accepted and no line depends on it any more: both documents ship, so
+    the honest sentence names two files rather than one terminology. Kept in the signature
+    rather than removed, because every caller passes it and the release chain still records
+    which terminology a given render is.
+    """
     out: list[str] = []
     out.append(f"{product_title} — a crochet pattern, not a finished item. You receive an "
                f"instant digital download.")
@@ -158,7 +166,17 @@ def build_description(product_title: str, *, size_label: str | None,
         out.append("- Written instructions for every row, with a stitch count on each")
     out.append(f"- A colour chart generated from the same data as the written instructions, "
                f"so the two cannot disagree")
-    out.append(f"- {terminology} terms, with the equivalent terms listed in the stitch key")
+    # What actually ships, named as two files.
+    #
+    # This line read "{terminology} terms, with the equivalent terms listed in the stitch key"
+    # and the stitch key lists one terminology's tokens -- the key is built from the rendered
+    # instructions, and the instructions are rendered in one terminology. The listing title
+    # says "US and UK Terms" and the release chain shipped `pattern-us.pdf` alone, so the
+    # claim was unsupportable on both counts. `assets.build` now renders and stores both
+    # documents and `store.publish` attaches both, so the claim is true and is stated as the
+    # thing the buyer can count: two files.
+    out.append(f"- Two PDFs, one in US terms and one in UK terms -- the same pattern, each "
+               f"written throughout in its own terminology, with a stitch key to match")
     if pages:
         out.append(f"- {pages}-page PDF, laid out to be readable on a phone or printed")
     out.append("")
@@ -189,9 +207,22 @@ def build_description(product_title: str, *, size_label: str | None,
                "anything in it does not add up, tell us: we fix the pattern itself and "
                "re-issue it, rather than only answering the question.")
     out.append("")
-    out.append("TERMS")
-    out.append("For your personal use. Sell what you make; please do not resell or share the "
-               "pattern file, charts or instructions.")
+    # Rendered from `commerce.terms`, not written here.
+    #
+    # This was the third of three answers to the most-asked question in this market. The
+    # decision says finished items may be sold "by individual makers and small businesses, not
+    # manufactured at scale"; `brand.storefront` said "sell the items you make from it" with no
+    # limit; this line said "Sell what you make", also with no limit; and the pattern PDF said
+    # a fourth thing. `brand.storefront` and the PDF now render from the decision, and this is
+    # the last copy. Owner ruling 2026-09-25: one conservative source, no divergent copies.
+    #
+    # Only the heading is this module's: the surfaces are allowed different headings and are
+    # not allowed different answers, and every other section label in this description is set
+    # in capitals. The body is passed through untouched, which is what `terms.consistency`
+    # measures.
+    rendered = customer_terms.render(customer_terms.BRAMBLELOOP_TERMS, "listing").split("\n")
+    out.append(rendered[0].upper())
+    out.extend(rendered[1:])
     return "\n".join(out)
 
 

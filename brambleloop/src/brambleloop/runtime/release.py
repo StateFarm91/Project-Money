@@ -33,7 +33,7 @@ from ..core.models import ListingAsset
 from ..gates.asset_truth import check_assets
 from ..publish.charts import ChartSpec, render_any_chart, render_legend
 from ..publish.listing_assets import build_frames, check_frame_plan
-from ..publish.pdf import build_pattern_pdf
+from ..publish.pdf import TERMINOLOGIES, build_pattern_pdf, pattern_filename
 from ..radar.market import shopping_window
 from ..radar.opportunity import POOL, _event
 from .worker import JobContext, handlers
@@ -155,17 +155,42 @@ def handle_assets_build(ctx: JobContext) -> dict:
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
 
-    doc = build_pattern_pdf(cir, twin=twin, terminology="US",
-                            released_on=_released_on(ctx, slug, version))
+    # Both terminologies, because both are sold.
+    #
+    # This rendered `pattern-us.pdf` alone while the listing title said "US and UK Terms", the
+    # description said "US and UK terminology", the content FAQ said "the UK equivalent for
+    # every stitch in the key" and a Pinterest pin said "US and UK terms". One file shipped.
+    # That is a live customer-facing falsehood, and the honest end of it is to ship what is
+    # claimed rather than to quietly narrow the claim -- a UK maker translating a US pattern
+    # in their head is exactly the buyer this catalogue is for.
+    #
+    # It could only be done once UK localisation was correct, which it now is:
+    # `cir.stitches.UK_TERMS` is the single terminology table, `cir.writer` delegates to it,
+    # and `build_pattern_pdf` refuses a terminology whose stitches it cannot name truthfully.
+    # The refusal is load-bearing here: a gap in the table stops this handler rather than
+    # shipping a UK document that instructs the wrong stitch.
+    released_on = _released_on(ctx, slug, version)
+    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on)
+            for t in TERMINOLOGIES}
+    doc = docs["US"]
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
-    pdf = store.put(f"{slug}/{version}/pattern-us.pdf", doc.pdf_bytes, "application/pdf")
+    pdfs = {t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
+                         "application/pdf")
+            for t, d in docs.items()}
+    pdf = pdfs["US"]
 
     # What is wrong with the document the customer receives, measured on the document. These
     # are recorded whether or not they block, because a finding nobody records is a finding
     # nobody acts on -- the same failure as a severity comparison that is always false.
-    if doc.problems:
-        ctx.audit("assets.deliverable_problems", artifact=f"{slug}@{version}",
-                  detail={"problems": doc.problems})
+    #
+    # Per terminology, because the two documents are not the same document: the UK render had
+    # its own defects -- a gauge line still in US terms, a special-stitch method telling a UK
+    # maker to finish a post stitch as a double crochet -- and a US-only audit could not have
+    # seen either.
+    for terminology, rendered in sorted(docs.items()):
+        if rendered.problems:
+            ctx.audit("assets.deliverable_problems", artifact=f"{slug}@{version}",
+                      detail={"terminology": terminology, "problems": rendered.problems})
 
     import io
 
@@ -179,6 +204,11 @@ def handle_assets_build(ctx: JobContext) -> dict:
 
     ctx.audit("assets.built", artifact=f"{slug}@{version}", detail={
         "pdf": pdf.to_dict(), "chart": chart.to_dict(), "legend": legend.to_dict(),
+        # One hash per file the customer receives. `pdf` above is the US document and is kept
+        # under its old key so nothing downstream has to change its mind about what that means;
+        # `pdfs` is the complete set, and a reader that finds only one entry in it is looking
+        # at a release that shipped one terminology.
+        "pdfs": {t: stored.to_dict() for t, stored in sorted(pdfs.items())},
         "pages": doc.pages, "size_label": doc.size_label(),
         "storage_durable": pdf.durable,
     })
@@ -248,6 +278,10 @@ def handle_assets_build(ctx: JobContext) -> dict:
                "calibrated": doc.calibrated,
                "pdf_sha256": pdf.sha256, "chart_sha256": chart.sha256,
                "legend_sha256": legend.sha256,
+               # Both documents' hashes, so a later step can prove the file it is handling is
+               # one of the two this release certified rather than only the US one.
+               "pdf_sha256_by_terminology": {t: stored.sha256
+                                             for t, stored in sorted(pdfs.items())},
                "frames": stored_frames}
     ctx.enqueue("pricing", "pricing.position", payload,
                 idempotency_key=chain_key("price", slug, version, release, token))

@@ -22,12 +22,24 @@ renders a real op through `cir.writer` and asks whether the declared token is wh
 so the table cannot drift from the document, and a stitch added to the registry with no
 entry here fails the completeness test rather than shipping undefined.
 
-That check is also what found the terminology defect: `write_op` localises sc, dc, tr and
-their shaping variants into UK terms and does not localise the post stitches, the bobble, the
-cable crossings or `sk`. A UK document printing `fpdc` tells a UK maker "front post *double*
+That check is also what found the terminology defect: `write_op` localised sc, dc, tr and
+their shaping variants into UK terms and left the post stitches, the bobble, the cable
+crossings and `sk` alone. A UK document printing `fpdc` tells a UK maker "front post *double*
 crochet", which in UK terms is the stitch a US pattern calls single crochet -- half the
-height of the stitch the pattern was validated with. `unlocalised()` names exactly those
-codes, and `pdf.build_pattern_pdf` refuses to render a document that would contain one.
+height of the stitch the pattern was validated with. That root is now closed in the layer
+that owns it: `cir.stitches.UK_TERMS` is the single terminology table, `cir.writer` delegates
+to it, `TOKENS` above derives from it, and an unknown code is refused rather than passed
+through. `unlocalised("UK")` is empty today, and `pdf.build_pattern_pdf` still refuses to
+render a terminology it cannot name truthfully -- the guard is kept because it is what makes
+the next gap fail loudly instead of shipping.
+
+**A localised token is not a localised document.** `unlocalised()` renders ops through the
+writer, so it sees tokens and nothing else. Two places in the customer's document name
+stitches in prose rather than as tokens -- the special-stitch methods below, and the gauge
+line `pdf` sets from `cir.gauge.stitch_type` -- and both were still in US terms in a UK
+render, which is the same harm in a different string. `METHOD` and
+`method_names_no_stitch_literally()` deal with the first; `pdf` localises the second and
+`undefined_tokens` now measures the whole document rather than the instructions alone.
 """
 from __future__ import annotations
 
@@ -107,25 +119,95 @@ def _contains(haystack: str, needle: str) -> bool:
 # meets for the first time in a pattern that used them. Each is the standard method for the
 # stitch the registry defines -- not a property of any one design -- which is why it can be
 # stated deterministically at all.
+#
+# **No stitch is named in these strings.** Every stitch name arrives through `{code}`, which
+# `method()` resolves out of the canonical registry for the terminology being rendered.
+#
+# That is not tidiness. Written out, every one of these paragraphs said "double crochet", and
+# the strings are terminology-independent only if no terminology changes the words in them --
+# which is exactly false here. UK "double crochet" is the stitch a US pattern calls single
+# crochet, *half the height* of the stitch the pattern was compiled and measured against. So
+# a UK document whose token had been correctly localised to `fptr` went on to tell the maker,
+# in the paragraph that actually teaches the stitch, to finish it as a double crochet: every
+# post stitch worked at half height, cables that do not stand up, a throw about half its
+# stated length. The same defect as the 2026-09-24 terminology finding, arriving through prose
+# instead of through a token -- and invisible to `unlocalised()`, which renders ops through
+# the writer and never sees a method paragraph. The guard for this shape is
+# `method_names_no_stitch_literally()`, checked on the source rather than on a render.
 METHOD: dict[str, str] = {
     "fpdc": ("Yarn over, insert the hook from the front, around the post (the upright body) "
-             "of the stitch below, and back out to the front. Finish as a double crochet. "
-             "Skip the top of that stitch; the post stitch takes its place in the count."),
+             "of the stitch below, and back out to the front. Finish as a {dc}. Do not work "
+             "into the top of that stitch; the post stitch takes its place in the count."),
     "bpdc": ("Yarn over, insert the hook from the back, around the post of the stitch below, "
-             "and back out to the back. Finish as a double crochet. Skip the top of that "
+             "and back out to the back. Finish as a {dc}. Do not work into the top of that "
              "stitch; the post stitch takes its place in the count."),
-    "bob": ("Five incomplete double crochets worked into the same stitch and closed "
+    "bob": ("Five incomplete {dc}s worked into the same stitch and closed "
             "together: yarn over, insert the hook, pull up a loop and draw through two "
             "loops, five times into that one stitch, then yarn over and draw through all "
             "six loops on the hook. The bobble sits on the side of the fabric away from "
             "you, so it shows on the right side when the row is worked on the wrong side."),
     "cable2x2": ("Four stitches cross. Slip the next 2 stitches onto a cable needle, work a "
-                 "double crochet in each of the following 2 stitches, then work a double "
-                 "crochet in each of the 2 stitches waiting on the cable needle."),
+                 "{dc} in each of the following 2 stitches, then work a "
+                 "{dc} in each of the 2 stitches waiting on the cable needle."),
     "cable1x1": ("Two stitches cross. Slip the next stitch onto a cable needle, work a "
-                 "double crochet in the following stitch, then work a double crochet in the "
+                 "{dc} in the following stitch, then work a {dc} in the "
                  "stitch waiting on the cable needle."),
 }
+
+# Every stitch name that one terminology spells differently from the other, in both
+# spellings. Derived from the registry rather than typed, so a stitch whose names diverge
+# cannot be added without the guard below noticing it.
+#
+# "double crochet" is in here twice over: it is the US name of `dc` and the UK name of `sc`.
+# That collision is the whole reason a rendered document cannot be checked for this defect by
+# looking for wrong words in it -- the wrong word and the right word are the same word. The
+# check has to be that no method paragraph contains a stitch name at all.
+_AMBIGUOUS_NAMES: frozenset[str] = frozenset(
+    name.lower()
+    for st in (stitches.get(c) for c in stitches.known_codes())
+    if st.name_us.lower() != st.name_uk.lower()
+    for name in (st.name_us, st.name_uk)
+)
+
+
+def method(code: str, terminology: str = "US") -> str:
+    """How this stitch is worked, with every stitch name resolved for this terminology.
+
+    Reads the names out of `cir.stitches` rather than holding a second copy, for the same
+    reason `meaning()` does: the registry is the authority on what a stitch is called, and a
+    method paragraph that disagreed with the key about the name of the stitch it teaches
+    would be worse than no paragraph.
+    """
+    template = METHOD.get(code, "")
+    if not template:
+        return ""
+    names: dict[str, str] = {}
+    for ref in sorted(set(re.findall(r"\{([A-Za-z0-9_]+)\}", template))):
+        # `{Dc}` would be `{dc}` at the start of a sentence. Capitalisation is handled here
+        # rather than by writing a second template, because two templates for one method is
+        # the shape this module exists to avoid.
+        lookup = ref.lower()
+        if lookup not in stitches.known_codes():
+            raise KeyIncomplete(
+                f"the method for {code!r} refers to {ref!r}, which is not a stitch in the "
+                f"canonical registry, so its name cannot be resolved for a terminology")
+        word = meaning(lookup, terminology)
+        names[ref] = (word[:1].upper() + word[1:]) if ref[:1].isupper() else word
+    return template.format(**names)
+
+
+def method_names_no_stitch_literally() -> tuple[str, ...]:
+    """Method templates that spell a terminology-sensitive stitch name out in full.
+
+    The guard for the defect the templates were written to remove, measured on the templates
+    themselves. A rendered UK document cannot be checked for it -- "double crochet" is a
+    correct UK rendering of `sc` and a wrong one of `dc`, the same eleven characters either
+    way -- so the property that can actually be checked is the stronger one: a method
+    paragraph names no stitch except through the registry.
+    """
+    return tuple(code for code, template in sorted(METHOD.items())
+                 if any(_contains(template.lower(), name) for name in _AMBIGUOUS_NAMES))
+
 
 # Crossings whose direction the CIR cannot state.
 #
@@ -196,7 +278,7 @@ def stitch_key(text: str, terminology: str = "US") -> list[KeyEntry]:
         if not _contains(low, word.lower()):
             continue
         out.append(KeyEntry(token=word, means=meaning(code, terminology),
-                            method=METHOD.get(code, "")))
+                            method=method(code, terminology)))
     return out
 
 
@@ -212,24 +294,60 @@ def codes_in(text: str, terminology: str = "US") -> set[str]:
     return {code for code in TOKENS if _contains(low, token(code, terminology).lower())}
 
 
-def undefined_tokens(text: str, terminology: str = "US") -> list[str]:
-    """Stitch-shaped tokens in the document that the key would not define.
+def undefined_tokens(text: str, terminology: str = "US", *,
+                     defined: set[str] | None = None) -> list[str]:
+    """Stitch-shaped tokens in `text` that the printed key does not define.
 
-    The inverse check, and the one that matters: a key is only a key if nothing in the
-    instructions is missing from it. Scoped to the canonical vocabulary plus the writer's own
-    output, so it measures this document rather than guessing at English.
+    The inverse check, and the one that matters: a key is only a key if nothing the buyer
+    reads is missing from it. Scoped to the canonical vocabulary, so it measures this document
+    rather than guessing at English.
+
+    **`defined` is the key that was actually printed, and passing it is the point.** Left to
+    default it is derived from `text` by `stitch_key`, and that makes the check vacuous: the
+    key is then a function of the same string, so every token in the string is in the key by
+    construction and the second branch below is unreachable. It carried a
+    `pragma: no cover` saying so, under a docstring claiming to be the check that matters.
+
+    It cannot be made to fail on the instruction text alone, and it was only ever run on the
+    instruction text -- so it could not see the defect it exists to catch. The key is built
+    from the writer's output; the document also sets the gauge line, the materials, the
+    finishing prose and the cover, and a stitch named in any of those is a word the buyer
+    meets and the key has never heard of. `pdf` now passes the document's whole prose as
+    `text` and the key it rendered as `defined`, which is a comparison that can come out
+    either way.
+
+    **Both vocabularies are searched, not this document's one.** Scoping the search to
+    `terminology` is what let the real defect through: the cover of a UK document stated its
+    gauge "in sc", and `sc` is not a UK token for anything -- no code renders to it in UK terms
+    -- so a UK-only scan had nothing to look for and reported the key complete. A stitch
+    abbreviation from the other terminology is exactly the word this check exists to catch,
+    because it is a word the buyer meets and the key has never heard of, and reading it against
+    their own vocabulary is how a maker works the wrong stitch.
     """
     low = text.lower()
-    defined = {e.token.lower() for e in stitch_key(text, terminology)}
+    if defined is None:
+        defined = {e.token.lower() for e in stitch_key(text, terminology)}
+    else:
+        defined = {word.lower() for word in defined}
+    # What is left of the document once every token the key *does* define is struck out.
+    #
+    # Some tokens contain others: the UK rendering of `inc` is "dc inc", and the US rendering
+    # is "inc", so a hexagon coaster written in UK terms was reported as using an undefined
+    # "inc" on the strength of the six defined "dc inc" instructions it actually contains.
+    # Longest first, or striking "dc" would leave the "inc" behind and produce the same false
+    # reading. A token that survives this is one the document uses on its own account.
+    scan = low
+    for word in sorted(defined, key=len, reverse=True):
+        scan = re.sub(rf"(?<![a-z0-9_]){re.escape(word)}(?![a-z0-9])", " ", scan)
     missing = []
     for code in sorted(stitches.known_codes()):
         if code not in TOKENS:
             # A stitch in the registry with no declared token. It cannot be looked up, so it
             # is reported whenever the document appears to contain it.
-            if _contains(low, code):
+            if _contains(scan, code):
                 missing.append(code)
             continue
-        word = token(code, terminology).lower()
-        if _contains(low, word) and word not in defined:  # pragma: no cover - see the test
-            missing.append(word)
+        for word in sorted({token(code, t).lower() for t in ("US", "UK")}):
+            if word not in defined and _contains(scan, word):
+                missing.append(word)
     return missing

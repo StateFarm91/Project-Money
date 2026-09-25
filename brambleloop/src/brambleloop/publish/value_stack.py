@@ -119,6 +119,10 @@ def print_safety(cir) -> dict:
         "prints": reading["reads"],
         "measurable": True,
         "weakest_pair": reading["weakest_pair"],
+        # Every pair that merges, not only the worst one. The document's warning said "two of
+        # these colours" whatever the count, because the count was the one fact this function
+        # measured and did not pass on.
+        "merging_pairs": [p for p in reading["pairs"] if not p["reads"]],
         "minimum_value_separation": MIN_VALUE_SEPARATION,
         # The cue is what makes a chart usable even when the print *does* merge, and it is
         # already rendered. Saying so is the difference between a warning and a dead end.

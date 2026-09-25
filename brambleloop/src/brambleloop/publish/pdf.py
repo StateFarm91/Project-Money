@@ -29,8 +29,9 @@ from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
 from . import abbreviations, substitution, value_stack
 from .charts import (
-    ChartSpec, crop_grids, detect_repeat, is_round, render_chart, render_legend,
-    render_round_chart,
+    COLOUR_CUE_NOTE_FLAT, COLOUR_CUE_NOTE_ROUND, ChartSpec, cell_size, color_letters,
+    crop_grids, detect_repeat, is_round, render_chart, render_legend, render_round_chart,
+    row_block,
 )
 from .difficulty import difficulty as _difficulty
 
@@ -51,24 +52,15 @@ LINE = colors.HexColor(bible.PALETTE["line"])
 # in two places produces.
 MIN_BODY_PT = bible.TYPOGRAPHY["min_body_pt"]
 
-# WCAG 2.1 AA for text below 18pt. Stated as the measurement it is: a ratio of relative
-# luminance between the ink and the paper it sits on.
-MIN_CONTRAST = 4.5
-
-
-def _relative_luminance(colour) -> float:
-    def channel(v: float) -> float:
-        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
-
-    r, g, b = channel(colour.red), channel(colour.green), channel(colour.blue)
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+# WCAG 2.1 AA for text below 18pt, and the arithmetic behind it, both read from the brand
+# system. They were defined here, and the chart renderer -- whose images sit inside this same
+# document -- had neither, so half the type in the file was checked and half was not.
+MIN_CONTRAST = bible.MIN_TEXT_CONTRAST
 
 
 def contrast(fg, bg) -> float:
     """Contrast ratio between two reportlab colours, 1.0 (invisible) to 21.0 (black on white)."""
-    a, b = _relative_luminance(fg), _relative_luminance(bg)
-    hi, lo = max(a, b), min(a, b)
-    return (hi + 0.05) / (lo + 0.05)
+    return bible.contrast_ratio((fg.red, fg.green, fg.blue), (bg.red, bg.green, bg.blue))
 
 
 def _legible(fg, bg, *, minimum: float = MIN_CONTRAST):
@@ -80,21 +72,12 @@ def _legible(fg, bg, *, minimum: float = MIN_CONTRAST):
     document. Rather than move a palette that the storefront and the chart renderer also
     read, the document darkens its own ink until it passes and leaves the brand alone.
 
-    Returns the original colour untouched when it already passes, so a future palette that
-    is legible on its own is rendered exactly as the brand specifies it.
+    The maths lives in `brand.bible` so that the chart renderer applies the same rule to the
+    same palette; this is the reportlab wrapper around it.
     """
-    out = colors.Color(fg.red, fg.green, fg.blue)
-    if contrast(out, bg) >= minimum:
-        return out
-    darker = _relative_luminance(out) < _relative_luminance(bg)
-    for _ in range(64):
-        if contrast(out, bg) >= minimum:
-            return out
-        factor = 0.97 if darker else 1.03
-        out = colors.Color(min(1.0, max(0.0, out.red * factor)),
-                           min(1.0, max(0.0, out.green * factor)),
-                           min(1.0, max(0.0, out.blue * factor)))
-    return out  # pragma: no cover - 64 steps reach black or white from any start
+    r, g, b = bible.legible((fg.red, fg.green, fg.blue), (bg.red, bg.green, bg.blue),
+                            minimum=minimum)
+    return colors.Color(r, g, b)
 
 
 MUTED = _legible(colors.HexColor(bible.PALETTE["muted"]), CREAM)
@@ -120,6 +103,10 @@ class PatternDocument:
     # that produced it. Empty is the normal answer; a non-empty list is handed to the
     # release chain, which is where a finding can actually stop something.
     problems: list[str] = field(default_factory=list)
+    # Every word the document sets, in order. Carried out of the render so a check can be run
+    # against what the buyer reads rather than against the writer's instruction text, which
+    # is one section of eight and the only one anything was ever measuring.
+    prose: str = ""
 
     def size_label(self) -> str:
         if not self.finished_size_cm:
@@ -165,6 +152,18 @@ class _Doc:
         self.total_pages = total_pages
         self.pages = 0
         self.y = PAGE_H - MARGIN
+        # Every word this document sets, in the order it sets it.
+        #
+        # Kept because the checks that read the document were reading the *instruction text*
+        # -- the writer's output, one section of eight -- and calling the answer a property of
+        # the document. The cover, the gauge block, the materials, the key and the finishing
+        # prose are all set here and none of them was measured. A UK render stated its gauge
+        # "in sc" on page 1, in a document whose key defines `dc`, and every check passed.
+        #
+        # Accumulated rather than extracted from the finished PDF so the checks run on what
+        # the module chose to say rather than on what a text extractor could recover from the
+        # glyphs; the extraction is a separate proof, and the tests do it too.
+        self.prose: list[str] = []
 
     # -- primitives --------------------------------------------------------
     def new_page(self, running_head: str | None = None) -> None:
@@ -194,6 +193,7 @@ class _Doc:
             self.new_page(running_head)
 
     def heading(self, text: str, size: int = 15) -> None:
+        self.prose.append(text)
         self.need(size + 10 * mm)
         self.c.setFillColor(PINE)
         self.c.setFont("Helvetica-Bold", size)
@@ -206,6 +206,7 @@ class _Doc:
 
     def para(self, text: str, size: int = 10, color=INK, leading: float = 4.6 * mm,
              running_head: str | None = None) -> None:
+        self.prose.append(text)
         self.c.setFont("Helvetica", size)
         self.c.setFillColor(color)
         usable = PAGE_W - 2 * MARGIN
@@ -223,6 +224,7 @@ class _Doc:
         key that shouts "CH" at a beginner who is looking for "ch" in the instructions has
         made them do a translation the document was supposed to do for them.
         """
+        self.prose.append(f"{key} {value}")
         self.need(5 * mm)
         self.c.setFont("Helvetica-Bold", 9)
         self.c.setFillColor(MUTED)
@@ -271,11 +273,79 @@ def _wrap(c, text: str, font: str, size: int, width: float) -> list[str]:
     return out
 
 
-LICENCE = (
-    "This pattern is for your personal use. You may sell finished items you make from it. "
-    "You may not resell, share or redistribute the pattern file itself, and you may not "
-    "reproduce the charts or written instructions elsewhere."
-)
+# The terminologies the customer receives, and the filename each one is delivered under.
+#
+# Held here, in the module that renders the document, because the release chain and the store
+# publisher each need both and neither should be the place that knows. They previously each
+# held the literal `pattern-us.pdf`, which is how one of them would have gained a UK file and
+# the other would not.
+#
+# US is first and stays first: it is the terminology the CIR is canonical in, the one every
+# gauge and every measurement was validated against, and the file a listing's preview should
+# open on.
+TERMINOLOGIES: tuple[str, ...] = ("US", "UK")
+
+
+def pattern_filename(terminology: str) -> str:
+    """What the customer's file is called, for the terminology it is written in.
+
+    Named so the buyer can tell the two apart in a downloads folder without opening them,
+    which is the only place they will ever see these filenames.
+    """
+    if terminology.upper() not in TERMINOLOGIES:
+        raise ValueError(
+            f"{terminology!r} is not a terminology this company publishes: {TERMINOLOGIES}")
+    return f"pattern-{terminology.lower()}.pdf"
+
+
+def _gauge_stitch(cir: CIR, terminology: str) -> str:
+    """The gauge swatch's stitch, named in the terminology this document is written in.
+
+    `cir.gauge.stitch_type` is a canonical code, which is to say a US abbreviation, and it was
+    printed raw in three places: the cover's "at a glance" gauge, the swatch/fabric
+    reconciliation and the sentence that explains it. `cir.writer` localises the same gauge
+    line correctly on the instructions page, so a UK document said `16 sts x 18 rows = 10 cm
+    in sc` on page 1 and `10cm in dc` on page 4 -- one gauge, two stitches, in one file.
+
+    The harm is not only the contradiction. `sc` is not a UK abbreviation at all, so it is a
+    word the UK document's own key does not define; and if a UK maker resolves it against
+    their own vocabulary, the stitch they swatch is a treble -- three times the height of the
+    one the gauge was measured on, and every finished measurement wrong with it.
+
+    Routed through `abbreviations.token`, which delegates to `cir.stitches.UK_TERMS`, so the
+    cover and the instructions page cannot say different words about the same stitch.
+    """
+    return abbreviations.token(cir.gauge.stitch_type, terminology)
+
+
+def licence_paragraphs() -> list[str]:
+    """The buyer's licence, from the one place it is decided.
+
+    **There is no licence text in this module any more.** There was, and it was the fourth
+    copy. `commerce.terms` decided that finished items may be sold "by individual makers and
+    small businesses, not manufactured at scale" and that the pattern is for the buyer's own
+    use "and to teach from in a class where each participant has their own copy";
+    `brand.storefront` said "sell the items you make from it" with no limit; `commerce.seo`
+    said "Sell what you make"; and this module -- the only surface the customer actually
+    keeps -- said "This pattern is for your personal use. You may sell finished items you make
+    from it", which is simultaneously more permissive than the decision on selling and less
+    permissive than it on teaching.
+
+    Requirement 40's check exists for exactly this and could not see it.
+    `terms.consistency(pdf_text, ...)` is called with `terms.render(terms, "pdf")` -- the
+    decision rendered for the PDF surface, not the PDF. So the check compared the decision
+    with itself on the one surface that had diverged, and reported the three surfaces
+    consistent while the customer's own document granted an unlimited commercial licence. A
+    check that cannot see the artefact it exists to measure.
+
+    Now the document renders the decision. `tests/test_deliverable_qa.py` runs the
+    consistency check on text extracted from the real PDF, which is the comparison that can
+    fail.
+    """
+    from ..commerce import terms as customer_terms
+
+    return customer_terms.render(customer_terms.BRAMBLELOOP_TERMS, "pdf").split("\n")
+
 
 AI_DISCLOSURE = (
     "How this pattern was made: the design was developed with AI assistance and every stitch "
@@ -366,6 +436,7 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         difficulty=_difficulty(cir, twin),
         released_on=released_on,
         problems=problems,
+        prose="\n".join(doc.prose),
     )
 
 
@@ -403,7 +474,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.kv("construction", cir.construction.replace("_", " "))
     if cir.gauge:
         doc.kv("gauge", f"{cir.gauge.stitches_per_10cm} sts x {cir.gauge.rows_per_10cm} rows "
-                        f"= 10 cm in {cir.gauge.stitch_type}")
+                        f"= 10 cm in {_gauge_stitch(cir, terminology)}")
         doc.kv("hook", f"{cir.gauge.hook_mm:g} mm")
     doc.kv("colours", ", ".join(sorted(cir.colors)) or "one colour")
     doc.kv("released", released_on.isoformat())
@@ -425,7 +496,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     # The special-stitch methods are part of what this document asks the maker to do, so the
     # tools they require belong on the shopping list too: without this the pattern told a
     # maker to slip stitches onto a cable needle on page 3 and listed only yarn on page 2.
-    instructed = "\n".join([text] + [abbreviations.METHOD.get(code, "")
+    instructed = "\n".join([text] + [abbreviations.method(code, terminology)
                                      for code in sorted(twin.stitch_types_used)])
     for tool in _tools_required(cir, instructed):
         doc.kv(tool[0], tool[1])
@@ -471,11 +542,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         if drift >= ROW_GAUGE_DRIFT:
             doc.space(2 * mm)
             doc.kv("swatch row gauge", f"{cir.gauge.rows_per_10cm} rows = 10 cm in "
-                                       f"{cir.gauge.stitch_type}")
+                                       f"{_gauge_stitch(cir, terminology)}")
             doc.kv("this fabric", f"about {fabric:.0f} rows = 10 cm")
             doc.para(
                 f"Those two numbers are both right and they are not the same number. The "
-                f"swatch gauge is measured over plain {cir.gauge.stitch_type}; this pattern "
+                f"swatch gauge is measured over plain {_gauge_stitch(cir, terminology)}; this pattern "
                 f"is worked in taller stitches as well, so its rows stack up faster. Check "
                 f"your stitches across against the swatch gauge, and check your rows against "
                 f"the measurements in 'Checking your progress' below, which are the "
@@ -508,8 +579,19 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     # is holding the document.
     printing = value_stack.print_safety(cir)
     if printing.get("measurable") and printing.get("prints") is False:
+        # Named, not counted. This said "two of these colours are close in lightness"
+        # regardless of how many pairs actually merge, and the measurement that decided to
+        # print it already knows which ones -- `print_safety` returns `weakest_pair`, and every
+        # pair that fails is in `pairs`. On a four-colour pattern where three merge, "two"
+        # sends a maker looking for a pair that is not the problem.
+        #
+        # It has never been printed. No pattern in the catalogue fails this check, so the one
+        # sentence in the document nobody has ever read was the one with the arithmetic
+        # wrong in it -- a claim whose only sample could not contain the broken case.
+        merging = printing.get("merging_pairs", [])
+        pairs = " and ".join(" / ".join(p["between"]) for p in merging) or "two of these"
         doc.para(
-            f"Printing in black and white: two of these colours are close in lightness and "
+            f"Printing in black and white: {pairs} are close in lightness and "
             f"will merge on a greyscale printer. The chart carries a letter for each colour, "
             f"so follow the letters rather than the shading.", size=9, color=MUTED)
 
@@ -571,14 +653,6 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     key = abbreviations.stitch_key(text, terminology)
     for entry in key:
         doc.kv(entry.token, entry.means, upper=False)
-    missing = abbreviations.undefined_tokens(text, terminology)
-    if missing:
-        # Reported rather than silently omitted: a key that is quietly short is worse than
-        # no key, because the maker stops expecting to find things in it.
-        problems.append(
-            f"PDF_ABBREVIATION_UNDEFINED: {sorted(missing)} appear in the instructions and "
-            f"the stitch key cannot define them, so a maker meets a word the document never "
-            f"explains")
 
     notation = abbreviations.notation_key(text)
     if notation:
@@ -636,6 +710,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.space(2 * mm)
     doc.image(art["chart"], running_head=head)
     doc.image(art["legend"], running_head=head)
+    # What is wrong with the chart, measured on the chart as it lands on the page. Carried onto
+    # the document's problems so the release chain sees it, like every other finding here.
+    problems.extend(art.get("problems", ()))
     doc.space(2 * mm)
     # The legend is a picture, so nothing in it is searchable, selectable or readable by a
     # screen reader. The same key exists in text on the Abbreviations page; this line says so
@@ -643,10 +720,43 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.para("The stitch key in the image above is also written out under Abbreviations, "
              "earlier in this document.", size=9, color=MUTED)
 
+    # The colour key, in text, because the document tells the maker to rely on it.
+    #
+    # The chart marks every square with its yarn's letter, and the printing note above says in
+    # so many words "follow the letters rather than the shading". The letter-to-yarn mapping
+    # existed in one place: the rendered legend image. So the document instructed a maker to
+    # use a key it had only drawn -- unsearchable, unselectable, invisible to a screen reader,
+    # and gone entirely if the images fail to render on a reader that dropped them.
+    #
+    # `charts.color_letters` is the single source of the mapping; this prints it rather than
+    # numbering the colours again, so the page and the picture cannot disagree.
+    cues = color_letters(cir) if len([c for c in cir.colors if c]) > 1 else {}
+    if cues:
+        doc.space(2 * mm)
+        doc.heading("Colour key", size=12)
+        doc.para(COLOUR_CUE_NOTE_ROUND if is_round(cir, twin) else COLOUR_CUE_NOTE_FLAT,
+                 size=9, color=MUTED)
+        # Ordered by letter, which is the direction this key is read in: a maker sees a mark on
+        # the chart and looks it up. The legend image orders by colour name because it is a
+        # swatch list; the mapping is the same mapping either way.
+        for name, cue in sorted(cues.items(), key=lambda kv: kv[1]):
+            doc.kv(cue, f"{name}  {cir.colors.get(name, '')}".strip(), upper=False)
+
     # -- licence -----------------------------------------------------------
     doc.new_page(head)
     doc.heading("Terms and support")
-    doc.para(LICENCE)
+    # Rendered from `commerce.terms`, which is where these were decided. See
+    # `licence_paragraphs` for why this module no longer holds a licence of its own.
+    for i, line in enumerate(licence_paragraphs()):
+        if not line.strip():
+            doc.space(2 * mm)
+        elif i == 0:
+            # The decision's own heading for this surface, kept rather than paraphrased.
+            doc.heading(line, size=12)
+        elif line.startswith("- "):
+            doc.para(line, size=10)
+        else:
+            doc.para(line, size=10, color=MUTED)
     doc.space(3 * mm)
     doc.para("If anything in this pattern does not add up, tell us through the shop you "
              "bought it from and we will fix the pattern itself, not just answer your "
@@ -672,6 +782,29 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.para(f"This document is {doc.total_pages or doc.pages} pages. If your copy is "
              f"shorter than that, the download did not finish; ask for it again rather than "
              f"working from a partial pattern.", size=9, color=MUTED)
+
+    # -- is the key a key? -------------------------------------------------
+    #
+    # Run here, last, because it is a property of the finished document and not of any one
+    # section. It was run on the writer's instruction text against a key derived from that
+    # same text, which is a comparison that cannot come out badly: every token in the string
+    # is in the key by construction. The check carried a `pragma: no cover` admitting the
+    # branch was unreachable, under a docstring calling itself "the inverse check, and the one
+    # that matters".
+    #
+    # Measured now on everything the document says, against the key it actually printed. That
+    # comparison can fail, and did: the cover's gauge line named `sc` in a UK document whose
+    # key defines `dc`.
+    missing = abbreviations.undefined_tokens(
+        "\n".join(doc.prose), terminology,
+        defined={entry.token for entry in key})
+    if missing:
+        # Reported rather than silently omitted: a key that is quietly short is worse than
+        # no key, because the maker stops expecting to find things in it.
+        problems.append(
+            f"PDF_ABBREVIATION_UNDEFINED: {sorted(set(missing))} appear in this document and "
+            f"the stitch key printed in it does not define them, so a maker meets a word the "
+            f"document never explains")
 
     return doc, claims, problems
 
@@ -740,42 +873,114 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
                         "wedges in a ring and you get the stitch count in the written line "
                         "for that round, because both come from the same verified data. V "
                         "marks an increase and A a decrease."),
+            # A round chart's readable unit is the width of a ring, not a square cell, and
+            # nothing here measures it yet. Stated as `None` rather than as a passing number:
+            # the legibility check below would otherwise read as having checked this chart.
+            "cell_mm": None,
+            "problems": [],
         }
 
     grid, colour_grid = twin.chart_grid(), twin.color_grid()
     full_cols = max((len(r) for r in grid), default=0)
     full_rows = len(grid)
     rep_cols, rep_rows = detect_repeat(grid, colour_grid)
-    across, up = (full_cols // rep_cols if rep_cols else 1,
-                  full_rows // rep_rows if rep_rows else 1)
+    across = full_cols // rep_cols if rep_cols else 1
 
-    # A whole-blanket chart on one page gives each stitch about a pixel. Where the fabric is
-    # genuinely built from a repeat, chart the repeat and say how to place it -- which is
-    # both readable and how mosaic patterns are actually published.
-    if (across > 1 or up > 1) and full_cols > 48:
-        grids = crop_grids(grid, colour_grid, rep_cols, rep_rows)
-        return {
-            "chart": render_chart(cir, twin, ChartSpec(cell_px=20), grids=grids,
-                                  caption=f"{cir.title} - one repeat "
-                                          f"({rep_cols} sts x {rep_rows} rows)"),
-            "legend": render_legend(cir, twin),
-            "caption": (f"This chart shows one repeat: {rep_cols} stitches wide and "
-                        f"{rep_rows} rows tall. Work it {_times(across)} across and "
-                        f"{_times(up)} up for the finished size. The full piece is "
-                        f"{full_cols} stitches by {full_rows} rows. The chart is generated "
-                        f"from the same verified data as the written instructions, so the "
-                        f"two cannot disagree. Read odd rows right to left and even rows "
-                        f"left to right."),
-        }
+    # How many rows the chart has to show, from the detector the written pattern already uses.
+    #
+    # `detect_repeat` looks for a row period that divides the row count and starts at row 1.
+    # Eight of the sixteen shippable designs satisfy neither -- they open with setup rows and
+    # then repeat a block whose period is not a divisor of the total -- so it answered "the
+    # repeat is the whole fabric", and the chart page printed 121 rows of a cabled throw under
+    # the words "this chart shows one repeat: 8 stitches wide and 121 rows tall", three pages
+    # after written instructions saying "Repeat rows 2-5 29 more times".
+    #
+    # `charts.row_block` asks `cir.rowcycle`, which is the canonical answer: the written pattern
+    # collapses to it and the reverse compiler expands it back again.
+    block = row_block(cir, twin)
+    block_rows = min(rep_rows, block[1]) if block else rep_rows
+
+    full = render_chart(cir, twin, ChartSpec(cell_px=22))
+    problems: list[str] = []
+
+    # Decided on the size a cell ends up on the page, not on a column count.
+    #
+    # The old gate was `full_cols > 48`, a proxy for "this will be too small to read", and it is
+    # wrong for a tall pattern: the harvest table runner is 48 stitches wide, failed the gate by
+    # one, and printed its whole 48 x 112 fabric at 2.1 mm per cell. Measure the thing that
+    # matters instead.
+    if _on_page_cell_mm(full, cell_size(twin, ChartSpec(cell_px=22))) < CHART_MIN_CELL_MM \
+            and (rep_cols < full_cols or block_rows < full_rows):
+        grids = crop_grids(grid, colour_grid, rep_cols, block_rows)
+        chart = render_chart(cir, twin, ChartSpec(cell_px=20), grids=grids,
+                             caption=f"{cir.title} - rows 1-{block_rows}, "
+                                     f"{rep_cols} sts wide")
+        cell_mm = _on_page_cell_mm(chart, cell_size(twin, ChartSpec(cell_px=20), grids))
+        if block and block[1] == block_rows:
+            start, end, repeats = block
+            placement = (f"It shows rows 1 to {end}: work rows 1 to {end} once, then work "
+                         f"rows {start} to {end} {_times(repeats)} more, exactly as the "
+                         f"written instructions say. ")
+        else:
+            up = full_rows // block_rows if block_rows else 1
+            placement = (f"It shows one repeat, {block_rows} rows tall. Work it "
+                         f"{_times(up)} up the piece. ")
+        caption = (f"This chart shows {rep_cols} of the {full_cols} stitches across: the "
+                   f"pattern repeats every {rep_cols} stitches, so work the chart "
+                   f"{_times(across)} across the row. {placement}The full piece is "
+                   f"{full_cols} stitches by {full_rows} rows. The chart is generated from "
+                   f"the same verified data as the written instructions, so the two cannot "
+                   f"disagree. Read odd rows right to left and even rows left to right.")
+    else:
+        chart = full
+        cell_mm = _on_page_cell_mm(full, cell_size(twin, ChartSpec(cell_px=22)))
+        caption = ("The chart below is generated from the same verified data as the written "
+                   "instructions above. Read odd rows right to left and even rows left to "
+                   "right.")
+
+    if cell_mm < CHART_MIN_CELL_MM:
+        # Reported with the measurement in it, because "the chart is small" is an opinion and
+        # "each cell is 2.1 mm on the printed page, carrying a 4pt glyph" is a fact somebody can
+        # act on. Nothing measured this before: the chart's type is pixels inside an image, so
+        # the source-level check that holds the rest of the document to the brand's 9pt minimum
+        # never saw it.
+        problems.append(
+            f"PDF_CHART_CELL_BELOW_BRAND_MINIMUM: each chart cell renders at "
+            f"{cell_mm:.1f} mm on the page, carrying a glyph of about "
+            f"{cell_mm * mm * CHART_GLYPH_RATIO:.0f}pt against the brand minimum of "
+            f"{MIN_BODY_PT}pt, so the chart is present and not readable")
+
     return {
-        "chart": render_chart(cir, twin, ChartSpec(cell_px=22)),
+        "chart": chart,
         "legend": render_legend(cir, twin),
-        "caption": ("The chart below is generated from the same verified data as the written "
-                    "instructions above. Read odd rows right to left and even rows left to "
-                    "right."),
+        "caption": caption,
+        "cell_mm": cell_mm,
+        "problems": problems,
     }
 
 
 def _times(n: int) -> str:
     """'once', not '1 times'. The shipped document said the second one."""
     return "once" if n == 1 else f"{n} times"
+
+
+# The chart's glyph is set at this fraction of the cell (`charts.render_chart`). A chart cell is
+# type, and the brand's minimum body size applies to it like any other type in the document.
+CHART_GLYPH_RATIO = 0.62
+CHART_MIN_CELL_MM = MIN_BODY_PT / CHART_GLYPH_RATIO / mm
+
+
+def _on_page_cell_mm(img, cell_px: int) -> float:
+    """How big one chart cell is once `_Doc.image` has fitted the picture to the page.
+
+    The chart is rendered in pixels and then scaled to fit, so nothing about the rendered image
+    says how large a cell will be where the customer reads it. This is the same arithmetic
+    `_Doc.image` does, which is why it is the number to check against a legibility floor -- and
+    it is why the sliver was invisible: every check upstream was measuring the image.
+    """
+    usable_w = PAGE_W - 2 * MARGIN
+    usable_h = PAGE_H - 2 * MARGIN
+    scale = min(1.0, usable_w / img.width)
+    if img.height * scale > usable_h:
+        scale *= usable_h / (img.height * scale)
+    return cell_px * scale / mm

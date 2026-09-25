@@ -43,6 +43,60 @@ TYPOGRAPHY = {
     "min_body_pt": 9,
 }
 
+# WCAG 2.1 AA for text below 18pt, as the measurement it is: a ratio of relative luminance
+# between the ink and the paper it sits on.
+#
+# Here rather than in a renderer because more than one thing renders text on this palette, and
+# the brand's own `muted` grey measures 4.48:1 on the brand's cream -- a fraction under the
+# floor. The customer's PDF was corrected on 2026-09-24 by darkening its own ink; the chart
+# and legend images inside that same PDF were not, so the running heads and row labels a maker
+# reads while working stayed below the floor. Two renderers, one rule: this one.
+MIN_TEXT_CONTRAST = 4.5
+
+
+def _srgb_channel(value: float) -> float:
+    return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+
+
+def relative_luminance(rgb: tuple[float, float, float]) -> float:
+    """Relative luminance of an sRGB colour given as three 0.0-1.0 channels."""
+    r, g, b = (_srgb_channel(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(fg: tuple[float, float, float], bg: tuple[float, float, float]) -> float:
+    """Contrast ratio between two colours, 1.0 (invisible) to 21.0 (black on white)."""
+    a, b = relative_luminance(fg), relative_luminance(bg)
+    hi, lo = max(a, b), min(a, b)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def legible(fg: tuple[float, float, float], bg: tuple[float, float, float], *,
+            minimum: float = MIN_TEXT_CONTRAST) -> tuple[float, float, float]:
+    """The brand colour, moved away from its background only as far as it has to be.
+
+    Returns the original untouched when it already passes, so a future palette that is legible
+    on its own renders exactly as specified. The palette itself is never edited here: the
+    storefront, the chart renderer and the PDF all read `PALETTE`, and moving it to fix one
+    surface's contrast would change the others silently.
+    """
+    out = tuple(float(c) for c in fg)
+    if contrast_ratio(out, bg) >= minimum:
+        return out  # type: ignore[return-value]
+    darker = relative_luminance(out) < relative_luminance(bg)
+    factor = 0.97 if darker else 1.03
+    for _ in range(64):
+        if contrast_ratio(out, bg) >= minimum:
+            return out  # type: ignore[return-value]
+        out = tuple(min(1.0, max(0.0, c * factor)) for c in out)
+    return out  # type: ignore[return-value] # pragma: no cover - 64 steps reach black or white
+
+
+def rgb255(name: str) -> tuple[int, int, int]:
+    """One palette colour as 0-255 integers, for renderers that work in bytes."""
+    value = PALETTE[name].lstrip("#")
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
 CROP_RULES = {
     "hero_aspect": (1, 1),          # Etsy's grid crops to square; compose for it
     "detail_aspect": (4, 5),
