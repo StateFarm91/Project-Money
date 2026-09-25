@@ -496,7 +496,12 @@ TEMP_PREFIXES: tuple[str, ...] = (
     "continuity-", "continuity-download-", "offsite-", "tournament-", "owned-asset-",
     "reference-pack-", "generated-", "motif-chart-", "brambleloop-run-",
     "model-frame-", "cycle-proof-", "portrait-repair-", "provider-trial-",
-    "teardown-proof-", "reader-selftest-")
+    "teardown-proof-", "reader-selftest-",
+    # The hand-run physically based renderer. Its directory is a TemporaryDirectory and is
+    # removed with the render, so a leftover one means the render died -- which is exactly
+    # the case the disk signal exists to show. A prefix used in `src/` and absent here is
+    # invisible to that signal, and a test refuses the combination.
+    "brambleloop-render-")
 
 
 def disk_facts() -> dict:

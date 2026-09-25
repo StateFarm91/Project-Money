@@ -225,44 +225,60 @@ def render(fab: topo.Fabric, out_png: str, *, view: str = "camera", spp: int | N
             "renderer is ~200MB and the deployed service never renders. Install it in a "
             "local environment to reproduce these images.") from exc
 
+    import contextlib
     import os
     import tempfile
     mi.set_variant("llvm_ad_rgb")
-    tmp = curve_file or os.path.join(tempfile.mkdtemp(), "fabric.txt")
-    strands, verts = write_curve_file(fab, tmp, per_segment=per_segment)
+    # The curve file is removed with the render unless the caller named one and therefore
+    # owns it. A bare `mkdtemp()` here left a directory nobody deleted, which made this the
+    # SECOND unremoved mkdtemp in the tree; exactly one is allowed, and it is named in
+    # `test_cost_governance_wave2` rather than exempted silently -- the continuity download,
+    # which cleans up after its response is sent. A renderer that only ever runs by hand is
+    # still a renderer that should not litter the disk it runs on.
+    with contextlib.ExitStack() as _scratch:
+        if curve_file:
+            tmp, caller_owns = curve_file, True
+        else:
+            tmp = os.path.join(
+                _scratch.enter_context(
+                    tempfile.TemporaryDirectory(prefix="brambleloop-render-")),
+                "fabric.txt")
+            caller_owns = False
+        strands, verts = write_curve_file(fab, tmp, per_segment=per_segment)
 
-    centre = framing_centre(frame if frame is not None else fab)
-    spec = scene_dict(tmp, centre, view=view)
-    if spp is not None:
-        spec["sensor"]["sampler"]["sample_count"] = int(spp)
-    cam_origin = spec["sensor"]["to_world"][1]
-    cam_target = spec["sensor"]["to_world"][2]
+        centre = framing_centre(frame if frame is not None else fab)
+        spec = scene_dict(tmp, centre, view=view)
+        if spp is not None:
+            spec["sensor"]["sampler"]["sample_count"] = int(spp)
+        cam_origin = spec["sensor"]["to_world"][1]
+        cam_target = spec["sensor"]["to_world"][2]
 
-    # The key must be behind every camera this scene offers, or a lamp appears in one picture
-    # of a comparison and not the other. Checked, not eyeballed: the first version put a 55mm
-    # fill sphere 63mm from the oblique camera and filled a third of that frame with it.
-    _view = np.asarray(cam_target, float) - np.asarray(cam_origin, float)
-    _to_key = np.asarray(spec["key"]["to_world"][1], float) - np.asarray(cam_origin, float)
-    if float(_view @ _to_key) > 0.0:
-        raise RuntimeError("the key light is in front of the '%s' camera and would appear in "
-                           "the frame" % view)
+        # The key must be behind every camera this scene offers, or a lamp appears in one picture
+        # of a comparison and not the other. Checked, not eyeballed: the first version put a 55mm
+        # fill sphere 63mm from the oblique camera and filled a third of that frame with it.
+        _view = np.asarray(cam_target, float) - np.asarray(cam_origin, float)
+        _to_key = np.asarray(spec["key"]["to_world"][1], float) - np.asarray(cam_origin, float)
+        if float(_view @ _to_key) > 0.0:
+            raise RuntimeError("the key light is in front of the '%s' camera and would appear in "
+                               "the frame" % view)
 
-    # The three symbolic transforms, substituted. This is the only place Mitsuba objects are
-    # built, and the description above them is `scene_dict`'s and nobody else's.
-    _, origin, target, up = spec["sensor"]["to_world"]
-    spec["sensor"]["to_world"] = mi.ScalarTransform4f().look_at(
-        origin=list(origin), target=list(target), up=list(up))
-    spec["sensor"]["film"]["rfilter"] = {"type": "gaussian"}
-    _, pos = spec["key"]["to_world"]
-    spec["key"]["to_world"] = mi.ScalarTransform4f().translate(list(pos))
-    _, bcentre, bz, bhalf = spec["backdrop"]["to_world"]
-    spec["backdrop"]["to_world"] = (mi.ScalarTransform4f()
-                                    .translate([bcentre[0], bcentre[1], bcentre[2] + bz])
-                                    .scale([bhalf, bhalf, 1.0]))
-    img = mi.render(mi.load_dict(spec))
-    mi.util.write_bitmap(out_png, img)
-    return {"strands": strands, "vertices": verts, "view": view,
-            "spp": spec["sensor"]["sampler"]["sample_count"],
-            "curve_file": tmp, "out": out_png, "centre": centre,
-            "camera_origin": tuple(origin), "camera_target": tuple(target),
-            "fov": spec["sensor"]["fov"], "radius_mm": fab.yarn_diameter / 2.0}
+        # The three symbolic transforms, substituted. This is the only place Mitsuba objects are
+        # built, and the description above them is `scene_dict`'s and nobody else's.
+        _, origin, target, up = spec["sensor"]["to_world"]
+        spec["sensor"]["to_world"] = mi.ScalarTransform4f().look_at(
+            origin=list(origin), target=list(target), up=list(up))
+        spec["sensor"]["film"]["rfilter"] = {"type": "gaussian"}
+        _, pos = spec["key"]["to_world"]
+        spec["key"]["to_world"] = mi.ScalarTransform4f().translate(list(pos))
+        _, bcentre, bz, bhalf = spec["backdrop"]["to_world"]
+        spec["backdrop"]["to_world"] = (mi.ScalarTransform4f()
+                                        .translate([bcentre[0], bcentre[1], bcentre[2] + bz])
+                                        .scale([bhalf, bhalf, 1.0]))
+        img = mi.render(mi.load_dict(spec))
+        mi.util.write_bitmap(out_png, img)
+        return {"strands": strands, "vertices": verts, "view": view,
+                "spp": spec["sensor"]["sampler"]["sample_count"],
+                "curve_file": tmp if caller_owns else None,
+                "curve_file_was_temporary": not caller_owns, "out": out_png, "centre": centre,
+                "camera_origin": tuple(origin), "camera_target": tuple(target),
+                "fov": spec["sensor"]["fov"], "radius_mm": fab.yarn_diameter / 2.0}
