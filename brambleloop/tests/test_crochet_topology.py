@@ -188,5 +188,57 @@ check("relaxation keeps every stitch shaped like a half double",
       after["stitches_shaped_like_hdc"] >= before["stitches_shaped_like_hdc"] - 1,
       f"{before['stitches_shaped_like_hdc']} -> {after['stitches_shaped_like_hdc']}")
 
+# --- the certified linkage relation, as a thing other modules may act on ------------------
+# The drape solver now applies a TENSILE FORCE along the stitch-to-stitch linkage. These
+# checks defend the one property that makes that legitimate: the pairs it pulls on are the
+# pairs the validator certifies, not neighbouring vertices that happen to be nearby. If the
+# two ever come apart, the fabric is being held together by a relationship nothing validated.
+_pairs = CT.certified_linkage_pairs(f)
+check("the certified linkage pairs are exactly the stitches the validator demands a linking "
+      "number for", len(_pairs) == v["stitches_needing_linkage"],
+      f"{len(_pairs)} pairs against {v['stitches_needing_linkage']} demanded")
+_hdc = [o for o in f.ops if o.kind == "hdc"]
+_rows = sorted({o.row for o in _hdc})
+check("every pair is a stitch and the stitch DIRECTLY BELOW IT in its own wale, which is "
+      "what 'worked into' means",
+      all(p.anchor_position == p.position and
+          _rows.index(p.anchor_row) == _rows.index(p.row) - 1 for p in _pairs))
+check("the foundation row has no linkage pair, because it was not worked into anything",
+      all(p.row != _rows[0] for p in _pairs) and
+      len(_pairs) == len(_hdc) - sum(1 for o in _hdc if o.row == _rows[0]),
+      f"{len(_pairs)} pairs for {len(_hdc)} stitches")
+check("each pair holds by the anchor's OWN top-loop legs -- one leg under a single loop "
+      "target, both legs under 'both' -- and by nothing else",
+      all(len(p.holding) == (1 if p.loop_target in ("front", "back") else 2) and
+          set(p.holding) <= {p.back_loop, p.front_loop} for p in _pairs))
+check("the passing span is the construction's own pull_through -- insert, through, behind, "
+      "emerge -- rather than the whole stitch",
+      all(p.pull_through ==
+          (f.offset_of(p.op_index) + f.ops[p.op_index].pull_through[0],
+           f.offset_of(p.op_index) + f.ops[p.op_index].pull_through[1])
+          for p in _pairs) and
+      all(p.pull_through[1] - p.pull_through[0] >= 2 for p in _pairs))
+check("the spans index the concatenated yarn path, so a consumer outside this module reads "
+      "the same points the validator does",
+      all(0 <= p.pull_through[0] < p.pull_through[1] < len(f.points) and
+          0 <= p.back_loop[0] < p.back_loop[1] < len(f.points) for p in _pairs))
+# The single-loop cases are the ones where the holding arc is genuinely a different curve, so
+# a fabric that never exercises them would let a wrong choice through unnoticed.
+check("the fixture exercises single-loop linkage as well as both-loop, so the holding-arc "
+      "choice is actually tested",
+      any(p.loop_target in ("front", "back") for p in _pairs) and
+      any(p.loop_target == "both" for p in _pairs),
+      str(sorted({p.loop_target for p in _pairs})))
+
+# --- one definition of the fabric's local frame -------------------------------------------
+_frames = CT.stitch_frames(f)
+check("every stitch of the certified fabric has a local frame",
+      all(_frames[(o.row, o.position)] is not None for o in _hdc))
+_fr = _frames[(_hdc[len(_hdc) // 2].row, _hdc[len(_hdc) // 2].position)]
+check("the shared local frame is orthonormal and right handed, so the linkage check and the "
+      "morphology check cannot disagree about which way is down at the same stitch",
+      abs(float(np.dot(_fr[0], _fr[1]))) < 1e-9 and
+      abs(float(np.linalg.norm(np.cross(_fr[0], _fr[1]) - _fr[2]))) < 1e-9)
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

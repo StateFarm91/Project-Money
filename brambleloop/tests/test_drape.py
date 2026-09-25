@@ -21,6 +21,7 @@ from brambleloop.cir.compiler import compile_cir                  # noqa: E402
 from brambleloop.cir.twin import build_twin                       # noqa: E402
 from brambleloop.visual import crochet_topology as CT             # noqa: E402
 from brambleloop.visual import drape as DR                        # noqa: E402
+from brambleloop.visual import linkage as LK                      # noqa: E402
 
 PASSED = FAILED = 0
 
@@ -677,6 +678,257 @@ check("the product's intrinsic height survives a bend that moves every stitch, w
       % (d0["intrinsic_height_mm"], _wd["intrinsic_height_mm"],
          d0["projected_width_mm"], d0["projected_height_mm"],
          _wd["projected_width_mm"], _wd["projected_height_mm"]))
+
+# ==========================================================================================
+# WAVE 4 -- the tensile stitch linkage, and the experiment it was built for.
+#
+# Everything below defends one of two things: that the new force acts on the relation the
+# topology module CERTIFIES rather than on convenient neighbours, or that the experiment's
+# result -- which is a NEGATIVE -- stays recorded and fails loudly if it stops being true.
+# ==========================================================================================
+
+_holds = DR.linkage_holds(FLAT)
+check("the tensile linkage acts on exactly the pairs the validator demands a linking number "
+      "for, so the fabric is not being held together by a relationship nothing certified",
+      len(_holds["pairs"]) == before["stitches_needing_linkage"],
+      "%d pairs against %d demanded" % (len(_holds["pairs"]),
+                                        before["stitches_needing_linkage"]))
+check("each certified pair contributes a hold per anchor arc that holds it -- two under both "
+      "top loops, one under a single loop",
+      _holds["n_holds"] == sum(len(p.holding) for p in _holds["pairs"]) and
+      _holds["n_holds"] >= len(_holds["pairs"]),
+      "%d holds for %d pairs" % (_holds["n_holds"], len(_holds["pairs"])))
+_ext_flat = DR.linkage_extension(FLAT)
+check("the constraint's rest separation is MEASURED off the certified geometry, so the "
+      "certified fabric reads exactly zero extension against itself",
+      _ext_flat["max_extension_mm"] == 0.0 and _ext_flat["rest_separation_min_mm"] > 0.5,
+      "%.3e mm, rest separations from %.4f mm"
+      % (_ext_flat["max_extension_mm"], _ext_flat["rest_separation_min_mm"]))
+
+
+def _rigidly_moved(fab, deg, axis=(0.3, 0.5, 0.81), shift=(11.0, -5.0, 3.0)):
+    a = np.asarray(axis, float)
+    a = a / np.linalg.norm(a)
+    kx = np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]], float)
+    th = np.radians(deg)
+    rot = np.eye(3) + np.sin(th) * kx + (1 - np.cos(th)) * (kx @ kx)
+    pts = fab.points.astype(float) @ rot.T + np.asarray(shift, float)
+    cuts = np.cumsum([len(o.points) for o in fab.ops])[:-1]
+    return replace(fab, ops=[replace(o, points=q)
+                             for o, q in zip(fab.ops, np.split(pts, cuts))]), rot
+
+
+# THE PROPERTY THE MECHANISM WAS REQUIRED TO HAVE. research/VISUAL_WAVE3.md named it: a force
+# that resists a stitch being pulled OUT of its loop without resisting that stitch TURNING,
+# because a fabric conforms by letting each stitch turn relative to its neighbours. A
+# constraint on a DISTANCE has that property exactly, and this is the check that says so.
+_moved_drape, _rot = _rigidly_moved(DRAPED, 37.0)
+_moved_flat, _ = _rigidly_moved(FLAT, 37.0)
+_e_here = DR.linkage_extension(DRAPED, rest_points=FLAT.points.astype(float))
+_e_moved = DR.linkage_extension(_moved_drape, rest_points=_moved_flat.points.astype(float))
+check("the linkage constraint is blind to a rigid motion of the whole fabric, so it cannot "
+      "be resisting a stitch turning",
+      abs(_e_here["max_extension_mm"] - _e_moved["max_extension_mm"]) < 1e-9 and
+      abs(_e_here["mean_extension_mm"] - _e_moved["mean_extension_mm"]) < 1e-9,
+      "%.12f vs %.12f mm" % (_e_here["max_extension_mm"], _e_moved["max_extension_mm"]))
+# And it does not resist conforming to a curved surface either, which is the same statement
+# made on geometry rather than on a rotation: wrapping the swatch round a 125mm cylinder
+# moves every stitch and opens no certified link.
+_wrap_ext = DR.linkage_extension(
+    replace(FLAT, ops=[replace(_o, points=_q) for _o, _q in zip(
+        FLAT.ops, np.split(DR.cylindrical_bend(FLAT.points.astype(float), 8.0, "wale"),
+                           np.cumsum([len(_o.points) for _o in FLAT.ops])[:-1]))]),
+    rest_points=FLAT.points.astype(float))
+check("wrapping the fabric round a 125mm cylinder opens no certified linkage, so the "
+      "constraint does not fight the cloth conforming to a curved surface",
+      _wrap_ext["max_extension_mm"] < 0.01,
+      "%.5f mm" % _wrap_ext["max_extension_mm"])
+
+# TENSION ONLY. Pushing apart is contact's job; doing it twice would be two disagreeing
+# copies of the same floor.
+_closed = FLAT.points.astype(float).copy()
+_inflated = DR.linkage_rest_separations(FLAT.points.astype(float), _holds) + 1.0
+_worst = DR.apply_stitch_linkage(_closed, _holds, _inflated)
+check("the linkage force is tension only: a pair that has closed is not pushed apart",
+      float(np.abs(_closed - FLAT.points.astype(float)).max()) == 0.0 and _worst < 0.0,
+      "moved %.3e mm, worst extension %.4f mm"
+      % (float(np.abs(_closed - FLAT.points.astype(float)).max()), _worst))
+
+# --- the force does what it was derived to do -------------------------------------------
+_lf = replace(SETUP, stitch_linkage=True, frame_invariant_rest=True, iterations=400)
+_lffab, _lfrep = DR.drape(FLAT, _lf)
+_lfg = CT.validate(_lffab, TWIN, max_rows=ROWS, max_cols=COLS)
+check("the tensile linkage holds the certified links shut: with it the worst extension "
+      "anywhere in the run is a small fraction of what co-rotation alone allows",
+      _lfrep.linkage_max_extension_mm < 0.1 * _firep.linkage_max_extension_mm,
+      "%.4f mm with the force against %.4f mm without, at the same 400 iterations"
+      % (_lfrep.linkage_max_extension_mm, _firep.linkage_max_extension_mm))
+check("the linkage watch reports a maximum over the WHOLE run, not the value at the end, so "
+      "a solve that passed through an open link cannot report clean",
+      _lfrep.linkage_max_extension_mm > 2.0 * _lfrep.linkage_final_extension_mm and
+      _lfrep.linkage_worst_iteration < _lfrep.iterations,
+      "max %.4f at iteration %d, final %.4f"
+      % (_lfrep.linkage_max_extension_mm, _lfrep.linkage_worst_iteration,
+         _lfrep.linkage_final_extension_mm))
+check("the linkage force does not stretch the yarn to do its work",
+      abs(_lfrep.length_change_pct) < 0.5, "%.6f%%" % _lfrep.length_change_pct)
+check("the linkage force never let a strand reach another",
+      _lfrep.min_gap_seen_mm > 0.0 and _lfrep.crossing_impossible and
+      _lfrep.cap_exceeded == 0, "%.4f mm" % _lfrep.min_gap_seen_mm)
+
+# THE RESULT OF THE EXPERIMENT, RECORDED AS A NEGATIVE. Tensile linkage paired with the
+# co-rotational rest state does NOT stop free-edge stitches everting, and it makes the worst
+# third-loop margin worse rather than better. research/VISUAL_WAVE4.md. If this stops being
+# true somebody has to look, because it is the finding Milestone D rests on.
+check("RECORDED NEGATIVE: tensile linkage plus co-rotation does not stop free-edge stitches "
+      "everting, so the missing mechanism was not the missing tensile link",
+      worst_third_loop_margin(_lffab) > 0.0 and
+      _lfg["stitches_shaped_like_hdc"] < _lfg["stitches_built"],
+      "worst margin %+.3f mm (flat %+.3f, committed default %+.3f), %d of %d shaped"
+      % (worst_third_loop_margin(_lffab), flat_margin, worst_third_loop_margin(DRAPED),
+         _lfg["stitches_shaped_like_hdc"], _lfg["stitches_built"]))
+
+# --- the control: the new force must not move the committed model -------------------------
+_lofab, _lorep = DR.drape(FLAT, replace(SETUP, stitch_linkage=True))
+check("on the committed model the tensile linkage is nearly inert -- the links barely open, "
+      "so no committed Visual result moves when the option is available",
+      abs(worst_third_loop_margin(_lofab) - worst_third_loop_margin(DRAPED)) < 0.01 and
+      abs(_lorep.max_out_of_plane_mm / REPORT.max_out_of_plane_mm - 1.0) < 0.02,
+      "margin %+.3f vs %+.3f, droop %.4f vs %.4f mm"
+      % (worst_third_loop_margin(_lofab), worst_third_loop_margin(DRAPED),
+         _lorep.max_out_of_plane_mm, REPORT.max_out_of_plane_mm))
+
+# --- WHY the experiment could not be decided in this solver as it stood -------------------
+# The bending term is a lumped Laplacian, not the gradient of the documented energy. With a
+# fixed world-space rest state that is survivable; with the rest state carried into the
+# vertex frame the target moves with the configuration and the run CLIMBS.
+_lam_rest = DR.rest_curvature_of(FLAT)
+_segs = np.clip(np.linalg.norm(np.diff(FLAT.points.astype(float), axis=0), axis=1), 1e-9, None)
+_ellm = float(np.median(_segs)) * 1e-3
+_lump = np.zeros(len(FLAT.points))
+_lump[:-1] += _segs * 1e-3 / 2.0
+_lump[1:] += _segs * 1e-3 / 2.0
+_massv = _lump * AM["linear_density_kg_m"]
+
+
+def _potential(pts):
+    return float((_massv * DR.STANDARD_GRAVITY *
+                  (pts[:, 2] - FLAT.points[:, 2]) * 1e-3).sum())
+
+
+_c400 = DR.drape(FLAT, replace(SETUP, iterations=400))[0]
+_e_c = DR.bending_energy_J(_c400.points.astype(float), _lam_rest,
+                           DR.CALIBRATED_BENDING_N_M2, _ellm)
+_g_c = _potential(_c400.points.astype(float))
+check("the committed solve DESCENDS: it releases more gravitational potential than it puts "
+      "into bending", _e_c + _g_c < 0.0,
+      "bending %+.3e J against %+.3e J of potential" % (_e_c, _g_c))
+_e_f = DR.bending_energy_J(_fifab.points.astype(float), _lam_rest,
+                           DR.CALIBRATED_BENDING_N_M2, _ellm,
+                           rest_pts=FLAT.points.astype(float), frame_invariant=True)
+_g_f = _potential(_fifab.points.astype(float))
+check("RECORDED NEGATIVE: with the rest state carried into the vertex frame the same solve "
+      "CLIMBS -- it gains far more bending energy than gravity releases -- so the lumped "
+      "Laplacian is not a descent direction for the energy it is standing in for",
+      _e_f > 5.0 * abs(_g_f),
+      "bending %+.3e J against %+.3e J of potential, a factor of %.1f"
+      % (_e_f, _g_f, _e_f / max(abs(_g_f), 1e-30)))
+
+# --- AND THE MEASUREMENT THAT SETTLES WHAT THE MOTION IS ----------------------------------
+# Switch gravity off and run the identical solve. Whatever still happens is not drape.
+_c0 = DR.drape(FLAT, replace(SETUP, iterations=400, gravity=0.0))[0]
+_f0 = DR.drape(FLAT, replace(SETUP, iterations=400, gravity=0.0,
+                             frame_invariant_rest=True))[0]
+
+
+def _rms_from_flat(fab):
+    return float(np.sqrt(np.mean(np.sum(
+        (fab.points.astype(float) - FLAT.points.astype(float)) ** 2, axis=1))))
+
+
+check("the committed solver has no drift: with gravity off it does not move",
+      _rms_from_flat(_c0) < 0.01, "%.5f mm rms" % _rms_from_flat(_c0))
+check("RECORDED NEGATIVE: the frame-invariant rest state moves the fabric just as far WITH "
+      "GRAVITY SWITCHED OFF, so what it produces is a load-independent instability and not "
+      "drape",
+      _rms_from_flat(_f0) > 0.8 * _rms_from_flat(_fifab) and
+      worst_third_loop_margin(_f0) > 0.0,
+      "%.4f mm rms at zero gravity against %.4f mm under gravity, margin %+.3f"
+      % (_rms_from_flat(_f0), _rms_from_flat(_fifab), worst_third_loop_margin(_f0)))
+
+# --- the bending term as the actual gradient ----------------------------------------------
+_gr = DR.drape(FLAT, replace(SETUP, iterations=400, energy_gradient_bending=True))[0]
+_e_gr = DR.bending_energy_J(_gr.points.astype(float), _lam_rest,
+                            DR.CALIBRATED_BENDING_N_M2, _ellm)
+check("the gradient form of the bending term is wired in and changes the solve",
+      float(np.abs(_gr.points - _c400.points).max()) > 1e-4,
+      "%.4f mm at the furthest vertex" % float(np.abs(_gr.points - _c400.points).max()))
+check("the gradient form descends too, so replacing the lumped Laplacian did not break the "
+      "committed configuration", _e_gr + _potential(_gr.points.astype(float)) < 0.0,
+      "bending %+.3e J against %+.3e J of potential"
+      % (_e_gr, _potential(_gr.points.astype(float))))
+
+# --- the supplementary conformability measure, and its floor ------------------------------
+_art_flat = DR.articulation_profile(FLAT)
+_art_moved = DR.articulation_profile(_rigidly_moved(FLAT, 41.0)[0])
+check("local articulation is a property of the cloth, not of its orientation: a rigid "
+      "rotation leaves it unchanged",
+      abs(_art_flat["articulation_rms_deg"] - _art_moved["articulation_rms_deg"]) < 1e-9,
+      "%.9f vs %.9f deg" % (_art_flat["articulation_rms_deg"],
+                            _art_moved["articulation_rms_deg"]))
+check("local articulation reports its floor honestly: the certified FLAT fabric does not "
+      "read zero, so a reading has to be judged against it",
+      0.0 < _art_flat["articulation_rms_deg"] < 1.0,
+      "%.4f deg on flat cloth" % _art_flat["articulation_rms_deg"])
+check("the frame-invariant configuration reads higher local articulation than the committed "
+      "default, which is the direction the standing symptom needs even though the zero-"
+      "gravity control above shows it is not drape",
+      DR.articulation_profile(_fifab)["articulation_rms_deg"] >
+      DR.articulation_profile(DRAPED)["articulation_rms_deg"],
+      "%.4f vs %.4f deg" % (DR.articulation_profile(_fifab)["articulation_rms_deg"],
+                            DR.articulation_profile(DRAPED)["articulation_rms_deg"]))
+
+# --- how much margin the single-loop linkage instrument actually has ----------------------
+# `_encirclement` closes a single top loop through a fictitious point and tries ten
+# directions, taking one clear detection as proof. That is a MARGIN, and the margin is
+# measurable: on correct geometry about two in five directions detect the crossing. On the
+# strongly deformed 3200-iteration frame-invariant run it falls to about one in seven and the
+# structured ten find none at all -- which is why that run reads 17 of 20 linked while the
+# solver's own continuous guarantee says no strand ever reached another. See
+# research/VISUAL_WAVE4.md. Pinned here on the cheap configurations so the margin cannot
+# quietly thin further.
+_rng2 = np.random.default_rng(11)
+_dirs = _rng2.normal(size=(60, 3))
+_dirs /= np.linalg.norm(_dirs, axis=1, keepdims=True)
+_reach = CT._away_reach(FLAT)
+_need = FLAT.yarn_diameter * 0.35
+_shares = []
+for _p in CT.certified_linkage_pairs(FLAT):
+    if _p.loop_target not in ("front", "back"):
+        continue
+    _a = FLAT.ops[_p.anchor_index]
+    _o = FLAT.ops[_p.op_index]
+    _arc = (_a.points[_a.front_loop[0]:_a.front_loop[1] + 1] if _p.loop_target == "front"
+            else _a.points[_a.back_loop[0]:_a.back_loop[1] + 1])
+    _centre = _arc.mean(axis=0)
+    _room = _hit = 0
+    for _dd in _dirs:
+        _tip = _centre + _dd * _reach
+        if CT._clearance_to_path(_centre, _tip, _o.points,
+                                 skip_mm=2.0 * FLAT.yarn_diameter) < _need:
+            continue
+        _room += 1
+        try:
+            if LK.link_with_open_path(LK.close_arc(np.vstack([_arc, _tip])), _o.points) != 0:
+                _hit += 1
+        except (LK.CurvesIntersect, ValueError):
+            pass
+    _shares.append(_hit / max(_room, 1))
+check("the single-loop linkage instrument has real margin on correct geometry: a large share "
+      "of closure directions detect the crossing, not just the structured few",
+      len(_shares) > 4 and min(_shares) > 0.25,
+      "worst stitch %.3f, mean %.3f over %d single-loop stitches"
+      % (min(_shares), sum(_shares) / len(_shares), len(_shares)))
 
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

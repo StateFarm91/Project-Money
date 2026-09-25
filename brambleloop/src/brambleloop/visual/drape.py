@@ -120,7 +120,9 @@ __all__ = ["DrapeSetup", "DrapeReport", "drape", "areal_mass", "bending_bracket"
            "genuine_yarn_vertices", "corotational_rotations", "bending_energy_J",
            "rigid_motion_response", "cylindrical_bend", "flexural_rigidity",
            "derive_bending_rigidity", "cantilever_equilibrium_bound",
-           "TARGET_BENDING_LENGTH_MM"]
+           "TARGET_BENDING_LENGTH_MM", "linkage_holds", "linkage_rest_separations",
+           "apply_stitch_linkage", "linkage_extension", "LINKAGE_GAIN",
+           "articulation_profile"]
 
 STANDARD_GRAVITY = 9.80665            # m/s^2, sourced
 ACRYLIC_DENSITY = 1180.0              # kg/m^3, already used to derive fibre radius
@@ -353,8 +355,46 @@ class DrapeSetup:
     # Kaldor et al. 2010 hold the rest state in the segment pair's own frame for the same
     # reason. DERIVED construction, standard; the rate and sufficiency are UNKNOWN.
     frame_invariant_rest: bool = False
+    # TENSILE STITCH LINKAGE. OFF BY DEFAULT, for the same reason as the two options above:
+    # it changes the fabric's shape and every committed Visual result was produced without
+    # it. See the block comment above `linkage_holds` for the derivation; in one line, the
+    # model has no force representing a stitch being PULLED THROUGH the loop below it, so
+    # this adds the one-sided distance constraint that says the certified linkage cannot
+    # open past the separation it was worked at. The pairs are the ones
+    # `crochet_topology.certified_linkage_pairs` certifies, not neighbouring vertices.
+    #
+    # It is meant to be evaluated TOGETHER WITH `frame_invariant_rest`, because the spurious
+    # rotational stiffness that option removes is what was supplying this cohesion by
+    # accident. Either alone is a different experiment from both together.
+    stitch_linkage: bool = False
+    # THE BENDING FORCE AS THE GRADIENT OF THE DOCUMENTED ENERGY. OFF BY DEFAULT.
+    #
+    # The loop's bending term is `bend_coeff * (lap - lap_rest)` -- the second difference
+    # applied ONCE, which research/VISUAL_WAVE3.md measured against the energy this module
+    # documents and found is not its gradient: 69 per cent of the gradient's norm away from
+    # it, cosine 0.911, opposite sign at 3 of 18 sampled components. With a FIXED world-space
+    # rest state that mismatch is survivable, because `lap -> lap_rest` is still a stable
+    # fixed point of the update and the run descends -- measured, research/VISUAL_WAVE4.md.
+    #
+    # With `frame_invariant_rest` it is not survivable, and that is a measurement rather than
+    # an argument: the target `R(p) . lap_rest` now MOVES with the configuration, so the two
+    # chase each other. The certified 5x5 gains 1.0e-5 J of bending energy while gravity
+    # releases 1.9e-6 J -- the solve climbs by five times what drives it -- and the stitches
+    # that evert are the ones the climb deforms. See research/VISUAL_WAVE4.md.
+    #
+    # This option replaces the term with -B/l^3 * D^T (lap - oriented), which IS the gradient
+    # (verified against finite differences on the certified geometry to 3e-8). DERIVED, not
+    # tuned: there is no new constant in it. Off by default because it changes the shape of
+    # every solve and every committed Visual result was produced without it.
+    energy_gradient_bending: bool = False
     clamp_fraction: float = 0.0           # fraction of the fabric held fixed, by +y
     iterations: int = 400
+    # Check the certified linkage every iteration rather than only at the end. Cheap -- it is
+    # one closest-approach pass over a few dozen short arcs, against a topology pass that
+    # costs a linking number per stitch -- and it is what makes an intermediate state
+    # visible. `DrapeReport.linkage_max_extension_mm` is a maximum over the WHOLE run, so a
+    # solve that passed through a broken configuration and came back cannot report clean.
+    watch_linkage: bool = True
 
 
 @dataclass
@@ -383,6 +423,15 @@ class DrapeReport:
     # have done something without being measured. Angular by the same DERIVED mapping.
     rest_migration_max_rad: float = 0.0
     rest_migration_mean_rad: float = 0.0
+    # The certified stitch linkage, watched THROUGHOUT the solve rather than at its end.
+    # `linkage_max_extension_mm` is a maximum over every iteration, so it cannot be clean for
+    # a run that passed through a state in which a stitch had been pulled out of its loop --
+    # which research/VISUAL_WAVE3.md showed an end-of-solve check cannot see.
+    linkage_pairs: int = 0
+    linkage_holds: int = 0
+    linkage_max_extension_mm: float = 0.0
+    linkage_final_extension_mm: float = 0.0
+    linkage_worst_iteration: int = -1
 
     def as_dict(self):
         return dict(self.__dict__)
@@ -616,6 +665,188 @@ def rigid_motion_response(fab: topo.Fabric, *,
         "vertices": int(len(pts)),
         "per_vertex_weight_N": float(per_vertex_weight),
         "median_segment_mm": ell * 1e3,
+    }
+
+
+# --------------------------------------------------------------------------------------
+# TENSILE STITCH LINKAGE -- the force this model did not have.
+#
+# Three things held this fabric together before: bending along the single yarn path,
+# inextensibility of that same path, and contact. Contact is PURELY REPULSIVE --
+# `_segment_contacts` returns only pairs closer than `rest_sep`, so `apply_contacts` can only
+# ever push apart -- and along the path a stitch in row 2 is a neighbour of the stitches
+# BESIDE it in row 2, meeting row 1 only at the turn. So nothing in the model represented the
+# one relation that makes crochet a fabric rather than a coil of yarn: a stitch is PULLED
+# THROUGH the loop below it, and that link carries tension.
+#
+# WHAT SUPPLIED THE MISSING COHESION UNTIL NOW. The spurious world-frame rotational stiffness
+# measured in research/VISUAL_WAVE3.md -- which is why removing it (`frame_invariant_rest`)
+# everts free-edge stitches. The two are a pair: one is a defect to remove and the other is a
+# mechanism to add, and neither can be evaluated alone.
+#
+# THE RELATION IS THE CERTIFIED ONE, NOT A GUESS ABOUT NEIGHBOURS. The pairs come from
+# `crochet_topology.certified_linkage_pairs`, which is the same enumeration `validate`
+# iterates to compute its linking numbers. The two arcs of each pair are the passing stitch's
+# `pull_through` span -- insert, through, behind, emerge, the span the construction names as
+# going through the anchor -- and the anchor's own top-loop legs, which are exactly the arcs
+# the linking number is measured against. A force built on any other pairing would hold the
+# cloth together by a relationship no validator certifies.
+#
+# WHY IT IS A CONSTRAINT AND NOT A SPRING WITH A STIFFNESS. Yarn is inextensible and this
+# model does not redistribute it -- Stage 1 material-coordinate migration is not begun -- so
+# no yarn can flow through the link. The closest approach between the two certified arcs
+# therefore cannot GROW beyond its value in the certified rest configuration: the stitch
+# cannot be pulled out. That is a one-sided distance constraint whose only number, the rest
+# separation, is MEASURED off the certified geometry rather than chosen. A spring would have
+# needed a stiffness, and a stiffness here would have been the invented drape parameter this
+# module is forbidden.
+#
+# WHAT IT DELIBERATELY DOES NOT DO. It is TENSION ONLY: it pulls when the pair separates and
+# does nothing when they approach, because pushing apart is already contact's job and doing
+# it twice would be two disagreeing copies of the same floor. And it constrains a DISTANCE,
+# which is invariant under rotation, so it resists a stitch being pulled out of its loop
+# without resisting that stitch TURNING -- the property research/VISUAL_WAVE3.md named as
+# required, because a fabric conforms by letting each stitch turn relative to its neighbours.
+# --------------------------------------------------------------------------------------
+
+# The relaxation factor on the correction, shared with `relaxation.apply_contacts` rather
+# than invented here: this is the same kind of one-sided projection, run inside the same
+# loop, and two gains would be two places for the solver's aggressiveness to drift apart.
+LINKAGE_GAIN = 0.5
+
+
+def linkage_holds(fab: topo.Fabric) -> dict:
+    """The certified linkage pairs, flattened into segment index arrays.
+
+    Each PAIR contributes one HOLD per anchor arc that holds it: two under both top loops
+    (the strand passes BETWEEN the legs, so leaving either leg is leaving the loop), one
+    under a single loop (the strand encircles that leg). Each hold is the full cross product
+    of the anchor arc's segments with the pull-through span's segments, because which two
+    segments are closest changes as the fabric moves and fixing it once would make the
+    constraint a function of the configuration it was built in.
+    """
+    pairs = topo.certified_linkage_pairs(fab)
+    seg_a: list[int] = []
+    seg_b: list[int] = []
+    hold_of: list[int] = []
+    hold_pair: list[int] = []
+    h = 0
+    for pi, pair in enumerate(pairs):
+        p0, p1 = pair.pull_through
+        thru = list(range(p0, p1))            # segment start indices
+        for arc in pair.holding:
+            a0, a1 = arc
+            hold = list(range(a0, a1))
+            if not hold or not thru:
+                continue
+            for i in hold:
+                for j in thru:
+                    seg_a.append(i)
+                    seg_b.append(j)
+                    hold_of.append(h)
+            hold_pair.append(pi)
+            h += 1
+    return {"pairs": pairs,
+            "seg_a": np.asarray(seg_a, dtype=np.int64),
+            "seg_b": np.asarray(seg_b, dtype=np.int64),
+            "hold_of": np.asarray(hold_of, dtype=np.int64),
+            "hold_pair": np.asarray(hold_pair, dtype=np.int64),
+            "n_holds": h}
+
+
+def _hold_closest(pts: np.ndarray, holds: dict):
+    """Closest approach of every hold: (distance, chosen segment pair, its two parameters).
+
+    The minimum is taken over the hold's whole cross product of segment pairs, which is what
+    makes this the distance between two ARCS rather than between two arbitrary segments.
+    """
+    ia, ib = holds["seg_a"], holds["seg_b"]
+    if not len(ia):
+        z = np.zeros(0)
+        return z, np.zeros(0, np.int64), z, z
+    a0 = pts[ia]
+    u = pts[ia + 1] - a0
+    b0 = pts[ib]
+    v = pts[ib + 1] - b0
+    s, t, dist = topo.closest_between_segments(a0, u, b0, v)
+    hold_of = holds["hold_of"]
+    order = np.lexsort((dist, hold_of))
+    firsts = np.searchsorted(hold_of[order], np.arange(holds["n_holds"]))
+    sel = order[firsts]
+    return dist[sel], sel, s[sel], t[sel]
+
+
+def linkage_rest_separations(rest_pts: np.ndarray, holds: dict) -> np.ndarray:
+    """How far apart each certified pair sits in the rest configuration. MEASURED.
+
+    This is the constraint's only number and it is read off the certified geometry, not
+    chosen. It is the separation the stitch was worked at; the link may close further -- the
+    stitch can slide down into its loop -- and may not open past it, because no yarn can flow
+    through the link to let it.
+    """
+    d, _, _, _ = _hold_closest(np.asarray(rest_pts, dtype=float), holds)
+    return d
+
+
+def apply_stitch_linkage(pts: np.ndarray, holds: dict, rest_sep: np.ndarray,
+                         gain: float = LINKAGE_GAIN,
+                         fixed: np.ndarray | None = None) -> float:
+    """Pull back every certified linkage that has opened past its rest separation.
+
+    ONE-SIDED: holds that have closed are left alone. Returns the worst extension in mm,
+    which is the quantity a per-iteration guard can watch, so the solve can be checked
+    continuously instead of only at its end.
+
+    The correction is distributed to the four endpoints of the two closest segments by the
+    same barycentric weights `relaxation.apply_contacts` uses, so it is a force between two
+    pieces of yarn rather than a displacement imposed on vertices.
+    """
+    if not holds["n_holds"]:
+        return 0.0
+    d, sel, s, t = _hold_closest(pts, holds)
+    ext = d - rest_sep
+    worst = float(ext.max()) if len(ext) else 0.0
+    live = ext > 0.0
+    if not live.any():
+        return worst
+    ia = holds["seg_a"][sel][live]
+    ib = holds["seg_b"][sel][live]
+    sp = s[live]
+    tp = t[live]
+    pa = pts[ia] + sp[:, None] * (pts[ia + 1] - pts[ia])
+    pb = pts[ib] + tp[:, None] * (pts[ib + 1] - pts[ib])
+    delta = pa - pb
+    n = np.linalg.norm(delta, axis=1)
+    n[n < 1e-9] = 1e-9
+    pull = (gain * ext[live] / n)[:, None] * delta * 0.5
+    for idx, w in ((ia, 1.0 - sp), (ia + 1, sp)):
+        np.add.at(pts, idx, -pull * w[:, None])
+    for idx, w in ((ib, 1.0 - tp), (ib + 1, tp)):
+        np.add.at(pts, idx, +pull * w[:, None])
+    return worst
+
+
+def linkage_extension(fab: topo.Fabric, rest_points: np.ndarray | None = None) -> dict:
+    """How far every certified linkage has opened, measured on a configuration.
+
+    An instrument, not a force. `rest_points` defaults to the fabric itself, which reads
+    zero everywhere and is only useful as a self-check; pass the certified flat geometry to
+    measure what a drape did to the links.
+    """
+    pts = fab.points.astype(float)
+    holds = linkage_holds(fab)
+    rest = linkage_rest_separations(
+        pts if rest_points is None else np.asarray(rest_points, dtype=float), holds)
+    d, _, _, _ = _hold_closest(pts, holds)
+    ext = d - rest
+    return {
+        "pairs": len(holds["pairs"]),
+        "holds": int(holds["n_holds"]),
+        "max_extension_mm": float(ext.max()) if len(ext) else 0.0,
+        "mean_extension_mm": float(ext.mean()) if len(ext) else 0.0,
+        "max_closure_mm": float(-ext.min()) if len(ext) else 0.0,
+        "rest_separation_mean_mm": float(rest.mean()) if len(rest) else 0.0,
+        "rest_separation_min_mm": float(rest.min()) if len(rest) else 0.0,
     }
 
 
@@ -900,7 +1131,11 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     bend_coeff = setup.bending_rigidity_N_m2 / max(ell ** 3, 1e-30)
     # Step size scaled so the largest force moves a vertex a small fraction of a segment.
     # Affects convergence rate only: the equilibrium is where the forces balance.
-    ref = max(bend_coeff * ell, float(np.abs(grav_force).max()), 1e-30)
+    # D^T has an absolute row sum of 4, so the same curvature residual produces four times
+    # the force through the gradient form; the reference force scale is raised to match so
+    # the step means the same thing in both. Arithmetic, not a tuning constant.
+    bend_scale = 4.0 if setup.energy_gradient_bending else 1.0
+    ref = max(bend_scale * bend_coeff * ell, float(np.abs(grav_force).max()), 1e-30)
     step = 0.05 * ell / ref
 
     # Kaldor's two plasticity radii, once, in this solver's rest-state units.
@@ -910,6 +1145,17 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     report = DrapeReport()
     rest_sep = material.rest_separation_mm
     floor_sep = material.floor_separation_mm
+
+    # The certified stitch-to-stitch linkage, and the separation each link was worked at.
+    # Built from the REST configuration, so the constraint is a property of the product
+    # rather than of wherever the solve happens to have got to.
+    holds = None
+    link_rest = None
+    if setup.stitch_linkage or setup.watch_linkage:
+        holds = linkage_holds(fab)
+        link_rest = linkage_rest_separations(rest_frame_pts, holds)
+        report.linkage_pairs = len(holds["pairs"])
+        report.linkage_holds = int(holds["n_holds"])
 
     # Segments the certified geometry built with essentially zero length -- coincident
     # points where one stitch's path meets the next. There are nine of them here, the
@@ -953,7 +1199,19 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
                                  corotational_rotations(pts, rest_frame_pts), lap_rest)
         else:
             oriented = lap_rest
-        force += bend_coeff * (lap - oriented)
+        resid = lap - oriented
+        if setup.energy_gradient_bending:
+            # -D^T applied to the residual: the second difference taken twice, which is the
+            # gradient of E = (B/2 l^3) sum |lap - lap_rest|^2 and therefore a genuine
+            # descent direction for it. The residual is zero at the endpoints because the
+            # second difference is, so no boundary term is dropped here.
+            dt = np.zeros_like(resid)
+            dt[:-2] += resid[1:-1]
+            dt[1:-1] += -2.0 * resid[1:-1]
+            dt[2:] += resid[1:-1]
+            force += -bend_coeff * dt
+        else:
+            force += bend_coeff * resid
 
         # The FORCE step is capped, not the finished move. Scaling the whole update after
         # the constraints have run is what broke inextensibility in the first version: it
@@ -968,6 +1226,13 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             move *= limit / worst_force
         pts = pts + move
         pts[held] = before[held]
+
+        # The tensile linkage, BEFORE contact and before the length projection, so that the
+        # constraint that wins is still inextensibility. Pulling a stitch back into its loop
+        # must never be allowed to stretch the yarn to do it.
+        if setup.stitch_linkage and holds is not None and holds["n_holds"]:
+            apply_stitch_linkage(pts, holds, link_rest, fixed=held)
+            pts[held] = before[held]
 
         rx.apply_contacts(pts, fab.yarn_diameter, rest_sep, floor_sep)
         pts[held] = before[held]
@@ -1017,6 +1282,19 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         # was never allowed to occupy.
         if setup.plastic_rest_migration:
             lap_rest = _migrate_rest(lap_rest, _laplacian(pts), r_rel, r_abs)
+
+        # CONTINUOUS VALIDATION, the cheap half of it. A topology pass costs a linking number
+        # per stitch and was declined for that reason; this is a closest-approach pass over a
+        # few dozen two-point and four-point arcs, and it is sufficient for the question an
+        # end-of-solve gate cannot answer: was the certified linkage ever open? Recorded as a
+        # maximum over the run, so an intermediate state cannot be hidden by a clean ending.
+        if holds is not None and holds["n_holds"] and setup.watch_linkage:
+            d_now, _, _, _ = _hold_closest(pts, holds)
+            ext_now = float((d_now - link_rest).max())
+            report.linkage_final_extension_mm = ext_now
+            if ext_now > report.linkage_max_extension_mm:
+                report.linkage_max_extension_mm = ext_now
+                report.linkage_worst_iteration = it + 1
 
         report.iterations = it + 1
         if worst < 1e-5:
@@ -1137,6 +1415,70 @@ def relief_profile(flat: topo.Fabric, draped: topo.Fabric,
             "total_rms_mm": float(np.sqrt(np.mean((z - z.mean()) ** 2))),
             "within_row_rms_mm": float(np.sqrt(within)),
             "within_row_fraction": within / total if total > 0 else 0.0}
+
+
+def articulation_profile(fab: topo.Fabric) -> dict:
+    """Local articulation: how much the surface turns DIFFERENTLY from one stitch to the next.
+
+    WHY A SECOND MEASURE, AND WHY THIS ONE. `relief_profile`'s `within_row_fraction` is the
+    committed conformability metric and stays the primary one. It is necessary and not
+    sufficient, and research/VISUAL_WAVE2.md shows exactly how it can be fooled: a
+    prestressed plate buckling into a standing wave scored 40-88 per cent on it, because a
+    buckle also makes one stitch move differently from its neighbour. What separates cloth
+    from a buckled plate is not WHETHER neighbours differ but at what WAVELENGTH -- a plate
+    buckles smoothly over many stitches, and cloth articulates at the stitch.
+
+    So this measures the SECOND difference of the surface normal across the stitch grid,
+    which is a high-pass filter with two exact zeros and no tuning in it:
+
+      * a rigid flat panel:     every normal equal, second difference exactly zero
+      * a uniform cylinder:     the normal turns by the same angle at every step, so the
+                                second difference is again exactly zero
+
+    THE FLOOR IT ACTUALLY READS ON THIS FABRIC, which is the honest part and is measured
+    rather than assumed away: neither exact zero is reached on real geometry, because the
+    stitch centres a frame is built from are not a smooth sample of any surface. The
+    certified flat 5x5 reads 0.519 deg; wrapped on a 500mm cylinder 0.720 deg and on a
+    125mm cylinder 2.057 deg. So this is a COMPARATIVE measure with a stated floor, not an
+    absolute one, and a reading has to be judged against those numbers. It is reported
+    ALONGSIDE `relief_profile` and never instead of it -- swapping the measure would be
+    choosing the instrument that gives the nicer number -- and it is offered with the
+    readings it gives for the configurations already known to be wrong.
+
+    The property the suite pins is the one that makes it a measure of the CLOTH: it is
+    invariant under a rigid rotation of the whole fabric, because the frames rotate with it.
+
+    For unit normals the norm of the second difference is the change in turn angle per
+    stitch to first order, so it is reported in degrees.
+    """
+    frames = topo.stitch_frames(fab)
+    normal = {k: v[2] for k, v in frames.items() if v is not None}
+    rows = sorted({r for r, _ in normal})
+    poss = sorted({p for _, p in normal})
+
+    def second_differences(lines):
+        out = []
+        for line in lines:
+            for i in range(1, len(line) - 1):
+                out.append(float(np.linalg.norm(line[i - 1] - 2.0 * line[i] + line[i + 1])))
+        return out
+
+    along_row = second_differences(
+        [[normal[(r, p)] for p in poss if (r, p) in normal] for r in rows])
+    along_wale = second_differences(
+        [[normal[(r, p)] for r in rows if (r, p) in normal] for p in poss])
+    both = along_row + along_wale
+    deg = np.degrees(np.asarray(both)) if both else np.zeros(0)
+    return {
+        "stitches": len(normal),
+        "samples": len(both),
+        "articulation_rms_deg": float(np.sqrt(np.mean(deg ** 2))) if len(deg) else 0.0,
+        "articulation_max_deg": float(deg.max()) if len(deg) else 0.0,
+        "within_row_rms_deg": float(np.degrees(np.sqrt(np.mean(np.square(along_row)))))
+                              if along_row else 0.0,
+        "along_wale_rms_deg": float(np.degrees(np.sqrt(np.mean(np.square(along_wale)))))
+                              if along_wale else 0.0,
+    }
 
 
 def cantilever_test(fab: topo.Fabric, setup: DrapeSetup, material=None,
