@@ -153,8 +153,23 @@ def chart_colours(twin) -> int:
     Deterministic, available for every product including the ones the cycle authors in
     memory, and the thing the live renders kept getting wrong: a two-colour certified hat
     came back as a handsome three-colour granny shell twice.
+
+    **It counted stitch codes.** `chart_grid()` is a grid of stitch abbreviations -- it is what
+    draws the symbol chart -- and `color_grid()` is the grid of colours. This function read the
+    first and called the answer a colour count, so a check whose whole job is to catch a render
+    that invents a colour could not see colour at all.
+
+    It was invisible because of a coincidence, measured across the 16 catalogue patterns: 13 of
+    them work two stitches and two colours, so the wrong instrument returned the right number.
+    The three that disagree are exactly the products rebuilt after the "Heirloom Cable Throw"
+    defect -- one cream yarn each, all relief -- and they reported **2, 4 and 3 colours for a
+    single-colour fabric**. The cable blanket's four stitch types became "the certified chart
+    works 4 colours", so `judge` would have called a correct one-colour render a mismatch, and a
+    three-colour render of it a match. That is the same fabric-claim family as the name that
+    said cable over a pattern with no crossing in it, this time in the instrument rather than in
+    the product.
     """
-    grid = twin.chart_grid() if hasattr(twin, "chart_grid") else []
+    grid = twin.color_grid() if hasattr(twin, "color_grid") else []
     return len({cell for row in grid for cell in row if cell is not None})
 
 
@@ -205,8 +220,23 @@ def judge(observed: dict, want: dict, *, repeat_tolerance: float = 0.5) -> dict:
     # motif.
     want_colours = int(want.get("colour_count") or 0)
     saw_colours = _colours_in(observed.get("colour_arrangement"))
-    if want_colours and saw_colours and saw_colours != want_colours:
+    # Reported, not implied. `_colours_in` returns 0 when the judge's phrase carries no count,
+    # and its own docstring says that leaves the colour check *unmade rather than passed* -- but
+    # the MATCH branches below said "and the colour count agrees" either way. That is the
+    # `name_test` defect this module already fixed, in the check three lines above it: a verdict
+    # naming a test it did not run. So the state travels with the verdict.
+    if not want_colours:
+        colour_test = "unavailable: the certified chart states no colour count"
+    elif not saw_colours:
+        colour_test = "unavailable: the judge's description of the arrangement carries no count"
+    elif saw_colours == want_colours:
+        colour_test = "passed"
+    else:
+        colour_test = "failed"
+
+    if colour_test == "failed":
         return {"verdict": MISMATCH, "observed": observed, "overlap": [],
+                "colour_test": colour_test,
                 "why": (f"the fabric works {saw_colours} colours and the certified chart "
                         f"works {want_colours}. A colour the pattern does not contain is "
                         f"a different fabric however good the stitch looks")}
@@ -221,30 +251,36 @@ def judge(observed: dict, want: dict, *, repeat_tolerance: float = 0.5) -> dict:
 
     if said is False:
         return {"verdict": MISMATCH, "observed": observed, "overlap": overlap,
+                "colour_test": colour_test,
                 "why": "the judge says the fabric is not working the chart's pattern"}
     if said is None:
         return {"verdict": UNMEASURABLE, "observed": observed, "overlap": overlap,
+                "colour_test": colour_test,
                 "why": "the judge could not tell whether the fabric matches the chart"}
     if not overlap and chart_words:
         return {"verdict": MISMATCH, "observed": observed, "overlap": overlap,
+                "colour_test": colour_test,
                 "why": (f"the judge answered yes and described the repeating unit as "
                         f"{shape!r}, which shares no term with the chart's own "
                         f"{named!r}. A polite yes and a contradicting description is the "
                         f"shape of the failure this check was built for")}
+    colours_said = ("and the colour count agrees" if colour_test == "passed"
+                    else f"and the colour count was not compared ({colour_test})")
     if not chart_words:
         # No prose names this chart's motif, so the name test is unavailable rather than
         # satisfied. Falling through to MATCH here was the mirror of the defect above: an
         # empty expectation that nothing can contradict passes every fabric ever rendered.
         # What has actually been established is that the judge compared the photograph
-        # against the chart and said yes, and that the colours agree.
+        # against the chart and said yes, and whatever the colour test managed to establish.
         return {"verdict": MATCH, "observed": observed, "overlap": overlap,
-                "name_test": "unavailable",
+                "name_test": "unavailable", "colour_test": colour_test,
                 "why": (f"the judge compared the photograph against the chart itself and "
-                        f"says the fabric is working it, and the colour count agrees. "
+                        f"says the fabric is working it, {colours_said}. "
                         f"{want.get('why_unnamed', '')}".strip())}
     return {"verdict": MATCH, "observed": observed, "overlap": overlap,
-            "name_test": "passed",
-            "why": "the described repeating unit is the chart's own, and the judge agrees"}
+            "name_test": "passed", "colour_test": colour_test,
+            "why": (f"the described repeating unit is the chart's own, the judge agrees, "
+                    f"{colours_said}")}
 
 
 def _colours_in(arrangement) -> int:

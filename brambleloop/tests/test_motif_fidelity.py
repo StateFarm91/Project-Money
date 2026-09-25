@@ -223,6 +223,96 @@ def test_the_prompt_points_at_the_chart_when_prose_names_no_motif():
     assert "exactly two colours" in sentence
     assert "exactly two colours" in op.motif_sentence(cir)
 
+def test_the_colour_count_counts_colours_and_not_stitch_codes():
+    """It read `chart_grid()` -- a grid of stitch abbreviations -- and called it a colour count.
+
+    A check whose whole job is to catch a render that invents a colour could not see colour. It
+    was invisible because of a coincidence: 13 of the 16 catalogue patterns work two stitches and
+    two colours, so the wrong instrument returned the right number. The three that disagree are
+    the products rebuilt after the "Heirloom Cable Throw" defect -- one cream yarn each, all
+    relief -- and the cable blanket's four stitch types were reported as four colours, which
+    would have made `judge` call a correct one-colour render a mismatch and a three-colour render
+    a match.
+    """
+    from brambleloop.products import texture
+
+    single = texture.build_cable_throw()
+    twin = build_twin(single, compile_cir(single))
+    assert len(single.colors or {}) == 1
+    assert len({c for row in twin.chart_grid() for c in row if c is not None}) == 4, \
+        "the fixture has to be one whose stitch count and colour count differ, or this " \
+        "test cannot fail"
+    assert mf.chart_colours(twin) == 1
+
+    # And the coincidence itself, so nobody re-derives the count from the stitch grid and finds
+    # the suite still green: a two-colour design must not agree by accident here either.
+    two = for_slug("cloudline-baby-blanket")
+    assert mf.chart_colours(build_twin(two, compile_cir(two))) == 2
+
+
+def test_the_verdict_refuses_a_render_that_adds_a_colour_to_a_single_colour_fabric():
+    """The consequence of the wrong count, end to end through `judge`.
+
+    The same render, the same judge answers: a mismatch against the corrected count of one, and
+    a match against the four the old code produced from four stitch types. That is what the
+    defect cost — not a check that failed, a check that agreed with the wrong fabric.
+    """
+    from brambleloop.products import texture
+
+    cir = texture.build_cable_throw()
+    twin = build_twin(cir, compile_cir(cir))
+    want = mf.expected(cir, twin)
+    assert want["colour_count"] == 1
+
+    seen = {"fabric_readable": True, "same_pattern_as_chart": True,
+            "repeating_unit_shape": "crossed cable columns",
+            "colour_arrangement": "four colours in crossed cable columns"}
+
+    verdict = mf.judge(seen, want)
+    assert verdict["verdict"] == mf.MISMATCH, verdict
+    assert "chart works 1" in verdict["why"], verdict["why"]
+    assert verdict["colour_test"] == "failed"
+
+    was = mf.judge(seen, {**want, "colour_count": 4})
+    assert was["verdict"] == mf.MATCH, was
+    assert was["colour_test"] == "passed"
+
+
+def test_a_verdict_says_whether_the_colour_test_ran_rather_than_claiming_it_passed():
+    """`_colours_in` returns 0 when the judge's phrase carries no count, and its own docstring
+    says that leaves the colour check "unmade rather than passed" -- while both MATCH branches
+    said "and the colour count agrees" either way.
+
+    That is exactly the `name_test` defect this module already fixed, three lines above the check
+    it was fixed in: a verdict naming a test it did not run. The state now travels with the
+    verdict, so a reader can tell an established colour agreement from an unattempted one.
+    """
+    want = {"motif_named": "cable columns", "colour_count": 1}
+    unstated = mf.judge({"fabric_readable": True, "same_pattern_as_chart": True,
+                         "repeating_unit_shape": "cable columns",
+                         "colour_arrangement": "cream, sage and rust stripes"}, want)
+    assert unstated["verdict"] == mf.MATCH
+    assert unstated["colour_test"].startswith("unavailable"), unstated
+    assert "not compared" in unstated["why"], unstated["why"]
+
+    stated = mf.judge({"fabric_readable": True, "same_pattern_as_chart": True,
+                       "repeating_unit_shape": "cable columns",
+                       "colour_arrangement": "one colour throughout"}, want)
+    assert stated["colour_test"] == "passed", stated
+    assert "colour count agrees" in stated["why"]
+
+    # And every branch carries it, so no verdict is silent about the test.
+    for observed in ({"fabric_readable": False},
+                     {"fabric_readable": True, "same_pattern_as_chart": False},
+                     {"fabric_readable": True, "same_pattern_as_chart": None},
+                     {"fabric_readable": True, "same_pattern_as_chart": True,
+                      "repeating_unit_shape": "granny shells"}):
+        out = mf.judge(observed, want)
+        if out["verdict"] == mf.UNMEASURABLE and not observed.get("fabric_readable"):
+            continue  # nothing was seen at all, so there is no arrangement to read
+        assert "colour_test" in out, out
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
