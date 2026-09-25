@@ -54,6 +54,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
 from ..core.resilience import PermanentError, TransientError, classify_http
+from .http import SECRET_KEYS, Redactor
 
 # SOURCED: "direct the user to https://www.etsy.com/oauth/connect with a GET request"
 AUTHORIZE_URL = "https://www.etsy.com/oauth/connect"
@@ -123,12 +124,31 @@ SCOPES_REQUIRED = {
     # (correctly: it will not guess), and step 6 is skipped as `taxonomy_unreadable`.
     "getSellerTaxonomyNodes": (),
     "getPropertiesByTaxonomyId": (),
+    # Orders and money. Every receipt, payment and ledger operation in Etsy's document
+    # carries `oauth2: transactions_r` in its own security block; verified against
+    # OpenAPI 3.0.0 (SHA-256 e6f95f1a3881...) on 2026-09-25 by intel/etsy_surfaces.py.
+    "getShopReceipts": ("transactions_r",),
+    "getShopReceipt": ("transactions_r",),
+    "getShopReceiptTransactionsByShop": ("transactions_r",),
+    "getShopPaymentAccountLedgerEntries": ("transactions_r",),
+    "getPayments": ("transactions_r",),
 }
 
 # The set this system asks for. `listings_d` is in it because the shadow-safe exercise
 # deletes the test draft it created, and a test artefact we cannot remove is a test artefact
 # that stays in the shop.
-SCOPES_WANTED = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w")
+# `transactions_r` added 2026-09-25: without it this system cannot see its own orders, the
+# buyer's message on a receipt, or a single payment. Etsy grants scope only through the
+# authorization-code flow, and a refresh grant carries the SAME scope as the original, so
+# refreshing can never widen it -- this needs one browser re-authorisation by the owner.
+#
+# Safe to widen ahead of that re-authorisation: nothing hard-fails on a wanted-but-ungranted
+# scope. `TokenProvider.access` refuses per OPERATION out of `SCOPES_REQUIRED`, and no code
+# path calls a receipt or payment operation yet; `finish` reports the shortfall as
+# `scopes_not_granted`. So until the owner re-approves, the effect is that the gap is
+# DISCLOSED rather than that anything breaks.
+SCOPES_WANTED = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w",
+                 "transactions_r")
 
 # SOURCED, RFC 7636 via Etsy: "a code verifier, which must be a high-entropy random string
 # consisting of between 43 and 128 characters from the range [A-Za-z0-9._~-]".
@@ -444,7 +464,25 @@ def _token_request(transport: Transport, app: OAuthApp, form: dict[str, str], *,
     body = getattr(last, "body", {}) or {}
     status = getattr(last, "status", 0)
     if status >= 400:
-        detail = body.get("error_description") or body.get("error") or body
+        # Etsy's own words end up in `AuditLog.detail["error"]` and `Job.last_error`, and
+        # both tables are in `continuity.NON_REDERIVABLE` and absent from
+        # `EXCLUDED_TABLES` -- so they ride `/api/continuity/export`, the offsite archive
+        # and `pg_dump` in the clear, while `oauth_credentials` (ciphertext) is excluded.
+        # A provider that echoes the credential back inside an error body would therefore
+        # put it in plaintext somewhere more exposed than the sealed row. `detail` falls
+        # back to the *whole body* when Etsy names neither key, which is exactly that case.
+        #
+        # The callback path already redacts this identical body; this path did not. That
+        # asymmetry is the finding. Scrub where the message is built, so it cannot depend
+        # on every caller and every future raiser remembering to.
+        #
+        # Seeded from the form's secret-named fields only. Seeding from `form.values()`
+        # would register `grant_type`'s value ("refresh_token") as a secret and fingerprint
+        # that word throughout the message. An unseeded `Redactor` still removes an
+        # Etsy-shaped token by shape, so this is belt and braces, not the only guard.
+        scrub = Redactor([value for key, value in (form or {}).items()
+                          if str(key).strip().lower() in SECRET_KEYS])
+        detail = scrub(body.get("error_description") or body.get("error") or body)
         if status in (400, 401, 403):
             # RFC 6749's `invalid_grant` is the refresh token being spent, expired or
             # revoked, and no amount of retrying produces a new one.

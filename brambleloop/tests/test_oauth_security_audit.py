@@ -132,8 +132,10 @@ try:
 except etsy_oauth.EtsyAuthNeedsOwner as exc:
     message = str(exc)
 
-check("REPRODUCED: an echoed refresh token survives into the exception message",
-      REFRESH_TOKEN in message, message[:120])
+check("CLOSED: an echoed refresh token no longer survives into the exception message",
+      REFRESH_TOKEN not in message, message[:120])
+check("and it is fingerprinted rather than merely dropped, so the message still identifies it",
+      f"***{fingerprint(REFRESH_TOKEN)}" in message, message[:120])
 
 # A2. The fallback is worse than the echo: with neither `error` nor `error_description`,
 # `detail` becomes the entire response body, so every field Etsy chose to include -- including
@@ -145,8 +147,10 @@ try:
 except etsy_oauth.EtsyAuthNeedsOwner as exc:
     whole_body = str(exc)
 
-check("REPRODUCED: with no named error field the whole response body becomes the message",
-      REFRESH_TOKEN in whole_body, whole_body[:120])
+check("CLOSED: the whole-body fallback is redacted too, which was the worse of the two",
+      REFRESH_TOKEN not in whole_body, whole_body[:120])
+check("and that fallback still names the token by fingerprint",
+      f"***{fingerprint(REFRESH_TOKEN)}" in whole_body, whole_body[:120])
 
 # A3. Where that message lands. Not argued -- run, through the real worker, the real queue
 # and a real database, on the job type that actually reaches a refresh (`store.publish` builds
@@ -172,10 +176,14 @@ with _DB.session() as s:
     audit_detail = json.dumps([r.detail for r in rows])
     job_errors = "\n".join(j.last_error or "" for j in s.scalars(select(Job)))
 
-check("REPRODUCED: the token is written verbatim into an audit row",
-      REFRESH_TOKEN in audit_detail, audit_detail[:160])
-check("REPRODUCED: and into the job's durable last_error, with a traceback beside it",
-      REFRESH_TOKEN in job_errors, job_errors[:160])
+check("CLOSED: no token reaches the audit row, which is what leaves in the export",
+      REFRESH_TOKEN not in audit_detail, audit_detail[:160])
+check("CLOSED: nor the job's durable last_error, traceback included",
+      REFRESH_TOKEN not in job_errors, job_errors[:160])
+# Not vacuous: the row was written, and it still carries the fingerprint. A test that
+# passed because nothing was recorded at all would prove nothing.
+check("and the row exists and names the token by fingerprint, so this is not a vacuous pass",
+      f"***{fingerprint(REFRESH_TOKEN)}" in audit_detail, audit_detail[:160])
 
 # A4. Why that matters more than a log line: those two tables leave the database.
 from brambleloop.core import continuity                                  # noqa: E402
@@ -244,8 +252,8 @@ check("no PKCE verifier reaches it either",
       VERIFIER not in rendered, rendered[:160])
 check("and an access token echoed in the same sentence is caught by shape",
       ACCESS_TOKEN not in rendered, rendered[:160])
-check("so the leak is an ASYMMETRY, not a missing mechanism: one path redacts, one does not",
-      AUTH_CODE not in rendered and REFRESH_TOKEN in message)
+check("the ASYMMETRY that was the finding is gone: both paths now redact the same body",
+      AUTH_CODE not in rendered and REFRESH_TOKEN not in message)
 
 # A7. An injected defect, so that A6 cannot be vacuously green: remove the redaction that
 # `finish` performs and the same call renders the code.
