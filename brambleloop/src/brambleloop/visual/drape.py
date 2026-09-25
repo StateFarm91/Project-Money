@@ -98,7 +98,7 @@ from . import relaxation as rx
 
 __all__ = ["DrapeSetup", "DrapeReport", "drape", "areal_mass", "bending_bracket",
            "cantilever_test", "intrinsic_dimensions", "CALIBRATED_BENDING_N_M2",
-           "PROVENANCE"]
+           "PROVENANCE", "rest_curvature_of", "angular_radius_to_lap", "relief_profile"]
 
 STANDARD_GRAVITY = 9.80665            # m/s^2, sourced
 ACRYLIC_DENSITY = 1180.0              # kg/m^3, already used to derive fibre radius
@@ -132,6 +132,17 @@ PROVENANCE = {
                            "crochet behaviour bracket. Cross-check it was not fitted to: the "
                            "result is 1.45x the free-fibre hard lower bound",
     "rest_curvature": "The yarn is taken as set in the shape it relaxed into, following the reference method's own split between a relaxation phase and a simulation phase. Measuring bending against straight instead makes every formed loop pre-stressed and the fabric's drape stops responding to its stiffness at all -- tested, not assumed",
+    "plastic_rest_migration": "SOURCED mechanism, SOURCED parameter values, DERIVED "
+                              "coordinate mapping, UNKNOWN application rate. Kaldor et al. "
+                              "2010 S2 3.1 give the two bounded projections and the values "
+                              "p_plastic 0.01 and p_max_plastic 2.5 in angular space; the "
+                              "map from that angular space onto this solver's "
+                              "second-difference rest state is derived exactly for equal "
+                              "segments; the rate is applied once per solver iteration and "
+                              "this solver's iterations are NOT physical time steps, so "
+                              "how much plasticity a run accumulates depends on its "
+                              "iteration count. Measured, not assumed away: see "
+                              "research/VISUAL_WAVE2.md",
     "support_friction": "NOT MODELLED -- the support is frictionless, which is stated "
                         "because friction would resist sliding and the swatch is not "
                         "claimed to be in the configuration friction would give",
@@ -215,6 +226,47 @@ class DrapeSetup:
     # it relaxed into -- which is also what blocking does to a finished piece. Gravity then
     # acts on a fabric at rest instead of fighting a stitch trying to unbend itself.
     rest_is_relaxed_shape: bool = True
+    # KALDOR-2010 BOUNDED PLASTIC REST-STATE MIGRATION. OFF BY DEFAULT, deliberately: it
+    # changes the fabric's shape, and every committed Visual result was produced without it.
+    #
+    # The two rest states above BRACKET the problem rather than solving it. Straight makes
+    # every formed loop pre-stressed by 200-32,000 times gravity, everts free-edge stitches
+    # and leaves drape blind to stiffness. Relaxed keeps the stitches and makes drape respond
+    # to stiffness, but freezes the fabric into an elastic plate that resists any departure
+    # from one configuration. The published state of the art uses NEITHER: Kaldor, James and
+    # Marschner (SIGGRAPH 2010, section 3.1) use inextensible rods with a non-straight rest
+    # configuration PLUS a plasticity model on the rest state --
+    #
+    #   "If the rest state (represented as a 2D point) at a segment/bending element pair lies
+    #    outside the circle of radius p_plastic centered at the current state of that pair,
+    #    the rest state is projected onto the boundary of the circle. Similarly, if the rest
+    #    state falls outside the circle of radius p_max_plastic centered at the origin, it is
+    #    projected onto the boundary."
+    #
+    # with reported parameters 0.01 and 2.5. [SOURCED, S2 3.1 and Table; quoted in
+    # research/YARN_SLIP_RESEARCH.md section 8(e)]
+    #
+    # WHAT IT CHANGES MECHANICALLY. The rest curvature is dragged toward the current
+    # curvature but is never allowed closer than p_plastic to it, so at steady state the
+    # fabric carries a BOUNDED prestress of p_plastic radians whose direction opposes
+    # whichever curvature change last happened -- a yield-stress-like resistance rather than
+    # a spring pulling back to one remembered shape. p_max_plastic then caps how curved the
+    # rest state may become in absolute terms.
+    #
+    # WHAT IT IS NOT. It is not yarn sliding and it is not a conformability MECHANISM; the
+    # research ranked it fourth and called it an interim fix for the rest-state bracket,
+    # explicitly noting the fabric remains an elastic plate. Milestone D does not turn on it.
+    #
+    # LABELS. Mechanism: SOURCED. Both parameter values: SOURCED. The mapping from Kaldor's
+    # angular space to this solver's second-difference rest state: DERIVED (exact for equal
+    # segments, see angular_radius_to_lap). The application RATE: UNKNOWN -- Kaldor apply the
+    # projections once per dynamic time step, and this solver's iterations are a quasi-static
+    # descent rather than physical time, so the plasticity a run accumulates depends on its
+    # iteration count. That dependence is measured in research/VISUAL_WAVE2.md rather than
+    # assumed away.
+    plastic_rest_migration: bool = False
+    p_plastic_rad: float = 0.01
+    p_max_plastic_rad: float = 2.5
     clamp_fraction: float = 0.0           # fraction of the fabric held fixed, by +y
     iterations: int = 400
 
@@ -236,6 +288,15 @@ class DrapeReport:
     degenerate_segments: int = 0
     gap_checks: int = 0
     retries: int = 0
+    # Convergence instruments. `largest_step_mm` is the maximum over the whole run, which
+    # cannot distinguish a solve that finished from one that ran out of iterations still
+    # moving -- and that distinction turned out to be the whole ASTM cantilever result.
+    final_step_mm: float = 0.0
+    converged: bool = False
+    # How far the plastic rest state actually migrated, so the option cannot be believed to
+    # have done something without being measured. Angular by the same DERIVED mapping.
+    rest_migration_max_rad: float = 0.0
+    rest_migration_mean_rad: float = 0.0
 
     def as_dict(self):
         return dict(self.__dict__)
@@ -245,9 +306,79 @@ def _segment_lengths(pts):
     return np.linalg.norm(np.diff(pts, axis=0), axis=1)
 
 
+def _laplacian(pts):
+    """The discrete second difference, in metres: the curvature measure the bending force is
+    written against, and the quantity Kaldor's plasticity acts on. One definition, one place,
+    because it was previously written out twice in this file -- once for the rest state and
+    once inside the loop -- and two copies of a physical definition is how a stale constant
+    becomes indistinguishable from a real result."""
+    lap = np.zeros_like(pts)
+    lap[1:-1] = (pts[:-2] - 2.0 * pts[1:-1] + pts[2:]) * 1e-3
+    return lap
+
+
+def rest_curvature_of(fab: topo.Fabric) -> np.ndarray:
+    """The rest curvature a fabric in THIS configuration would be taken as set in.
+
+    This exists because a recovery experiment cannot be run without it, and the first attempt
+    at one was invalid for exactly this reason. `rest_is_relaxed_shape` captures the rest
+    curvature at the START of the call it is used in, so releasing gravity on an
+    already-draped fabric takes the DRAPED shape as its own rest state: there is no restoring
+    force by construction, and the experiment cannot detect recovery either way, whichever
+    answer is true. Capture this from the FLAT fabric and pass it to
+    `drape(rest_curvature=...)` to hold one rest state fixed across both calls.
+    """
+    return _laplacian(fab.points.astype(float))
+
+
+def angular_radius_to_lap(theta_rad: float, ell_m: float) -> float:
+    """Convert one of Kaldor's angular plasticity radii into this solver's rest-state units.
+
+    Their rest state is a 2D point in ANGULAR space; ours is a second difference in metres.
+    For two segments of equal length l meeting at turning angle theta,
+
+        |p_{i-1} - 2 p_i + p_{i+1}| = 2 l sin(theta/2)
+
+    exactly -- so this is a change of variable rather than a small-angle linearisation, which
+    matters because a crochet loop's turning angles are not small. DERIVED.
+
+    The honest residual: the second-difference VECTOR also carries a component along the
+    segment direction, which is length variation rather than turning angle, so the ball this
+    radius defines is three-dimensional where Kaldor's is two. The length projection keeps
+    that third component small rather than zero, and this is the one part of the mapping that
+    is an approximation rather than an identity.
+    """
+    return 2.0 * ell_m * float(np.sin(0.5 * min(float(theta_rad), np.pi)))
+
+
+def _migrate_rest(lap_rest, lap, r_rel, r_abs):
+    """One step of Kaldor 2010's bounded plastic rest-state migration, in this solver's
+    curvature representation and in their order: project onto the ball of radius `r_rel`
+    around the CURRENT curvature, then onto the ball of radius `r_abs` around the ORIGIN.
+    [SOURCED, S2 3.1]"""
+    out = lap_rest.copy()
+    d = out - lap
+    nd = np.linalg.norm(d, axis=1)
+    over = nd > r_rel
+    if over.any():
+        out[over] = lap[over] + d[over] * (r_rel / nd[over])[:, None]
+    nr = np.linalg.norm(out, axis=1)
+    over2 = nr > r_abs
+    if over2.any():
+        out[over2] *= (r_abs / nr[over2])[:, None]
+    return out
+
+
 def drape(fab: topo.Fabric, setup: DrapeSetup,
-          material: rx.Material | None = None) -> tuple[topo.Fabric, DrapeReport]:
-    """Find the fabric's equilibrium under gravity, contact and its boundary conditions."""
+          material: rx.Material | None = None,
+          rest_curvature: np.ndarray | None = None) -> tuple[topo.Fabric, DrapeReport]:
+    """Find the fabric's equilibrium under gravity, contact and its boundary conditions.
+
+    `rest_curvature`, when given, is the rest state to bend against, as produced by
+    `rest_curvature_of`. It overrides `setup.rest_is_relaxed_shape`, and it is the only way to
+    carry ONE rest state across two calls -- which any recovery or load-cycle experiment
+    requires and which the capture-at-call-start default cannot express.
+    """
     material = material or rx.material_for(fab)
     pts = fab.points.copy().astype(float)
     n = len(pts)
@@ -276,10 +407,18 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         cut = y.min() + (y.max() - y.min()) * (1.0 - setup.clamp_fraction)
         held = y >= cut
 
-    # The curvature the yarn is at rest in. Captured once, before anything moves.
-    lap_rest = np.zeros_like(pts)
-    if setup.rest_is_relaxed_shape:
-        lap_rest[1:-1] = (pts[:-2] - 2.0 * pts[1:-1] + pts[2:]) * 1e-3
+    # The curvature the yarn is at rest in. Captured once, before anything moves -- unless
+    # the caller supplies one, which is the only way a rest state survives across two calls.
+    if rest_curvature is not None:
+        lap_rest = np.array(rest_curvature, dtype=float)
+        if lap_rest.shape != pts.shape:
+            raise ValueError("rest_curvature is %s but this fabric is %s"
+                             % (lap_rest.shape, pts.shape))
+    elif setup.rest_is_relaxed_shape:
+        lap_rest = _laplacian(pts)
+    else:
+        lap_rest = np.zeros_like(pts)
+    lap_rest_initial = lap_rest.copy()
 
     ell = float(np.median(rest_m))
     bend_coeff = setup.bending_rigidity_N_m2 / max(ell ** 3, 1e-30)
@@ -287,6 +426,10 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     # Affects convergence rate only: the equilibrium is where the forces balance.
     ref = max(bend_coeff * ell, float(np.abs(grav_force).max()), 1e-30)
     step = 0.05 * ell / ref
+
+    # Kaldor's two plasticity radii, once, in this solver's rest-state units.
+    r_rel = angular_radius_to_lap(setup.p_plastic_rad, ell)
+    r_abs = angular_radius_to_lap(setup.p_max_plastic_rad, ell)
 
     report = DrapeReport()
     rest_sep = material.rest_separation_mm
@@ -326,8 +469,7 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
 
         before = pts.copy()
         force = grav_force.copy()
-        lap = np.zeros_like(pts)
-        lap[1:-1] = (pts[:-2] - 2.0 * pts[1:-1] + pts[2:]) * 1e-3
+        lap = _laplacian(pts)
         force += bend_coeff * (lap - lap_rest)
 
         # The FORCE step is capped, not the finished move. Scaling the whole update after
@@ -382,10 +524,31 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
                 continue
         scale = min(scale * 1.05, 1.0)
         report.largest_step_mm = max(report.largest_step_mm, worst)
+        report.final_step_mm = worst
         budget -= worst
+
+        # The plastic step is taken HERE, after the iteration has been accepted, and against
+        # the accepted curvature. Migrating earlier would let a reverted iteration -- one
+        # whose move was too large for its measured clearance and was thrown away -- leave a
+        # permanent mark on the rest state, so the fabric would remember a configuration it
+        # was never allowed to occupy.
+        if setup.plastic_rest_migration:
+            lap_rest = _migrate_rest(lap_rest, _laplacian(pts), r_rel, r_abs)
+
         report.iterations = it + 1
         if worst < 1e-5:
+            report.converged = True
             break
+
+    if setup.plastic_rest_migration:
+        moved = np.linalg.norm(lap_rest - lap_rest_initial, axis=1)
+        # Reported as an angle by the same DERIVED mapping, inverted. It is the angular
+        # equivalent of a distance moved in the rest-state space, not a turning angle of any
+        # single element, and is labelled that way rather than dressed up as one.
+        def _as_angle(v):
+            return float(2.0 * np.arcsin(np.clip(v / (2.0 * ell), 0.0, 1.0)))
+        report.rest_migration_max_rad = _as_angle(float(moved.max()))
+        report.rest_migration_mean_rad = _as_angle(float(moved.mean()))
 
     now = _segment_lengths(pts)
     report.length_change_pct = float(100.0 * (now.sum() - rest.sum()) / rest.sum())
@@ -452,6 +615,47 @@ def intrinsic_dimensions(fab: topo.Fabric, rows: int, cols: int) -> dict:
     }
 
 
+def relief_profile(flat: topo.Fabric, draped: topo.Fabric,
+                   down=(0.0, 0.0, -1.0)) -> dict:
+    """How much of the fabric's relief is whole-row bowing, and how much is anything else.
+
+    The standing symptom against the realism floor is that the fabric reads as a CORRUGATED
+    RELIEF -- each row bowing gently as a rigid unit, so the surface is essentially a function
+    of position along the cantilever and barely varies across a row. That is a measurable
+    statement rather than an impression, and it needs to be measured or a change that claims
+    to address it cannot be checked.
+
+    Displacement along `down` is taken at each stitch's centre and decomposed into the part a
+    per-row mean explains and the part left over. `within_row_fraction` is the residual's
+    share of the total variance: a moulded panel whose rows are rigid bars scores near zero,
+    and cloth whose stitches move against their neighbours does not. It is a NECESSARY
+    condition, not a sufficient one -- a high score says the rows are not rigid, not that the
+    fabric looks like crochet.
+    """
+    d = np.asarray(down, dtype=float)
+    d = d / np.linalg.norm(d)
+    a = {(o.row, o.position): o.points.mean(axis=0)
+         for o in flat.ops if o.kind == "hdc"}
+    b = {(o.row, o.position): o.points.mean(axis=0)
+         for o in draped.ops if o.kind == "hdc"}
+    keys = sorted(set(a) & set(b))
+    if len(keys) < 4:
+        return {"stitches": len(keys), "within_row_fraction": 0.0,
+                "within_row_rms_mm": 0.0, "total_rms_mm": 0.0, "rows": 0}
+    z = np.array([float((b[k] - a[k]) @ d) for k in keys])
+    rows = np.array([k[0] for k in keys])
+    resid = np.empty_like(z)
+    for r in sorted(set(rows.tolist())):
+        m = rows == r
+        resid[m] = z[m] - z[m].mean()
+    total = float(np.var(z))
+    within = float(np.mean(resid ** 2))
+    return {"stitches": len(keys), "rows": len(set(rows.tolist())),
+            "total_rms_mm": float(np.sqrt(np.mean((z - z.mean()) ** 2))),
+            "within_row_rms_mm": float(np.sqrt(within)),
+            "within_row_fraction": within / total if total > 0 else 0.0}
+
+
 def cantilever_test(fab: topo.Fabric, setup: DrapeSetup, material=None,
                     overhang_fractions=(0.3, 0.4, 0.5, 0.6, 0.7)) -> dict:
     """ASTM D1388 in simulation: advance the fabric over an edge until the tip falls 41.5deg.
@@ -459,6 +663,25 @@ def cantilever_test(fab: topo.Fabric, setup: DrapeSetup, material=None,
     A standard measurement rather than a judgement. The bending length is half the overhang
     at which the tip reaches that angle, and flexural rigidity is G = W * c^3. Comparing the
     result against the analytic (B / W g)^(1/3) checks the solver against beam theory.
+
+    TWO THINGS THIS INSTRUMENT CANNOT DO, BOTH MEASURED RATHER THAN SUSPECTED. Written here
+    because every bending length quoted from this solver comes through this function.
+
+    1. `overhang_mm` is NOMINAL: `ptp(y) * frac`, the length the clamp fraction asks for. The
+       clamp is a threshold on y and the fabric has a handful of discrete rows, so the length
+       actually left free is quantised to row boundaries and can differ from the nominal by up
+       to 8 per cent on a five-row swatch, non-monotonically -- fractions 0.4 and 0.5 free the
+       same two rows. Since the tip angle is arctan(drop / overhang), a denominator that is
+       wrong by 8 per cent in an unpredictable direction puts a wiggle into the angle that has
+       nothing to do with the fabric. `free_extent_mm` and `angle_on_measured_overhang_deg`
+       are therefore reported ALONGSIDE the nominal pair rather than replacing it, so no
+       existing figure silently changes and the two can be compared.
+    2. The solve underneath is not converged at any iteration count used so far, and the
+       report's `converged` flag now says so per step. At a fixed iteration count the tip drop
+       is dominated by near-uniform descent, which does not depend on the overhang at all --
+       so the drop comes out roughly CONSTANT across overhangs and the angle falls as
+       1/overhang, which is arithmetic rather than stiffness. See research/VISUAL_WAVE2.md for
+       the sweep. Read `converged` before believing any bending length taken from here.
     """
     results = []
     for frac in overhang_fractions:
@@ -471,6 +694,18 @@ def cantilever_test(fab: topo.Fabric, setup: DrapeSetup, material=None,
         drop = float(np.mean(start[:, 2]) - np.mean(tip[:, 2]))
         reach = float(np.ptp(fab.points[:, 1]) * frac)
         angle = float(np.degrees(np.arctan2(max(drop, 0.0), max(reach, 1e-9))))
+        # The overhang the boundary condition actually produced, as opposed to the one asked
+        # for: the free region of the ORIGINAL fabric, measured the same way the clamp cuts.
+        y0 = fab.points[:, 1]
+        cut = y0.min() + (y0.max() - y0.min()) * frac
+        free = y0 < cut
+        extent = float(np.ptp(y0[free])) if free.any() else 0.0
         results.append({"overhang_fraction": frac, "overhang_mm": reach,
-                        "tip_drop_mm": drop, "tip_angle_deg": angle})
+                        "tip_drop_mm": drop, "tip_angle_deg": angle,
+                        "free_extent_mm": extent, "free_vertices": int(free.sum()),
+                        "angle_on_measured_overhang_deg":
+                            float(np.degrees(np.arctan2(max(drop, 0.0), max(extent, 1e-9)))),
+                        "converged": bool(rep.converged),
+                        "final_step_mm": rep.final_step_mm,
+                        "iterations": rep.iterations})
     return {"steps": results}
