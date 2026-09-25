@@ -346,5 +346,337 @@ check("the nominal and measured overhangs do differ, which is why both are repor
 check("the cantilever test states whether each step's solve converged",
       all(isinstance(st["converged"], bool) for st in _ct["steps"]))
 
+# =====================================================================================
+# WAVE 3 -- frame invariance, and the instruments that replace the cantilever inversion.
+#
+# The thread running through all of it: a bending length is supposed to be a property of the
+# CLOTH. Three things were found not to be, and each has a check here that fails if the
+# finding stops being true.
+# =====================================================================================
+
+# --- the co-rotational rotation is a rotation, and it is the right one ----------------
+_ang = 0.7
+_ax = np.array([0.3, 0.5, 0.81])
+_ax = _ax / np.linalg.norm(_ax)
+_K = np.array([[0.0, -_ax[2], _ax[1]], [_ax[2], 0.0, -_ax[0]], [-_ax[1], _ax[0], 0.0]])
+_Q = np.eye(3) + np.sin(_ang) * _K + (1.0 - np.cos(_ang)) * (_K @ _K)
+_P = FLAT.points.astype(float)
+_R = DR.corotational_rotations(_P @ _Q.T, _P)
+check("the co-rotational rotation recovers a known rigid rotation at every interior vertex",
+      float(np.abs(_R[1:-1] - _Q).max()) < 1e-8,
+      "%.3e" % float(np.abs(_R[1:-1] - _Q).max()))
+check("every co-rotational rotation is orthogonal with determinant +1",
+      float(np.abs(np.einsum("nij,nkj->nik", _R, _R) - np.eye(3)).max()) < 1e-8 and
+      float(np.abs(np.linalg.det(_R) - 1.0).max()) < 1e-8)
+
+# --- THE DEFECT: the documented bending energy is not invariant under rotation ---------
+# Turning a finished piece of cloth round deforms nothing. A material energy must read zero.
+# This one does not, and the size of what it reads is the size of a stiffness against turning
+# that no yarn has. The check states the measured number so that a change to it is visible.
+_resp = DR.rigid_motion_response(FLAT)
+_by_angle = {r["angle_deg"]: r for r in _resp["rotations"]}
+check("the bending energy is invariant under pure translation",
+      _resp["translation_energy_J"] < 1e-24, "%.3e J" % _resp["translation_energy_J"])
+check("the world-space rest state charges real energy for a rigid ROTATION, which is the "
+      "defect", _by_angle[5.0]["world_rest_energy_J"] > 1e-8,
+      "%.4e J at 5 deg" % _by_angle[5.0]["world_rest_energy_J"])
+# "Big enough to matter" needs a scale that is not invented. The one that is already in this
+# file is the droop the standard solve produces: if turning a stitch a few degrees costs the
+# same order of gravitational work as the entire drape, then the spurious stiffness is not a
+# correction to the mechanics, it IS the mechanics. Same order is a factor of ten either way,
+# which is the definition rather than a threshold; the measured ratio is printed so the
+# number is visible instead of the verdict.
+_ratio = _by_angle[5.0]["equivalent_lift_per_vertex_mm"] / max(REPORT.max_out_of_plane_mm, 1e-9)
+check("the spurious energy is of the same order as the whole gravitational drive: turning "
+      "one stitch 5 degrees costs what lifting it a good fraction of the drape costs",
+      0.1 < _ratio < 10.0,
+      "%.4f mm of lift per stitch against %.4f mm of droop, ratio %.3f"
+      % (_by_angle[5.0]["equivalent_lift_per_vertex_mm"], REPORT.max_out_of_plane_mm, _ratio))
+check("it grows quadratically with the angle, so it is a spring and not an offset",
+      abs(_by_angle[1.0]["world_rest_energy_J"] /
+          _by_angle[0.5]["world_rest_energy_J"] - 4.0) < 0.02,
+      "%.4f" % (_by_angle[1.0]["world_rest_energy_J"] /
+                _by_angle[0.5]["world_rest_energy_J"]))
+check("carrying the rest state into the vertex frame removes it to machine precision",
+      all(r["frame_invariant_energy_J"] < 1e-20 for r in _resp["rotations"]),
+      "%.3e J worst" % max(r["frame_invariant_energy_J"] for r in _resp["rotations"]))
+
+# --- the imposed-curvature instrument, and what it needs to be believed ---------------
+# The wrap has to be a bend and not a stretch, or the energy is measuring the wrong thing.
+_grid = np.zeros((40, 3))
+_grid[:, 1] = np.linspace(0.0, 60.0, 40)
+_bent_grid = DR.cylindrical_bend(_grid, 2.0, "wale")
+_l0 = np.linalg.norm(np.diff(_grid, axis=0), axis=1)
+_l1 = np.linalg.norm(np.diff(_bent_grid, axis=0), axis=1)
+check("the cylindrical wrap is an isometry of the midsurface to 1e-6",
+      float(np.abs(_l1 / _l0 - 1.0).max()) < 1e-6,
+      "%.3e" % float(np.abs(_l1 / _l0 - 1.0).max()))
+check("the wrap really does curve the midsurface rather than translate it",
+      float(np.ptp(_bent_grid[:, 2])) > 0.5,
+      "%.4f mm of rise" % float(np.ptp(_bent_grid[:, 2])))
+
+_g = DR.flexural_rigidity(FLAT, 444.0, along="wale", frame_invariant=True, yarn_only=False)
+check("the imposed-curvature rigidity is independent of the curvature imposed, so a single "
+      "rigidity describes the model", _g["curvature_independent_to"] < 1.01,
+      "%.5f over a 4x sweep" % _g["curvature_independent_to"])
+check("the wrap's residual strain on the yarn's own thickness is reported and small",
+      0.0 < _g["max_segment_strain"] < 0.01, "%.3e" % _g["max_segment_strain"])
+check("the bending length follows ASTM's own relation G = W g c^3, with W measured off this "
+      "fabric rather than looked up",
+      abs(_g["flexural_rigidity_N_m"] /
+          (_g["areal_mass_kg_m2"] * DR.STANDARD_GRAVITY *
+           (_g["bending_length_mm"] * 1e-3) ** 3) - 1.0) < 1e-9)
+
+# --- THE CONSEQUENCE: with the world rest state, "bending length" depends on how much
+# --- cloth you measured. With frame invariance it does not. -----------------------------
+# A settled but unrelaxed fabric is used for the second size, because this is a property of
+# the energy rather than of the relaxation, and a 600-iteration relax on 1500 vertices costs
+# 45 seconds to prove something that does not depend on it.
+_BIG = CT.settle(CT.build(TWIN, CIR.gauge, max_rows=9, max_cols=9))
+_SMALL = CT.settle(CT.build(TWIN, CIR.gauge, max_rows=5, max_cols=5))
+check("the two swatches really are different sizes",
+      len(_BIG.points) > 2.5 * len(_SMALL.points),
+      "%d vs %d vertices" % (len(_BIG.points), len(_SMALL.points)))
+_w_small = DR.flexural_rigidity(_SMALL, frame_invariant=False, yarn_only=False)["bending_length_mm"]
+_w_big = DR.flexural_rigidity(_BIG, frame_invariant=False, yarn_only=False)["bending_length_mm"]
+_f_small = DR.flexural_rigidity(_SMALL, frame_invariant=True, yarn_only=False)["bending_length_mm"]
+_f_big = DR.flexural_rigidity(_BIG, frame_invariant=True, yarn_only=False)["bending_length_mm"]
+check("with the world-space rest state the bending length grows with the size of the "
+      "swatch, so it is not a property of the fabric",
+      _w_big > 1.25 * _w_small, "%.3f mm -> %.3f mm" % (_w_small, _w_big))
+check("with frame invariance the same measurement is size independent to under 1 per cent",
+      abs(_f_big / _f_small - 1.0) < 0.01, "%.3f mm vs %.3f mm" % (_f_small, _f_big))
+
+# --- re-deriving B in code, and the conditions the derivation holds under ---------------
+_d = DR.derive_bending_rigidity(FLAT, 444.0, target_bending_length_mm=DR.TARGET_BENDING_LENGTH_MM,
+                                along="wale", frame_invariant=True, yarn_only=False)
+check("the derivation is declared usable only when the rigidity it inverts is a material "
+      "property", _d["derivable"] is True, str(_d["derivable"]))
+_check = DR.flexural_rigidity(FLAT, 444.0, along="wale", frame_invariant=True,
+                              yarn_only=False,
+                              bending_rigidity_N_m2=_d["derived_bending_rigidity_N_m2"])
+check("re-running the instrument at the derived B lands on the calibration target",
+      abs(_check["bending_length_mm"] / DR.TARGET_BENDING_LENGTH_MM - 1.0) < 1e-6,
+      "%.6f mm against a target of %.1f mm"
+      % (_check["bending_length_mm"], DR.TARGET_BENDING_LENGTH_MM))
+check("the derived B disagrees with the committed constant, and the factor is reported "
+      "rather than applied", _d["factor_on_committed_value"] > 2.0,
+      "%.2fx -> %.4e N m^2" % (_d["factor_on_committed_value"],
+                               _d["derived_bending_rigidity_N_m2"]))
+check("the derived B stays inside the published bracket it has to live in",
+      br["lower_free_fibres_N_m2"] < _d["derived_bending_rigidity_N_m2"]
+      < br["upper_solid_rod_N_m2"],
+      "%.3e in [%.3e, %.3e]" % (_d["derived_bending_rigidity_N_m2"],
+                                br["lower_free_fibres_N_m2"], br["upper_solid_rod_N_m2"]))
+check("the derivation refuses to certify itself when frame invariance is off",
+      DR.derive_bending_rigidity(FLAT, frame_invariant=False)["derivable"] is False)
+check("the derivation carries every condition it holds under, not just an answer",
+      {"along", "curvature_per_m", "frame_invariant", "yarn_only", "vertices_used",
+       "max_segment_strain", "curvature_independent_to", "areal_mass_kg_m2",
+       "target_bending_length_mm", "reference_bending_rigidity_N_m2"} <= set(_d))
+# The fabric is not isotropic and the instrument must be able to say so.
+_dc = DR.derive_bending_rigidity(FLAT, along="course", frame_invariant=True, yarn_only=False)
+check("bending along the wale and along the course give different rigidities, which is "
+      "reported rather than averaged away",
+      abs(_dc["reference_bending_length_mm"] / _d["reference_bending_length_mm"] - 1.0) > 0.05,
+      "wale %.3f mm, course %.3f mm"
+      % (_d["reference_bending_length_mm"], _dc["reference_bending_length_mm"]))
+# Whether the artificial hops between ops count is worth a factor of ten in B, so it is a
+# stated condition and not a default nobody looks at.
+_dy = DR.derive_bending_rigidity(FLAT, along="wale", frame_invariant=True, yarn_only=True)
+check("whether the artificial hops between ops count changes the derived B by more than "
+      "an order of magnitude, so the answer is a bracket and the condition is stated",
+      _dy["derived_bending_rigidity_N_m2"] / _d["derived_bending_rigidity_N_m2"] > 2.0,
+      "%.3e (yarn only) vs %.3e (whole path)"
+      % (_dy["derived_bending_rigidity_N_m2"], _d["derived_bending_rigidity_N_m2"]))
+check("the path carries segments that are not yarn, and they are identified rather than "
+      "assumed away",
+      0 < int(DR.genuine_yarn_vertices(FLAT.points).sum()) < len(FLAT.points),
+      "%d of %d vertices have two genuine yarn segments"
+      % (int(DR.genuine_yarn_vertices(FLAT.points).sum()), len(FLAT.points)))
+# CORRECTION, pinned. `drape()` divides by the median over ALL path segments, artificial hops
+# included: 4.086mm on this fixture. The wave 2 record quotes the solver's `l` as 3.1427mm,
+# which is the median over segments shorter than 5mm -- a different statistic, and not the one
+# the code uses. They differ by 1.30x, so `B/l^3` differs by 2.20x, and every prestress ratio
+# computed from the recorded value is out by that factor. (Excluding the 20 sub-micron joins
+# as well gives 3.973mm, a third statistic; which of the three is meant has to be stated.)
+_allseg = np.clip(np.linalg.norm(np.diff(FLAT.points, axis=0), axis=1), 1e-9, None)
+_solver_l = float(np.median(_allseg))
+_recorded_l = float(np.median(_allseg[_allseg < DR.JUMP_SEGMENT_MM]))
+check("the length scale the solver uses is the median over the WHOLE path, and it is not the "
+      "figure the wave 2 record quotes for it",
+      abs(_solver_l / _recorded_l - 1.0) > 0.2,
+      "solver uses %.4f mm, the record says %.4f mm, so B/l^3 differs by %.2fx"
+      % (_solver_l, _recorded_l, (_solver_l / _recorded_l) ** 3))
+
+# --- why the cantilever inversion cannot be converged, in closed form -------------------
+_bound = DR.cantilever_equilibrium_bound(FLAT, SETUP, overhang_fraction=0.7)
+check("the cantilever bound is computed from the fabric rather than stated",
+      _bound["free_vertices"] > 0 and _bound["effective_tension_N"] > 0.0)
+check("the standard cantilever's free region outweighs the tension the force law can "
+      "supply, so there is no shallow equilibrium to converge to",
+      _bound["supports_its_own_weight"] is False and _bound["weight_over_tension"] > 1.0,
+      "%.4e N of cloth against %.4e N of tension, %.2fx"
+      % (_bound["free_region_weight_N"], _bound["effective_tension_N"],
+         _bound["weight_over_tension"]))
+# CHARACTERISATION. The solver applies bend_coeff*(lap - lap_rest), which is NOT the gradient
+# of the energy the module documents -- that gradient is the second difference applied twice.
+# Pinned here so that changing the force law has to change this check deliberately, and so
+# the gradient used by every instrument above is itself verified against the energy.
+_rng = np.random.default_rng(7)
+_pp = FLAT.points.astype(float) + _rng.normal(0.0, 0.05, FLAT.points.shape)
+_ell = float(np.median(np.clip(np.linalg.norm(np.diff(FLAT.points, axis=0), axis=1),
+                               1e-9, None))) * 1e-3
+_zero = np.zeros_like(_pp)
+
+
+def _energy(q):
+    return DR.bending_energy_J(q, _zero, DR.CALIBRATED_BENDING_N_M2, _ell)
+
+
+_k = DR.CALIBRATED_BENDING_N_M2 / _ell ** 3
+_r = DR._laplacian(_pp)
+_grad = np.zeros_like(_r)
+_grad[:-2] += _r[1:-1]
+_grad[1:-1] += -2.0 * _r[1:-1]
+_grad[2:] += _r[1:-1]
+_grad = -_k * _grad
+_impl = _k * _r
+_h = 1e-6
+_fd_ok = True
+_worst = 0.0
+for _i in (5, 61, 137, 240, 333, 410):
+    for _a in range(3):
+        _q = _pp.copy(); _q[_i, _a] += _h
+        _e1 = _energy(_q)
+        _q = _pp.copy(); _q[_i, _a] -= _h
+        _e2 = _energy(_q)
+        _fd = -(_e1 - _e2) / (2.0 * _h * 1e-3)
+        _worst = max(_worst, abs(_fd - _grad[_i, _a]) / max(abs(_fd), 1e-12))
+check("the bending energy's analytic gradient matches finite differences on the certified "
+      "geometry, so the instruments above are differentiating the documented energy",
+      _worst < 1e-5, "worst relative error %.3e" % _worst)
+_cos = float((_impl * _grad).sum() /
+             (np.linalg.norm(_impl) * np.linalg.norm(_grad)))
+check("the force the solver applies is NOT that gradient -- it is the second difference once "
+      "rather than twice, which is a string and not a beam",
+      _cos < 0.99, "cosine %.4f, |difference| %.4e N of |gradient| %.4e N"
+      % (_cos, float(np.linalg.norm(_impl - _grad)), float(np.linalg.norm(_grad))))
+
+# --- what the frame-invariant option does to Product Truth, MEASURED, on real geometry ---
+#
+# It is off by default and this records why, rather than asserting it is safe. Most of the
+# product survives it. Stitch SHAPE does not, in the middle of the descent, and the checks
+# below pin that as a recorded negative result: the option is not adoptable while it is true,
+# and if it stops being true these checks fail and somebody has to look.
+_fi = replace(SETUP, frame_invariant_rest=True, iterations=400)
+_fifab, _firep = DR.drape(FLAT, _fi)
+_fig = CT.validate(_fifab, TWIN, max_rows=ROWS, max_cols=COLS)
+check("frame-invariant rest actually changes the solve, so it is being exercised",
+      float(np.abs(_fifab.points - DR.drape(FLAT, replace(SETUP, iterations=400))[0].points
+                   ).max()) > 1e-4)
+check("frame-invariant rest keeps every stitch linked to the loop it was worked into",
+      _fig["stitches_linked"] == _fig["stitches_needing_linkage"] ==
+      before["stitches_linked"],
+      "%s/%s" % (_fig["stitches_linked"], _fig["stitches_needing_linkage"]))
+check("frame-invariant rest leaves stitch identity and loop targets untouched",
+      [(o.kind, o.row, o.position) for o in _fifab.ops] ==
+      [(o.kind, o.row, o.position) for o in FLAT.ops] and
+      [o.loop_target for o in _fifab.ops] == [o.loop_target for o in FLAT.ops])
+check("frame-invariant rest preserves total yarn length",
+      abs(_firep.length_change_pct) < 0.5, "%.4f%%" % _firep.length_change_pct)
+check("frame-invariant rest never let a strand reach another",
+      _firep.min_gap_seen_mm > 0.0 and _firep.crossing_impossible and
+      _firep.cap_exceeded == 0, "%.4f mm" % _firep.min_gap_seen_mm)
+_fid = DR.intrinsic_dimensions(_fifab, ROWS, COLS)
+check("frame-invariant rest does not resize the product across the cantilever",
+      abs(_fid["intrinsic_width_mm"] / d0["intrinsic_width_mm"] - 1.0) < 0.01,
+      "%.4f%%" % (100 * (_fid["intrinsic_width_mm"] / d0["intrinsic_width_mm"] - 1.0)))
+# THE RECORDED NEGATIVE. The spurious rotational stiffness was, among other things, what was
+# holding a stitch's shape. Remove it and free-edge stitches evert partway down the descent.
+check("RECORDED NEGATIVE: frame-invariant rest everts free-edge stitches partway through "
+      "the descent, so it is not adoptable and is off by default",
+      worst_third_loop_margin(_fifab) > 0.0 and
+      _fig["stitches_shaped_like_hdc"] < _fig["stitches_built"],
+      "worst third-loop margin %.3f mm (flat %.3f), %d of %d stitches still shaped"
+      % (worst_third_loop_margin(_fifab), flat_margin,
+         _fig["stitches_shaped_like_hdc"], _fig["stitches_built"]))
+check("it is geometry and not the instrument: the same instrument reads correct on the "
+      "default solve at the same iteration count",
+      worst_third_loop_margin(DR.drape(FLAT, replace(SETUP, iterations=400))[0]) < -0.5)
+# And the product's validity is NOT MONOTONE in the iteration count, which is the part that
+# matters for every lock in this file: a solve can pass through a configuration in which the
+# product is not the product and come out the other side valid, and an end-of-solve check
+# cannot see that it happened. Measured across the descent: valid at 100, broken at 200, 400
+# and 800, valid again at 1600, then broken and worsening -- 20/25 at 3200 and 17/25 at 6400,
+# see research/VISUAL_WAVE3.md. Those two are not run here: they cost minutes to add further
+# points to a sequence that is already non-monotone by 1600.
+_fi2, _firep2 = DR.drape(FLAT, replace(SETUP, frame_invariant_rest=True, iterations=1600))
+_fig2 = CT.validate(_fi2, TWIN, max_rows=ROWS, max_cols=COLS)
+check("the product's validity is not monotone in the iteration count: broken at 400, valid "
+      "again at 1600, so an end-of-solve check cannot see that it was ever broken",
+      _fig2["stitches_shaped_like_hdc"] == _fig2["stitches_built"] and
+      worst_third_loop_margin(_fi2) < 0.0 and _fig2["passes"] is True,
+      "%d/%d shaped and margin %.3f mm at 1600, against %d/%d and %.3f mm at 400"
+      % (_fig2["stitches_shaped_like_hdc"], _fig2["stitches_built"],
+         worst_third_loop_margin(_fi2), _fig["stitches_shaped_like_hdc"],
+         _fig["stitches_built"], worst_third_loop_margin(_fifab)))
+# The reason to keep the option at all: it is the only thing tried so far that moves the
+# standing conformability symptom in the right direction.
+_relief_default = DR.relief_profile(FLAT, DR.drape(FLAT, replace(SETUP, iterations=1600))[0])
+_relief_frame = DR.relief_profile(FLAT, _fi2)
+check("frame-invariant rest RAISES the share of relief a per-row mean cannot explain, which "
+      "is the direction the standing symptom needs and the opposite of what the Kaldor "
+      "option did to it",
+      _relief_frame["within_row_fraction"] > _relief_default["within_row_fraction"],
+      "%.4f against %.4f at 1600 iterations, a factor of %.1f"
+      % (_relief_frame["within_row_fraction"], _relief_default["within_row_fraction"],
+         _relief_frame["within_row_fraction"] /
+         max(_relief_default["within_row_fraction"], 1e-12)))
+
+# --- the two rest-state options are not defined together, and say so --------------------
+try:
+    DR.drape(FLAT, replace(SETUP, frame_invariant_rest=True, plastic_rest_migration=True,
+                           iterations=5))
+    _refused = False
+except ValueError:
+    _refused = True
+check("running Kaldor's world-space plasticity and the frame-invariant rest together is "
+      "refused rather than quietly given a meaning", _refused)
+
+# --- Product Truth on a configuration no validator has ever seen ------------------------
+# The locks were written against a fabric that was flat, then against one that drooped. A
+# cylinder is curved everywhere and planar nowhere, and no validator may be passing because
+# the fabric happened to lie in a plane.
+_wrapped = replace(FLAT, ops=[replace(_o, points=_q) for _o, _q in zip(
+    FLAT.ops, np.split(DR.cylindrical_bend(FLAT.points.astype(float), 8.0, "wale"),
+                       np.cumsum([len(_o.points) for _o in FLAT.ops])[:-1]))])
+_wg = CT.validate(_wrapped, TWIN, max_rows=ROWS, max_cols=COLS)
+check("wrapping the fabric round a 125mm cylinder leaves every stitch linked",
+      _wg["stitches_linked"] == _wg["stitches_needing_linkage"] == before["stitches_linked"],
+      "%s/%s" % (_wg["stitches_linked"], _wg["stitches_needing_linkage"]))
+check("wrapping the fabric round a cylinder leaves every stitch shaped like a half double, "
+      "so the morphology check is not passing because the fabric was flat",
+      _wg["stitches_shaped_like_hdc"] == _wg["stitches_built"] == before["stitches_built"],
+      "%s/%s" % (_wg["stitches_shaped_like_hdc"], _wg["stitches_built"]))
+check("no stitch becomes unframeable when the fabric is curved everywhere",
+      _wg.get("stitches_unframeable", 0) == 0 and _wg["stitches_unmeasurable"] == 0)
+check("the wrapped fabric passes the same topology gate",
+      _wg["passes"] is before["passes"] is True)
+_wd = DR.intrinsic_dimensions(_wrapped, ROWS, COLS)
+check("the product's intrinsic width survives being wrapped round a cylinder",
+      abs(_wd["intrinsic_width_mm"] / d0["intrinsic_width_mm"] - 1.0) < 0.01,
+      "%.4f%%" % (100 * (_wd["intrinsic_width_mm"] / d0["intrinsic_width_mm"] - 1.0)))
+_wmoved = float(np.abs(_wrapped.points - FLAT.points).max())
+check("the wrap really moved the geometry, or the checks above prove nothing",
+      _wmoved > 1.0, "%.3f mm at the furthest vertex" % _wmoved)
+check("the product's intrinsic height survives a bend that moves every stitch, which is the "
+      "whole reason intrinsic and projected size are separate quantities",
+      abs(_wd["intrinsic_height_mm"] / d0["intrinsic_height_mm"] - 1.0) < 0.02,
+      "intrinsic %.3f -> %.3f mm while the projected box went %.3f x %.3f -> %.3f x %.3f mm"
+      % (d0["intrinsic_height_mm"], _wd["intrinsic_height_mm"],
+         d0["projected_width_mm"], d0["projected_height_mm"],
+         _wd["projected_width_mm"], _wd["projected_height_mm"]))
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

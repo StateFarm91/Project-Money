@@ -69,15 +69,33 @@ measurement: the fabric's bending length. Thin cotton jersey is published at 0.5
 the ceiling comes from crochet of this weight visibly bending at swatch scale, which puts it
 below roughly 80mm. The geometric midpoint of that band is 34.6mm.
 
-The solver's own effective bending length is then MEASURED -- deflect a cantilever, invert
-delta = l^4 / 8c^3 -- and B is set so that measurement lands on the midpoint. What makes this
-calibration rather than taste is that the target is a published fabric property, the free
-parameter is the one genuinely unknown to six orders of magnitude, and the answer can be
-checked against something it was not fitted to: the resulting B is 1.45 times the free-fibre
-lower bound, which is an independent hard floor. A soft chunky acrylic yarn whose fibres are
-nearly free to slip, with a little coupling from twist, is exactly where that sits. Had the
-calibration demanded a B below the floor, or hundreds of times above it, the model would have
-been reported as failing rather than adopted.
+The solver's own effective bending length was then MEASURED -- deflect a cantilever, invert
+delta = l^4 / 8c^3 -- and B set so that measurement landed on the midpoint. The target is a
+published fabric property and the free parameter is the one genuinely unknown to six orders
+of magnitude, which is what made it calibration rather than taste.
+
+WHAT HAS SINCE BEEN MEASURED ABOUT THAT PROCEDURE, and it is worse than "uncertain".
+
+  a. The cantilever solve was never converged. `cantilever_equilibrium_bound` computes the
+     reason without running it: the implemented bending force is bend_coeff*(lap - lap_rest),
+     a LAPLACIAN, which is a string under an effective tension B/l^2 -- not the gradient of
+     the bending energy written above, which is bend_coeff * D^T (lap - lap_rest) and is a
+     beam. On the certified 5x5 swatch that tension is 1.80e-3 N while the free region of the
+     standard cantilever weighs 5.43e-3 N, three times more, so the specimen cannot hold
+     itself up in a shallow configuration at all and the descent is still falling at every
+     iteration count reached. Every bending length ever quoted from it is a transient.
+  b. The energy is not invariant under a rigid rotation of the cloth. Rotating the whole
+     certified swatch 5 degrees, deforming nothing, costs the equivalent of lifting every
+     stitch 1.17mm. So the bending length read off it grows with the SIZE of the swatch --
+     57.6mm at 5x5, 98.5mm at 12x10, same yarn, same B.
+  c. The cross-check once recorded here (B landing at 1.45x the free-fibre floor) was
+     WITHDRAWN as materially weaker than claimed, and is not restored.
+
+So the honest status of B is BOUNDED and CONDITIONED, not calibrated: the procedure that set
+it cannot be re-run to the same answer. `flexural_rigidity` and `derive_bending_rigidity`
+below are the replacement -- closed form, nothing to converge, and they state every condition
+they hold under. They are NOT wired into the default; changing B moves every committed
+Visual result and that is an owner-visible decision, not a side effect of measuring better.
 
 WHAT KEEPS THE TOPOLOGY. Everything that protected it in-plane still applies and is not
 relaxed here: segment rest lengths, self-contact with the same published floor, and the
@@ -98,22 +116,49 @@ from . import relaxation as rx
 
 __all__ = ["DrapeSetup", "DrapeReport", "drape", "areal_mass", "bending_bracket",
            "cantilever_test", "intrinsic_dimensions", "CALIBRATED_BENDING_N_M2",
-           "PROVENANCE", "rest_curvature_of", "angular_radius_to_lap", "relief_profile"]
+           "PROVENANCE", "rest_curvature_of", "angular_radius_to_lap", "relief_profile",
+           "genuine_yarn_vertices", "corotational_rotations", "bending_energy_J",
+           "rigid_motion_response", "cylindrical_bend", "flexural_rigidity",
+           "derive_bending_rigidity", "cantilever_equilibrium_bound",
+           "TARGET_BENDING_LENGTH_MM"]
 
 STANDARD_GRAVITY = 9.80665            # m/s^2, sourced
 ACRYLIC_DENSITY = 1180.0              # kg/m^3, already used to derive fibre radius
 ACRYLIC_MODULUS = 2.5e9               # Pa, bounded: acrylic bulk modulus is quoted 2.2-3.2
 
-# The calibrated yarn bending rigidity, derived by the procedure documented above: the
-# solver's own effective bending length is measured from a cantilever deflection and this is
-# the value that puts it on the geometric midpoint of the 15-80mm band that published jersey
-# stiffness and observed crochet behaviour bracket. It comes out at 1.45x the free-fibre hard
-# lower bound, a cross-check it was not fitted to.
+# The calibrated yarn bending rigidity, set by the procedure documented above: the solver's
+# own effective bending length was measured from a cantilever deflection and this is the
+# value that put it on the geometric midpoint of the 15-80mm band that published jersey
+# stiffness and observed crochet behaviour bracket.
 #
-# It lives here and nowhere else. It was briefly a literal in the test suite as well, chosen
+# IT LIVES HERE AND NOWHERE ELSE. It was briefly a literal in the test suite as well, chosen
 # before the calibration existed and left twenty times too stiff afterwards, which showed up
 # as a test asserting gravity had moved the fabric while the fabric moved 0.03mm.
+#
+# WHAT IS NOW KNOWN ABOUT THE PROCEDURE THAT SET IT, and it is not good. Three findings, all
+# measured, all in research/VISUAL_WAVE2.md and research/VISUAL_WAVE3.md:
+#
+#   1. The cantilever solve it was read off was NEVER converged, at any iteration count
+#      tried, and the inverted bending length moves 2.09x across the iteration range for one
+#      unchanged fabric. `cantilever_equilibrium_bound` now computes why in closed form.
+#   2. The energy this module documents is NOT invariant under a rigid rotation of the
+#      fabric, so a bending length read from it grows with the SIZE OF THE SWATCH: 57.6mm on
+#      a 5x5, 98.5mm on a 12x10, same yarn and same B. A quantity that depends on how much
+#      cloth you measured is not a material property. `rigid_motion_response` measures the
+#      defect and `flexural_rigidity(frame_invariant=True)` removes it.
+#   3. The cross-check once recorded here -- "1.45x the free-fibre hard lower bound, a
+#      cross-check it was not fitted to" -- WAS WITHDRAWN on 2026-09-25 as materially weaker
+#      than it sounded, and is deliberately not restated. It is not restored anywhere.
+#
+# The constant is therefore left exactly where it was, and everything derived from it is
+# conditioned on that history rather than on a converged measurement. `derive_bending_rigidity`
+# re-derives a value from scratch, states its conditions, and is NOT wired into the default.
 CALIBRATED_BENDING_N_M2 = 3.0e-8
+
+# The calibration target: the geometric midpoint of the 15-80mm bending-length band that
+# published jersey stiffness (0.5-1.4cm) floors and observed chunky-crochet behaviour caps.
+# BOUNDED, argued rather than measured; it is the target, not a result.
+TARGET_BENDING_LENGTH_MM = 34.6
 
 PROVENANCE = {
     "linear_density": "DERIVED -- 444 tex is mass per length by definition, 4.44e-4 kg/m",
@@ -125,12 +170,30 @@ PROVENANCE = {
                         "checked against ASTM D1388 and against beam theory, not by eye",
     "shape_factor": "BOUNDED -- published shape factors run 0.59 (silk) to 1.0 (glass); "
                     "none published for acrylic, so the range is carried",
-    "bending_calibration": "CALIBRATED against a published fabric property, not tuned. The "
-                           "solver's effective bending length is measured from a cantilever "
-                           "deflection and B set so it lands on the geometric midpoint of "
-                           "the 15-80mm band that published jersey stiffness and observed "
-                           "crochet behaviour bracket. Cross-check it was not fitted to: the "
-                           "result is 1.45x the free-fibre hard lower bound",
+    "bending_calibration": "CONDITIONED, not converged. B was set against a published "
+                           "fabric property -- the geometric midpoint of the 15-80mm "
+                           "bending-length band -- but the cantilever solve it was read "
+                           "off never converged at any iteration count tried, and the "
+                           "inverted bending length moves 2.09x across that range for one "
+                           "unchanged fabric. The cross-check once claimed here (1.45x the "
+                           "free-fibre floor) was WITHDRAWN and is not restored. The "
+                           "documented bending energy is also not rigid-rotation "
+                           "invariant, so a bending length read from it grows with swatch "
+                           "size: 57.6mm on a 5x5 and 98.5mm on a 12x10 at the same B. See "
+                           "rigid_motion_response, flexural_rigidity and "
+                           "derive_bending_rigidity, and research/VISUAL_WAVE3.md",
+    "frame_invariant_rest": "DERIVED, standard co-rotational construction, OFF BY DEFAULT. "
+                            "The rest curvature is stored as a world-space second "
+                            "difference, so rotating the cloth without deforming it costs "
+                            "energy -- measured at the equivalent of lifting every stitch "
+                            "1.17mm for a 5 degree turn and 308mm for a right angle. "
+                            "Kaldor et al. 2010 avoid this by holding the rest state as a "
+                            "2D point in the segment pair's OWN frame; the same thing here "
+                            "is a per-vertex rotation carrying the rest edge pair onto the "
+                            "current one (Kabsch, exact and equivariant). What is DERIVED "
+                            "is the construction; what is UNKNOWN is whether removing this "
+                            "spurious stiffness is sufficient for conformability, which is "
+                            "measured rather than claimed",
     "rest_curvature": "The yarn is taken as set in the shape it relaxed into, following the reference method's own split between a relaxation phase and a simulation phase. Measuring bending against straight instead makes every formed loop pre-stressed and the fabric's drape stops responding to its stiffness at all -- tested, not assumed",
     "plastic_rest_migration": "SOURCED mechanism, SOURCED parameter values, DERIVED "
                               "coordinate mapping, UNKNOWN application rate. Kaldor et al. "
@@ -267,6 +330,29 @@ class DrapeSetup:
     plastic_rest_migration: bool = False
     p_plastic_rad: float = 0.01
     p_max_plastic_rad: float = 2.5
+    # FRAME-INVARIANT REST STATE. OFF BY DEFAULT, for the same reason as the line above: it
+    # changes the fabric's shape and every committed Visual result was produced without it.
+    #
+    # The rest curvature is stored as a second difference in WORLD coordinates, so turning a
+    # piece of cloth round -- deforming nothing -- changes every residual and costs energy.
+    # Measured on the certified 5x5 swatch by `rigid_motion_response`: a 5 degree rotation
+    # of the whole fabric costs the equivalent of lifting every stitch 1.17mm, and a right
+    # angle costs 308mm. The entire gravitational drive on the standard cantilever is worth
+    # about 1.4mm of droop at 800 iterations, so the spurious rotational stiffness is not a
+    # correction to the mechanics; at stitch scale it dominates them.
+    #
+    # THAT IS A CANDIDATE MECHANISM FOR THE STANDING CONFORMABILITY SYMPTOM, and it is
+    # exactly the right shape for it. A fabric conforms by letting each stitch turn
+    # relative to its neighbours. An energy that charges for turning, per stitch, in
+    # proportion to how curved the stitch already is -- and a crochet loop is nothing but
+    # curvature -- is an energy that holds rows rigid. Whether removing it is SUFFICIENT is
+    # measured in research/VISUAL_WAVE3.md, not claimed here.
+    #
+    # With this on, the rest curvature is carried into each vertex's current frame before
+    # the residual is taken, by the co-rotational rotation in `corotational_rotations`.
+    # Kaldor et al. 2010 hold the rest state in the segment pair's own frame for the same
+    # reason. DERIVED construction, standard; the rate and sufficiency are UNKNOWN.
+    frame_invariant_rest: bool = False
     clamp_fraction: float = 0.0           # fraction of the fabric held fixed, by +y
     iterations: int = 400
 
@@ -369,16 +455,398 @@ def _migrate_rest(lap_rest, lap, r_rel, r_abs):
     return out
 
 
+# --------------------------------------------------------------------------------------
+# Frame invariance, and the instruments that depend on it.
+#
+# Everything below is measurement, not appearance. None of it is wired into the default
+# solve; `frame_invariant_rest` is an option that defaults to off, exactly like the Kaldor
+# plasticity, because every committed Visual result was produced without it.
+# --------------------------------------------------------------------------------------
+
+JUMP_SEGMENT_MM = 5.0        # the artificial hops between ops; `areal_mass` uses the same
+DEGENERATE_SEGMENT_MM = 0.01  # the sub-micron joins; the strain statistic uses the same
+
+
+def genuine_yarn_vertices(pts: np.ndarray) -> np.ndarray:
+    """Vertices whose BOTH adjacent segments are real yarn, so a curvature there is real.
+
+    The yarn path as stored is not all yarn. It contains artificial hops between ops -- 87
+    of 473 segments on the certified 5x5 swatch, up to 6.73mm -- and sub-micron joins where
+    one stitch's path meets the next, 20 of them. A second difference taken across either is
+    not a bend in any yarn; it is an artefact of how the path was concatenated. The solver's
+    bending term does not currently exclude them, which is recorded rather than silently
+    changed, and every instrument here reports the answer both ways so the contribution can
+    be seen instead of argued about.
+    """
+    pts = np.asarray(pts, dtype=float)
+    seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+    bad = (seg >= JUMP_SEGMENT_MM) | (seg <= DEGENERATE_SEGMENT_MM)
+    good = np.zeros(len(pts), bool)
+    if len(pts) > 2:
+        good[1:-1] = ~(bad[:-1] | bad[1:])
+    return good
+
+
+def corotational_rotations(pts: np.ndarray, rest_pts: np.ndarray) -> np.ndarray:
+    """Per-vertex rotation carrying the REST edge pair onto the CURRENT one. DERIVED.
+
+    This is what makes a rest curvature a property of the CLOTH rather than of the cloth's
+    orientation in the room. The rest state as stored is a second difference in world
+    coordinates, so turning a finished fabric round -- deforming nothing -- changes every
+    rest residual and costs energy. `rigid_motion_response` measures how much.
+
+    Kaldor et al. 2010 do not have this problem because their rest state is a 2D point in
+    the segment pair's own frame (which is also why their plasticity radii are 2D and ours,
+    mapped in `angular_radius_to_lap`, are not). The equivalent here is the standard
+    co-rotational construction: the least-squares rotation R_i taking the rest vertex's two
+    unit edge vectors onto the current vertex's two, by Kabsch. Comparing `lap` against
+    `R_i @ lap_rest` is then exactly invariant under any rigid motion of the fabric, which
+    is asserted to machine precision in the suite rather than argued here.
+
+    Endpoints have no edge pair and get the identity; a vertex whose rest edges are
+    collinear has a rotation about that axis that no data determines, and Kabsch returns the
+    minimal one, which is the right default because the rest curvature it acts on lies along
+    that same axis and is therefore unmoved by it.
+    """
+    pts = np.asarray(pts, dtype=float)
+    rest_pts = np.asarray(rest_pts, dtype=float)
+    n = len(pts)
+    out = np.tile(np.eye(3), (n, 1, 1))
+    if n < 3:
+        return out
+
+    def unit(v):
+        m = np.linalg.norm(v, axis=1, keepdims=True)
+        return v / np.maximum(m, 1e-12)
+
+    a = unit(pts[1:-1] - pts[:-2])
+    b = unit(pts[2:] - pts[1:-1])
+    ra = unit(rest_pts[1:-1] - rest_pts[:-2])
+    rb = unit(rest_pts[2:] - rest_pts[1:-1])
+    # H = sum over the pair of (rest outer current); argmax_R tr(R H) is Kabsch.
+    h = ra[:, :, None] * a[:, None, :] + rb[:, :, None] * b[:, None, :]
+    u, _s, vt = np.linalg.svd(h)
+    v = np.transpose(vt, (0, 2, 1))
+    ut = np.transpose(u, (0, 2, 1))
+    d = np.ones((len(h), 3))
+    # np.sign would return 0 on an exactly singular pair and hand back a non-rotation.
+    d[:, 2] = np.where(np.linalg.det(v @ ut) < 0.0, -1.0, 1.0)
+    out[1:-1] = (v * d[:, None, :]) @ ut
+    return out
+
+
+def bending_energy_J(pts: np.ndarray, lap_rest: np.ndarray, bending_rigidity_N_m2: float,
+                     ell_m: float, *, rest_pts: np.ndarray | None = None,
+                     frame_invariant: bool = False,
+                     mask: np.ndarray | None = None) -> float:
+    """The bending energy this module documents, evaluated exactly on a configuration.
+
+    E = (B / 2 l^3) * sum |lap - lap_rest|^2, which is the energy in the module docstring.
+    With `frame_invariant`, the rest curvature is carried into each vertex's current frame
+    first, which is the only version of this that is a material energy.
+    """
+    pts = np.asarray(pts, dtype=float)
+    if frame_invariant and rest_pts is None:
+        # Silently falling back to the world-space residual here would make every
+        # frame-invariance result in this module a measurement of the defect it claims to
+        # have removed, and it would read as a pass.
+        raise ValueError("frame_invariant needs rest_pts: a rest curvature without the "
+                         "configuration it belongs to cannot be carried into another frame")
+    k = bending_rigidity_N_m2 / max(ell_m ** 3, 1e-30)
+    resid = _laplacian(pts) - (
+        np.einsum("nij,nj->ni", corotational_rotations(pts, rest_pts), lap_rest)
+        if frame_invariant else lap_rest)
+    sq = np.einsum("ni,ni->n", resid, resid)
+    if mask is not None:
+        sq = sq[mask]
+    return 0.5 * k * float(sq.sum())
+
+
+def _median_segment_m(pts: np.ndarray) -> float:
+    seg = _segment_lengths(np.asarray(pts, dtype=float))
+    seg = seg.copy()
+    seg[seg < 1e-9] = 1e-9
+    return float(np.median(seg)) * 1e-3
+
+
+def rigid_motion_response(fab: topo.Fabric, *,
+                          bending_rigidity_N_m2: float = CALIBRATED_BENDING_N_M2,
+                          tex: float = 444.0,
+                          angles_deg=(0.5, 1.0, 5.0, 15.0, 45.0, 90.0),
+                          axis=(0.3, 0.5, 0.81)) -> dict:
+    """What the bending energy reads when the fabric is MOVED without being deformed.
+
+    A material energy reads zero for every rigid motion. This one reads zero for translation
+    and does not for rotation, and the size of that number is the size of a stiffness the
+    fabric has against turning that no yarn possesses. Reported in joules and, because
+    joules are hard to weigh, as the height every stitch would have to be lifted against
+    gravity to cost the same -- which is the comparison that decides whether the defect can
+    compete with the force that drives drape.
+    """
+    pts = fab.points.astype(float)
+    ell = _median_segment_m(pts)
+    lap_rest = _laplacian(pts)
+    lam = linear_density_kg_per_m(tex)
+    per_vertex_weight = lam * ell * STANDARD_GRAVITY
+    centre = pts.mean(axis=0)
+    a = np.asarray(axis, dtype=float)
+    a = a / np.linalg.norm(a)
+    kx = np.array([[0.0, -a[2], a[1]], [a[2], 0.0, -a[0]], [-a[1], a[0], 0.0]])
+
+    rows = []
+    for deg in angles_deg:
+        th = np.radians(deg)
+        rot = np.eye(3) + np.sin(th) * kx + (1.0 - np.cos(th)) * (kx @ kx)
+        moved = (pts - centre) @ rot.T + centre
+        e_world = bending_energy_J(moved, lap_rest, bending_rigidity_N_m2, ell)
+        e_frame = bending_energy_J(moved, lap_rest, bending_rigidity_N_m2, ell,
+                                   rest_pts=pts, frame_invariant=True)
+        rows.append({
+            "angle_deg": float(deg),
+            "world_rest_energy_J": e_world,
+            "frame_invariant_energy_J": e_frame,
+            "equivalent_lift_per_vertex_mm":
+                1e3 * (e_world / len(pts)) / max(per_vertex_weight, 1e-30),
+        })
+    shifted = pts + np.array([13.0, -7.0, 4.0])
+    return {
+        "rotations": rows,
+        "translation_energy_J": bending_energy_J(shifted, lap_rest,
+                                                 bending_rigidity_N_m2, ell),
+        "vertices": int(len(pts)),
+        "per_vertex_weight_N": float(per_vertex_weight),
+        "median_segment_mm": ell * 1e3,
+    }
+
+
+def cylindrical_bend(pts: np.ndarray, curvature_per_m: float, along: str = "wale") -> np.ndarray:
+    """Wrap a flat fabric onto a cylinder of the given curvature. Midsurface-isometric.
+
+    `along` names the direction the curvature runs in: "wale" is +y, the direction rows
+    advance and the direction the cantilever droops, and "course" is +x, along a row. Both
+    are reported because a crochet fabric is not isotropic and ASTM D1388 is run on strips
+    cut both ways.
+
+    The map is an exact isometry of the z = 0 midsurface and is NOT an isometry of the yarn,
+    which has thickness: a strand sitting z above the midsurface is stretched by z * kappa.
+    Every caller measures that residual and reports it rather than assuming it away -- at
+    kappa = 0.5 /m it is 0.29 per cent on the certified swatch.
+    """
+    pts = np.asarray(pts, dtype=float)
+    if curvature_per_m <= 0:
+        raise ValueError("curvature must be positive")
+    idx = {"wale": 1, "course": 0}.get(along)
+    if idx is None:
+        raise ValueError("along must be 'wale' or 'course'")
+    radius_mm = 1000.0 / curvature_per_m
+    out = pts.copy()
+    s = pts[:, idx] - 0.5 * (pts[:, idx].min() + pts[:, idx].max())
+    theta = s / radius_mm
+    r = radius_mm - pts[:, 2]
+    out[:, idx] = r * np.sin(theta)
+    out[:, 2] = radius_mm - r * np.cos(theta)
+    return out
+
+
+def flexural_rigidity(fab: topo.Fabric, tex: float = 444.0, *,
+                      bending_rigidity_N_m2: float = CALIBRATED_BENDING_N_M2,
+                      along: str = "wale",
+                      curvature_per_m: float = 0.25,
+                      frame_invariant: bool = True,
+                      yarn_only: bool = True) -> dict:
+    """The fabric's areal flexural rigidity G, by imposed curvature. NOTHING TO CONVERGE.
+
+    This replaces the cantilever as the route to a bending length, and the reason is not
+    convenience. ASTM D1388's cantilever is an equilibrium measurement, and this solver's
+    cantilever has no shallow equilibrium to find -- see `cantilever_equilibrium_bound` --
+    so every bending length taken from it is a transient of the iteration count. Imposing
+    the curvature instead of waiting for it removes the solve entirely: bend the certified
+    geometry onto a cylinder, evaluate the model's own bending energy in closed form, and
+    read G off the definition of bending energy per unit area, (1/2) G kappa^2.
+
+    The bending length follows ASTM's own relation, G = W g c^3, with W measured off this
+    fabric's own yarn length and extent rather than looked up.
+
+    CONDITIONS, all reported in the result so a number from here cannot travel without them:
+
+      * `curvature_independent_to` -- G must not depend on kappa or the model is not linearly
+        elastic and a single rigidity does not describe it. Measured over a 4x sweep. The
+        residual is the yarn's own thickness, and it is proportional to kappa: 1.003 at
+        kappa = 0.25/m, 1.010 at 1.0, 1.037 at 4.0. That is why the default curvature is
+        gentle rather than convenient -- a 4 metre radius on a 58mm swatch.
+      * `max_segment_strain` -- the wrap is isometric on the midsurface only, so the yarn's
+        own thickness is strained. Bend gently enough that this stays small, and read it.
+      * `frame_invariant` -- with the world-space rest state, G is NOT a material property:
+        it grows with the size of the swatch, because rotating cloth costs energy. Default
+        True here on purpose; False reproduces what the committed solver's energy says.
+      * `yarn_only` -- whether the artificial hops between ops contribute. They are 60 per
+        cent of the world-space energy and are not yarn.
+    """
+    pts = fab.points.astype(float)
+    ell = _median_segment_m(pts)
+    lap_rest = _laplacian(pts)
+    mask = genuine_yarn_vertices(pts) if yarn_only else None
+    am = areal_mass(fab, tex)
+    w_g = am["areal_mass_kg_m2"] * STANDARD_GRAVITY
+    idx = {"wale": 1, "course": 0}[along]
+    span_bend = float(np.ptp(pts[:, idx])) * 1e-3
+    span_wide = float(np.ptp(pts[:, 1 - idx])) * 1e-3
+    area = span_bend * span_wide
+
+    def one(kappa):
+        bent = cylindrical_bend(pts, kappa, along)
+        e = bending_energy_J(bent, lap_rest, bending_rigidity_N_m2, ell,
+                             rest_pts=pts, frame_invariant=frame_invariant, mask=mask)
+        e0 = bending_energy_J(pts, lap_rest, bending_rigidity_N_m2, ell,
+                              rest_pts=pts, frame_invariant=frame_invariant, mask=mask)
+        seg0 = _segment_lengths(pts)
+        seg1 = _segment_lengths(bent)
+        live = seg0 > DEGENERATE_SEGMENT_MM
+        strain = float(np.abs(seg1[live] / seg0[live] - 1.0).max())
+        return 2.0 * (e - e0) / (kappa ** 2 * max(area, 1e-30)), e - e0, strain
+
+    g, energy, strain = one(curvature_per_m)
+    g_lo, _, _ = one(0.5 * curvature_per_m)
+    g_hi, _, _ = one(2.0 * curvature_per_m)
+    spread = max(g, g_lo, g_hi) / max(min(g, g_lo, g_hi), 1e-30)
+    return {
+        "along": along,
+        "curvature_per_m": float(curvature_per_m),
+        "flexural_rigidity_N_m": float(g),
+        "bending_length_mm": float((max(g, 0.0) / max(w_g, 1e-30)) ** (1.0 / 3.0) * 1e3),
+        "bend_energy_J": float(energy),
+        "areal_mass_kg_m2": am["areal_mass_kg_m2"],
+        "area_m2": float(area),
+        "span_bend_mm": span_bend * 1e3,
+        "span_wide_mm": span_wide * 1e3,
+        "max_segment_strain": strain,
+        "curvature_independent_to": float(spread),
+        "frame_invariant": bool(frame_invariant),
+        "yarn_only": bool(yarn_only),
+        "vertices_used": int(mask.sum()) if mask is not None else int(len(pts)),
+        "vertices": int(len(pts)),
+        "bending_rigidity_N_m2": float(bending_rigidity_N_m2),
+    }
+
+
+def derive_bending_rigidity(fab: topo.Fabric, tex: float = 444.0, *,
+                            target_bending_length_mm: float = TARGET_BENDING_LENGTH_MM,
+                            along: str = "wale",
+                            curvature_per_m: float = 0.25,
+                            frame_invariant: bool = True,
+                            yarn_only: bool = True) -> dict:
+    """Re-derive B from the calibration target, in code, in closed form.
+
+    The bending energy is linear in B, so G is linear in B and the bending length goes as
+    B^(1/3). One evaluation at a reference B therefore inverts exactly:
+
+        B_target = B_ref * (c_target / c_ref)^3
+
+    No sweep, no fitting, no solver, no iteration count, and nothing that can be stopped
+    early. The whole of the result is the conditions: the same ones `flexural_rigidity`
+    reports, plus the target and the fabric it was derived on. `derivable` is False -- and
+    the derived value must not be used -- unless the rigidity it inverts is actually a
+    material property, which means frame invariance is on and the curvature sweep agrees
+    with itself.
+
+    This does NOT set `CALIBRATED_BENDING_N_M2`. Moving that constant moves every committed
+    Visual result, and doing it as a side effect of a better measurement is exactly the move
+    this module keeps catching.
+    """
+    ref = flexural_rigidity(fab, tex, bending_rigidity_N_m2=CALIBRATED_BENDING_N_M2,
+                            along=along, curvature_per_m=curvature_per_m,
+                            frame_invariant=frame_invariant, yarn_only=yarn_only)
+    c_ref = ref["bending_length_mm"]
+    ratio = (target_bending_length_mm / max(c_ref, 1e-30)) ** 3
+    out = dict(ref)
+    out.update({
+        "target_bending_length_mm": float(target_bending_length_mm),
+        "reference_bending_rigidity_N_m2": CALIBRATED_BENDING_N_M2,
+        "reference_bending_length_mm": c_ref,
+        "derived_bending_rigidity_N_m2": float(CALIBRATED_BENDING_N_M2 * ratio),
+        "factor_on_committed_value": float(ratio),
+        "derivable": bool(frame_invariant and ref["curvature_independent_to"] < 1.01),
+    })
+    return out
+
+
+def cantilever_equilibrium_bound(fab: topo.Fabric, setup: DrapeSetup,
+                                 overhang_fraction: float = 0.7) -> dict:
+    """Whether the cantilever the solver runs HAS a shallow equilibrium, in closed form.
+
+    This is the closed-form answer to a question the sweep in research/VISUAL_WAVE2.md could
+    only answer by running out of iterations. The implemented bending force is
+    bend_coeff * (lap - lap_rest): a second difference, not the second difference applied
+    twice, so it is not the gradient of the energy the module documents. For a chain of
+    segment length l carrying a transverse field u, bend_coeff * lap is (B/l) u'' per vertex
+    and so (B/l^2) u'' per unit length -- a STRING under tension B/l^2, not a beam.
+
+    A string clamped at one end with a free end cannot support a transverse load at all: the
+    natural boundary condition at the free end is u' = 0, which is incompatible with
+    u'' = w/T anywhere along it. Discretely, the free end of the yarn path is the one vertex
+    with no bending equation. So the specimen falls until the geometry itself turns over,
+    and the descent has no shallow state to converge to. `effective_tension_N` against
+    `free_region_weight_N` says how far from supporting itself it is, and
+    `equilibrium_second_difference_mm` is the value the solver's own force law is heading
+    for -- which a run can be checked against to see how far through its descent it is.
+    """
+    pts = fab.points.astype(float)
+    ell = _median_segment_m(pts)
+    bend_coeff = setup.bending_rigidity_N_m2 / max(ell ** 3, 1e-30)
+    seg = _segment_lengths(pts)
+    seg[seg < 1e-9] = 1e-9
+    lumped = np.zeros(len(pts))
+    lumped[:-1] += seg * 1e-3 / 2.0
+    lumped[1:] += seg * 1e-3 / 2.0
+    weight = lumped * setup.linear_density_kg_m * setup.gravity
+    y = pts[:, 1]
+    free = y < (y.min() + (y.max() - y.min()) * overhang_fraction)
+    tension = setup.bending_rigidity_N_m2 / max(ell ** 2, 1e-30)
+    free_weight = float(weight[free].sum())
+    typical = setup.linear_density_kg_m * ell * setup.gravity
+    return {
+        "overhang_fraction": float(overhang_fraction),
+        "free_vertices": int(free.sum()),
+        "vertices": int(len(pts)),
+        "effective_tension_N": float(tension),
+        "free_region_weight_N": free_weight,
+        "weight_over_tension": free_weight / max(tension, 1e-30),
+        "supports_its_own_weight": bool(free_weight < tension),
+        "equilibrium_second_difference_mm": float(1e3 * typical / max(bend_coeff, 1e-30)),
+        "bend_coeff_N_per_m": float(bend_coeff),
+        "median_segment_mm": ell * 1e3,
+        "force_law": "laplacian (string, tension B/l^2) -- NOT the gradient of the "
+                     "documented bending energy, which is the second difference applied "
+                     "twice (a beam)",
+    }
+
+
 def drape(fab: topo.Fabric, setup: DrapeSetup,
           material: rx.Material | None = None,
-          rest_curvature: np.ndarray | None = None) -> tuple[topo.Fabric, DrapeReport]:
+          rest_curvature: np.ndarray | None = None,
+          rest_points: np.ndarray | None = None) -> tuple[topo.Fabric, DrapeReport]:
     """Find the fabric's equilibrium under gravity, contact and its boundary conditions.
 
     `rest_curvature`, when given, is the rest state to bend against, as produced by
     `rest_curvature_of`. It overrides `setup.rest_is_relaxed_shape`, and it is the only way to
     carry ONE rest state across two calls -- which any recovery or load-cycle experiment
     requires and which the capture-at-call-start default cannot express.
+
+    `rest_points` is the configuration that rest curvature belongs to, and is needed only by
+    `setup.frame_invariant_rest`, which has to know which way the rest state was FACING in
+    order to carry it into the current frame. It defaults to the fabric as passed in, which
+    is what `rest_is_relaxed_shape` means; a load-cycle experiment must pass the same pair to
+    both calls or the two options disagree about what the rest state is.
     """
+    if setup.frame_invariant_rest and setup.plastic_rest_migration:
+        # Kaldor's projections are defined on a rest state in the element's own frame, and
+        # ours is in world space; running both at once would migrate a world-space rest
+        # state against a frame-carried residual, and what that composition means is
+        # UNKNOWN. Refused rather than run, because a silently meaningless combination is
+        # how a measurement becomes a number nobody can account for.
+        raise ValueError("frame_invariant_rest and plastic_rest_migration are not defined "
+                         "together: the plasticity projects a world-space rest state and "
+                         "the frame-invariant residual is taken in the vertex frame")
     material = material or rx.material_for(fab)
     pts = fab.points.copy().astype(float)
     n = len(pts)
@@ -419,6 +887,14 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     else:
         lap_rest = np.zeros_like(pts)
     lap_rest_initial = lap_rest.copy()
+    # The configuration the rest curvature belongs to. Only the frame-invariant option needs
+    # it, and it needs it because a rest curvature without an orientation cannot be carried
+    # into any other frame.
+    rest_frame_pts = (np.array(rest_points, dtype=float)
+                      if rest_points is not None else start.copy())
+    if setup.frame_invariant_rest and rest_frame_pts.shape != pts.shape:
+        raise ValueError("rest_points is %s but this fabric is %s"
+                         % (rest_frame_pts.shape, pts.shape))
 
     ell = float(np.median(rest_m))
     bend_coeff = setup.bending_rigidity_N_m2 / max(ell ** 3, 1e-30)
@@ -470,7 +946,14 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         before = pts.copy()
         force = grav_force.copy()
         lap = _laplacian(pts)
-        force += bend_coeff * (lap - lap_rest)
+        if setup.frame_invariant_rest:
+            # Carry the rest curvature into each vertex's CURRENT frame before taking the
+            # residual, so turning the cloth costs nothing and only deforming it does.
+            oriented = np.einsum("nij,nj->ni",
+                                 corotational_rotations(pts, rest_frame_pts), lap_rest)
+        else:
+            oriented = lap_rest
+        force += bend_coeff * (lap - oriented)
 
         # The FORCE step is capped, not the finished move. Scaling the whole update after
         # the constraints have run is what broke inextensibility in the first version: it
