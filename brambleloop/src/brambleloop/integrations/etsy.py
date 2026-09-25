@@ -412,7 +412,15 @@ PRICE_IS_ELSEWHERE = (
 # system sends the comma form, which is the reading the sentence supports and the decision
 # `publish/listing_schema.form_encoded` already made. `ARRAY_ENCODING` exists so the decision
 # has a name, and so that the day a real 400 settles it, one constant moves.
+#
+# **It is the only thing that moves.** `form_fields` below reads it, `http.form_body` renders
+# a list as repeated keys, and `etsy_probe`'s failure taxonomy names this constant as the
+# single change that follows a tags rejection. Both settings are exercised against
+# `tests/fake_etsy.py`, including the case that makes this dangerous: a comma-joined value
+# Etsy accepts with a 201 and stores as **one tag containing a comma**. That outcome is not
+# an error anywhere on the wire; only the read-back comparison sees it.
 ARRAY_ENCODING = "comma"
+ARRAY_ENCODINGS = ("comma", "repeat")
 
 # Etsy's alt_text limit, from the `uploadListingImage` schema: "Alt text for the listing
 # image. Max length 500 characters."
@@ -425,15 +433,33 @@ IMAGE_CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "ima
 
 
 def form_fields(payload: dict[str, Any]) -> dict[str, Any]:
-    """Flatten a payload for a form-encoded Etsy write.
+    """Flatten a payload for a form-encoded Etsy write, honouring `ARRAY_ENCODING`.
 
-    Delegates to `publish.listing_schema.form_encoded`, which is where the array-encoding
-    decision is written down, so the shape this client sends and the shape the schema module
-    documents cannot drift apart.
+    With `"comma"` this delegates to `publish.listing_schema.form_encoded`, which is where the
+    array-encoding decision is written down, so the shape this client sends and the shape the
+    schema module documents cannot drift apart.
+
+    With `"repeat"` a list survives as a list and `http.form_body` emits repeated keys. The
+    scalar fields are still rendered by `form_encoded`, one key at a time, so the boolean and
+    number rendering cannot differ between the two settings -- if it could, flipping the
+    constant would change more than the arrays and the experiment would prove nothing.
     """
     from ..publish.listing_schema import form_encoded
 
-    return dict(form_encoded(payload))
+    if ARRAY_ENCODING not in ARRAY_ENCODINGS:
+        raise EtsyRejected(
+            f"ARRAY_ENCODING is {ARRAY_ENCODING!r}; Etsy's form arrays are one of "
+            f"{list(ARRAY_ENCODINGS)}. An unrecognised value would silently fall back to a "
+            f"rendering nobody chose.")
+    if ARRAY_ENCODING == "comma":
+        return dict(form_encoded(payload))
+    out: dict[str, Any] = {}
+    for key, value in payload.items():
+        if isinstance(value, (list, tuple)):
+            out[key] = [str(item) for item in value]
+        else:
+            out[key] = form_encoded({key: value})[key]
+    return out
 
 
 class EtsyClient:
@@ -542,7 +568,8 @@ class EtsyClient:
               form: dict[str, Any] | None = None,
               json: dict[str, Any] | None = None,
               multipart: FilePart | None = None,
-              query: dict[str, Any] | None = None) -> Response:
+              query: dict[str, Any] | None = None,
+              allow: tuple[int, ...] = ()) -> Response:
         """One request, with the encoding the endpoint requires and nothing implicit.
 
         `operation` is Etsy's own operationId. It is passed to the credentials so that a
@@ -550,6 +577,10 @@ class EtsyClient:
         recorded on `self.calls` so a caller -- or the probe -- can state what was sent
         without keeping its own log. What is recorded is field *names* for a multipart
         request: the value is the file.
+
+        `allow` names statuses that are an *answer* rather than a failure for this call. The
+        only use is checking whether a listing still exists after a delete, where a 404 is the
+        result being measured; raising on it would turn the evidence into an exception.
         """
         creds = self._require(authority)
         headers = creds.headers(operation=operation)
@@ -567,7 +598,7 @@ class EtsyClient:
             "sent": (sorted((form or {}).keys()) + [f"<binary:{multipart.field}>"]
                      if multipart is not None else dict(form or json or {})),
         })
-        if response.status >= 400:
+        if response.status >= 400 and response.status not in allow:
             kind = classify_http(response.status)
             message = (f"Etsy returned {response.status} for {method} {path} "
                        f"({operation}): {response.body.get('error', response.body)}")
@@ -610,6 +641,114 @@ class EtsyClient:
         """The images Etsy holds for a listing, as Etsy reports them."""
         body = self._call("GET", f"/listings/{listing_id}/images",
                           operation="getListing", authority=Authority.READ).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
+    def listing_exists(self, listing_id: str) -> tuple[bool, str]:
+        """Whether Etsy still holds this listing, and what state it is in. Never raises a 404.
+
+        This is how a deletion is *verified* rather than assumed. `deleteListing` returning
+        204 is Etsy saying it accepted the request; only a subsequent read says the listing is
+        gone. The two are different claims and Etsy's document supports only the first, so the
+        second is one of the things the authenticated run exists to establish.
+
+        Returns `(False, "")` when Etsy answers 404, which is the outcome that means clean.
+        """
+        response = self._call("GET", f"/listings/{listing_id}", operation="getListing",
+                              authority=Authority.READ, allow=(404,))
+        if response.status == 404:
+            return False, ""
+        return True, str(response.body.get("state") or "")
+
+    def get_shop_listings(self, *, state: str = "draft",
+                          limit: int = 100) -> list[dict[str, Any]]:
+        """The shop's listings in one state. The read that makes a run idempotent.
+
+        A run that failed before its cleanup left a draft in a real shop. Without this, the
+        next run cannot see it, so it creates a second one and the shop accumulates test
+        artefacts that are indistinguishable from products with a mistake in them. With it,
+        the run's first act can be to sweep what a previous run left.
+
+        `getListingsByShop` is the operation; `state` is its own filter parameter, so the
+        sweep never sees an active listing and cannot act on one.
+        """
+        creds = self._require(Authority.READ)
+        body = self._call("GET", f"/shops/{creds.shop_id}/listings",
+                          operation="getListingsByShop", authority=Authority.READ,
+                          query={"state": state, "limit": limit}).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
+    def get_taxonomy_node(self, taxonomy_id: int = TAXONOMY_PATTERNS) -> dict[str, Any]:
+        """Find one seller taxonomy node in Etsy's tree, or return {} if it is not there.
+
+        `TAXONOMY_PATTERNS = 66` is an integer with a comment next to it. A wrong taxonomy id
+        is **not an error**: Etsy accepts the create, returns 201, and the listing sits in the
+        wrong category where nobody shopping for a crochet pattern will ever see it. So the
+        id cannot be confirmed by a successful write, and the only thing that confirms it is
+        reading Etsy's own tree and looking at the node's name.
+
+        Etsy returns the whole tree from one endpoint, so this walks it rather than asking for
+        a node by id -- there is no by-id operation in the document.
+        """
+        body = self._call("GET", "/seller-taxonomy/nodes",
+                          operation="getSellerTaxonomyNodes",
+                          authority=Authority.READ).body
+        found: dict[str, Any] = {}
+
+        def walk(nodes: Any) -> None:
+            nonlocal found
+            if not isinstance(nodes, list):
+                return
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                if node.get("id") == taxonomy_id and not found:
+                    found = node
+                walk(node.get("children"))
+
+        walk(body.get("results"))
+        return found
+
+    def find_taxonomy_nodes(self, needle: str) -> list[dict[str, Any]]:
+        """Every taxonomy node whose name contains `needle`, case-insensitively.
+
+        The companion to `get_taxonomy_node`: when the id turns out to be wrong, the next
+        question is immediately "then which id is right", and a run that has already paid for
+        the tree should answer it rather than make somebody run it again.
+        """
+        body = self._call("GET", "/seller-taxonomy/nodes",
+                          operation="getSellerTaxonomyNodes",
+                          authority=Authority.READ).body
+        out: list[dict[str, Any]] = []
+        target = needle.lower()
+
+        def walk(nodes: Any) -> None:
+            if not isinstance(nodes, list):
+                return
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                if target in str(node.get("name") or "").lower():
+                    out.append({"id": node.get("id"), "name": node.get("name"),
+                                "level": node.get("level")})
+                walk(node.get("children"))
+
+        walk(body.get("results"))
+        return out
+
+    def get_taxonomy_properties(self,
+                                taxonomy_id: int = TAXONOMY_PATTERNS) -> list[dict[str, Any]]:
+        """The listing properties this taxonomy node defines, and which of them are required.
+
+        If any is `is_required`, **every create against that node is refused** with a property
+        id in the message, and nothing in this client can set a listing property. That would
+        be a launch blocker discovered by a 400 on the first real product; asking Etsy first
+        costs one read.
+        """
+        body = self._call("GET", f"/seller-taxonomy/nodes/{taxonomy_id}/properties",
+                          operation="getPropertiesByTaxonomyId",
+                          authority=Authority.READ).body
         results = body.get("results")
         return list(results) if isinstance(results, list) else []
 

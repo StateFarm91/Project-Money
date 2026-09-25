@@ -27,6 +27,7 @@ So these tests are written to fail in the two directions that matter:
 """
 from __future__ import annotations
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -42,6 +43,7 @@ from brambleloop.integrations.etsy import (  # noqa: E402
     build_payload,
 )
 from brambleloop.integrations.http import UrllibTransport, form_body, multipart_body  # noqa: E402
+from brambleloop.publish import listing_schema as S  # noqa: E402
 from tests.fake_etsy import FakeEtsy  # noqa: E402
 
 
@@ -563,22 +565,36 @@ def test_the_shadow_safe_exercise_runs_end_to_end_and_leaves_nothing_behind():
         assert fake.listings == {}, f"the shop still holds {list(fake.listings)}"
         assert fake.images == {}, fake.images
 
+        assert report["cleanup_verified"] is True, report
+        assert report["shop_is_clean"] is True, report
+        assert report["left_behind"] == [], report["left_behind"]
+
         steps = {s["step"]: s for s in report["steps"]}
         assert all(steps[name]["ok"] for name in steps), report["steps"]
-        for name in ("read_shop", "create_draft", "upload_image", "update_listing",
-                     "refusals_hold", "read_back", "cleanup"):
-            assert name in steps, f"{name} did not run"
+        # The eight steps of the prepared run, in the order they must happen: identity before
+        # anything is created, the contract verified before anything is deleted, and the
+        # deletion verified after it.
+        expected = ["sweep", "identity", "create_draft", "upload_image", "update_listing",
+                    "refusals_hold", "read_back", "verify_contract", "cleanup",
+                    "verify_cleanup"]
+        assert [s["step"] for s in report["steps"]] == expected, [s["step"] for s in
+                                                                  report["steps"]]
         assert steps["create_draft"]["observed"]["encoding_sent"] == \
             "application/x-www-form-urlencoded"
         assert steps["upload_image"]["observed"]["encoding_sent"] == "multipart/form-data"
         assert steps["read_back"]["observed"]["images_on_etsy"] == 1
         assert steps["read_back"]["observed"]["state_on_etsy"] == "draft"
+        assert steps["verify_cleanup"]["observed"]["still_on_etsy"] is False
 
-        # The operations Etsy saw, in order. A create with no state field, then the image.
+        # The operations Etsy saw. A create with no state field, then the image.
         seen = [r["operation"] for r in fake.requests]
         assert seen.count("createDraftListing") == 1, seen
         assert seen.count("uploadListingImage") == 1, seen
         assert seen.count("deleteListing") == 1, seen
+        # And the reads that make the contract check a comparison rather than an inference.
+        assert "getSellerTaxonomyNodes" in seen, seen
+        assert "getPropertiesByTaxonomyId" in seen, seen
+        assert "getMe" in seen, seen
 
 
 def test_the_exercise_report_carries_no_credential():
@@ -624,6 +640,373 @@ def test_the_probe_refuses_to_write_without_an_explicit_operator_grant():
         assert "READ ONLY" in report["status"], report["status"]
     # Either way the ping was attempted against Etsy itself and reported honestly.
     assert report["ping"]["url"].startswith("https://openapi.etsy.com/"), report["ping"]
+
+
+# ---------------------------------------------------------------------------
+# The failure taxonomy, executed rather than described
+#
+# Each of these provokes one signature from `etsy_probe.TAXONOMY` and asserts the cause and
+# the change that come back. A taxonomy nobody has run is a document, and a document is what
+# this department already had.
+
+
+def _findings(report) -> dict:
+    return {f["outcome"]: f for f in report["findings"]}
+
+
+def test_a_comma_joined_tag_list_etsy_misreads_is_caught_by_the_read_back_and_nothing_else():
+    """Measures the ambiguity in ETSY_TRANSPORT.md 3.3, on the reading we did not choose.
+
+    Every request in this run succeeds. The create returns 201, the update returns 200, and
+    the listing Etsy holds has one tag where we sent two, because the server is configured to
+    read a form array as repeated keys -- the other reading of Etsy's own document. No status
+    code anywhere says anything is wrong, so if the read-back comparison does not catch it,
+    nothing does.
+    """
+    with FakeEtsy(tags_are_repeated_keys=True) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+
+        assert report["verified"] is False, "a silently wrong tag list passed verification"
+        create = [s for s in report["steps"] if s["step"] == "create_draft"][0]
+        assert create["ok"] is True, "the create succeeded, which is the whole point"
+
+        finding = _findings(report)["tags_stored_comma_joined"]
+        assert finding["cause"] == etsy_probe.OUR_BUG, finding
+        assert "ARRAY_ENCODING" in finding["change"], finding["change"]
+        assert "repeat" in finding["change"], finding["change"]
+
+        contract = [s for s in report["steps"] if s["step"] == "verify_contract"][0]
+        assert len(contract["observed"]["tags_on_etsy"]) == 1, contract["observed"]
+        assert "," in contract["observed"]["tags_on_etsy"][0], contract["observed"]
+        # And the shop is still left clean: a wrong encoding is not a reason to abandon the
+        # test draft in a real shop.
+        assert report["shop_is_clean"] is True, report["left_behind"]
+
+
+def test_flipping_array_encoding_changes_the_bytes_and_nothing_else():
+    """Measures that the single change the taxonomy prescribes actually works.
+
+    A taxonomy entry saying "set one constant" is worth nothing if setting it does not fix
+    the thing. This flips `ARRAY_ENCODING` against the server that reads repeated keys, and
+    the same run that failed above now round-trips.
+    """
+    import brambleloop.integrations.etsy as etsy_module
+
+    original = etsy_module.ARRAY_ENCODING
+    try:
+        etsy_module.ARRAY_ENCODING = "repeat"
+        assert etsy_module.form_fields({"tags": ["a b", "c d"], "quantity": 999,
+                                        "is_supply": True}) == {
+            "tags": ["a b", "c d"], "quantity": "999", "is_supply": "true"}
+        assert form_body({"tags": ["a b", "c d"]}) == b"tags=a+b&tags=c+d"
+
+        with FakeEtsy(tags_are_repeated_keys=True) as fake:
+            report = etsy_probe.run_exercise(_client(fake))
+            assert report["verified"] is True, report.get("read_back")
+            assert "tags_round_tripped" in _findings(report), list(_findings(report))
+    finally:
+        etsy_module.ARRAY_ENCODING = original
+    # The constant is back where it was, and the comma encoding still works against the
+    # server that reads commas -- so neither setting is a one-way door.
+    assert etsy_module.ARRAY_ENCODING == "comma"
+    assert form_body({"tags": "a b,c d"}) == b"tags=a+b%2Cc+d"
+
+
+def test_a_wrong_taxonomy_id_is_found_by_reading_the_node_back_and_not_by_a_status():
+    """Measures the outcome that returns 201 and puts the product in the wrong category."""
+    nodes = ({"id": 66, "name": "Bath Bombs", "level": 2, "children": []},
+             {"id": 91, "name": "Crochet Patterns", "level": 2, "children": []})
+    with FakeEtsy(taxonomy_nodes=nodes) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+
+        create = [s for s in report["steps"] if s["step"] == "create_draft"][0]
+        assert create["ok"] is True, "Etsy accepted the wrong category without complaint"
+
+        finding = _findings(report)["taxonomy_id_wrong"]
+        assert finding["cause"] == etsy_probe.OUR_BUG, finding
+        assert "TAXONOMY_PATTERNS" in finding["change"], finding["change"]
+
+        # And the corrected value is in the same report, so nobody has to run this twice.
+        contract = [s for s in report["steps"] if s["step"] == "verify_contract"][0]
+        candidates = contract["observed"]["taxonomy"]["candidates"]
+        assert 91 in [c["id"] for c in candidates], candidates
+        assert report["shop_is_clean"] is True
+
+
+def test_a_taxonomy_that_requires_a_listing_property_refuses_every_create():
+    """Measures the failure that would otherwise be met by the first real product."""
+    with FakeEtsy(required_property={"property_id": 513, "name": "Craft type"}) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+
+        assert report["stopped_at"] == "create_draft", report
+        finding = _findings(report)["create_needs_listing_property"]
+        assert finding["cause"] == etsy_probe.OUR_BUG, finding
+        assert "updateListingProperty" in finding["change"], finding["change"]
+
+        # The diagnosis ran without a second attempt, and it names the property id.
+        step = [s for s in report["steps"] if s["step"] == "create_draft"][0]
+        required = step["diagnosis"]["required_properties"]
+        assert [p["property_id"] for p in required] == [513], required
+        # Nothing was created, so there is nothing to clean up and the report says so.
+        assert report["shop_is_clean"] is True, report["left_behind"]
+        assert fake.listings == {}
+
+
+def test_an_image_etsy_refuses_is_a_finding_about_the_fixture_not_about_the_transport():
+    """Measures the 1x1 PNG question, which is the one thing here nobody could read up."""
+    with FakeEtsy(image_failure=(400, "Image is too small: minimum 500 pixels wide.")) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+
+        finding = _findings(report)["image_too_small"]
+        assert finding["cause"] == etsy_probe.OUR_BUG, finding
+        assert "png(" in finding["change"], finding["change"]
+        # The run carries on: an image failure must not cost the evidence about everything
+        # else, and it must not leave the draft behind either.
+        assert report["cleanup_verified"] is True
+        assert report["shop_is_clean"] is True
+        # The prescribed change produces a real image of the size Etsy asked for.
+        bigger = etsy_probe.png(500, 500)
+        assert bigger.startswith(b"\x89PNG")
+        assert len(bigger) > len(etsy_probe.one_pixel_png())
+
+
+def test_a_delete_etsy_accepts_and_does_not_perform_is_caught_by_step_eight():
+    """Measures the claim a 204 does not make: that the listing is gone."""
+    with FakeEtsy(delete_is_soft=True) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+
+        cleanup = [s for s in report["steps"] if s["step"] == "cleanup"][0]
+        assert cleanup["ok"] is True, "the DELETE itself succeeded"
+        assert report["cleaned_up"] is True
+        assert report["cleanup_verified"] is False, "a 204 was taken as proof of removal"
+
+        finding = _findings(report)["delete_is_soft"]
+        assert finding["cause"] == etsy_probe.ETSY_CONTRACT_DRIFT, finding
+        # The shop still holds it, so it is named for manual removal rather than forgotten.
+        assert report["shop_is_clean"] is False
+        assert report["owner_action"]["listings"][0]["title"].startswith("DO NOT BUY")
+
+
+def test_a_delete_that_fails_names_the_listing_for_shop_manager_and_blames_the_right_thing():
+    """Measures that a failure leaves the shop no dirtier than it found it, and says so."""
+    with FakeEtsy(delete_failure=(403, "insufficient scope; missing listings_d")) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+
+        finding = _findings(report)["delete_scope_missing"]
+        assert finding["cause"] == etsy_probe.ENVIRONMENT, finding
+        assert finding["settles"] is False, "a missing scope says nothing about deletion"
+
+        # The listing that could not be deleted is still present, and step 8 must attribute
+        # that to step 7's failure rather than accusing Etsy of ignoring a deletion.
+        assert "delete_never_happened" in _findings(report), list(_findings(report))
+        assert "delete_did_not_delete" not in _findings(report)
+
+        action = report["owner_action"]
+        assert action["listings"][0]["listing_id"] == report["listing_id"]
+        assert action["maximum_cost"] == "CA$0"
+        assert "Shop Manager" in action["where"]
+
+
+def test_running_twice_leaves_one_shop_rather_than_two():
+    """Measures idempotence: the second run sweeps what the first one could not remove.
+
+    This is what makes the run safe to attempt again after any failure, which matters most
+    when the failure is a transient one and the obvious response is to re-run.
+    """
+    with FakeEtsy(delete_failure=(500, "Etsy is having a moment")) as fake:
+        first = etsy_probe.run_exercise(_client(fake))
+        assert first["shop_is_clean"] is False
+        assert len(fake.listings) == 1
+        stranded = first["listing_id"]
+
+        fake.delete_failure = None
+        second = etsy_probe.run_exercise(_client(fake))
+
+        sweep = [s for s in second["steps"] if s["step"] == "sweep"][0]
+        assert sweep["observed"]["stale_drafts_found"] == 1, sweep["observed"]
+        assert sweep["observed"]["removed"][0]["listing_id"] == stranded, sweep["observed"]
+        assert second["verified"] is True
+        assert second["shop_is_clean"] is True
+        assert fake.listings == {}, f"the shop still holds {list(fake.listings)}"
+
+
+def test_a_transient_failure_is_the_environment_and_settles_nothing():
+    """Measures the cause that costs no code change, and that it says so."""
+    with FakeEtsy(delete_failure=(503, "Service Unavailable")) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+        finding = _findings(report)["cleanup_unreachable"]
+        assert finding["cause"] == etsy_probe.ENVIRONMENT, finding
+        assert finding["settles"] is False
+        assert finding["change"].startswith("none"), finding["change"]
+
+    claims = {c["claim"]: c for c in report["claims"]}
+    assert claims["delete_removes_draft"]["state_after"] == \
+        claims["delete_removes_draft"]["state_before"], claims["delete_removes_draft"]
+
+
+def test_every_taxonomy_entry_names_a_cause_and_a_single_change():
+    """Measures that no entry says 'investigate'. That is the substance of this lane."""
+    rows = etsy_probe.taxonomy_table()
+    assert len(rows) >= 25, len(rows)
+    for row in rows:
+        assert row["cause"] in etsy_probe.CAUSES, row
+        assert row["change"].strip(), row
+        assert "investigate" not in row["change"].lower(), row
+        assert "look into" not in row["change"].lower(), row
+        assert row["signal"].strip() and row["means"].strip(), row
+        if row["cause"] != etsy_probe.CONFIRMED:
+            assert row["claim"], row
+
+    # Every claim in the verification matrix that this run could move is covered by at least
+    # one signature, so no claim can come back from the run unclassifiable.
+    covered = {row["claim"] for row in rows}
+    for claim in ("form_encoded_create", "multipart_image_upload", "array_encoding_tags",
+                  "oauth_token_endpoint", "taxonomy_patterns_id",
+                  "taxonomy_required_properties", "delete_removes_draft",
+                  "image_minimum_acceptable"):
+        assert claim in covered, f"{claim} has no signature in the taxonomy"
+
+
+def test_an_outcome_the_taxonomy_does_not_carry_says_so_instead_of_guessing():
+    """Measures that an unpredicted outcome is reported as a gap in the taxonomy itself."""
+    finding = etsy_probe.classify("create_draft", {"status": 418, "ping_reachable": True})
+    assert finding["outcome"] == "UNCLASSIFIED", finding
+    assert finding["cause"] is None, finding
+    assert "TAXONOMY" in finding["means"], finding["means"]
+
+
+# ---------------------------------------------------------------------------
+# The three states, and the secrets
+
+
+def test_a_green_run_against_the_fake_cannot_promote_anything_to_verified_against_etsy():
+    """The hard requirement. One successful fake-shop run is not evidence about Etsy.
+
+    This is the test that has to exist, because everything else in this file passes against
+    a server built from our own reading of Etsy's document. If a perfect run here could move
+    a claim to VERIFIED_AGAINST_ETSY, the three states would have collapsed into two and the
+    report would be a more confident version of the same guess.
+    """
+    with FakeEtsy() as fake:
+        client = _client(fake)
+        report = etsy_probe.run_exercise(client)
+
+        assert report["verified"] is True, "the run itself succeeded"
+        assert report["against_etsy"] is False, report["base_url"]
+        assert "not Etsy" in report["evidence_note"], report["evidence_note"]
+
+        for claim in report["claims"]:
+            assert claim["state_after"] == claim["state_before"], claim
+            assert claim["state_after"] != "VERIFIED_AGAINST_ETSY" or \
+                claim["claim"] in {f["key"] for f in S.ETSY_VERIFIED_FACTS}, claim
+
+        # Only the four unauthenticated pings are verified, and they are verified because an
+        # observation of Etsy saying so is written down -- not because a test passed.
+        verified = [c for c in report["claims"]
+                    if c["state_after"] == "VERIFIED_AGAINST_ETSY"]
+        assert len(verified) == 4, [c["claim"] for c in verified]
+
+        # And the same findings, produced by the same run, do promote when the requests went
+        # to Etsy. The gate is where the bytes went, not who is asking.
+        promoted = etsy_probe.claims(report["findings"], etsy=True)
+        assert any(c["state_after"] == "VERIFIED_AGAINST_ETSY"
+                   and c["state_before"] != "VERIFIED_AGAINST_ETSY" for c in promoted)
+
+
+def test_the_three_states_are_reported_in_the_code_the_report_and_the_gap_list():
+    """Measures that the distinction is kept in all three places, not just one."""
+    # In the schema module.
+    assert S.VERIFICATION_STATES == ("IMPLEMENTED", "LOCALLY_TESTED", "VERIFIED_AGAINST_ETSY")
+    # In the gap list.
+    for gap in S.gaps():
+        assert gap["verification"] in S.VERIFICATION_STATES, gap
+    # In the report a run emits.
+    with FakeEtsy() as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+    states = {c["state_before"] for c in report["claims"]}
+    assert states <= set(S.VERIFICATION_STATES), states
+    assert len(states) == 3, f"the report collapsed the states to {states}"
+
+
+def test_a_response_body_carrying_a_token_is_redacted_before_it_reaches_the_report():
+    """Measures redaction at the boundary rather than hope about what a body contains.
+
+    The server echoes the Authorization header back inside an error message -- which is how
+    a token really leaks: in prose, in a field nobody predicted, from a server that had no
+    business repeating it. Redacting only by key name would pass this straight through.
+    """
+    with FakeEtsy(delete_failure=(400, "could not delete"), echo_token_in_error=True) as fake:
+        client = _client(fake, token="111.live-token")
+        report = etsy_probe.run_exercise(client)
+
+        rendered = json.dumps(report, default=str)
+        assert "live-token" not in rendered, "an access token reached the report"
+        assert "Bearer 111" not in rendered, "a bearer header reached the report"
+        assert fake.keystring not in rendered, "the keystring reached the report"
+        assert fake.shared_secret not in rendered, "the shared secret reached the report"
+        # Redacted, not deleted: the fingerprint is there so two appearances of one token are
+        # visibly the same token, which is the property the existing reprs already have.
+        assert "***" in rendered
+        # And the run still reported the failure it was hiding a secret inside.
+        assert report["shop_is_clean"] is False
+
+
+def test_the_redactor_catches_a_secret_by_value_and_by_key_and_leaves_ordinary_fields_alone():
+    """Measures both mechanisms, and that it does not eat the report it is protecting."""
+    from brambleloop.integrations.http import Redactor, fingerprint
+
+    redactor = Redactor(["supersecretvalue", "keystring123:shared456"])
+    out = redactor({
+        "listing_id": "700000001",
+        "access_token": "anything at all",
+        "error": "refused for keystring123:shared456 while using 987654.AbCdEfGhIjKlMnOpQr",
+        "nested": [{"refresh_token": "x" * 40}, {"title": "DO NOT BUY - transport test"}],
+        "count": 3, "ok": True,
+    })
+    assert out["listing_id"] == "700000001", "a listing id is not a secret"
+    assert out["count"] == 3 and out["ok"] is True
+    assert out["nested"][1]["title"] == "DO NOT BUY - transport test"
+    assert out["access_token"] == f"***{fingerprint('anything at all')}"
+    assert "keystring123" not in out["error"], out["error"]
+    assert "AbCdEfGhIjKlMnOpQr" not in out["error"], "a token-shaped string survived"
+    assert "x" * 40 not in json.dumps(out)
+    # The same secret twice is the same fingerprint, so a report stays readable.
+    assert redactor.string("supersecretvalue") == redactor.string("supersecretvalue")
+    assert redactor.string("supersecretvalue") != redactor.string("keystring123:shared456")
+
+
+def test_a_report_from_a_failed_run_still_says_what_is_left_in_the_shop():
+    """Measures the rule that a failure at any step must say what it left behind."""
+    with FakeEtsy(delete_failure=(400, "no")) as fake:
+        report = etsy_probe.run_exercise(_client(fake))
+    assert report["left_behind"], "a stranded draft was not reported"
+    assert report["left_behind"][0]["title"].startswith(etsy_probe.TEST_TITLE_PREFIX)
+    assert report["shop_is_clean"] is False
+    assert report["owner_action"]["minutes"] == 2
+
+    # A successful run carries the same key, empty, so "is the shop clean" is never a question
+    # the reader has to answer from the absence of something.
+    with FakeEtsy() as fake:
+        clean = etsy_probe.run_exercise(_client(fake))
+    assert clean["left_behind"] == []
+    assert clean["shop_is_clean"] is True
+    assert "owner_action" not in clean
+
+
+def test_the_run_never_activates_anything_whatever_goes_wrong():
+    """Measures the one thing that would cost money, across every failure path built here."""
+    cases = [FakeEtsy(), FakeEtsy(tags_are_repeated_keys=True),
+             FakeEtsy(delete_failure=(400, "no")), FakeEtsy(delete_is_soft=True),
+             FakeEtsy(image_failure=(400, "too small")),
+             FakeEtsy(required_property={"property_id": 1, "name": "x"})]
+    for fake in cases:
+        with fake:
+            report = etsy_probe.run_exercise(_client(fake))
+            assert report["activation_attempted"] is False, report
+            assert report["authority"]["activate"] != "permitted", report["authority"]
+            assert all(r["operation"] != "updateShop" for r in fake.requests)
+            for listing in fake.listings.values():
+                assert listing["state"] != "active", listing
 
 
 if __name__ == "__main__":

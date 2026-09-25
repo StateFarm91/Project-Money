@@ -63,12 +63,44 @@ class FakeEtsy:
                  shop_id: str = "12345",
                  scopes: tuple[str, ...] = ("listings_r", "listings_w", "listings_d",
                                             "shops_r", "shops_w"),
-                 access_token_seconds: float = 3600.0) -> None:
+                 access_token_seconds: float = 3600.0,
+                 tags_are_repeated_keys: bool = False,
+                 taxonomy_nodes: tuple[dict[str, Any], ...] | None = None,
+                 required_property: dict[str, Any] | None = None,
+                 remap_taxonomy_to: int | None = None,
+                 image_failure: tuple[int, str] | None = None,
+                 delete_failure: tuple[int, str] | None = None,
+                 delete_is_soft: bool = False,
+                 echo_token_in_error: bool = False) -> None:
         self.keystring = keystring
         self.shared_secret = shared_secret
         self.shop_id = str(shop_id)
         self.scopes = scopes
         self.access_token_seconds = access_token_seconds
+        # -- the knobs that make the failure taxonomy executable ------------
+        # Each one produces the signature of one entry in `etsy_probe.TAXONOMY`, so the
+        # classification is run rather than described. None of them makes this server more
+        # like Etsy: they make it like the *other* readings of Etsy's document, which is the
+        # only honest thing a model can be when the document is ambiguous.
+        #
+        # Etsy reads `tags=a&tags=b` and treats a comma-joined value as one tag. This is the
+        # other half of the ambiguity in ETSY_TRANSPORT.md 3.3, and note that it produces no
+        # error at all: the listing is created, 201, with one wrong tag.
+        self.tags_are_repeated_keys = tags_are_repeated_keys
+        self.taxonomy_nodes = taxonomy_nodes if taxonomy_nodes is not None else (
+            {"id": 1, "name": "Craft Supplies & Tools", "level": 1, "children": [
+                {"id": 66, "name": "Patterns", "level": 2, "children": []},
+                {"id": 67, "name": "Patterns & Blueprints", "level": 2, "children": []},
+            ]},
+        )
+        self.required_property = required_property
+        self.remap_taxonomy_to = remap_taxonomy_to
+        self.image_failure = image_failure
+        self.delete_failure = delete_failure
+        self.delete_is_soft = delete_is_soft
+        # When true, an error body carries a token-shaped string, which is how a real API
+        # leaks one: inside prose nobody predicted. The redaction test uses it.
+        self.echo_token_in_error = echo_token_in_error
         self.listings: dict[str, dict[str, Any]] = {}
         self.images: dict[str, list[dict[str, Any]]] = {}
         self.requests: list[dict[str, Any]] = []
@@ -131,10 +163,30 @@ class FakeEtsy:
 
     # -- the listing store -------------------------------------------------
 
-    def _new_listing(self, fields: dict[str, str]) -> dict[str, Any]:
+    def array(self, key: str, value: str, repeated: Any = ()) -> list[str]:
+        """Read a form array the way this server's configured reading of Etsy reads it.
+
+        With `tags_are_repeated_keys` false -- the default, and the reading this system
+        currently sends -- a comma splits, so `tags=a,b` and `tags=a&tags=b` are the same two
+        tags. With it true, only repeated keys are separate values and a comma-joined string
+        is **one tag containing a comma**: accepted, stored, 201 returned, and nothing on the
+        wire says anything is wrong. That silent outcome is the reason the run reads tags back
+        instead of trusting the status.
+        """
+        if not self.tags_are_repeated_keys or key in (repeated or ()):
+            return _split(value)
+        return [value] if value else []
+
+    def _new_listing(self, fields: dict[str, str],
+                     repeated: Any = ()) -> dict[str, Any]:
         listing_id = str(self.next_id)
         self.next_id += 1
         price = float(fields.get("price", "0") or 0)
+        taxonomy = int(float(fields.get("taxonomy_id", "0") or 0))
+        if self.remap_taxonomy_to is not None:
+            # Etsy silently remaps a deprecated node. No error, no warning, and the listing
+            # is in a category nobody chose.
+            taxonomy = self.remap_taxonomy_to
         record = {
             "listing_id": int(listing_id),
             "shop_id": int(self.shop_id),
@@ -145,9 +197,9 @@ class FakeEtsy:
             # Etsy returns a Money object, not the decimal that was sent.
             "price": {"amount": int(round(price * 100)), "divisor": 100,
                       "currency_code": "CAD"},
-            "tags": _split(fields.get("tags", "")),
-            "materials": _split(fields.get("materials", "")),
-            "taxonomy_id": int(float(fields.get("taxonomy_id", "0") or 0)),
+            "tags": self.array("tags", fields.get("tags", ""), repeated),
+            "materials": self.array("materials", fields.get("materials", ""), repeated),
+            "taxonomy_id": taxonomy,
             # Etsy renames `type` to `listing_type` on the way back.
             "listing_type": fields.get("type", "physical"),
             "who_made": fields.get("who_made", ""),
@@ -227,6 +279,13 @@ class _Handler(BaseHTTPRequestHandler):
         The Content-Type check is the point of this method. Etsy lists
         `application/x-www-form-urlencoded` as the only media type for its two listing write
         operations; a client that sends JSON gets a body this server will not read.
+
+        Repeated keys are joined with a comma rather than dropped, so that
+        `tags=a&tags=b` and `tags=a,b` arrive as the same string. Which of those Etsy means
+        is the open question; how this server *stores* them is where the two readings differ,
+        and that is decided in `_new_listing` from `tags_are_repeated_keys`. Parsing them
+        identically here is deliberate: a parser that silently kept only the last value would
+        hide the repeated-key encoding rather than model it.
         """
         content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip()
         raw = self._read_body()
@@ -234,7 +293,15 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(415, {"error": f"Unsupported Media Type: {content_type!r}. This "
                                       f"endpoint accepts application/x-www-form-urlencoded."})
             return None
-        return dict(urllib.parse.parse_qsl(raw.decode(), keep_blank_values=True))
+        out: dict[str, str] = {}
+        self.repeated: set[str] = set()
+        for key, value in urllib.parse.parse_qsl(raw.decode(), keep_blank_values=True):
+            if key in out:
+                self.repeated.add(key)
+                out[key] = f"{out[key]},{value}"
+            else:
+                out[key] = value
+        return out
 
     def _multipart(self) -> tuple[dict[str, str], dict[str, tuple[str, bytes]]] | None:
         """Parse a multipart body with Python's `email` parser -- not with our encoder."""
@@ -279,6 +346,33 @@ class _Handler(BaseHTTPRequestHandler):
             if not self._guard(()):
                 return
             return self._send(200, {"application_id": 1})
+
+        # GET /v3/application/shops/{shop_id}/listings?state=draft -- the sweep's read.
+        if len(parts) == 5 and parts[2] == "shops" and parts[4] == "listings":
+            self._record("getListingsByShop")
+            if not self._guard(("listings_r",)):
+                return
+            state = params.get("state", "")
+            results = [dict(r) for r in fake.listings.values()
+                       if not state or r.get("state") == state]
+            return self._send(200, {"count": len(results), "results": results})
+
+        # GET /v3/application/seller-taxonomy/nodes -- the whole tree, as Etsy returns it.
+        if path == "/v3/application/seller-taxonomy/nodes":
+            self._record("getSellerTaxonomyNodes")
+            if not self._guard(()):
+                return
+            return self._send(200, {"count": len(fake.taxonomy_nodes),
+                                    "results": [dict(n) for n in fake.taxonomy_nodes]})
+
+        # GET /v3/application/seller-taxonomy/nodes/{id}/properties
+        if len(parts) == 6 and parts[2] == "seller-taxonomy" and parts[5] == "properties":
+            self._record("getPropertiesByTaxonomyId")
+            if not self._guard(()):
+                return
+            required = ([{**fake.required_property, "is_required": True}]
+                        if fake.required_property is not None else [])
+            return self._send(200, {"count": len(required), "results": required})
 
         if len(parts) == 4 and parts[2] == "shops":
             self._record("getShop")
@@ -344,7 +438,15 @@ class _Handler(BaseHTTPRequestHandler):
             for key, allowed in ENUMS.items():
                 if key in fields and fields[key] not in allowed:
                     return self._send(400, {"error": f"{key} must be one of {list(allowed)}"})
-            return self._send(201, fake._new_listing(fields))
+            if fake.required_property is not None:
+                # What a taxonomy node with a required listing property does to every single
+                # create against it. The message names the property id, which is the only
+                # thing that makes the failure actionable.
+                return self._send(400, {
+                    "error": f"Required listing property missing for this taxonomy: "
+                             f"property_id {fake.required_property.get('property_id')} "
+                             f"({fake.required_property.get('name')})."})
+            return self._send(201, fake._new_listing(fields, getattr(self, "repeated", ())))
 
         # POST /v3/application/shops/{shop_id}/listings/{listing_id}/images
         if len(parts) == 7 and parts[6] == "images":
@@ -369,6 +471,13 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "Empty image."})
             if not data.startswith(b"\x89PNG") and not data.startswith(b"\xff\xd8"):
                 return self._send(400, {"error": "Unsupported image format."})
+            if fake.image_failure is not None:
+                # Etsy's image rules are on help.etsy.com, which refuses automated readers, so
+                # this server cannot model them -- it can only be told to refuse. A test uses
+                # it to exercise the `image_too_small` path, whose whole point is that a
+                # refusal there is a finding about the fixture and not about the transport.
+                status, message = fake.image_failure
+                return self._send(status, {"error": message})
             image = {"listing_image_id": 900000 + len(fake.images[listing_id]) + 1,
                      "listing_id": int(listing_id),
                      "rank": int(float(text.get("rank", "1") or 1)),
@@ -431,7 +540,7 @@ class _Handler(BaseHTTPRequestHandler):
                         return self._send(400, {"error": "state must be active or inactive"})
                     record["state"] = value
                 elif key in ("tags", "materials"):
-                    record[key] = _split(value)
+                    record[key] = fake.array(key, value, getattr(self, "repeated", ()))
                 elif key == "type":
                     record["listing_type"] = value
                 elif key in ("taxonomy_id", "featured_rank", "shop_section_id"):
@@ -462,6 +571,23 @@ class _Handler(BaseHTTPRequestHandler):
             if record["state"] not in DELETABLE_STATES:
                 return self._send(409, {"error": f"cannot delete a listing in state "
                                                  f"{record['state']}"})
+            if fake.delete_failure is not None:
+                status, message = fake.delete_failure
+                if fake.echo_token_in_error:
+                    # How a token really leaks: inside prose, in a field nobody predicted,
+                    # from a server that had no business repeating it. Redaction that only
+                    # looked at known key names would pass this straight into the report.
+                    message = (f"{message} (request was authorised as "
+                               f"{self.headers.get('Authorization', '')})")
+                return self._send(status, {"error": message})
+            if fake.delete_is_soft:
+                # Etsy accepts the deletion and keeps the record in a terminal state. The 204
+                # is honest about the request and says nothing about the listing.
+                record["state"] = "removed"
+                self.send_response(204)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             fake.listings.pop(parts[3])
             fake.images.pop(parts[3], None)
             self.send_response(204)

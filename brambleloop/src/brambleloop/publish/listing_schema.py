@@ -63,6 +63,74 @@ MAX_AGE_DAYS = 30
 SOURCED = "sourced"
 INFERRED = "inferred"
 
+# ---------------------------------------------------------------------------
+# The three states, which are not two
+#
+# Every claim this department makes about the Etsy write path is in exactly one of these, and
+# collapsing any two of them is the specific dishonesty this module exists to prevent.
+#
+# The temptation is real and it is always the same: a green test suite makes LOCALLY_TESTED
+# feel like VERIFIED_AGAINST_ETSY. It is not. `tests/fake_etsy.py` is a server built from
+# Etsy's own document by the same people who read that document to write the client, so a
+# passing test says our client agrees with our reading. If the reading is wrong, the client
+# and the fake are wrong together and every test still passes. One successful fake-shop run
+# is not evidence of Etsy's behaviour, and no number of them adds up to one.
+
+IMPLEMENTED = "IMPLEMENTED"
+"""The code exists and is reachable. Says nothing about whether it works."""
+
+LOCALLY_TESTED = "LOCALLY_TESTED"
+"""Exercised end to end against `tests/fake_etsy.py`, including its failure paths.
+
+Establishes that our bytes are parseable by parsers that are not ours, that the media types
+match the bytes, and that our own refusals refuse. Establishes nothing about Etsy.
+"""
+
+VERIFIED_AGAINST_ETSY = "VERIFIED_AGAINST_ETSY"
+"""Observed in a real response from `openapi.etsy.com`, with the observation recorded.
+
+Reachable only through `ETSY_VERIFIED_FACTS` below, and a claim may not be promoted into it
+by anything except a live observation being written down.
+"""
+
+VERIFICATION_STATES: tuple[str, ...] = (IMPLEMENTED, LOCALLY_TESTED, VERIFIED_AGAINST_ETSY)
+
+# Everything `openapi.etsy.com` has ever told this system, and nothing else. Four facts, all
+# from the three unauthenticated pings of 2026-09-25 recorded in research/ETSY_TRANSPORT.md
+# section 3.1. They need no OAuth token, they create nothing and they cost CA$0.
+#
+# A fact enters this tuple when a real Etsy response is observed and the observation is
+# written here. Nothing else promotes a claim to VERIFIED_AGAINST_ETSY, and
+# `verification_matrix()` refuses to emit that state for a key this tuple does not carry.
+ETSY_VERIFIED_FACTS: tuple[dict, ...] = (
+    {"key": "etsy_reachable_through_our_transport",
+     "fact": ("openapi.etsy.com is reachable from this environment through "
+              "integrations.http.UrllibTransport: TLS through the agent proxy, the body "
+              "parsed by http._parse, the status classified by core.resilience"),
+     "observed": "GET /v3/application/openapi-ping returned a parsed JSON body",
+     "on": "2026-09-25"},
+    {"key": "api_key_header_format",
+     "fact": "x-api-key takes keystring:shared_secret, which is what Credentials builds",
+     "observed": ("unauthenticated ping: HTTP 403 \"Invalid API key: should be in the format "
+                  "'keystring:shared_secret'.\"; supplying that format changed the error to "
+                  "\"API key not found or not active, or incorrect shared secret for API "
+                  "key.\", so the format itself was accepted"),
+     "on": "2026-09-25"},
+    {"key": "bad_key_is_403_not_401",
+     "fact": ("Etsy answers a bad API key with 403, not 401. Both classify as permanent, so "
+              "retry behaviour is right, but a runbook expecting 401 is wrong"),
+     "observed": "HTTP 403 on all three unauthenticated requests",
+     "on": "2026-09-25"},
+    {"key": "api_key_refused_before_body",
+     "fact": ("Etsy refuses on the API key before reading a body, so no unauthenticated "
+              "request can ever establish anything about encoding"),
+     "observed": ("a JSON body POSTed to a form-only endpoint with an invalid key returned "
+                  "the API-key 403 rather than a 415"),
+     "on": "2026-09-25"},
+)
+
+_VERIFIED_KEYS = frozenset(fact["key"] for fact in ETSY_VERIFIED_FACTS)
+
 
 class SchemaRefused(ValueError):
     """A payload Etsy's own document says it will not accept."""
@@ -401,20 +469,135 @@ def form_encoded(payload: dict) -> dict[str, str]:
     return out
 
 
+# Every claim about the Etsy write path, in exactly one of the three states, with the probe
+# step that would move it. `claim` keys match `integrations.etsy_probe.TAXONOMY`, so the run's
+# report and this table name the same things and cannot describe different worlds.
+_MATRIX: tuple[dict, ...] = (
+    {"claim": "etsy_reachable_through_our_transport",
+     "state": VERIFIED_AGAINST_ETSY, "blocks_launch": False,
+     "what": "a request from this system reaches openapi.etsy.com and the reply parses",
+     "graduates_by": "already verified; the three unauthenticated pings of 2026-09-25"},
+    {"claim": "api_key_header_format",
+     "state": VERIFIED_AGAINST_ETSY, "blocks_launch": False,
+     "what": "x-api-key is keystring:shared_secret",
+     "graduates_by": "already verified; Etsy named the format in its own error"},
+    {"claim": "bad_key_is_403_not_401",
+     "state": VERIFIED_AGAINST_ETSY, "blocks_launch": False,
+     "what": "a refused key is a 403",
+     "graduates_by": "already verified"},
+    {"claim": "api_key_refused_before_body",
+     "state": VERIFIED_AGAINST_ETSY, "blocks_launch": False,
+     "what": "Etsy checks the key before the body, so encoding is unverifiable unauthenticated",
+     "graduates_by": "already verified; it is why every row below needs credentials"},
+    {"claim": "form_encoded_create",
+     "state": LOCALLY_TESTED, "blocks_launch": True,
+     "what": "Etsy accepts createDraftListing as application/x-www-form-urlencoded",
+     "graduates_by": "probe step 2 (create_draft) returning 201 with a listing_id"},
+    {"claim": "multipart_image_upload",
+     "state": LOCALLY_TESTED, "blocks_launch": True,
+     "what": "Etsy reads the image binary from a multipart part named `image`",
+     "graduates_by": ("probe step 3 (upload_image) returning 201 with a listing_image_id "
+                      "AND step 6 reading one image back from Etsy")},
+    {"claim": "image_minimum_acceptable",
+     "state": IMPLEMENTED, "blocks_launch": False,
+     "what": ("a 1x1 PNG is an acceptable listing image. Etsy's image rules are on "
+              "help.etsy.com, which refuses automated readers, so this is not even a reading"),
+     "graduates_by": ("probe step 3 accepting the generated pixel; a refusal is a finding "
+                      "about the fixture, not about the transport")},
+    {"claim": "array_encoding_tags",
+     "state": LOCALLY_TESTED, "blocks_launch": True,
+     "what": ("tags are comma-joined (`tags=a,b`) rather than repeated keys. Genuinely "
+              "ambiguous: Etsy's description says 'a comma-separated list' and the OpenAPI "
+              "default for an un-encoded form array is repeated keys, and both are Etsy's "
+              "own document"),
+     "graduates_by": ("probe step 6 comparing the tags Etsy holds against the tags sent. A "
+                      "201 settles nothing: the wrong reading is stored as one tag "
+                      "containing a comma, with no error anywhere")},
+    {"claim": "oauth_token_endpoint",
+     "state": IMPLEMENTED, "blocks_launch": True,
+     "what": ("which host serves the token endpoint, and that either grant works. Etsy's "
+              "authentication page says api.etsy.com and Etsy's OpenAPI document says "
+              "openapi.etsy.com"),
+     "graduates_by": ("the owner's browser authorisation, then the first refresh: probe "
+                      "step 1 cannot run without one")},
+    {"claim": "taxonomy_patterns_id",
+     "state": IMPLEMENTED, "blocks_launch": False,
+     "what": "integrations.etsy.TAXONOMY_PATTERNS = 66 is the patterns node",
+     "graduates_by": ("probe step 6 reading the node out of getSellerTaxonomyNodes and "
+                      "comparing the listing's taxonomy_id on Etsy. A wrong id is a listing "
+                      "in the wrong category, not an error, so a 201 proves nothing")},
+    {"claim": "taxonomy_required_properties",
+     "state": IMPLEMENTED, "blocks_launch": False,
+     "what": "whether the patterns node requires a listing property",
+     "graduates_by": ("probe step 6 reading getPropertiesByTaxonomyId. If one is required, "
+                      "every create is refused with a property id in the message and this "
+                      "becomes a launch blocker with a build task attached")},
+    {"claim": "delete_removes_draft",
+     "state": LOCALLY_TESTED, "blocks_launch": False,
+     "what": "deleteListing really removes a draft rather than accepting and keeping it",
+     "graduates_by": ("probe step 8 (verify_cleanup) reading the listing back and getting "
+                      "404. The 204 in step 7 is Etsy accepting the request, which is a "
+                      "different claim")},
+)
+
+
+def verification_matrix() -> list[dict]:
+    """Every Etsy claim and which of the three states it is in. The honest status, as data.
+
+    Refuses to emit VERIFIED_AGAINST_ETSY for a claim that `ETSY_VERIFIED_FACTS` does not
+    carry an observation for. That is the enforcement, not a convention: promoting a claim
+    means writing down what Etsy actually said, and a row that cannot name an observation
+    cannot be green.
+    """
+    out: list[dict] = []
+    facts = {fact["key"]: fact for fact in ETSY_VERIFIED_FACTS}
+    for row in _MATRIX:
+        if row["state"] not in VERIFICATION_STATES:
+            raise SchemaRefused(f"{row['claim']}: {row['state']!r} is not one of "
+                                f"{list(VERIFICATION_STATES)}")
+        if row["state"] == VERIFIED_AGAINST_ETSY and row["claim"] not in _VERIFIED_KEYS:
+            raise SchemaRefused(
+                f"{row['claim']} claims to be verified against Etsy and no observation of "
+                f"Etsy saying so is recorded in ETSY_VERIFIED_FACTS. A claim cannot be "
+                f"promoted by being believed.")
+        entry = dict(row)
+        fact = facts.get(row["claim"])
+        entry["evidence"] = fact["observed"] if fact else (
+            "tests/fake_etsy.py, which is our reading of Etsy's document, not Etsy"
+            if row["state"] == LOCALLY_TESTED else "none; the code exists and has not run")
+        entry["observed_on"] = fact["on"] if fact else None
+        out.append(entry)
+    return out
+
+
+def verification_summary() -> dict:
+    """How many claims are in each state. The number that must not be allowed to drift."""
+    rows = verification_matrix()
+    return {state: sum(1 for r in rows if r["state"] == state)
+            for state in VERIFICATION_STATES}
+
+
 def gaps() -> list[dict]:
     """The distance between Etsy's contract and what this system produces today.
 
     Each entry names the clause it rests on, so a gap that stops being true when Etsy changes
     its document stops being true visibly. `blocks_launch` is the only field that matters on
     the day the phase moves, and it is set from what would actually fail, not from severity.
+
+    Every entry also carries `verification`: one of IMPLEMENTED, LOCALLY_TESTED or
+    VERIFIED_AGAINST_ETSY, stamped from `verification_matrix()` rather than written here, so
+    the gap list and the matrix cannot say different things about the same claim. A gap row
+    whose `claim` is unknown to the matrix is refused: a gap nobody can state the evidential
+    status of is a gap that gets closed on a feeling.
     """
-    return [
+    return _stamp([
         # 2026-09-25: the image-upload and JSON-body gaps were closed in code. They are not
         # deleted, because a gap between the contract and what this system *produces* was
         # replaced by a gap between what this system produces and what Etsy has confirmed --
         # and on launch day the second one fails just as loudly. What changed is the reason,
         # and the reason is now an owner action rather than a build task.
         {"gap": "the listing-image upload has never been confirmed by Etsy",
+         "claim": "multipart_image_upload",
          "clause": "image_required_to_publish",
          "detail": ("integrations.etsy.EtsyClient.upload_image sends the binary in a part "
                     "named `image` to the listing's images endpoint, and read-back "
@@ -425,6 +608,7 @@ def gaps() -> list[dict]:
                     "activated' remains a reading of a document"),
          "blocks_launch": True},
         {"gap": "the form-encoded write path has never been confirmed by Etsy",
+         "claim": "form_encoded_create",
          "clause": "form_encoded_request",
          "detail": ("integrations.http.UrllibTransport now sets the Content-Type from the "
                     "body channel the caller used, and createDraftListing and updateListing "
@@ -434,6 +618,7 @@ def gaps() -> list[dict]:
                     "owner's OAuth grant makes that possible"),
          "blocks_launch": True},
         {"gap": "nothing has ever authenticated against Etsy",
+         "claim": "oauth_token_endpoint",
          "clause": "write_scope",
          "detail": ("integrations.etsy_oauth implements the authorization-code grant with "
                     "PKCE and the refresh grant, and integrations.etsy_probe is the "
@@ -458,6 +643,7 @@ def gaps() -> list[dict]:
                     "looser costs a rejected listing at publish time"),
          "blocks_launch": False},
         {"gap": "the taxonomy id has never been read back from Etsy",
+         "claim": "taxonomy_patterns_id",
          "clause": "taxonomy_id_unverified",
          "detail": ("integrations.etsy.TAXONOMY_PATTERNS is 66 with the comment "
                     "'craft_supplies_and_tools.patterns'. Confirming it needs one "
@@ -465,6 +651,7 @@ def gaps() -> list[dict]:
                     "this environment does not have and this phase would not use"),
          "blocks_launch": False},
         {"gap": "required listing properties for the chosen taxonomy are unknown",
+         "claim": "taxonomy_required_properties",
          "clause": "taxonomy_required_properties",
          "detail": ("getPropertiesByTaxonomyId reports which attributes a taxonomy node "
                     "marks is_required. Nothing here calls it, and nothing here can set a "
@@ -479,7 +666,53 @@ def gaps() -> list[dict]:
                     "preserving order, which fixes the listing and leaves the CIR-to-listing "
                     "mapping still producing the duplicates"),
          "blocks_launch": False},
-    ]
+        # Two gaps the predecessor's list did not carry, because both look closed from inside
+        # this repository and neither is. They are the two claims most likely to pass every
+        # local check and fail on the real shop, and the first of them fails silently.
+        {"gap": "how an array is form-encoded has never been settled by Etsy",
+         "clause": "form_encoded_request",
+         "claim": "array_encoding_tags",
+         "detail": ("integrations.etsy.ARRAY_ENCODING is 'comma', so tags go out as "
+                    "`tags=a,b`. Etsy's tags description says 'a comma-separated list' and "
+                    "the OpenAPI default for an un-encoded form array is repeated keys "
+                    "(`tags=a&tags=b`); both readings are Etsy's own document, and this "
+                    "system had to pick one. The dangerous outcome is not a 400: if the "
+                    "reading is wrong Etsy returns 201 and stores a single tag containing a "
+                    "comma, which only the read-back comparison can see. Both settings are "
+                    "exercised locally; one real create settles it and one constant moves"),
+         "blocks_launch": True},
+        {"gap": "nothing has confirmed that deleting a draft removes it",
+         "clause": "write_scope",
+         "claim": "delete_removes_draft",
+         "detail": ("integrations.etsy.EtsyClient.delete_listing reads the listing's state "
+                    "back and refuses unless it is the draft the caller expected, then sends "
+                    "DELETE. Etsy's document lists DRAFT as a deletable state and says "
+                    "nothing about what the listing becomes, so a 204 is Etsy accepting the "
+                    "request and not Etsy confirming the listing is gone. The run therefore "
+                    "reads the listing back afterwards and expects a 404. Until it has, "
+                    "every shadow write is a write this system cannot prove it can undo"),
+         "blocks_launch": False},
+    ])
+
+
+def _stamp(rows: list[dict]) -> list[dict]:
+    """Attach each gap's verification state from the matrix, refusing an unknown claim."""
+    states = {row["claim"]: row["state"] for row in verification_matrix()}
+    for row in rows:
+        claim = row.get("claim")
+        if claim is None:
+            # A gap about this system's own internals rather than about Etsy's behaviour --
+            # the duplicate-materials one. IMPLEMENTED is the honest state: the code exists
+            # and Etsy has said nothing about it, which is true of everything here.
+            row["verification"] = IMPLEMENTED
+            continue
+        if claim not in states:
+            raise SchemaRefused(
+                f"gap {row['gap']!r} names claim {claim!r}, which the verification matrix "
+                f"does not carry. A gap with no stated evidential status is one somebody "
+                f"closes because it feels closed.")
+        row["verification"] = states[claim]
+    return rows
 
 
 def describe() -> dict:
@@ -497,6 +730,10 @@ def describe() -> dict:
         "write_scope": WRITE_SCOPE,
         "clauses": [c.to_dict() for c in CLAUSES],
         "gaps": gaps(),
+        "verification_states": list(VERIFICATION_STATES),
+        "verification_matrix": verification_matrix(),
+        "verification_summary": verification_summary(),
+        "verified_against_etsy": [dict(f) for f in ETSY_VERIFIED_FACTS],
         "note": ("Read from Etsy's own published OpenAPI document. Every sourced clause "
                  "carries the sentence it came from; an inferred clause carries none and "
                  "says so. Etsy changes this document, so the reading date is part of the "
