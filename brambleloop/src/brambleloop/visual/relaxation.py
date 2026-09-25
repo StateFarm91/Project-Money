@@ -43,7 +43,7 @@ import numpy as np
 from . import crochet_topology as topo
 
 __all__ = ["Material", "RelaxationReport", "material_for", "relax",
-           "apply_contacts", "project_lengths", "PROVENANCE"]
+           "apply_contacts", "contact_rest_separations", "project_lengths", "PROVENANCE"]
 
 
 # Where each physical number comes from. The owner's instruction is to eliminate arbitrary
@@ -350,7 +350,35 @@ def min_segment_separation(pts: np.ndarray, skip: int = 4) -> float:
 
 
 
-def apply_contacts(pts, yarn_diameter, rest_sep, floor_sep):
+def contact_rest_separations(rest_pts: np.ndarray, yarn_diameter: float, rest_sep: float,
+                             floor_sep: float) -> dict:
+    """The separation each contacting pair of yarn segments was left at by relaxation.
+
+    MEASURED off a configuration, never chosen. `RESTING_CONTACT = 0.62` is one number for
+    every pair in every fabric; this is what THIS fabric's own relaxation settled each pair
+    to, which is the only version of "where two touching strands rest" that is a property of
+    the product rather than of a constant.
+
+    Why it exists. `relax` balances contact against its OWN bending term, which pulls the
+    yarn towards straight. `drape` replaces that with a bending term whose rest state is the
+    relaxed shape, so the bending force is zero at the configuration relaxation handed over
+    -- and the force that was balancing contact is gone with it. Whatever contact still wants
+    is then unopposed. Measured on the certified 5x5: 96 pairs are in contact, 93 of them
+    within 0.02mm of the target and 43 within 0.0001mm, and TWO pairs -- the same intra-stitch
+    fold in two top-row stitches, bridged by a 2.1485mm inextensible segment -- sit at the
+    compressed floor, 0.5667mm short. They carry 91 per cent of the total deficit.
+
+    Keyed by the SEGMENT INDEX PAIR, which is stable because no vertex is ever added, removed
+    or reconnected here. Pairs not in the dictionary keep `rest_sep`, so a contact that forms
+    during a solve is treated exactly as it is today.
+    """
+    seg_i, seg_j, _sp, _tp, dist = _segment_contacts(np.asarray(rest_pts, dtype=float),
+                                                    rest_sep, yarn_diameter)
+    return {(int(a), int(b)): max(float(d), floor_sep)
+            for a, b, d in zip(seg_i, seg_j, dist)}
+
+
+def apply_contacts(pts, yarn_diameter, rest_sep, floor_sep, pair_rest=None, stats=None):
     """Push apart strands that are resting on one another. Returns how many pairs it moved.
 
     Extracted from `relax` so that the drape solver uses THIS code rather than a copy of it.
@@ -358,8 +386,20 @@ def apply_contacts(pts, yarn_diameter, rest_sep, floor_sep):
     to drift apart, and a second copy that quietly disagreed about when yarn is being
     squeezed too hard is exactly how a solver starts pushing strands through their
     neighbours.
+
+    `pair_rest`, when given, is the per-pair separation from `contact_rest_separations`. It
+    can only ever LOWER the soft target, never raise it, and it never touches the floor
+    branch: a pair squeezed below `floor_sep` is still pushed back to `floor_sep` at full
+    gain, so the published compression limit and every lock built on it are untouched.
+
+    `stats`, when given, is filled with `floor_pairs` -- how many pairs the hard floor had to
+    be enforced on this call. A caller that reverts iterations needs to know that, because an
+    iteration that had to un-squeeze yarn is not optional.
     """
     seg_i, seg_j, sp, tp, dist = _segment_contacts(pts, rest_sep, yarn_diameter)
+    if stats is not None:
+        stats["floor_pairs"] = 0
+        stats["pairs"] = int(len(seg_i))
     if not len(seg_i):
         return 0
     pa = pts[seg_i] + sp[:, None] * (pts[seg_i + 1] - pts[seg_i])
@@ -367,9 +407,22 @@ def apply_contacts(pts, yarn_diameter, rest_sep, floor_sep):
     delta = pa - pb
     n = np.linalg.norm(delta, axis=1)
     n[n < 1e-9] = 1e-9
-    want = np.where(dist < floor_sep, floor_sep, rest_sep)
-    gain = np.where(dist < floor_sep, 1.0, 0.5)
-    grow = np.minimum((want - n) / n * gain, _MAX_CONTACT_GAIN)
+    below = dist < floor_sep
+    if stats is not None:
+        stats["floor_pairs"] = int(below.sum())
+    soft = np.full(len(dist), rest_sep)
+    if pair_rest:
+        for k in range(len(dist)):
+            t = pair_rest.get((int(seg_i[k]), int(seg_j[k])))
+            if t is not None and t < soft[k]:
+                soft[k] = t
+    want = np.where(below, floor_sep, soft)
+    gain = np.where(below, 1.0, 0.5)
+    # Clipped at zero as well as at the cap. With one target for every pair `want > n` always
+    # held, because a pair is only ever reported when it is closer than that target. A
+    # measured per-pair target can be BELOW the current separation, and a negative growth
+    # would pull two strands together -- contact inventing an attraction it does not have.
+    grow = np.clip((want - n) / n * gain, 0.0, _MAX_CONTACT_GAIN)
     push = grow[:, None] * delta * 0.5
     for idx, w in ((seg_i, 1.0 - sp), (seg_i + 1, sp)):
         np.add.at(pts, idx, +push * w[:, None])

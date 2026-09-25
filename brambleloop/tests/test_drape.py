@@ -165,32 +165,15 @@ check("the bending bracket spans orders of magnitude and says so",
 # 1.7mm clear with NONE within 0.5mm of the line; draped, two had moved by +4.6mm and
 # +7.0mm. Not a threshold being grazed -- genuinely everted stitches at the free edge, where
 # there are fewest contacts to hold them.
-from brambleloop.visual import stitch_shape as SS                 # noqa: E402
+from brambleloop.visual import stitch_shape as SS                 # noqa: E402,F401
 
 
-def worst_third_loop_margin(fab):
-    hdc = [o for o in fab.ops if o.kind == "hdc"]
-    by = {(o.row, o.position): o for o in hdc}
-    rws = sorted({r for r, _ in by})
-    worst = -1e9
-    for o in hdc:
-        ri = rws.index(o.row)
-        ahead = by.get((o.row, o.position + 1))
-        behind = by.get((o.row, o.position - 1))
-        anc = by.get((rws[ri - 1], o.position)) if ri > 0 else by.get((rws[ri + 1], o.position))
-        if anc is None:
-            continue
-        try:
-            a, u, t = SS.local_frame(o, ahead if ahead is not None else behind, anc,
-                                     neighbour_is_ahead=ahead is not None)
-        except SS.Unframeable:
-            continue
-        if ri == 0:
-            u, t = -u, -t
-        m = SS.shape_margins(o, fab.L, fab.H, fab.D, (a, u, t))
-        if m:
-            worst = max(worst, m["third_loop_below_v_mm"])
-    return worst
+# The instrument itself now lives in `drape.py`, because wave 5 needed it in a third place --
+# the continuous morphology guard -- and three copies of a lock's instrument is how one of them
+# gets "corrected" to match a wrong expectation. This name is kept so every check written
+# against it still reads the same, and a wave 5 check pins that the module's version reproduces
+# the figures this suite has asserted since the first out-of-plane run.
+worst_third_loop_margin = DR.worst_third_loop_margin
 
 
 flat_margin = worst_third_loop_margin(FLAT)
@@ -929,6 +912,199 @@ check("the single-loop linkage instrument has real margin on correct geometry: a
       len(_shares) > 4 and min(_shares) > 0.25,
       "worst stitch %.3f, mean %.3f over %d single-loop stitches"
       % (min(_shares), sum(_shares) / len(_shares), len(_shares)))
+
+# ==========================================================================================
+# WAVE 5 -- the certified fabric as an equilibrium, and what the co-rotational rest state was
+# actually measuring. research/VISUAL_WAVE5.md.
+# ==========================================================================================
+
+# --- the third-loop margin now has ONE definition ------------------------------------------
+check("the module's third-loop margin is the same instrument this suite has asserted "
+      "against, on the flat fabric and on the draped one",
+      abs(DR.worst_third_loop_margin(FLAT) - flat_margin) < 1e-12 and
+      abs(DR.worst_third_loop_margin(DRAPED) - drape_margin) < 1e-12,
+      "%.6f / %.6f" % (DR.worst_third_loop_margin(FLAT), DR.worst_third_loop_margin(DRAPED)))
+
+# --- IS THE CERTIFIED FABRIC AN EQUILIBRIUM OF THE CONTACT MODEL? --------------------------
+# The bending energy is EXACTLY zero at the certified configuration in both forms, and the
+# energy is a sum of squares, so zero is its global minimum. With gravity off there is nothing
+# else to minimise, and any motion at all is the solve climbing out of that minimum.
+check("the documented bending energy is exactly zero at the certified configuration, so with "
+      "gravity off the solve starts at the global minimum of what it is minimising",
+      DR.bending_energy_J(FLAT.points.astype(float), _lam_rest,
+                          DR.CALIBRATED_BENDING_N_M2, _ellm) == 0.0 and
+      DR.bending_energy_J(FLAT.points.astype(float), _lam_rest,
+                          DR.CALIBRATED_BENDING_N_M2, _ellm,
+                          rest_pts=FLAT.points.astype(float), frame_invariant=True) < 1e-30,
+      "world-space exactly 0, co-rotational %.2e J"
+      % DR.bending_energy_J(FLAT.points.astype(float), _lam_rest,
+                            DR.CALIBRATED_BENDING_N_M2, _ellm,
+                            rest_pts=FLAT.points.astype(float), frame_invariant=True))
+
+_mat5 = RX.material_for(FLAT)
+_ci, _cj, _csp, _ctp, _cdist = RX._segment_contacts(
+    FLAT.points.astype(float), _mat5.rest_separation_mm, FLAT.yarn_diameter)
+_deficit = _mat5.rest_separation_mm - _cdist
+check("MEASURED: the certified fabric's contact disequilibrium is real, and it is two pairs "
+      "-- the rest are already where contact wants them",
+      len(_ci) > 50 and int((_deficit > 0.05).sum()) == 2 and
+      int((_deficit > 1e-4).sum()) < len(_ci) * 0.7,
+      "%d pairs in contact, %d with a deficit over 0.05mm, worst %.4fmm, sum %.3fmm"
+      % (len(_ci), int((_deficit > 0.05).sum()), _deficit.max(), _deficit.sum()))
+
+_pr = RX.contact_rest_separations(FLAT.points.astype(float), FLAT.yarn_diameter,
+                                  _mat5.rest_separation_mm, _mat5.floor_separation_mm)
+check("the measured contact rest state never sits below the published compression floor",
+      _pr and min(_pr.values()) >= _mat5.floor_separation_mm - 1e-12,
+      "%d pairs, lowest %.4fmm against a floor of %.4fmm"
+      % (len(_pr), min(_pr.values()), _mat5.floor_separation_mm))
+
+# Tension only: a pair held further apart than its measured rest separation must not be pulled
+# back together. Contact pushes; inventing an attraction here would be a second force wearing
+# contact's name.
+_pull = FLAT.points.astype(float).copy()
+_shrunk = {k: v * 0.5 for k, v in _pr.items()}
+RX.apply_contacts(_pull, FLAT.yarn_diameter, _mat5.rest_separation_mm,
+                  _mat5.floor_separation_mm, pair_rest=_shrunk)
+check("the per-pair contact rest state is tension free: halve every target and the fabric "
+      "does not move at all, because contact only ever pushes",
+      float(np.abs(_pull - FLAT.points.astype(float)).max()) == 0.0,
+      "%.3e mm" % float(np.abs(_pull - FLAT.points.astype(float)).max()))
+
+# And the hard floor is still the hard floor: a pair squeezed past the published compression
+# limit gets the SAME correction with the measured rest state as without it, because the floor
+# branch does not consult it at all.
+_wp = int(np.argmax(_deficit))
+_sa, _sb = int(_ci[_wp]), int(_cj[_wp])
+_squash = FLAT.points.astype(float).copy()
+_squash[_sb] += (_squash[_sa] - _squash[_sb]) * 0.9          # 0.200mm, well under the floor
+_with, _without = _squash.copy(), _squash.copy()
+RX.apply_contacts(_with, FLAT.yarn_diameter, _mat5.rest_separation_mm,
+                  _mat5.floor_separation_mm, pair_rest=_pr)
+RX.apply_contacts(_without, FLAT.yarn_diameter, _mat5.rest_separation_mm,
+                  _mat5.floor_separation_mm)
+_quad = [_sa, _sa + 1, _sb, _sb + 1]
+_corr = float(np.abs(_with[_quad] - _squash[_quad]).max())
+check("the measured contact rest state does not touch the hard floor: a pair squeezed past "
+      "the published compression limit gets exactly the correction it got before, because the "
+      "floor branch does not consult the per-pair target at all",
+      _corr > 1e-3 and float(np.abs(_with[_quad] - _without[_quad]).max()) < 1e-12,
+      "%.5f mm of correction on the squeezed pair, identical to %.3e mm with the option off"
+      % (_corr, float(np.abs(_with[_quad] - _without[_quad]).max())))
+
+_g0 = dict(gravity=0.0, iterations=400)
+_eq = DR.drape(FLAT, replace(SETUP, contact_rest_is_relaxed_shape=True, **_g0))
+check("WITH THE CONTACT REST STATE MEASURED OFF THE CERTIFIED GEOMETRY THE CERTIFIED FABRIC "
+      "IS AN EXACT FIXED POINT: zero gravity, and it does not move at all",
+      _rms_from_flat(_eq[0]) == 0.0 and _eq[1].converged and _eq[1].iterations == 1,
+      "%.3e mm rms, converged=%s in %d iteration(s)"
+      % (_rms_from_flat(_eq[0]), _eq[1].converged, _eq[1].iterations))
+check("RECORDED: without it the residual is NOT zero -- but it is a thousandth of a "
+      "millimetre, not the mechanism the load-independent drift was attributed to",
+      0.0 < _rms_from_flat(DR.drape(FLAT, replace(SETUP, **_g0))[0]) < 0.01,
+      "%.5f mm rms over 400 iterations at zero gravity"
+      % _rms_from_flat(DR.drape(FLAT, replace(SETUP, **_g0))[0]))
+_null = DR.drape(FLAT, replace(SETUP, bending_rigidity_N_m2=0.0, **_g0))
+check("NULL CASE: with the bending term removed entirely and gravity off, contact and "
+      "inextensibility alone move the fabric a thousandth of a millimetre and stop",
+      _rms_from_flat(_null[0]) < 0.01,
+      "%.5f mm rms" % _rms_from_flat(_null[0]))
+
+# --- WHERE THE CO-ROTATIONAL ENERGY ACTUALLY COMES FROM -----------------------------------
+_good5 = DR.genuine_yarn_vertices(FLAT.points.astype(float))
+_one = DR.drape(FLAT, replace(SETUP, iterations=1, frame_invariant_rest=True,
+                              energy_gradient_bending=True,
+                              contact_rest_is_relaxed_shape=True))[0]
+_e_all = DR.bending_energy_J(_one.points.astype(float), _lam_rest,
+                             DR.CALIBRATED_BENDING_N_M2, _ellm,
+                             rest_pts=FLAT.points.astype(float), frame_invariant=True)
+_e_yarn = DR.bending_energy_J(_one.points.astype(float), _lam_rest,
+                              DR.CALIBRATED_BENDING_N_M2, _ellm,
+                              rest_pts=FLAT.points.astype(float), frame_invariant=True,
+                              mask=_good5)
+check("THE DIAGNOSIS: the co-rotational bending energy injected in a single loaded iteration "
+      "is essentially ALL on the path's artificial hops and sub-micron joins, not on yarn",
+      _e_all > 1e-6 and (_e_all - _e_yarn) > 0.9999 * _e_all,
+      "%.4e J in total, %.4e J on the %d genuine yarn vertices, %.4e J on the other %d "
+      "-- the artefacts carry %.6f%% of it"
+      % (_e_all, _e_yarn, int(_good5.sum()), _e_all - _e_yarn, int((~_good5).sum()),
+         100.0 * (_e_all - _e_yarn) / _e_all))
+
+# --- DOES THE RECONCILED CONFIGURATION DESCEND? -------------------------------------------
+_recon = dict(energy_gradient_bending=True, frame_invariant_rest=True,
+              contact_rest_is_relaxed_shape=True, bend_on_yarn_only=True)
+_rc = DR.drape(FLAT, replace(SETUP, iterations=400, **_recon))
+check("THE RECONCILED CO-ROTATIONAL CONFIGURATION DESCENDS under load, which no "
+      "frame-invariant configuration has done before: the gradient force, the measured "
+      "contact rest state and bending only where there is yarn",
+      _rc[1].energy_final_J < _rc[1].energy_start_J,
+      "%.4e -> %.4e J" % (_rc[1].energy_start_J, _rc[1].energy_final_J))
+check("and it does nothing at all with the load removed, which is the control that decides "
+      "whether the motion above is drape",
+      _rms_from_flat(DR.drape(FLAT, replace(SETUP, **_g0, **_recon))[0]) < 1e-9,
+      "%.3e mm rms at zero gravity"
+      % _rms_from_flat(DR.drape(FLAT, replace(SETUP, **_g0, **_recon))[0]))
+check("bending only where there is yarn excludes the hops and the joins and nothing else",
+      _rc[1].bending_vertices == int(_good5.sum()) < len(FLAT.points),
+      "%d of %d vertices" % (_rc[1].bending_vertices, len(FLAT.points)))
+
+# --- MONOTONE DESCENT: a check that passes, not a crutch ----------------------------------
+_mono = DR.drape(FLAT, replace(SETUP, iterations=400, monotone_descent=True, **_recon))
+check("the monotone-descent criterion never fires on the reconciled configuration, so it is "
+      "verifying a descent rather than manufacturing one",
+      _mono[1].energy_rejections == 0 and _mono[1].iterations == 400 and
+      float(np.abs(_mono[0].points - _rc[0].points).max()) < 1e-12,
+      "%d rejections in %d iterations, identical to %.3e mm"
+      % (_mono[1].energy_rejections, _mono[1].iterations,
+         float(np.abs(_mono[0].points - _rc[0].points).max())))
+_mono_c = DR.drape(FLAT, replace(SETUP, iterations=400, monotone_descent=True))
+check("nor on the committed default, which was already a descent",
+      _mono_c[1].energy_rejections == 0 and
+      float(np.abs(_mono_c[0].points -
+                   DR.drape(FLAT, replace(SETUP, iterations=400))[0].points).max()) < 1e-12,
+      "%d rejections" % _mono_c[1].energy_rejections)
+_mono_bad = DR.drape(FLAT, replace(SETUP, iterations=400, monotone_descent=True,
+                                   frame_invariant_rest=True,
+                                   energy_gradient_bending=True))
+check("RECORDED NEGATIVE: with the path's artefacts still in the bending term the same "
+      "criterion DEADLOCKS -- no step it can take lowers the energy, which is what 'not a "
+      "descent direction' means when it is measured rather than argued",
+      _mono_bad[1].energy_rejections > 5 and _mono_bad[1].iterations < 50 and
+      _mono_bad[1].stalled,
+      "%d rejections, %d iterations accepted, stalled=%s"
+      % (_mono_bad[1].energy_rejections, _mono_bad[1].iterations, _mono_bad[1].stalled))
+
+# --- THE CONTINUOUS MORPHOLOGY GUARD ------------------------------------------------------
+_guard_c = DR.drape(FLAT, replace(SETUP, iterations=400, guard_morphology=True))
+check("the morphology guard is inert on a solve that never breaks the product: no "
+      "rejections, and the same fabric to the last bit",
+      _guard_c[1].morphology_rejections == 0 and
+      float(np.abs(_guard_c[0].points -
+                   DR.drape(FLAT, replace(SETUP, iterations=400))[0].points).max()) < 1e-12,
+      "%d rejections, worst margin over the run %+.4f mm"
+      % (_guard_c[1].morphology_rejections, _guard_c[1].margin_max_mm))
+_ever = replace(SETUP, iterations=400, frame_invariant_rest=True)
+_ever_off = DR.drape(FLAT, _ever)
+_ever_on = DR.drape(FLAT, replace(_ever, guard_morphology=True))
+check("the morphology guard STOPS a solve that would evert stitches, at the last valid "
+      "configuration, instead of carrying on and reporting it at the end",
+      DR.worst_third_loop_margin(_ever_off[0]) > 0.0 and
+      DR.worst_third_loop_margin(_ever_on[0]) < 0.0 and
+      _ever_on[1].morphology_rejections > 0 and _ever_on[1].stalled,
+      "unguarded ends at %+.4f mm; guarded ends at %+.4f mm after %d rejections, stalled=%s"
+      % (DR.worst_third_loop_margin(_ever_off[0]), DR.worst_third_loop_margin(_ever_on[0]),
+         _ever_on[1].morphology_rejections, _ever_on[1].stalled))
+check("the guard stands aside rather than deadlocking when the fabric handed to it is "
+      "already broken, and says so",
+      DR.drape(_ever_off[0], replace(SETUP, iterations=5,
+                                     guard_morphology=True))[1].morphology_guard_stood_aside,
+      "reported on a fabric whose worst margin is %+.3f mm"
+      % DR.worst_third_loop_margin(_ever_off[0]))
+
+# --- and the committed default is untouched by every option above --------------------------
+check("no option added in wave 5 moves the committed default by so much as a nanometre",
+      float(np.abs(DR.drape(FLAT, SETUP)[0].points - DRAPED.points).max()) == 0.0,
+      "%.3e mm" % float(np.abs(DR.drape(FLAT, SETUP)[0].points - DRAPED.points).max()))
 
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)
