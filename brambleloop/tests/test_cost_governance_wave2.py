@@ -354,7 +354,14 @@ def test_release_returns_the_money_and_records_what_the_call_actually_cost():
     db = _db()
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
                           now=NOW, holder="host:1:1")
-    assert gw.release_reservation(db, out["reservation_id"], actual_cad=0.0004) is True
+    # Released at the instant it was reserved at. Without `now` this line asserted that a
+    # reservation stamped at the frozen NOW was still live against the real wall clock, which
+    # was true only while NOW happened to be within the 300-second TTL of the real date. It
+    # passed on the day it was written and expired afterwards -- the same defect as the test
+    # fixed on 2026-09-25 that expired at midnight, and the reason `release_reservation` now
+    # takes the instant.
+    assert gw.release_reservation(db, out["reservation_id"], actual_cad=0.0004,
+                                  now=NOW) is True
     assert reservations.outstanding(db, now=NOW)["cad"] == 0.0
     # Released, not deleted: the reservation beside its bill is the reconciliation the
     # owner's spend-accounting instruction asked for and never had.

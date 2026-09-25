@@ -316,17 +316,32 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
 
 
 def release_reservation(db, reservation_id: int | None, *,
-                        actual_cad: float | None = None) -> bool:
+                        actual_cad: float | None = None,
+                        now: datetime | None = None) -> bool:
     """Give back what `check_budget` reserved, with the bill when the caller has it.
 
     Called in a `finally`, or immediately after the provider answers. A caller that forgets
     is not a leak that lasts: the reservation expires. It is, though, a caller that holds
     budget nobody is spending for up to five minutes, which is why
     `reservations.sweep` records the abandonment instead of quietly tidying it away.
+
+    `now` exists because it did not, and the asymmetry was a defect rather than an omission.
+    `check_budget` takes an instant and stamps the reservation's `expires_at` from it; this
+    function could not take one, so it always compared against the wall clock. A caller that
+    reasons about a fixed instant -- a deterministic replay, a backfill, or a test -- wrote a
+    reservation at that instant and then released it against a different one, and
+    `reservations.release` correctly answered False: relative to the real clock the claim had
+    already expired. One quantity, time, living on two paths where only one of them could be
+    told which instant was meant.
+
+    In production nothing passes `now` and both paths read the same wall clock, which is why
+    the reservation signal has read zero since it deployed. That is the shape of this defect
+    family: right in the configuration everybody runs, wrong in the one that reasons about
+    time, and invisible until the two instants drift far enough apart.
     """
     from ..finance import reservations
 
-    return reservations.release(db, reservation_id, actual_cad=actual_cad)
+    return reservations.release(db, reservation_id, actual_cad=actual_cad, now=now)
 
 
 @dataclass
