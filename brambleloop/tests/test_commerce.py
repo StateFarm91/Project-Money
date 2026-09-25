@@ -19,8 +19,9 @@ from PIL import Image  # noqa: E402
 
 from brambleloop.commerce import paid_media as pm  # noqa: E402
 from brambleloop.commerce import pricing_intel as pi  # noqa: E402
-from brambleloop.commerce import search, thumbnail  # noqa: E402
+from brambleloop.commerce import search, seo, thumbnail  # noqa: E402
 from brambleloop.commerce.pricing import DeceptivePricing  # noqa: E402
+from brambleloop.intel import childrens as ch  # noqa: E402
 
 
 # ---- market price scanner --------------------------------------------------
@@ -464,6 +465,105 @@ def test_the_status_report_says_plainly_that_nothing_is_live():
     out = pm.status(pm.CampaignState("x"), pm.CONSERVATIVE_CAPS)
     assert out["live"] is False
     assert "no ad integration exists" in out["why_not_live"]
+
+
+# ---- the children's statements on the listing surface ----------------------
+#
+# A listing is where the buyer decides. Some of the children's statement set changes that
+# decision and belongs here; most of it tells a maker how to work and belongs in the pattern.
+# The split is a decision, so it is pinned.
+
+
+def _blanket_statements():
+    return ch.render_statements("baby_blanket", ch.UNDER_3, ch.StatementFacts(
+        audience=ch.UNDER_3, finished_size_cm=(78.8, 97.2), colours=("cream", "ink"),
+        fibres=("acrylic",)))
+
+
+def _listing(childrens=None):
+    return seo.build_description(
+        "Cloudline Baby Blanket", size_label="79 x 97 cm",
+        yardage_lines=["Yarn: about 600-800 m"], tolerance_pct=20,
+        difficulty="confident beginner", colors=["cream", "ink"], terminology="US",
+        gauge_line="16 sts x 18 rows = 10 cm in sc", stitches=["sc", "dc"],
+        childrens=childrens)
+
+
+def test_the_listing_carries_the_statements_a_buyer_needs_before_they_pay():
+    """Suitability is a pre-purchase fact. A baby blanket is bought for a cot by default.
+
+    Saying "not for an unsupervised sleep space" after the download is saying it after the
+    decision. The three carried here are the ones that change whether, or why, somebody buys.
+    """
+    rendered = _blanket_statements()
+    listing = _listing(rendered)
+    audit = seo.childrens_listing_audit(listing, rendered)
+    assert audit["complete"], audit
+    assert set(audit["present"]) == {"age_suitability", "safe_sleep",
+                                     "selling_finished_items"}
+    assert "SAFETY AND SUITABILITY" in listing
+
+
+def test_the_making_statements_stay_in_the_pattern_and_the_reason_is_recorded():
+    """Ten safety paragraphs in an advertisement is a wall, and a wall hides the warning.
+
+    Each exclusion names its reason, so "we left it out" cannot quietly become "we forgot".
+    """
+    rendered = _blanket_statements()
+    audit = seo.childrens_listing_audit(_listing(rendered), rendered)
+    assert set(audit["not_in_the_listing"]) == {"fibre_and_care", "not_legal_advice"}
+    for key, why in audit["why_not"].items():
+        assert len(why) > 40, key
+    for key in ("face_construction", "supervision", "construction_integrity",
+                "mobile_removal"):
+        assert key in seo.WHY_NOT_IN_THE_LISTING, key
+        assert key not in seo.LISTING_STATEMENTS, key
+    assert "full set of safety notes" in _listing(rendered)
+
+
+def test_the_listing_prints_the_statements_own_words_rather_than_a_paraphrase():
+    """Requirement 40's lesson: four surfaces wrote four versions of one licence.
+
+    A listing paraphrase of a safety statement is the same defect with a worse consequence,
+    so the listing prints the sentences the document prints.
+    """
+    rendered = _blanket_statements()
+    flat = " ".join(_listing(rendered).split())
+    for key in seo.childrens_listing_statements(rendered):
+        assert " ".join(rendered.text[key].split()) in flat, key
+
+
+def test_a_listing_for_a_product_that_is_not_for_a_child_carries_no_safety_block():
+    """Off by default, and the default is what a non-children's listing gets."""
+    plain = _listing(None)
+    assert "SAFETY AND SUITABILITY" not in plain
+    for statement in ch.STATEMENT_SET.values():
+        assert statement.marker not in plain, statement.key
+
+
+def test_the_listing_audit_fails_on_a_description_that_lost_the_block():
+    """Proved against an injected defect: the auditor reads the artefact, not the generator.
+
+    A caller that has a children's product and forgets to pass the statements produces a
+    listing that looks complete. `commerce/friction.py` already states the rule for this
+    module -- the audit reads the listing rather than asking `build_description` whether its
+    own output is correct -- and this is what that buys.
+    """
+    rendered = _blanket_statements()
+    audit = seo.childrens_listing_audit(_listing(None), rendered)
+    assert audit["complete"] is False
+    assert set(audit["missing"]) == {"age_suitability", "safe_sleep",
+                                     "selling_finished_items"}
+
+
+def test_the_listing_block_does_not_trip_the_listings_own_structural_checks():
+    """A safety section that fails `check_listing_limits` is not shippable copy."""
+    rendered = _blanket_statements()
+    copy = seo.ListingCopy(title="Cloudline Baby Blanket Crochet Pattern PDF",
+                           tags=["baby blanket", "crochet pattern"],
+                           description=_listing(rendered), materials=["worsted acrylic"],
+                           price_cad=7.5)
+    assert seo.check_listing_limits(copy) == []
 
 
 if __name__ == "__main__":

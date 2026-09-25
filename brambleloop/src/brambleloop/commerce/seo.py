@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from ..intel import childrens as ch
 from . import terms as customer_terms
 
 TITLE_MAX = 140
@@ -142,13 +143,21 @@ def build_description(product_title: str, *, size_label: str | None,
                       difficulty: str, colors: list[str], terminology: str,
                       gauge_line: str | None, stitches: list[str],
                       season: str | None = None, pages: int | None = None,
-                      collapsed_repeats: bool = False) -> str:
+                      collapsed_repeats: bool = False,
+                      childrens: "ch.RenderedStatements | None" = None) -> str:
     """Assemble the description entirely from verified pattern facts.
 
     `terminology` is still accepted and no line depends on it any more: both documents ship, so
     the honest sentence names two files rather than one terminology. Kept in the signature
     rather than removed, because every caller passes it and the release chain still records
     which terminology a given render is.
+
+    `childrens` is the rendered statement set from `intel.childrens`, for a product
+    merchandised to a child. Left None the description carries no safety section, which is
+    correct for a table runner and wrong for a baby blanket -- so a caller that has a
+    children's product and does not pass it produces a listing `childrens_listing_audit`
+    fails. It is an argument rather than a lookup because this module assembles copy from
+    facts it is given and does not know which CIR it is describing.
     """
     out: list[str] = []
     out.append(f"{product_title} — a crochet pattern, not a finished item. You receive an "
@@ -201,6 +210,11 @@ def build_description(product_title: str, *, size_label: str | None,
         out.append("Start early. A large piece takes real hours, and the whole point of "
                    "buying the pattern now is having the weeks to make it.")
         out.append("")
+    if childrens is not None:
+        # Above the "how this was made" block and well above the licence, because it is a
+        # suitability fact rather than a disclosure: the buyer is still deciding here.
+        out.extend(childrens_listing_block(childrens))
+        out.append("")
     out.append("HOW THIS PATTERN WAS MADE")
     out.append("The design was developed with AI assistance, and every stitch count was "
                "verified row by row by an automated pattern compiler before release. If "
@@ -224,6 +238,117 @@ def build_description(product_title: str, *, size_label: str | None,
     out.append(rendered[0].upper())
     out.extend(rendered[1:])
     return "\n".join(out)
+
+
+# ---- the children's statements that belong in the advertisement -------------
+#
+# Not all of them, and the split is a decision rather than a convenience.
+#
+# The test is **does the buyer need this before they pay**. A statement that changes whether
+# somebody buys, or what they buy it for, belongs where they decide; a statement that tells a
+# maker how to work belongs in the pattern, where they work. Putting all ten in the listing
+# would be the other failure: ten safety paragraphs in an advertisement is a wall nobody
+# reads, and a real warning buried in nine irrelevant ones has been hidden rather than given.
+#
+# **What is deliberately NOT claimed here.** 15 U.S.C. 1278(c) requires the choking
+# cautionary statement in any advertisement offering "a product for which a cautionary
+# statement is required under subsection (a) or (b)" -- read from the statute at
+# uscode.house.gov on 2026-09-25. Subsections (a) and (b) attach to a toy, game, ball, marble
+# or balloon. **The product on our listing is a PDF, not a toy**, so that advertising
+# requirement does not reach us, and this module does not pretend it does. The choking
+# statement is in the list below because a buyer choosing a gift for a particular child needs
+# it before they pay, which is our reason and not a regulator's.
+LISTING_STATEMENTS: tuple[str, ...] = (
+    "age_suitability", "choking_small_parts", "safe_sleep", "selling_finished_items",
+)
+
+WHY_IN_THE_LISTING: dict[str, str] = {
+    "age_suitability": ("the buyer is choosing for one particular child and the age band is "
+                        "the fact that decides whether this is the right pattern for them"),
+    "choking_small_parts": ("where it applies at all, it is a gift-suitability fact: a buyer "
+                            "shopping for a three-year-old decides at the listing"),
+    "safe_sleep": ("a baby blanket is bought for a cot unless somebody says otherwise, and "
+                   "the place to say otherwise is before the money, not after the download"),
+    "selling_finished_items": ("a maker buying this in order to sell what they make is "
+                               "taking on manufacturer obligations, and finding that out "
+                               "after purchase is finding it out too late"),
+}
+
+WHY_NOT_IN_THE_LISTING: dict[str, str] = {
+    "face_construction": ("an instruction about how to work the piece. It changes nothing "
+                          "about whether to buy the pattern and everything about how to make "
+                          "it, so it belongs in the pattern"),
+    "supervision": ("about using the finished object, which the buyer of a pattern does not "
+                    "yet have. It is in the pattern, next to the toy it is about"),
+    "construction_integrity": ("gauge, seam and closing-round guidance: pattern content by "
+                               "definition, and unreadable out of the context of the rows"),
+    "fibre_and_care": ("the listing already states the yarn weight, the gauge and the "
+                       "quantities; the care statement is about the finished object the "
+                       "buyer has not made yet, and the ball band of the yarn they choose "
+                       "governs it, not us"),
+    "mobile_removal": ("about the finished mobile in a cot. It is a making-and-using fact "
+                       "and it is in the pattern"),
+    "not_legal_advice": ("a disclaimer over a safety reading. The listing carries an "
+                         "abbreviated set, so the full reading and its disclaimer travel "
+                         "together in the document rather than being split"),
+}
+
+
+def childrens_listing_statements(rendered: "ch.RenderedStatements") -> tuple[str, ...]:
+    """Which of a product's required statements this listing carries.
+
+    Measures: the intersection of the product's required set with `LISTING_STATEMENTS`.
+    Why: computed from the obligation rather than listed per product, for the same reason
+    `launch0` computes its committed set -- a hand-kept list of "the safety lines for the
+    baby blanket" is a second copy of an obligation that already exists.
+    """
+    return tuple(k for k in rendered.required if k in LISTING_STATEMENTS)
+
+
+def childrens_listing_block(rendered: "ch.RenderedStatements") -> list[str]:
+    """The safety section of the listing description, in the pattern's own words.
+
+    The text is `intel.childrens`'s, not a shortened restatement of it. Requirement 40's
+    lesson applies here exactly: the licence diverged across four surfaces because each
+    surface wrote its own version of one decision. A listing paraphrase of a safety statement
+    is the same defect with a worse consequence, so the listing prints the sentences the
+    document prints.
+    """
+    out: list[str] = ["SAFETY AND SUITABILITY"]
+    for key in childrens_listing_statements(rendered):
+        if key not in rendered.text:
+            continue
+        heading = rendered.headings[key]
+        body = " ".join(rendered.text[key].split())
+        out.append(f"- {heading}: {body}")
+    out.append("The pattern itself carries the full set of safety notes for a children's "
+               "item, each with its source, and states the date the guidance was compiled.")
+    return out
+
+
+def childrens_listing_audit(description: str,
+                            rendered: "ch.RenderedStatements") -> dict:
+    """Whether a finished description carries the statements a children's listing must carry.
+
+    Measures: each statement's marker phrase against the assembled description text.
+    Why: the auditor reads the artefact rather than asking the generator whether its own
+    output is correct -- the discipline `commerce/friction.py` already states for this module.
+    A listing assembled by hand, or by a caller that forgot to pass the statements, fails
+    here rather than going up.
+    """
+    flat = " ".join((description or "").split())
+    expected = childrens_listing_statements(rendered)
+    present = [k for k in expected if ch.STATEMENT_SET[k].marker in flat]
+    return {
+        "expected": expected,
+        "present": tuple(present),
+        "missing": tuple(k for k in expected if k not in present),
+        "complete": len(present) == len(expected),
+        "not_in_the_listing": tuple(k for k in rendered.required
+                                    if k not in LISTING_STATEMENTS),
+        "why_not": {k: WHY_NOT_IN_THE_LISTING.get(k, "") for k in rendered.required
+                    if k not in LISTING_STATEMENTS},
+    }
 
 
 def check_listing_limits(copy: ListingCopy) -> list[str]:

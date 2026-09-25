@@ -20,6 +20,7 @@ guess. There is a test whose whole job is to fail when somebody adds one.
 from __future__ import annotations
 
 import sys
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,9 +52,20 @@ def test_every_constraint_names_a_source_that_exists():
 
 
 def test_every_source_carries_a_url_a_date_and_how_it_was_obtained():
+    """The date assertion loosened from `==` to `>=` and the reason matters.
+
+    It read `s.read_on == ch.SNAPSHOT_DATE`, which was true while every source was gathered
+    on one day. A source confirmed later then had two options, both wrong: carry the
+    snapshot date, which backdates a confirmation to a day it did not happen on, or fail a
+    test for being more recent than the reading it improves. The 16 CFR 1500.19 label image
+    was confirmed on 2026-09-25 and says so. Nothing may be *older* than the snapshot, which
+    is the direction that would matter -- a source read before this reading was compiled is
+    a source whose currency nobody checked.
+    """
     for key, s in ch.SOURCES.items():
         assert s.url.startswith("https://"), (key, s.url)
-        assert s.read_on == ch.SNAPSHOT_DATE, (key, s.read_on)
+        assert date.fromisoformat(s.read_on) >= date.fromisoformat(ch.SNAPSHOT_DATE), (
+            key, s.read_on)
         assert s.retrieval in ch.RETRIEVALS, (key, s.retrieval)
         assert s.jurisdiction and s.title
 
@@ -142,8 +154,47 @@ def test_three_to_six_permits_the_part_and_requires_the_statement():
 
 
 def test_the_choking_statement_is_the_regulated_wording():
-    assert ch.CHOKING_WARNING.startswith("WARNING: CHOKING HAZARD")
-    assert "under 3 yrs" in ch.CHOKING_WARNING
+    """The exact wording of 16 CFR 1500.19(b)(1), transcribed from the rule's own rendering.
+
+    This assertion got *stronger* on 2026-09-25, not weaker. It used to check that the string
+    started with "WARNING: CHOKING HAZARD" and contained "under 3 yrs", which is what you can
+    check about a paraphrase. The regulation publishes the statement as a Federal Register
+    image (ER27FE95.001, 60 FR 10752) because neither the eCFR text of 1500.19(b)(1) nor
+    15 U.S.C. 1278(a)(2) carries the string -- both stop at "shall be as follows:" -- and the
+    image was retrieved and read. It sets "CHOKING HAZARD--Small parts" on its own line, with
+    a double hyphen and no full stop, and "Not for children under 3 yrs." on the next.
+
+    The old constant was a single line with a spaced hyphen and a full stop the rule does not
+    set. 1500.19(d)(1) requires the statements "blocked together" and says "the statements
+    must appear on at least two lines", so the line structure is part of the requirement and
+    a one-line version could not satisfy it. Pinned exactly here because a transcription is
+    the kind of fact that gets tidied by somebody who thinks the double hyphen is a typo.
+    """
+    assert ch.CHOKING_WARNING_LINES == (
+        "WARNING:",
+        "CHOKING HAZARD--Small parts",
+        "Not for children under 3 yrs.",
+    ), ch.CHOKING_WARNING_LINES
+    assert ch.CHOKING_WARNING == "\n".join(ch.CHOKING_WARNING_LINES)
+    assert len(ch.CHOKING_WARNING.split("\n")) >= 2, "1500.19(d)(1) requires two lines"
+    assert ch.SOURCES["cfr_1500_19_label"].retrieval == ch.RENDERED_IMAGE
+    assert ch.CHOKING_WARNING in ch.STATEMENT_SET["choking_small_parts"].text
+
+
+def test_a_statement_read_from_an_image_is_counted_as_its_own_evidence_class():
+    """Reading a bitmap is a real retrieval and a weaker instrument than reading prose.
+
+    The caveat this discharges said "confirm against a rendered copy of the rule before it
+    goes on a live listing". A confirmation obtained by transcribing a 1995 bitmap is not the
+    same evidence as a string copied from machine-readable text, and collapsing the two would
+    make "confirmed" mean two things in one table. It is also not the `search_summary`
+    failure -- nobody read the Etsy page at all -- so it must not inflate the list of sources
+    nobody has read, which is the list closing a gap is supposed to shorten.
+    """
+    assert ch.image_read_sources() == ("cfr_1500_19_label",)
+    assert "cfr_1500_19_label" not in ch.unfetched_sources()
+    assert "etsy_children_policy" in ch.unfetched_sources()
+    assert ch.RENDERED_IMAGE in ch.RETRIEVALS
 
 
 # ---- drawstrings -----------------------------------------------------------
@@ -263,6 +314,141 @@ def test_a_complete_pattern_produces_no_findings_at_all():
                                  applied_parts=("embroidered_eyes",),
                                  stated_statements=ch.required_statements(slug, audience))
             assert ch.assess(concept) == [], (slug, audience, ch.assess(concept))
+
+
+# ---- the statements have words, and the words cannot drift from the duty ----
+
+
+def test_the_obligation_and_its_text_cannot_drift_apart():
+    """One table holds both, and the obligation-only view is derived from it.
+
+    Production reading: `launch0.statement_rendering_gap()` measured zero files in `publish/`,
+    `cir/` or `commerce/` mentioning any statement in the set, because `STATEMENTS` held
+    descriptions of what must be said and nothing held the sentences. The obvious fix --
+    a second dict of texts beside the dict of duties -- is the drift this repository keeps
+    meeting: two copies of one fact, one of them edited. So `STATEMENTS` is computed from
+    `STATEMENT_SET`, and this fails if anybody reintroduces the second copy.
+    """
+    assert set(ch.STATEMENTS) == set(ch.STATEMENT_SET)
+    for key, statement in ch.STATEMENT_SET.items():
+        assert ch.STATEMENTS[key] == statement.obligation, key
+        assert statement.key == key
+        assert len(statement.text) > 120, key
+        assert statement.heading and len(statement.heading) > 4, key
+
+
+def test_every_statement_cites_a_source_that_exists_or_admits_it_has_none():
+    """A sentence printed in a customer's document citing a source nobody can find.
+
+    `unsourced_constraints` does this for the rules. This is the same defect one layer on,
+    on the layer the customer reads. Three of the ten are this company's own practice and
+    are enumerated rather than caveated, so finding a source for one shortens a list.
+    """
+    assert ch.statements_citing_a_missing_source() == ()
+    assert ch.unsourced_statements() == ("fibre_and_care", "not_legal_advice", "supervision")
+    for key, statement in ch.STATEMENT_SET.items():
+        if statement.source is not None:
+            assert statement.source in ch.SOURCES, key
+
+
+def test_every_marker_is_a_phrase_that_survives_into_the_rendered_text():
+    """The marker is what a gate looks for in an extracted PDF, so it must be in the text.
+
+    A marker containing a placeholder, or edited out of the sentence it marks, produces a
+    gate that can never pass -- or, worse, one somebody then relaxes. Checked against the
+    rendered text rather than the template so a marker cannot sit inside `{fibres}`.
+    """
+    facts = ch.StatementFacts(audience=ch.UNDER_3, finished_size_cm=(80.0, 100.0),
+                              colours=("cream", "ink"), fibres=("acrylic",))
+    for slug, sub in ch.SUBCATEGORIES.items():
+        if sub.verdict == ch.NEVER:
+            continue
+        for audience in sub.audiences:
+            these = ch.render_statements(
+                slug, audience, ch.StatementFacts(
+                    audience=audience, finished_size_cm=facts.finished_size_cm,
+                    colours=facts.colours, fibres=facts.fibres))
+            assert these.complete, (slug, audience, these.unrenderable)
+            for key, text in these.text.items():
+                assert ch.STATEMENT_SET[key].marker in text, (slug, key)
+                assert "{" not in text and "}" not in text, (slug, key)
+
+
+def test_a_fact_nobody_recorded_makes_the_statement_unrenderable_rather_than_invented():
+    """The honest blocker, pinned. `cir.model.Material` records no fibre.
+
+    `cir.writer.finishing_lines` cites the ball band precisely because "nothing here claims
+    anything about a fibre this schema does not record". The failure direction has to be
+    "this cannot be stated" -- a product whose fibre is unknown must not acquire "acrylic"
+    because acrylic is the usual answer, and it must not pass the gate by having the
+    requirement quietly treated as met.
+    """
+    blind = ch.StatementFacts(audience=ch.UNDER_3, finished_size_cm=(80.0, 100.0),
+                              colours=("cream",), fibres=())
+    rendered = ch.render_statements("baby_blanket", ch.UNDER_3, blind)
+    assert "fibre_and_care" in rendered.required
+    assert "fibre_and_care" in rendered.unrenderable
+    assert "fibre_and_care" not in rendered.text
+    assert rendered.complete is False
+    assert "fibres is not recorded" in rendered.unrenderable["fibre_and_care"]
+    # And the reason names where the fact would have to come from, rather than "unavailable".
+    assert "Material" in rendered.unrenderable["fibre_and_care"]
+
+    sized = ch.StatementFacts(audience=ch.UNDER_3, finished_size_cm=None, fibres=("cotton",))
+    no_size = ch.render_statements("baby_blanket", ch.UNDER_3, sized)
+    assert "age_suitability" in no_size.unrenderable
+    assert no_size.complete is False
+
+
+def test_the_rendered_text_derives_the_facts_rather_than_hard_coding_them():
+    """A safety note with a typed-in size is a second copy of the pattern's own arithmetic.
+
+    Production reading: every finished measurement in this repository is computed from the
+    twin, and `product_truth` recomputes rather than declaring for exactly this reason. Two
+    different products must produce two different safety blocks from one table.
+    """
+    small = ch.render_statements("nursery_decor", ch.UNDER_3, ch.StatementFacts(
+        audience=ch.UNDER_3, finished_size_cm=(15.0, 9.0), colours=("cream", "wine"),
+        fibres=("cotton",)))
+    big = ch.render_statements("baby_blanket", ch.UNDER_3, ch.StatementFacts(
+        audience=ch.UNDER_3, finished_size_cm=(78.8, 97.2), colours=("cream", "ink"),
+        fibres=("acrylic",)))
+    assert "15 x 9 cm" in small.text["age_suitability"]
+    assert "79 x 97 cm" in big.text["age_suitability"]
+    assert "cotton" in small.text["fibre_and_care"]
+    assert "acrylic" in big.text["fibre_and_care"]
+    assert "cream, wine" in small.text["fibre_and_care"]
+    assert ch.SNAPSHOT_DATE in big.text["not_legal_advice"]
+    assert "under 3 years" in big.text["age_suitability"]
+
+
+def test_the_facts_and_the_statements_have_to_be_about_the_same_product():
+    """Facts derived for one audience, rendered for another, is a silent mismatch.
+
+    It would produce a document stating one age band in the note that names the band and
+    reasoning from another everywhere else. Cheap to check and impossible to see afterwards.
+    """
+    facts = ch.StatementFacts(audience=ch.THREE_TO_SIX, finished_size_cm=(20.0, 20.0),
+                              fibres=("cotton",))
+    try:
+        ch.render_statements("baby_blanket", ch.UNDER_3, facts)
+    except ValueError:
+        pass
+    else:                                          # pragma: no cover
+        raise AssertionError("a mismatched audience rendered anyway")
+
+
+def test_the_selling_statement_does_not_restate_the_licence():
+    """Owner ruling 2026-09-25: one conservative source for the licence, no divergent copies.
+
+    Four surfaces had four answers to "may I sell what I make". This statement is next to the
+    licence in the same document, so the tempting sentence is a fifth answer. It points at
+    the terms instead and says what follows, which is a fact the terms do not carry.
+    """
+    text = ch.STATEMENT_SET["selling_finished_items"].text
+    assert "licence terms" in text
+    assert "small businesses" not in text and "at scale" not in text
+    assert "you become its manufacturer" in text
 
 
 # ---- the table itself ------------------------------------------------------

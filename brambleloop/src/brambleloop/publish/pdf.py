@@ -14,6 +14,7 @@ ones making it.
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -27,6 +28,7 @@ from ..cir.compiler import compile_cir
 from ..cir.model import CIR
 from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
+from ..intel import childrens as ch
 from . import abbreviations, substitution, value_stack
 from .charts import (
     COLOUR_CUE_NOTE_FLAT, COLOUR_CUE_NOTE_ROUND, ChartSpec, cell_size, color_letters,
@@ -358,10 +360,145 @@ AI_DISCLOSURE = (
 COPYRIGHT_HOLDER = "Brambleloop Studio"
 
 
+# ---- the children's safety block -------------------------------------------
+#
+# Two of the three Launch-0 products are for children under three, `intel.childrens`
+# computes what each of them must say, and until now nothing printed it. This is the part of
+# the document that closes that -- and the part that refuses to produce a document when it
+# cannot.
+#
+# The heading the block is set under. Plain rather than alarming on purpose: this is a
+# premium pattern and a red warning box would be both out of voice and, for a blanket with
+# no applied parts, out of proportion to the hazard. The words do the work.
+CHILDRENS_HEADING = "Safety notes for a children's item"
+
+CHILDRENS_INTRO = (
+    "This pattern is written for a child, which changes what the pattern has to tell you. "
+    "Each note below says where it comes from, so you can check it rather than take our "
+    "word for it."
+)
+
+
+def childrens_assignment(cir: CIR) -> tuple[str, str] | None:
+    """Which children's sub-category and age band this pattern is merchandised into.
+
+    Measures: `products.launch0`'s own assignment of a CIR slug to a children's
+    sub-category, which is where a merchandising fact about a product belongs.
+    Why: the audience is not a property of the stitches. `cir.model.CIR` records nothing
+    about who the finished object is for, and it should not -- the same fabric is a lap
+    blanket or a baby blanket depending on how it is sold, and that is a decision somebody
+    makes rather than a consequence of the arithmetic. So the renderer asks the catalogue.
+    A CIR with no assignment gets no safety block, which is the other half of the
+    requirement: a table runner must not acquire a safe-sleep note it has no reason to carry.
+
+    Imported inside the function rather than at module scope because `products/**` is a
+    catalogue and `publish/**` is a renderer; the renderer should not be unimportable
+    without the catalogue.
+    """
+    from ..products import launch0
+
+    return launch0.childrens_assignment(cir.slug)
+
+
+def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:
+    """The fibre this pattern is written for, read from the CIR's own materials.
+
+    Returns the distinct fibres named, and a sentence saying where they were read from or
+    why nothing could be.
+
+    Measures: each `Material.name` against `substitution.FIBRE_CLASSES`, which is the
+    vocabulary this package already uses to decide what a yarn is made of.
+
+    Why this is a reading and not an invention, and where it stops being safe:
+
+    `cir.model.Material` has `name`, `yarn_weight`, `colorway`, `metres_estimate` and
+    `color_id`. **There is no fibre field**, and `cir.writer.finishing_lines` says so in as
+    many words -- it cites the ball band because "nothing here claims anything about a fibre
+    this schema does not record". That is still true of the schema. It is not true of the
+    documents: every Launch-0 material is named "worsted acrylic", "worsted cotton" or "dk
+    cotton", the materials page of this very PDF already prints that name to the buyer, and
+    `publish/substitution.py` already reads a fibre class out of the same field to write the
+    substitution guidance the customer reads two pages earlier. So the fibre fact is present,
+    customer-facing, and read from this field by production code today.
+
+    What it is *not* is a fibre content. "worsted acrylic" is a yarn description, not "100%
+    acrylic", and this module must not upgrade one into the other. The rendered statement
+    therefore names the fibre the pattern was written for and leaves the composition of the
+    finished item to the ball band of the yarn the maker actually bought.
+
+    A material whose name contains no fibre word yields nothing, on purpose. The failure
+    direction has to be "this cannot be stated" rather than a plausible default, so a CIR
+    with `Material(name="Bernat Blanket")` makes `fibre_and_care` unrenderable and blocks the
+    product rather than shipping a guess.
+    """
+    if not cir.materials:
+        return (), "the CIR names no materials, so there is no yarn to read a fibre from"
+
+    # Whole words, matched against one vocabulary. Sorted so that a two-fibre pattern names
+    # its fibres in the same order on every render -- the document's bytes are hashed and a
+    # set's iteration order is not a property anybody should have to rely on.
+    known = sorted({fibre for family in substitution.FIBRE_CLASSES.values()
+                    for fibre in family})
+    found: list[str] = []
+    silent: list[str] = []
+    for material in cir.materials:
+        name = (material.name or "").lower()
+        words = set(re.findall(r"[a-z]+", name))
+        hits = [fibre for fibre in known if fibre in words]
+        if not hits:
+            silent.append(material.name or "(unnamed)")
+            continue
+        for fibre in hits:
+            if fibre not in found:
+                found.append(fibre)
+
+    if silent:
+        return (), (
+            f"the yarn name(s) {sorted(set(silent))} name no fibre this module recognises, "
+            f"and cir.model.Material has no fibre field to fall back on. Naming a fibre here "
+            f"would be inventing one")
+    return tuple(found), (
+        "read from cir.model.Material.name, the free-text yarn name, against "
+        "publish.substitution.FIBRE_CLASSES. The CIR schema records no fibre field and no "
+        "fibre content")
+
+
+def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFacts:
+    """The derived facts the statement texts are rendered from, for this product.
+
+    Measures: the twin's computed finished size, the CIR's declared colours, and the fibre
+    its materials name.
+    Why: every one of these is already established somewhere else in this document -- the
+    size is on the cover, the colours are in the colour key, the fibre is on the materials
+    page -- so deriving them is what stops the safety block becoming a second, stale copy of
+    the pattern's own facts. A hard-coded "79 x 97 cm" in a safety note is a number that goes
+    wrong the first time somebody changes the stitch count.
+    """
+    fibres, read_from = fibres_named(cir)
+    size = ((twin.width_cm, twin.height_cm)
+            if twin.width_cm and twin.height_cm else None)
+    return ch.StatementFacts(
+        audience=audience,
+        finished_size_cm=size,
+        colours=tuple(sorted(c for c in (cir.colors or {}) if c)),
+        fibres=fibres,
+        fibre_read_from=read_from,
+    )
+
+
+def childrens_statements(cir: CIR, twin: TwinModel,
+                         assignment: tuple[str, str]) -> ch.RenderedStatements:
+    """Everything this children's pattern must say, rendered, or the reason it cannot be."""
+    subcategory, audience = assignment
+    return ch.render_statements(subcategory, audience,
+                                childrens_facts(cir, twin, audience))
+
+
 def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       twin: TwinModel | None = None,
                       designer: str = "Brambleloop Studio",
-                      released_on: date | None = None) -> PatternDocument:
+                      released_on: date | None = None,
+                      childrens: tuple[str, str] | None = None) -> PatternDocument:
     """Render the full pattern document.
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
@@ -378,6 +515,21 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     the release date. Left to default it takes today's date, which is a wall-clock input to a
     render whose whole point is to be a pure function of the certified CIR -- see
     `_Doc`'s note on the hash.
+
+    **Refuses a children's document that does not carry its full statement set**, for the
+    third time and the same reason. `intel.childrens.required_statements` computes what a
+    pattern for this audience must say; the block is rendered above; and then the finished
+    PDF is read back and every required statement looked for in the extracted text. A
+    document that is missing one is not shipped, because the object it describes is going to
+    a child and "the safety page did not render" is not a defect a buyer can see. The check
+    is run on the extracted bytes rather than on the template on purpose -- see
+    `licence_paragraphs` for the last time a check compared a decision with itself and
+    reported three surfaces consistent while the customer's document said something else.
+
+    `childrens` names the sub-category and age band, and defaults to whatever
+    `childrens_assignment` says about this CIR's slug. Passing it explicitly is for tests and
+    for a caller that knows better than the catalogue; passing `("", "")` is not a way to
+    turn the check off, because `render_statements` would reject the sub-category.
     """
     result = compile_cir(cir)
     if not result.ok:
@@ -411,11 +563,14 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # would then believe a complete file was truncated. Two passes settle every document in
     # the catalogue; the loop exists so that one that does not is caught here rather than
     # sold, and its guarantee is asserted rather than assumed.
+    childrens = childrens if childrens is not None else childrens_assignment(cir)
+
     total = 0
     for _ in range(4):
         doc, claims, problems = _render(cir, twin, result, text=text, art=art,
                                         terminology=terminology, designer=designer,
-                                        released_on=released_on, total_pages=total)
+                                        released_on=released_on, total_pages=total,
+                                        childrens=childrens)
         if doc.pages == total:
             break
         total = doc.pages
@@ -423,8 +578,13 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         raise ValueError(
             f"{cir.slug}: the page count does not settle, so the footer would state a "
             f"length the document does not have")
+
+    pdf_bytes = doc.finish()
+    if childrens is not None:
+        _refuse_an_incomplete_childrens_document(cir, twin, pdf_bytes, childrens, terminology)
+
     return PatternDocument(
-        pdf_bytes=doc.finish(),
+        pdf_bytes=pdf_bytes,
         pages=doc.pages,
         finished_size_cm=((twin.width_cm, twin.height_cm)
                           if twin.width_cm and twin.height_cm else None),
@@ -440,9 +600,83 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     )
 
 
+def extracted_text(pdf_bytes: bytes) -> str:
+    """Every word a text extractor can recover from the finished PDF, whitespace collapsed.
+
+    Collapsed because a sentence in the document is wrapped to the column, so looking for one
+    in the raw extraction is looking for a string the file does not contain in that form.
+    This is what a reader sees rather than what the layout did.
+
+    `_Doc.prose` is the other reading of the same document and it is not a substitute for
+    this one: it is what the module *chose to say*, accumulated as it drew. If a draw call
+    were wrong, if a page were dropped, if the section were laid out off the bottom of the
+    last page, `prose` would still be complete and the file would not. The children's gate
+    reads the bytes for that reason.
+    """
+    import pypdf
+
+    reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+    return " ".join("\n".join(page.extract_text() or "" for page in reader.pages).split())
+
+
+def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> dict:
+    """Which required statements the rendered document actually carries.
+
+    Measures: each required statement's `marker` -- a phrase from its text that carries no
+    placeholder -- against the text extracted from the PDF bytes.
+    Why: this is the instrument `launch0.statement_rendering_gap` should have had from the
+    start. A grep over `publish/*.py` for the word "choking" answers "does some source file
+    mention the topic", which is a different question from "does the customer's PDF carry
+    this statement" and can be satisfied by a comment. This can only be satisfied by the
+    document.
+    """
+    subcategory, audience = assignment
+    text = extracted_text(pdf_bytes)
+    required = ch.required_statements(subcategory, audience)
+    present = [k for k in required if ch.STATEMENT_SET[k].marker in text]
+    return {
+        "subcategory": subcategory,
+        "audience": audience,
+        "required": required,
+        "present": tuple(present),
+        "missing": tuple(k for k in required if k not in present),
+        "complete": len(present) == len(required),
+    }
+
+
+def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_bytes: bytes,
+                                             assignment: tuple[str, str],
+                                             terminology: str) -> None:
+    """Stop a children's pattern that does not say what it has to say.
+
+    Refusal rather than a `problems` entry, and the difference is deliberate. `problems` is
+    for a defect in a document that is still the right document -- a chart cell below the
+    brand's minimum, a cable whose crossing direction the CIR cannot state. A children's
+    pattern with no safe-sleep statement is not a slightly worse document; it is the document
+    `intel.childrens.assess` returns "not ready to ship" for, and `assets.build` records
+    problems without blocking on them, so a finding here would have been audited and shipped.
+    """
+    audit = childrens_statements_in(pdf_bytes, assignment)
+    if audit["complete"]:
+        return
+    rendered = childrens_statements(cir, twin, assignment)
+    reasons = [f"{key}: {why}" for key, why in sorted(rendered.unrenderable.items())]
+    for key in audit["missing"]:
+        if key not in rendered.unrenderable:
+            reasons.append(
+                f"{key}: rendered but not found in the finished document, so the section "
+                f"did not reach the page")
+    raise ValueError(
+        f"refusing to render a {terminology.upper()}-terms PDF for {cir.slug}: it is a "
+        f"{assignment[0]} product stated for children {assignment[1]}, "
+        f"intel.childrens requires {list(audit['required'])}, and the rendered document "
+        f"carries {list(audit['present'])}. " + " | ".join(reasons))
+
+
 def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             terminology: str, designer: str, released_on: date,
-            total_pages: int) -> tuple["_Doc", list[str], list[str]]:
+            total_pages: int,
+            childrens: tuple[str, str] | None = None) -> tuple["_Doc", list[str], list[str]]:
     """Lay the document out. Called twice: once to count the pages, once to print them."""
     doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
                subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}")
@@ -741,6 +975,46 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         # swatch list; the mapping is the same mapping either way.
         for name, cue in sorted(cues.items(), key=lambda kv: kv[1]):
             doc.kv(cue, f"{name}  {cir.colors.get(name, '')}".strip(), upper=False)
+
+    # -- the children's safety block ---------------------------------------
+    #
+    # Its own page, before the terms, because it is the section a buyer choosing a gift is
+    # looking for and the one a maker has to have read before they start. Rendered only when
+    # the catalogue says this product is merchandised to a child: a table runner acquiring a
+    # safe-sleep note would be noise, and noise is how a real warning stops being read.
+    #
+    # A statement whose facts are missing is NOT printed with a hole in it and NOT quietly
+    # dropped: it goes onto `problems` here and `build_pattern_pdf` then refuses to return
+    # the document at all, because a children's deliverable missing a safety statement looks
+    # finished.
+    if childrens is not None:
+        rendered = childrens_statements(cir, twin, childrens)
+        doc.new_page(head)
+        doc.heading(CHILDRENS_HEADING)
+        doc.para(CHILDRENS_INTRO, size=10)
+        doc.space(2 * mm)
+        for statement_key in rendered.required:
+            if statement_key not in rendered.text:
+                continue
+            doc.space(1 * mm)
+            doc.heading(rendered.headings[statement_key], size=12)
+            for block in rendered.text[statement_key].split("\n"):
+                doc.para(block, size=10, running_head=head)
+            citation = rendered.citations.get(statement_key)
+            if citation:
+                doc.para(citation, size=9, color=MUTED, running_head=head)
+            else:
+                # Said on the page, not only in the code. Three of these ten sentences are
+                # this company's own practice rather than somebody's published rule, and a
+                # reader who sees a source under seven of them is entitled to know that the
+                # other three have none rather than assume the citation fell off.
+                doc.para("Source: none. This is Brambleloop Studio's own practice rather "
+                         "than a published rule.", size=9, color=MUTED, running_head=head)
+        for statement_key, why in sorted(rendered.unrenderable.items()):
+            problems.append(
+                f"PDF_CHILDRENS_STATEMENT_UNRENDERABLE: {statement_key} is required for a "
+                f"{childrens[0]} product stated for {childrens[1]} and this document cannot "
+                f"state it: {why}")
 
     # -- licence -----------------------------------------------------------
     doc.new_page(head)

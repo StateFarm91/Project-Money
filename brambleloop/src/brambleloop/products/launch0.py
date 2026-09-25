@@ -389,9 +389,12 @@ CANDIDATES: tuple[Candidate, ...] = (
         ),
         aspiration=(
             "78.8 x 97.2 cm is computed from the stated gauge; twin.calibrated is False",
-            "none of the safe-sleep and children's statements this product must carry is "
-            "rendered by the deliverable chain today -- grep finds no children's statement "
-            "anywhere in publish/, cir/ or commerce/",
+            "the children's statement set is rendered by publish/pdf.py and read back out of "
+            "the PDF (2026-09-25), so this product now states what it must state. What is "
+            "still not stated is a fibre CONTENT: cir.model.Material has no fibre field, so "
+            "the block names the fibre the pattern was written for -- read from the yarn "
+            "name -- and leaves the composition of the finished item to the maker's ball "
+            "band. See research/CHILDRENS_STATEMENTS.md section 5",
         ),
     ),
     Candidate(
@@ -462,6 +465,91 @@ def candidate(slug: str) -> Candidate:
         if c.slug == slug:
             return c
     raise KeyError(f"no Launch-0 candidate {slug!r}")
+
+
+# ---- which CIRs are children's products ------------------------------------
+#
+# A candidate carries the audience; a CIR does not, and should not. The same fabric is a lap
+# blanket or a baby blanket depending on how it is sold, so the audience is a merchandising
+# decision and it lives here with the rest of them. `publish/pdf.py` asks this before it
+# decides whether to set a safety block.
+#
+# Computed from CANDIDATES rather than declared as a second list, and cached because
+# resolving it builds every variant's CIR. A declared list would be a copy of the assignment
+# that goes stale when a variant's builder changes, which is the failure this whole module
+# was written about.
+_CIR_AUDIENCE: dict[str, tuple[str, str]] | None = None
+
+
+def _cir_audience_map() -> dict[str, tuple[str, str]]:
+    global _CIR_AUDIENCE
+    if _CIR_AUDIENCE is None:
+        out: dict[str, tuple[str, str]] = {}
+        for cand in CANDIDATES:
+            if cand.subcategory is None:
+                continue
+            for v in cand.variants:
+                out[cir_for(v.build).slug] = (cand.subcategory,
+                                              cand.audience or ch.UNDER_3)
+        _CIR_AUDIENCE = out
+    return _CIR_AUDIENCE
+
+
+def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
+    """The children's sub-category and age band a CIR slug is merchandised into, or None.
+
+    Measures: the slug of every variant CIR of every candidate that declares a sub-category.
+    Why: the renderer needs one answer to "is this for a child", and the honest place for it
+    is the catalogue rather than the pattern. None means "not merchandised to a child",
+    stated rather than omitted -- the same discipline as `Candidate.subcategory` being an
+    explicit None and the `over_twelve` age band existing at all.
+    """
+    return _cir_audience_map().get(cir_slug)
+
+
+# Words in a product's own title that say it is for a child. Used by
+# `childrens_titles_without_an_assignment`, and kept narrow: these are words a merchandiser
+# chose, not a classifier's guess at a fabric.
+CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
+    "baby", "babies", "infant", "newborn", "nursery", "toddler", "child", "children",
+    "kids", "crib", "cot", "lovey", "amigurumi",
+)
+
+
+def childrens_titles_without_an_assignment() -> list[dict]:
+    """CIRs whose own title says "child" and which no candidate assigns an audience to.
+
+    Measures: `CHILD_AUDIENCE_WORDS` as whole words in the title of every CIR this repository
+    can build, against `childrens_assignment`.
+    Why: the safety block is keyed on the assignment, so a product that is a children's
+    product and has no assignment gets no safety block -- silently, and with every other gate
+    passing. That is the exact shape of failure `intel.childrens` exists to prevent, one
+    layer up from where it can see. This does not block: whether a product is merchandised to
+    a child is a decision, and a title word is evidence for it rather than the decision
+    itself. It is reported so the decision gets made on purpose.
+    """
+    from . import nordic_forest
+
+    makers: dict[str, object] = {}
+    for slug in flat.CATALOGUE:
+        makers[slug] = (lambda s=slug: flat.for_slug(s))
+    for size in nordic_forest.SIZES:
+        makers[f"nordic-forest-{size}"] = (lambda s=size: nordic_forest.build(s))
+    for size in ("small", "medium", "large"):
+        makers[f"market-basket-{size}"] = (lambda s=size: vessels.build_basket(s))
+    makers["hexagon-coaster-set"] = vessels.build_hexagon_coaster
+
+    out = []
+    for key in sorted(makers):
+        cir = makers[key]()                               # type: ignore[operator]
+        words = set(re.findall(r"[a-z]+", f"{cir.title} {cir.slug}".lower()))
+        hits = tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
+        if hits and childrens_assignment(cir.slug) is None:
+            out.append({"slug": cir.slug, "title": cir.title, "words": hits,
+                        "why": ("the title reads as a children's product and no candidate "
+                                "assigns it a children's sub-category, so publish/pdf.py "
+                                "will set no safety block on it")})
+    return out
 
 
 # ---- what is certified, per product ----------------------------------------
@@ -634,12 +722,22 @@ def launch0_is_all_gate_clean() -> bool:
 def childrens_view(cand: Candidate) -> dict:
     """What `intel.childrens` says about a candidate, assessed twice.
 
-    Measures: `childrens.assess` on the candidate as the deliverable stands today (no
-    statements written) and as planned (the committed statement set present).
+    Measures: `childrens.assess` on the candidate as the deliverable stands today -- with
+    the statements **read out of the rendered PDF**, not assumed -- and as planned (the
+    committed statement set present).
     Why: the two answers are different questions and collapsing them is how a refusal turns
     into a to-do. `as_built` is the honest status of the product now; `as_planned` is what it
-    becomes when the statement block exists. Neither is inferred -- both are computed by the
-    module that holds the regulations.
+    becomes when every committed statement is present. Neither is inferred -- both are
+    computed by the module that holds the regulations.
+
+    `as_built` used to pass `()`: nothing was rendered, so nothing was stated, and hard-coding
+    the empty tuple was the honest answer to a question with one answer. It is not the honest
+    answer now that `publish/pdf.py` renders the block, because a hard-coded `()` would keep
+    saying "no statements" after they were written and a hard-coded full set would keep
+    saying "all of them" after somebody broke the renderer. So it reads the document. The
+    smallest variant is read rather than all of them, because `build_pattern_pdf` refuses an
+    incomplete children's document per render -- a variant that could not state its set could
+    not have produced a PDF to read.
     """
     if cand.subcategory is None:
         return {"is_a_childrens_product": False,
@@ -667,6 +765,9 @@ def childrens_view(cand: Candidate) -> dict:
             "findings": len(findings),
         }
 
+    as_built_statements = tuple(
+        rendered_statement_audit(cand.variants[0].build)["present"])
+
     return {
         "is_a_childrens_product": True,
         "subcategory": sub.slug,
@@ -679,7 +780,10 @@ def childrens_view(cand: Candidate) -> dict:
         "required_statements": required,
         "committed_statements": cand.committed_statements,
         "commitment_covers_requirement": set(required) <= set(cand.committed_statements),
-        "as_built": run(()),
+        "as_built": run(as_built_statements),
+        "as_built_statements": as_built_statements,
+        "as_built_measured_on": ("the text extracted from the rendered customer PDF for "
+                                 f"variant {cand.variants[0].key!r}"),
         "as_planned": run(cand.committed_statements),
         "applied_parts": (),
         "applied_parts_why": (
@@ -689,15 +793,20 @@ def childrens_view(cand: Candidate) -> dict:
     }
 
 
-def statement_rendering_gap() -> dict:
-    """Whether the deliverable chain can print the statements these products must carry.
+def _source_grep_mentions() -> list[str]:
+    """The old instrument, kept so the measurement it made is not lost.
 
-    Measures: a search of the publishing, CIR and commerce packages for any of the statement
-    keys or their distinctive words.
-    Why: `required_statements()` computes the obligation and nothing consumes it. A statement
-    set that exists only as a list in a planning module is not on the customer's PDF, and the
-    gap is worth measuring because it is the one thing standing between these two children's
-    products and a publishable deliverable.
+    It searched `publish/*.py`, `cir/*.py` and `commerce/*.py` for the distinctive words of a
+    statement and reported the files that contained one. On 2026-09-25 it found zero, which
+    was true and was the right alarm to raise.
+
+    It is **not** an answer to the question it was standing in for. "Does a source file
+    mention choking" and "does the customer's PDF carry the choking statement" are different
+    questions, and the first can be satisfied by a comment, a variable name, or a docstring
+    explaining that the statement is missing. Now that `publish/pdf.py` renders the block,
+    this function would report success for a build in which the section was laid out off the
+    bottom of the last page and never reached a reader. Kept as a secondary reading with its
+    limitation named; the headline number comes from the document.
     """
     import pathlib
 
@@ -709,15 +818,99 @@ def statement_rendering_gap() -> dict:
             text = path.read_text(encoding="utf-8").lower()
             if any(n in text for n in needles):
                 hits.append(f"{package}/{path.name}")
+    return hits
+
+
+# Rendered statement audits, cached. Building the customer's PDF twice per terminology per
+# variant is the expensive part of every function below, and it is deterministic for a fixed
+# release date -- which `tests/test_deliverable_qa.py` proves separately, so caching it
+# cannot hide a difference between two renders.
+_RENDERED: dict[tuple[str, str], dict] = {}
+
+
+def rendered_statement_audit(build_key: str, terminology: str = "US") -> dict:
+    """What the customer's PDF for this variant actually carries, read out of the PDF.
+
+    Measures: `publish.pdf.childrens_statements_in` on the bytes of the rendered document --
+    each required statement's marker phrase against the text a PDF extractor recovers.
+    Why: the artefact is the evidence. Every other answer to "does this product carry its
+    statements" is a reading of something upstream of the file the buyer downloads.
+    """
+    key = (build_key, terminology)
+    if key not in _RENDERED:
+        from ..publish.pdf import build_pattern_pdf, childrens_statements_in
+
+        cir = cir_for(build_key)
+        assignment = childrens_assignment(cir.slug)
+        if assignment is None:
+            _RENDERED[key] = {"slug": cir.slug, "is_a_childrens_product": False,
+                              "required": (), "present": (), "missing": (),
+                              "complete": True}
+        else:
+            # `build_pattern_pdf` refuses an incomplete children's document, so reaching the
+            # audit at all already means the set is complete. The audit is still run and
+            # reported rather than inferred from the absence of an exception: a refusal is
+            # the gate, and this is the measurement, and a measurement that is really a
+            # restatement of its own gate is the defect `licence_paragraphs` describes.
+            doc = build_pattern_pdf(cir, terminology=terminology,
+                                    released_on=date(2026, 9, 25))
+            audit = childrens_statements_in(doc.pdf_bytes, assignment)
+            _RENDERED[key] = {"slug": cir.slug, "is_a_childrens_product": True,
+                              "pages": doc.pages, **audit}
+    return _RENDERED[key]
+
+
+def statement_rendering_gap(terminologies: tuple[str, ...] = ("US", "UK")) -> dict:
+    """Whether the document the customer receives carries the statements it must carry.
+
+    Measures: for every Launch-0 children's variant, in every terminology sold, the required
+    statement set against the text extracted from the rendered PDF.
+
+    Why the instrument changed. This function used to grep `publish/*.py`, `cir/*.py` and
+    `commerce/*.py` for a statement's distinctive words and report the files that matched.
+    That was the right alarm at the time -- it found zero files, and zero files means nothing
+    can print the set -- but it is the wrong instrument for the question, and it would have
+    started reporting the gap closed the moment somebody wrote the word "choking" into a
+    comment, which is a false pass on a safety measurement rather than a missed one. The
+    question is about a document, so it is now answered by reading the document. The old
+    reading is kept under `source_grep` with its limitation, because throwing away a
+    measurement is how the next reader loses the history of one.
+    """
+    variants: list[dict] = []
+    for slug in LAUNCH0_SLUGS:
+        cand = candidate(slug)
+        if cand.subcategory is None:
+            continue
+        for v in cand.variants:
+            for terminology in terminologies:
+                row = dict(rendered_statement_audit(v.build, terminology))
+                row.update({"product": slug, "variant": v.key,
+                            "terminology": terminology})
+                variants.append(row)
+
+    unassigned = childrens_titles_without_an_assignment()
     return {
-        "searched": ["publish/*.py", "cir/*.py", "commerce/*.py"],
-        "needles": needles,
-        "files_mentioning_a_statement": hits,
-        "can_render_the_statement_set": bool(hits),
-        "why": ("the children's statement set is computed by intel.childrens and consumed by "
-                "nothing. Until the deliverable renders it, a children's pattern is not "
-                "publishable however clean its arithmetic is. publish/pdf.py is owned by the "
-                "deliverable department; this is a measurement for them, not an edit."),
+        "measured_on": "the text extracted from the rendered customer PDF",
+        "terminologies": terminologies,
+        "variants": variants,
+        "can_render_the_statement_set": bool(variants) and all(v["complete"]
+                                                               for v in variants),
+        "statements_rendered": sorted({k for v in variants for k in v["present"]}),
+        "statements_missing": sorted({k for v in variants for k in v["missing"]}),
+        "gated": ("publish.pdf.build_pattern_pdf refuses to return a document for a "
+                  "children's product whose rendered text is missing a required statement, "
+                  "so an incomplete deliverable cannot reach the release chain at all"),
+        "childrens_titles_without_an_assignment": unassigned,
+        "source_grep": {
+            "searched": ["publish/*.py", "cir/*.py", "commerce/*.py"],
+            "files_mentioning_a_statement": _source_grep_mentions(),
+            "why_it_is_not_the_answer": (
+                "it measures whether a source file mentions the topic, which a comment "
+                "satisfies. The headline above measures the artefact"),
+        },
+        # Kept at the top level under its original name because callers and the build record
+        # read it, and it now means what it says: files that mention a statement.
+        "files_mentioning_a_statement": _source_grep_mentions(),
     }
 
 
@@ -917,7 +1110,10 @@ PIPELINE: tuple[PipelineEntry, ...] = (
             "a stuffing-containment check: intel.childrens names construction integrity as a "
             "required statement and nothing measures whether the stated gauge is tight enough "
             "that stuffing cannot migrate through the fabric",
-            "the children's statement block in the deliverable (see statement_rendering_gap)",
+            "no longer the statement block itself: publish/pdf.py renders the children's set "
+            "and refuses a document missing one (2026-09-25). A lovey needs two statements "
+            "this blanket does not -- face_construction and construction_integrity -- and "
+            "both render from the same table, so what is left here is the CIR",
         ),
         owner_of_the_blocker="product planning can build the CIR; publish/** owns the statements",
         event="december_gifting",

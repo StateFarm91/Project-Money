@@ -13,7 +13,16 @@ That is the whole reason this module exists separately. Every constraint below a
 children's products under their forms will apply a blanket's rules to an object a nine-month-old
 will put in its mouth.
 
-Four commitments, each of which is a decision that could have gone the other way.
+Five commitments, each of which is a decision that could have gone the other way.
+
+**The obligation and its words live in one table.** `STATEMENT_SET` holds both what must be
+said and the sentence that says it, and `STATEMENTS` -- the obligation-only view every
+earlier caller reads -- is derived from it. Until 2026-09-25 this module held the obligation
+and nothing held the sentence, so `required_statements()` computed a set nothing could print
+and `launch0.statement_rendering_gap()` measured the consequence: zero files in `publish/`,
+`cir/` or `commerce/` mentioned any statement in the set. A statement whose derived facts are
+missing is reported **unrenderable with the reason** by `render_statements`, never improvised
+-- a fibre nobody recorded must not become "acrylic" because acrylic is the usual answer.
 
 **A constraint names a source, and the source says how it was obtained.** `Source.retrieval`
 distinguishes a page this build actually fetched from a policy quoted out of a search summary,
@@ -54,6 +63,12 @@ from .pods import POD_KEYS, signals
 # moment it matters is a listing that was compliant when it was written.
 SNAPSHOT_DATE = "2026-09-24"
 
+# The day a source that was open on 2026-09-24 was gone back to and confirmed. Separate from
+# SNAPSHOT_DATE rather than folded into it: the snapshot is when this reading was compiled,
+# and a later confirmation is a second event with its own date. Collapsing the two would
+# backdate the confirmation to a day on which it had not happened.
+CONFIRMED_ON = "2026-09-25"
+
 
 # ---- sources ---------------------------------------------------------------
 
@@ -63,11 +78,21 @@ SNAPSHOT_DATE = "2026-09-24"
 FETCHED = "fetched"                  # this build retrieved the page and read it
 SEARCH_SUMMARY = "search_summary"    # quoted from a search result; the page itself refused us
 REPOSITORY = "repository"            # already established and recorded in this repository
+# Added 2026-09-25. 16 CFR 1500.19(b) publishes its cautionary statements as *pictures* --
+# eight Federal Register images, ER27FE95.001 to .008 -- and 15 U.S.C. 1278(a)(2) does the
+# same, so the text renderer of either one stops at "shall be as follows:" and prints
+# nothing. A page we can fetch as text is therefore not available for the one string this
+# module quotes verbatim. The official rendering was retrieved and read as an image instead,
+# which is a real retrieval and a different evidence class from reading prose: it is a glyph
+# transcription, and a transcription can be wrong in ways prose cannot.
+RENDERED_IMAGE = "rendered_image"    # the rule publishes it as an image; the image was read
 
 RETRIEVALS: dict[str, str] = {
     FETCHED: "retrieved and read by this build",
     SEARCH_SUMMARY: "quoted from a search result; the page itself was not retrievable",
     REPOSITORY: "already established in this repository, with its own provenance",
+    RENDERED_IMAGE: ("the governing document publishes this text only as an image; the "
+                     "official rendering was retrieved and transcribed from the image"),
 }
 
 
@@ -97,6 +122,13 @@ SOURCES: dict[str, Source] = {s.key: s for s in (
            "16 CFR 1500.19: misbranded toys and other articles intended for use by children",
            "https://www.law.cornell.edu/cfr/text/16/1500.19",
            "US", FETCHED),
+    Source("cfr_1500_19_label",
+           "16 CFR 1500.19(b)(1) cautionary statement as the rule itself renders it: "
+           "Federal Register image ER27FE95.001 (60 FR 10752, 1995-02-27), the graphic the "
+           "eCFR text of 1500.19(b)(1) stands in for, sha256 "
+           "c22fc31a1b4a1873180c3d00fea9d40bbf117dcb12e7e3bd3fb2d2c1c7c48d9e",
+           "https://img.federalregister.gov/ER27FE95.001/ER27FE95.001_large.png",
+           "US", RENDERED_IMAGE, read_on=CONFIRMED_ON),
     Source("cpsc_astm_f963",
            "CPSC: ASTM F963 requirements chart (4.3.7 stuffing, 4.27 stuffed toys, 4.14 cords)",
            "https://www.cpsc.gov/Business--Manufacturing/Business-Education/"
@@ -165,8 +197,30 @@ def unfetched_sources() -> tuple[str, ...]:
     strictest rules in this module -- are quoted from search summaries. A reader is entitled to
     know which refusals are backed by a page we read and which by a description of one, and a
     caveat in a docstring is not that. This is the list to shorten.
+
+    `RENDERED_IMAGE` is excluded because it is not that failure. A source in that class was
+    retrieved from the body that publishes it and read; what makes it different is that it
+    was read as a picture rather than as text, which is a transcription risk and not an
+    absence of evidence. Folding it in here would have said "nobody has read this page" about
+    a page somebody did read, in the direction of understating what we know -- still wrong,
+    and it would have made the list this function exists to shorten get longer when a gap was
+    closed. `image_read_sources()` keeps that class countable on its own.
     """
-    return tuple(sorted(k for k, s in SOURCES.items() if s.retrieval != FETCHED))
+    return tuple(sorted(k for k, s in SOURCES.items()
+                        if s.retrieval not in (FETCHED, RENDERED_IMAGE)))
+
+
+def image_read_sources() -> tuple[str, ...]:
+    """Which constraints rest on text transcribed from an image rather than read as text.
+
+    Measures: the count of sources whose retrieval is `RENDERED_IMAGE`.
+    Why: 16 CFR 1500.19(b) publishes its cautionary statements as pictures, so the only way
+    to obtain the exact wording is to read the picture. That is a genuine primary-source
+    reading and it is a weaker instrument than reading prose -- a glyph can be transcribed
+    wrong, and the document cannot be searched to check. Counting them separately is what
+    stops "confirmed" meaning two different things in the same table.
+    """
+    return tuple(sorted(k for k, s in SOURCES.items() if s.retrieval == RENDERED_IMAGE))
 
 
 # ---- age bands -------------------------------------------------------------
@@ -357,41 +411,412 @@ def unsourced_constraints() -> tuple[str, ...]:
 
 # ---- what a pattern has to say ---------------------------------------------
 
-# Quoted from search results summarising 16 CFR 1500.19; the regulation renders the statement
-# as an image, so the eCFR text does not give the string in prose. Confirm against a rendered
-# copy of the rule before it goes on a live listing (research doc section 6, item 4).
-CHOKING_WARNING = "WARNING: CHOKING HAZARD - Small parts. Not for children under 3 yrs."
+# The 16 CFR 1500.19(b)(1) cautionary statement, transcribed from the rule's own rendering.
+#
+# **The caveat this constant carried until 2026-09-25 was correct and has now been
+# discharged, and the way it was discharged is itself a limitation.** The old note said the
+# string was "quoted from search results summarising 16 CFR 1500.19" because "the regulation
+# renders the statement as an image, so the eCFR text does not give the string in prose", and
+# asked for a rendered copy to be checked before any live listing.
+#
+# Checked, 2026-09-25, twice over:
+#
+#   * `https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-16?chapter=II&
+#     subchapter=C&part=1500&section=1500.19` was retrieved (HTTP 200). Its text of (b)(1)
+#     ends "...shall bear or contain the following cautionary statement:" and then stops: the
+#     statement is `<img src="https://img.federalregister.gov/ER27FE95.001/...">`. Eight such
+#     images carry (b)(1) to (b)(4) and (f). So the caveat's premise is confirmed from the
+#     primary source rather than assumed.
+#   * `https://uscode.house.gov/...title15-section1278` was retrieved. 15 U.S.C. 1278(a)(2)
+#     reads "The cautionary statement required by paragraph (1) for a toy or game shall be as
+#     follows:" and likewise prints nothing. The statute does not carry the string either.
+#   * `https://img.federalregister.gov/ER27FE95.001/ER27FE95.001_large.png` -- the rule's own
+#     rendering, 60 FR 10752, 1995-02-27, sha256
+#     c22fc31a1b4a1873180c3d00fea9d40bbf117dcb12e7e3bd3fb2d2c1c7c48d9e -- was retrieved and
+#     read. It sets, under the triangular safety-alert symbol:
+#
+#         WARNING:
+#         CHOKING HAZARD--Small parts
+#         Not for children under 3 yrs.
+#
+# The string below is that, and it is **not** what this module said before. The previous
+# constant read "WARNING: CHOKING HAZARD - Small parts. Not for children under 3 yrs." --
+# one line, a spaced hyphen for the rule's double hyphen, and a full stop the rule does not
+# set. 16 CFR 1500.19(d)(1) requires the statements to be "blocked together within a square
+# or rectangular area" and says "the statements must appear on at least two lines", so the
+# line structure is part of what is required and the old single line could not satisfy it.
+#
+# **What remains unconfirmed**: this is a transcription of a 1995 bitmap by a reader, not a
+# string copied from machine-readable text, because no machine-readable copy exists to copy
+# from. `image_read_sources()` counts that evidence class so it stays visible. The safety
+# alert symbol is a glyph this document cannot set and is not in the string; a listing that
+# must satisfy 1500.19(d) needs the symbol as artwork, which is a design task nobody has
+# done. No Launch-0 product is in the 3-to-under-6 band with a small part, so nothing ships
+# on this today.
+CHOKING_WARNING_LINES: tuple[str, ...] = (
+    "WARNING:",
+    "CHOKING HAZARD--Small parts",
+    "Not for children under 3 yrs.",
+)
+CHOKING_WARNING = "\n".join(CHOKING_WARNING_LINES)
 
-STATEMENTS: dict[str, str] = {
-    "age_suitability":
-        "the age band the finished item is suitable for, stated as a band, rather than left "
-        "to be inferred from the photograph",
-    "choking_small_parts":
-        "the 16 CFR 1500.19 cautionary statement, where an applied small part exists and the "
-        "stated audience is 3 to under 6",
-    "face_construction":
-        "how the face is made: embroidered or crocheted-on as the default, with safety eyes "
-        "named as a variant for 3 and over",
-    "safe_sleep":
-        "that the finished item is for supervised, awake use and does not belong in an "
-        "unsupervised sleep space before 12 months",
-    "supervision":
-        "that a soft toy is for supervised play, in one sentence, without hedging",
-    "construction_integrity":
-        "the tension, seam and closing-round guidance that keeps stuffing inside and limbs "
-        "attached, in the instructions rather than in a warning",
-    "fibre_and_care":
-        "fibre content and laundering, because washability is a hygiene property for this "
-        "audience rather than a convenience",
-    "mobile_removal":
-        "that a mobile is removed at 5 months or when the child can push up on hands and "
-        "knees, whichever comes first",
-    "selling_finished_items":
-        "that a buyer who sells finished items becomes the manufacturer, with a pointer to "
-        "CPSC (US) and the CCPSA and Toys Regulations (Canada)",
-    "not_legal_advice":
-        "that this is not legal advice, and the date the safety guidance was compiled",
+
+# ---- the sentences themselves ----------------------------------------------
+#
+# `STATEMENTS` used to hold descriptions of what a pattern must say -- "the age band the
+# finished item is suitable for, stated as a band" -- and nothing held the sentence. So the
+# obligation was computable and the text was not, which is the state `launch0` measured when
+# it reported that no file in `publish/`, `cir/` or `commerce/` mentioned any statement in the
+# set: the deliverable had nothing to print.
+#
+# The sentences live here, keyed by the same keys as the obligation, and `STATEMENTS` is now
+# *derived* from this table rather than maintained beside it. That is the point: an obligation
+# and its text held in two dicts drift the first time somebody edits one, and the drift is
+# invisible because both still look complete.
+#
+# A statement names its own source from SOURCES, or names None. None is not an oversight and
+# is enumerated by `unsourced_statements()`: "supervised play", "fibre and care" and the
+# not-legal-advice line are this company's own conservative practice, and attaching somebody
+# else's regulation to them would borrow authority the sentence has not got. The research
+# (`research/CHILDRENS_CATEGORY.md` section 2.10) lists all ten together and cites a source
+# for seven of them; the three it does not cite are the three below with None.
+
+@dataclass(frozen=True)
+class Statement:
+    """One thing a children's pattern must say, and the words it says it in.
+
+    `obligation` is what must be said. `text` is what is printed, with `{placeholders}` for
+    facts that are derived per product rather than typed per product. `marker` is a phrase
+    from `text` that carries no placeholder, so a check can look for it in a rendered PDF;
+    `needs` names the facts without which `text` would be false or empty, and a statement
+    whose fact is missing is reported unrenderable rather than printed with a hole in it.
+    """
+
+    key: str
+    obligation: str
+    heading: str
+    text: str
+    marker: str
+    source: str | None
+    needs: tuple[str, ...] = ()
+
+
+# What a derived fact is, and where it has to come from. Used to explain a refusal: a
+# statement that cannot be rendered says which fact is missing and who would have to record
+# it, rather than saying "unavailable".
+FACT_ORIGINS: dict[str, str] = {
+    "audience_label": "the age band on the product's children's assignment",
+    "finished_size_cm": "the digital twin's computed width and height",
+    "fibres": ("the fibre named by the CIR's own materials. `cir.model.Material` has "
+               "`name`, `yarn_weight`, `colorway`, `metres_estimate` and `color_id` and no "
+               "fibre field, so the fibre is read out of the free-text yarn name"),
+    "colours": "the colour names the CIR declares",
+    "compiled_on": "SNAPSHOT_DATE, the day this safety reading was compiled",
 }
+
+
+STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
+    Statement(
+        "age_suitability",
+        obligation=("the age band the finished item is suitable for, stated as a band, "
+                    "rather than left to be inferred from the photograph"),
+        heading="Who this is for",
+        text=("This pattern makes an item intended for children {audience_label}, finishing "
+              "at {size} at the stated gauge. The age band is stated here rather than left "
+              "to be read off a photograph, because it is the fact every safety note below "
+              "depends on, and because the person buying this is usually choosing for one "
+              "particular child."),
+        marker="The age band is stated here",
+        source="cpsc_childrens_product",
+        needs=("audience_label", "finished_size_cm")),
+    Statement(
+        "choking_small_parts",
+        obligation=("the 16 CFR 1500.19 cautionary statement, where an applied small part "
+                    "exists and the stated audience is 3 to under 6"),
+        heading="Choking hazard",
+        text=(CHOKING_WARNING + "\n"
+              "That is the cautionary statement 16 CFR 1500.19(b)(1) requires on a toy or "
+              "game containing a small part and intended for children at least 3 and under "
+              "6 years old, in the rule's own words. If you are selling what you make, the "
+              "rule also governs how it is set: blocked together, on at least two lines, "
+              "with the safety alert symbol."),
+        marker="CHOKING HAZARD",
+        source="cfr_1500_19_label"),
+    Statement(
+        "face_construction",
+        obligation=("how the face is made: embroidered or crocheted-on as the default, with "
+                    "safety eyes named as a variant for 3 and over"),
+        heading="How the face is made",
+        text=("The face in this pattern is embroidered or crocheted into the fabric. That is "
+              "the default here and not a substitution for something better: a worked "
+              "feature cannot be pulled off, and a safety eye, plastic nose, button or bead "
+              "can. Applied eyes are a change you would be making, they are for 3 and over "
+              "only, and the choking statement then applies to what you have made."),
+        marker="embroidered or crocheted into the fabric",
+        source="canada_toys_regulations"),
+    Statement(
+        "safe_sleep",
+        obligation=("that the finished item is for supervised, awake use and does not belong "
+                    "in an unsupervised sleep space before 12 months"),
+        heading="Not for an unsupervised sleep space",
+        # Written to be true of every object that carries it. The sub-categories requiring
+        # this statement run from a baby blanket to a nursery basket, and a sentence naming
+        # what the object is *for* ("a pram, a lap, a play mat") is right for one and absurd
+        # for the other. The statement is about the cot, so it says the thing about the cot.
+        text=("This is for supervised, awake use, and it does not belong in an unsupervised "
+              "sleep space before 12 months. The American Academy of Pediatrics' 2022 "
+              "recommendations keep soft objects and loose bedding -- blankets, comforters, "
+              "pillows, soft toys -- out of the infant sleep area. Keep this out of the cot, "
+              "and out of reach of a baby who is in one. We know where a soft crocheted "
+              "thing in a nursery is most likely to end up, so we say so here rather than "
+              "leave it to be assumed."),
+        marker="does not belong in an unsupervised sleep space",
+        source="aap_safe_sleep"),
+    Statement(
+        "supervision",
+        obligation="that a soft toy is for supervised play, in one sentence, without hedging",
+        heading="Supervised play",
+        text=("A crocheted toy is for supervised play. Yarn is a fabric a child can work "
+              "loose given time and teeth, and the one you make is the one nobody has "
+              "tested -- not us, and not you."),
+        marker="is for supervised play",
+        source=None),
+    Statement(
+        "construction_integrity",
+        obligation=("the tension, seam and closing-round guidance that keeps stuffing inside "
+                    "and limbs attached, in the instructions rather than in a warning"),
+        heading="The workmanship is the safety property",
+        text=("In a crocheted toy the safety property is the workmanship, not a label. Work "
+              "at the stated gauge or tighter so that stuffing cannot migrate out between "
+              "the stitches; close the final round tightly and secure the tail through at "
+              "least 5 cm of stitches in two directions; and attach every limb, ear and tail "
+              "with yarn sewn through the fabric rather than into a single stitch. ASTM F963 "
+              "4.27 and Toys Regulations SOR/2011-17 s.29 both treat escaping stuffing as "
+              "the hazard, which makes it a property of how it is made."),
+        marker="the safety property is the workmanship",
+        source="cpsc_astm_f963"),
+    Statement(
+        "fibre_and_care",
+        obligation=("fibre content and laundering, because washability is a hygiene property "
+                    "for this audience rather than a convenience"),
+        heading="Fibre and washing",
+        text=("This pattern is written for {fibres} yarn{colour_clause}. For a child's item "
+              "washability is hygiene rather than convenience: it will be mouthed, dribbled "
+              "on and washed far more often than an adult's version of the same object, so "
+              "choose a yarn you can machine wash, and wash the finished item before it is "
+              "used. What governs your own item is the yarn you actually bought -- follow "
+              "its ball band for temperature, drying and pressing. We state the fibre this "
+              "pattern was written for; we do not state a fibre content for your finished "
+              "item, because the yarn in your hands is what decides that."),
+        marker="washability is hygiene rather than convenience",
+        source=None,
+        needs=("fibres",)),
+    Statement(
+        "mobile_removal",
+        obligation=("that a mobile is removed at 5 months or when the child can push up on "
+                    "hands and knees, whichever comes first"),
+        heading="When this comes out of the cot",
+        text=("Take this out of the cot when the baby reaches 5 months, or when they can "
+              "push up on their hands and knees, whichever comes first. The hazard is "
+              "entanglement in the hanging cords once the child can reach them, so the date "
+              "is one in the child's development rather than a property of the object."),
+        marker="push up on their hands and knees",
+        source="cpsc_crib_mobiles"),
+    Statement(
+        "selling_finished_items",
+        obligation=("that a buyer who sells finished items becomes the manufacturer, with a "
+                    "pointer to CPSC (US) and the CCPSA and Toys Regulations (Canada)"),
+        heading="If you sell what you make",
+        # Deliberately does not restate what the licence permits. That decision lives in
+        # `commerce.terms` and the owner ruling of 2026-09-25 is one conservative source with
+        # no divergent copies -- the failure that put four different licences in front of one
+        # buyer. This statement points at it and says what follows, which is a different fact.
+        text=("What this licence permits is set out in the licence terms; this is about what "
+              "follows if you do it. Sell a finished children's item and you become its "
+              "manufacturer. "
+              "In the United States that is CPSIA: testing by a CPSC-accepted third-party "
+              "laboratory, a Children's Product Certificate, and a tracking label on the "
+              "product itself. In Canada it is the Canada Consumer Product Safety Act and, "
+              "for a toy, the Toys Regulations SOR/2011-17. We are not your lawyer and this "
+              "is a pointer rather than advice -- and we are not entitled to let you assume "
+              "none of it exists."),
+        marker="you become its manufacturer",
+        source="cpsc_childrens_product"),
+    Statement(
+        "not_legal_advice",
+        obligation="that this is not legal advice, and the date the safety guidance was compiled",
+        heading="About these safety notes",
+        text=("None of this is legal advice. It is Brambleloop Studio's conservative reading "
+              "of public safety guidance -- CPSC, the Code of Federal Regulations, Health "
+              "Canada, the Toys Regulations and the American Academy of Pediatrics -- "
+              "compiled on {compiled_on}, with each note's source named above so the reading "
+              "can be re-checked rather than argued about. Rules change and ours is not the "
+              "only reading; if you are selling finished items, check what applies where you "
+              "sell."),
+        marker="None of this is legal advice",
+        source=None,
+        needs=("compiled_on",)),
+)}
+
+
+# What must be said, derived from the table that says it. Held as a separate name because
+# every existing caller reads it, and derived rather than restated because an obligation and
+# its text in two hand-maintained dicts is the drift this whole module is written against.
+STATEMENTS: dict[str, str] = {k: s.obligation for k, s in STATEMENT_SET.items()}
+
+
+def unsourced_statements() -> tuple[str, ...]:
+    """Which statements are this company's own practice rather than somebody's published rule.
+
+    Measures: statement keys whose `source` is None.
+    Why: the same discipline as `unfetched_sources`. Seven of these ten sentences carry a
+    citation and three do not, and a reader is entitled to know which is which without
+    reading the table. Enumerated rather than caveated so the count can be asserted and so
+    finding a source for one of them is visible as the list getting shorter.
+    """
+    return tuple(sorted(k for k, s in STATEMENT_SET.items() if s.source is None))
+
+
+def statements_citing_a_missing_source() -> tuple[str, ...]:
+    """Statements naming a source that is not in the table.
+
+    Measures: statement keys whose `source` is set and absent from SOURCES.
+    Why: `unsourced_constraints` does this for the rules; a sentence printed in the customer's
+    document and citing a source nobody can find is the same defect one layer further on, and
+    it is the layer the customer actually reads.
+    """
+    return tuple(sorted(k for k, s in STATEMENT_SET.items()
+                        if s.source is not None and s.source not in SOURCES))
+
+
+@dataclass(frozen=True)
+class StatementFacts:
+    """The per-product facts the statement texts are rendered from.
+
+    Every field here is *derived* from something already established about the product -- the
+    audience assignment, the compiled twin, the CIR's own materials and colours, this
+    module's snapshot date -- rather than typed per product. That is the requirement: a
+    statement set hard-coded per product is a second copy of the pattern's facts, and it goes
+    wrong exactly when the design changes and the safety block does not.
+
+    A field left at its empty default is not a formatting inconvenience. It makes every
+    statement that needs it unrenderable, and an unrenderable required statement blocks the
+    product. See `render_statements`.
+    """
+
+    audience: str
+    finished_size_cm: tuple[float, float] | None = None
+    colours: tuple[str, ...] = ()
+    fibres: tuple[str, ...] = ()
+    # Where the fibre was read from, printed in the rendering report rather than in the
+    # document. `cir.writer.finishing_lines` cites the ball band precisely because "nothing
+    # here claims anything about a fibre this schema does not record", and that is still
+    # true of the *schema*: the fibre below was read out of a free-text yarn name.
+    fibre_read_from: str = ""
+    compiled_on: str = SNAPSHOT_DATE
+
+    @property
+    def audience_label(self) -> str:
+        band = AGE_BANDS.get(self.audience)
+        return band.label if band else ""
+
+    @property
+    def size_label(self) -> str:
+        if not self.finished_size_cm:
+            return ""
+        w, h = self.finished_size_cm
+        return f"{w:.0f} x {h:.0f} cm"
+
+    def available(self) -> dict[str, bool]:
+        """Which derived facts this product actually has."""
+        return {
+            "audience_label": bool(self.audience_label),
+            "finished_size_cm": bool(self.finished_size_cm),
+            "colours": bool(self.colours),
+            "fibres": bool(self.fibres),
+            "compiled_on": bool(self.compiled_on),
+        }
+
+
+def _colour_clause(facts: StatementFacts) -> str:
+    if len(facts.colours) > 1:
+        return f", in {len(facts.colours)} colours ({', '.join(facts.colours)})"
+    if len(facts.colours) == 1:
+        return f", in one colour ({facts.colours[0]})"
+    return ""
+
+
+@dataclass(frozen=True)
+class RenderedStatements:
+    """The statements a product can print, and the ones it cannot, with the reason."""
+
+    subcategory: str
+    audience: str
+    required: tuple[str, ...]
+    text: dict[str, str]              # key -> the sentences to print, in order
+    headings: dict[str, str]          # key -> the heading to print them under
+    citations: dict[str, str]         # key -> "Title <url>", for the statements that cite one
+    unrenderable: dict[str, str]      # key -> why it cannot be printed
+
+    @property
+    def complete(self) -> bool:
+        """Whether every required statement could be rendered.
+
+        False is not a warning. `publish.pdf` refuses to return a document for a children's
+        product whose required set is not complete, because the alternative is a deliverable
+        that is missing a safety statement and looks finished.
+        """
+        return not self.unrenderable
+
+
+def render_statements(subcategory: str, audience: str,
+                      facts: StatementFacts) -> RenderedStatements:
+    """The customer-facing text for every statement this product must carry.
+
+    Measures: `required_statements(subcategory, audience)`, rendered against the facts
+    derived from the product, with each statement whose facts are missing reported
+    unrenderable and the reason naming the fact and where it would have to come from.
+    Why: the obligation was computable and the words were not, so nothing could print them.
+    Rendering here, from the same table that holds the obligation, is what makes the two
+    unable to disagree -- and refusing rather than improvising is what stops a missing fact
+    turning into a plausible sentence. A fibre nobody recorded must not become "acrylic"
+    because acrylic is the common answer.
+    """
+    if audience != facts.audience:
+        raise ValueError(
+            f"the facts were derived for audience {facts.audience!r} and the statements were "
+            f"asked for {audience!r}; one of the two is about a different product")
+    required = required_statements(subcategory, audience)
+    have = facts.available()
+    text: dict[str, str] = {}
+    headings: dict[str, str] = {}
+    citations: dict[str, str] = {}
+    unrenderable: dict[str, str] = {}
+
+    for key in required:
+        statement = STATEMENT_SET[key]
+        missing = [fact for fact in statement.needs if not have.get(fact)]
+        if missing:
+            unrenderable[key] = "; ".join(
+                f"{fact} is not recorded for this product. It would come from "
+                f"{FACT_ORIGINS.get(fact, 'nowhere this module knows of')}"
+                for fact in missing)
+            continue
+        headings[key] = statement.heading
+        text[key] = statement.text.format(
+            audience_label=facts.audience_label,
+            size=facts.size_label,
+            fibres=" and ".join(facts.fibres),
+            colour_clause=_colour_clause(facts),
+            compiled_on=facts.compiled_on,
+        )
+        if statement.source:
+            source = SOURCES[statement.source]
+            citations[key] = f"Source: {source.title} -- {source.url}"
+
+    return RenderedStatements(subcategory=subcategory, audience=audience, required=required,
+                              text=text, headings=headings, citations=citations,
+                              unrenderable=unrenderable)
 
 
 # ---- applied parts ---------------------------------------------------------
