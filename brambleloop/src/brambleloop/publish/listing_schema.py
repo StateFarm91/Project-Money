@@ -409,19 +409,39 @@ def gaps() -> list[dict]:
     the day the phase moves, and it is set from what would actually fail, not from severity.
     """
     return [
-        {"gap": "no listing image is ever uploaded to Etsy",
+        # 2026-09-25: the image-upload and JSON-body gaps were closed in code. They are not
+        # deleted, because a gap between the contract and what this system *produces* was
+        # replaced by a gap between what this system produces and what Etsy has confirmed --
+        # and on launch day the second one fails just as loudly. What changed is the reason,
+        # and the reason is now an owner action rather than a build task.
+        {"gap": "the listing-image upload has never been confirmed by Etsy",
          "clause": "image_required_to_publish",
-         "detail": ("the client uploads the pattern PDF to the listing's files endpoint and "
-                    "nothing uploads to its images endpoint. Every draft would be "
-                    "unactivatable, and the listing imagery this system already approves "
-                    "and certifies would stay on our side of the wire"),
+         "detail": ("integrations.etsy.EtsyClient.upload_image sends the binary in a part "
+                    "named `image` to the listing's images endpoint, and read-back "
+                    "verification checks that Etsy holds it. Exercised end to end against a "
+                    "local server built from Etsy's document (tests/fake_etsy.py) and "
+                    "against Etsy: never, because there are no credentials in this "
+                    "environment. Until one real upload succeeds, 'this listing can be "
+                    "activated' remains a reading of a document"),
          "blocks_launch": True},
-        {"gap": "the create request is sent as JSON",
+        {"gap": "the form-encoded write path has never been confirmed by Etsy",
          "clause": "form_encoded_request",
-         "detail": ("integrations.http.UrllibTransport serialises the body with "
-                    "json.dumps and sets Content-Type: application/json. Etsy's document "
-                    "lists only application/x-www-form-urlencoded for this endpoint. "
-                    "form_encoded() here is the shape the body needs"),
+         "detail": ("integrations.http.UrllibTransport now sets the Content-Type from the "
+                    "body channel the caller used, and createDraftListing and updateListing "
+                    "use the form channel. It sent application/json to both until "
+                    "2026-09-25. Etsy refuses a request on its API key before it reads a "
+                    "body, so no unauthenticated call can confirm the encoding and only the "
+                    "owner's OAuth grant makes that possible"),
+         "blocks_launch": True},
+        {"gap": "nothing has ever authenticated against Etsy",
+         "clause": "write_scope",
+         "detail": ("integrations.etsy_oauth implements the authorization-code grant with "
+                    "PKCE and the refresh grant, and integrations.etsy_probe is the "
+                    "shadow-safe sequence that would exercise the write path -- read the "
+                    "shop, create a draft, upload an image, update it, read it back, delete "
+                    "it -- without activating anything or incurring a fee. It needs one "
+                    "browser authorisation from the owner, which no code path can supply: "
+                    "Etsy has no key-only route to a write scope"),
          "blocks_launch": True},
         {"gap": "character sets are not checked before sending",
          "clause": "title_character_set",

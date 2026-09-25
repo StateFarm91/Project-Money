@@ -105,9 +105,20 @@ def test_a_draft_with_no_image_cannot_be_activated():
 
 
 def test_the_image_gap_is_recorded_as_a_launch_blocker():
+    """The image and encoding gaps stay launch blockers after being closed in code.
+
+    Both were "this system does not do it" on 2026-09-24 and are "Etsy has never confirmed
+    that this system does it correctly" on 2026-09-25. The second is a smaller gap and it
+    fails exactly as hard on launch day, so downgrading it when the code was written would
+    have turned a build task into a silent assumption.
+    """
     blockers = [g for g in S.gaps() if g["blocks_launch"]]
     assert any("image" in g["gap"] for g in blockers), blockers
-    assert any("JSON" in g["gap"] for g in blockers), blockers
+    assert any("form-encoded" in g["gap"] for g in blockers), blockers
+    assert any("authenticated against Etsy" in g["gap"] for g in blockers), blockers
+    assert all("confirmed by Etsy" in g["gap"] or "authenticated" in g["gap"]
+               for g in blockers), (
+        "a launch blocker here should now be about unconfirmed behaviour, not missing code")
     for gap in S.gaps():
         assert gap["clause"] in S.CLAUSES_BY_KEY, (
             f"{gap['clause']} is not a clause; a gap that rests on nothing cannot stop "
