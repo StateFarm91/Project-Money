@@ -23,6 +23,10 @@ from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
 WORSTED = Gauge(stitches_per_10cm=16, rows_per_10cm=18, stitch_type="sc", hook_mm=5.0)
 CHUNKY = Gauge(stitches_per_10cm=11, rows_per_10cm=13, stitch_type="sc", hook_mm=6.5)
 
+# The cushion pad this cover is designed around. Named once, because it appears in the
+# sizing arithmetic and in the sentence the buyer reads, and those two must not drift.
+PAD_CM = 45.0
+
 PINE = {"pine": "#244A3A"}
 HEARTH = {"gold": "#C49545"}
 CREAM = {"cream": "#FAF6EB"}
@@ -40,6 +44,16 @@ def _check(width: int, repeat: int, label: str) -> int:
     return width // repeat
 
 
+def across_cm(stitches: int, gauge: Gauge) -> float:
+    """How wide `stitches` actually measures at this gauge.
+
+    Every size sentence in this file is built from this rather than typed beside the stitch
+    count, because a number typed beside a count is a second copy of it, and the two only
+    agree until somebody changes one of them.
+    """
+    return stitches / gauge.stitches_per_10cm * 10.0
+
+
 def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
     """Post-stitch ribbing: fpdc and bpdc in the same columns on every row.
 
@@ -48,8 +62,9 @@ def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
     and it is why the previous "Chunky Ribbed Scarf" -- plain single and double crochet in
     two colours -- was a scarf with a name it had not earned.
     """
-    width = 24            # 21.8 cm unstretched at this gauge: a scarf, not a wrap
+    width = 24            # a scarf, not a wrap
     across = _check(width, 4, "ribbed scarf")
+    relaxed_cm = across_cm(width, CHUNKY)
 
     rows = [Row(index=1, ops=[Op("sc", width)], declared_count=width, color="pine",
                 turning_chain=1)]
@@ -72,8 +87,9 @@ def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
                             color_id="pine")],
         components=[Component(name="scarf", construction="flat_rows", rows=rows,
                               foundation=width)],
-        finished_size_note=("Ribbing stretches, so the width is given relaxed. Worked at the "
-                            "stated gauge it measures about 22 cm across unstretched."),
+        finished_size_note=(
+            f"Ribbing stretches, so the width is given relaxed. Worked at the stated gauge "
+            f"it measures about {relaxed_cm:.0f} cm across unstretched."),
         designer_notes=("Every row works front and back post stitches into the same columns, "
                         "which is what makes the rib stand up rather than merely look "
                         "striped."),
@@ -89,8 +105,19 @@ def build_bobble_pillow(version: str = "1.0.0") -> CIR:
     real figure for `bob` instead of falling back to a default that would have understated a
     cushion by a third.
     """
-    width = 70            # 43.8 cm: sized for a 45 cm pad, which bobble fabric draws in to
+    # A little under the pad on purpose, so the pad fills the cover out rather than swimming
+    # in it. The figure that goes on the listing is computed below rather than written here:
+    # a centimetre count typed beside a stitch count is the second copy that went wrong last
+    # time, when the note claimed this panel was wider than the pad it is narrower than.
+    width = 70
     across = _check(width, 5, "bobble pillow")
+    panel_cm = across_cm(width, WORSTED)
+    # Stated in the sentence below rather than assumed by it: which way round the panel and
+    # the pad sit is worked out from the arithmetic, not typed.
+    difference = PAD_CM - panel_cm
+    fit = (f"{difference:.1f} cm narrower than the pad" if difference > 0
+           else f"{-difference:.1f} cm wider than the pad" if difference < 0
+           else "exactly the pad's width")
 
     rows: list[Row] = [Row(index=1, ops=[Op("sc", width)], declared_count=width,
                            color="gold", turning_chain=1)]
@@ -130,8 +157,11 @@ def build_bobble_pillow(version: str = "1.0.0") -> CIR:
         designer_notes=("Class B: the arithmetic and the fabric are verifiable, but a cushion "
                         "cover's fit around a pad depends on how firmly it is worked, so "
                         "nothing is claimed about that until a physical sample says so."),
-        finished_size_note=("Sized for a 45 cm floor cushion pad. Bobble fabric draws in, so "
-                            "the panel is worked slightly wider than the pad."),
+        finished_size_note=(
+            f"Sized for a {PAD_CM:.0f} cm floor cushion pad. The panel measures about "
+            f"{panel_cm:.1f} cm across at the stated gauge -- {fit} -- so the pad fills the "
+            f"cover out instead of swimming in it. Bobble fabric draws in as well, so work "
+            f"the gauge swatch in pattern rather than in plain single crochet."),
     )
 
 
@@ -146,6 +176,7 @@ def build_cable_throw(version: str = "1.0.0") -> CIR:
     """
     width = 144
     across = _check(width, 8, "cable throw")
+    wide_cm = across_cm(width, WORSTED)
 
     rows: list[Row] = [Row(index=1, ops=[Op("sc", width)], declared_count=width,
                            color="cream", turning_chain=1)]
@@ -172,10 +203,11 @@ def build_cable_throw(version: str = "1.0.0") -> CIR:
                             color_id="cream")],
         components=[Component(name="throw", construction="flat_rows", rows=rows,
                               foundation=width)],
-        designer_notes=("Eighteen cable columns, each crossing every fourth row, separated by "
-                        "back post ribbing. The crossing is worked over four stitches: two "
-                        "held to the front, two worked behind them, then the held pair."),
-        finished_size_note=("About 90 cm wide at the stated gauge. Cable fabric draws in "
-                            "across its width, which the gauge swatch has to be worked in "
-                            "pattern to show."),
+        designer_notes=(
+            f"{across} cable columns, each crossing every fourth row, separated by back post "
+            f"ribbing. The crossing is worked over four stitches: two held to the front, two "
+            f"worked behind them, then the held pair."),
+        finished_size_note=(
+            f"About {wide_cm:.0f} cm wide at the stated gauge. Cable fabric draws in across "
+            f"its width, which the gauge swatch has to be worked in pattern to show."),
     )

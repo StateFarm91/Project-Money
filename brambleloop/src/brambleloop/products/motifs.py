@@ -143,10 +143,43 @@ CABLE_TWIST = _m(
     ],
     "a crossing twist that reads as a cable in texture rather than colour")
 
-LIBRARY: dict[str, Motif] = {
-    m.slug: m for m in (FIR_AND_STAR, SNOWFALL, DIAMOND_LATTICE, CHEVRON_BAND,
-                        BASKETWEAVE, HEART_ROW, PUMPKIN_ROW, CABLE_TWIST)
-}
+
+# ---- assembling the library ------------------------------------------------
+
+
+def collect(namespace: dict) -> dict[str, Motif]:
+    """Every motif defined in `namespace`, keyed by slug, refusing a slug collision.
+
+    The library used to be a hand-written tuple of the eight names above it. That tuple was a
+    second copy of the set of motifs this file defines, and the two could only agree until
+    somebody added a ninth: a motif written here but left out of the tuple is in no library,
+    is handed to no product, and -- this is the part that bites -- is validated by nothing,
+    because `check_library` only looks at what is in `LIBRARY`. It would have returned `[]`,
+    which reads as "the library is sound", when what it meant was "the broken motif is not in
+    the sample I looked at".
+
+    Discovery has the property the suite runner's glob has: a new motif is covered the moment
+    it exists.
+
+    A slug collision is refused rather than resolved. `{m.slug: m}` silently keeps the last
+    of two motifs sharing a slug, so the first disappears from the library, from every
+    product built on it, and from the density and duplicate checks below -- the same
+    disappearance the hand-written tuple allowed, reached a different way.
+    """
+    found: dict[str, Motif] = {}
+    for name, value in namespace.items():
+        if not isinstance(value, Motif):
+            continue
+        if value.slug in found:
+            raise MalformedMotif(
+                f"{name}: two motifs share the slug {value.slug!r}. Keyed by slug, one of "
+                f"them would silently replace the other and be validated by nothing.")
+        value.validate()
+        found[value.slug] = value
+    return found
+
+
+LIBRARY: dict[str, Motif] = collect(dict(globals()))
 
 # Density outside this band makes fabric that either looks like nothing or eats yarn and goes
 # stiff. Checked rather than eyeballed, because "looks fine in the chart" is not the test.
@@ -154,7 +187,19 @@ MIN_DENSITY, MAX_DENSITY = 0.08, 0.72
 
 
 def check_library() -> list[str]:
+    """Every problem in the library, or an empty list.
+
+    An empty list has to mean "every motif this file defines was looked at and was sound",
+    not "nothing I happened to look at was unsound", so the first thing checked is that the
+    library still holds every motif the module defines.
+    """
     problems: list[str] = []
+    missing = {m.slug for m in globals().values() if isinstance(m, Motif)} - set(LIBRARY)
+    for slug in sorted(missing):
+        problems.append(
+            f"MOTIF_UNREGISTERED: {slug} is defined in this module but is not in LIBRARY, "
+            f"so no product can use it and no check below has seen it")
+
     seen: dict[str, str] = {}
     for slug, motif in LIBRARY.items():
         motif.validate()
