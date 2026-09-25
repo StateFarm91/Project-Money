@@ -50,6 +50,7 @@ from brambleloop.intel import childrens as ch  # noqa: E402
 from brambleloop.products import launch0 as l0  # noqa: E402
 from brambleloop.products.vessels import build_basket, build_hexagon_coaster  # noqa: E402
 from brambleloop.publish import abbreviations as ab  # noqa: E402
+from brambleloop.publish import charts  # noqa: E402
 from brambleloop.publish import difficulty as diff  # noqa: E402
 from brambleloop.publish import pdf as pdf_mod  # noqa: E402
 from brambleloop.publish.pdf import build_pattern_pdf  # noqa: E402
@@ -576,11 +577,66 @@ def test_the_chart_and_its_legend_are_pictures_and_the_document_says_where_the_t
     The legend is a rendered PNG: nothing in it is selectable, searchable or available to a
     screen reader. It stays, because it is good, and the same key is now in text with a line
     on the chart page pointing at it.
+
+    Rewritten on 2026-09-25 and stronger, not weaker. It used to assert one sentence --
+    *"the stitch key in the image above is also written out under Abbreviations"* -- which was
+    a check that a **pointer existed**, and the pointer was wrong: the Abbreviations page
+    writes out abbreviations and has never carried a chart symbol. This asserts instead that
+    the thing pointed at is in the document: a "Chart symbols" section, before the pointer,
+    containing the marks the chart actually draws. A sentence can satisfy the old assertion
+    while the key is nowhere; it cannot satisfy this one.
     """
     cir = for_slug("cloudline-baby-blanket")
-    rendered = _text_of(build_pattern_pdf(cir, released_on=RELEASED))
-    assert "also written out under Abbreviations" in rendered
-    assert rendered.index("Abbreviations") < rendered.index("also written out under")
+    doc = build_pattern_pdf(cir, released_on=RELEASED)
+    rendered = _text_of(doc)
+    assert "Chart symbols" in rendered
+    assert "also defined under Abbreviations" in rendered
+    assert rendered.index("Abbreviations") < rendered.index("Chart symbols")
+    assert rendered.index("Chart symbols") < rendered.index("also defined under Abbreviations")
+    # The section is a key, not a heading: every mark the chart draws is in it.
+    _, twin = _twin_for(cir)
+    flat = _flat(doc)
+    for symbol, means in pdf_mod._chart_symbols(cir, twin, "US"):
+        assert f"{symbol} {means.split()[0]}" in flat, (symbol, means)
+
+
+def test_the_colour_key_describes_the_chart_that_was_actually_printed():
+    """A key for letters the picture does not carry is a key to nothing.
+
+    The document printed a "Colour key" whenever the CIR held more than one yarn, above the
+    sentence *"each round number on the chart carries its yarn's letter"*. That is a claim
+    about the picture, decided from the pattern. The two came apart the moment a round chart
+    was cropped to the rounds that shape the piece: a basket's contrast bands are up the wall,
+    in the straight rounds the chart no longer draws, so every round on the picture is cream
+    and not one of them carries a letter -- while the key went on naming two.
+
+    Same shape as the 2026-09-24 finding that a round chart has no squares to carry letters,
+    reached by a different route, so the fix is the same one: ask the renderer.
+    """
+    for cir in _designs() + [build_basket(s) for s in ("small", "medium", "large")]:
+        _, twin = _twin_for(cir)
+        art = pdf_mod._chart_art(cir, twin)
+        flat = _flat(_doc_for(cir, twin))
+        if art["cues"]:
+            assert "Colour key" in flat, cir.slug
+            for name, letter in art["cues"].items():
+                assert f"{letter} {name}" in flat, (cir.slug, name, letter)
+        else:
+            assert "Colour key" not in flat, (cir.slug, "a key with no letters to look up")
+            assert "carries its yarn's letter" not in flat, cir.slug
+
+    # The three baskets are the case that proves it: two yarns, and a chart with no letters.
+    silent = [c.slug for c in (build_basket(s) for s in ("small", "medium", "large"))]
+    for slug in silent:
+        cir = build_basket(slug.rsplit("-", 1)[1])
+        _, twin = _twin_for(cir)
+        assert len([c for c in cir.colors if c]) > 1
+        assert pdf_mod._chart_art(cir, twin)["cues"] == {}, slug
+        flat = _flat(_doc_for(cir, twin))
+        assert "no number on it carries a colour letter" in flat, slug
+        # and the yarns are still named and still identified, under an honest heading
+        for name in cir.colors:
+            assert f"{name} {cir.colors[name]}" in flat, (slug, name)
 
 
 # ---- 7. the check that could not fail -------------------------------------
@@ -926,6 +982,32 @@ def test_the_chart_reads_the_brand_palette_rather_than_a_second_copy_of_it():
                         ("gold", charts.GOLD), ("line", charts.LINE)):
         assert value == bible.rgb255(name), (name, value)
 
+    # Strengthened on 2026-09-25, because naming two of the six literals leaves four ways for
+    # the duplicate to come back. This reads every three-integer tuple in the module and asks
+    # whether it is a brand colour, which is the property rather than two examples of it --
+    # and it also catches a colour arriving in a different spelling of the same numbers.
+    import ast
+
+    brand = {bible.rgb255(name) for name in bible.PALETTE}
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Tuple) or len(node.elts) != 3:
+            continue
+        values = [e.value for e in node.elts
+                  if isinstance(e, ast.Constant) and isinstance(e.value, int)]
+        if len(values) == 3 and tuple(values) in brand:
+            raise AssertionError(
+                f"line {node.lineno}: {tuple(values)} is a brand colour written out as a "
+                f"literal, which is the duplicate a search for the hex string cannot find")
+
+    # And the contrast arithmetic it applies to them is the brand's, not a second copy: the
+    # chart renderer has no ratio of its own and no floor of its own.
+    assert "def contrast_ratio" not in source and "0.2126" not in source, \
+        "the chart renderer has grown its own contrast maths again"
+    assert charts.MUTED == tuple(
+        round(c * 255) for c in bible.legible(
+            tuple(v / 255 for v in bible.rgb255("muted")),
+            tuple(v / 255 for v in bible.rgb255("cream"))))
+
 
 def test_the_charts_own_small_type_clears_the_contrast_floor():
     """Half the type in the document was measured and half was not.
@@ -1101,30 +1183,242 @@ def test_no_chart_cell_is_smaller_than_the_brand_allows_type_to_be():
     Measured, the cabled throw's chart was 1.9 mm per cell -- a 16 mm wide ribbon down a 216 mm
     page -- and the gate meant to prevent that was `full_cols > 48`, a proxy for legibility that
     the 48-stitch harvest table runner failed by one stitch.
+
+    Two things changed on 2026-09-25 and both make this check stricter rather than weaker.
+
+    **Every chart is measured now, including the round ones.** `_chart_art` used to report
+    `cell_mm: None` for a piece worked in the round, so this loop skipped it and the document
+    read as *not applicable* rather than as *checked*. Measured for the first time, the
+    Launch-0 nesting baskets drew rings **1.2 mm** wide carrying round numbers of about 2pt --
+    three times worse than the 1.9 mm flat chart that was the worst finding of the previous
+    audit, on the flagship product, and invisible because the number that would have shown it
+    was `None`.
+
+    **The floor is derived from the smallest type a chart sets, not the largest.** It was
+    `MIN_BODY_PT / 0.62`, and 0.62 is the *stitch glyph* -- the biggest thing in the picture.
+    At a cell sized so the glyph just reaches 9pt, the row numbers land at 7.9pt and the
+    colour cue, which is the chart's whole accessibility story, at 6.6pt. A floor that
+    certifies the one piece of type that was never in danger is not a floor. Derived from the
+    smallest ratio it rises from 5.12 mm to 6.90 mm, which is why this is strictly stronger:
+    every cell that passed the old floor at or above 6.90 mm still passes, and the ones
+    between 5.12 and 6.90 now have to be fixed instead of shipped.
     """
-    for cir in _designs():
+    for cir in _designs() + [build_basket(s) for s in ("small", "medium", "large")]:
         _, twin = _twin_for(cir)
         art = pdf_mod._chart_art(cir, twin)
+        floor = (pdf_mod.CHART_MIN_RING_MM if charts.is_round(cir, twin)
+                 else pdf_mod.CHART_MIN_CELL_MM)
         assert art["problems"] == [], (cir.slug, art["problems"])
-        if art["cell_mm"] is not None:
-            assert art["cell_mm"] >= pdf_mod.CHART_MIN_CELL_MM, (cir.slug, art["cell_mm"])
+        # Not `if is not None`: a chart that declines to say how big its readable unit is has
+        # not been checked, and that excuse is exactly what hid the baskets.
+        assert art["cell_mm"] is not None, cir.slug
+        assert art["cell_mm"] >= floor, (cir.slug, art["cell_mm"], floor)
 
-    # The floor is the brand's own minimum type size, converted through the ratio the chart
-    # renderer sets its glyphs at -- not a number chosen to pass.
-    assert pdf_mod.CHART_MIN_CELL_MM == pdf_mod.MIN_BODY_PT / pdf_mod.CHART_GLYPH_RATIO / mm
+    # The floor is the brand's own minimum type size, converted through the *smallest* ratio
+    # the chart renderer sets type at -- not a number chosen to pass, and not the ratio of the
+    # one piece of type that was already large enough.
+    assert pdf_mod.CHART_MIN_CELL_MM == pdf_mod.MIN_BODY_PT / charts.FLAT_TYPE_RATIO / mm
+    assert pdf_mod.CHART_MIN_RING_MM == pdf_mod.MIN_BODY_PT / charts.ROUND_TYPE_RATIO / mm
+    assert charts.FLAT_TYPE_RATIO == min(charts.GLYPH_RATIO, charts.LABEL_RATIO,
+                                         charts.CUE_RATIO)
+    assert charts.ROUND_TYPE_RATIO == min(charts.ROUND_GLYPH_RATIO, charts.ROUND_LABEL_RATIO)
+    assert pdf_mod.CHART_MIN_CELL_MM > 5.12, "the floor is lower than the one it replaced"
 
     # And the check reports rather than passing quietly when a chart cannot be made legible.
+    # Proved by raising the floor rather than by waiting for a bad design, so it keeps being
+    # tested after the bad design is fixed -- once for each kind of chart, because the round
+    # one goes through a different measurement and used to report nothing at all.
     tall = for_slug("cloudline-baby-blanket")
     _, tall_twin = _twin_for(tall)
-    original = pdf_mod.CHART_MIN_CELL_MM
+    basket = build_basket("large")
+    _, basket_twin = _twin_for(basket)
+    original = (pdf_mod.CHART_MIN_CELL_MM, pdf_mod.CHART_MIN_RING_MM)
     try:
         pdf_mod.CHART_MIN_CELL_MM = 50.0
-        art = pdf_mod._chart_art(tall, tall_twin)
-        assert any(p.startswith("PDF_CHART_CELL_BELOW_BRAND_MINIMUM")
-                   for p in art["problems"]), art["problems"]
-        assert "mm on the page" in art["problems"][0]
+        pdf_mod.CHART_MIN_RING_MM = 50.0
+        for cir, twin in ((tall, tall_twin), (basket, basket_twin)):
+            art = pdf_mod._chart_art(cir, twin)
+            assert any(p.startswith("PDF_CHART_CELL_BELOW_BRAND_MINIMUM")
+                       for p in art["problems"]), (cir.slug, art["problems"])
+            assert "mm on the page" in art["problems"][0]
     finally:
-        pdf_mod.CHART_MIN_CELL_MM = original
+        pdf_mod.CHART_MIN_CELL_MM, pdf_mod.CHART_MIN_RING_MM = original
+
+
+def _page_scale(img) -> float:
+    """The scale `_Doc.image` will apply to this picture, read from the document's own rule."""
+    usable_w = pdf_mod.PAGE_W - 2 * pdf_mod.MARGIN
+    usable_h = pdf_mod.PAGE_H - 2 * pdf_mod.MARGIN
+    scale = min(1.0, usable_w / img.width)
+    if img.height * scale > usable_h:
+        scale *= usable_h / (img.height * scale)
+    return scale
+
+
+def _chart_type_pt(cir, twin, art) -> dict[str, float]:
+    """Every font size the chart in this document sets, in points on the printed page.
+
+    The sizes come from `charts.flat_type_px` / `charts.round_type_px`, which are the
+    functions the renderer itself calls -- so this measures what was drawn rather than a
+    reading of the ratios. The page scale comes from `_Doc.image`'s own arithmetic. The
+    product of the two is the number a buyer's eye meets, and it is a property of neither
+    module alone, which is why nothing had ever measured it.
+    """
+    scale = _page_scale(art["chart"])
+    unit_px = round(art["cell_mm"] * mm / scale)
+    sizes = (charts.round_type_px(unit_px) if charts.is_round(cir, twin)
+             else charts.flat_type_px(unit_px))
+    return {k: v * scale for k, v in sizes.items()}
+
+
+def test_every_piece_of_type_inside_a_chart_clears_the_brands_minimum():
+    """Half the type in the chart was held to the floor and half was not.
+
+    The legibility floor was derived from the stitch glyph, at 0.62 of a cell. The row and
+    column numbers are set at 0.55 and the colour cue at 0.46 of the same cell, so a chart
+    sized so that its glyph just reaches the brand's 9pt minimum sets its row numbers at
+    **7.9pt** and its colour cue at **6.6pt** -- in the same picture, on the same page, under
+    the same brand rule. The pressed-flower motifs shipped exactly that: a 5.13 mm cell with a
+    6.6pt colour letter, which is the one mark on the chart a maker who cannot tell the yarns
+    apart by hue has to read.
+
+    This measures every size the renderer sets, not the one the floor was derived from.
+    """
+    worst: dict[str, float] = {}
+    for cir in _designs() + [build_basket(s) for s in ("small", "medium", "large")]:
+        _, twin = _twin_for(cir)
+        art = pdf_mod._chart_art(cir, twin)
+        sizes = _chart_type_pt(cir, twin, art)
+        # The legend is the other image on this page and its type is fixed pixels, so it
+        # shrinks with the picture if a legend ever grows tall enough to be scaled by page
+        # height. Measured rather than assumed, for the same reason as everything else here.
+        legend_scale = _page_scale(art["legend"])
+        sizes.update({f"legend {k}": v * legend_scale
+                      for k, v in charts.LEGEND_TYPE_PX.items()})
+        for role, pt in sizes.items():
+            assert pt >= pdf_mod.MIN_BODY_PT, (cir.slug, role, round(pt, 2))
+            if pt < worst.get(role, 1e9):
+                worst[role] = pt
+    # Not vacuous: the cue really is the tightest of them, so this check is doing work the
+    # glyph-derived floor was not.
+    assert worst["cue"] < worst["glyph"], worst
+
+    # And it fails on an injected defect rather than only on a live one: a chart renderer that
+    # sets its cue a shade smaller drops under the floor at the cell sizes the catalogue uses.
+    original = charts.CUE_RATIO
+    try:
+        charts.CUE_RATIO = 0.40
+        cir = for_slug("cloudline-baby-blanket")
+        _, twin = _twin_for(cir)
+        art = pdf_mod._chart_art(cir, twin)
+        assert _chart_type_pt(cir, twin, art)["cue"] < pdf_mod.MIN_BODY_PT
+    finally:
+        charts.CUE_RATIO = original
+
+
+def test_the_round_chart_draws_every_round_it_does_not_account_for():
+    """A chart that shows part of a piece and does not say so is a new defect, not a fix.
+
+    The round chart is allowed to leave out the straight run at the end of a piece -- a
+    basket is a flat base with a cylinder standing on it, and drawing forty-six wall rounds as
+    forty-six concentric rings makes a picture of a disc the basket is not, at the price of
+    two thirds of every ring's width. What it is not allowed to do is leave them out quietly.
+
+    Measured on the text extracted from the real PDF, in both terminologies, against numbers
+    read back out of the twin.
+    """
+    cir = build_basket("large")
+    _, twin = _twin_for(cir)
+    block = charts.round_block(twin)
+    assert block is not None
+
+    # The block is derived, not asserted: every round it leaves out is worked straight.
+    shaping = charts.shaping_codes()
+    counts = {}
+    for cell in twin.cells:
+        counts.setdefault(cell.row, []).append(cell)
+    for r in block.tail:
+        assert not any(c.stitch in shaping for c in counts[r]), r
+        assert len(counts[r]) == block.tail_stitches, (r, len(counts[r]))
+    assert any(c.stitch in shaping for c in counts[block.last]), \
+        "the chart stops one round short of the shaping it is supposed to show"
+
+    for terminology in pdf_mod.TERMINOLOGIES:
+        doc = _doc_for(cir, twin, terminology)
+        flat = _flat(doc)
+        assert f"It shows rounds {block.first} to {block.last}" in flat, terminology
+        assert (f"Rounds {block.tail[0]} to {block.tail[-1]} are then worked straight at "
+                f"{block.tail_stitches} stitches") in flat, terminology
+        # Including the colour of the rounds the picture no longer carries: the two contrast
+        # bands up the basket's wall are in the tail, so dropping them from the chart without
+        # naming them would lose the only place a maker could see where they fall.
+        assert block.tail_other_colors, "this design no longer proves the colour clause"
+        clause = flat.split("Drawing them would add", 1)[1].split("V marks an", 1)[0]
+        assert block.tail_color in clause, (terminology, clause)
+        for name, first, last in block.tail_other_colors:
+            assert f"{first}-{last}" in clause, (terminology, name, first, last, clause)
+            assert name in clause, (terminology, name, clause)
+
+
+def test_a_wedge_chart_shows_a_whole_repeat_of_every_round():
+    """One slice of a disc is only honest if the slice is a complete statement of the round.
+
+    `wedge_count` is the round counterpart of `detect_repeat`'s column period and is derived
+    the same way, colour included. If it reported a period the fabric does not have, the chart
+    would show a sixth of a basket base and claim the other five sixths match.
+    """
+    for size in ("small", "medium", "large"):
+        cir = build_basket(size)
+        _, twin = _twin_for(cir)
+        wedges = charts.wedge_count(twin)
+        assert wedges == 6, (size, wedges)
+        for r in sorted({c.row for c in twin.cells}):
+            seq = [(c.stitch, c.color)
+                   for c in sorted((c for c in twin.cells if c.row == r),
+                                   key=lambda c: c.position)]
+            period = len(seq) // wedges
+            assert len(seq) % wedges == 0, (size, r)
+            assert all(seq[i] == seq[i % period] for i in range(len(seq))), (size, r)
+
+    # And it reports the period the fabric has rather than the one the CIR's `Repeat` claims:
+    # a round broken in one wedge is not six identical wedges any more.
+    cir = build_basket("small")
+    _, twin = _twin_for(cir)
+    broken = twin.cells[len(twin.cells) // 2]
+    broken.color = "wine" if broken.color != "wine" else "cream"
+    assert charts.wedge_count(twin) == 1, \
+        "a fabric whose wedges differ is still being charted as one wedge repeated"
+
+
+def test_a_round_chart_that_shows_one_wedge_says_so_on_the_picture_itself():
+    """The caption is in the document; the footer is on the thing beside the work.
+
+    A slice of a disc that does not say it is a slice is a disc with most of its stitches
+    missing, and a maker counting the wedges in a ring against the written stitch count would
+    find them five sixths short.
+    """
+    cir = build_basket("large")
+    _, twin = _twin_for(cir)
+    block = charts.round_block(twin)
+    chart = charts.render_round_chart(cir, twin, charts.ChartSpec(cell_px=22),
+                                      rounds=(block.first, block.last), wedges=6)
+    whole = charts.render_round_chart(cir, twin, charts.ChartSpec(cell_px=22))
+    # A wedge is taller than it is wide and a disc is square: the two are not the same picture.
+    assert chart.height > chart.width
+    assert 0.9 < whole.width / whole.height < 1.1
+
+    art = pdf_mod._chart_art(cir, twin)
+    assert "shows one of them" in art["caption"], art["caption"]
+    assert "multiply by 6" in art["caption"], art["caption"]
+
+    # The fabric view is the whole piece and refuses to be a slice of one, because the hero
+    # image is a picture of the product rather than a diagram of part of it.
+    try:
+        charts.render_round_chart(cir, twin, plain=True, wedges=6)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("the hero fabric render accepted a wedge")
 
 
 def test_no_two_stitches_share_a_chart_glyph():

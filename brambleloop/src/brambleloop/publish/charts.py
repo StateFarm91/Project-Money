@@ -11,6 +11,7 @@ so they are consistent, legible and reproducible for every size we publish.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
@@ -129,6 +130,54 @@ def color_letters(cir: CIR) -> dict[str, str]:
     """Stable, hue-independent label per colour. Derived from the CIR, never declared."""
     return {name: _CUE_LETTERS[i % len(_CUE_LETTERS)]
             for i, name in enumerate(cir.colors)}
+
+
+def flat_cue_letters(cir: CIR, colors: list[list[str | None]], cell: int) -> dict[str, str]:
+    """The colour letters a flat chart over these cells will actually carry.
+
+    Called by `render_chart` and by the document that prints the key in text, so the picture
+    and the paragraph cannot disagree about whether there are any letters to look up. A single
+    colour carries none -- an "A" in every square would be noise presented as accessibility --
+    and a cell too small to hold one carries none either.
+    """
+    if cell < CUE_MIN_CELL_PX:
+        return {}
+    if len({c for row in colors for c in row if c}) <= 1:
+        return {}
+    return color_letters(cir)
+
+
+def round_cue_labels(cir: CIR, twin: TwinModel, *, ring_px: int,
+                     rounds: tuple[int, int] | None = None) -> dict[int, str]:
+    """Round number to colour letter, for the rounds a round chart will actually label.
+
+    Extracted from `render_round_chart` rather than restated, because the document has to know
+    what the picture says. **A cropped round chart is the case that made this necessary.** A
+    basket's shaping rounds are all one colour -- the contrast bands are up the wall, in the
+    straight rounds the chart no longer draws -- so a chart of rounds 1 to 24 carries no
+    letters at all, while the document went on printing "each round number on the chart
+    carries its yarn's letter". That is the same defect as telling a round chart's reader to
+    look at squares, arriving by a different route.
+
+    Only rounds worked entirely in one colour get a letter: one letter beside a ring worked in
+    two yarns would be a wrong label rather than a missing one.
+    """
+    shown = [r for r in _rounds_of(twin) if rounds is None or rounds[0] <= r <= rounds[1]]
+    per_round = {r: {c.color for c in _round_cells(twin, r) if c.color} for r in shown}
+    if ring_px < CUE_MIN_CELL_PX:
+        return {}
+    if len({c for cs in per_round.values() for c in cs}) <= 1:
+        return {}
+    letters = color_letters(cir)
+    out: dict[int, str] = {}
+    for r in shown:
+        names = per_round[r]
+        if len(names) != 1:
+            continue
+        letter = letters.get(next(iter(names)))
+        if letter:
+            out[r] = letter
+    return out
 
 
 def _font(size: int) -> ImageFont.ImageFont:
@@ -319,6 +368,259 @@ def row_block(cir: CIR, twin: TwinModel) -> tuple[int, int, int] | None:
 CUE_MIN_CELL_PX = 13
 
 
+# ---- how big the chart sets its own type -----------------------------------
+#
+# Every piece of type in a chart is a fraction of the chart's readable unit -- the cell on a
+# flat chart, the ring on a round one -- because the whole image is then scaled to the page.
+# So the only way to say "no type in this document is below the brand's minimum" is to know
+# these fractions, and they were written as bare literals inside two render functions with a
+# third copy of one of them (`0.62`) in `publish/pdf.py`, where the legibility floor is
+# derived. A floor derived from a copy of a number is a floor that stops meaning anything the
+# first time somebody changes the original.
+#
+# Named here, used by the renderers below, and read by `publish/pdf.py`. The smallest of them
+# is what the floor has to be derived from: a floor set by the *largest* type in the picture
+# certifies the one piece of type that was never in danger.
+GLYPH_RATIO = 0.62          # the stitch symbol in the middle of a flat cell
+LABEL_RATIO = 0.55          # row numbers, the flat chart's title and its reading-direction note
+CUE_RATIO = 0.46            # the colour's letter in the corner of a flat cell
+ROUND_GLYPH_RATIO = 0.55    # the increase/decrease mark in a ring
+ROUND_LABEL_RATIO = 0.60    # round numbers, the round chart's title and its footer
+
+# The smallest type each kind of chart sets, as a fraction of its readable unit.
+FLAT_TYPE_RATIO = min(GLYPH_RATIO, LABEL_RATIO, CUE_RATIO)
+ROUND_TYPE_RATIO = min(ROUND_GLYPH_RATIO, ROUND_LABEL_RATIO)
+
+
+def flat_type_px(cell: int) -> dict[str, int]:
+    """Every font size a flat chart sets, for a cell this many pixels across.
+
+    The renderer calls this rather than computing the sizes inline, so a check asking "is any
+    type in this picture below the brand's minimum" is asking the renderer rather than a
+    reading of it. The lower bounds are pixel floors rather than ratios: below them a glyph
+    stops being a shape at all, and a chart that has reached one is a chart the legibility
+    floor should already have rejected.
+    """
+    return {"glyph": max(7, int(cell * GLYPH_RATIO)),
+            "label": max(9, int(cell * LABEL_RATIO)),
+            "cue": max(6, int(cell * CUE_RATIO))}
+
+
+def round_type_px(ring: int) -> dict[str, int]:
+    """Every font size a round chart sets, for a ring this many pixels wide."""
+    return {"glyph": max(7, int(ring * ROUND_GLYPH_RATIO)),
+            "label": max(10, int(ring * ROUND_LABEL_RATIO))}
+
+
+# The legend's type. Fixed pixels rather than a ratio, because a legend is a list of rows and
+# has no readable unit to be a fraction of -- but it is still type inside an image inside the
+# customer's document, so it is named here and measured on the page like everything else. A
+# legend tall enough to be scaled down by page height would shrink it; at every entry count
+# the taxonomy can produce it is not, and the check says so with a number rather than a hope.
+LEGEND_TYPE_PX: dict[str, int] = {"head": 17, "body": 15}
+
+
+# The only stitches a round chart draws a mark for. A ring of wedges shows where the count
+# changes; everything else in the round is the ground the wedges are drawn on.
+ROUND_MARKED_CODES: tuple[str, ...] = ("inc", "dec", "dc_inc", "dc_dec")
+
+
+def round_mark_note(codes) -> str:
+    """'V marks an increase and A a decrease', for the marks this chart actually draws.
+
+    Built from the codes present rather than written out, because the footer said "V marks an
+    increase, A a decrease" on every round chart while `GLYPHS` draws `dc_inc` as W and
+    `dc_dec` as M. No design in this catalogue works a disc in double crochet, so the sentence
+    has never yet been wrong on a shipped document -- which is the same shape as the two
+    stitches that shared one glyph: a defect whose only sample cannot contain it.
+    """
+    from ..cir import stitches as taxonomy
+
+    parts = []
+    for code in ROUND_MARKED_CODES:
+        if code not in codes:
+            continue
+        st = taxonomy.get(code)
+        what = "an increase" if st.produces > st.consumes else "a decrease"
+        # "V marks an increase and A a decrease": the verb is carried by the first clause,
+        # which is how the sentence read when it was a literal.
+        parts.append(f"{GLYPHS[code]} marks {what}" if not parts
+                     else f"{GLYPHS[code]} {what}")
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0] + "."
+    return ", ".join(parts[:-1]) + f" and {parts[-1]}."
+
+
+def shaping_codes() -> frozenset[str]:
+    """Every stitch that changes the count of the round it is worked in.
+
+    Derived from the taxonomy's own `consumes`/`produces` rather than listed here, because a
+    list is a second opinion about what an increase is: `cir.stitches` already says that a
+    stitch consuming one and producing two is an increase, and a stitch added there with no
+    entry in a private list would silently stop counting as shaping.
+
+    This answers "does this round change the fabric's geometry", which is a different question
+    from "which mark does the round chart draw in this wedge" -- that one is the renderer's,
+    and it draws V and A for the four increase and decrease codes it names in its own footer.
+    """
+    from ..cir import stitches as taxonomy
+
+    return frozenset(code for code in taxonomy.known_codes()
+                     if taxonomy.get(code).consumes != taxonomy.get(code).produces)
+
+
+def _rounds_of(twin: TwinModel) -> list[int]:
+    return sorted({c.row for c in twin.cells})
+
+
+def _round_cells(twin: TwinModel, r: int) -> list:
+    return sorted((c for c in twin.cells if c.row == r), key=lambda c: c.position)
+
+
+def wedge_count(twin: TwinModel) -> int:
+    """How many identical wedges every round of this piece repeats around.
+
+    The round equivalent of `detect_repeat`'s column period, and derived the same way: the
+    largest number that divides every round's stitch count and leaves every round unchanged
+    when its cells are read modulo that period. Colour is part of the comparison, as it is
+    there -- two wedges with the same stitches in different yarns are different wedges.
+
+    A disc worked from a magic ring is six-fold by construction (`[sc in next n, inc] x 6`),
+    and that six is what makes a sixty-degree slice of the chart a complete statement of the
+    round rather than a piece of one. It is read out of the fabric rather than taken from the
+    `Repeat(times=...)` in the CIR, so a piece whose wedges are only *nearly* identical
+    reports the period it actually has.
+    """
+    common: set[int] | None = None
+    for r in _rounds_of(twin):
+        seq = [(c.stitch, c.color) for c in _round_cells(twin, r)]
+        n = len(seq)
+        periods = {k for k in range(1, n + 1) if n % k == 0
+                   and all(seq[i] == seq[i % (n // k)] for i in range(n))}
+        common = periods if common is None else (common & periods)
+        if not common:
+            return 1
+    return max(common) if common else 1
+
+
+@dataclass(frozen=True)
+class RoundBlock:
+    """The rounds a round chart should draw, and the truth about the ones it does not.
+
+    `tail` is the straight run at the end -- rounds with no shaping and a constant stitch
+    count. On a basket that is the side wall: forty-six rounds of "sc in each st around",
+    drawn by the chart as forty-six concentric rings occupying two thirds of the radius of a
+    disc that is really a flat base with a cylinder standing on it. They cost every ring in
+    the picture two thirds of its width and they show a maker nothing the written line does
+    not say in six words.
+
+    The fields are here so the caption can state what the chart leaves out in the document's
+    own numbers, rather than the chart quietly showing less than the pattern contains.
+    """
+
+    first: int
+    last: int
+    tail: tuple[int, ...]
+    tail_stitches: int
+    tail_color: str | None
+    tail_other_colors: tuple[tuple[str, int, int], ...]
+
+
+def round_block(twin: TwinModel) -> RoundBlock | None:
+    """Rounds 1 to the last one that shapes, when everything after it is worked straight.
+
+    `None` when there is nothing to leave out -- the hexagon coaster shapes in every round it
+    has, so its chart is the whole piece and stays so.
+    """
+    rounds = _rounds_of(twin)
+    if len(rounds) < 3:
+        return None
+    shaping = shaping_codes()
+    cells = {r: _round_cells(twin, r) for r in rounds}
+    counts = {r: len(cells[r]) for r in rounds}
+    shaped = {r for r in rounds if any(c.stitch in shaping for c in cells[r])}
+
+    i = len(rounds) - 1
+    while i > 0 and rounds[i] not in shaped and counts[rounds[i]] == counts[rounds[i - 1]]:
+        i -= 1
+    tail = tuple(rounds[i + 1:])
+    # One straight round at the end is not worth a sentence explaining its absence.
+    if len(tail) < 2:
+        return None
+    # A piece with no shaping anywhere has no shaped block to show, and cropping to round 1
+    # would be a chart of a single ring -- less of the piece rather than more of the chart.
+    if rounds[i] not in shaped:
+        return None
+
+    def colour_of(r: int) -> str | None:
+        names = {c.color for c in cells[r]}
+        return next(iter(names)) if len(names) == 1 else None
+
+    base = colour_of(tail[0])
+    others: list[tuple[str, int, int]] = []
+    run_name, run_from, run_to = None, 0, 0
+    for r in tail:
+        name = colour_of(r)
+        if name == base:
+            if run_name is not None:
+                others.append((run_name, run_from, run_to))
+                run_name = None
+            continue
+        if name == run_name and r == run_to + 1:
+            run_to = r
+        else:
+            if run_name is not None:
+                others.append((run_name, run_from, run_to))
+            run_name, run_from, run_to = name or "", r, r
+    if run_name is not None:
+        others.append((run_name, run_from, run_to))
+
+    return RoundBlock(first=rounds[0], last=rounds[i], tail=tail,
+                      tail_stitches=counts[tail[0]], tail_color=base,
+                      tail_other_colors=tuple(others))
+
+
+def round_chart_size(twin: TwinModel, spec: ChartSpec | None = None, *,
+                     rounds: tuple[int, int] | None = None,
+                     wedges: int | None = None) -> tuple[int, int, int]:
+    """(ring width, drawing width, drawing height) in pixels, before any text is laid out.
+
+    Public and separate from the renderer because the caller has to be able to ask how large
+    a ring will land on the page *before* deciding which chart to print -- the same reason
+    `cell_size` is public for the flat chart. Nothing here draws, so asking is cheap even for
+    a seventy-round basket whose full chart is a 2384-pixel square.
+
+    The sector case is the reason the ring can be worth widening at all. A whole disc puts its
+    *diameter* across the page, so a ring is at most half the page width divided by the round
+    count; one wedge puts its *radius* across the page instead, which is twice as much room
+    for the same number of rounds.
+    """
+    spec = spec or ChartSpec()
+    shown = [r for r in _rounds_of(twin) if rounds is None or rounds[0] <= r <= rounds[1]]
+    bands = max(1, len(shown) + 1)          # the rings, plus the blank hub inside round 1
+    sector = bool(wedges and wedges > 1)
+    if rounds is None and not sector:
+        # The default: a whole disc at the spec's own cell size. Unchanged, so every chart
+        # that was already legible renders exactly the bytes it rendered before.
+        ring = max(10, min(spec.cell_px, (spec.max_width_px // 2 - spec.margin_px) // bands))
+    elif sector:
+        half = math.pi / wedges
+        ring = max(10, int((spec.max_width_px - 2 * spec.margin_px)
+                           / (2 * math.sin(half)) // bands))
+    else:
+        ring = max(10, (spec.max_width_px // 2 - spec.margin_px) // bands)
+    outer = ring * bands
+    if sector:
+        half = math.pi / wedges
+        width = int(2 * outer * math.sin(half) + spec.margin_px * 2)
+        height = int(outer + spec.margin_px * 2)
+    else:
+        width = height = int(outer * 2 + spec.margin_px * 2)
+    return ring, width, height
+
+
 def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                  grids: tuple[list[list[str]], list[list[str | None]]] | None = None,
                  caption: str | None = None) -> Image.Image:
@@ -329,17 +631,21 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     """
     spec = spec or ChartSpec()
     cell = cell_size(twin, spec, grids)
-    glyph_font = _font(max(7, int(cell * 0.62)))
-    label_font = _font(max(9, int(cell * 0.55)))
+    type_px = flat_type_px(cell)
+    glyph_font = _font(type_px["glyph"])
+    label_font = _font(type_px["label"])
 
     grid = grids[0] if grids else twin.chart_grid()
     colors = grids[1] if grids else twin.color_grid()
     # The colour cue only exists where colour carries information. A single-colour chart
     # marked "A" in every square would be noise presented as accessibility.
     multicolour = len({c for row in colors for c in row if c}) > 1
-    cues = color_letters(cir) if multicolour else {}
-    cue_font = _font(max(6, int(cell * 0.46)))
-    if cues and cell < CUE_MIN_CELL_PX:
+    # `flat_cue_letters` is the one implementation of "will this chart carry letters", and the
+    # document that prints the key in text asks the same function, so the picture and the
+    # paragraph cannot disagree about whether there is anything to look up.
+    cues = flat_cue_letters(cir, colors, cell)
+    cue_font = _font(type_px["cue"])
+    if multicolour and not cues:
         global COLOR_CUE_MISSING
         COLOR_CUE_MISSING = True
     rows = len(grid)
@@ -409,7 +715,9 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
 
 
 def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
-                       caption: str | None = None, plain: bool = False) -> Image.Image:
+                       caption: str | None = None, plain: bool = False, *,
+                       rounds: tuple[int, int] | None = None,
+                       wedges: int | None = None) -> Image.Image:
     """Concentric chart for a piece worked in the round: round 1 at the centre, outward.
 
     The grid chart is wrong here in two ways at once, and both of them mislead a maker rather
@@ -421,24 +729,45 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     So the rounds are drawn as rings of wedges, one wedge per stitch, in the colour that
     round is worked in, with the increases and decreases marked where they fall. A maker can
     count the wedges in a ring and compare them with the stitch count in the written line.
+
+    `rounds` and `wedges` are the round chart's two ways of being legible, and they are the
+    exact counterparts of what the flat chart already does: show the rows that carry the
+    pattern, and show one repeat across rather than the whole width.
+
+    * `rounds` draws a contiguous block instead of every round. A seventy-round basket spends
+      forty-six of them on a straight side wall, and drawing those as forty-six concentric
+      rings costs every ring in the picture two thirds of its width.
+    * `wedges` draws one of the piece's identical wedges instead of the whole disc, which puts
+      the chart's *radius* across the page instead of its diameter -- twice the ring width for
+      the same rounds. The wedge is centred on twelve o'clock so the round numbers, which are
+      drawn there, stay inside it.
+
+    Both are off by default, so a chart that was already legible renders the bytes it always
+    rendered. The caller decides, on a measurement, and says in the caption what it did --
+    a chart that silently showed part of a piece would be a new defect, not a fix.
     """
     spec = spec or ChartSpec()
-    rows = sorted({c.row for c in twin.cells})
-    if not rows:
+    every_round = _rounds_of(twin)
+    if not every_round:
         raise ValueError("cannot render a chart for a twin with no cells")
+    rows = [r for r in every_round if rounds is None or rounds[0] <= r <= rounds[1]]
+    if not rows:
+        raise ValueError(f"no round of this piece falls in {rounds}")
+    if plain and (rounds is not None or wedges):
+        raise ValueError("the fabric view is the whole piece: it takes no block and no wedge")
 
-    cells_by_round: dict[int, list] = {
-        r: sorted((c for c in twin.cells if c.row == r), key=lambda c: c.position)
-        for r in rows
-    }
-    ring_px = max(10, min(spec.cell_px, (spec.max_width_px // 2 - spec.margin_px)
-                          // max(1, len(rows) + 1)))
+    cells_by_round: dict[int, list] = {r: _round_cells(twin, r) for r in rows}
+    ring_px, disc_w, disc_h = round_chart_size(twin, spec, rounds=rounds, wedges=wedges)
     hub = ring_px                      # a small blank centre so round 1 reads as a ring
     outer = hub + len(rows) * ring_px
-    size = int(outer * 2 + spec.margin_px * 2)
+    sector = bool(wedges and wedges > 1)
+    # A whole disc is the sector nobody cropped: 360 degrees, starting where it always did.
+    span = 360.0 / wedges if sector else 360.0
+    arc0 = -90.0 - span / 2.0 if sector else -90.0
 
-    label_font = _font(max(10, int(ring_px * 0.6)))
-    glyph_font = _font(max(7, int(ring_px * 0.55)))
+    type_px = round_type_px(ring_px)
+    label_font = _font(type_px["label"])
+    glyph_font = _font(type_px["glyph"])
     # Every round in this catalogue is worked in one colour, so the cue belongs on the
     # round's number rather than in every wedge: repeating it sixty times around a ring says
     # nothing more than once beside the ring does, and a round chart has no spare room.
@@ -449,19 +778,32 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     # hero image carries no labels at all by design, and the chart page beside it is where
     # a maker reads the colours.
     per_round = {r: {c.color for c in cells_by_round[r] if c.color} for r in rows}
-    round_colors = {r: (next(iter(cs)) if len(cs) == 1 else None)
-                    for r, cs in per_round.items()}
     multicolour = len({c for cs in per_round.values() for c in cs}) > 1
     mixed_round = any(len(cs) > 1 for cs in per_round.values())
-    cues = color_letters(cir) if multicolour else {}
-    if cues and not plain and (ring_px < CUE_MIN_CELL_PX or mixed_round):
+    # The one implementation of which rounds get a letter, shared with the document that
+    # prints the key in text -- see `round_cue_labels` for why a cropped chart made that
+    # necessary.
+    cue_labels = round_cue_labels(cir, twin, ring_px=ring_px, rounds=rounds)
+    if multicolour and not plain and (ring_px < CUE_MIN_CELL_PX or mixed_round):
         global COLOR_CUE_MISSING
         COLOR_CUE_MISSING = True
 
     title = caption or f"{cir.title} - {twin.component}"
-    footer = ("Round 1 is the centre. Every round is worked in the same direction; "
-              "V marks an increase, A a decrease.")
-    if multicolour:
+    # The innermost ring shown, which is round 1 unless the caller asked for a block.
+    marks = round_mark_note({c.stitch for r in rows for c in cells_by_round[r]})
+    footer = f"Round {rows[0]} is the centre. Every round is worked in the same direction."
+    if marks:
+        footer += f" {marks}"
+    if sector:
+        # Said on the picture as well as in the document's caption, because the picture is
+        # what a maker has beside the work and a slice of a disc that does not say it is a
+        # slice is a disc with most of its stitches missing.
+        footer += (f" This is one of the {wedges} identical wedges of each round: multiply "
+                   f"a ring's wedge count by {wedges} for that round's stitch count.")
+    # Only when a round number actually carries one. A cropped chart of a basket's base shows
+    # rounds worked in one colour, so there is no letter after any of its numbers and this
+    # sentence would be pointing at something that is not on the picture.
+    if cue_labels:
         footer += " The letter after a round number is its yarn, as in the colour key."
     probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
 
@@ -469,21 +811,37 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     # is what a longer footer used to do, and it turns a disc chart into a 2:1 rectangle
     # that is mostly empty cream with a small circle in the middle -- which is exactly the
     # shape the round renderer exists to stop producing. Height is cheap; aspect is not.
-    text_px = max(size - spec.margin_px, 200)
+    text_px = max(disc_w - spec.margin_px, 200)
     footer_lines = _wrap(probe, footer, label_font, text_px)
     title_lines = _wrap(probe, title, label_font, text_px)
     line_h = int(getattr(label_font, "size", 14) * 1.35)
-    head = spec.margin_px + max(0, len(title_lines) - 1) * line_h
-    foot = max(0, len(footer_lines) - 1) * line_h
+    # Room for one line of type at whatever size this chart sets it.
+    #
+    # The title is centred half a margin from the top and the last footer line half a margin
+    # from the bottom, which is fine while a line of type is shorter than the margin -- and it
+    # was, because the ring was capped at 22 pixels and the type with it. A chart sized to fill
+    # the page sets 68-pixel type inside a 56-pixel margin, and the first thing a reader saw
+    # was a title with its ascenders cut off and a footer missing its last line's descenders.
+    # Measured from the font rather than fixed, so it cannot go stale the next time the cap
+    # moves; identical to the old arithmetic wherever a line still fits the margin, which is
+    # every chart that was rendering before.
+    pad = max(spec.margin_px, line_h)
+    head = pad + max(0, len(title_lines) - 1) * line_h
+    foot = max(0, len(footer_lines) - 1) * line_h + (pad - spec.margin_px)
     # The title is a product title -- up to 140 characters -- so it wraps for the same
     # reason the footer does. Sized to the widest line that survived wrapping, which is at
     # most the disc's own width, so the canvas stays disc-shaped.
-    width = int(max(size, max(probe.textlength(t, font=label_font) for t in title_lines)
+    width = int(max(disc_w, max(probe.textlength(t, font=label_font) for t in title_lines)
                     + spec.margin_px))
-    img = Image.new("RGB", (width, head + size + foot), CREAM)
+    img = Image.new("RGB", (width, head + disc_h + foot), CREAM)
     # The canvas can still be a little wider than the disc, so the drawing centre is not
     # the canvas centre in both axes: the circle stays centred on the rings, not the text.
-    cx, cy = width / 2.0, head + size / 2.0 - spec.margin_px / 2.0
+    #
+    # A sector's centre is its apex, which sits at the bottom of the drawing area with the
+    # rings stacked above it -- the round numbers then run up the middle of the wedge.
+    cx = width / 2.0
+    cy = (head + spec.margin_px + outer) if sector else (head + disc_h / 2.0
+                                                         - spec.margin_px / 2.0)
     d = ImageDraw.Draw(img)
 
     # Outermost ring first. Each ring is drawn as a full pie and then has its centre filled
@@ -494,27 +852,36 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
         edge = inner + ring_px
         cells = cells_by_round[r_index]
         step = 360.0 / len(cells)
-        for position, cell in enumerate(cells):
-            start = -90.0 + position * step
+        # One wedge of the round, or all of it. `wedge_count` guarantees the first slice is
+        # a complete statement of the round, because it only reports a period the whole
+        # round actually satisfies.
+        drawn = len(cells) // wedges if sector else len(cells)
+        for position in range(drawn):
+            cell = cells[position]
+            start = arc0 + position * step
             bg = _hex_to_rgb(cir.colors.get(cell.color))
             # A wedge is the ring band between two radii; drawing the outer pie and then the
             # inner one in the background colour is the cheap, dependency-free way to get it.
             d.pieslice([cx - edge, cy - edge, cx + edge, cy + edge],
                        start=start, end=start + step, fill=bg, outline=LINE)
-        d.ellipse([cx - inner, cy - inner, cx + inner, cy + inner],
-                  fill=CREAM, outline=LINE)
+        if sector:
+            d.pieslice([cx - inner, cy - inner, cx + inner, cy + inner],
+                       start=arc0, end=arc0 + span, fill=CREAM, outline=LINE)
+        else:
+            d.ellipse([cx - inner, cy - inner, cx + inner, cy + inner],
+                      fill=CREAM, outline=LINE)
 
         # Mark the shaping where it falls, which is the only thing a round chart really has
         # to show: six stacked marks are a hexagon, six that drift are a circle.
         if ring_px >= 12 and not plain:
-            import math as _math
-            for position, cell in enumerate(cells):
-                if cell.stitch not in ("inc", "dec", "dc_inc", "dc_dec"):
+            for position in range(drawn):
+                cell = cells[position]
+                if cell.stitch not in ROUND_MARKED_CODES:
                     continue
-                angle = _math.radians(-90.0 + (position + 0.5) * step)
+                angle = math.radians(arc0 + (position + 0.5) * step)
                 radius = inner + ring_px * 0.5
-                d.text((cx + radius * _math.cos(angle),
-                        cy + radius * _math.sin(angle)),
+                d.text((cx + radius * math.cos(angle),
+                        cy + radius * math.sin(angle)),
                        GLYPHS.get(cell.stitch, "V"), font=glyph_font, fill=INK, anchor="mm")
 
     if plain:
@@ -530,18 +897,18 @@ def render_round_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
         if r_index % step_labels and r_index not in (rows[0], rows[-1]):
             continue
         y = cy - (hub + depth * ring_px + ring_px * 0.5)
-        cue = cues.get(round_colors.get(r_index) or "")
-        label = f"{r_index}{cue}" if cue and ring_px >= CUE_MIN_CELL_PX else str(r_index)
+        cue = cue_labels.get(r_index, "")
+        label = f"{r_index}{cue}" if cue else str(r_index)
         half = probe.textlength(label, font=label_font) / 2 + 2
         d.rectangle([cx - half, y - ring_px * 0.4, cx + half, y + ring_px * 0.4],
                     fill=CREAM)
         d.text((cx, y), label, font=label_font, fill=MUTED, anchor="mm")
 
     for i, line in enumerate(title_lines):
-        d.text((width / 2, spec.margin_px / 2 + i * line_h), line, font=label_font,
+        d.text((width / 2, pad / 2 + i * line_h), line, font=label_font,
                fill=PINE, anchor="mm")
     for i, line in enumerate(footer_lines):
-        d.text((width / 2, head + size - spec.margin_px / 2 + i * line_h), line,
+        d.text((width / 2, head + disc_h - spec.margin_px / 2 + i * line_h), line,
                font=label_font, fill=MUTED, anchor="mm")
     return img
 
@@ -579,7 +946,7 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
     width, height = 720, 40 + entries * row_h
     img = Image.new("RGB", (width, height), CREAM)
     d = ImageDraw.Draw(img)
-    head, body = _font(17), _font(15)
+    head, body = _font(LEGEND_TYPE_PX["head"]), _font(LEGEND_TYPE_PX["body"])
 
     y = 20
     d.text((24, y), "STITCH KEY", font=head, fill=PINE)

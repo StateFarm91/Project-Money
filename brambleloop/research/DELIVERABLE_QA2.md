@@ -327,3 +327,11 @@ Suites re-run clean: `test_deliverable_qa`, `test_deliverable`, `test_products`,
 payload keys) — Reliability II may hold other parts of that file.
 `integrations/etsy.py` and `integrations/http.py` were not touched; the second file is attached
 through the existing public `attach_file`.
+
+---
+
+**Continued in `research/DELIVERABLE_QA3.md` (2026-09-25).** The four items ranked open at
+the end of this file were worked in order there: the round chart's ring is now measured and was
+1.2 mm on the Launch-0 baskets, the legibility floor is re-derived from the smallest type a
+chart sets rather than the largest, the chart's symbol key is now in text, and the palette
+finding was already closed here as #9.
