@@ -51,6 +51,7 @@ claims are still only readings.
 """
 from __future__ import annotations
 
+import logging
 import os
 import urllib.parse
 from dataclasses import dataclass, field
@@ -58,6 +59,8 @@ from enum import Enum
 from typing import Any, Protocol
 
 from ..core.resilience import PermanentError, TransientError, classify_http
+
+log = logging.getLogger("brambleloop.etsy")
 
 # Etsy's own limits, as published. These are not our preferences.
 TITLE_MAX = 140
@@ -90,6 +93,49 @@ class EtsyRejected(PermanentError):
     """Etsy refused the listing. The payload is wrong and retrying sends the same payload."""
 
 
+def _persisting_on_refresh(db: Any, env: dict[str, str], current_token: str | None = None):
+    """The `TokenProvider.on_refresh` hook, wired to the sealed credential store.
+
+    Etsy spends the refresh token on every refresh and issues a new one, so this callback is
+    not bookkeeping: it is the difference between a system that keeps working and one that
+    needs the owner's browser after the next container replacement.
+
+    **Compare-and-set, and what happens when it loses.** The closure remembers which token it
+    believes is stored and names it on every write, so two workers refreshing at the same
+    moment cannot leave the row holding a token Etsy has already invalidated. The loser does
+    not raise: it is holding a brand-new access token that works for the next hour, and
+    turning a successful refresh into a failed Etsy call would be a worse answer than a log
+    line. What it does instead is stop claiming to own the stored value -- the next write
+    from this process adopts whatever is there rather than fighting over it.
+
+    Nothing in this function logs a token. The fingerprints are the same eight hex characters
+    every other report in this system uses for the same value.
+    """
+    from ..core import oauth_store, sealed
+
+    state = {"expected": sealed.fingerprint(current_token) if current_token else None}
+
+    def on_refresh(tokens) -> None:
+        try:
+            result = oauth_store.save_refresh_token(
+                db, tokens.refresh_token, scopes=" ".join(tokens.scopes),
+                source="refresh grant", expected_fingerprint=state["expected"], env=env)
+            state["expected"] = sealed.fingerprint(tokens.refresh_token)
+            log.info("etsy refresh token rotated to %s (rotation %s)",
+                     result["token_fingerprint"], result["rotations"])
+        except oauth_store.CredentialConflict:
+            state["expected"] = None
+            log.warning(
+                "etsy refresh token was rotated by another worker first; this process kept "
+                "its access token and did not overwrite the stored credential")
+        except Exception as exc:  # noqa: BLE001 - a storage failure must not kill the call
+            state["expected"] = None
+            log.warning("etsy refresh token could not be stored (%s); it will have to be "
+                        "granted again after the next restart", type(exc).__name__)
+
+    return on_refresh
+
+
 @dataclass(frozen=True)
 class Credentials:
     """Read from the environment. Never stored in this repository (CLAUDE.md).
@@ -109,12 +155,25 @@ class Credentials:
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None,
-                 transport: Any = None) -> "Credentials | None":
+                 transport: Any = None, db: Any = None) -> "Credentials | None":
         """Build credentials, preferring a refreshing token provider over a static token.
 
         Accepts `ETSY_KEYSTRING` as well as `ETSY_API_KEY` because two documents in this
         repository named the same value differently, and a name mismatch that presents as
         "no credentials" is the most expensive kind of typo.
+
+        **`db` is what makes the refresh survive a restart.** Without it this function built a
+        `TokenProvider` with no `on_refresh` callback, which meant the rotated refresh token
+        Etsy returns on every refresh was read, used for an hour and then dropped: the system
+        worked until the container was replaced -- several times an hour on this platform --
+        and then presented `invalid_grant`, which looks exactly like a revoked app. With it,
+        the stored credential is preferred over `ETSY_REFRESH_TOKEN` and every rotation is
+        written back, sealed, under compare-and-set.
+
+        `ETSY_REFRESH_TOKEN` is still read, and is still how a token first arrives in a
+        deployment that has never completed the callback flow. The database wins when both
+        exist, because the environment variable is a snapshot of a chain that has since moved
+        on: an env var that was correct when it was pasted is a spent token an hour later.
         """
         e = env if env is not None else os.environ
         key = (e.get("ETSY_KEYSTRING") or e.get("ETSY_API_KEY") or "").strip()
@@ -123,10 +182,32 @@ class Credentials:
         secret = (e.get("ETSY_SHARED_SECRET") or "").strip()
         refresh_token = (e.get("ETSY_REFRESH_TOKEN") or "").strip()
 
+        stored_token = None
+        on_refresh = None
+        if db is not None:
+            from ..core import oauth_store
+
+            stored_token = oauth_store.load_refresh_token(db, env=e)
+            # Only a token that came *from the store* may be named in a compare-and-set. One
+            # read out of the environment has no claim on the row, so its first write adopts
+            # whatever is there instead of asserting what it is replacing.
+            on_refresh = _persisting_on_refresh(db, e, current_token=stored_token)
+
         provider = None
-        if key and refresh_token and transport is not None:
-            from .etsy_oauth import TokenProvider
-            provider = TokenProvider.from_env(transport, e)
+        if key and (refresh_token or stored_token) and transport is not None:
+            from .etsy_oauth import TokenProvider, TokenSet
+
+            provider = TokenProvider.from_env(transport, e, on_refresh=on_refresh)
+            if provider is not None and stored_token:
+                current = provider.tokens
+                # Expiry 0.0 means "treat as already expired", which is what a stored refresh
+                # token with no live access token has to mean: one refresh at start-up rather
+                # than a call with a token of unknown age.
+                provider.tokens = TokenSet(
+                    access_token=current.access_token if current else token,
+                    refresh_token=stored_token,
+                    expires_at=current.expires_at if current else 0.0,
+                    scopes=current.scopes if current else ())
 
         if not (key and shop and (token or provider is not None)):
             return None

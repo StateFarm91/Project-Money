@@ -29,9 +29,17 @@ from ..gateway.model_gateway import available_providers
 from ..queue.durable import DuplicateJob, JobQueue
 from ..runtime import pipeline  # noqa: F401  -- registers job handlers
 from ..runtime.worker import Scheduler
-from . import runner
+from . import access_log, runner
 
 APP_VERSION = "0.1.0"
+
+# Installed at import, which is after the server has configured logging and before it has
+# served anything. Without it, uvicorn's access log writes the full request line -- and in an
+# OAuth authorization-code flow the request line *is* the credential:
+# `GET /api/etsy/oauth/callback?code=<the authorization code>`. Nothing in this repository
+# asked for that line; it is the web server's default, which is exactly why it would have
+# survived a careful review of the application's own code.
+ACCESS_LOG_REDACTION = access_log.install()
 
 db = Database()
 app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
@@ -3717,6 +3725,191 @@ def api_requeue(job_types: str | None = None) -> dict:
 
 def _is_sqlite() -> bool:
     return db.engine.dialect.name == "sqlite"
+
+
+# ---- Etsy OAuth: the two halves of one browser round trip ------------------
+#
+# This is the only credential path in the company that a human has to walk through a browser,
+# and the only endpoint here that an unauthenticated stranger can reach on purpose. Both
+# facts are load-bearing, so the guards are written out rather than assumed:
+#
+# **Initiation** carries the operator credential, exactly like `/api/continuity/export` and
+# `/api/queue/requeue`: `opsauth.check`, 401 on a wrong credential, **503 when the token is
+# unset**, because unconfigured-means-closed is the direction that does not serve the company
+# to the internet during the window between a deploy and remembering to set a variable.
+#
+# **Completion** cannot carry it. Etsy redirects the *owner's browser*, and a browser sent by
+# Etsy has no bearer header and no cookie of ours -- the operator who called `/start` with
+# curl and the browser that lands here are not the same client. So the callback is guarded by
+# the thing it can check: a state that this service minted, wrote to the database, and will
+# claim exactly once. An unauthenticated caller with a stolen authorization code cannot make
+# this endpoint send a single byte to Etsy, because they cannot produce a state whose claim
+# will win. The callback additionally refuses outright when no operator token is configured,
+# which is belt and braces -- without one, nothing could have started a flow anyway -- and
+# keeps the two ends pointing the same way.
+
+
+@app.get("/api/etsy/oauth/start")
+def api_etsy_oauth_start(authorization: str = Header(default="")) -> JSONResponse:
+    """Begin an Etsy authorization. Authenticated, and closed when unconfigured.
+
+    Returns a URL for a human to open. The handshake -- the state and the PKCE verifier -- is
+    written to the database *before* the URL is returned, because a URL handed out before its
+    verifier is durable can produce an authorization code this system is unable to spend.
+    """
+    from ..core import oauth_store
+    from ..integrations import etsy_authorise
+
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    config = etsy_authorise.configuration()
+    health = oauth_store.credential_health(db)
+    with db.session() as s:
+        last = s.scalar(select(AuditLog).where(
+            AuditLog.action == "etsy.oauth_callback").order_by(AuditLog.id.desc()))
+        last_attempt = ({"at": last.at.isoformat() if last.at else None,
+                         **{k: v for k, v in (last.detail or {}).items()}}
+                        if last is not None else None)
+
+    if not config["ready"]:
+        return JSONResponse({"error": "this deployment cannot start an Etsy authorization",
+                             "problems": config["problems"], "configuration": config,
+                             "credential": health, "last_attempt": last_attempt},
+                            status_code=409)
+
+    started = etsy_authorise.begin(db, started_by="operator")
+    Registry(db).audit("orchestrator", "etsy.oauth_started",
+                       detail={"state_fingerprint": f"***{started.state_fingerprint}",
+                               "handshake": started.handshake,
+                               "scopes": list(started.scopes),
+                               "expires_at": started.expires_at})
+    return JSONResponse({**started.to_dict(), "credential": health,
+                         "configuration": config, "last_attempt": last_attempt})
+
+
+@app.get("/api/etsy/oauth/status")
+def api_etsy_oauth_status(authorization: str = Header(default="")) -> JSONResponse:
+    """What the Etsy credential is, without any part of what it says. Authenticated."""
+    from ..core import oauth_store
+    from ..integrations import etsy_authorise
+
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    return JSONResponse({
+        "credential": oauth_store.credential_health(db),
+        "configuration": etsy_authorise.configuration(),
+        "open_handshakes": oauth_store.live_handshakes(db),
+        "callback_path": etsy_authorise.CALLBACK_PATH,
+        "nothing_here_is_a_credential": (
+            "every token in this response is an eight-character SHA-256 fingerprint. The "
+            "refresh token itself is sealed in the database and is not readable through any "
+            "endpoint"),
+    })
+
+
+@app.get("/api/etsy/oauth/callback")
+def api_etsy_oauth_callback(request: Request) -> Response:
+    """Etsy's redirect target. Renders a page a human can read and a thief cannot use.
+
+    The response is HTML because the reader is a person sitting in front of a browser that
+    Etsy has just redirected. It carries the verdict, the reason and what to do next, and it
+    carries no code, no state, no verifier and no token -- only fingerprints. The headers say
+    so as well as the body: `no-store` so no proxy or browser keeps the page, `no-referrer`
+    so the query string does not leak to anywhere the page might link, and a content policy
+    that forbids the page from loading or contacting anything at all.
+    """
+    from ..integrations import etsy_authorise
+    from ..integrations.http import UrllibTransport
+
+    if not opsauth.configured():
+        # The same direction `opsauth` takes everywhere else: unconfigured is closed. Nothing
+        # could have minted a state in this deployment anyway, so this refuses earlier and
+        # more clearly than the state check would have.
+        return _oauth_page(
+            503, "This deployment is not open for authorization",
+            f"{opsauth.TOKEN_VAR} is not set, so no authorization can be started here and "
+            f"none can be completed.",
+            "Set the operator credential in the deployment's environment first.",
+            {"outcome": "operator_credential_unconfigured"})
+
+    params = dict(request.query_params)
+    result = etsy_authorise.finish(db, params, transport=UrllibTransport())
+
+    # The audit row is the durable record of what happened, and it is built from
+    # `Completed.detail`, which is fingerprints by construction. The audit log is exported,
+    # archived and read by the dashboard, so a token in an audit `detail` is a token in all
+    # three.
+    Registry(db).audit("orchestrator", "etsy.oauth_callback",
+                       detail={"outcome": result.outcome, "ok": result.ok,
+                               **{k: v for k, v in result.detail.items()
+                                  if k != "tokens"},
+                               **({"tokens": result.detail["tokens"]}
+                                  if "tokens" in result.detail else {})})
+    return _oauth_page(result.http_status, result.headline, result.explanation,
+                       result.what_to_do,
+                       {"outcome": result.outcome, **result.detail})
+
+
+def _oauth_page(status: int, headline: str, explanation: str, what_to_do: str,
+                facts: dict) -> HTMLResponse:
+    """One page for every outcome, with every value escaped on the way in.
+
+    Escaping matters here more than anywhere else in this file: `error_description` is text
+    that arrived on a URL from outside, and a page that renders it raw is a reflected
+    cross-site scripting hole on the one endpoint whose whole job is to be visited by the
+    owner's authenticated browser.
+    """
+    import html as _html
+
+    rows = "".join(
+        f"<tr><th>{_html.escape(str(k))}</th><td>{_html.escape(str(v))}</td></tr>"
+        for k, v in facts.items() if v not in (None, "", [], {}))
+    body = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Brambleloop &middot; Etsy authorization</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<style>body{{margin:0;background:#FAF6EB;color:#1A2B3C;
+font:15px/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}}
+main{{max-width:680px;margin:0 auto;padding:48px 20px}}
+h1{{font-size:22px;margin:0 0 4px}}
+.status{{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;
+letter-spacing:.06em;text-transform:uppercase;background:{'#244A3A' if status == 200 else '#6E1F2A'};
+color:#FAF6EB}}
+p{{margin:14px 0}} .todo{{background:#fff;border:1px solid #e5e0d3;padding:14px 16px;
+border-radius:8px}}
+table{{border-collapse:collapse;margin-top:24px;font-size:13px;width:100%}}
+th,td{{text-align:left;padding:5px 8px;border-top:1px solid #e5e0d3;vertical-align:top}}
+th{{color:#6b7280;font-weight:500;width:34%}}
+footer{{margin-top:28px;color:#6b7280;font-size:12px}}</style></head>
+<body><main>
+<span class="status">{'authorised' if status == 200 else 'not authorised'}</span>
+<h1>{_html.escape(headline)}</h1>
+<p>{_html.escape(explanation)}</p>
+{f'<p class="todo">{_html.escape(what_to_do)}</p>' if what_to_do else ''}
+<table>{rows}</table>
+<footer>Every token on this page is an eight-character SHA-256 fingerprint. No
+authorization code, access token, refresh token or PKCE verifier appears here, in the
+server log, or in the audit record of this request.</footer>
+</main></body></html>"""
+    return HTMLResponse(body, status_code=status, headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        "Pragma": "no-cache",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Robots-Tag": "noindex, nofollow",
+        "Content-Security-Policy": ("default-src 'none'; style-src 'unsafe-inline'; "
+                                    "form-action 'none'; frame-ancestors 'none'"),
+    })
 
 
 # ---- dashboard ------------------------------------------------------------
