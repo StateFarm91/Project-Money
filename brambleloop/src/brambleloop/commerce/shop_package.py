@@ -223,8 +223,11 @@ CLAIMS: tuple[Claim, ...] = (
     Claim("etsy_image_before_publish",
           "a listing cannot be made active without at least one listing image",
           PRIMARY, "etsy_openapi",
-          ("shop-opening day depends on listing images reaching Etsy, which nothing in this "
-           "system does yet. Recorded as a launch blocker in publish.listing_schema.gaps()")),
+          ("shop-opening day depends on listing images reaching Etsy. Nothing in this system "
+           "uploaded one until 2026-09-25; integrations.etsy.EtsyClient.upload_image now "
+           "does, and no upload has ever been confirmed by Etsy because this environment has "
+           "no credentials. Still a launch blocker in publish.listing_schema.gaps(), for "
+           "that narrower reason")),
     Claim("most_of_the_shop_is_typed_by_a_person",
           "Etsy's API writes five shop text fields, shop sections and return policies, and "
           "nothing else: the policy page, the About story, the banner and the icon have no "

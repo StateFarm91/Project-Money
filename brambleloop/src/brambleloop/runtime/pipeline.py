@@ -548,9 +548,14 @@ def handle_store_publish(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
     version = ctx.job.inputs.get("version", "1.0.0")
 
+    transport = UrllibTransport()
     client = EtsyClient(
-        UrllibTransport(),
-        credentials=Credentials.from_env(),
+        transport,
+        # The transport is handed to the credentials so that an OAuth token which has
+        # expired -- Etsy's access tokens live one hour -- is refreshed rather than sent.
+        # Without it this job works for an hour after a human pasted a token and then fails
+        # with a 401 that looks exactly like a revoked app.
+        credentials=Credentials.from_env(transport=transport),
         phase=ctx.phase.value,
         # A separate fact from having a key: publishing is RED in the authority matrix.
         owner_authorised=os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") == "1")

@@ -46,13 +46,21 @@ class FakeTransport:
             "listing_id": 987654321}
         self.file_body = file_body if file_body is not None else {"listing_file_id": 42}
 
-    def request(self, method, url, *, headers, json=None, file=None):
-        self.calls.append((method, url, json))
+    def request(self, method, url, *, headers, json=None, form=None, multipart=None):
+        # `form` rather than `json` for the listing write, because Etsy lists
+        # application/x-www-form-urlencoded as the only media type for createDraftListing and
+        # updateListing. This fake records whichever channel was used so a test can assert
+        # which one it was.
+        self.calls.append((method, url, form if form is not None else json))
         assert "x-api-key" in headers and headers["Authorization"].startswith("Bearer ")
-        if file is not None:
-            # A multipart body must not claim to be JSON.
-            assert "Content-Type" not in headers, headers
-            assert isinstance(file[1], bytes) and file[1], "no bytes to upload"
+        # The transport owns the Content-Type now, and sets it from the body it was given, so
+        # no caller can announce a media type it is not sending.
+        assert "Content-Type" not in headers, headers
+        if multipart is not None:
+            assert isinstance(multipart.data, bytes) and multipart.data, "no bytes to upload"
+            # Etsy's parameter name, per endpoint: `image` for images, `file` for files.
+            assert multipart.field == ("image" if url.endswith("/images") else "file"), \
+                multipart.field
         if url.endswith("/files"):
             return Response(self.file_status, self.file_body,
                             {"Retry-After": "7"} if self.file_status == 429 else {})
@@ -194,9 +202,20 @@ def test_a_granted_client_creates_a_draft_and_attaches_the_file():
     assert outcome.listing_id == "987654321"
     assert outcome.file_uploaded is True
     assert outcome.needs_completion is False
+    # And the thing nobody was reporting: a draft with no image is a draft Etsy will never
+    # activate. `published` describes the requests; `activatable` describes the listing, and
+    # this call passed no image bytes because no caller in this system has any yet.
+    assert outcome.images_uploaded == 0
+    assert outcome.activatable is False
+    assert any("never activate it" in p for p in outcome.problems), outcome.problems
     methods = [c[0] for c in transport.calls]
     assert methods == ["POST", "POST"]
-    assert transport.calls[0][2]["state"] == "draft"
+    # `state` is deliberately NOT sent: Etsy's createDraftListing schema has no state
+    # property, and the operation's name is the guarantee. Draft-ness is asserted by reading
+    # the listing back from Etsy (tests/test_etsy_transport.py), which is a fact rather than a
+    # field we set and then trusted.
+    assert "state" not in transport.calls[0][2], transport.calls[0][2]
+    assert transport.calls[0][2]["type"] == "download"
 
 
 def test_a_listing_with_no_file_is_reported_as_its_own_outcome():
