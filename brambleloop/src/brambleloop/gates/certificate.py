@@ -166,6 +166,23 @@ def certify(
     findings.extend(check_shape_claims(cir.title, cir, twin, "cir.title"))
     findings.extend(check_technique_claims(cir.title, cir, twin, "cir.title"))
     findings.extend(check_text(cir.designer_notes or "", "cir.designer_notes"))
+    # The designer notes go through the technique check too.
+    #
+    # Only `check_text` -- originality and IP -- used to read them, so a claim about the fabric
+    # was checked in the title and unchecked three lines further down the same document. The
+    # Cloudline baby blanket's note promised "no long floats for small fingers to catch" on a
+    # fabric with no floats in it, and no gate could see it: the checker existed, the twin held
+    # the fact, and the text carrying the claim was never passed in.
+    #
+    # `check_shape_claims` is deliberately NOT run on the notes. Measured across all 16
+    # catalogue patterns before wiring it up: it fires on the pet snuggle mat, whose motif note
+    # reads "dense and structural, suited to baskets and pillows". That check is written for a
+    # *name*, where a noun is the object being sold; in prose the same noun can be a
+    # suitability note or a comparison, and telling those apart is parsing English rather than
+    # measuring the fabric. A technique claim has no such reading -- the fabric either works
+    # that way or it does not -- which is why this half is safe on prose and that half is not.
+    findings.extend(check_technique_claims(cir.designer_notes or "", cir, twin,
+                                           "cir.designer_notes"))
     stages.append("originality")
 
     # 4. Asset truth.

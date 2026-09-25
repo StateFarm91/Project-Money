@@ -97,9 +97,13 @@ is the gap, and it is the one thing standing between this product and a publisha
 
 **What would disqualify it** — listing copy or imagery showing a two-colour lattice *picture*,
 which is the motif-fidelity failure `publish/motif_fidelity.py` exists to block; the design's own
-note claiming *"no long floats for small fingers to catch"*, which implies a carried-float
-colourwork fabric this pattern does not make and must be rewritten or removed before the listing
-goes up; a worked sample whose drape at the stated gauge is stiff enough that the object is not
+note claiming *"no long floats for small fingers to catch"* — true, and still a description of
+stranded colourwork this pattern does not make, offered as reassurance about a child's safety for
+a hazard the product does not have. **Corrected 2026-09-25**: the note now reads "The lattice is a
+relief rather than colourwork: double crochet standing above a single-crochet ground, one colour
+per row", and `gates.asset_truth` refuses any float claim on a fabric no row of which works two
+colours — in the designer notes as well as the title, which is where this one lived and why no
+gate saw it. It survives above as a listing-copy risk rather than a pattern one; a worked sample whose drape at the stated gauge is stiff enough that the object is not
 a baby blanket.
 
 ### 1.3 Hexagon Coaster Set (4)

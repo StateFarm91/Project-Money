@@ -377,9 +377,13 @@ CANDIDATES: tuple[Candidate, ...] = (
             "listing copy or imagery that shows a two-colour lattice picture: the fabric is "
             "one colour per row and a render showing otherwise is the motif-fidelity failure "
             "publish/motif_fidelity.py exists to block",
-            "the designer note's claim of 'no long floats for small fingers to catch', which "
-            "implies a carried-float colourwork fabric this pattern does not make; it has to "
-            "be rewritten or removed before the listing goes up",
+            "any copy implying a carried-float colourwork fabric this pattern does not make. "
+            "The designer note said 'no long floats for small fingers to catch' -- true, and "
+            "still a description of stranded colourwork, offered as reassurance about a "
+            "child's safety for a hazard the product does not have. The note is corrected in "
+            "products/builder.py and gates.asset_truth now refuses the claim wherever it "
+            "appears in the title or the designer notes, so this survives as a listing-copy "
+            "risk rather than a pattern one",
             "a worked sample whose drape at the stated gauge is stiff enough that the object "
             "is not a baby blanket",
         ),

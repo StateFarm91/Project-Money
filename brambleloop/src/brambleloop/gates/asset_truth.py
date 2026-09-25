@@ -380,6 +380,32 @@ _TECHNIQUE_CLAIMS: tuple[tuple[str, frozenset[str], str], ...] = (
 # colour cannot make a mosaic whatever stitches are used.
 _MOSAIC_RE = r"\bmosaic\b"
 
+# A float is a strand of the resting colour carried across the *back of a row*. It exists only
+# where one row works more than one colour, so a one-colour-per-row fabric has none to have --
+# and any claim about floats, including the reassuring "no long floats for small fingers to
+# catch", tells the buyer the fabric is stranded or tapestry colourwork when it is not.
+#
+# Found on the Cloudline baby blanket, whose designer note said exactly that. The fabric is a
+# one-row stripe with a double-crochet relief: there is no float anywhere in it, so the note was
+# literally true and still described a different product. Worse, it was reassurance about a
+# child's safety attached to a hazard the pattern does not have, which teaches a buyer to read
+# our safety wording as decoration.
+_FLOAT_RE = r"\bfloats?\b|\bstranded\b|carried across the back"
+
+
+def rows_working_more_than_one_colour(twin: TwinModel) -> int:
+    """How many rows work more than one colour, which is where a float can exist at all.
+
+    Read off the twin's own cells rather than from the colour count: a two-colour pattern that
+    changes colour *between* rows -- every mosaic-adjacent fabric in this catalogue -- carries
+    the resting colour up the side edge, not across the back.
+    """
+    by_row: dict[int, set[str]] = {}
+    for cell in twin.cells:
+        if cell.color:
+            by_row.setdefault(cell.row, set()).add(cell.color)
+    return sum(1 for colours in by_row.values() if len(colours) > 1)
+
 
 def check_technique_claims(text: str, cir: CIR, twin: TwinModel,
                            where: str = "product.title") -> list[Finding]:
@@ -397,7 +423,7 @@ def check_technique_claims(text: str, cir: CIR, twin: TwinModel,
             continue
         out.append(Finding(
             ERROR, "CLAIM_TECHNIQUE_UNSUPPORTED",
-            f"name claims a technique the pattern does not work: {explanation}, and this "
+            f"claims a technique the pattern does not work: {explanation}, and this "
             f"pattern works only {sorted(worked)}. Either the design changes or the name "
             f"does", where))
 
@@ -407,6 +433,17 @@ def check_technique_claims(text: str, cir: CIR, twin: TwinModel,
             out.append(Finding(
                 ERROR, "CLAIM_TECHNIQUE_UNSUPPORTED",
                 f"name claims mosaic colourwork but the pattern uses {colours} colour(s)",
+                where))
+
+    if re.search(_FLOAT_RE, low):
+        multi = rows_working_more_than_one_colour(twin)
+        if not multi:
+            out.append(Finding(
+                ERROR, "CLAIM_TECHNIQUE_UNSUPPORTED",
+                "claims something about floats, and a float is the resting colour carried "
+                "across the back of a row. No row in this pattern works more than one colour, "
+                "so the fabric has none -- and 'no long floats' describes a stranded or "
+                "tapestry fabric this pattern does not make, however true the words are",
                 where))
 
     return out

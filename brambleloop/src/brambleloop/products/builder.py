@@ -137,7 +137,19 @@ CATALOGUE: dict[str, Design] = {
     "cloudline-baby-blanket": Design(
         slug="cloudline-baby-blanket", title="Cloudline Textured Baby Blanket",
         motif="diamond-lattice", palette="cloudline", width_stitches=126, motif_repeats=11,
-        note="A continuous lattice: no long floats for small fingers to catch."),
+        # Was "A continuous lattice: no long floats for small fingers to catch." There are no
+        # floats in this fabric to be long or short: it works one colour per row and carries
+        # the resting colour up the side edge, so the note described stranded colourwork this
+        # pattern does not make -- and did it as reassurance about a child's safety, attached
+        # to a hazard the product does not have. `gates.asset_truth` now refuses the claim.
+        # And it says what the fabric IS rather than what it is not. The first correction read
+        # "a relief rather than colourwork", which `launch0.fabric_truth` refused: that gate
+        # matches the word "colourwork" anywhere in the title or notes and cannot read a
+        # negation, and it is right not to try -- a note that mentions stranded colourwork on a
+        # one-colour-per-row fabric still puts the wrong picture in a buyer's head, exactly as
+        # the float claim did.
+        note="The lattice is a relief: double crochet standing above a single-crochet "
+             "ground, one colour per row."),
     "autumn-oak-mosaic-throw": Design(
         slug="autumn-oak-mosaic-throw", title="Autumn Oak Overlay Mosaic Throw",
         motif="fir-and-star", palette="autumn", width_stitches=144, motif_repeats=5),

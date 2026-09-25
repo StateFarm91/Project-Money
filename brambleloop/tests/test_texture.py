@@ -205,6 +205,103 @@ def test_the_certificate_runs_the_technique_check():
 
 
 
+def test_a_claim_about_floats_needs_a_row_that_works_more_than_one_colour():
+    """The Cloudline baby blanket's designer note: "no long floats for small fingers to catch".
+
+    Literally true and still a false claim. A float is the resting colour carried across the
+    *back of a row*, so it exists only where one row works more than one colour -- and this
+    fabric changes colour between rows and carries the resting yarn up the side edge. The note
+    described stranded colourwork the pattern does not make, as reassurance about a child's
+    safety, attached to a hazard the product does not have.
+    """
+    from fixtures import good_mosaic_panel
+
+    from brambleloop.gates.asset_truth import rows_working_more_than_one_colour
+
+    cir = good_mosaic_panel()
+    _, twin = _twin(cir)
+    assert rows_working_more_than_one_colour(twin) == 0
+
+    for claim in ("A continuous lattice: no long floats for small fingers to catch.",
+                  "Stranded colourwork with short floats.",
+                  "The resting colour is carried across the back."):
+        findings = check_technique_claims(claim, cir, twin, "cir.designer_notes")
+        assert [f.code for f in findings] == ["CLAIM_TECHNIQUE_UNSUPPORTED"], claim
+        assert "floats" in str(findings[0])
+
+    # And the other branch, which no CIR can reach today: `Row` carries one `color` field, so
+    # intra-row colour is not expressible until the per-stitch colour primitive lands. Built by
+    # hand on the twin the check actually reads, so the condition is live code rather than a
+    # branch that is true by accident and would stay true after the primitive arrives.
+    from brambleloop.cir.twin import Cell, TwinModel
+
+    stranded = TwinModel(component="panel", cells=[
+        Cell(row=1, position=0, stitch="sc", color="forest"),
+        Cell(row=1, position=1, stitch="sc", color="wine"),
+    ])
+    assert rows_working_more_than_one_colour(stranded) == 1
+    assert not check_technique_claims("Short floats only.", cir, stranded)
+
+
+def test_the_certificate_reads_the_designer_notes_not_only_the_title():
+    """Where the Cloudline claim actually lived, and why nothing caught it.
+
+    The technique check existed, the twin held the fact that no row works two colours, and the
+    text making the claim was never passed in: `certify` ran the claim checks on the title and
+    ran only the originality check on the notes, three lines further down the same document.
+    """
+    from fixtures import good_mosaic_panel
+
+    from brambleloop.cir.model import CIR
+
+    cir = good_mosaic_panel()
+    noted = CIR.from_dict({**cir.to_dict(),
+                           "designer_notes": "A continuous lattice: no long floats for small "
+                                             "fingers to catch."})
+    cert = certify(noted)
+    assert not cert.granted
+    # `where` arrives as the Finding's `component` slot, which is how every claim check
+    # already reports a location.
+    assert [f.component for f in cert.errors
+            if f.code == "CLAIM_TECHNIQUE_UNSUPPORTED"] == ["cir.designer_notes"]
+
+
+def test_the_shape_check_is_not_run_on_prose_and_the_reason_is_measured():
+    """A deliberate asymmetry, and the measurement behind it.
+
+    Run across all 16 catalogue patterns before wiring the notes in, `check_shape_claims` fires
+    once: the pet snuggle mat, whose motif note reads "dense and structural, suited to baskets
+    and pillows". That check is written for a *name*, where the noun is the object being sold;
+    in prose the same noun can be a suitability note or a comparison, and separating those is
+    parsing English rather than measuring the fabric. A technique claim has no second reading,
+    which is why that half is safe on prose and this half is not.
+    """
+    from brambleloop.gates.asset_truth import check_shape_claims
+    from brambleloop.products import builder
+
+    cir = builder.build(builder.CATALOGUE["pet-snuggle-mat"])
+    _, twin = _twin(cir)
+    notes = cir.designer_notes or ""
+    assert "suited to baskets" in notes
+    assert [f.code for f in check_shape_claims(notes, cir, twin)] == \
+        ["CLAIM_CONSTRUCTION_UNSUPPORTED"]
+    # ... and the certificate does not raise it, because it does not ask.
+    assert certify(cir).granted, [str(f) for f in certify(cir).errors]
+
+
+def test_every_catalogue_note_survives_the_claim_check_it_is_now_subject_to():
+    """The corrected Cloudline note included. A gate added without this is a gate nobody ran."""
+    from brambleloop.products import builder
+
+    for design in builder.CATALOGUE.values():
+        cir = builder.build(design)
+        _, twin = _twin(cir)
+        findings = check_technique_claims(cir.designer_notes or "", cir, twin,
+                                         "cir.designer_notes")
+        assert not findings, (design.slug, [str(f) for f in findings])
+        assert "float" not in (cir.designer_notes or "").lower(), design.slug
+
+
 # ---- the hero has to show the fabric ---------------------------------------
 
 
