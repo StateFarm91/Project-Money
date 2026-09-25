@@ -523,6 +523,152 @@ run says so, in the step record, naming the exact two lines.
 
 ---
 
+## 8. The trigger: how the prepared run actually runs, and where
+
+**Written:** 2026-09-25 (UTC). **Phase:** SHADOW. **State:** IMPLEMENTED and LOCALLY_TESTED.
+**Not VERIFIED_AGAINST_ETSY** — nothing in this section has been run against Etsy, and a
+green local suite cannot make it so.
+
+### 8.1 The gap, verified before anything was written
+
+Section 7 prepared the run. It did not give it anywhere to run. Verified by `grep` across
+`src/` on 2026-09-25:
+
+| Finding | Verified |
+|---|---|
+| `run_exercise` is called from exactly one place: `etsy_probe.main()` | yes |
+| No FastAPI route reaches it | yes — `etsy_probe` appeared nowhere in `app/main.py` |
+| No job handler reaches it | yes — no `@registry.register` handler imports it |
+
+And the constraint that decides the design: **the refresh token is sealed in production's
+Postgres under production's `BRAMBLELOOP_SECRET_KEY`, and neither exists in a development
+container.** So the only machine that *can* run the exercise is the deployed service, and the
+only way to ask it to is an endpoint. A runbook that says "ssh in and run the module" is not
+an answer on a platform whose containers are replaced several times an hour.
+
+### 8.2 What was built
+
+`integrations/etsy_exercise.py`, and one route.
+
+```
+POST /api/etsy/exercise?mode=full       the eight steps, then the rotation proof
+POST /api/etsy/exercise?mode=rotation   the rotation proof alone — no draft, no write
+```
+
+Guarded by `opsauth`, identically to `/api/continuity/export`, `/api/queue/requeue` and
+`/api/etsy/oauth/start`: **401** on a wrong or absent credential, **503 when the token is
+unset**, because unconfigured-means-closed is the only default that does not serve the company
+to the internet during the window between a deploy and remembering to set a variable. POST
+rather than GET, because a GET is fetched by link previewers, by browser prefetch and by
+anything that follows a URL out of a log, and none of those may create a draft.
+
+It does **not** re-implement the run. `etsy_probe.run_exercise` is invoked unchanged. What the
+module adds is the four things a real shop needs that a pure function cannot provide.
+
+#### Activation is structurally unreachable
+
+`_client()` hard-codes `owner_authorised=False` — written in the function, not passed to it.
+`EtsyClient.refusal()` checks the phase, then that flag, then the credentials, and
+`refusal_for(ACTIVATE)` returns `refusal()` unchanged when it is not None. So there is no
+phase, no environment variable and no argument to this module that produces an activation
+authority: a test asserts it for `shadow`, `staging`, `limited_production` **and**
+`production`. `_client()` then asserts that the client it just built reports an activation
+refusal, and **refuses to start the run at all** if it does not — so a future loosening of the
+gates stops this path rather than arming it.
+
+`activate()` itself is byte-for-byte unchanged and pinned: `test_activate_keeps_its_three_gates_byte_for_byte`
+holds the SHA-256 of its source. And the strongest form of the claim is measured on the wire:
+a whole run is driven through a recording transport and **no request in it carries a `state`
+field at all**.
+
+#### A draft's existence becomes durable in the instant Etsy creates it
+
+`run_exercise` records the draft in an in-memory `left_behind` list. That is right for a
+function and worth nothing if the process dies between the create and the delete: the shop
+then holds a listing nothing anywhere knows about. `_Breadcrumbs` subclasses `EtsyClient` and
+writes an audit row the moment `create_draft` returns an id — committed before the id reaches
+the caller — and a matching row only when a **read of Etsy** confirms the listing is gone. An
+unmatched pair is a permanent, queryable record, readable after a crash, by a different
+container, with no re-run.
+
+#### The shop is read back independently of the report
+
+`run_exercise` reports `shop_is_clean` from its own bookkeeping, which is right about what
+*this* run did and knows nothing about what a killed run did. `shop_read_back()` asks Etsy for
+the shop's drafts and looks for the marker prefix. A report's opinion of the shop is not the
+shop.
+
+#### One run at a time, held by something that cannot outlive its holder
+
+On Postgres, a **session-level advisory lock on a dedicated connection**. The choice is the
+point: an advisory lock is released by the database when the connection drops, so it cannot
+outlive the process holding it — precisely the property a job lease does not have. On SQLite
+there is no advisory lock and an in-process mutex is the whole guarantee; the report says
+which of the two was in force rather than implying the stronger one.
+
+### 8.3 Inline, not a durable job — and why
+
+The requirement was to decide honestly against the 5-minute lease and the worker's behaviour.
+It runs **inline, inside the HTTP request**. The queue is the wrong home for this work:
+
+- **`JobQueue._reclaim_expired` hands an expired lease to another worker without stopping the
+  first one.** There is no cancellation and no fencing token. If the run ever exceeded
+  `DEFAULT_LEASE_SECONDS` (300) — a slow Etsy, a stalled TLS handshake, one transient retry —
+  a second worker would begin a second exercise against the same real shop while the first was
+  still mid-flight. The step-0 sweep deletes test drafts **by title prefix**, so the second
+  run's housekeeping deletes the first run's live artefact; interleave it the other way and
+  the first run creates its draft after the second has swept, and the shop ends holding a
+  draft only one report mentions. That is exactly the half-finished run this had to be
+  designed against, arriving through the recovery path.
+- **`claim()` increments `attempts` against `max_attempts`**, so a run that fails is
+  re-executed up to three times, each attempt creating a draft.
+- **`idempotency_key` guarantees a job is enqueued once, not executed once.** The single
+  guarantee the queue is built on is the one this work needs and does not get.
+- **The work is not long by the queue's standard**: about a dozen Etsy round trips plus at most
+  one token refresh. The lease exists for renders and builds.
+- **The report is the deliverable.** Inline it is returned to the operator who asked; as a job
+  it would be written into a row somebody then has to find.
+
+Inline, the HTTP request *is* the lease: one caller, one run, no reclaim, no retry. The failure
+mode inline is a dropped connection rather than a stranded draft — and the breadcrumb ledger is
+what makes even a killed container leave the listing id and title behind in writing, with the
+next run's step-0 sweep removing it and an owner action naming it if the sweep cannot.
+
+### 8.4 The operator command
+
+```
+curl -sS -X POST "https://<host>/api/etsy/exercise" \
+     -H "Authorization: Bearer $BRAMBLELOOP_OPS_TOKEN"
+```
+
+`?mode=rotation` runs the rotation proof alone — two authenticated shop reads, no draft,
+nothing to clean up, and the safest order is to run that one first. Either way: **CA$0**. Etsy
+charges no fee for an app, a shop read, a draft, an image upload, a deletion or a token
+refresh; its listing fee is charged at publication, which nothing on this path performs.
+
+The reply is the authoritative report: the eight steps with what each measured and what Etsy
+returned, every finding classified against the 50-signature taxonomy, every claim's
+`state_before` and `state_after`, an independent read of the shop, the credential's state after
+cleanup, `/api/verify`'s own verdict, and — if anything was stranded — an owner action carrying
+the listing id and title to remove in Shop Manager. HTTP 200 when the run is clean and
+verified, 502 when it is not, 409 when another run holds the claim or no credential exists.
+
+### 8.5 What was exercised, and what that is worth
+
+30 checks in `tests/test_etsy_exercise.py`, all against `tests/fake_etsy.py`. Including: the
+three `opsauth` outcomes and a refused call that reaches the network zero times; every phase
+failing to produce an activation authority; a `refusal_for` that lies and a run that refuses to
+start because of it; a whole run with no `state` field on any request; a broken delete that
+strands a draft, names it in the owner queue with its id and title, writes it to the durable
+ledger, and is then swept by the next run's step 0; a shop read that contradicts a clean
+report; a second concurrent call refused; and one sweep for every secret the fake ever minted,
+over the report, the audit rows and the owner queue together.
+
+**None of it is evidence about Etsy.** `against_etsy()` is false for every one of those runs
+because `EtsyClient.BASE` is not `openapi.etsy.com`, and
+`test_a_green_run_against_the_fake_promotes_nothing` asserts that no claim moved. The three
+states in §3.4 stay three.
+
 ## Sources
 
 Fetched successfully from this environment on 2026-09-25:
