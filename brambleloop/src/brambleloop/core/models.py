@@ -49,8 +49,9 @@ class Phase(str, enum.Enum):
 class Job(Base):
     """A unit of durable work.
 
-    `idempotency_key` is the guard that makes duplicate execution safe: two jobs that would
-    publish the same listing or spend the same budget cannot both exist (Gate A).
+    `idempotency_key` prevents duplicate enqueues. A lease token fences queue-state
+    updates by stale attempts. External actions still need their own idempotency or
+    reconciliation protocol; neither field alone guarantees exactly-once effects.
     """
 
     __tablename__ = "jobs"
@@ -72,6 +73,7 @@ class Job(Base):
 
     run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     leased_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    lease_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -1350,3 +1352,14 @@ class OAuthCredential(Base):
     def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of tracebacks
         return (f"<OAuthCredential {self.provider} ***{self.token_fingerprint} "
                 f"rotations={self.rotations}>")
+
+
+class MarketplaceCapability(Base):
+    """Dated marketplace evidence, independent of process lifetime and ad authority."""
+    __tablename__ = "marketplace_capabilities"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    status: Mapped[str] = mapped_column(String(40))
+    eligible_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    evidence_source: Mapped[str] = mapped_column(Text)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)

@@ -449,7 +449,7 @@ def test_no_production_module_creates_a_directory_nothing_removes():
             # check that punishes writing the reason down.
             if "mkdtemp(" not in line or line.lstrip().startswith("#"):
                 continue
-            offenders.append(f"{path.relative_to(src)}:{number}: {line.strip()}")
+            offenders.append(f"{path.relative_to(src).as_posix()}:{number}: {line.strip()}")
     assert len(offenders) == 1, offenders
     assert offenders[0].startswith("app/main.py"), offenders
 

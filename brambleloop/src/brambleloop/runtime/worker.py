@@ -8,8 +8,9 @@ Two rules shape the design:
 
   - A worker never trusts itself. Every dispatch goes through `Registry.authorize`, so an
     agent cannot run work it has no permission for even if something enqueued it by mistake.
-  - A worker never runs forever on one job. Leases expire, so a hung handler is reclaimable
-    by another worker rather than silently stalling the company.
+  - Leases expire, so another worker can reclaim a job. This does not terminate a hung
+    handler or undo its external effects; process isolation remains a rollout prerequisite
+    for overlapping paid workers. Lease tokens fence the reclaimed job's queue state.
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from sqlalchemy import select
 from ..agents.registry import BudgetExceeded, PermissionDenied, Registry
 from ..core.db import Database
 from ..core.models import Job, JobStatus, Phase, utcnow
-from ..queue.durable import DuplicateJob, JobQueue
+from ..queue.durable import DuplicateJob, JobQueue, LeaseLost
 
 Handler = Callable[["JobContext"], dict]
 
@@ -130,6 +131,14 @@ class Worker:
             return str(value)
 
     def run_once(self) -> bool:
+        try:
+            return self._run_once()
+        except LeaseLost:
+            # A newer attempt owns the row. Do not fail or complete its work.
+            self.stats.skipped += 1
+            return True
+
+    def _run_once(self) -> bool:
         """Claim and run at most one job. Returns False when there was nothing to do."""
         job = self.queue.claim(self.name, self.job_types)
         if job is None:
@@ -142,7 +151,7 @@ class Worker:
             self.agents.authorize(job.agent, job.job_type)
         except PermissionDenied as e:
             # Never retry a permission failure: it will never spontaneously become allowed.
-            self.queue.fail(job.id, f"permission denied: {e}", retry=False)
+            self.queue.fail(job.id, f"permission denied: {e}", retry=False, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.denied", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.denied += 1
@@ -150,7 +159,7 @@ class Worker:
 
         handler = self.handlers.get(job.job_type)
         if handler is None:
-            self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False)
+            self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False, lease_token=job.lease_token)
             self.stats.skipped += 1
             return True
 
@@ -163,24 +172,24 @@ class Worker:
             # build did exactly that: `built: false`, the provider's own sentence in `why`,
             # a green job, and nobody told.
             _note_funding(self.db, self._funding_text(outputs))
-            self.queue.complete(job.id, outputs)
+            self.queue.complete(job.id, outputs, lease_token=job.lease_token)
             self.agents.audit(job.agent, f"job.completed:{job.job_type}",
                               artifact=str(outputs.get("artifact") or job.job_type),
                               job_id=job.id, phase=self.phase)
             self.stats.completed += 1
         except CapabilityNotEnabled as e:
-            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False)
+            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.capability_not_enabled", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except BudgetExceeded as e:
-            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False)
+            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.budget_exceeded", job_id=job.id,
                               phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except Exception as e:  # noqa: BLE001 - a worker must survive any handler
             _note_funding(self.db, str(e))
-            self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}")
+            self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}", lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.failed", job_id=job.id, phase=self.phase,
                               detail={"error": str(e)})
             self.stats.failed += 1
@@ -212,6 +221,7 @@ class Worker:
 # cadence twice in the same window is refused by the job's idempotency key, so a restart loop
 # cannot flood the queue.
 CADENCES: list[tuple[str, str, str, int]] = [
+    ("etsy_ads_readiness", "growth", "marketing.ads_readiness", 60 * 60),
     # (name, agent, job_type, period_seconds)
     ("infra_heartbeat", "orchestrator", "ops.heartbeat", 15 * 60),
     ("queue_check", "orchestrator", "ops.queue_check", 60 * 60),

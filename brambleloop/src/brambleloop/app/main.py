@@ -512,6 +512,7 @@ def api_status() -> dict:
         "agent_opex_cad": round(float(opex), 4),
         "revenue_cad": round(float(revenue), 2),
         "owner_actions_open": owner_open,
+        "etsy_ads": api_ads_readiness(),
         "runner": runner.STATE.to_dict(),
         # Reported rather than assumed. An empty list is the truthful answer until a key is
         # configured, and no part of the system may imply a model integration that does not
@@ -4282,6 +4283,16 @@ def dashboard() -> str:
 
     command_centre = (
         _block("Build 2 coverage", _build2)
+        + _block("Etsy Ads eligibility", lambda: rows(
+            [(label, __import__("html").escape(str(st["etsy_ads"].get(key))))
+             for label, key in [("Status", "etsy_ads_status"),
+                                ("Estimated recheck date", "eligible_from"),
+                                ("Days remaining", "days_remaining"),
+                                ("Evidence source", "evidence_source"),
+                                ("Last verified with Etsy", "last_verified_at"),
+                                ("Collector", "collector_status")]],
+            [["Marketing", "Evidence"]], "") +
+            '<p>Countdown expiry requires fresh Etsy evidence. Preparation only; no ad activation. Etsy Plus credit and owner cash require separate reconciliation.</p>')
         + _block("Visual pipeline", _visual_pipeline)
         + _block("MJs mission", _mission)
         + _block("Seasonal deadlines", _seasonal)
@@ -4570,3 +4581,29 @@ function card(p){
 if(T()) load();
 </script></body></html>
 """
+
+
+@app.get("/api/etsy/ads-readiness")
+def api_ads_readiness() -> dict:
+    from ..growth.ads_readiness import state
+    return state(db)
+
+
+@app.post("/api/etsy/ads-readiness/evidence")
+async def api_ads_evidence(request: Request, authorization: str | None = Header(default=None)):
+    from datetime import datetime
+    from ..growth.ads_readiness import record_evidence
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+    try:
+        data = await request.json()
+        return record_evidence(db, status=data["status"],
+            evidence_source=data["evidence_source"],
+            verified_at=datetime.fromisoformat(data["verified_at"]),
+            eligible_from=datetime.fromisoformat(data["eligible_from"]) if data.get("eligible_from") else None)
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return JSONResponse({"error": "Supply status, a dated Etsy evidence reference, verified_at within the last 24 hours, and a future eligible_from for WAITING."}, status_code=422)

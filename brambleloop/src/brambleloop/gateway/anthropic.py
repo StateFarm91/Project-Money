@@ -214,6 +214,19 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
                  agent: str = "", purpose: str = "", job_id: int | None = None,
                  reserve: bool = True, holder: str | None = None,
                  ttl_seconds: int | None = None) -> dict:
+    from ..finance.reservations import admission
+    with admission(db) as transaction:
+        return _check_budget(transaction, model=model, input_tokens=input_tokens,
+            max_tokens=max_tokens, now=now, uncommitted_cad=uncommitted_cad,
+            agent=agent, purpose=purpose, job_id=job_id, reserve=reserve,
+            holder=holder, ttl_seconds=ttl_seconds)
+
+
+def _check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
+                 now: datetime | None = None, uncommitted_cad: float = 0.0,
+                 agent: str = "", purpose: str = "", job_id: int | None = None,
+                 reserve: bool = True, holder: str | None = None,
+                 ttl_seconds: int | None = None) -> dict:
     """Refuse a call that would cross the ceiling, before it is made.
 
     Assumes the model writes its entire output allowance. It usually does not, and budgeting
@@ -276,8 +289,10 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
     permission = agent_daily_ceiling(db, agent, now=now)
     if permission is not None:
         today = permission["spent_today_cad"]
+        reserved_for_agent = sum(r["amount_cad"] for r in others["reservations"]
+                                 if r["agent"] == agent)
         allowed = permission["daily_ceiling_cad"]
-        if today + mine + estimate > allowed:
+        if today + mine + reserved_for_agent + estimate > allowed:
             raise AgentCeilingExceeded(
                 f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
                 f"CA${today + mine:.4f} of it (CA${today:.4f} billed, CA${mine:.4f} unbilled "

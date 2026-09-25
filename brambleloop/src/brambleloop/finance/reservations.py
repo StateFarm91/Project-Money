@@ -35,6 +35,7 @@ from __future__ import annotations
 import os
 import socket
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 # How long a reservation stands if nobody releases it. It has to exceed the longest a single
@@ -49,6 +50,29 @@ DEFAULT_TTL_SECONDS = 300
 # reconciliation the spend policy asked for. They are pruned once both figures are in the
 # ledger and nothing is reconciling them any more.
 KEEP_RELEASED_HOURS = 48
+
+
+@contextmanager
+def admission(db):
+    """Check and reserve in one serialized transaction, never across a provider call."""
+    from sqlalchemy import text
+    from ..core.db import is_postgres
+
+    with db.session() as session:
+        if is_postgres(db.engine):
+            session.execute(text("SELECT pg_advisory_xact_lock(284191001)"))
+        else:
+            session.execute(text("BEGIN IMMEDIATE"))
+
+        class TransactionDatabase:
+            engine = db.engine
+
+            @contextmanager
+            def session(self):
+                # Existing budget readers and the reservation writer share this transaction.
+                yield session
+
+        yield TransactionDatabase()
 
 
 def holder_id() -> str:
