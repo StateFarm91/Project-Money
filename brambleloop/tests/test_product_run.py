@@ -156,6 +156,45 @@ def test_pricing_survives_etsy_fees_and_carries_no_fake_discount():
     assert price["net_cad"] > 9.0
 
 
+def test_a_childrens_listing_carries_its_statements_through_the_real_chain():
+    """The caller, not the generator: `build_description` takes the statements and
+    `childrens_listing_audit` checks the finished text for them, and `handle_listing_seo`
+    passed neither.
+
+    So the live chain would have assembled a children's listing with no safety section, and
+    the auditor built to catch exactly that would have failed it at the END of a release
+    rather than at the start. Checked here, on a listing the real pipeline produced, because
+    the defect was in the wiring and a unit test of either end would have passed throughout.
+    """
+    from brambleloop.commerce import seo as seo_module
+    from brambleloop.products import launch0 as l0
+    from brambleloop.publish import pdf as pdf_module
+
+    db = _run_once()["db"]
+    rows = [(o, l0.childrens_assignment(o.get("slug", "")))
+            for o in _outputs(db, "listing.seo")]
+    childrens = [(o, a) for o, a in rows if a is not None]
+    assert childrens, (
+        "this run produced no children's listing, so this check cannot fail and is not "
+        "evidence of anything: " + str(sorted(o.get("slug") for o, _ in rows)))
+
+    from brambleloop.core.models import PatternVersion
+
+    for out, assignment in childrens:
+        with db.session() as sess:
+            product = sess.scalar(select(Product).where(Product.slug == out["slug"]))
+            version = sess.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id))
+            # The CIR the chain itself used, read back from the warehouse rather than
+            # rebuilt, so the check cannot agree with a listing built from something else.
+            cir = CIR.from_dict(version.cir_json)
+        result = compile_cir(cir)
+        twin = build_twin(cir, result)
+        rendered = pdf_module.childrens_statements(cir, twin, assignment)
+        audit = seo_module.childrens_listing_audit(out["listing"]["description"], rendered)
+        assert audit["complete"], (out["slug"], audit)
+
+
 def test_the_listing_only_claims_what_the_pattern_can_support():
     db = _run_once()["db"]
     listing = _flagship(db, "listing.seo")["listing"]

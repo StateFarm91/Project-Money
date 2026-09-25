@@ -33,7 +33,10 @@ from ..core.models import ListingAsset
 from ..gates.asset_truth import check_assets
 from ..publish.charts import ChartSpec, render_any_chart, render_legend
 from ..publish.listing_assets import build_frames, check_frame_plan
-from ..publish.pdf import TERMINOLOGIES, build_pattern_pdf, pattern_filename
+from ..products import launch0 as products_launch0
+from ..publish.pdf import (
+    TERMINOLOGIES, build_pattern_pdf, childrens_statements, pattern_filename,
+)
 from ..radar.market import shopping_window
 from ..radar.opportunity import POOL, _event
 from .worker import JobContext, handlers
@@ -359,6 +362,18 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                                 sizes=len(i.get("sizes") or []) or 1)
     tags = search_mod.choose_tags(queries)
 
+    # A children's product's listing carries the statements a buyer needs before they pay.
+    #
+    # `seo.build_description` takes them and `seo.childrens_listing_audit` checks the finished
+    # text for them, and this caller passed neither -- so the live chain would have assembled a
+    # children's listing with no safety section, and the auditor built to catch exactly that
+    # would have failed it at the end of a release rather than the start. The assignment comes
+    # from the catalogue, which is where "is this merchandised to a child" is decided; None
+    # means it is not, and a non-children's listing acquires nothing.
+    assignment = products_launch0.childrens_assignment(cir.slug)
+    childrens = (childrens_statements(cir, twin, assignment)
+                 if assignment is not None else None)
+
     copy = seo_mod.ListingCopy(
         title=title,
         tags=tags,
@@ -368,7 +383,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             colors=sorted(c for c in twin.colors_used if c), terminology="US",
             gauge_line=gauge_line, stitches=sorted(twin.stitch_types_used),
             season=season, pages=i.get("pages"),
-            collapsed_repeats=collapses_rows(cir)),
+            collapsed_repeats=collapses_rows(cir), childrens=childrens),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],
