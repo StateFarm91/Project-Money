@@ -353,6 +353,98 @@ def test_the_written_pattern_names_the_yarn_so_a_translation_has_something_to_ca
     assert cir.to_dict() == _two_colour().to_dict()
 
 
+def test_nothing_the_chart_needs_is_said_only_in_pixels():
+    """The one remaining place the document spoke only as an image.
+
+    The legend is a picture. Nothing in it is searchable, selectable or readable by a screen
+    reader, and on a reader that dropped the images it is gone. The 2026-09-24 audit fixed
+    that for the colour key by printing the letter-to-yarn mapping in text, and answered the
+    stitch key with a pointer: *"the stitch key in the image above is also written out under
+    Abbreviations."*
+
+    **That pointer was false in the way that mattered.** The Abbreviations page writes out
+    abbreviations -- `cable2x2` means a 2-over-2 cable crossing -- and it has never carried a
+    symbol. A maker who saw an X on the chart and followed the pointer arrived at a page with
+    no X on it. The mapping from mark to stitch existed in exactly one place in the entire
+    deliverable: the rendered legend image, at the bottom of a page, in pixels.
+
+    Measured on text extracted from the real PDF bytes, in both terminologies, for a flat
+    chart and a round one -- the two draw different marks, and a round chart marks only where
+    the count changes.
+    """
+    import io
+    from datetime import date
+
+    import pypdf
+    from brambleloop.products import nordic_forest as nf
+    from brambleloop.products.texture import build_cable_throw
+    from brambleloop.products.vessels import build_basket
+    from brambleloop.publish import pdf as pdf_mod
+
+    released = date(2026, 9, 24)
+
+    def flat_text(doc):
+        reader = pypdf.PdfReader(io.BytesIO(doc.pdf_bytes))
+        return " ".join("\n".join(p.extract_text() or "" for p in reader.pages).split())
+
+    checked = 0
+    for make in (nf.build, build_cable_throw, lambda: build_basket("large")):
+        cir = make()
+        twin = build_twin(cir, compile_cir(cir))
+        for terminology in pdf_mod.TERMINOLOGIES:
+            doc = pdf_mod.build_pattern_pdf(cir, twin=twin, terminology=terminology,
+                                            released_on=released)
+            text = flat_text(doc)
+            symbols = pdf_mod._chart_symbols(cir, twin, terminology)
+            assert symbols, cir.slug
+            for symbol, means in symbols:
+                # The pair, not the two halves: a chart symbol that appears somewhere in the
+                # document and a stitch name that appears somewhere else is not a key. Most
+                # of these marks are single characters that occur by accident in any page of
+                # English, which is why the mapping has to be found intact.
+                assert f"{symbol} {means.split()[0]}" in text, \
+                    (cir.slug, terminology, symbol, means)
+                checked += 1
+    # Fourteen mappings: two mosaic stitches, four cable-throw marks and the basket's one
+    # increase, each in both terminologies. Pinned so a design dropping out of this loop
+    # cannot quietly make the check vacuous.
+    assert checked >= 14, checked
+
+    # And the check fails when the block is not printed, rather than passing on a coincidence
+    # somewhere else in the document. Proved against an injected defect so it goes on being
+    # tested once the defect is fixed.
+    original = pdf_mod._chart_symbols
+    try:
+        pdf_mod._chart_symbols = lambda *a, **k: []
+        cir = build_cable_throw()
+        twin = build_twin(cir, compile_cir(cir))
+        doc = pdf_mod.build_pattern_pdf(cir, twin=twin, released_on=released)
+        text = flat_text(doc)
+        pairs = original(cir, twin, "US")
+        assert not any(f"{s} {m.split()[0]}" in text for s, m in pairs), \
+            "the symbol key is being found somewhere other than the block that prints it"
+    finally:
+        pdf_mod._chart_symbols = original
+
+
+def test_a_round_charts_footer_names_only_the_marks_it_draws():
+    """'V marks an increase, A a decrease' was printed on every round chart.
+
+    `GLYPHS` draws a double crochet increase as W and a decrease as M, so a disc worked in
+    double crochet would carry a footer naming two marks that are not on it and omitting the
+    two that are. No design in this catalogue works a disc that way, which is the same shape
+    as the two stitches that shared one glyph: a defect whose only sample cannot contain it.
+    """
+    assert charts_mod.round_mark_note({"inc"}) == "V marks an increase."
+    assert charts_mod.round_mark_note({"inc", "dec"}) == \
+        "V marks an increase and A a decrease."
+    assert charts_mod.round_mark_note({"dc_inc"}) == "W marks an increase."
+    assert charts_mod.round_mark_note({"sc"}) == ""
+    # Every mark it can name is a mark the renderer actually draws.
+    for code in charts_mod.ROUND_MARKED_CODES:
+        assert charts_mod.GLYPHS[code] in charts_mod.round_mark_note({code})
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

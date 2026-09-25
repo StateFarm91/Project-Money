@@ -30,10 +30,11 @@ from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
 from ..intel import childrens as ch
 from . import abbreviations, substitution, value_stack
+from . import charts as chart_mod
 from .charts import (
-    COLOUR_CUE_NOTE_FLAT, COLOUR_CUE_NOTE_ROUND, ChartSpec, cell_size, color_letters,
-    crop_grids, detect_repeat, is_round, render_chart, render_legend, render_round_chart,
-    row_block,
+    COLOUR_CUE_NOTE_FLAT, COLOUR_CUE_NOTE_ROUND, ChartSpec, RoundBlock, cell_size,
+    color_letters, crop_grids, detect_repeat, is_round, render_chart, render_legend,
+    render_round_chart, round_block, round_chart_size, row_block, wedge_count,
 )
 from .difficulty import difficulty as _difficulty
 
@@ -983,11 +984,36 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     # the document's problems so the release chain sees it, like every other finding here.
     problems.extend(art.get("problems", ()))
     doc.space(2 * mm)
-    # The legend is a picture, so nothing in it is searchable, selectable or readable by a
-    # screen reader. The same key exists in text on the Abbreviations page; this line says so
-    # rather than leaving a maker who cannot see the image with no route to it.
-    doc.para("The stitch key in the image above is also written out under Abbreviations, "
-             "earlier in this document.", size=9, color=MUTED)
+    # The chart's symbols, in text, because the chart cannot be read without them.
+    #
+    # The legend is a picture: nothing in it is searchable, selectable or readable by a screen
+    # reader, and it is gone entirely on a reader that dropped the images. The document used to
+    # answer that with one sentence -- "the stitch key in the image above is also written out
+    # under Abbreviations" -- and **that sentence was not true in the way that mattered**. The
+    # Abbreviations page writes out the *abbreviations*: `cable2x2` means a cable worked over
+    # four stitches. It has never contained a symbol. A maker who sees an X on the chart and
+    # follows that pointer arrives at a page with no X on it, and the mapping from mark to
+    # stitch existed in exactly one place in the whole deliverable: the rendered legend image.
+    #
+    # This is the same defect the colour key had on 2026-09-24 and the same fix, from the same
+    # sources: `charts.GLYPHS` for the mark, `cir.stitches` through `abbreviations` for the
+    # name, so the picture and the paragraph cannot disagree and neither can name a stitch in
+    # the wrong terminology.
+    symbols = _chart_symbols(cir, twin, terminology)
+    if symbols:
+        doc.space(2 * mm)
+        doc.heading("Chart symbols", size=12)
+        doc.para(_CHART_SYMBOL_NOTE_ROUND if is_round(cir, twin) else _CHART_SYMBOL_NOTE_FLAT,
+                 size=9, color=MUTED)
+        # Ordered by symbol, which is the direction this key is read in: a maker sees a mark
+        # on the chart and looks it up. The legend image orders by stitch because it is a
+        # stitch list; the mapping is the same mapping either way.
+        for symbol, means in symbols:
+            doc.kv(symbol, means, upper=False)
+        doc.space(1 * mm)
+        doc.para("The same key is drawn in the image above, and every stitch in it is also "
+                 "defined under Abbreviations, earlier in this document.", size=9,
+                 color=MUTED)
 
     # The colour key, in text, because the document tells the maker to rely on it.
     #
@@ -999,7 +1025,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     #
     # `charts.color_letters` is the single source of the mapping; this prints it rather than
     # numbering the colours again, so the page and the picture cannot disagree.
-    cues = color_letters(cir) if len([c for c in cir.colors if c]) > 1 else {}
+    #
+    # Printed only when the chart that was actually rendered carries letters, which is a
+    # narrower question than "does this pattern use more than one yarn". A cropped round chart
+    # of a basket shows rounds 1 to 24, and a basket's contrast bands are up the wall, in the
+    # straight rounds the chart no longer draws -- so every round on the picture is cream and
+    # not one of them carries a letter, while the document went on saying "each round number
+    # on the chart carries its yarn's letter". That is the 2026-09-24 finding about squares on
+    # a round chart arriving by a different route: a key describing a picture that is not in
+    # front of the reader.
+    cues = art.get("cues") or {}
+    colours = [name for name in cir.colors if name]
     if cues:
         doc.space(2 * mm)
         doc.heading("Colour key", size=12)
@@ -1010,6 +1046,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         # swatch list; the mapping is the same mapping either way.
         for name, cue in sorted(cues.items(), key=lambda kv: kv[1]):
             doc.kv(cue, f"{name}  {cir.colors.get(name, '')}".strip(), upper=False)
+    elif len(colours) > 1:
+        # More than one yarn and a chart that says nothing about which is which. The colours
+        # still have to be listed -- they are on the materials page and in every written line
+        # -- but not under a heading promising a key the picture does not carry.
+        doc.space(2 * mm)
+        doc.heading("Colours", size=12)
+        doc.para("Every round this chart shows is worked in one colour, so no number on it "
+                 "carries a colour letter. The written instructions name the yarn for every "
+                 "row and round in the pattern.", size=9, color=MUTED)
+        for name in colours:
+            doc.kv(name, cir.colors.get(name, ""), upper=False)
 
     # -- the children's safety block ---------------------------------------
     #
@@ -1164,6 +1211,187 @@ def _tools_required(cir: CIR, text: str) -> list[tuple[str, str]]:
     return out
 
 
+_CHART_SYMBOL_NOTE_FLAT = (
+    "The symbol in the middle of each square on the chart is its stitch. Every symbol the "
+    "chart uses is below.")
+_CHART_SYMBOL_NOTE_ROUND = (
+    "A round chart marks where the stitch count changes rather than every stitch, so these "
+    "are the marks it carries. Every other stitch in the round is the plain stitch the "
+    "written line names.")
+
+
+def _chart_symbols(cir: CIR, twin: TwinModel, terminology: str) -> list[tuple[str, str]]:
+    """(symbol, what it means) for every mark the chart actually draws, in this terminology.
+
+    A round chart draws a mark only where the count changes, so listing every stitch's symbol
+    beside one would describe marks that are not on the page -- the same mistake as telling a
+    round chart's reader that "each square carries its yarn's letter" when a round chart has
+    no squares.
+
+    The name arrives through `publish.abbreviations`, which reads `cir.stitches`. Nothing here
+    spells a stitch out, so a UK document cannot acquire a US name by way of a chart key.
+    """
+    codes = sorted(twin.stitch_types_used)
+    if is_round(cir, twin):
+        codes = [c for c in codes if c in chart_mod.ROUND_MARKED_CODES]
+    rows = [(chart_mod.GLYPHS.get(code, code[:1]),
+             f"{abbreviations.token(code, terminology)}   "
+             f"{abbreviations.meaning(code, terminology)}")
+            for code in codes]
+    return sorted(rows)
+
+
+def chart_image(cir: CIR, twin: TwinModel):
+    """The chart this product's document prints, for a caller that wants it on its own.
+
+    Public because `runtime/release.py` stores a standalone `chart.png` beside the PDF and
+    renders it with `render_any_chart` at the default spec -- which for a seventy-round basket
+    is the whole disc at 1.2 mm per ring, the chart the document itself no longer prints. One
+    release, two charts, and the illegible one is the one with a URL. The release chain is not
+    this lane's file; this is the one call it needs.
+    """
+    return _chart_art(cir, twin)["chart"]
+
+
+def _round_span(first: int, last: int, *, dash: bool = False) -> str:
+    """'44' for one round, '44-45' or '25 to 70' for a run."""
+    if first == last:
+        return f"{first}"
+    return f"{first}-{last}" if dash else f"{first} to {last}"
+
+
+def _straight_tail_sentence(block: RoundBlock) -> str:
+    """What the chart leaves out, in the numbers the written instructions use.
+
+    A chart that shows part of a piece and does not say so is a new defect rather than a fix,
+    which is the rule the flat chart's caption already follows. Every number here is read back
+    out of the twin, so the sentence cannot drift from the fabric it describes.
+    """
+    out = (f"Rounds {_round_span(block.tail[0], block.tail[-1])} are then worked straight at "
+           f"{block.tail_stitches} stitches with no increases. Drawing them would add "
+           f"{len(block.tail)} identical rings and shrink every ring in this chart, so the "
+           f"chart stops at round {block.last}.")
+    if block.tail_color and not block.tail_other_colors:
+        out += (f" They are all worked in {block.tail_color}, and the written instructions "
+                f"give the colour of every round.")
+    elif block.tail_color:
+        by_colour: dict[str, list[str]] = {}
+        for name, a, b in block.tail_other_colors:
+            by_colour.setdefault(name, []).append(_round_span(a, b, dash=True))
+        runs = "; ".join(f"rounds {' and '.join(spans)} in {name}"
+                         for name, spans in by_colour.items())
+        out += (f" They are worked in {block.tail_color} except {runs}, and the written "
+                f"instructions give the colour of every round.")
+    else:
+        out += " The written instructions give the colour of every round."
+    return out
+
+
+def _round_chart_art(cir: CIR, twin: TwinModel) -> dict:
+    """The chart for a piece worked in the round, chosen on the size a ring lands at.
+
+    A round chart's readable unit is the width of a ring, and until now nothing measured it:
+    `_chart_art` reported `cell_mm: None`, so the legibility check below read this chart as
+    *not applicable* rather than as *checked*. Measured, the Launch-0 nesting baskets drew
+    rings **1.2 mm** wide carrying round numbers of about **2pt** -- three times worse than the
+    1.9 mm flat chart that was the worst thing in the previous audit, on the flagship product,
+    and invisible because the one number that would have shown it was `None`.
+
+    The ladder is the round counterpart of what the flat chart already does, and each rung is
+    the answer to a different reason the chart is too small:
+
+    1. the whole disc, which is what a piece with few rounds should get and what the hexagon
+       coaster still gets;
+    2. the rounds that shape the piece, when the rest is worked straight -- a basket is a flat
+       base with a cylinder standing on it, and drawing forty-six wall rounds as forty-six
+       concentric rings is both illegible and a picture of a disc the basket is not;
+    3. one of the identical wedges every round repeats around, which puts the chart's radius
+       across the page instead of its diameter;
+    4. one wedge of the whole piece, for a piece with no straight tail to leave out.
+
+    A rung is only rendered if its geometry could clear the floor, because a rung that cannot
+    is a 2400-pixel square drawn to be thrown away. The number reported is measured on the
+    image that was actually produced, never on the prediction.
+    """
+    spec = ChartSpec(cell_px=22)
+    block = round_block(twin)
+    wedges = wedge_count(twin)
+    span = (block.first, block.last) if block else None
+    ladder: list[tuple[tuple[int, int] | None, int | None]] = [(None, None)]
+    if block is not None:
+        ladder.append((span, None))
+    if wedges > 1:
+        if block is not None:
+            ladder.append((span, wedges))
+        ladder.append((None, wedges))
+
+    predicted = []
+    for rounds, w in ladder:
+        ring, disc_w, disc_h = round_chart_size(twin, spec, rounds=rounds, wedges=w)
+        predicted.append((_on_page_cell_mm(disc_w, disc_h, ring), rounds, w, ring))
+
+    chart = None
+    for ring_mm, rounds, w, ring in predicted:
+        if ring_mm < CHART_MIN_RING_MM:
+            continue
+        chart = render_round_chart(cir, twin, spec, rounds=rounds, wedges=w)
+        measured = _on_page_cell_mm(chart.width, chart.height, ring)
+        if measured >= CHART_MIN_RING_MM:
+            break
+    else:
+        # Nothing clears the floor. Print the largest ring available and say the number.
+        ring_mm, rounds, w, ring = max(predicted, key=lambda p: p[0])
+        chart = render_round_chart(cir, twin, spec, rounds=rounds, wedges=w)
+        measured = _on_page_cell_mm(chart.width, chart.height, ring)
+
+    first_shown = rounds[0] if rounds else min(c.row for c in twin.cells)
+    caption = ("This piece is worked in the round, so the chart is drawn as rounds: "
+               f"round {first_shown} at the centre, each ring outward one round. ")
+    if w and w > 1:
+        caption += (f"The {w} wedges of every round are identical, so the chart shows one of "
+                    f"them: count the wedges in a ring and multiply by {w} to get the stitch "
+                    f"count in the written line for that round, because both come from the "
+                    f"same verified data. ")
+    else:
+        caption += ("Count the wedges in a ring and you get the stitch count in the written "
+                    "line for that round, because both come from the same verified data. ")
+    if rounds and block is not None:
+        caption += (f"It shows rounds {_round_span(block.first, block.last)}, which are the "
+                    f"rounds that shape the piece. "
+                    f"{_straight_tail_sentence(block)} ")
+    # Named from the marks this chart draws rather than written out: `GLYPHS` draws a double
+    # crochet increase as W, and a caption saying "V marks an increase" on a disc worked in
+    # double crochet would name a mark that is not on the page. Read from the rounds that were
+    # drawn, not from the whole piece, for the same reason.
+    caption += chart_mod.round_mark_note(
+        {c.stitch for c in twin.cells
+         if rounds is None or rounds[0] <= c.row <= rounds[1]})
+    caption = caption.strip()
+
+    problems: list[str] = []
+    if measured < CHART_MIN_RING_MM:
+        problems.append(
+            f"PDF_CHART_CELL_BELOW_BRAND_MINIMUM: each chart ring renders at "
+            f"{measured:.1f} mm on the page, carrying a round number of about "
+            f"{measured * mm * chart_mod.ROUND_TYPE_RATIO:.0f}pt against the brand minimum "
+            f"of {MIN_BODY_PT}pt, so the chart is present and not readable")
+
+    # Which colours the picture actually labels, asked of the function the renderer used.
+    labelled = chart_mod.round_cue_labels(cir, twin, ring_px=ring, rounds=rounds)
+    letters = color_letters(cir)
+    cues = {name: letter for name, letter in letters.items()
+            if letter in set(labelled.values())}
+
+    return {
+        "chart": chart,
+        "legend": render_legend(cir, twin),
+        "caption": caption,
+        "cell_mm": measured,
+        "cues": cues,
+        "problems": problems,
+    }
+
+
 def _chart_art(cir: CIR, twin: TwinModel) -> dict:
     """The chart, its legend and the sentence that explains them, rendered once.
 
@@ -1174,20 +1402,7 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
     if is_round(cir, twin):
         # A ragged grid is not a chart of a disc, and "read odd rows right to left" is
         # flat-fabric advice: every round is worked in the same direction.
-        return {
-            "chart": render_round_chart(cir, twin, ChartSpec(cell_px=22)),
-            "legend": render_legend(cir, twin),
-            "caption": ("This piece is worked in the round, so the chart is drawn as rounds: "
-                        "round 1 at the centre, each ring outward one round. Count the "
-                        "wedges in a ring and you get the stitch count in the written line "
-                        "for that round, because both come from the same verified data. V "
-                        "marks an increase and A a decrease."),
-            # A round chart's readable unit is the width of a ring, not a square cell, and
-            # nothing here measures it yet. Stated as `None` rather than as a passing number:
-            # the legibility check below would otherwise read as having checked this chart.
-            "cell_mm": None,
-            "problems": [],
-        }
+        return _round_chart_art(cir, twin)
 
     grid, colour_grid = twin.chart_grid(), twin.color_grid()
     full_cols = max((len(r) for r in grid), default=0)
@@ -1218,13 +1433,16 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
     # wrong for a tall pattern: the harvest table runner is 48 stitches wide, failed the gate by
     # one, and printed its whole 48 x 112 fabric at 2.1 mm per cell. Measure the thing that
     # matters instead.
-    if _on_page_cell_mm(full, cell_size(twin, ChartSpec(cell_px=22))) < CHART_MIN_CELL_MM \
+    if _on_page_cell_mm(full.width, full.height,
+                        cell_size(twin, ChartSpec(cell_px=22))) < CHART_MIN_CELL_MM \
             and (rep_cols < full_cols or block_rows < full_rows):
         grids = crop_grids(grid, colour_grid, rep_cols, block_rows)
         chart = render_chart(cir, twin, ChartSpec(cell_px=20), grids=grids,
                              caption=f"{cir.title} - rows 1-{block_rows}, "
                                      f"{rep_cols} sts wide")
-        cell_mm = _on_page_cell_mm(chart, cell_size(twin, ChartSpec(cell_px=20), grids))
+        charted_cell = cell_size(twin, ChartSpec(cell_px=20), grids)
+        charted_colors = grids[1]
+        cell_mm = _on_page_cell_mm(chart.width, chart.height, charted_cell)
         if block and block[1] == block_rows:
             start, end, repeats = block
             placement = (f"It shows rows 1 to {end}: work rows 1 to {end} once, then work "
@@ -1242,7 +1460,9 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
                    f"disagree. Read odd rows right to left and even rows left to right.")
     else:
         chart = full
-        cell_mm = _on_page_cell_mm(full, cell_size(twin, ChartSpec(cell_px=22)))
+        charted_cell = cell_size(twin, ChartSpec(cell_px=22))
+        charted_colors = colour_grid
+        cell_mm = _on_page_cell_mm(full.width, full.height, charted_cell)
         caption = ("The chart below is generated from the same verified data as the written "
                    "instructions above. Read odd rows right to left and even rows left to "
                    "right.")
@@ -1264,6 +1484,10 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
         "legend": render_legend(cir, twin),
         "caption": caption,
         "cell_mm": cell_mm,
+        # What the picture actually says about colour, asked of the function that drew it. A
+        # chart cropped to one repeat can be single-colour in a two-colour design, and a key
+        # for letters the picture does not carry is a key to nothing.
+        "cues": chart_mod.flat_cue_letters(cir, charted_colors, charted_cell),
         "problems": problems,
     }
 
@@ -1273,23 +1497,36 @@ def _times(n: int) -> str:
     return "once" if n == 1 else f"{n} times"
 
 
-# The chart's glyph is set at this fraction of the cell (`charts.render_chart`). A chart cell is
-# type, and the brand's minimum body size applies to it like any other type in the document.
-CHART_GLYPH_RATIO = 0.62
-CHART_MIN_CELL_MM = MIN_BODY_PT / CHART_GLYPH_RATIO / mm
+# Chart type is a fraction of the chart's readable unit -- the cell on a flat chart, the ring
+# on a round one -- and those fractions are stated once, in the module that sets the type.
+#
+# The ratio used here was a copy of `0.62` written out in this file, and it was the *largest*
+# piece of type in the picture. A floor derived from the largest type certifies the one thing
+# that was never in danger: at a cell sized so the stitch glyph reaches 9pt, the row numbers
+# land at 7.9pt and the colour cue at 6.6pt, both under the brand's own minimum, in the same
+# image, measured on the same page. The floor is derived from the smallest type each kind of
+# chart sets, which is the only version of it that means what it says.
+CHART_GLYPH_RATIO = chart_mod.FLAT_TYPE_RATIO
+CHART_MIN_CELL_MM = MIN_BODY_PT / chart_mod.FLAT_TYPE_RATIO / mm
+CHART_MIN_RING_MM = MIN_BODY_PT / chart_mod.ROUND_TYPE_RATIO / mm
 
 
-def _on_page_cell_mm(img, cell_px: int) -> float:
+def _on_page_cell_mm(width: float, height: float, cell_px: float) -> float:
     """How big one chart cell is once `_Doc.image` has fitted the picture to the page.
 
     The chart is rendered in pixels and then scaled to fit, so nothing about the rendered image
     says how large a cell will be where the customer reads it. This is the same arithmetic
     `_Doc.image` does, which is why it is the number to check against a legibility floor -- and
     it is why the sliver was invisible: every check upstream was measuring the image.
+
+    Takes a size rather than an image so that the same arithmetic can answer "how large would a
+    ring be if this chart were drawn that way" without drawing it. A seventy-round basket's
+    chart is a 2384-pixel square; choosing between four of them by rendering all four is a
+    price the document should not pay to ask a question about geometry.
     """
     usable_w = PAGE_W - 2 * MARGIN
     usable_h = PAGE_H - 2 * MARGIN
-    scale = min(1.0, usable_w / img.width)
-    if img.height * scale > usable_h:
-        scale *= usable_h / (img.height * scale)
+    scale = min(1.0, usable_w / width)
+    if height * scale > usable_h:
+        scale *= usable_h / (height * scale)
     return cell_px * scale / mm
