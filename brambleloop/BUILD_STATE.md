@@ -7993,3 +7993,35 @@ Full suite re-run this heartbeat; result recorded below rather than predicted.
      per-stitch yarn allotment varies in HDC at all. **If that variance sits at noise,
      redistribution is not the mechanism and the whole Visual programme redirects** — for
      half a day instead of building for three.
+
+### The heartbeat suite caught a test that expires
+
+`bash run_tests.sh` on the integrated tree: **3466 passing, 1 suite failing** —
+`test_spend_governance`, three checks, all in the Reliability department's own new file.
+
+Not a flake, and not contention: they failed identically in isolation. Root cause, found by
+reading rather than re-running:
+
+`NOW` in that file is hardcoded to `datetime(2026, 9, 24, 19, 0)`. The three failing checks
+write through `spend_report.record`, which stamps its row with `utcnow()` and accepts no
+timestamp, then read back with `per_agent_today(now=NOW)` or a health reading at `NOW`. That
+asks **two different clocks about the same day**. It is green while the frozen date happens
+to be today and red at the next UTC midnight — which is exactly what happened. These checks
+were green at 20:47 on 2026-09-24 and failed at 00:23 on 2026-09-25 with **nothing in the
+code changed between the two runs.**
+
+A test whose correctness depends on an unstated condition — here, that the calendar has not
+moved — is the same defect family the file was written to catch, so it is fixed rather than
+re-pinned or re-run until convenient. The three reads now take the wall clock, matching the
+writer; the runner state moves with them so the heartbeat signals stay consistent with the
+instant being asked about. **`NOW` stays everywhere it is internally consistent** — the
+`CostEntry(at=NOW)` rows, the budget readings, the signal readings that supply their own
+timestamps. Those must not be made clock-dependent to match.
+
+Then checked whether the family exists elsewhere rather than stopping at the instance: ten
+test files carry a hardcoded September 2026 date, and of those **only this one also writes
+through a real-clock recorder.** The other nine freeze time on both sides and are internally
+consistent.
+
+No threshold moved, no check removed, no assertion weakened. The three checks assert exactly
+what they asserted before.
