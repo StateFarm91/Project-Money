@@ -30,8 +30,9 @@ from ..cir.twin import TwinModel
 from ..cir.writer import collapses_rows
 from ..gates.asset_truth import Asset, AssetClass, Claims, Provenance
 from .charts import (
-    ChartSpec, _font, _hex_to_rgb, crop_grids, detect_repeat, is_round, render_chart,
-    render_fabric, render_round_chart, render_round_fabric,
+    ChartSpec, _font, _hex_to_rgb, cell_size, crop_grids, detect_repeat, is_round,
+    render_chart, render_fabric, render_round_chart, render_round_fabric, round_block,
+    round_chart_size, row_block, wedge_count,
 )
 
 CANVAS = 2000            # Etsy recommends 2000px on the short edge for listing images
@@ -259,8 +260,15 @@ def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
         w_px = int(twin.width_cm * px_per_cm)
         h_px = int(twin.height_cm * px_per_cm)
         d.rectangle([left, top, left + w_px, top + h_px], fill=PINE, outline=PINE)
-        d.text((left + w_px // 2, top + h_px + 18),
-               f"{twin.width_cm:.0f} × {twin.height_cm:.0f} cm",
+        # A vessel's two numbers are a diameter and a height, and "26 × 23 cm" beside a solid
+        # block reads as a flat rectangle 26 cm by 23 cm. The drawing is right -- the side
+        # profile of a cylinder is that rectangle -- and the label was the part that made a
+        # shopper picture the wrong object. The catalogue's own words for a basket are
+        # "25 cm across, 23 cm tall"; the listing image now uses them too.
+        label = (f"{twin.width_cm:.0f} cm across × {twin.height_cm:.0f} cm tall"
+                 if getattr(twin, "shape", None) in ("vessel", "disc", "tube", "cone", "dome")
+                 else f"{twin.width_cm:.0f} × {twin.height_cm:.0f} cm")
+        d.text((left + w_px // 2, top + h_px + 18), label,
                font=_font(int(size * 0.030)), fill=INK, anchor="ma")
         ref_x = left + w_px + int(size * 0.10)
         d.rectangle([ref_x, top, ref_x + int(size * 0.035), top + area_h], outline=LINE,
@@ -340,22 +348,61 @@ def _pattern_preview(cir: CIR, twin: TwinModel, pattern_text: str) -> Frame:
 
 
 def _chart_frame(cir: CIR, twin: TwinModel) -> Frame:
+    """The chart a shopper is shown, drawn the way the document they will download draws it.
+
+    This frame carried both of the defects `publish/pdf.py` had already been corrected for,
+    one module over, and both of them are visible on the Launch-0 flagship.
+
+    **The round branch asked for the whole piece.** `render_round_chart` with no block and no
+    wedge draws every round as a concentric ring, and the nesting baskets have seventy of
+    them -- twenty-four of base and forty-six of straight side wall. Measured on the rendered
+    frame: **8.2 pixels per ring on a 2000-pixel image**, 0.41% of the frame width, which is
+    about two pixels at the width Etsy shows a listing image. It was captioned "every round,
+    from the centre out" on a product that is a base with a wall standing on it, so the
+    shopper's picture of a basket was a flat seventy-ring disc. `charts.round_block` and
+    `charts.wedge_count` are the two measurements the document already uses for exactly this,
+    and this frame now uses them.
+
+    **The flat branch asked the wrong repeat detector.** `detect_repeat` wants a row period
+    that divides the row count and starts at row 1, and eight of the sixteen shippable
+    designs satisfy neither; `charts.row_block` reads `cir.rowcycle`, which is the detector
+    the written instructions themselves collapse to. The cabled throw's frame said "one
+    repeat - 8 sts x 121 rows" while its PDF chart says rows 2-5 worked 29 times more, so the
+    shopper compared a listing image with the pattern they bought and found two charts.
+
+    A chart that shows part of a piece has to say so, which is the rule the document's
+    caption already follows, so the caption states what was cropped in the numbers the
+    written instructions use.
+    """
     size = CANVAS
     img, d = _canvas(size)
     y = _title_block(d, "The chart", int(size * 0.10), size)
     if is_round(cir, twin):
+        block = round_block(twin)
+        wedges = wedge_count(twin)
+        rounds = (block.first, block.last) if block else None
+        shown = (f"rounds {block.first}-{block.last} of {block.tail[-1]}"
+                 if block else "every round")
+        wedge_note = f", one of {wedges} identical wedges" if wedges > 1 else ""
         chart = render_round_chart(
             cir, twin, ChartSpec(cell_px=30, margin_px=40, max_width_px=size),
-            caption="every round, from the centre out")
+            caption=f"{shown}, from the centre out{wedge_note}",
+            rounds=rounds, wedges=wedges if wedges > 1 else None)
         caption = "the round chart"
     else:
         grid, colour_grid = twin.chart_grid(), twin.color_grid()
-        cols, rows = detect_repeat(grid, colour_grid)
+        cols, rep_rows = detect_repeat(grid, colour_grid)
+        block = row_block(cir, twin)
+        rows = min(rep_rows, block[1]) if block else rep_rows
         grids = crop_grids(grid, colour_grid, cols, rows)
+        if block and block[1] == rows:
+            shown = f"rows 1-{rows}, then rows {block[0]}-{block[1]} again"
+        else:
+            shown = f"one repeat · {rows} rows"
         chart = render_chart(cir, twin,
                              ChartSpec(cell_px=48, margin_px=40, max_width_px=size),
                              grids=grids,
-                             caption=f"one repeat · {cols} sts × {rows} rows")
+                             caption=f"{cols} sts × {shown}")
         caption = "one chart repeat"
     box = int(size * 0.74)
     scale = min(box / chart.width, (size * 0.62) / chart.height)
@@ -366,6 +413,43 @@ def _chart_frame(cir: CIR, twin: TwinModel) -> Frame:
                  caption=caption, image=img,
                  depicts_stitches=sorted(twin.stitch_types_used),
                  depicts_colors=sorted(c for c in twin.colors_used if c))
+
+
+def chart_frame_unit_px(cir: CIR, twin: TwinModel) -> float:
+    """How wide the chart's readable unit lands **on the finished 2000-pixel frame**.
+
+    A ring for a round chart and a cell for a flat one, after the rescale `_chart_frame`
+    applies -- which is the only number that describes what a shopper is shown, because the
+    unit is a property of neither the chart nor the frame alone. This is the listing's
+    counterpart of `pdf._on_page_cell_mm`, and it exists for the same reason: the previous
+    audit could not see that the basket's listing chart was 8.2 pixels per ring, because
+    nothing measured the size the unit reached on the image.
+
+    It re-derives rather than re-renders, so asking is cheap.
+    """
+    size = CANVAS
+    if is_round(cir, twin):
+        block = round_block(twin)
+        wedges = wedge_count(twin)
+        spec = ChartSpec(cell_px=30, margin_px=40, max_width_px=size)
+        unit, w, h = round_chart_size(
+            twin, spec, rounds=(block.first, block.last) if block else None,
+            wedges=wedges if wedges > 1 else None)
+        chart = render_round_chart(
+            cir, twin, spec, caption="measurement",
+            rounds=(block.first, block.last) if block else None,
+            wedges=wedges if wedges > 1 else None)
+    else:
+        grid, colour_grid = twin.chart_grid(), twin.color_grid()
+        cols, rep_rows = detect_repeat(grid, colour_grid)
+        block = row_block(cir, twin)
+        rows = min(rep_rows, block[1]) if block else rep_rows
+        grids = crop_grids(grid, colour_grid, cols, rows)
+        spec = ChartSpec(cell_px=48, margin_px=40, max_width_px=size)
+        unit = cell_size(twin, spec, grids)
+        chart = render_chart(cir, twin, spec, grids=grids, caption="measurement")
+    scale = min(int(size * 0.74) / chart.width, (size * 0.62) / chart.height)
+    return unit * scale
 
 
 def _collection_frame(cir: CIR, siblings: list[str]) -> Frame | None:

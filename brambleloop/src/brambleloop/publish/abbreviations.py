@@ -58,6 +58,39 @@ TOKENS: dict[str, tuple[str, str]] = {
     code: (code, stitches.term(code, "UK")) for code in stitches.UK_TERMS
 }
 
+# Spellings the customer's document contains that `write_op` never emits.
+#
+# `TOKENS` is the vocabulary of the writer's *ops*, and the document is not made of ops
+# alone. `cir.writer.JOINED_LINE` is a hand-written sentence -- "Join each round with a sl st
+# to the first stitch, then ch 1 to begin the next round" -- so the slip stitch reaches the
+# buyer spelled `sl st`, while `write_op(Op("slst", 1))` would print `slst`. Both this
+# module's key and `undefined_tokens` looked for `slst`, found nothing, and agreed the key
+# was complete.
+#
+# Measured on the rendered bytes: `sl st` is the only crochet abbreviation in any document
+# this company can ship that its own key does not define, and it is in all eight round-worked
+# documents -- the three nesting baskets and the hexagon coaster, in both terminologies --
+# under a paragraph that says "Every abbreviation it uses is below; nothing in the
+# instructions is left to be looked up elsewhere".
+#
+# It is also unlocalised: the UK document prints `sl st` where `cir.stitches.UK_TERMS` says
+# the UK token is `ss`. That root is a literal in `cir/writer.py`, which this department does
+# not edit; what this table does is make the key name the word the document actually uses, so
+# the buyer can look it up either way, and make the completeness check able to see it.
+EXTRA_SPELLINGS: dict[str, tuple[str, ...]] = {
+    "slst": ("sl st", "sl sts"),
+}
+
+
+def spellings(code: str, terminology: str) -> tuple[str, ...]:
+    """Every way this stitch may be spelled in a document rendered in this terminology.
+
+    The declared token first, because that is what the key prefers to print, then any spelling
+    the document's prose is known to use.
+    """
+    return (token(code, terminology),) + EXTRA_SPELLINGS.get(code, ())
+
+
 class KeyIncomplete(ValueError):
     """A stitch reached the customer document that the key cannot define."""
 
@@ -251,8 +284,23 @@ NOTATION: tuple[tuple[str, str, re.Pattern[str]], ...] = (
     ("Foundation",
      "the starting chain the first row is worked into",
      re.compile(r"^Foundation", re.M)),
+    # **The gloss says nothing about joining.** It used to read "round -- worked
+    # continuously, not turned at the end like a row", which is one of the two ways a round
+    # can be worked and is the *wrong* one for every round-worked pattern this company ships:
+    # all four -- the three nesting baskets and the hexagon coaster, which is two of the three
+    # Launch-0 products -- carry `CONSTRUCTION: joined rounds` on the cover and
+    # "Join each round with a sl st to the first stitch" at the head of the instructions.
+    # So the key contradicted both of them, fifteen lines apart in the same document.
+    #
+    # `cir.writer.construction_lines`' own docstring says why that matters: "a maker who does
+    # not know whether to join has a different fabric from the one the pattern was validated
+    # as: joining leaves a seam up the side, spiralling does not". It states that once, at the
+    # top of the component, and the reverse compiler reads it back and checks it. A gloss in
+    # the key is a second copy of a decision that already has a single source, so it points at
+    # the source instead of answering.
     ("Rnd",
-     "round -- worked continuously, not turned at the end like a row",
+     "round -- worked around the piece rather than in turned rows. How each round is "
+     "started and finished is stated once, at the top of the instructions",
      re.compile(r"\bRnd\b")),
 )
 
@@ -274,10 +322,14 @@ def stitch_key(text: str, terminology: str = "US") -> list[KeyEntry]:
     low = text.lower()
     out: list[KeyEntry] = []
     for code in sorted(TOKENS, key=lambda c: token(c, terminology)):
-        word = token(code, terminology)
-        if not _contains(low, word.lower()):
+        # The entry is printed under the spelling the document actually uses. A key that says
+        # `ss` over a document that says `sl st` is a key the buyer cannot look a word up in,
+        # which is the failure the key exists to prevent rather than a tidier version of it.
+        present = [word for word in spellings(code, terminology)
+                   if _contains(low, word.lower())]
+        if not present:
             continue
-        out.append(KeyEntry(token=word, means=meaning(code, terminology),
+        out.append(KeyEntry(token=present[0], means=meaning(code, terminology),
                             method=method(code, terminology)))
     return out
 
@@ -347,7 +399,12 @@ def undefined_tokens(text: str, terminology: str = "US", *,
             if _contains(scan, code):
                 missing.append(code)
             continue
-        for word in sorted({token(code, t).lower() for t in ("US", "UK")}):
+        # Every spelling, in both vocabularies, not only the token `write_op` emits. The
+        # document's prose spells the slip stitch `sl st` and the writer's op spells it
+        # `slst`, so a scan built from the op vocabulary alone reported the key complete on
+        # every round-worked document this company ships. See `EXTRA_SPELLINGS`.
+        words = {word.lower() for t in ("US", "UK") for word in spellings(code, t)}
+        for word in sorted(words):
             if word not in defined and _contains(scan, word):
                 missing.append(word)
     return missing
