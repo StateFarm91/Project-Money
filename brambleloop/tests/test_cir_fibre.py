@@ -291,6 +291,49 @@ def test_the_reverse_compiler_refuses_an_impossible_composition_in_a_document():
         raise AssertionError("a document claiming 150% of one fibre was parsed")
 
 
+def test_the_composition_reaches_the_customers_document():
+    """Measured on the artefact, not on the template.
+
+    `research/CHILDRENS_STATEMENTS.md` §4 is explicit about why: a check that reads what the
+    module *chose* to say, or what a table *intended* to say, cannot see the document the
+    buyer opens. Requirement 40's consistency check compared a decision with itself and
+    reported three surfaces consistent while the customer's own PDF granted a different
+    licence.
+
+    So this renders the PDF and extracts the text from the finished bytes. A composition the
+    writer emits and the layout drops off the bottom of a page is a composition the buyer
+    never sees.
+    """
+    import io
+
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.publish import pdf
+
+    try:
+        from pypdf import PdfReader
+    except ImportError:  # pragma: no cover - the renderer's own dependency
+        return
+
+    plain = vessels.build_hexagon_coaster()
+    baseline = pdf.build_pattern_pdf(plain, twin=build_twin(plain, compile_cir(plain)))
+
+    cir, result = _coaster_with({0: (("linen", 45), ("cotton", 55))})
+    built = pdf.build_pattern_pdf(cir, twin=build_twin(cir, result))
+    assert built.pages == baseline.pages, (
+        "stating a composition changed the page count, so it is displacing something else")
+
+    text = "\n".join(page.extract_text() or ""
+                     for page in PdfReader(io.BytesIO(built.pdf_bytes)).pages)
+    assert "55% cotton, 45% linen" in text, "the composition never reached the buyer"
+    assert "dk cotton (cream), 55% cotton, 45% linen" in text, (
+        "the composition reached the document detached from the yarn it describes")
+
+    plain_text = "\n".join(page.extract_text() or ""
+                           for page in PdfReader(io.BytesIO(baseline.pdf_bytes)).pages)
+    assert "Materials: dk cotton (cream); dk cotton (wine)" in plain_text, (
+        "a pattern that states no composition no longer prints the plain materials line")
+
+
 def test_the_reverse_compiler_does_not_import_the_writer():
     """B-005, checked on the module rather than trusted to a comment."""
     source = (ROOT / "src" / "brambleloop" / "cir" / "reverse.py").read_text()

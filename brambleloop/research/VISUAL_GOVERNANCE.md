@@ -527,7 +527,7 @@ Run as `PYTHONPATH=src <python> tests/<file>.py`. `run_tests.sh` was **not** run
 integrator runs it.
 
 **New:** `tests/test_model_spend_paths.py` (12 checks) and `tests/test_cir_fibre.py`
-(19 checks). **Thirty-one checks added, none removed, no threshold lowered.** Two existing
+(20 checks). **Thirty-two checks added, none removed, no threshold lowered.** Two existing
 checks changed and both were the instrument rather than the artefact, diagnosed in §4.7 and
 §5 item 8; no assertion was relaxed in either.
 
@@ -542,6 +542,15 @@ Proved against an injected defect, so neither stops being a test once the defect
 * Stripping `, 100% cotton` out of a rendered pattern makes `reverse.compare` return exactly
   `["REVERSE_FIBRE_CONTENT"]`; moving it to the other yarn does too; adding one the CIR never
   stated does too; and a document claiming 60% + 30% is refused as unparseable naming 90%.
+* Making `writer.material_line` return the yarn name without its composition -- the exact
+  shape of "the fact is in the CIR and not in the document" -- fails five checks, including
+  `test_the_composition_reaches_the_customers_document` with *"the composition never reached
+  the buyer"*. That one is measured on the **rendered PDF bytes** read back with `pypdf`,
+  not on `write_pattern`'s string: `CHILDRENS_STATEMENTS.md` §4's rule, that a check which
+  cannot see the artefact it exists to measure is not a check. Restored; all twenty green.
+  The rendered document carries `Materials: dk cotton (cream), 55% cotton, 45% linen; dk
+  cotton (wine)` and the page count is unchanged, so the composition is not displacing
+  anything.
 
 Suites re-run on the final code, chosen by grepping for every consumer of what this diff
 touches (`check_budget`, `release_reservation`, `spend_report.record`, `Material`,
@@ -549,7 +558,7 @@ touches (`check_budget`, `release_reservation`, `spend_report.record`, `Material
 
 | suite | passing | | suite | passing |
 |---|---|---|---|---|
-| `test_model_spend_paths` **(new)** | 12 | | `test_cir_fibre` **(new)** | 19 |
+| `test_model_spend_paths` **(new)** | 12 | | `test_cir_fibre` **(new)** | 20 |
 | `test_compiler` | 9 | | `test_reverse` | 12 |
 | `test_twin` | 6 | | `test_visual` | 10 |
 | `test_cost_governance_wave2` | 39 | | `test_spend_governance` | 35 |
@@ -591,6 +600,6 @@ touches (`check_budget`, `release_reservation`, `spend_report.record`, `Material
 | `test_calibration` | 27 | | `test_dimensions` | 17 |
 | `test_colour` | 7 | | `test_accessibility` | 9 |
 
-**Eighty-two suites, 1,743 checks, all green, zero failing.** `test_childrens` is green **both** with
+**Eighty-two suites, 1,744 checks, all green, zero failing.** `test_childrens` is green **both** with
 the §4.1 patch applied and with it reverted.
 
