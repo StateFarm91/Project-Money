@@ -419,17 +419,29 @@ def test_the_launch_endpoint_separates_what_is_ours_from_what_is_the_owners():
 def test_the_owner_queue_is_written_by_the_system_not_by_hand():
     from brambleloop.core.models import OwnerAction
 
+    # Drained here rather than waited for, and the second half is why it matters.
+    #
+    # Both halves used to poll a background worker for thirty seconds. The first would then
+    # fail under load. The second was worse: it broke out of the wait when the count
+    # *changed*, and then asserted the count had not changed -- so on a machine too busy to
+    # run the job, it timed out with the count unchanged and **passed for the wrong reason**.
+    # "Nothing duplicated" and "nothing ran" were the same observation, which is a check
+    # computing a verdict from the absence of evidence in the file that most needs not to.
+    from brambleloop.runtime.worker import Worker
+
+    def drain() -> None:
+        worker = Worker(app_main.db, "deploy-test-worker")
+        for _ in range(200):
+            if not worker.run_once():
+                break
+
     with _client() as c:
         c.post("/api/scheduler/tick")
         JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
                                       idempotency_key="test:launch-readiness")
-        deadline = time.time() + 30
-        while time.time() < deadline:
-            with app_main.db.session() as s:
-                rows = list(s.scalars(select(OwnerAction)))
-            if rows:
-                break
-            time.sleep(0.5)
+        drain()
+        with app_main.db.session() as s:
+            rows = list(s.scalars(select(OwnerAction)))
 
     assert rows, "the readiness job queued no owner actions"
     # Running it again must not duplicate them: an owner queue that grows by seven a day is
@@ -438,13 +450,18 @@ def test_the_owner_queue_is_written_by_the_system_not_by_hand():
     JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
                                  idempotency_key="test:launch-readiness-2")
     with _client() as c:
-        deadline = time.time() + 30
-        while time.time() < deadline:
-            with app_main.db.session() as s:
-                again = list(s.scalars(select(OwnerAction)))
-            if len(again) != before:
-                break
-            time.sleep(0.5)
+        drain()
+        with app_main.db.session() as s:
+            again = list(s.scalars(select(OwnerAction)))
+    # The second assessment is established to have happened before its result is read, so an
+    # unchanged count now means what it says.
+    with app_main.db.session() as s:
+        from brambleloop.core.models import AuditLog
+        assessed = len([r for r in s.scalars(select(AuditLog))
+                        if r.action == "launch.assessed"])
+    assert assessed >= 2, (
+        f"only {assessed} readiness assessments ran, so an unchanged owner queue is not "
+        f"evidence that the second one declined to duplicate anything")
     assert len(again) == before, f"owner actions duplicated: {before} -> {len(again)}"
 
 
@@ -521,16 +538,36 @@ def test_a_reworded_owner_action_is_restated_in_place_not_queued_twice():
                         if r.action == "launch.assessed"])
 
     def run_readiness(key: str) -> None:
+        """Enqueue it and drain it here, rather than waiting on whoever else might.
+
+        This used to enqueue the job and then poll for forty seconds, hoping the app's
+        background worker would pick it up. That is an assumption about how busy the machine
+        is, stated nowhere and true only on a quiet one: under four concurrent departments it
+        failed with "the readiness job never ran", and the same suite's window test failed the
+        same way on the same day. The check is about the restate path, not about scheduler
+        latency, and a check whose result depends on conditions it does not state is the
+        defect this repository keeps meeting.
+
+        `tests/test_access.py` already drives this exact job the deterministic way -- enqueue,
+        then drain with a Worker of its own -- so this follows the idiom rather than inventing
+        one. The app's background worker may still claim the job first; the lease makes that
+        safe, and either way the assessment count is what is checked afterwards, so the
+        outcome is the same and neither racer can make it wrong.
+        """
+        from brambleloop.runtime.worker import Worker
+
         before = assessments()
         JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
                                      idempotency_key=key)
-        with _client() as c:
-            deadline = time.time() + 40
-            while time.time() < deadline:
-                if assessments() > before:
-                    return
-                time.sleep(0.5)
-        raise AssertionError("the readiness job never ran")
+        worker = Worker(app_main.db, "deploy-test-worker")
+        for _ in range(200):
+            if not worker.run_once():
+                break
+        if assessments() <= before:
+            raise AssertionError(
+                "the readiness assessment did not run. The job was enqueued and this test "
+                "drained the queue itself, so this is the handler not running rather than a "
+                "worker that was too busy to reach it")
 
     run_readiness("test:restate-1")
     first = fee_rows()
