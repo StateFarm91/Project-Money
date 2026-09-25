@@ -46,7 +46,9 @@ from brambleloop.products.builder import CATALOGUE, build, for_slug  # noqa: E40
 from brambleloop.products.texture import (  # noqa: E402
     build_bobble_pillow, build_cable_throw, build_ribbed_scarf,
 )
-from brambleloop.products.vessels import build_hexagon_coaster  # noqa: E402
+from brambleloop.intel import childrens as ch  # noqa: E402
+from brambleloop.products import launch0 as l0  # noqa: E402
+from brambleloop.products.vessels import build_basket, build_hexagon_coaster  # noqa: E402
 from brambleloop.publish import abbreviations as ab  # noqa: E402
 from brambleloop.publish import difficulty as diff  # noqa: E402
 from brambleloop.publish import pdf as pdf_mod  # noqa: E402
@@ -1144,6 +1146,133 @@ def test_no_two_stitches_share_a_chart_glyph():
     assert set(charts.GLYPHS) == set(stitches.known_codes()), (
         sorted(set(stitches.known_codes()) - set(charts.GLYPHS)))
 
+
+# ---- 12. the children's safety block ---------------------------------------
+#
+# Two of the three Launch-0 products are patterns for children under three.
+# `intel.childrens.required_statements` computed what each must say and nothing printed it:
+# `launch0.statement_rendering_gap` found zero files in `publish/`, `cir/` or `commerce/`
+# mentioning any statement in the set. These read the rendered PDF.
+
+
+def _childrens_doc(slug, terminology="US"):
+    cir = for_slug(slug) if slug in CATALOGUE else build_basket(slug.split("-")[-1])
+    result, twin = _twin_for(cir)
+    return cir, twin, _doc_for(cir, twin, terminology)
+
+
+def test_a_childrens_pattern_carries_every_statement_its_audience_requires():
+    """Measured on text extracted from the real PDF, in both terminologies sold.
+
+    Production reading: `intel.childrens.assess` reported both children's products as
+    subject-allowed and *not ready to ship*, with every required statement missing, and
+    `launch0` called that "the one thing standing between these two children's products and
+    a publishable deliverable". This is the check that can go back to failing if the block
+    stops rendering -- it looks in the document, not at the template that produced it.
+    """
+    for slug in ("cloudline-baby-blanket", "market-basket-small", "market-basket-large"):
+        assignment = l0.childrens_assignment(slug)
+        assert assignment is not None, slug
+        for terminology in pdf_mod.TERMINOLOGIES:
+            cir, twin, doc = _childrens_doc(slug, terminology)
+            audit = pdf_mod.childrens_statements_in(doc.pdf_bytes, assignment)
+            assert audit["required"], slug
+            assert audit["missing"] == (), (slug, terminology, audit)
+            assert audit["complete"], (slug, terminology)
+            # And the words are the ones the regulations module holds, not a paraphrase the
+            # renderer invented: the full sentence survives into the document.
+            rendered = pdf_mod.childrens_statements(cir, twin, assignment)
+            flat = _flat(doc)
+            for key, text in rendered.text.items():
+                for sentence in text.split("\n"):
+                    assert " ".join(sentence.split()) in flat, (slug, key)
+
+
+def test_a_pattern_that_is_not_for_a_child_does_not_acquire_a_safety_block():
+    """Noise is how a real warning stops being read.
+
+    A table runner carrying a safe-sleep note would be absurd on its face and corrosive in
+    aggregate. The assignment is the switch, and the switch has to be off by default: a CIR
+    records nothing about who the finished object is for, so `childrens_assignment` returning
+    None is the honest answer for everything nobody has merchandised to a child.
+    """
+    for slug in ("harvest-table-runner", "hexagon-coaster-set"):
+        assert l0.childrens_assignment(slug) is None, slug
+    cir = for_slug("harvest-table-runner")
+    result, twin = _twin_for(cir)
+    flat = _flat(_doc_for(cir, twin))
+    assert pdf_mod.CHILDRENS_HEADING not in flat
+    for statement in ch.STATEMENT_SET.values():
+        assert statement.marker not in flat, statement.key
+
+
+def test_a_childrens_document_missing_a_statement_is_refused_rather_than_shipped():
+    """Proved against an injected defect, so it does not stop being a test once it passes.
+
+    The defect injected is the real one. `cir.model.Material` has no fibre field --
+    `cir.writer.finishing_lines` cites the ball band for exactly that reason -- so the fibre
+    is read out of the free-text yarn name. Rename the yarn to something that names no fibre
+    and `fibre_and_care` becomes unrenderable, which must block: an unstated fibre must not
+    satisfy the requirement, and must not be filled in with the usual answer.
+
+    The refusal is `raise` rather than a `problems` entry because `runtime.release` audits
+    problems without blocking on them, so a finding would have been recorded and shipped.
+    """
+    from brambleloop.cir.model import Material
+
+    cir = for_slug("cloudline-baby-blanket")
+    assert pdf_mod.fibres_named(cir)[0] == ("acrylic",)
+    cir.materials = [Material(name="Bernat Blanket", yarn_weight=m.yarn_weight,
+                              color_id=m.color_id) for m in cir.materials]
+    assert pdf_mod.fibres_named(cir)[0] == (), "a yarn naming no fibre yielded one anyway"
+
+    try:
+        build_pattern_pdf(cir, released_on=RELEASED)
+    except ValueError as e:
+        assert "fibre_and_care" in str(e), str(e)
+        assert "refusing to render" in str(e)
+    else:                                           # pragma: no cover
+        raise AssertionError("an incomplete children's document was rendered anyway")
+
+    # The same CIR with no children's assignment renders fine: the gate is about the
+    # audience, not about the yarn name.
+    cir.slug = "not-a-childrens-product"
+    assert build_pattern_pdf(cir, released_on=RELEASED).pages > 1
+
+
+def test_the_safety_block_derives_its_facts_from_the_pattern_it_is_in():
+    """A hard-coded measurement in a safety note goes stale when the design changes.
+
+    Every number in the block is already established elsewhere in the same document -- the
+    size on the cover, the colours in the colour key, the fibre on the materials page -- so
+    the test is that two different products produce two different blocks and that each
+    agrees with its own cover.
+    """
+    blanket_cir, blanket_twin, blanket = _childrens_doc("cloudline-baby-blanket")
+    basket_cir, basket_twin, basket = _childrens_doc("market-basket-small")
+    b_flat, k_flat = _flat(blanket), _flat(basket)
+
+    assert f"{blanket_twin.width_cm:.0f} x {blanket_twin.height_cm:.0f} cm" in b_flat
+    assert "79 x 97 cm at the stated gauge" in b_flat
+    assert "15 x 9 cm at the stated gauge" in k_flat
+    assert "written for acrylic yarn" in b_flat
+    assert "written for cotton yarn" in k_flat
+    # The compile date of the safety reading, not today's date.
+    assert ch.SNAPSHOT_DATE in b_flat
+
+
+def test_every_statement_in_the_block_shows_its_source_or_says_it_has_none():
+    """Seven of the ten cite a published rule and three are this company's own practice.
+
+    A reader who sees a citation under seven notes and nothing under the eighth will read the
+    silence as a citation that fell off. The document says which it is.
+    """
+    _, _, doc = _childrens_doc("cloudline-baby-blanket")
+    flat = _flat(doc)
+    assert "Source: none. This is Brambleloop Studio" in flat
+    assert "cpsc.gov" in flat and "publications.aap.org" in flat
+    for key in ch.unsourced_statements():
+        assert ch.STATEMENT_SET[key].source is None, key
 
 if __name__ == "__main__":
     fails = 0

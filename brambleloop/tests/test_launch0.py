@@ -294,20 +294,90 @@ def test_the_committed_statements_are_exactly_what_childrens_requires():
         assert view["commitment_covers_requirement"], slug
 
 
-def test_the_statement_gap_is_measured_and_not_assumed_away():
-    """As built, these products do not carry their statements. Said plainly, in both places."""
+def test_the_statement_gap_is_measured_on_the_document_and_is_closed():
+    """The gap this module measured on 2026-09-25 has closed, and the instrument changed.
+
+    What it used to assert: `as_built["ready_to_ship"] is False` and a non-empty
+    `statements_missing`, because `childrens_view` passed `()` for "what the deliverable
+    states today" and the deliverable stated nothing. That was honest and it was a constant,
+    so it would have gone on reporting a gap after the gap closed, and reported none if
+    somebody had changed the constant.
+
+    What it asserts now: `as_built` is read out of the rendered customer PDF, and the
+    products carry their sets. `as_planned` still exists and still differs in what it is
+    asking -- the commitment, not the artefact -- which is why both are kept.
+    """
     for slug in l0.LAUNCH0_SLUGS:
-        view = l0.childrens_view(l0.candidate(slug))
+        cand = l0.candidate(slug)
+        view = l0.childrens_view(cand)
         if not view["is_a_childrens_product"]:
             continue
-        # Allowed subject, not yet shippable: two different questions, two different answers.
         assert view["as_built"]["subject_is_allowed"] is True, slug
-        assert view["as_built"]["ready_to_ship"] is False, slug
-        assert view["as_built"]["statements_missing"], slug
+        assert view["as_built"]["statements_missing"] == [], (slug, view["as_built"])
+        assert view["as_built"]["ready_to_ship"] is True, slug
         assert view["as_planned"]["ready_to_ship"] is True, slug
+        # Measured, not declared: the statements came out of the PDF, and they are the set
+        # the regulations module requires rather than whatever the renderer felt like.
+        assert set(view["as_built_statements"]) == set(view["required_statements"]), slug
+        assert "extracted" in view["as_built_measured_on"]
 
+
+def test_the_rendering_gap_reads_the_artefact_rather_than_grepping_the_source():
+    """A grep over `publish/*.py` cannot answer a question about a PDF.
+
+    The old instrument searched three packages for a statement's distinctive words. It was
+    the right alarm when it found zero files, and it is the wrong instrument: a comment
+    saying "the choking statement is missing" satisfies it. The headline now comes from text
+    extracted from the rendered document, in both terminologies sold, and the old reading is
+    kept beside it so the history of the measurement is not lost.
+    """
     gap = l0.statement_rendering_gap()
-    assert gap["can_render_the_statement_set"] == bool(gap["files_mentioning_a_statement"])
+    assert gap["measured_on"] == "the text extracted from the rendered customer PDF"
+    assert gap["can_render_the_statement_set"] is True
+    assert gap["statements_missing"] == []
+    assert gap["variants"], "a gap report with no variants proves nothing"
+    assert {v["terminology"] for v in gap["variants"]} == {"US", "UK"}
+    for row in gap["variants"]:
+        assert row["complete"], row
+        assert set(row["present"]) == set(row["required"]), row
+    # The old reading survives, and is labelled as not being the answer.
+    assert "publish/pdf.py" in gap["source_grep"]["files_mentioning_a_statement"]
+    assert "artefact" in gap["source_grep"]["why_it_is_not_the_answer"]
+
+
+def test_a_childrens_title_with_no_audience_assignment_is_reported():
+    """The safety block is keyed on the assignment, so a missing assignment is silent.
+
+    Found by this check: `nordic-forest-mosaic-throw-baby` is titled "Nordic Forest Overlay
+    Mosaic Blanket (Baby)", carries no children's sub-category, and would therefore render
+    with no safety block while every other gate passed. It is excluded from Launch-0 on the
+    colourwork gate, so nothing ships today -- which is luck, not design. Reported rather
+    than blocking, because whether a product is merchandised to a child is a decision and a
+    title word is evidence for it.
+    """
+    unassigned = {row["slug"] for row in l0.childrens_titles_without_an_assignment()}
+    assert "nordic-forest-mosaic-throw-baby" in unassigned, unassigned
+    # And the products that DO carry an assignment are not in the list.
+    assert "cloudline-baby-blanket" not in unassigned
+    assert "market-basket-small" not in unassigned
+    for row in l0.childrens_titles_without_an_assignment():
+        assert row["words"] and row["why"]
+
+
+def test_the_audience_assignment_is_computed_from_the_candidates_not_listed_twice():
+    """A declared slug list would go stale the first time a variant's builder changed."""
+    assert l0.childrens_assignment("cloudline-baby-blanket") == ("baby_blanket", ch.UNDER_3)
+    assert l0.childrens_assignment("market-basket-large") == ("nursery_decor", ch.UNDER_3)
+    assert l0.childrens_assignment("hexagon-coaster-set") is None
+    assert l0.childrens_assignment("harvest-table-runner") is None
+    for slug in l0.LAUNCH0_SLUGS:
+        cand = l0.candidate(slug)
+        for variant in cand.variants:
+            got = l0.childrens_assignment(l0.cir_for(variant.build).slug)
+            if cand.subcategory is None:
+                assert got is None, slug
+            else:
+                assert got == (cand.subcategory, cand.audience), slug
 
 
 def test_a_prohibited_subject_would_be_refused_even_dressed_as_nursery_decor():
