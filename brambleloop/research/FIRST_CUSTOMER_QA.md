@@ -558,10 +558,13 @@ Suites re-run on the final tree, with their counts: `test_deliverable_qa` **60/0
 
 ## Byte-level notes for the integrator
 
-* **Flat documents change by two words and nothing else**: "At these rows the fabric should
-  measure" became "At these rows the piece should measure", because the sentence is shared with
-  the round case where "fabric" is wrong. Every other flat byte is unchanged except the new
-  `/Outlines` object and the `/Creator` string, which change every file.
+* **A flat document's prose changes in two places and nowhere else.** "At these rows the
+  **fabric** should measure" became "At these rows the **piece** should measure", because the
+  sentence is shared with the round case where "fabric" is the wrong word; and each milestone
+  reads "about 49 cm **of fabric** made" rather than "about 49 cm made", because the line is
+  now built where the measurement is made rather than restated in the renderer. Both numbers
+  are unchanged. Every other flat byte is unchanged except the new `/Outlines` object and the
+  `/Creator` string, which change every file in the catalogue.
 * **All eight round-worked documents change substantively** — the gauge block, the progress
   table and the `Rnd` gloss. Page counts are unchanged (baskets 10, coaster 7).
 * **Every PDF in the catalogue gains an outline and a Creator.** Renders remain
