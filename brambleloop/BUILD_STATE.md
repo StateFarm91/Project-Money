@@ -9113,3 +9113,95 @@ rather than by assumption. Documented and exercised remain separate states.
 **Visual / crochet realism is OPEN and is not superseded**, on the owner's explicit instruction.
 Milestone D remains FAIL. Visual resumes at the identified next step — the certified relaxed
 fabric is not an equilibrium of `drape`'s own contact model — once Etsy authentication is proven.
+
+## 2026-09-25 — the Etsy OAuth callback exists, and the old owner action would have died on day two
+
+Merged and deployed. Suite **3,935 / 0**. `test_etsy_oauth_callback` 41, `test_etsy_transport` 44,
+`test_deploy` 32, `test_gates` 33, `test_continuity` 15, `test_health` 34 — all green.
+
+### The fifth gap, which nobody had written down
+
+Four were known: no callback route, `exchange()` with no caller, a process-bound PKCE verifier,
+and a `redirect_uri` validated only as `startswith("https://")`. The fifth was found by this lane:
+**`Credentials.from_env` built a `TokenProvider` with no `on_refresh`.** Etsy rotates the refresh
+token on every refresh — confirmed from Etsy's own example response — so a pasted
+`ETSY_REFRESH_TOKEN` would have worked for one hour and then presented a spent token after the
+next container replacement. `invalid_grant`, which looks exactly like a revoked app.
+**The owner action this repository has carried for two days described a credential that would have
+died on day two.**
+
+### The route, and why each piece is where it is
+
+`GET /api/etsy/oauth/callback`, one constant `etsy_authorise.CALLBACK_PATH`, plus operator-only
+`/start` and `/status`.
+
+- **The state is never stored — only its SHA-256.** The row is found by hashing what the callback
+  presents, so a `pg_dump`, a continuity export or a console session contains nothing replayable.
+- **The verifier is sealed** (AES-256-GCM, fresh nonce, context-bound so a sealed verifier cannot
+  be opened as a sealed refresh token). No plaintext fallback: with no key it refuses.
+- **`consume()` claims the row in one conditional UPDATE** (`consumed_at IS NULL AND expires_at >
+  now`), so the database decides and there is no read-then-write window.
+
+Five outcomes, each distinguishable from a proxy log with no bodies: missing state 400, unknown
+403, expired 410, replayed 409 with a replay count, unreadable verifier 503.
+
+**The completion end cannot carry the operator token** — Etsy redirects the owner's *browser*,
+which holds no bearer header of ours, and curl and the browser are different clients so a cookie
+would not survive. It is guarded by what it can check: a 32-byte `secrets` state this service
+minted and wrote down before returning the URL, claimable once within 15 minutes. Proved by test:
+six malformed callbacks, including one with a real-looking code, against a transport that raises
+on any call — **zero outbound requests**.
+
+### Where the refresh token lives, and why that split
+
+Sealed in `oauth_credentials`. A repository file is forbidden; a Railway environment variable
+cannot be rewritten by the app; a container file dies with the container. Postgres is the only
+durable store the service can write — **and Postgres alone is not enough**, because
+`continuity.export` serves every table as a download and `core/backup.py` runs `pg_dump`. Hence:
+**the key stays in the environment where secrets already live, the rotating ciphertext goes where
+the app can write, and neither half is a credential.** Excluded from the continuity export for a
+second, independent reason: two deployments restored from one export would both refresh the same
+single-use token and one would silently spend production's credential.
+
+`credential_health()` reports `openable`, which distinguishes *stored* from *stored and we still
+hold the key*.
+
+### A leak nothing in `src/` would have caught
+
+uvicorn's access log prints the request line, and **in this flow the request line is the
+credential** (`?code=…`). `app/access_log.py` filters `uvicorn.access`, reusing `http.SECRET_KEYS`
+and `http.fingerprint`; an ordinary log line is byte-identical.
+
+### Primary sources, fetched and verified by the integrator independently
+
+The token-host ambiguity in `research/ETSY_TRANSPORT.md` §3.3 is **resolved**: Etsy's requests page
+states verbatim *"The two hostnames are equivalent and you can use either."* I fetched that page
+myself and confirmed the sentence and its scope — it is said of v3 API endpoints generally, which
+the residual-doubt note beside the new constant records. `TOKEN_URL` stays the authentication
+page's host and a test asserts the live route sent its grant there **and nowhere else**.
+
+Also confirmed against Etsy directly: `state` is Recommended rather than required for a PKCE
+client; redirect matching is case-sensitive and exact; refresh tokens last 90 days and **a new one
+is issued on every refresh**. Recorded as **UNKNOWN rather than inferred**: Etsy does not document
+the authorization code's lifetime or that it is single-use — that is RFC 6749, not Etsy.
+
+### Adversarial tests, 41, including two injected defects
+
+Replay, wrong state, expired state, missing verifier, four malformed shapes, exchange failure on
+both 400 and 403 with **no credential written**, duplicate callback (200 then 409, one exchange),
+operator guard at both ends, and a full successful authorization through the real FastAPI route
+followed by sweeping every secret from the page, the audit rows, the credential row, `/status` and
+the access log. The injected defects: a naive read-then-write `consume` (both deliveries return
+ok) and `seal` replaced by the identity function (the verifier appears in the row) — each asserted
+to reproduce, then asserted refused by the real code.
+
+### Recorded, not fixed
+
+`core/backup.py`'s `pg_dump` carries the credential table as ciphertext, so that backup's security
+is the sealing key's. `http.TOKEN_SHAPED` recognises Etsy-shaped tokens only — deliberately not
+widened, because a redactor that eats ordinary fields gets switched off. A reverse proxy's own
+access log is unreachable from here, bounded by the code being single-use, short-lived and
+**useless without the PKCE verifier**, which never leaves the sealed database.
+
+**Nothing has been exercised against Etsy.** Everything above is our side of the wire, against a
+local model built from Etsy's document. That changes only when the owner authorises in a browser.
