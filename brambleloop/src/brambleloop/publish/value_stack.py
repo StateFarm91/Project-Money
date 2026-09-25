@@ -60,12 +60,45 @@ class ValueStackRefused(ValueError):
     """A value stack asked for where the pattern cannot support one."""
 
 
+def _rings_by_row(cir, twin):
+    """The twin's own per-round geometry, when it lines up with the pattern's rows.
+
+    A piece worked in the round is measured by `cir.geometry.Revolution`, and every ring in
+    it already carries `axial_cm` -- the height the piece has reached by that round -- and
+    `radius_cm`. Two audits recorded "TwinModel exposes only a total height, so the
+    milestones have to interpolate", and that is true of a *flat* piece and false of a round
+    one: the per-round accumulation is on the twin and nothing was reading it.
+
+    Returned only when there is one ring per row, because a milestone keyed on row `n` that
+    reads ring `n` of a different sequence is worse than no milestone at all.
+    """
+    rev = getattr(twin, "geometry", None)
+    rings = list(getattr(rev, "rings", []) or [])
+    rows = [row for component in cir.components for row in component.rows]
+    return rings if rings and len(rings) == len(rows) else None
+
+
 def milestones(cir, twin) -> dict:
     """The rows where the fabric changes, and what should be true at each.
 
     A buyer halfway up a blanket is asking one question -- is what is on my hook what should
     be on my hook -- and a progress visual that does not answer it in stitches and
     centimetres is decoration.
+
+    **The centimetres come from the twin's own accumulation wherever the twin has one.**
+    `height * index / total` treats every row as contributing the same share of the finished
+    height, and on a piece worked in the round that is not a small error, it is the wrong
+    quantity: a basket spends its first twenty-four rounds growing a flat base outward, which
+    adds nothing to the height at all. Measured on `market-basket-large`, this table told a
+    maker their basket should stand 5.6 cm tall at round 17 while the twin's own geometry
+    says 0.0 -- a flat disc on the table -- under a heading that says "if it does not, the
+    difference is gauge". The cheapest response available to a maker who believes it is to
+    rip out a correct basket.
+
+    So a round piece reports `axial_cm` and `diameter_cm` off the ring the twin already
+    built. A flat piece still interpolates, because for a flat piece the twin really does
+    expose only a total; that gap is `cir/**`'s and is recorded rather than papered over
+    (`interpolated` says which of the two a caller is holding).
     """
     rows = [row for component in cir.components for row in component.rows]
     if not rows:
@@ -73,24 +106,45 @@ def milestones(cir, twin) -> dict:
 
     total = len(rows)
     height = twin.height_cm or 0.0
+    rings = _rings_by_row(cir, twin)
     points = sorted({1, max(1, total // 4), max(1, total // 2),
                      max(1, (total * 3) // 4), total})
     out = []
     for index in points:
         row = rows[index - 1]
+        ring = rings[index - 1] if rings else None
+        if ring is not None:
+            tall = round(ring.axial_cm, 1)
+            across = round(ring.diameter_cm, 1)
+            # A round is worked around the piece, not across it, and until the wall starts
+            # the thing on the hook has no height to measure -- so the measurement offered is
+            # the one a maker can actually take.
+            measured = (f"{row.declared_count} stitches around, about {across:.0f} cm across"
+                        + (f" and {tall:.0f} cm tall" if tall > 0 else ", still flat"))
+            label, unit = f"round {index} of {total}", "round"
+        else:
+            tall = round(height * index / total, 1)
+            across = None
+            measured = (f"{row.declared_count} stitches across, about "
+                        f"{height * index / total:.0f} cm of fabric made")
+            label, unit = f"row {index} of {total}", "row"
         out.append({
             "row": index,
+            "unit": unit,
             "share": round(index / total, 3),
             "stitches_in_this_row": row.declared_count,
-            "height_so_far_cm": round(height * index / total, 1),
+            "height_so_far_cm": tall,
+            "across_cm": across,
+            "interpolated": ring is None,
             "colour": row.color,
-            "what_should_be_true": (
-                f"row {index} of {total}: {row.declared_count} stitches across, about "
-                f"{height * index / total:.0f} cm of fabric made"),
+            "measured": measured,
+            "what_should_be_true": f"{label}: {measured}",
         })
     return {
         "milestones": out,
         "rows_total": total,
+        "unit": "round" if rings else "row",
+        "interpolated": rings is None,
         "note": ("The rows where the fabric changes, with what should be true at each in "
                  "stitches and centimetres. A maker checking their work needs a number they "
                  "can count, not a picture they can only agree with (#7)."),

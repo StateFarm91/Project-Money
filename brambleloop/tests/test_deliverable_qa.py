@@ -52,7 +52,9 @@ from brambleloop.products.vessels import build_basket, build_hexagon_coaster  # 
 from brambleloop.publish import abbreviations as ab  # noqa: E402
 from brambleloop.publish import charts  # noqa: E402
 from brambleloop.publish import difficulty as diff  # noqa: E402
+from brambleloop.publish import listing_assets as la  # noqa: E402
 from brambleloop.publish import pdf as pdf_mod  # noqa: E402
+from brambleloop.publish import value_stack  # noqa: E402
 from brambleloop.publish.pdf import build_pattern_pdf  # noqa: E402
 
 RELEASED = date(2026, 9, 24)
@@ -1617,6 +1619,368 @@ def test_the_newly_assigned_baby_blanket_now_carries_its_safety_block():
     doc = build_pattern_pdf(cir)
     carried = childrens_statements_in(doc.pdf_bytes, assignment)
     assert carried["complete"], carried
+
+
+# ---- 8. the first paying customer (2026-09-25, research/FIRST_CUSTOMER_QA.md) ------------
+#
+# Every check below started as a defect found by rendering the real bytes and reading them as
+# somebody who has paid, after three waves of QA had already run. They are the ones the gates
+# could not see, and all of them are on a piece worked in the round -- which is two of the
+# three Launch-0 products, including the flagship.
+
+
+def _round_designs() -> list:
+    """Every shippable design worked in the round, which is where these defects live."""
+    out = []
+    for cir in _designs() + [build_basket(s) for s in ("small", "medium", "large")]:
+        result = compile_cir(cir)
+        if not result.ok:
+            continue
+        twin = build_twin(cir, result)
+        if charts.is_round(cir, twin):
+            out.append((cir, twin))
+    assert len(out) >= 4, "no round-worked design reached this check"
+    return out
+
+
+def test_the_progress_table_reads_the_height_the_twin_measured_rather_than_a_share_of_it():
+    """`height * index / total` is not the height of a piece worked in the round.
+
+    A basket spends its first rounds growing a flat base outward, which adds nothing to the
+    height at all, so sharing the finished height evenly across every round puts centimetres
+    on a disc lying flat on the table. Measured on `market-basket-large` before the fix: the
+    document's own "Checking your progress" table said the piece should stand **5.6 cm** tall
+    at round 17 while `twin.geometry.rings[16].axial_cm` says **0.0** -- under a heading that
+    reads "If it does not, the difference is gauge, and it is easier to fix now". The
+    cheapest response available to a maker who believes it is to rip out a correct basket.
+
+    The per-round accumulation was on the twin the whole time. Two earlier audits recorded
+    "TwinModel exposes only a total height, not ours to fix"; that is true of a flat piece and
+    false of a round one, and this is the half that could be closed here.
+    """
+    for cir, twin in _round_designs():
+        rings = twin.geometry.rings
+        progress = value_stack.milestones(cir, twin)
+        assert progress["unit"] == "round", cir.slug
+        assert progress["interpolated"] is False, cir.slug
+        for mark in progress["milestones"]:
+            ring = rings[mark["row"] - 1]
+            assert mark["height_so_far_cm"] == round(ring.axial_cm, 1), (cir.slug, mark)
+            assert mark["across_cm"] == round(ring.diameter_cm, 1), (cir.slug, mark)
+            assert "stitches around" in mark["measured"], (cir.slug, mark)
+
+    # And the document prints those numbers rather than a second opinion about them.
+    cir = build_basket("large")
+    _, twin = _twin_for(cir)
+    flat = _flat(_doc_for(cir, twin))
+    assert "ROUND 17 OF 70 102 stitches around, about 18 cm across, still flat" in flat, flat
+
+    # Proved against the defect, injected: withhold the twin's rings -- which is exactly what
+    # the old code did, by never looking for them -- and the same table claims 5.6 cm of
+    # height on a round the twin measures at 0.0.
+    original = value_stack._rings_by_row
+    try:
+        value_stack._rings_by_row = lambda c, t: None
+        claimed = {m["row"]: m["height_so_far_cm"]
+                   for m in value_stack.milestones(cir, twin)["milestones"]}
+    finally:
+        value_stack._rings_by_row = original
+    assert twin.geometry.rings[16].axial_cm == 0.0, "this design no longer holds the defect"
+    assert claimed[17] > 5.0, claimed
+
+
+def test_no_document_explains_a_gauge_difference_with_a_stitch_it_does_not_contain():
+    """The reconciliation paragraph has a premise, and four documents did not meet it.
+
+    "The swatch gauge is measured over plain sc; this pattern is worked in taller stitches as
+    well, so its rows stack up faster" was printed whenever the fabric's row gauge differed
+    from the swatch's by a tenth -- including on all three nesting baskets and the hexagon
+    coaster, which are worked entirely in single crochet and contain no taller stitch at all.
+    Two of the three Launch-0 products told a buyer something measurably untrue about their
+    own fabric, on the page headed "Gauge, and why it matters here".
+
+    The number beside it was not a row gauge either: `len(row_widths) / height_cm` divided
+    seventy rounds -- twenty-four of them a flat base -- by the height of the forty-six-round
+    wall and reported "about 30 rows = 10 cm" for a wall worked at exactly the stated 20.
+    """
+    for cir in _designs() + [build_basket(s) for s in ("small", "medium", "large")]:
+        result = compile_cir(cir)
+        if not result.ok:
+            continue
+        twin = build_twin(cir, result)
+        taller = pdf_mod._taller_than_gauge(cir, twin)
+        for terminology in pdf_mod.TERMINOLOGIES:
+            flat = _flat(_doc_for(cir, twin, terminology))
+            if "worked in taller stitches as well" in flat:
+                assert taller, (cir.slug, terminology,
+                                "the document explains its rows with a stitch it never uses")
+
+    # The wall of every basket is worked at the swatch gauge, so there was never anything to
+    # reconcile once the base rounds stop being counted as rows that stack.
+    for size in ("small", "medium", "large"):
+        cir = build_basket(size)
+        _, twin = _twin_for(cir)
+        assert pdf_mod._taller_than_gauge(cir, twin) == (), size
+        assert abs(pdf_mod._fabric_row_gauge(twin) - cir.gauge.rows_per_10cm) < 0.01, size
+    # A flat disc has no round that rises, so it has no vertical row gauge to state at all.
+    cir = build_hexagon_coaster()
+    _, twin = _twin_for(cir)
+    assert pdf_mod._fabric_row_gauge(twin) is None
+
+    # Proved against the defect, injected: put both halves of the shipped behaviour back --
+    # the row gauge derived from every round rather than from the rounds that rise, and no
+    # premise check at all -- and the basket says the false thing again, in the real bytes.
+    cir = build_basket("large")
+    _, twin = _twin_for(cir)
+    was_taller, was_gauge = pdf_mod._taller_than_gauge, pdf_mod._fabric_row_gauge
+    try:
+        pdf_mod._taller_than_gauge = lambda c, t: ("dc",)
+        pdf_mod._fabric_row_gauge = lambda t: len(t.row_widths) / t.height_cm * 10.0
+        broken = _flat(build_pattern_pdf(cir, twin=twin, released_on=RELEASED))
+    finally:
+        pdf_mod._taller_than_gauge, pdf_mod._fabric_row_gauge = was_taller, was_gauge
+    assert "worked in taller stitches as well" in broken
+    assert "THIS FABRIC about 30 rows = 10 cm" in broken, broken
+
+
+def test_the_key_does_not_contradict_the_instructions_about_joining_the_rounds():
+    """A gloss on `Rnd` is a second copy of a decision that already has one source.
+
+    The key said "round -- worked continuously, not turned at the end like a row" in every
+    document containing the word, and every round-worked pattern this company ships is
+    **joined**: the cover says `joined rounds` and the instructions open with "Join each round
+    with a sl st to the first stitch". Three statements in one document, two answers, about
+    the thing `cir.writer.construction_lines` names as deciding the fabric -- "joining leaves
+    a seam up the side, spiralling does not".
+
+    So the document may describe the rounds as a spiral only where the pattern is one.
+    """
+    spiral_claims = ("worked continuously", "continuous spiral", "do not join")
+    joined_seen = False
+    for cir, twin in _round_designs():
+        joined = any(str(c.construction) == "joined_rounds" for c in cir.components)
+        if not joined:
+            continue
+        joined_seen = True
+        for terminology in pdf_mod.TERMINOLOGIES:
+            flat = _flat(_doc_for(cir, twin, terminology)).lower()
+            assert "join each round with a sl st" in flat, (cir.slug, terminology)
+            for claim in spiral_claims:
+                assert claim not in flat, (cir.slug, terminology, claim)
+    assert joined_seen, "no joined-round design reached this check"
+
+    # Proved against the defect, injected: put the old gloss back and the check fires on a
+    # document that also carries the instruction it contradicts.
+    original = ab.NOTATION
+    try:
+        ab.NOTATION = tuple(
+            (label, "round -- worked continuously, not turned at the end like a row", shape)
+            if label == "Rnd" else (label, means, shape)
+            for label, means, shape in original)
+        cir = build_basket("large")
+        _, twin = _twin_for(cir)
+        broken = _flat(build_pattern_pdf(cir, twin=twin, released_on=RELEASED)).lower()
+    finally:
+        ab.NOTATION = original
+    assert "worked continuously" in broken
+    assert "join each round with a sl st" in broken
+
+
+def test_every_crochet_abbreviation_in_the_document_is_one_the_key_defines():
+    """`TOKENS` is the vocabulary of the writer's ops, and a document is not only ops.
+
+    `cir.writer.JOINED_LINE` is a hand-written sentence, so the slip stitch reaches the buyer
+    spelled `sl st` while `write_op` would print `slst`. The key looked for `slst`, found
+    none and printed no entry; `undefined_tokens` looked for the same string and agreed the
+    key was complete. Measured on the rendered bytes, `sl st` was the only crochet
+    abbreviation in any shippable document that its own key did not define, and it is in all
+    eight round-worked documents -- under a paragraph reading "Every abbreviation it uses is
+    below; nothing in the instructions is left to be looked up elsewhere".
+    """
+    for cir, twin in _round_designs():
+        for terminology in pdf_mod.TERMINOLOGIES:
+            doc = _doc_for(cir, twin, terminology)
+            assert "sl st" in _text_of(doc), (cir.slug, terminology)
+            key = {e.token for e in ab.stitch_key(doc.prose, terminology)}
+            assert "sl st" in key, (cir.slug, terminology, sorted(key))
+            assert not ab.undefined_tokens(doc.prose, terminology, defined=key), \
+                (cir.slug, terminology)
+            assert all(not p.startswith("PDF_ABBREVIATION_UNDEFINED")
+                       for p in doc.problems), (cir.slug, doc.problems)
+
+    # Proved against the defect, injected, in both halves -- because the module was blind in
+    # both and an injection that removes the blindness from both proves nothing.
+    cir = build_basket("large")
+    _, twin = _twin_for(cir)
+    doc = _doc_for(cir, twin)
+    key = {e.token for e in ab.stitch_key(doc.prose, "US")}
+
+    # Half one: the scan can fail. Hand it a key that lost the entry -- which is what the
+    # document printed before this fix -- and the real rendered prose reports the real word.
+    assert "sl st" in ab.undefined_tokens(doc.prose, "US", defined=key - {"sl st"})
+
+    # Half two: the key finds it because of the spelling table, not by accident. Take the
+    # table away and the entry disappears, which is the state the document shipped in.
+    original = ab.EXTRA_SPELLINGS
+    try:
+        ab.EXTRA_SPELLINGS = {}
+        assert "sl st" not in {e.token for e in ab.stitch_key(doc.prose, "US")}
+    finally:
+        ab.EXTRA_SPELLINGS = original
+
+
+def test_the_document_carries_an_outline_a_phone_reader_can_jump_with():
+    """A ten-page PDF with no bookmarks is ten pages of scrolling, every time.
+
+    The buyer works this with the piece in their hands, on a phone or a tablet, and goes back
+    to the chart and to the abbreviations repeatedly. reportlab produces an untagged
+    document, so the outline is also the only structure assistive software has to offer a
+    jump with. Measured on the real bytes: `pypdf` reads the catalogue's own `/Outlines`.
+    """
+    cir = build_basket("large")
+    _, twin = _twin_for(cir)
+    doc = _doc_for(cir, twin)
+    reader = pypdf.PdfReader(io.BytesIO(doc.pdf_bytes))
+    titles = [o.title for o in reader.outline]
+    for section in ("Materials", "Abbreviations", "Chart", "Terms and support"):
+        assert section in titles, titles
+    assert any(t.startswith("Instructions") for t in titles), titles
+    assert any("Safety notes" in t for t in titles), titles
+
+    # Pinned twice over, because an outline is exactly the kind of thing that survives as a
+    # list of entries pointing nowhere: every one has to resolve to a page in this document.
+    numbers = {reader.get_destination_page_number(o) for o in reader.outline}
+    assert len(numbers) >= 5, sorted(numbers)
+    assert max(numbers) < len(reader.pages)
+
+    # And the document is still a pure function of its release: the outline's keys come from
+    # the headings and their order, nothing outside the render.
+    assert build_pattern_pdf(cir, twin=twin,
+                             released_on=RELEASED).pdf_bytes == doc.pdf_bytes
+
+    # Proved against the defect, injected: raise the bar above every heading this document
+    # sets and the outline goes empty, which is the state the file shipped in.
+    original = pdf_mod._Doc.OUTLINE_HEADING_PT
+    try:
+        pdf_mod._Doc.OUTLINE_HEADING_PT = 999
+        bare = build_pattern_pdf(cir, twin=twin, released_on=RELEASED)
+    finally:
+        pdf_mod._Doc.OUTLINE_HEADING_PT = original
+    assert pypdf.PdfReader(io.BytesIO(bare.pdf_bytes)).outline == []
+
+
+def test_the_listing_chart_shows_what_the_document_shows():
+    """Frame 6 drew a different chart from the one in the file the shopper would receive.
+
+    Both of the defects `publish/pdf.py` had already been corrected for, one module over:
+
+    * the round branch asked `render_round_chart` for the whole piece, so the nesting
+      baskets' frame drew all seventy rounds as concentric rings at **8.2 pixels per ring on
+      a 2000-pixel image** -- 0.41% of the frame width -- captioned "every round, from the
+      centre out", on a product that is a 24-round base with a 46-round wall standing on it;
+    * the flat branch asked `detect_repeat`, which eight of the sixteen shippable designs
+      defeat, so the cabled throw's frame said "one repeat - 8 sts x 121 rows" while its own
+      PDF chart says rows 2-5 worked 29 times more.
+
+    **No legibility floor is asserted here, deliberately.** This company has a declared
+    minimum type size for a printed page and none for a listing image, so a pixel floor would
+    be a number chosen rather than derived. What is checked is that the listing draws the
+    block the document draws -- and the document's chart is already held to a floor derived
+    from the brand's own 9pt minimum. The pixel numbers below are regression pins with the
+    measurement recorded, not a claim that they are legible.
+    """
+    spec = charts.ChartSpec(cell_px=30, margin_px=40, max_width_px=la.CANVAS)
+    for cir, twin in _round_designs():
+        block = charts.round_block(twin)
+        unit = la.chart_frame_unit_px(cir, twin)
+        # The call this frame used to make, as the injected defect: ask for the whole disc.
+        old = charts.render_round_chart(cir, twin, spec, caption="every round")
+        old_ring, _w, _h = charts.round_chart_size(twin, spec)
+        old_unit = old_ring * min(int(la.CANVAS * 0.74) / old.width,
+                                  (la.CANVAS * 0.62) / old.height)
+        if block:
+            assert unit > old_unit * 2, (cir.slug, unit, old_unit)
+        assert unit >= 40.0, (cir.slug, unit)
+
+    # The flagship, with the number in the assertion so a regression is legible in the
+    # failure rather than only in the diff. 8.2 px before, 43 px now.
+    cir = build_basket("large")
+    _, twin = _twin_for(cir)
+    assert round(la.chart_frame_unit_px(cir, twin)) == 43, la.chart_frame_unit_px(cir, twin)
+
+    # Flat: the listing crops to the block the written instructions repeat, which is what the
+    # document's chart shows, rather than to a period that merely divides the row count.
+    checked = 0
+    for cir in _designs():
+        result = compile_cir(cir)
+        if not result.ok:
+            continue
+        twin = build_twin(cir, result)
+        if charts.is_round(cir, twin):
+            continue
+        block = charts.row_block(cir, twin)
+        if not block:
+            continue
+        _cols, rep_rows = charts.detect_repeat(twin.chart_grid(), twin.color_grid())
+        frame = la._chart_frame(cir, twin)
+        assert frame.image is not None
+        if block[1] < rep_rows:
+            # The case the old detector got wrong: the written pattern repeats a block that
+            # is not a divisor of the row count, and the listing now shows that block.
+            checked += 1
+        assert la.chart_frame_unit_px(cir, twin) > 0, cir.slug
+    assert checked >= 5, f"only {checked} designs exercise the repeat-detector difference"
+
+
+def test_support_does_not_send_a_buyer_looking_for_a_column_that_does_not_exist():
+    """The last step of the journey, and the one answer on it that was still wrong.
+
+    `support.concierge` replied to "is this in UK terms?" with "The pattern is written in US
+    terms and the stitch key lists the UK equivalent for every stitch used". That is the
+    claim `research/DELIVERABLE_QA2.md` found unsupportable and withdrew from four surfaces:
+    no key has ever listed equivalents, and since that audit the release chain renders and
+    attaches **both** documents. So support was sending a buyer who already owns the UK PDF
+    away to look for a column that does not exist -- the worst shape of wrong answer, because
+    the thing they want is in the download they are holding.
+
+    Two more of its answers were the same defect in miniature, found in the same pass and
+    fixed here: the gauge reply printed `cir.gauge.stitch_type` raw, which is a canonical code
+    and therefore a US abbreviation, to a buyer who may be reading the UK file; and the
+    stitch-count reply matched `row N` only, so every question about a basket or a coaster --
+    two of the three Launch-0 products, whose documents number every line `Rnd` -- missed the
+    five-minute canonical answer and fell through to the twenty-four-hour escalation.
+    """
+    from brambleloop.support.concierge import Concierge
+
+    basket = build_basket("large")
+    c = Concierge(basket)
+
+    terms = c.answer("do you have this in UK terms?")
+    assert not terms.escalated and terms.confident, terms
+    for banned in ("written in US terms", "UK equivalent", "either way"):
+        assert banned not in terms.answer, terms.answer
+    for t in pdf_mod.TERMINOLOGIES:
+        assert pdf_mod.pattern_filename(t) in terms.answer, terms.answer
+
+    gauge = c.answer("what gauge is this?")
+    us = ab.token(basket.gauge.stitch_type, "US")
+    uk = ab.token(basket.gauge.stitch_type, "UK")
+    assert us in gauge.answer and uk in gauge.answer, gauge.answer
+
+    # The word the pattern itself uses, both in the question and in the answer.
+    rnd = c.answer("how many stitches should I have at the end of round 24?")
+    assert not rnd.escalated, rnd
+    assert rnd.cited_rows == [24], rnd
+    assert "round 24" in rnd.answer and "144 stitches" in rnd.answer, rnd.answer
+    assert "row" not in rnd.answer, rnd.answer
+
+    # A flat pattern still answers in rows, because that is what its document prints.
+    flat = Concierge(build(CATALOGUE["cloudline-baby-blanket"]))
+    rows = flat.answer("how many stitches at the end of row 12?")
+    assert not rows.escalated and "row 12" in rows.answer, rows.answer
+
+    # And support still refuses to guess, which is the property none of this may weaken.
+    assert c.answer("can I use this as a car seat cover?").escalated
 
 
 if __name__ == "__main__":

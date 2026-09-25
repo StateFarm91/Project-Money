@@ -144,6 +144,10 @@ class _Doc:
             self.c.setAuthor(author)
         if subject:
             self.c.setSubject(subject)
+        # reportlab's default is the literal string "anonymous", which is what a buyer sees
+        # under Application in any reader's document-properties panel. On a premium product
+        # that is a small, visible piece of nobody-checked.
+        self.c.setCreator("Brambleloop Studio pattern compiler")
         # The document's natural language, in the catalogue where assistive software looks
         # for it. reportlab has no setter for this, so it is written to the catalogue
         # directly; without it a screen reader guesses the language from the system locale
@@ -167,6 +171,16 @@ class _Doc:
         # the module chose to say rather than on what a text extractor could recover from the
         # glyphs; the extraction is a separate proof, and the tests do it too.
         self.prose: list[str] = []
+        # Bookmark keys, in the order they were made. A key is derived from the heading and
+        # its ordinal rather than from anything outside the render, so the outline is a pure
+        # function of the document like everything else in it -- see the note on `invariant`.
+        self.bookmarks: list[str] = []
+
+    def _bookmark(self, title: str) -> None:
+        key = f"section-{len(self.bookmarks) + 1}-{re.sub(r'[^a-z0-9]+', '-', title.lower())}"
+        self.bookmarks.append(title)
+        self.c.bookmarkPage(key)
+        self.c.addOutlineEntry(title, key, level=0)
 
     # -- primitives --------------------------------------------------------
     def new_page(self, running_head: str | None = None) -> None:
@@ -195,9 +209,18 @@ class _Doc:
         if self.y - amount < MARGIN:
             self.new_page(running_head)
 
+    # Headings at or above this size are the document's sections, and each one becomes a
+    # bookmark. A buyer works this pattern from a phone or a tablet with the piece in their
+    # hands, and a ten-page PDF with no outline is ten pages of scrolling every time they
+    # want the chart back. The outline is also the structure assistive software reads to
+    # offer "jump to section" in a document reportlab cannot tag.
+    OUTLINE_HEADING_PT = 15
+
     def heading(self, text: str, size: int = 15) -> None:
         self.prose.append(text)
         self.need(size + 10 * mm)
+        if size >= self.OUTLINE_HEADING_PT:
+            self._bookmark(text)
         self.c.setFillColor(PINE)
         self.c.setFont("Helvetica-Bold", size)
         self.c.drawString(MARGIN, self.y, text)
@@ -807,7 +830,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     # apparently twice as long as it should be and rips out a correct blanket. Both numbers
     # were right; the document simply never printed the one that reconciles them.
     fabric = _fabric_row_gauge(twin)
-    if fabric and cir.gauge:
+    taller = _taller_than_gauge(cir, twin)
+    if fabric and cir.gauge and taller:
         drift = abs(fabric - cir.gauge.rows_per_10cm) / cir.gauge.rows_per_10cm
         if drift >= ROW_GAUGE_DRIFT:
             doc.space(2 * mm)
@@ -821,6 +845,15 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"your stitches across against the swatch gauge, and check your rows against "
                 f"the measurements in 'Checking your progress' below, which are the "
                 f"fabric's own.", size=9, color=MUTED)
+    else:
+        # A piece worked in the round has no swatch/fabric row gauge to reconcile -- the
+        # paragraph above does not apply to it -- but it does have a real question about
+        # which gauge governs which dimension, and leaving that unanswered is how the fix
+        # for one defect creates another.
+        round_note = _round_gauge_note(cir, twin, terminology)
+        if round_note:
+            doc.space(2 * mm)
+            doc.para(round_note, size=9, color=MUTED)
 
     # -- how to know it is going right (#7) --------------------------------
     #
@@ -832,15 +865,22 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     except value_stack.ValueStackRefused:
         progress = None
     if progress and len(progress["milestones"]) > 2:
+        # The unit is the pattern's own. A basket's lines are rounds, the document calls them
+        # `Rnd`, and a table headed "row 17 of 70" over a pattern that has no rows is the
+        # small kind of wrong that makes a maker doubt the rest of the page.
+        unit = progress["unit"]
         doc.heading("Checking your progress", size=12)
         doc.para(
-            f"At these rows the fabric should measure roughly this much. If it does not, the "
-            f"difference is gauge, and it is easier to fix now than at row "
+            f"At these {unit}s the piece should measure roughly this much. If it does not, "
+            f"the difference is gauge, and it is easier to fix now than at {unit} "
             f"{progress['rows_total']}.", size=10)
         for mark in progress["milestones"]:
-            doc.kv(f"row {mark['row']} of {progress['rows_total']}",
-                   f"{mark['stitches_in_this_row']} stitches across, "
-                   f"about {mark['height_so_far_cm']:.0f} cm made")
+            # `measured` is built where the measurement is: `value_stack` knows whether the
+            # centimetres came off the twin's own per-round accumulation or from dividing a
+            # total, and printing its sentence keeps the document from having a second
+            # opinion about a number the twin has already made.
+            doc.kv(f"{mark['unit']} {mark['row']} of {progress['rows_total']}",
+                   mark["measured"])
 
     # -- printing it (#7) ---------------------------------------------------
     #
@@ -1177,11 +1217,92 @@ def _fabric_row_gauge(twin: TwinModel) -> float | None:
 
     Read off the twin rather than re-derived from the stitch heights, so it cannot become a
     second opinion about a measurement the twin has already made.
+
+    **Only the rows that stack.** `len(row_widths) / height_cm` is a row gauge for a flat
+    piece and an arithmetic accident for a round one, because a round-worked piece spends
+    some of its rounds growing outward instead of upward. On `market-basket-large` it
+    divided seventy rounds -- twenty-four of them a flat base -- by the height of the
+    forty-six-round wall and reported "about 30 rows = 10 cm" against a stated 20, on a
+    basket whose wall is worked at exactly the stated 20. The twin's own geometry already
+    separates the two: a ring that rises has `rise_cm > 0` and a ring that only widens does
+    not. A piece with no rising ring at all -- the hexagon coaster, a flat disc -- has no
+    vertical row gauge to state, and `None` is the answer rather than a number.
     """
+    rev = getattr(twin, "geometry", None)
+    rings = list(getattr(rev, "rings", []) or [])
+    if rings:
+        risers = [r for r in rings if r.rise_cm > 0]
+        axial = sum(r.rise_cm for r in rings)
+        if not risers or axial <= 0:
+            return None
+        return len(risers) / axial * 10.0
     rows = len(twin.row_widths)
     if not rows or not twin.height_cm:
         return None
     return rows / twin.height_cm * 10.0
+
+
+def _taller_than_gauge(cir: CIR, twin: TwinModel) -> tuple[str, ...]:
+    """Stitches in this fabric taller than the one the gauge was swatched over.
+
+    The premise of the reconciliation paragraph below, measured instead of asserted. That
+    paragraph explains a swatch/fabric difference by saying the pattern "is worked in taller
+    stitches as well" -- and it was printed on every document whose two row gauges differed
+    by a tenth, including four worked entirely in single crochet. All three nesting baskets
+    and the hexagon coaster said it, which is two of the three Launch-0 products telling a
+    buyer something measurably untrue about their own fabric on the page headed "Gauge, and
+    why it matters here".
+
+    Heights come from `cir.stitches`, which is where a stitch's height is defined, so this
+    cannot drift from the geometry that produced the difference it is explaining.
+    """
+    from ..cir import stitches as _stitches
+
+    if not cir.gauge or not cir.gauge.stitch_type:
+        return ()
+    try:
+        base = _stitches.get(cir.gauge.stitch_type).height
+    except Exception:  # an unknown gauge stitch is not this function's to diagnose
+        return ()
+    out = []
+    for code in sorted(twin.stitch_types_used):
+        try:
+            height = _stitches.get(code).height
+        except Exception:
+            continue
+        if height > base:
+            out.append(code)
+    return tuple(out)
+
+
+def _round_gauge_note(cir: CIR, twin: TwinModel, terminology: str) -> str:
+    """What the gauge means on a piece worked in the round, when no stitch is taller.
+
+    The reconciliation paragraph does not apply here and printing it anyway was the defect.
+    Saying nothing would leave a real question unanswered, because a round-worked maker still
+    has to know what to check their rounds against -- so this says which gauge governs which
+    dimension, in the piece's own numbers.
+    """
+    rev = getattr(twin, "geometry", None)
+    rings = list(getattr(rev, "rings", []) or [])
+    if not rings or _taller_than_gauge(cir, twin) or not cir.gauge:
+        return ""
+    risers = [r for r in rings if r.rise_cm > 0]
+    stitch = _gauge_stitch(cir, terminology)
+    flat = len(rings) - len(risers)
+    if not risers:
+        return (f"This piece is worked in the round and every round grows it outward rather "
+                f"than upward, so there is no row gauge to check it against: the "
+                f"{cir.gauge.stitches_per_10cm} stitches to 10 cm in {stitch} is what sets "
+                f"how wide it comes out. Check the measurement across against 'Checking "
+                f"your progress' below.")
+    return (f"This piece is worked in the round, and its two gauges do different jobs. "
+            f"Rounds 1 to {flat} grow the base outward without adding height, so the "
+            f"{cir.gauge.stitches_per_10cm} stitches to 10 cm in {stitch} is what decides "
+            f"how wide the base comes out. The {cir.gauge.rows_per_10cm} rows to 10 cm is "
+            f"the gauge of the {len(risers)} straight rounds above it, which is where the "
+            f"height comes from. Check both against 'Checking your progress' below, which "
+            f"gives each round's measurement across and up.")
 
 
 def _tools_required(cir: CIR, text: str) -> list[tuple[str, str]]:

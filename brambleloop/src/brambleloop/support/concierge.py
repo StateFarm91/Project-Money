@@ -21,7 +21,15 @@ from ..cir.model import CIR
 from ..cir.twin import build_twin
 from ..gates.incidents import DefectReport, IncidentTracker
 
-_ROW_Q = re.compile(r"\brow\s+(\d+)\b", re.I)
+# "Round 30" and "rnd 30" as well as "row 30".
+#
+# Two of the three Launch-0 products are worked in the round, their documents number every
+# line `Rnd`, and a buyer asks in the words the pattern uses. This pattern matched `row`
+# only, so every stitch-count question about a basket or a coaster missed the canonical
+# answer -- the one that is already known, and whose service target is five minutes -- and
+# fell through to the escalation branch, whose target is twenty-four hours. Nothing was wrong
+# with the answer; the question was simply not recognised.
+_ROW_Q = re.compile(r"\b(?:row|round|rnd)\s+(\d+)\b", re.I)
 _COUNT_Q = re.compile(r"\b(how many|count|stitch count|should i have)\b", re.I)
 _SIZE_Q = re.compile(r"\b(how big|finished size|dimensions|measure)\b", re.I)
 _YARN_Q = re.compile(r"\b(how much yarn|yardage|how many (balls|skeins)|metres|yards)\b", re.I)
@@ -67,10 +75,23 @@ class Concierge:
             "fixed in the CIR, re-validated and re-issued as a new version."
         )
 
+    def _line_word(self, component: str) -> str:
+        """`row` or `round`, whichever the pattern the buyer is holding actually prints.
+
+        Read off the component's construction, which is the same thing `cir.writer` reads to
+        decide whether to number its lines `Row` or `Rnd`, so support cannot answer about a
+        "row 30" of a document that has no rows in it.
+        """
+        for comp in self.cir.components:
+            if comp.name == component:
+                return "round" if str(comp.construction).endswith("rounds") else "row"
+        return "row"
+
     def answer(self, question: str, component: str | None = None) -> SupportAnswer:
         comp = component or self.cir.components[0].name
         version = f"{self.cir.slug}@{self.cir.version}"
         q = question.strip()
+        line = self._line_word(comp)
 
         row_match = _ROW_Q.search(q)
         if row_match and (_COUNT_Q.search(q) or not _SIZE_Q.search(q)):
@@ -81,16 +102,16 @@ class Concierge:
             if 1 <= n <= len(counts):
                 return SupportAnswer(
                     question=q, cited_version=version, cited_rows=[n],
-                    answer=(f"At the end of row {n} you should have {counts[n - 1]} stitches. "
-                            f"That number comes from the released pattern you bought "
-                            f"({version}) and was checked by the compiler before release. If "
-                            f"you have a different count, work back to the last row where "
-                            f"your count matched and re-work from there."))
+                    answer=(f"At the end of {line} {n} you should have {counts[n - 1]} "
+                            f"stitches. That number comes from the released pattern you "
+                            f"bought ({version}) and was checked by the compiler before "
+                            f"release. If you have a different count, work back to the last "
+                            f"{line} where your count matched and re-work from there."))
             return SupportAnswer(
                 question=q, cited_version=version, escalated=True, confident=False,
-                answer=(f"Row {n} is not in this pattern, which only has "
-                        f"{len(counts)} rows in the {comp}. I have passed this to a human so "
-                        f"we can work out what you are looking at."))
+                answer=(f"{line.capitalize()} {n} is not in this pattern, which only has "
+                        f"{len(counts)} {line}s in the {comp}. I have passed this to a human "
+                        f"so we can work out what you are looking at."))
 
         if _SIZE_Q.search(q):
             if self.twin.width_cm and self.twin.height_cm:
@@ -120,18 +141,45 @@ class Concierge:
 
         if _GAUGE_Q.search(q) and self.cir.gauge:
             g = self.cir.gauge
+            # `gauge.stitch_type` is a canonical code, which is to say a US abbreviation, and
+            # this answer printed it raw to a buyer who may be reading the UK document. That
+            # is the defect `publish/pdf._gauge_stitch` was written to close on the cover --
+            # a UK maker resolving `sc` against their own vocabulary swatches a treble, three
+            # times the height the gauge was measured at -- arriving again through support.
+            # Both spellings, from the one registry, because support does not know which of
+            # the two files they opened.
+            from ..publish import abbreviations as ab
+
+            us, uk = ab.token(g.stitch_type, "US"), ab.token(g.stitch_type, "UK")
+            named = us if us == uk else f"{us} (UK terms: {uk})"
             return SupportAnswer(
                 question=q, cited_version=version,
                 answer=(f"Gauge is {g.stitches_per_10cm} stitches and {g.rows_per_10cm} rows "
-                        f"to 10 cm in {g.stitch_type} with a {g.hook_mm:g} mm hook. The "
-                        f"stitch counts in the pattern are correct whatever your gauge — "
+                        f"to 10 cm in {named} with a {g.hook_mm:g} mm hook. The "
+                        f"stitch counts in the pattern are correct whatever your gauge -- "
                         f"only the finished measurements change."))
 
         if _TERMS_Q.search(q):
+            # What the buyer actually receives, read from the list of terminologies the
+            # release chain renders and attaches, rather than restated here.
+            #
+            # This used to say "written in US terms and the stitch key lists the UK
+            # equivalent for every stitch used". That is the claim
+            # `research/DELIVERABLE_QA2.md` found unsupportable on four surfaces and had
+            # withdrawn from all of them: no key has ever listed equivalents, and since that
+            # audit the release chain renders and attaches **both documents**. So support was
+            # sending a buyer who already owns the UK PDF away to look for a column that does
+            # not exist -- the worst shape of wrong answer, because the thing they want is in
+            # the download they are holding.
+            from ..publish.pdf import TERMINOLOGIES, pattern_filename
+
+            files = ", ".join(f"{t} terms ({pattern_filename(t)})" for t in TERMINOLOGIES)
             return SupportAnswer(
                 question=q, cited_version=version,
-                answer=("The pattern is written in US terms and the stitch key lists the UK "
-                        "equivalent for every stitch used, so you can work it either way."))
+                answer=(f"Both. Your purchase includes {len(TERMINOLOGIES)} separate PDFs of "
+                        f"this pattern -- {files} -- each written throughout in its own "
+                        f"terms, with its own stitch key. Download whichever one you work "
+                        f"from; nothing needs translating."))
 
         return SupportAnswer(
             question=q, cited_version=version, escalated=True, confident=False,
