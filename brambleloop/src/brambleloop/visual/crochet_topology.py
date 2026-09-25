@@ -680,6 +680,144 @@ def _crossings_of_spanning_surface(path: np.ndarray, strand: np.ndarray,
     return hits
 
 
+@dataclass(frozen=True)
+class LinkagePair:
+    """One certified stitch-to-stitch linkage: this stitch was pulled through that loop.
+
+    The fields are INDICES INTO THE CONCATENATED YARN PATH (`Fabric.points`), inclusive at
+    both ends, so a consumer outside this module can act on the same spans the validator
+    measures without rediscovering where they are.
+
+      `pull_through`  the span of the passing stitch that goes through the anchor's loop --
+                      insert, through, behind, emerge. Named by the construction in
+                      `_hdc_cell`, not by index arithmetic.
+      `holding`       the anchor arcs that hold it. Under BOTH loops those are the two legs
+                      of the anchor's top V, which are exactly the two arcs the linking
+                      number is measured against after `linkage.close_arc` joins them into a
+                      ring; under a single loop it is that one leg, which is the strand the
+                      new yarn encircles.
+    """
+
+    row: int
+    position: int
+    anchor_row: int
+    anchor_position: int
+    loop_target: str
+    op_index: int
+    anchor_index: int
+    pull_through: tuple[int, int]
+    back_loop: tuple[int, int]
+    front_loop: tuple[int, int]
+    holding: tuple[tuple[int, int], ...]
+
+
+def certified_linkage_pairs(fab: Fabric, rows: list | None = None) -> list[LinkagePair]:
+    """Every stitch-to-stitch linkage the validator demands, as spans of the yarn path.
+
+    THIS IS THE RELATION, IN ONE PLACE. `validate` iterates exactly this list to compute its
+    linking numbers, so "the pairs the linkage check certifies" and "the pairs anything else
+    in this codebase acts on" cannot drift apart into two ideas of what crochet is. That
+    matters because the drape solver now applies a force along these pairs, and a force
+    derived from a DIFFERENT pairing than the one the validator certifies would be a
+    mechanism nobody validated -- which is how a solver ends up holding a fabric together by
+    a relationship the product does not have.
+
+    `rows` is the ordered row list to read "the row below" from. `validate` passes the
+    certified rows from the CIR twin, so that a fabric missing a whole row is paired against
+    the row the pattern says is below it rather than against whatever survived. Left None,
+    the fabric's own rows are used, which is the same list for any fabric built from a twin.
+
+    The foundation row is not in the result: it was not worked into anything, and the
+    validator does not demand a linking number for it either.
+    """
+    hdc_idx = [i for i, o in enumerate(fab.ops) if o.kind == "hdc"]
+    by_key = {(fab.ops[i].row, fab.ops[i].position): i for i in hdc_idx}
+    if rows is None:
+        rows = sorted({fab.ops[i].row for i in hdc_idx})
+    rows = list(rows)
+
+    def shift(op_index, span):
+        off = fab.offset_of(op_index)
+        return (off + int(span[0]), off + int(span[1]))
+
+    out: list[LinkagePair] = []
+    for i in hdc_idx:
+        o = fab.ops[i]
+        if o.row not in rows:
+            continue
+        ri = rows.index(o.row)
+        anchor_index = by_key.get((rows[ri - 1], o.position)) if ri > 0 else None
+        if anchor_index is None:
+            continue
+        a = fab.ops[anchor_index]
+        back = shift(anchor_index, a.back_loop)
+        front = shift(anchor_index, a.front_loop)
+        holding = ((front,) if o.loop_target == "front"
+                   else (back,) if o.loop_target == "back"
+                   else (back, front))
+        out.append(LinkagePair(
+            row=o.row, position=o.position,
+            anchor_row=a.row, anchor_position=a.position,
+            loop_target=o.loop_target,
+            op_index=i, anchor_index=anchor_index,
+            pull_through=shift(i, o.pull_through),
+            back_loop=back, front_loop=front, holding=holding))
+    return out
+
+
+def stitch_frames(fab: Fabric, rows: list | None = None) -> dict:
+    """The fabric's own three directions at every stitch: {(row, position): (across, up,
+    through)}, or None where the stitch has no neighbour to orient it.
+
+    ONE definition, shared. `validate` uses this for both the linkage check -- to aim the
+    fictitious closure along the cloth's local down -- and the morphology check, because
+    those two disagreeing about which way is "down" at the same stitch is a defect waiting
+    to happen. Anything outside this module that needs the fabric's local frame uses it too,
+    for the same reason.
+    """
+    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    by_key = {(o.row, o.position): o for o in hdc}
+    if rows is None:
+        rows = sorted({o.row for o in hdc})
+    rows = list(rows)
+
+    def _frame_for(o):
+        ahead = by_key.get((o.row, o.position + 1))
+        behind_n = by_key.get((o.row, o.position - 1))
+        ri = rows.index(o.row)
+        anchor_op = by_key.get((rows[ri - 1], o.position)) if ri > 0 else None
+        flip_up = False
+        if anchor_op is None and ri + 1 < len(rows):
+            # The foundation row has nothing below it, but the stitch ABOVE defines the same
+            # wale line, so the frame is recoverable rather than absent. Using it is not a
+            # concession: the wale direction is a property of the column of stitches, and
+            # either neighbour in that column determines it. Declaring the whole foundation
+            # row unmeasurable would have been the instrument giving up where the fabric is
+            # perfectly well defined.
+            anchor_op = by_key.get((rows[ri + 1], o.position))
+            flip_up = True
+        if anchor_op is None:
+            raise stitch_shape.Unframeable("no neighbour in this stitch's column")
+        across, up, through = stitch_shape.local_frame(
+            o, ahead if ahead is not None else behind_n, anchor_op,
+            neighbour_is_ahead=ahead is not None)
+        if flip_up:
+            up = -up
+            through = -through
+        return across, up, through
+
+    frames: dict = {}
+    for o in hdc:
+        if o.row not in rows:
+            frames[(o.row, o.position)] = None
+            continue
+        try:
+            frames[(o.row, o.position)] = _frame_for(o)
+        except stitch_shape.Unframeable:
+            frames[(o.row, o.position)] = None
+    return frames
+
+
 def validate(fab: Fabric, twin, *, max_rows: int | None = None,
              max_cols: int | None = None) -> dict:
     """Mechanically check the yarn against the certified operations. Renders nothing."""
@@ -790,43 +928,13 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     # morphology check (to measure the stitch's features against the cloth rather than
     # against the world). Sharing one frame is deliberate: these two checks disagreeing about
     # which way is "down" at the same stitch is a defect waiting to happen.
-    def _frame_for(o):
-        ahead = by_key.get((o.row, o.position + 1))
-        behind_n = by_key.get((o.row, o.position - 1))
-        ri = rows.index(o.row)
-        anchor_op = by_key.get((rows[ri - 1], o.position)) if ri > 0 else None
-        flip_up = False
-        if anchor_op is None and ri + 1 < len(rows):
-            # The foundation row has nothing below it, but the stitch ABOVE defines the same
-            # wale line, so the frame is recoverable rather than absent. Using it is not a
-            # concession: the wale direction is a property of the column of stitches, and
-            # either neighbour in that column determines it. Declaring the whole foundation
-            # row unmeasurable would have been the instrument giving up where the fabric is
-            # perfectly well defined.
-            anchor_op = by_key.get((rows[ri + 1], o.position))
-            flip_up = True
-        if anchor_op is None:
-            raise stitch_shape.Unframeable("no neighbour in this stitch's column")
-        across, up, through = stitch_shape.local_frame(
-            o, ahead if ahead is not None else behind_n, anchor_op,
-            neighbour_is_ahead=ahead is not None)
-        if flip_up:
-            up = -up
-            through = -through
-        return across, up, through
+    frames = stitch_frames(fab, rows=rows)
 
-    frames: dict = {}
-    for o in hdc:
-        try:
-            frames[(o.row, o.position)] = _frame_for(o)
-        except stitch_shape.Unframeable:
-            frames[(o.row, o.position)] = None
-
-    for o in hdc:
-        anchor = by_key.get((rows[rows.index(o.row) - 1], o.position)) \
-            if rows.index(o.row) > 0 else None
-        if anchor is None:
-            continue
+    # The pairing itself is `certified_linkage_pairs`, shared with everything else that acts
+    # on this relation, so there is one definition of which stitch was worked into which.
+    for pair in certified_linkage_pairs(fab, rows=rows):
+        o = fab.ops[pair.op_index]
+        anchor = fab.ops[pair.anchor_index]
         a_frame = frames.get((anchor.row, anchor.position))
         back = anchor.points[anchor.back_loop[0]:anchor.back_loop[1] + 1]
         front = anchor.points[anchor.front_loop[0]:anchor.front_loop[1] + 1]
