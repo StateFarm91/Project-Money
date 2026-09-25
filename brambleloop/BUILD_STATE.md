@@ -8131,3 +8131,96 @@ minutes.
 
 It reports and says when a lane is free. **It does not merge or deploy.** Integration stays
 controlled and deployment stays serialized.
+
+## 2026-09-25 — Catalogue: Launch-0 is three listings, and the flagship is disqualified
+
+Merged from an isolated worktree, boundary verified against the true merge-base (three new
+files, nothing under `visual/**`, `cir/**`, BUILD_STATE or DECISION_LOG). 43 checks, green.
+
+### The Launch-0 set — three listings, nine finished pieces
+
+  **Nesting Baskets, three sizes** (15/20/25cm) — `vessels.build_basket` x3, compiles 0/0,
+  twin resolves `vessel`. CA$6.50. The children's research's LEAD sub-category.
+  **Cloudline Baby Blanket** (78.8 x 97.2cm) — 0/0, 11,088 stitches. CA$7.50, deliberately
+  BELOW the observed CA$8.47-11.65 premium floor because those listings carry pattern +
+  video and we have neither video nor reviews.
+  **Hexagon Coaster Set (4)** — `Component.make=4` correctly set, twin resolves `disc`.
+  CA$4.00.
+
+Two reserves — Harvest Table Runner, Pet Snuggle Mat — pass every gate and are held back
+**on assortment grounds, not truth grounds**, and the module records that distinction so
+"why only three" has an answer.
+
+### THE FINDING: the CIR cannot put two colours in one row
+
+**`Row.color` is a single `str | None` and `Op` has NO colour field.** Verified directly
+against the dataclasses. So every mosaic, overlay-mosaic and graphghan product compiles into
+horizontal stripes with a raised sc/dc relief — a 24-row fir tree becomes twelve alternating
+cream/forest bands. They compile clean and would certify.
+
+**This disqualifies all three sizes of the hand-engineered Nordic Forest, which was to be the
+headline product.** Eleven of eighteen CIRs in the repo fail on this.
+
+`per_stitch_colour_expressible()` measures it from the dataclass rather than asserting it in
+prose, so the gate re-opens by itself when the primitive lands. Each gate is also tested
+against an INJECTED defect, so it does not stop being tested once the catalogue is clean.
+
+**Launch-0 judgement, under the owner's new standing rule:** this is NOT a Launch-0 blocker.
+It is a catalogue-scope limit. None of the three Launch-0 products needs per-stitch colour,
+and a product we cannot make is simply not listed — no untruth reaches a customer. Adding the
+primitive changes the CIR contract and is **queued for Visual**, which owns `cir/**` and is
+mid-increment. It is continuous improvement that expands the catalogue after selling begins.
+
+### Truthful-claims defects, verified, in products NOT in Launch-0
+
+  "Nordic Star Ornament Set **(6)**" makes **1** piece.
+  "Pressed Flower Motif Library **(12)**" makes **1**.
+  "Mosaic Placemat **Pair**" makes **1**.
+
+A customer buying "Ornament Set (6)" would receive a pattern for one ornament. This is the
+same `Component.make` defect `vessels.py` fixed once for the Market Basket Trio, recurring in
+the layer above. Not Launch-0 blocking because none is in Launch-0 — **and each is blocking
+for itself, permanently, until fixed.**
+
+### One merchandising fix owed BEFORE the blanket lists
+
+Cloudline's designer note claims *"no long floats for small fingers to catch"*, which implies
+a carried-float colourwork fabric **this pattern does not make**. In Launch-0, so it must be
+corrected before listing. Filed for Deliverable QA II.
+
+### Two defects in other departments' files — reported, not edited
+
+  * **`publish/motif_fidelity.chart_colours(twin)` counts STITCH CODES as colours.** Verified
+    at line 157: it reads `twin.chart_grid()` instead of `color_grid()`. It gives the right
+    answer today only by coincidence — every product's stitch vocabulary happens to be
+    `{sc, dc}` — and would report "2 colours" for a single-colour textured pattern. **This is
+    the gate that should have caught the colourwork finding in an image.** A check measuring
+    the wrong property and passing by luck.
+  * **`seasonal.leadtime.estimate_make_hours` ignores `Component.make`** — 1.1h for a set of
+    four coasters that takes ~4.4h. `launch0.make_time()` corrects it and pins the
+    correction; the uncorrected figure must never reach a listing.
+
+### Seasonal pipeline, re-derived rather than restated
+
+Amigurumi swings 1.92x (peak December), baby-occasion 1.60x (trough December); a
+mean-normalised 50/50 blend swings **1.48x — flatter than either alone**, and a test sweeps
+30-60% to assert the conclusion does not depend on the weight. Sequence: catalogue hygiene +
+per-stitch colour → lovey with an embroidered face for amigurumi's December peak, plus the
+keepsake blanket → baby wearables → fitted garments. `leadtime.compile_launch` puts the
+lovey at latest effective launch 2026-11-06, work starting by 2026-09-22, `on_track` with 42
+days runway, every assumption reported as assumed.
+
+### Blocked, and one of these is a measurement for another department
+
+  1. **Publishing either children's product.** `required_statements()` computes the safety
+     obligation and **nothing consumes it** — measured: zero files in `publish/`, `cir/` or
+     `commerce/` mention any statement in the set. `assess()` returns *subject allowed, not
+     ready to ship*. **This IS Launch-0 blocking for the two children's products**, and it is
+     a measurement handed to Deliverable QA II, who own `publish/pdf.py`.
+  2. All colourwork products — needs the CIR primitive above.
+  3. Any claim a finished measurement is real — `twin.calibrated` is False catalogue-wide.
+  4. Keepsake blankets — no alphabet or numeral motifs in `motifs.LIBRARY`; and
+     `personalisation.py` correctly makes a named blanket a product per name, so the
+     economics need deciding first.
+  5. Baby wearables grading — `intel.childrens` carries CYC chest tables only; head
+     circumference is a different published chart, cheap to land.
