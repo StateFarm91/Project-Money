@@ -8025,3 +8025,19 @@ consistent.
 
 No threshold moved, no check removed, no assertion weakened. The three checks assert exactly
 what they asserted before.
+
+**Re-run after the fix: 3,469 passing, 0 suites failing.** Same count as the 20:47 run on the
+integrated tree, which is the expected result: the three checks were restored to passing, not
+removed, and nothing else moved.
+
+### Heartbeat close — 2026-09-25T00:14Z
+
+  * Branch synced, lease acquired and released, BUILD_STATE and DECISION_LOG current.
+  * Production `8bef34d`, `/api/verify` **12 of 12**, phase `shadow`, 0 published against 149
+    refusals, worker alive, scheduler ticking, no dead-letter defects.
+  * Suite **3,469 / 0**.
+  * Model spend CA$76.15 of CA$100. Infrastructure ~CA$7 of CA$20. **CA$0.00 spent this
+    heartbeat.**
+  * Milestone D: **FAIL**, unchanged and not weakened. Visual is on research only, awaiting
+    the Stage 0 physical measurement.
+  * Seven owner decisions batched above; none blocks further autonomous work.
