@@ -305,10 +305,13 @@ test_reliability 17             test_governor 16           test_finance 16
 test_defects 16                 test_clusters 15           test_continuity 15
 test_seasonal_cycle 15          test_offsite 14            test_model_provider 12
 test_motif_fidelity 11          test_visual 10             test_persistence 10
-test_swarm 6
+test_swarm 6                    test_reference_pack 43     test_provider_trial 22
+test_launch 24                  test_model_tournament 18   test_maturity 15
+test_model_freeze 14            test_bible 13              test_build2 11
+test_takeover 11
 ```
 
-Twenty-eight suites, 0 failing. Two pre-existing checks moved, and in both cases the *check* was
+Thirty-eight suites, 0 failing. Two pre-existing checks moved, and in both cases the *check* was
 pinning the wrong property while the change was right:
 
 * `test_motif_fidelity.py::test_the_comparison_is_against_the_chart_rather_than_a_sentence`
