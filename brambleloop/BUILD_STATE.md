@@ -8395,3 +8395,117 @@ inside the suite and passes in isolation. **Verified passing in isolation by the
 (exit 0); the in-suite behaviour is under test in the full run now.** Same family as the
 expiring test fixed earlier — a check whose result depends on conditions it does not state.
 Recorded rather than omitted, and not yet diagnosed.
+
+## 2026-09-25 — Two claim defects and Reliability II
+
+### Make-time could not see how many pieces the pattern makes
+
+`Component.make` is the CIR's statement of multiplicity — `writer` prints "(make 4)" from it,
+`assembly` counts copies from it — and `seasonal.leadtime.estimate_make_hours` never read it. A
+twin holds *one* instance of a component, so **a set of four coasters reported 1.1 hours for a
+make of about four and a half**: the figure that decides whether a customer can finish before
+the event, and the figure a listing quotes to a buyer.
+
+Two corrections existed for it and both were wrong. `launch0.make_time` multiplied afterwards —
+but built a twin for the **first component only** and multiplied that by the total piece count,
+so a body-plus-two-ears product counted the body three times and the ears not at all.
+`calibrate_from_samples` did not correct at all, **and it is the only route from assumed to
+measured**: a tester who crocheted a set of four and reported four and a half hours would have
+established a stitch rate four times too slow, wearing the `measured` label, with every seasonal
+launch date in the company derived from it.
+
+Defaulting an absent count to one is what made all of that possible, so **there is no default**.
+`makes` is a required keyword; a component missing from it raises; a repeated twin raises
+(multiplicity belongs in the mapping, not in a duplicated piece); `makes_of(cir)` and
+`estimate_for(cir, result)` are the supported ways to build it so a caller cannot forget.
+`MakeTimeEstimate` carries `pieces` and a per-component breakdown, because a total is
+unauditable on its own.
+
+The old launch0 test asserted `hours_total == hours_per_piece * 4` where `hours_per_piece` was
+the figure the total had been computed from — **true for any number at all**, and it passed
+throughout the period when the function was counting the wrong component. It now checks against
+an independently computed single-piece estimate. The calibration regression is tested end to end
+through a real DB sample, against both the correct rate and the four-times-too-slow one.
+
+### "No long floats for small fingers to catch"
+
+The Cloudline baby blanket's designer note. A float is the resting colour carried across the back
+of a row; this fabric works one colour per row and carries the resting yarn up the side edge, so
+**there is no float in it anywhere**. The sentence was literally true and described stranded
+colourwork — and it did so as reassurance about a child's safety, attached to a hazard the
+product does not have, which teaches a buyer to read our safety wording as decoration.
+
+Nothing could see it for the usual reason: `certify` ran the claim checks on the title and ran
+only the originality check on the notes, three lines down the same document. **The checker
+existed, the twin held the fact, and the text carrying the claim was never passed in.**
+
+`check_technique_claims` now runs on `cir.designer_notes`, with a float rule derived from the
+twin's own cells (`rows_working_more_than_one_colour`) rather than from the colour count. No CIR
+can reach the permitting branch today — `Row` carries one `color` field, so intra-row colour
+waits on the per-stitch colour primitive — so the test builds that twin by hand, keeping the
+branch live code rather than a condition that is true by accident.
+
+`check_shape_claims` is deliberately **not** run on the notes, on measured grounds: across all 16
+catalogue patterns it fires on the pet snuggle mat ("suited to baskets and pillows"), and an
+intermediate version of this work failed `test_seasonal_cycle` at certify, because
+`creative.prototype` authors notes from a vocabulary containing "a storage basket", "a tote", "a
+small pouch", "a cosy or sleeve" — every one describing an intended form rather than claiming to
+be one. That check is written for a name. Separating the two readings in prose is parsing English
+rather than measuring fabric.
+
+The note now says what the fabric is. The first correction ("a relief rather than colourwork")
+was refused by `launch0.fabric_truth`, which matches the word anywhere and cannot read a
+negation — correctly, for the same reason the float claim was wrong.
+
+### Reliability II merged (department work, integrated and re-verified)
+
+Boundary clean; secret scan of the diff found nothing; CA$0 spent; production read GET-only.
+
+- **Gallery cadence derived from the ceiling rather than a constant.** `GALLERY_BATCH = 25` is
+  gone; the batch is computed each run from `market_radar`'s remaining daily ceiling and the
+  cadence's own period, using the same padded estimator `check_budget` enforces with. **5
+  images/run, 60/day, ~CA$2.04 measured (~CA$3.74 padded) inside CA$4.00**, down from 300/day at
+  ~CA$8.70. Divisor is runs-per-day, not runs-left-today: a shrinking divisor produces a
+  60-image run at the end of a quiet day, which outlives the 5-minute job lease and can be
+  reclaimed and re-driven — duplicate spend through the recovery path.
+- **Per-agent ceilings enforced before the call, as permissions.** Monthly checked first because
+  it is the budget; the agent refusal says it is a permission, how much month remains, and that
+  work resumes next UTC day — never "use a cheaper model". A spender with no `Agent` row gets no
+  invented ceiling. This is the owner's D1 ruling in code.
+- **Durable aggregate reservation** (`spend_reservations`), the audit's last unbounded overshoot.
+  TTL 300s above the 60s gateway timeout; an expired reservation counts for nothing, so a dead
+  holder costs a bounded over-reservation rather than a permanent phantom charge — and it is
+  still reported (`reservations_expired_unreleased_cad`), because that number is the evidence a
+  call site does not release what it takes.
+- **Temp files at all ten sites**, via `core.workspace.work_dir`. Three cannot be a plain `with`
+  and the write-up says why; `images.generate` and `motif_fidelity.chart_image` now refuse rather
+  than invent a directory, and that refusal identified the two callers production's `generated-`
+  directories actually came from. `health.TEMP_PREFIXES` gained six prefixes that were already in
+  production and uncounted, and a test scans `src/` for any prefix the disk signal has not heard
+  of.
+- **Retention** (`ops/retention.py`, daily cadence) — three rules rather than one horizon.
+  Protected actions are never deleted at any age, each naming the reader that makes it evidence,
+  including `image.benchmark`, which `image_bench.spent_to_date` sums over all time to enforce
+  the owner's cumulative CA$50: pruning it would rebuild the exact defect that ruling closed.
+  The two newest rows of every action survive whatever the horizon, so no "latest row" reader can
+  be made to answer differently. Job horizon 45 days, which a test proves exceeds the longest
+  cadence period (30d) — otherwise an idempotency key is freed while its window is open. `apply`
+  refuses to run at all when the code reads an audit action the policy has no decision about.
+  `plan()` and `dry_run` exist, so the decision can be read before it is taken.
+
+**Needs the deploy to create one additive table** (`create_all`; no manual step). After it,
+`reservations_expired_unreleased_cad` is the number to watch: anything but zero is a call site
+not releasing.
+
+**Left for other owners, recorded not fixed:** `visual/inspect.py:246` needs an agent/purpose
+and a release; `visual/model_registry.py`, `photoreal.py`, `tournament.py` and `bible.py` call
+`spend_report.record` and never `check_budget`, so they are **not ceiling-checked at all** —
+the same shape as the audit's §2, in Visual-owned files.
+
+### The reported in-suite-only failure did not reproduce
+
+Etsy/Commerce II recorded `test_deploy::test_scheduler_tick_endpoint_is_idempotent_within_a_window`
+as failing inside the suite and passing in isolation. In the full run of 2026-09-25 it passed:
+**test_deploy 32 of 32, exit clean, inside the suite**. Recorded as not reproduced rather than as
+fixed — nothing was changed to address it, and a failure that cannot be reproduced has not been
+explained.
