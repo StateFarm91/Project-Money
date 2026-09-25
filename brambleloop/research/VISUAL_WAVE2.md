@@ -517,3 +517,28 @@ needs the Stage 0 measurement and none of which is Stage 1:
 **Stage 1 yarn redistribution / material-coordinate migration was not begun**, per the owner's
 ruling that it must not start on the knit analogy alone. The Stage 0 physical measurement remains
 the blocking dependency and remains an OWNER ACTION item unchanged by this work.
+
+---
+
+## Continued in `VISUAL_WAVE3.md` (2026-09-25), with two corrections to this file
+
+Wave 3 did not restart, re-run or revise anything above. It corrects two numbers and carries
+the queue forward:
+
+1. **The solver's length scale `l` is 4.0860 mm, not the 3.1427 mm recorded in section 0.**
+   The recorded figure is the median over segments shorter than 5 mm; `drape()` divides by the
+   median over the **whole** path, artificial hops included. `B/l^3` is therefore 0.43976 N/m
+   and not 0.9665, a factor of 2.20 on every prestress ratio derived from it. The one that can
+   be recomputed exactly: the Kaldor bounded prestress is **1.010x gravity, not 2.22x**.
+2. **The inference at the end of item 3 -- that a convergent calibration would demand a larger
+   B -- is confirmed and quantified: 4x to 42x.** It was labelled INFERRED and not acted on,
+   which was right.
+
+And it answers item 3's open question with a negative: **the ASTM cantilever inversion cannot
+be converged in this solver at any iteration count**, because the implemented bending force is
+a Laplacian rather than the gradient of the documented energy, so the specimen is a string
+whose free region outweighs its tension by 2.74x. At 51,200 iterations -- 64x anything in this
+file -- the 5x5 swatch is 32.4 mm out of plane and still falling. B was re-derived instead by
+an imposed-curvature instrument with nothing to converge, which then found that the documented
+bending energy is **not invariant under a rigid rotation of the cloth**, and that this is a
+quantified cause of the corrugated-relief symptom. Milestone D remains FAIL.
