@@ -357,7 +357,7 @@ today; a CIR stating one of two compositions reports which yarn each fibre came 
 (`for ['cream'] and inferred ... for ['wine']`); a CIR stating both reports the composition
 alone; and `Material(name="Bernat Blanket")` with neither still returns `()` with *"Naming a
 fibre here would be inventing one"*. `tests/test_childrens.py` (38) and
-`tests/test_cir_fibre.py` (19) both pass with the patch applied and with it reverted.
+`tests/test_cir_fibre.py` (20) both pass with the patch applied and with it reverted.
 
 The docstring's paragraph beginning *"`cir.model.Material` has `name`, `yarn_weight`, … **There
 is no fibre field**"* is now false and needs replacing with: the schema records
