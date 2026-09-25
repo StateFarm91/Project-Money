@@ -9205,3 +9205,60 @@ access log is unreachable from here, bounded by the code being single-use, short
 
 **Nothing has been exercised against Etsy.** Everything above is our side of the wire, against a
 local model built from Etsy's document. That changes only when the owner authorises in a browser.
+
+## 2026-09-25 — VERIFIED: Brambleloop is authorised on Etsy
+
+The owner completed the browser authorization at about 17:24 UTC. **This is the first time this
+system has held a write credential for its own shop**, and the first Etsy OAuth exchange it has
+ever performed.
+
+Evidence, read off the callback's own success page (every token on it is an eight-character
+SHA-256 fingerprint; no code, access token, refresh token or verifier appears there, in the
+server log, or in the audit record):
+
+| | |
+|---|---|
+| outcome / verdict | ok / ok |
+| handshake / replays | **1 / 0** — the state was consumed exactly once |
+| scopes granted | `listings_r listings_w listings_d shops_r shops_w` — all five requested |
+| credential | **sealed in `oauth_credentials`**, `rotations: 0` |
+| token fingerprint | `***e6bddd89`, and the stored credential carries the same fingerprint |
+| key fingerprint | `***5f373132` — the deployment's sealing key opened it |
+| access token | 3600 seconds remaining |
+
+Production after the flow: `/api/verify` **12 of 12**, callback still 400 on a bare hit and 403
+on an unknown state.
+
+**What this does and does not establish.** It establishes that the authorization-code grant with
+PKCE works end to end against the real Etsy, that the redirect URI matches character for
+character, that our state and sealing machinery behave, and that Etsy granted every scope asked
+for. It establishes **nothing about any write**: no draft has been created, no image uploaded, no
+listing read back. Those stay `LOCALLY_TESTED` in `listing_schema.verification_matrix()` until the
+one controlled round trip runs.
+
+**The rotation fix is not yet proven.** `rotations: 0`. The defect this lane found — a
+`TokenProvider` built with no `on_refresh`, against an Etsy that issues a new refresh token on
+every refresh — bites at the *first* refresh, roughly an hour after issue or at the next container
+replacement. The proof is `rotations` reaching 1 with the credential still openable. Until then
+the fix is implemented and tested locally, not demonstrated in production.
+
+**Owner action closed:** "authorise the Etsy app once in a browser", carried since 2026-09-24.
+The one that replaced it — set `BRAMBLELOOP_SECRET_KEY` — is done too, by the owner, who
+generated it directly in Railway and did not expose the value.
+
+**New owner item, from an incident during the flow:** the operator token was typed onto a
+PowerShell command line rather than at the `Read-Host` prompt, so it reached the console, the
+PSReadLine history file and a screenshot. `BRAMBLELOOP_OPS_TOKEN` guards `/api/etsy/oauth/start`,
+`/status` and the continuity export. **Rotation status unconfirmed** — the replacement is the same
+length as the exposed value, which is expected either way and therefore tells us nothing. It is
+not an Etsy credential, so rotating it touches nothing the owner asked to be left alone.
+
+**Next, and gated on the owner's word rather than started:** Lane C's one controlled round trip —
+identity and shop read, a clearly marked test draft, image upload, permitted field update, remote
+read-back, taxonomy and encoding verification, delete, verify cleanup. It is pre-authorised and
+prepared with a 50-signature failure taxonomy. Held because a mid-run failure strands a draft that
+only the owner can remove in Shop Manager.
+
+**Visual / crochet realism remains OPEN and is not superseded.** Milestone D is still FAIL. It
+resumes at the identified next step: the certified relaxed fabric is not an equilibrium of
+`drape`'s own contact model.
