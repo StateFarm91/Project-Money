@@ -41,9 +41,12 @@ it was and the control did not, which is the same defect in two shapes:
   took a reservation and never gave it back, so a padded estimate was held for its full
   five-minute TTL after the bill was already known — and `inspect_image` makes **two** calls
   in a row, so the second was checked against a month carrying the first one's dead claim.
-* **the other four** were not ceiling-checked before the call by anything. A `spend_report`
-  row is a measurement; `registry.record_cost`'s daily check happens after the provider has
-  answered. Neither is a control.
+* **the other four** were not ceiling-checked before the call by anything at all.
+  `spend_report.record` is a pure writer -- it adds a `CostEntry` and returns its id, and
+  enforces nothing (**SOURCED**, read 2026-09-25). The only daily check anywhere near these
+  paths is `agents.registry.record_cost`'s, which is used exclusively by the model gateway
+  and in any case runs *after* the provider has answered. A row written after the money left
+  is a measurement. Neither is a control.
 
 ### What was built
 
@@ -90,7 +93,7 @@ Six decisions inside that work, each of which could have gone the other way:
 **UNKNOWN — whether any of this fires in production.** Nothing was deployed. `market_radar`
 at CA$3.94 against CA$4.00 on 2026-09-24 is the reading that says the agent ceiling will bite;
 there is no equivalent daily reading for `quality_director` or `creative_director` in front of
-this department, so how often these six refuse is not established.
+this department, so how often these seven call sites refuse is not established.
 
 ### A naming discrepancy, recorded rather than silently resolved
 
@@ -200,9 +203,10 @@ Validated in `Material.__post_init__`: a closed vocabulary (`cir.model.FIBRES`),
 percentages in 1..100, no fibre stated twice, and a sum of exactly 100 when non-empty.
 Normalised to descending percentage with alphabetical ties.
 
-**Why normalised rather than kept as declared.** `CIR.compile_key` hashes `to_dict`, so two
-declaration orders of one composition would give the same design two compile keys and re-run
-certification for nothing — the defect the `compile_key` docstring was written about.
+**Why normalised rather than kept as declared.** `CIR.fingerprint` hashes `to_dict` and is
+the pipeline's idempotency key, so two declaration orders of one composition would give one
+design two fingerprints and re-run certification for nothing — the inverse of the defect that
+property's docstring was written about.
 Descending by weight is also how a composition is customarily written, so the document gets
 the customary order without the writer deciding it in a second place.
 
@@ -225,8 +229,8 @@ needed a grammar on each side:
   regex, splits on `;`, and looks for a percent sign followed by a word. It does not import
   the writer and does not know how the writer spelled anything.
   `test_the_reverse_compiler_reads_a_line_no_writer_in_this_repository_produced` feeds it
-  `Aran Wool Blend [ivory] - 70 % merino and 30% nylon` — different order, different spacing,
-  different separator — and it reads it. That is what makes this a check rather than a
+  `Aran Wool Blend [ivory] - 70 % merino and 30% nylon` — a space before the percent sign, a
+  dash where the writer puts a comma, and the word "and" between the pairs — and it reads it. That is what makes this a check rather than a
   comparison of one function with itself.
 * **`reverse.compare`** raises `REVERSE_FIBRE_CONTENT` when the recovered structure differs
   from the CIR's, in **both** directions: a document that lost the composition, a document
@@ -513,7 +517,7 @@ changing a fixture that is not broken is not a fix.
 * **Image-render spend governance** — blocked on `check_budget` learning a per-image estimate
   (§2, §4.4). Owner: the gateway.
 * **The two unguarded text call sites** — blocked on their owners (§4.2, §4.3).
-* **Any claim that these six Visual refusals work in production** — blocked on a deploy, which
+* **Any claim that the seven Visual guards refuse anything in production** — blocked on a deploy, which
   this department does not perform. What is established is the code and the tests, on this
   tree, at CA$0.00.
 
@@ -580,14 +584,13 @@ touches (`check_budget`, `release_reservation`, `spend_report.record`, `Material
 | `test_texture` | 25 | | `test_rowcycle` | 20 |
 | `test_quality` | 17 | | `test_motif_fidelity` | 14 |
 | `test_assembly` | 14 | | `test_grading` | 8 |
-| `test_specification` | 10 | | | |
+| `test_specification` | 10 | | `test_launch0` | 50 |
+| `test_commerce` | 53 | | `test_gates` | 33 |
+| `test_benchmarks` | 16 | | `test_certification` | 7 |
+| `test_artefacts` | 23 | | `test_deliverable` | 14 |
+| `test_calibration` | 27 | | `test_dimensions` | 17 |
+| `test_colour` | 7 | | `test_accessibility` | 9 |
 
-**All green. Zero failing.** Two suites were still running against a machine four departments
-are sharing when this was written and are named rather than counted: `test_product_run` and
-`test_launch0`, plus the rest of that batch (`test_deliverable_qa`, `test_commerce`,
-`test_gates`, `test_benchmarks`, `test_certification`, `test_artefacts`, `test_deliverable`,
-`test_calibration`, `test_dimensions`, `test_colour`, `test_accessibility`). The integrator's
-`run_tests.sh` covers them. What is known about that batch: `test_acceptance_gates` (23) and
-`test_childrens` (38) are green, and `test_childrens` is green **both** with the §4.1 patch
-applied and with it reverted.
+**Eighty-two suites, 1,743 checks, all green, zero failing.** `test_childrens` is green **both** with
+the §4.1 patch applied and with it reverted.
 

@@ -368,7 +368,7 @@ def test_release_returns_the_money_and_records_what_the_call_actually_cost():
 
     The underlying asymmetry is left for the gateway: `release_reservation` should take a
     `now` and pass it through, the way `check_budget` does. See
-    `research/VISUAL_GOVERNANCE.md` section 4.
+    `research/VISUAL_GOVERNANCE.md` section 4.5.
     """
     db = _db()
     at = datetime.now(timezone.utc)

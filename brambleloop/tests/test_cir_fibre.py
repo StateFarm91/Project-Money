@@ -99,11 +99,11 @@ def test_the_vocabulary_is_closed_and_a_composition_must_account_for_the_whole_y
 
 
 def test_one_composition_has_one_representation():
-    """Declaration order must not give the same yarn two compile keys.
+    """Declaration order must not give one design two fingerprints.
 
-    `CIR.compile_key` hashes `to_dict`, and a design whose hash moves when nothing about the
-    design moved re-runs certification for nothing -- the defect that comment was written
-    about. Descending by percentage is also how a composition is customarily written, so the
+    `CIR.fingerprint` hashes `to_dict` and is the pipeline's idempotency key, so a design
+    whose hash moves when nothing about the design moved re-runs certification for nothing --
+    the inverse of the defect that property was written about. Descending by percentage is also how a composition is customarily written, so the
     document gets the customary order without the writer deciding it.
     """
     a = Material(name="y", fibre_content=(("linen", 45), ("cotton", 55)))
