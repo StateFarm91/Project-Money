@@ -9073,3 +9073,43 @@ Three credential-shaped files (`.bflkey`, `.gkey`, `.oaikey`, dated 2026-09-21, 
 the machine's shared scratchpad directory. **They are not in the repository** — `git ls-files`
 confirms it, so the standing rule is not breached — and nothing here read them. A shared temp
 directory is still not where API keys belong, and whoever placed them should know.
+
+## 2026-09-25T16:15Z heartbeat — production healthy, one lane in flight, nothing else started
+
+Lease acquired and pushed. `/api/verify` **12 of 12**, health `ok` on deployed `15c378b`, worker
+alive. No failing check to fix, so the loop moved to the next highest-value action — which is
+already in flight.
+
+**The Etsy OAuth callback lane is building.** The owner went to the Etsy app's Callback URLs
+screen and asked for the exact URL to paste, and there was none to give: `OAuthApp.from_env`
+takes `redirect_uri` verbatim from the environment and validates only the `https://` prefix, no
+callback route exists anywhere in `src/`, six plausible paths return 404 in production,
+`exchange()` has no caller, and the PKCE verifier is process-bound. **The "15-minute owner
+action" this file has carried for two days was not completable**, which is an error in our own
+reporting rather than a change in the facts.
+
+**No parallel work was started this heartbeat, deliberately.** The lane owns `app/main.py`,
+`core/models.py` and `integrations/**` — files most of the tree imports — so a second lane would
+risk a merge conflict in production authentication code for no gain. The heartbeat's own
+instruction is to avoid spawning agents; the one that is running was authorised directly by the
+owner before this heartbeat fired.
+
+**No full suite was run this heartbeat, and the reason is that it would prove nothing.** The last
+run was green at **3,894 / 0** on `10d94af`, and the only commit since is a markdown file
+(`ops/ORG_BOARD.md`). `git diff 10d94af..HEAD -- '*.py'` is empty. A suite re-run over an
+unchanged tree is wall-clock spent to reconfirm a result that already holds; the suite will run
+against the OAuth lane's code when it merges, which is where the evidence is actually needed.
+
+**Verified independently against Etsy's current primary documentation** while the lane worked,
+so its output can be reviewed against the source rather than against its own account:
+`AUTHORIZE_URL`, `TOKEN_URL`, the 1-hour access token and the 90-day refresh token all match what
+Etsy documents today. That **resolves the token-host UNKNOWN** in `research/ETSY_TRANSPORT.md`
+§3.3 — Etsy gives `api.etsy.com`, which `TOKEN_URL` already leads with. It also confirms
+**refresh-token rotation is real** (Etsy's own example response carries a new `refresh_token`),
+upgrading that claim from inferred to sourced, and establishes that **Etsy does not document what
+happens when a refresh token is reused or expires** — so that path must be handled defensively
+rather than by assumption. Documented and exercised remain separate states.
+
+**Visual / crochet realism is OPEN and is not superseded**, on the owner's explicit instruction.
+Milestone D remains FAIL. Visual resumes at the identified next step — the certified relaxed
+fabric is not an equilibrium of `drape`'s own contact model — once Etsy authentication is proven.
