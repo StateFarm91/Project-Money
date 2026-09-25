@@ -86,6 +86,16 @@ SCOPES_REQUIRED = {
     "getListing": (),        # root-level api_key only
     "getMe": ("shops_r",),
     "updateShop": ("shops_w",),
+    # The two taxonomy reads step 6 of the authenticated exercise needs. Empty for the same
+    # reason `getShop` and `getListing` are: Etsy's document gives both root-level `api_key`
+    # security. That reading is UNVERIFIED like every other write-path claim here, and it is
+    # the safest possible way to be wrong -- an empty tuple requests no new scope, so if Etsy
+    # actually wants one the call returns a 403 naming it, which the exercise's failure
+    # taxonomy already classifies as ENVIRONMENT with the owner re-authorisation to match.
+    # Without these two entries `missing_scopes` refuses an operation it has never heard of
+    # (correctly: it will not guess), and step 6 is skipped as `taxonomy_unreadable`.
+    "getSellerTaxonomyNodes": (),
+    "getPropertiesByTaxonomyId": (),
 }
 
 # The set this system asks for. `listings_d` is in it because the shadow-safe exercise
