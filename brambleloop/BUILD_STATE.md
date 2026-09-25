@@ -8996,3 +8996,80 @@ the second difference of the surface normal, exactly zero for a rigid panel and 
 cylinder — reported **with its measured floor** (flat 0.519°, 500 mm cylinder 0.720°, 125 mm
 cylinder 2.057°), and it **does not rescue the result**: gradient+co-rotation+linkage reads 1.619°
 against the committed default's 3.388°, i.e. lower.
+
+## 2026-09-25 — Lane D closes, Wave 4 complete: 3,894 passing / 0 failing
+
+All five Wave-4 lanes integrated and verified. Suite **3,894 / 0**, up from 3,726 this morning.
+
+### The flagship's chart was 1.21 mm a ring, and a `None` hid it through two audits
+
+`cell_mm` returned `None` for a round chart, which read as **not applicable** rather than
+**not checked** — the exact distinction the first-customer gate was built around, found in the
+wild the same day.
+
+| Launch-0 chart | ring before | round number before | after |
+|---|---|---|---|
+| nesting basket, large | **1.21 mm** | **2.1 pt** | 6.86 mm / 11.7 pt |
+| nesting basket, medium | 1.65 mm | 2.9 pt | 8.58 mm / 14.6 pt |
+| nesting basket, small | 2.53 mm | 4.2 pt | 11.44 mm / 19.5 pt |
+
+**Three times worse than the 1.9 mm flat chart that was the previous audit's headline**, on the
+flagship product. Two causes, each with a counterpart the flat chart already had: 46 of the 70
+rounds are a straight side wall drawn as 46 rings — *a picture of a disc the basket is not* — and
+every round repeats six identical wedges. Drawing one wedge of the shaped block puts the radius
+across the page instead of the diameter. The renderer now walks a ladder, predicts each rung from
+geometry so no oversized image is rendered to be discarded, and reports the number **measured on
+the image actually produced**.
+
+**The floor itself was derived from the wrong number.** `CHART_MIN_CELL_MM = MIN_BODY_PT / 0.62`
+where 0.62 is the *stitch glyph* — the largest type in the picture. A floor derived from the
+largest type certifies the one thing never in danger. Row numbers ran at 7.93 pt and the colour
+cue — the mark that makes a mosaic chart readable **without hue** — shipped at 6.61 pt. Floor now
+taken from the smallest mark; every piece of type in every catalogue chart now measures ≥ 9 pt on
+the page, tightest 9.20.
+
+**And the pointer that excused the baked-in legend was false.** The document said the stitch key
+"is also written out under Abbreviations" — and the Abbreviations page writes out abbreviations and
+has never carried a chart symbol. A maker who saw an **X** and followed that sentence arrived at a
+page with no X on it. The mark→stitch mapping existed in exactly one place in the deliverable, in
+pixels, behind a sentence. There is now a Chart symbols text section, built from `charts.GLYPHS`
+through `abbreviations` → `cir.stitches`, verified in both terminologies.
+
+Defect 4 (palette as RGB triples) **was not real** — already closed, measured, and its guard named
+only 2 of 6 literals, so the guard was strengthened to parse the module and fail on any brand
+colour written as a tuple.
+
+Also fixed: a colour key describing a chart not in front of the reader (all three basket variants
+showed a cropped chart with no letters under a key naming two), a round-chart footer naming marks
+it does not draw, and titles clipped once a chart fills the page.
+
+**Applied by the integrator from Lane D's diff:** `assets.build` stored a **second** chart of every
+product — `render_any_chart` at the default spec, i.e. the whole 70-round disc — so one release
+produced the legible chart inside the PDF and an illegible one with a URL on it. It now stores
+`publish.pdf.chart_image`, the one the buyer sees.
+
+### Two deploy checks, and one that passed by timing out
+
+Both enqueued a job and polled a background worker for 30–40 seconds. The first failed under four
+concurrent departments. **The second broke out of its wait when the owner-action count changed,
+then asserted the count had not changed** — so on a machine too busy to run the job it timed out
+with the count unchanged and passed for the wrong reason: "nothing duplicated" and "nothing ran"
+were the same observation. Both now drain the queue with a Worker, which is how `test_access.py`
+already drives this exact job; the idiom existed and this file did not use it.
+
+### Still open
+
+- **Found by Lane D, not fixed:** `publish/listing_assets.py::_chart_frame` renders the whole disc
+  for listing frame 6, captioned "every round, from the centre out", on a product that is a
+  24-round base plus a wall. Same defect as the one just closed, one module over.
+- The basket's wall rounds are described rather than drawn; a "where the bands fall" strip would
+  close it. Not Launch-0 blocking.
+- `TwinModel` exposes only total height and `stitches.Stitch` has no crossing direction — both
+  `cir/**`, and the latter is still the only problem any catalogue document reports.
+
+### An observation to pass on, outside the repository
+
+Three credential-shaped files (`.bflkey`, `.gkey`, `.oaikey`, dated 2026-09-21, mode 0600) sit in
+the machine's shared scratchpad directory. **They are not in the repository** — `git ls-files`
+confirms it, so the standing rule is not breached — and nothing here read them. A shared temp
+directory is still not where API keys belong, and whoever placed them should know.
