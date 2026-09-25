@@ -9383,3 +9383,29 @@ terminal evidence: a pushed branch.
 is False, which fails `fulfilment_and_download` for all five Launch-0 variants. Nothing has been
 run against real Etsy: the whole Etsy deliverable is IMPLEMENTED + LOCALLY_TESTED. CA$0.00 spent
 this wave; nothing published, activated or deployed; `BRAMBLELOOP_PHASE=shadow`.
+
+### Wave verification — 2026-09-25, final
+
+**Full suite on the fully integrated tree: 4,181 passing, 0 suites failing.** Terminal evidence
+read from the run's own log (`TOTAL PASSING`), not from a process check. All five lane branches
+and the cloud pilot branch are merged; nothing unmerged remains on any of them.
+
+The integrated run earned its keep: it found a regression in `visual/pbr_scene.py`, merged an
+hour earlier, that no lane could have seen because each ran only its own suites. The new
+renderer created its curve file under a bare `tempfile.mkdtemp()` with nothing removing it,
+making it the second unremoved mkdtemp in `src/` where exactly one is allowed. Fixing it
+surfaced a second guard immediately: the prefix `brambleloop-render-` was used in `src/` and
+absent from `health.TEMP_PREFIXES`, so a leftover directory would have been invisible to the
+disk signal. Both are the shape this wave kept finding -- a signal that cannot see the thing it
+exists to measure. The count rose 4,180 -> 4,181 because the check that printed FAIL now prints
+OK, which is the whole of the difference.
+
+**A method failure of mine, recorded because it nearly hid the above.** I twice reported the
+final suite as running when it was not. The launching command was an `&&` chain whose middle
+link returned non-zero, so the run never started; and every status check used
+`pgrep -f "run_tests.sh"`, which matched my own waiter's command line, so the watcher was
+detecting itself. Both are the defects this repository already knows: a self-match, and a
+verdict read from a watcher's state instead of the job's own terminal evidence. The correction
+is the same rule `ops/board.py` and `ops/registry.py` already follow -- wait on the log line the
+job itself writes. Had that gone uncorrected, this wave would have been reported clean with a
+temp-directory leak sitting in a newly merged file.
