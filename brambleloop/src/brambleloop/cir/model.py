@@ -282,10 +282,11 @@ class Material:
                 f"account for the whole yarn is a composition with something unstated in "
                 f"it, and the unstated part is exactly what a buyer with an allergy needs")
         # Descending by percentage, ties broken alphabetically. Two reasons, both about one
-        # fact having one representation: `CIR.fingerprint` hashes `to_dict`, so declaration
-        # order would give one design two fingerprints -- and the fingerprint is the pipeline's
-        # idempotency key, so certification would re-run for nothing; and descending order by weight is how a composition is customarily
-        # written, so the document gets the customary form without the writer deciding it.
+        # fact having one representation. `CIR.fingerprint` hashes `to_dict` and is the
+        # pipeline's idempotency key, so declaration order would give one design two
+        # fingerprints and re-run certification for nothing. And descending order by weight
+        # is how a composition is customarily written, so the document gets the customary
+        # form without the writer deciding it in a second place.
         self.fibre_content = tuple(sorted(pairs, key=lambda p: (-p[1], p[0])))
 
     @property
