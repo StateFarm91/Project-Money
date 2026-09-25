@@ -35,14 +35,33 @@ from brambleloop.queue.durable import JobQueue, deliberate_refusal  # noqa: E402
 NOW = datetime(2026, 9, 24, 19, 0, tzinfo=timezone.utc)
 
 
+def _real_now():
+    """The wall clock, for the tests that write through `spend_report.record`.
+
+    `record` stamps its row with `utcnow()` and takes no timestamp argument, so a test that
+    writes through it and then reads with the frozen `NOW` above is asking two different
+    clocks about the same day. That passes while the frozen date happens to be today and
+    fails at the next UTC midnight -- which is exactly what happened: these three checks were
+    green on 2026-09-24 and failed on 2026-09-25 with nothing in the code changed.
+
+    A test whose correctness depends on an unstated condition -- here, that the calendar has
+    not moved -- is the same defect family this file was written to catch, so it is fixed
+    rather than re-pinned. `NOW` stays for the checks that supply their own timestamps (the
+    `CostEntry(at=NOW)` rows, the budget and signal readings); those are internally
+    consistent and must not be made to depend on the clock.
+    """
+    return datetime.now(timezone.utc)
+
+
 def _db():
     db = Database("sqlite://")
     db.create_all()
     return db
 
 
-def _alive():
-    return {"worker_last_tick": NOW.isoformat(), "scheduler_last_tick": NOW.isoformat()}
+def _alive(at=None):
+    at = at or NOW
+    return {"worker_last_tick": at.isoformat(), "scheduler_last_tick": at.isoformat()}
 
 
 def _gov(db, dimension):
@@ -51,9 +70,14 @@ def _gov(db, dimension):
         return G.spend_by(s, dimension, now=NOW)
 
 
-def _signal(db, name, runner_state=None):
+def _signal(db, name, runner_state=None, now=None):
+    """`now` is overridable because some signals are read against rows written by the real
+    clock. Reading those with the frozen `NOW` asks two clocks about the same day, which is
+    green until the next UTC midnight and red after it. The runner state is moved with it so
+    the heartbeat signals stay consistent with the instant being asked about."""
+    at = now or NOW
     with db.session() as s:
-        readings = H.read(s, runner_state=runner_state or _alive(), env={}, now=NOW)
+        readings = H.read(s, runner_state=runner_state or _alive(at), env={}, now=at)
     return {r.signal: r for r in readings}[name]
 
 
@@ -230,7 +254,7 @@ def test_spend_today_is_reported_beside_the_ceiling_it_is_supposed_to_respect():
     spend_report.record(db, agent="market_radar", amount_cad=8.70,
                         purpose="gallery_observation", department="intel")
 
-    out = spend_report.per_agent_today(db, now=NOW)
+    out = spend_report.per_agent_today(db, now=_real_now())
     over = {row["agent"]: row for row in out["over"]}
     assert "market_radar" in over, "an agent at twice its ceiling was not reported"
     assert over["market_radar"]["daily_ceiling_cad"] == 4.0
@@ -243,7 +267,7 @@ def test_spend_by_a_name_that_is_not_an_agent_is_reported_rather_than_dropped():
     db = _db()
     Registry(db).seed_defaults()
     spend_report.record(db, agent="ghost_department", amount_cad=3.0, purpose="p")
-    out = spend_report.per_agent_today(db, now=NOW)
+    out = spend_report.per_agent_today(db, now=_real_now())
     assert [r["agent"] for r in out["spenders_with_no_agent_row"]] == ["ghost_department"]
 
 
@@ -251,7 +275,7 @@ def test_an_agent_inside_its_ceiling_is_not_reported_as_over():
     db = _db()
     Registry(db).seed_defaults()
     spend_report.record(db, agent="market_radar", amount_cad=1.0, purpose="p")
-    assert spend_report.per_agent_today(db, now=NOW)["over"] == []
+    assert spend_report.per_agent_today(db, now=_real_now())["over"] == []
 
 
 # --- the spend signal was green because there were no ceilings ----------------------------
@@ -285,7 +309,8 @@ def test_an_agent_over_its_daily_ceiling_degrades_the_spend_signal():
     db = _db()
     Registry(db).seed_defaults()
     spend_report.record(db, agent="validator", amount_cad=4.0, purpose="p")  # ceiling 1.00
-    reading = _signal(db, "spend")
+    # Written through `record`, so it carries the real clock; read at the same instant.
+    reading = _signal(db, "spend", now=_real_now())
     assert reading.state == H.DEGRADED
     assert reading.evidence["agents_over_their_daily_ceiling"][0]["agent"] == "validator"
 
