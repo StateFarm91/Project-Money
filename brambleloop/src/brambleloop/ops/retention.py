@@ -84,6 +84,22 @@ JOBS_DONE_FLOOR = 1000
 # Dead letters. Only deliberate refusals are ever removed -- see `prune_dead_letters`.
 DEAD_LETTER_RETENTION_DAYS = 90
 
+# The OAuth tables, and the decision about each, because "retention does not know about this
+# table" is how a credential gets pruned by a policy that was correct when it was written.
+#
+# `oauth_credentials` is **never touched at any age**. It is the company's only write
+# credential; a horizon that reached it would log the company out of its own shop and the
+# only repair is the owner in a browser. It is one row.
+#
+# `oauth_handshakes` is pruned, by `core.oauth_store.prune_handshakes`, and the rule lives
+# there rather than here because it is a property of the flow rather than of the horizon: a
+# **live** handshake is never deleted (deleting one strands the owner mid-authorization and
+# turns a legitimate callback into `state_unknown`), and a spent one is kept for
+# `REPLAY_MEMORY_DAYS` so that a replayed callback can still be answered with "this state was
+# already used" rather than "no such state". Those are different facts and the operator
+# staring at a browser deserves the true one.
+NEVER_PRUNED_TABLES = ("oauth_credentials",)
+
 
 # Every audit action this codebase reads by name, and how it is read. The value is what decides
 # whether it can be pruned:
@@ -131,6 +147,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),
     "seasonal.cycle_proof": ("latest", "runtime.release reads the last cycle proof"),
     "etsy.probe": ("latest", "intel.etsy_public reads the last probe"),
+    "etsy.oauth_callback": ("latest",
+                            "app.main /api/etsy/oauth/start reports the last authorization "
+                            "attempt so an operator can tell a flow that was never finished "
+                            "from one that failed"),
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),
@@ -378,6 +398,7 @@ def plan(db, *, now: datetime | None = None) -> dict:
     audit = audit_plan(db, now=now)
     jobs = job_plan(db, now=now)
     dead = dead_letter_plan(db, now=now)
+    from ..core import oauth_store
     from ..finance import reservations
 
     return {
@@ -386,11 +407,15 @@ def plan(db, *, now: datetime | None = None) -> dict:
         "jobs": {k: v for k, v in jobs.items() if k != "deletable_ids"},
         "dead_letters": {k: v for k, v in dead.items() if k != "deletable_ids"},
         "reservations_kept_hours": reservations.KEEP_RELEASED_HOURS,
+        "oauth_handshakes": oauth_store.prune_handshakes(db, now=now, dry_run=True),
         "never_touched": {
             "cost_entries": ("every ceiling in the company is computed from these and the "
                              "ledger reconciles against them. About 1,200 rows a month"),
             "ledger": "actual money events, each with an evidence reference",
             "release certificates and pattern versions": "the product's provenance",
+            "oauth_credentials": ("the company's only Etsy write credential, sealed. A "
+                                  "horizon that reached it would log the company out of its "
+                                  "own shop, and the only repair is the owner in a browser"),
         },
         "why_a_plan_exists": (
             "a deletion nobody can read before it happens is a deletion nobody can argue "
@@ -405,6 +430,7 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
     that means somebody added a reader and retention does not know whether pruning its rows
     changes its answer, which is exactly the state in which a retention run does damage.
     """
+    from ..core import oauth_store
     from ..core.models import AuditLog, Job
     from ..finance import reservations
 
@@ -422,8 +448,13 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
     jobs = job_plan(db, now=now)
     dead = dead_letter_plan(db, now=now)
     swept = reservations.sweep(db, now=now)
+    # Spent OAuth handshakes, under their own rule: a live one is never deleted at any age,
+    # and a spent one is kept long enough that a replay is still answerable as a replay.
+    # `oauth_credentials` is not in this function at all and must never be.
+    handshakes = oauth_store.prune_handshakes(db, now=now, dry_run=bool(dry_run))
 
-    removed = {"audit_log": 0, "jobs": 0, "dead_letters": 0}
+    removed = {"audit_log": 0, "jobs": 0, "dead_letters": 0,
+               "oauth_handshakes": handshakes["deletable" if dry_run else "removed"]}
     if not dry_run:
         with db.session() as s:
             for row_id in audit["deletable_ids"]:
@@ -443,10 +474,18 @@ def apply(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
         "dry_run": bool(dry_run),
         "removed": removed,
         "reservations": swept,
+        "oauth_handshakes": handshakes,
         "audit_log": {k: v for k, v in audit.items() if k != "deletable_ids"},
         "jobs": {k: v for k, v in jobs.items() if k != "deletable_ids"},
         "dead_letters": {k: v for k, v in dead.items() if k != "deletable_ids"},
     }
+
+
+def _replay_memory_days() -> int:
+    """Imported lazily: `core.oauth_store` imports the models and this module must stay cheap."""
+    from ..core import oauth_store
+
+    return oauth_store.REPLAY_MEMORY_DAYS
 
 
 def state() -> dict:
@@ -462,7 +501,8 @@ def state() -> dict:
         "known_read_actions": {a: {"read_as": how, "reader": why}
                                for a, (how, why) in sorted(KNOWN_READ_ACTIONS.items())},
         "never_pruned": ["cost_entries", "ledger", "pattern_versions",
-                         "dead letters that are defects"],
+                         "dead letters that are defects", *NEVER_PRUNED_TABLES],
+        "oauth_handshake_replay_memory_days": _replay_memory_days(),
         "measured_growth_2026_09_24": {"audit_log_per_day": 4700, "jobs_per_day": 900,
                                        "dead_letters_per_day": 21},
         "why": ("at 4,700 audit rows a day nothing pruned anything, and the database is the "

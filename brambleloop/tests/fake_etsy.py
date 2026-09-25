@@ -11,7 +11,9 @@ passes against it has established that:
 - our client puts the image binary in a part named `image` and the digital file in one named
   `file`, because this server looks for those names and 400s otherwise;
 - our read-back verification detects a field the server ignored, transformed or renamed;
-- our OAuth refresh spends a refresh token, receives a rotated one and retries the call.
+- our OAuth refresh spends a refresh token, receives a rotated one and retries the call;
+- our authorization-code grant sends a code that is accepted once, with a `code_verifier`
+  that is the preimage of the challenge, and a `redirect_uri` that matches exactly.
 
 It has not established that Etsy does any of these things. Where the fidelity is real it is
 because Etsy's own strings are used: the two API-key error messages below are the exact
@@ -23,11 +25,14 @@ can ever be pointed at a server that agrees with us.
 """
 from __future__ import annotations
 
+import base64
 import email
+import hashlib
 import json
 import threading
 import time
 import urllib.parse
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
@@ -114,8 +119,35 @@ class FakeEtsy:
         }
         self.refresh_tokens: dict[str, tuple[str, ...]] = {"111.refresh-one": scopes}
         self.refreshes = 0
+        # -- the authorization-code grant --------------------------------------
+        # Modelled from Etsy's authentication page, 2026-09-25: the code is single-use, the
+        # `code_verifier` must be the SHA-256 preimage of the `code_challenge` that the
+        # authorization request carried, and `redirect_uri` "when present, must exactly
+        # match". Added when the callback route was built, because until then nothing in this
+        # system had ever called `etsy_oauth.exchange` and the fake answered
+        # `unsupported_grant_type` to the only grant that creates a credential.
+        self.authorization_codes: dict[str, dict[str, Any]] = {}
+        self.exchanges = 0
+        # Forces the token endpoint to answer with this (status, body) whatever was sent, so
+        # "Etsy refused the token request" is an exercised path rather than a described one.
+        self.token_failure: tuple[int, dict[str, Any]] | None = None
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
+
+    def issue_authorization_code(self, *, challenge: str, redirect_uri: str,
+                                 scopes: tuple[str, ...] | None = None,
+                                 code: str | None = None) -> str:
+        """Stand in for the owner approving the consent screen in a browser.
+
+        Returns the code Etsy would put on the redirect. Nothing here simulates the browser:
+        the test drives the callback endpoint directly, which is the same request Etsy's
+        redirect makes.
+        """
+        value = code or f"code-{len(self.authorization_codes) + 1}-{uuid.uuid4().hex[:12]}"
+        self.authorization_codes[value] = {
+            "challenge": challenge, "redirect_uri": redirect_uri,
+            "scopes": tuple(scopes if scopes is not None else self.scopes)}
+        return value
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -615,14 +647,20 @@ class _Handler(BaseHTTPRequestHandler):
         form = dict(urllib.parse.parse_qsl(raw.decode()))
         self.fake.token_requests.append({k: ("***" if "token" in k else v)
                                          for k, v in form.items()})
+        if self.fake.token_failure is not None:
+            status, body = self.fake.token_failure
+            return self._send(status, body)
         if form.get("client_id") != self.fake.keystring:
             return self._send(400, {"error": "invalid_client",
                                     "error_description": "unknown client_id"})
         grant = form.get("grant_type")
+        if grant == "authorization_code":
+            return self._authorization_code_grant(form)
         if grant != "refresh_token":
             return self._send(400, {"error": "unsupported_grant_type",
-                                    "error_description": f"this fake implements the refresh "
-                                                         f"grant only; got {grant!r}"})
+                                    "error_description": f"this fake implements the "
+                                                         f"authorization-code and refresh "
+                                                         f"grants; got {grant!r}"})
         presented = form.get("refresh_token", "")
         scopes = self.fake.refresh_tokens.pop(presented, None)
         if scopes is None:
@@ -637,3 +675,44 @@ class _Handler(BaseHTTPRequestHandler):
         return self._send(200, {"access_token": access, "token_type": "Bearer",
                                 "expires_in": int(self.fake.access_token_seconds),
                                 "refresh_token": rotated, "scope": " ".join(scopes)})
+
+    def _authorization_code_grant(self, form: dict[str, str]) -> None:
+        """Etsy's authorization-code grant with PKCE, from Etsy's documented parameters.
+
+        Three refusals, and each of them is a real property of the flow rather than a
+        convenience of this server:
+
+        * **the code is single-use** -- popped, not read, so a replayed exchange gets
+          `invalid_grant` exactly as a second presentation to Etsy would;
+        * **the verifier must be the challenge's preimage** -- the whole point of PKCE, and
+          the reason an authorization code stolen from a log or a proxy is not a credential;
+        * **`redirect_uri`, when sent, must match exactly** -- Etsy's own words.
+        """
+        code = form.get("code", "")
+        record = self.fake.authorization_codes.pop(code, None)
+        if record is None:
+            return self._send(400, {"error": "invalid_grant",
+                                    "error_description": "authorization code unknown, "
+                                                         "already used or expired"})
+        verifier = form.get("code_verifier", "")
+        expected = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode("ascii")).digest()).decode().rstrip("=")
+        if not verifier or expected != record["challenge"]:
+            return self._send(400, {"error": "invalid_grant",
+                                    "error_description": "code_verifier does not match the "
+                                                         "code_challenge of this code"})
+        sent_redirect = form.get("redirect_uri")
+        if sent_redirect is not None and sent_redirect != record["redirect_uri"]:
+            return self._send(400, {"error": "invalid_request",
+                                    "error_description": "redirect_uri does not exactly "
+                                                         "match the authorization request"})
+        self.fake.exchanges += 1
+        scopes = record["scopes"]
+        access = f"111.granted-access-{self.fake.exchanges}"
+        granted_refresh = f"111.granted-refresh-{self.fake.exchanges}"
+        self.fake.tokens[access] = (time.time() + self.fake.access_token_seconds, scopes)
+        self.fake.refresh_tokens[granted_refresh] = scopes
+        return self._send(200, {"access_token": access, "token_type": "Bearer",
+                                "expires_in": int(self.fake.access_token_seconds),
+                                "refresh_token": granted_refresh,
+                                "scope": " ".join(scopes)})

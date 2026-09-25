@@ -12,18 +12,35 @@ environment) and from Etsy's OpenAPI description's `securitySchemes.oauth2` bloc
 quotes are kept next to the code they justify, because a constant with a URL in it is
 unfalsifiable and a constant with Etsy's sentence beside it is not.
 
-**One discrepancy, recorded rather than resolved.** Etsy's authentication page gives the token
-endpoint as `https://api.etsy.com/v3/public/oauth/token`; Etsy's own OpenAPI description
-gives `https://openapi.etsy.com/v3/public/oauth/token`. Both are Etsy's words about Etsy.
-This module sends to the documentation's host and carries the other as
-`TOKEN_URL_ALTERNATE`, and `exchange`/`refresh` retry against it on a 404 -- which is what a
-wrong host looks like -- so that the discrepancy costs one extra request instead of a
-diagnosis. **Neither host has been exercised**: no token request has ever been made from
-this system, because there is no registered app and no authorization code.
+**The two-host discrepancy, resolved 2026-09-25.** Etsy's authentication page gives the token
+endpoint as `https://api.etsy.com/v3/public/oauth/token`; Etsy's OpenAPI description's
+`oauth2.flows.authorizationCode.tokenUrl` gives `https://openapi.etsy.com/v3/public/oauth/token`.
+Both were read again today and both still say what they said. What was missing was a third
+Etsy page, "Request Standards", which answers the question directly:
 
-What is not here, deliberately: nothing writes a token to disk. The refreshed token lives in
-the process and is handed back to the caller through `on_refresh`, so where it is persisted
-is the deployment's decision and cannot accidentally become this repository (CLAUDE.md).
+    "Etsy API endpoints are accessible at URLs starting with https://api.etsy.com/v3/ or
+     https://openapi.etsy.com/v3/ ... The two hostnames are equivalent and you can use
+     either."
+
+(`https://developers.etsy.com/documentation/essentials/requests/`, fetched HTTP 200 from this
+environment on 2026-09-25.) So the documents were never in conflict about behaviour, only
+about which of two interchangeable names to print. `TOKEN_URL` stays the authentication
+page's host because that is the page about tokens, `TOKEN_URL_ALTERNATE` stays, and the 404
+retry stays -- it now costs nothing in the expected case and still covers the one reading
+this cannot rule out, which is that the equivalence is stated of `/v3/` *API* endpoints and
+`/v3/public/oauth/token` might be served differently. **Neither host has been exercised**: no
+token request has ever been made from this system, because there is no registered app and no
+authorization code.
+
+What is not here, deliberately: nothing writes a token to disk, and nothing in this module
+knows what a database is. The refreshed token lives in the process and is handed back to the
+caller through `on_refresh`, so where it is persisted stays the deployment's decision and
+cannot accidentally become this repository (CLAUDE.md). What that decision turned out to be
+is in `core.oauth_store` and `core.sealed`: sealed in Postgres under a key held in the
+environment, because Etsy rotates the refresh token hourly and a process cannot rewrite the
+environment it was started with. The flow that drives this module across a browser round trip
+is `integrations.etsy_authorise`, and the endpoint the owner's browser lands on is
+`GET /api/etsy/oauth/callback`.
 """
 from __future__ import annotations
 
@@ -45,9 +62,19 @@ AUTHORIZE_URL = "https://www.etsy.com/oauth/connect"
 # following parameters in the request body in application/x-www-form-urlencoded format"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 
-# SOURCED, and in conflict with the line above: Etsy's OpenAPI description's
-# `oauth2.flows.authorizationCode.tokenUrl`.
+# SOURCED: Etsy's OpenAPI description's `oauth2.flows.authorizationCode.tokenUrl`. It names
+# the other host, and Etsy's Request Standards page says the two are equivalent -- see the
+# module docstring. Kept as a named constant with its own sentence rather than deleted,
+# because "we established they are the same" is a fact somebody will want to re-check.
 TOKEN_URL_ALTERNATE = "https://openapi.etsy.com/v3/public/oauth/token"
+
+# SOURCED, `https://developers.etsy.com/documentation/essentials/requests/`, 2026-09-25:
+# "The two hostnames are equivalent and you can use either."
+TOKEN_HOSTS_ARE_EQUIVALENT = (
+    "Etsy's Request Standards page states that api.etsy.com and openapi.etsy.com are "
+    "equivalent hostnames for v3 endpoints, which is why two Etsy documents print different "
+    "hosts for one token endpoint. Read 2026-09-25; not exercised, because no token request "
+    "has ever been made from this system.")
 
 # SOURCED: "which has a functional life of 1 hour" / "expires_in ... 3600 seconds is 1 hour".
 ACCESS_TOKEN_SECONDS = 3600
@@ -108,6 +135,75 @@ SCOPES_WANTED = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w")
 VERIFIER_MIN = 43
 VERIFIER_MAX = 128
 
+# SOURCED, the authentication page's "state" row, 2026-09-25: "(Recommended) A single-use
+# token generated specifically for a given request. It is important that the state parameter
+# is impossible to guess, associated with a specific request, and used once. When present, it
+# must be non-empty" -- and, after a successful redirect, "make a note never to use that
+# state again". So `state` is *recommended* rather than required for a PKCE client ("OAuth
+# 2.1 clients relying on PKCE for CSRF protection may omit state, but including it is still
+# best practice"), and every property this system enforces about it -- unguessable, bound to
+# one request, single-use -- is Etsy's own list rather than this company's invention.
+STATE_IS_REQUIRED_BY_ETSY = False
+
+# 32 bytes of CSPRNG output. `secrets`, never `random`.
+STATE_BYTES = 32
+
+# SOURCED, the authentication page's "Redirect URIs" section, 2026-09-25: "URL matching is
+# case-sensitive and is specifically the URL established when you registered", and each of
+# these fails to match a registered `https://www.example.com/some/location`: `http://...`,
+# a trailing slash, a trailing question mark, an uppercase `H` in `Https`, and a missing
+# `www`. Quoted because a redirect URI that is one character out produces an error page in
+# front of the owner and no callback at all, which is the failure hardest to diagnose from
+# the server side -- nothing reaches the server.
+REDIRECT_URI_MATCHING = (
+    "exact and case-sensitive against the URL registered at etsy.com/developers/your-apps. "
+    "A trailing slash, a trailing '?', an uppercase scheme, http instead of https, or a "
+    "missing subdomain are all different URLs and all fail.")
+
+
+def new_state() -> str:
+    """A fresh OAuth state: unguessable, and used once.
+
+    `secrets`, not `random`. `random` is a Mersenne Twister seeded from the clock and 624 of
+    its outputs determine every output after them, which is exactly the property a value
+    guarding against cross-site request forgery must not have.
+    """
+    return secrets.token_urlsafe(STATE_BYTES)
+
+
+def parse_redirect(params: dict[str, Any]) -> dict[str, str]:
+    """Read what Etsy put on the redirect, and classify it, without deciding anything.
+
+    SOURCED, the authentication page, Step 2 and Errors: a successful redirect carries `code`
+    and `state`; an unsuccessful one carries `error` (an RFC 6749 code), `error_description`
+    ("always in English"), an optional `error_uri`, and `state` if the request included one.
+
+    Returns a dict with `kind` set to `code`, `error` or `unusable`, so the caller has one
+    thing to branch on. The error text is truncated and passed through unchanged otherwise:
+    it is attacker-influencable text arriving on a URL, so whoever renders it escapes it, and
+    nothing here treats it as trustworthy.
+    """
+    def one(name: str) -> str:
+        value = params.get(name)
+        if isinstance(value, (list, tuple)):
+            value = value[0] if value else ""
+        return str(value or "").strip()
+
+    state, code, error = one("state"), one("code"), one("error")
+    if error:
+        return {"kind": "error", "state": state, "code": "", "error": error[:80],
+                "error_description": one("error_description")[:300],
+                "error_uri": one("error_uri")[:300]}
+    if code:
+        return {"kind": "code", "state": state, "code": code, "error": "",
+                "error_description": "", "error_uri": ""}
+    return {"kind": "unusable", "state": state, "code": "",
+            "error": "no_code_and_no_error",
+            "error_description": ("Etsy sends either a code or an error to the redirect URI; "
+                                  "this request carried neither, so it did not come from an "
+                                  "Etsy authorization."),
+            "error_uri": ""}
+
 
 class EtsyAuthFailed(PermanentError):
     """Etsy refused the token request. Retrying sends the same proof and gets the same no."""
@@ -120,6 +216,42 @@ class EtsyAuthNeedsOwner(PermanentError):
     that was never granted all land here, and all three end at the same place -- the owner
     opening `authorize_url()` and approving the app.
     """
+
+
+class EtsyRedirectError(EtsyAuthFailed):
+    """Etsy redirected with an error instead of a code, or with nothing usable at all.
+
+    Its own class because the three outcomes end differently: a code is exchanged, an
+    `error=access_denied` is the owner declining and needs no fix, and a redirect carrying
+    neither did not come from an Etsy authorization at all.
+    """
+
+
+def redirect_uri_problem(redirect_uri: str) -> str:
+    """Why this redirect URI cannot be the registered one, or "" if nothing is visibly wrong.
+
+    Only Etsy can say whether a URI *matches* what was registered -- and it says so by
+    showing the owner an error page and never calling the callback, which is the failure
+    mode hardest to diagnose from a server that never hears about it. What can be checked
+    here is the class of URI Etsy documents as always failing, and checking it costs nothing.
+    """
+    value = (redirect_uri or "").strip()
+    if not value:
+        return ("no redirect URI. ETSY_REDIRECT_URI is read from the environment and is "
+                "empty, so there is no callback for Etsy to send the authorization code to.")
+    if value != redirect_uri:
+        return ("the redirect URI has leading or trailing whitespace. Etsy matches character "
+                "for character, so this is a different URL from the registered one.")
+    if not value.startswith("https://"):
+        return (f"the redirect URI must begin with `https://` ({REDIRECT_URI_MATCHING}). "
+                f"Etsy: 'The URL must have the https:// prefix or the request will fail.'")
+    if "#" in value:
+        return ("the redirect URI carries a fragment. A fragment is never sent to a server "
+                "and cannot be part of a registered callback.")
+    if value.endswith("?"):
+        return ("the redirect URI ends with '?', which Etsy's own examples list as a string "
+                "that fails to match a registration without one.")
+    return ""
 
 
 def fingerprint(secret: str) -> str:
@@ -275,11 +407,12 @@ def authorize_url(app: OAuthApp, *, verifier: str, state: str,
     Etsy now says a PKCE client may omit it, because Etsy also says "including it is still
     best practice" and the caller has to compare it on the way back anyway.
     """
-    if not app.redirect_uri.startswith("https://"):
+    problem = redirect_uri_problem(app.redirect_uri)
+    if problem:
         raise EtsyAuthFailed(
-            "the redirect URI must be an exact, https, pre-registered callback. Etsy: "
-            "'URL matching is case-sensitive and is specifically the URL established when "
-            "you registered' -- a trailing slash is a different URL and fails.")
+            f"the redirect URI must be an exact, https, pre-registered callback: {problem} "
+            f"Etsy: 'URL matching is case-sensitive and is specifically the URL established "
+            f"when you registered' -- a trailing slash is a different URL and fails.")
     if not state:
         raise EtsyAuthFailed("state must be non-empty when sent: Etsy echoes it back and the "
                              "caller has nothing to compare against.")
@@ -444,11 +577,20 @@ def owner_action(app: OAuthApp | None, *, verifier: str | None = None,
             "Etsy matches it character for character: a trailing slash is a different URL.",
             "Put the keystring, shared secret and redirect URI in the deployment's "
             "environment as ETSY_KEYSTRING, ETSY_SHARED_SECRET and ETSY_REDIRECT_URI. "
-            "Never in the repository.",
-            "Open the authorize URL this system prints, approve the listed scopes, and let "
-            "the callback capture the code. The code is single-use and expires quickly.",
-            "Put the resulting refresh token in the environment as ETSY_REFRESH_TOKEN. "
-            "From then on this system refreshes its own access token every hour.",
+            "Never in the repository. The redirect URI is this service's own callback: "
+            "https://<the deployment's host>/api/etsy/oauth/callback, character for "
+            "character, no trailing slash.",
+            "Set BRAMBLELOOP_SECRET_KEY to 32 or more random characters, if it is not set "
+            "already. It is the key the refresh token is sealed under; without it the "
+            "callback refuses to complete rather than storing a credential in the clear.",
+            "Call GET /api/etsy/oauth/start with the operator credential. It returns an "
+            "authorize URL, having first written that flow's state and PKCE verifier to the "
+            "database, which is what lets the callback finish on any container.",
+            "Open that URL, approve the listed scopes, and let the callback capture the "
+            "code. The code is single-use and expires quickly, and the state is good for "
+            "fifteen minutes.",
+            "Nothing further. The refresh token is stored sealed by the callback and rotated "
+            "in place from then on; it is never printed, returned or put in a variable.",
         ],
         "why": ("Etsy's authorization-code grant requires a human to approve the scopes in a "
                 "browser session. There is no client-credentials or API-key-only path to a "
@@ -464,12 +606,15 @@ def owner_action(app: OAuthApp | None, *, verifier: str | None = None,
         "expires": (f"the refresh token lasts {REFRESH_TOKEN_DAYS} days and every refresh "
                     f"issues a new one; if the deployment loses it, this action repeats."),
     }
-    if app is not None and app.redirect_uri.startswith("https://"):
+    if app is not None and not redirect_uri_problem(app.redirect_uri):
         v = verifier or new_verifier()
-        action["authorize_url"] = authorize_url(
-            app, verifier=v, state=state or secrets.token_urlsafe(16))
-        action["code_verifier_note"] = ("the verifier for this URL is held in the calling "
-                                       "process only; a new URL needs a new verifier.")
+        action["authorize_url"] = authorize_url(app, verifier=v, state=state or new_state())
+        action["code_verifier_note"] = (
+            "this URL's verifier is held only by whatever built it. A URL built by "
+            "`GET /api/etsy/oauth/start` has its verifier sealed in the database and its "
+            "callback will complete; a URL built by this function on its own -- the probe's "
+            "offline printout -- has nowhere to complete, because the verifier dies with the "
+            "process. Use the endpoint.")
     else:
         action["authorize_url"] = None
         action["blocked_on"] = ("no ETSY_KEYSTRING / ETSY_REDIRECT_URI in this environment, "

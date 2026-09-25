@@ -98,7 +98,29 @@ NON_REDERIVABLE = (
 # file, so including them would make each night's export carry the compressed bytes of the
 # last three, and the backup would grow faster than the company it describes. They are also
 # the one table a restore does not need: whoever is restoring is holding the archive.
-EXCLUDED_TABLES = ("continuity_archives",)
+EXCLUDED_TABLES = (
+    "continuity_archives",
+    # The OAuth credential and the live handshakes. Excluded for two different reasons and
+    # both matter:
+    #
+    # **It is a credential.** This file is served as a download by `/api/continuity/export`,
+    # archived into the database, and copied off-provider. The refresh token in
+    # `oauth_credentials` is sealed under a key that lives in the environment, so even
+    # included it would be ciphertext -- but a backup of a company should not be a place
+    # anyone has to reason about that, and defence in depth costs one line.
+    #
+    # **A restored copy must not hold a live grant.** Etsy's refresh token is single-use per
+    # refresh. Two deployments restored from one export would both try to refresh the same
+    # token, one would win and the other would look revoked -- and a restore drill would
+    # silently spend the production company's credential. A restored Brambleloop authorises
+    # itself, in a browser, deliberately. That is the correct amount of friction for the one
+    # thing that can write to the shop.
+    "oauth_credentials",
+    # A handshake is fifteen minutes of state for a browser round trip in progress. It cannot
+    # be meaningful in a restore -- the browser it belonged to is long gone -- and the
+    # verifier in it is sealed with the same key. Nothing is lost by leaving it out.
+    "oauth_handshakes",
+)
 
 
 _URL_CREDENTIALS = re.compile(r"://[^/@\s]*@")

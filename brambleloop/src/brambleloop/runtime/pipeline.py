@@ -556,7 +556,14 @@ def handle_store_publish(ctx: JobContext) -> dict:
         # expired -- Etsy's access tokens live one hour -- is refreshed rather than sent.
         # Without it this job works for an hour after a human pasted a token and then fails
         # with a 401 that looks exactly like a revoked app.
-        credentials=Credentials.from_env(transport=transport),
+        #
+        # The database is handed over for the other half of the same problem. Etsy issues a
+        # **new refresh token on every refresh** and spends the old one, so a refresh that is
+        # not written down survives exactly as long as this container does. With `db` the
+        # provider reads the sealed credential from `oauth_credentials` and writes each
+        # rotation back under compare-and-set, which is what makes an unattended publish job
+        # still authenticated next week.
+        credentials=Credentials.from_env(transport=transport, db=ctx.db),
         phase=ctx.phase.value,
         # A separate fact from having a key: publishing is RED in the authority matrix.
         owner_authorised=os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") == "1")

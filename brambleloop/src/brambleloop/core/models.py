@@ -1232,3 +1232,121 @@ class DurableArtifact(Base):
     payload: Mapped[bytes] = mapped_column(LargeBinary)
     why_kept: Mapped[str] = mapped_column(String(200), default="")
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OAuthHandshake(Base):
+    """One browser round trip of an OAuth authorization-code flow, held across it.
+
+    PKCE has a shape that process memory cannot satisfy. The verifier is generated when the
+    authorize URL is built, and it is needed again minutes later, in a *different request*,
+    on whichever container happens to receive the redirect -- and this platform rolls
+    containers, so "the same process" cannot be relied on even for one minute.
+    `etsy_oauth`'s own note says the verifier is "held in the calling process only", which is
+    why the callback the owner was told to use could not have existed: there was nowhere for
+    the two halves of the flow to meet. This table is that place.
+
+    Four properties, each of which is a rejection the callback has to be able to make:
+
+    * **Unpredictable.** The state is 32 bytes from `secrets`, so it cannot be guessed by
+      somebody who wants the callback to exchange a code on their behalf.
+    * **Single-use.** `consumed_at` is set by a conditional UPDATE only one caller can win,
+      so a replayed callback is refused by the database rather than by a check two concurrent
+      requests could both pass.
+    * **Expiring.** `expires_at` bounds how long an unfinished flow stays usable. Etsy's own
+      words: state is "a single-use token generated specifically for a given request".
+    * **Recoverable evidence.** A consumed row is kept, not deleted, so a replay is answerable
+      with "this state was already used" instead of "no such state". Those are different
+      facts and an operator staring at a browser deserves the right one.
+
+    **Neither secret in this flow is stored in the clear.** The state is stored as its
+    SHA-256 only -- the row is found by hashing what the callback presented, so the database
+    never holds a value that could be replayed out of it -- and the PKCE verifier is sealed
+    by `core.sealed`, whose key is an environment variable. A database dump is not a flow
+    somebody else can finish.
+    """
+
+    __tablename__ = "oauth_handshakes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(40), default="etsy", index=True)
+    # SHA-256 of the state, never the state. Unique, so two handshakes cannot collide and a
+    # lookup is one indexed read.
+    state_sha256: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    # A short, non-reversible handle for logs, reports and audit rows.
+    state_fingerprint: Mapped[str] = mapped_column(String(16), default="")
+    # The PKCE code verifier, sealed. The one value here whose disclosure would matter after
+    # the fact, and the reason `core.sealed` exists.
+    verifier_sealed: Mapped[str] = mapped_column(Text, default="")
+    # Recorded so the exchange sends back exactly the redirect_uri the authorization used.
+    # Etsy: "when present, it must exactly match".
+    redirect_uri: Mapped[str] = mapped_column(String(400), default="")
+    scopes: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                         nullable=True, index=True)
+    # What happened to this handshake, in the vocabulary `core.oauth_store.Verdict` uses.
+    # Never a code, a token, a verifier or an Etsy error body.
+    outcome: Mapped[str] = mapped_column(String(40), default="open", index=True)
+    # How many callbacks arrived carrying a state that was already spent. Above zero is worth
+    # an operator's attention and is not, by itself, an incident.
+    replays: Mapped[int] = mapped_column(Integer, default=0)
+    started_by: Mapped[str] = mapped_column(String(40), default="operator")
+
+    __table_args__ = (
+        Index("ix_oauth_handshakes_live", "provider", "consumed_at", "expires_at"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of tracebacks
+        return (f"<OAuthHandshake {self.provider} ***{self.state_fingerprint} "
+                f"{self.outcome} verifier=***>")
+
+
+class OAuthCredential(Base):
+    """The long-lived half of an OAuth grant: one row per provider, sealed.
+
+    Etsy's refresh token lasts 90 days **and rotates on every refresh**, which makes it the
+    only credential in this company that the software itself has to be able to write. Every
+    other secret is set once by a human in the deployment's environment; this one changes
+    roughly hourly and cannot be, because a process cannot rewrite the environment it was
+    started with. `core.sealed`'s docstring works through the alternatives; the short version
+    is that this is the only durable store the running service can update, and the value in
+    it is encrypted under a key that never leaves the environment, so the row is not a
+    credential on its own.
+
+    **Rotation is a compare-and-set, not a write.** `token_fingerprint` identifies the token
+    currently stored and a rotation names the fingerprint it believes it is replacing, so two
+    workers refreshing at the same moment cannot interleave into a row holding a token Etsy
+    has already spent. The write that loses is refused, and the caller that lost is holding a
+    dead token -- a fact worth knowing rather than one to overwrite.
+
+    Nothing here is ever returned by an API, written to a log, put in an audit `detail` or
+    included in a continuity export. The fingerprint is what appears in all four.
+    """
+
+    __tablename__ = "oauth_credentials"
+
+    provider: Mapped[str] = mapped_column(String(40), primary_key=True)
+    refresh_token_sealed: Mapped[str] = mapped_column(Text, default="")
+    # SHA-256[:8] of the plaintext token: the identity of the credential without the
+    # credential. It is what compare-and-set matches on and what every report prints.
+    token_fingerprint: Mapped[str] = mapped_column(String(16), default="", index=True)
+    # The fingerprint of the sealing key this row was sealed under, so "the key changed" is
+    # diagnosable without decrypting and without revealing either value.
+    key_fingerprint: Mapped[str] = mapped_column(String(16), default="")
+    scopes: Mapped[str] = mapped_column(String(300), default="")
+    # Times the token has rotated since it was granted. Also the optimistic concurrency
+    # counter.
+    rotations: Mapped[int] = mapped_column(Integer, default=0)
+    obtained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    # Where this came from -- "authorization-code grant", "refresh grant". Never anything
+    # about its value.
+    source: Mapped[str] = mapped_column(String(80), default="")
+
+    def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of tracebacks
+        return (f"<OAuthCredential {self.provider} ***{self.token_fingerprint} "
+                f"rotations={self.rotations}>")
