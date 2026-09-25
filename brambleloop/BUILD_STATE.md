@@ -8041,3 +8041,93 @@ removed, and nothing else moved.
   * Milestone D: **FAIL**, unchanged and not weakened. Visual is on research only, awaiting
     the Stage 0 physical measurement.
   * Seven owner decisions batched above; none blocks further autonomous work.
+
+## 2026-09-25 — Owner decisions D1-D7 applied; Parallel Wave 2 dispatched; coordinator built
+
+### The seven decisions, as ruled
+
+  **D1 market_radar** — ceiling STAYS at CA$4.00/day. The cadence adapts to the budget, not
+  the reverse. Governing principle stated by the owner and now binding: *global/monthly spend
+  is authoritative; per-agent ceilings are PERMISSIONS, not additive budgets.* That resolves
+  the 24-agents-at-CA$1,700/month finding — it was never an over-commitment, because a
+  permission cap is not an allocation. Enforcement is authorised against CA$4.00/day.
+
+  **D2 Etsy policy freshness** — required before Launch 0 goes live. Research exhausts
+  legitimate official-source routes FIRST; only if `etsy.com` stays 403 does the owner paste
+  the five pages once. Binding: **no-data must never equal policy-current.**
+
+  **D3 GST/HST** — registration deferred. Maintain an honest monitored threshold with an
+  owner alert. Software takes no tax position.
+
+  **D4 buyer licence** — ONE conservative canonical Launch-0 licence source; divergent copies
+  eliminated. Professional review scheduled before material scale, NOT a launch blocker,
+  unless research finds a concrete legal reason it must precede first sale.
+
+  **D5 Canadian Etsy fee** — conservatively assume ~1.15% applies for the pricing floor.
+  Marked unverified; reconcile against the first real settlement.
+
+  **D6 AI attribution** — Launch 0 uses a manual owner Shop Manager step per listing, as an
+  explicit launch-checklist item. **Do not claim the API can do it** — it has no such field.
+
+  **D7 physical HDC Stage 0** — DEFERRED, and preserved as the preferred physical
+  falsification before Stage 1. **Stage 1 must NOT begin on the knit analogy alone.**
+
+### Launch-0 priority, now a standing distinction
+
+A **hard blocker to first legitimate sale** is separated from **continuous improvement that
+can continue after selling begins**. A new Launch-0 blocker requires evidence it materially
+threatens product correctness, safety, platform/legal compliance, payment/fulfilment,
+truthful customer claims, uncontrolled spend, or production/customer-data integrity.
+Existing hard gates are not weakened, and not every possible improvement becomes a
+prerequisite.
+
+### Wave 2 dispatched — five lanes, isolated worktrees, one merge queue
+
+  V  Visual (continuous)  Kaldor-2010 bounded plastic rest-state migration; the corrected
+                          recovery experiment against the ORIGINAL flat rest curvature; ASTM
+                          convergence. Owns `visual/**` + `cir/**`. Stage 1 forbidden.
+  W1 Etsy/Commerce II     HIGH PRIORITY. The listing transport gap: image upload, draft
+                          update/activation, OAuth refresh, request encoding, READ-BACK
+                          verification, refusal handling. Draft-only; activation may be built
+                          and tested but no customer listing goes live without Launch-0
+                          authorisation. Owns `integrations/etsy.py`, `integrations/http.py`.
+  W2 Catalogue            Launch-0 assortment from landed children's research; obligation-
+                          weighted entry order; counter-seasonal pairing. Hard rule: do not
+                          manufacture catalogue completion ahead of Product Truth.
+  W3 Deliverable QA II    Ship US AND UK PDFs now localisation is authoritative; close the
+                          "US or UK terms" claim we do not meet; unify the last licence copy;
+                          continue adversarial QA.
+  W4 Reliability II       Gallery cadence to fit CA$4.00/day derived from the ceiling rather
+                          than restated; per-agent enforcement as permission; DURABLE spend
+                          reservation (the last unbounded overshoot); temp-file lifecycle at
+                          10 sites; retention policy.
+
+Collision control: W1 and W3 both reach the release chain and are separated by file; W4 was
+told to yield `runtime/release.py` if W3 is in it. Every lane is CA$0 and read-only on
+Visual-owned modules.
+
+### The coordinator: `ops/board.py`
+
+One rule: **completion comes from the job's own terminal evidence, never from a watcher's
+state.** States the previous approach could not express: `STALLED` (no sentinel, no process),
+`NO_SENTINEL`, `COMPLETE_UNREPORTED` (finished, nobody acted, carries its age), `MISSING`.
+`alive()` takes the caller's whole process LINEAGE and refuses to count any of it, and the
+process table is injectable so the self-match case is TESTED rather than argued — the 2026
+version was argued correct and was not.
+
+21 checks in `tests/test_board.py`, including both historical failures reproduced:
+the ~100-minute self-matching waiter, and the ~47-minute finished-but-unread suite.
+
+**The board found a defect in itself on first real use.** It called older logs
+"died without finishing" when they had merely used a different sentinel (`SUITE EXIT 0`
+rather than `EXIT 0`). That is a verdict computed from absence of evidence — the exact family
+the board exists to catch, in the board. Split into `NO_SENTINEL`, which says which fact is
+missing and refuses to guess; such a lane is pulled to attention and is NOT reported
+refillable, because completion was never established.
+
+Run live against the real logs, it immediately surfaced `suite6` as COMPLETE_UNREPORTED
+quoting `TOTAL PASSING: 3469 ; suites failing: 0` — the exact result that sat unread for 47
+minutes.
+
+It reports and says when a lane is free. **It does not merge or deploy.** Integration stays
+controlled and deployment stays serialized.
