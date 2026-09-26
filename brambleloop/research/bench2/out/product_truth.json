@@ -1,0 +1,1919 @@
+{
+ "source": {
+  "pdf": "purchased pattern PDF, 17 pages, text extracted with pypdf and de-letter-spaced (not in the repository)",
+  "sizes": [
+   "0-3m",
+   "3-6m",
+   "6-12m",
+   "12-18m",
+   "2-3T",
+   "4",
+   "6",
+   "8",
+   "10",
+   "12"
+  ]
+ },
+ "facts": {
+  "identity": {
+   "value": {
+    "title": "Mini Star Stitch Cardigan",
+    "designer": "MJ's Off The Hook Designs Inc.",
+    "skill": "intermediate",
+    "pages": 17,
+    "licence_note": "the pattern's photographs, images and text may not be used to sell finished items; personal-use licence"
+   },
+   "page": 1,
+   "how": "cover, p2, p14"
+  },
+  "product_type": {
+   "value": "children's hooded cardigan, buttoned, star-stitch body, sc-blo ribbed bands and cuffs, worked flat in one piece bottom-up with sleeves built in",
+   "page": 2,
+   "how": "PROJECT DETAILS / CONSTRUCTION p4"
+  },
+  "sizes": {
+   "value": [
+    "0-3m",
+    "3-6m",
+    "6-12m",
+    "12-18m",
+    "2-3T",
+    "4",
+    "6",
+    "8",
+    "10",
+    "12"
+   ],
+   "page": 2,
+   "how": "Sizes Included: 0-3 (3-6, 6-12, 12-18, 2-3T, 4, 6, 8, 10, 12)"
+  },
+  "fit": {
+   "value": "oversized; sample shown with approx. 2 to 5 in of positive ease",
+   "page": 4,
+   "how": "Fit & Ease"
+  },
+  "yarn": {
+   "value": {
+    "line": "MJ's Off The Hook Designs Timeless Tones",
+    "weight": "DK #3",
+    "fibre": "100% premium acrylic",
+    "put_up": "273 yd / 100 g",
+    "shown_in": [
+     "Oat Milk",
+     "Toasted Almond"
+    ]
+   },
+   "page": 3,
+   "how": "YARN"
+  },
+  "hooks_mm": {
+   "value": {
+    "body": 5.5,
+    "bands_edging": 5.0
+   },
+   "page": 3,
+   "how": "HOOKS; p7 body with larger hook, bands with smaller"
+  },
+  "buttons": {
+   "value": {
+    "count": "4-6",
+    "size_mm": "18-20"
+   },
+   "page": 3,
+   "how": "SUPPLIES"
+  },
+  "gauge": {
+   "value": {
+    "body": {
+     "stitches_per_4in": 18.0,
+     "stars_per_4in": 9.0,
+     "rows_per_4in": 10.0,
+     "hook_mm": 5.5,
+     "in": "star stitch pattern"
+    },
+    "ribbing": {
+     "stitches_per_2in": 10.0,
+     "rows_per_2in": 10.0,
+     "hook_mm": 5.0,
+     "in": "sc blo"
+    }
+   },
+   "page": 3,
+   "how": "GAUGE (repeated p15)"
+  },
+  "size_chart_in": {
+   "value": {
+    "chest": [
+     16.0,
+     17.0,
+     18.0,
+     19.0,
+     21.0,
+     23.0,
+     25.0,
+     26.5,
+     28.0,
+     30.0
+    ],
+    "finished_chest": [
+     18.75,
+     20.5,
+     22.25,
+     24.0,
+     25.75,
+     27.5,
+     29.5,
+     31.25,
+     33.0,
+     34.75
+    ],
+    "balls": [
+     2,
+     2,
+     3,
+     3,
+     4,
+     4,
+     5,
+     6,
+     6,
+     7
+    ],
+    "yards": [
+     345,
+     460,
+     660,
+     745,
+     935,
+     1045,
+     1265,
+     1405,
+     1625,
+     1900
+    ],
+    "how_recovered": "ten (chest, finished, balls, yards) quadruples in the table text, assigned to sizes by ascending chest"
+   },
+   "page": 4,
+   "how": "SIZE CHART"
+  },
+  "schematic_in": {
+   "value": {
+    "back_width": [
+     9.5,
+     10.25,
+     11.25,
+     12.0,
+     13.0,
+     13.75,
+     14.75,
+     15.5,
+     16.5,
+     17.5
+    ],
+    "front_width": [
+     4.0,
+     4.5,
+     5.0,
+     5.5,
+     5.75,
+     6.25,
+     6.75,
+     7.25,
+     7.25,
+     7.5
+    ],
+    "underarm_to_hem": [
+     4.5,
+     5.25,
+     6.0,
+     6.75,
+     7.5,
+     8.5,
+     9.25,
+     10.0,
+     10.75,
+     11.75
+    ],
+    "hem_band": [
+     1.0,
+     1.0,
+     1.25,
+     1.25,
+     1.5,
+     1.5,
+     1.75,
+     1.75,
+     2.0,
+     2.0
+    ],
+    "sleeve_width": [
+     4.75,
+     6.5,
+     8.0,
+     8.0,
+     9.75,
+     9.75,
+     11.25,
+     11.25,
+     12.75,
+     14.5
+    ],
+    "sleeve_length": [
+     4.5,
+     5.0,
+     5.5,
+     5.75,
+     6.75,
+     7.5,
+     8.5,
+     9.5,
+     10.25,
+     11.25
+    ],
+    "cuff": [
+     1.0,
+     1.0,
+     1.25,
+     1.25,
+     1.5,
+     1.5,
+     1.75,
+     1.75,
+     2.0,
+     2.0
+    ],
+    "neck_opening": [
+     4.0,
+     4.0,
+     5.0,
+     5.0,
+     5.0,
+     5.75,
+     5.75,
+     5.75,
+     6.75,
+     6.75
+    ],
+    "hood_height": [
+     5.75,
+     6.5,
+     7.25,
+     8.0,
+     8.75,
+     9.75,
+     10.5,
+     11.25,
+     12.0,
+     12.75
+    ],
+    "hood_width": [
+     8.0,
+     9.0,
+     10.25,
+     11.25,
+     12.5,
+     13.5,
+     13.5,
+     14.25,
+     15.5,
+     16.5
+    ]
+   },
+   "page": 5,
+   "how": "SCHEMATIC (inches)"
+  },
+  "special_stitches": {
+   "value": {
+    "beg_star": "ch 3 counts as the turning chains; loops in 2nd ch, next ch and next 3 sts (6 loops), yo through all, ch 1 = eye; consumes 3 sts",
+    "star": "loops in the previous eye, the leg of its last loop, its base st, then the next 2 sts (6 loops), yo through all, ch 1; consumes 2 new sts",
+    "end_star": "as star but into the last st only (5 loops); consumes 1 st; its eye and its top are both worked into on the return",
+    "return_row": "ch 1, 1 hdc in the first eye, 2 hdc in each eye across, 1 hdc in the top of the last star",
+    "period": "two rows: a star row (RS) and an hdc return row (WS); stars = sts / 2"
+   },
+   "page": 6,
+   "how": "SPECIAL STITCHES; body rows 2-3 p7"
+  },
+  "back_band": {
+   "value": {
+    "foundation_ch": [
+     6.0,
+     6.0,
+     7.0,
+     7.0,
+     8.0,
+     8.0,
+     9.0,
+     9.0,
+     11.0,
+     11.0
+    ],
+    "stitches": [
+     5.0,
+     5.0,
+     6.0,
+     6.0,
+     7.0,
+     7.0,
+     8.0,
+     8.0,
+     10.0,
+     10.0
+    ],
+    "rows": [
+     38.0,
+     42.0,
+     46.0,
+     50.0,
+     54.0,
+     58.0,
+     62.0,
+     66.0,
+     70.0,
+     74.0
+    ],
+    "stitch": "sc blo every row (ribbing), 5 mm hook"
+   },
+   "page": 7,
+   "how": "Back Band rows 1-3+"
+  },
+  "body_back": {
+   "value": {
+    "setup_sts": [
+     38.0,
+     42.0,
+     46.0,
+     50.0,
+     54.0,
+     58.0,
+     62.0,
+     66.0,
+     70.0,
+     74.0
+    ],
+    "row1_sts": [
+     42.0,
+     46.0,
+     50.0,
+     54.0,
+     58.0,
+     62.0,
+     66.0,
+     70.0,
+     74.0,
+     78.0
+    ],
+    "stars": [
+     21.0,
+     23.0,
+     25.0,
+     27.0,
+     29.0,
+     31.0,
+     33.0,
+     35.0,
+     37.0,
+     39.0
+    ],
+    "return_sts": [
+     42.0,
+     46.0,
+     50.0,
+     54.0,
+     58.0,
+     62.0,
+     66.0,
+     70.0,
+     74.0,
+     78.0
+    ],
+    "last_row": [
+     11.0,
+     13.0,
+     15.0,
+     17.0,
+     19.0,
+     21.0,
+     23.0,
+     25.0,
+     27.0,
+     29.0
+    ],
+    "row1": "sc with 2 sc in the first 2 and last 2 sts (+4)",
+    "then": "rows 2-3 star/return, repeated"
+   },
+   "page": 7,
+   "how": "Body Setup Row, Rows 1-3, Rows 4-N"
+  },
+  "sleeves_built_in": {
+   "value": {
+    "left_chain": [
+     20.0,
+     22.0,
+     24.0,
+     26.0,
+     30.0,
+     34.0,
+     38.0,
+     42.0,
+     46.0,
+     50.0
+    ],
+    "right_chain": [
+     23.0,
+     25.0,
+     27.0,
+     29.0,
+     33.0,
+     37.0,
+     41.0,
+     45.0,
+     49.0,
+     53.0
+    ],
+    "stars": [
+     41.0,
+     45.0,
+     49.0,
+     53.0,
+     59.0,
+     65.0,
+     71.0,
+     77.0,
+     83.0,
+     89.0
+    ],
+    "return_sts": [
+     82.0,
+     90.0,
+     98.0,
+     106.0,
+     118.0,
+     130.0,
+     142.0,
+     154.0,
+     166.0,
+     178.0
+    ],
+    "last_row_before_neck": [
+     6.0,
+     8.0,
+     10.0,
+     10.0,
+     12.0,
+     12.0,
+     14.0,
+     14.0,
+     16.0,
+     18.0
+    ],
+    "note": "the right sleeve chain is 3 more than the left: the first star's turning chains"
+   },
+   "page": 8,
+   "how": "Sleeves: Left Sleeve, Right Sleeve Rows 1-3, Rows 4-N"
+  },
+  "neck_opening": {
+   "value": {
+    "count_over": [
+     32.0,
+     36.0,
+     38.0,
+     42.0,
+     48.0,
+     52.0,
+     58.0,
+     64.0,
+     68.0,
+     74.0
+    ],
+    "opening_sts": [
+     18.0,
+     18.0,
+     22.0,
+     22.0,
+     22.0,
+     26.0,
+     26.0,
+     26.0,
+     30.0,
+     30.0
+    ]
+   },
+   "page": 8,
+   "how": "Mark Neck Opening"
+  },
+  "front_right": {
+   "value": {
+    "row1_stars": [
+     16.0,
+     18.0,
+     19.0,
+     21.0,
+     24.0,
+     26.0,
+     29.0,
+     32.0,
+     34.0,
+     37.0
+    ],
+    "row2_sts": [
+     34.0,
+     38.0,
+     40.0,
+     44.0,
+     50.0,
+     54.0,
+     60.0,
+     66.0,
+     70.0,
+     76.0
+    ],
+    "row3_stars": [
+     17.0,
+     19.0,
+     20.0,
+     22.0,
+     25.0,
+     27.0,
+     30.0,
+     33.0,
+     35.0,
+     38.0
+    ],
+    "rows_4_to": [
+     6.0,
+     6.0,
+     8.0,
+     8.0,
+     8.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0
+    ],
+    "ending_sts": [
+     38.0,
+     42.0,
+     46.0,
+     50.0,
+     56.0,
+     62.0,
+     68.0,
+     74.0,
+     78.0,
+     84.0
+    ],
+    "later_rows_from": [
+     null,
+     null,
+     9.0,
+     9.0,
+     9.0,
+     11.0,
+     11.0,
+     11.0,
+     11.0
+    ],
+    "later_rows_to": [
+     null,
+     null,
+     10.0,
+     10.0,
+     12.0,
+     12.0,
+     14.0,
+     16.0,
+     18.0
+    ],
+    "row2_shaping": "increase of 2 sts at the neck edge on each return row (front neck shaping)"
+   },
+   "page": 8,
+   "how": "Front Right rows 1-N; p9 later sizes"
+  },
+  "mark_sleeve": {
+   "value": {
+    "count_from_sleeve_edge": [
+     20.0,
+     22.0,
+     24.0,
+     26.0,
+     30.0,
+     34.0,
+     38.0,
+     42.0,
+     46.0,
+     50.0
+    ]
+   },
+   "page": 9,
+   "how": "Mark Sleeve"
+  },
+  "front_panels": {
+   "value": {
+    "stars": [
+     9.0,
+     10.0,
+     11.0,
+     12.0,
+     13.0,
+     14.0,
+     15.0,
+     16.0,
+     16.0,
+     17.0
+    ],
+    "sts": [
+     18.0,
+     20.0,
+     22.0,
+     24.0,
+     26.0,
+     28.0,
+     30.0,
+     32.0,
+     32.0,
+     34.0
+    ],
+    "rows_3_to": [
+     9.0,
+     11.0,
+     13.0,
+     15.0,
+     17.0,
+     19.0,
+     21.0,
+     23.0,
+     25.0,
+     27.0
+    ],
+    "final_sc_row": [
+     10.0,
+     12.0,
+     14.0,
+     16.0,
+     18.0,
+     20.0,
+     22.0,
+     24.0,
+     26.0,
+     28.0
+    ],
+    "band_rows_4_to": [
+     17.0,
+     19.0,
+     21.0,
+     23.0,
+     25.0,
+     27.0,
+     29.0,
+     31.0,
+     31.0,
+     33.0
+    ],
+    "band_stitches": [
+     5.0,
+     5.0,
+     6.0,
+     6.0,
+     7.0,
+     7.0,
+     8.0,
+     8.0,
+     10.0,
+     10.0
+    ],
+    "band": "sc blo ribbing joined as you go along the front's bottom edge, 2 body sts per 2 band rows"
+   },
+   "page": 9,
+   "how": "Front Right Panel, Band; Front Left mirrors (p10)"
+  },
+  "hood": {
+   "value": {
+    "join_row_down": [
+     2.0,
+     3.0,
+     3.0,
+     4.0,
+     5.0,
+     5.0,
+     5.0,
+     6.0,
+     6.0,
+     7.0
+    ],
+    "row1_sts": [
+     26.0,
+     30.0,
+     34.0,
+     38.0,
+     42.0,
+     46.0,
+     46.0,
+     50.0,
+     54.0,
+     58.0
+    ],
+    "row2_sts": [
+     32.0,
+     36.0,
+     42.0,
+     46.0,
+     52.0,
+     56.0,
+     56.0,
+     60.0,
+     66.0,
+     70.0
+    ],
+    "row3_stars": [
+     16.0,
+     18.0,
+     21.0,
+     23.0,
+     26.0,
+     28.0,
+     28.0,
+     30.0,
+     33.0,
+     35.0
+    ],
+    "row4_sts": [
+     36.0,
+     40.0,
+     46.0,
+     50.0,
+     56.0,
+     60.0,
+     60.0,
+     64.0,
+     70.0,
+     74.0
+    ],
+    "row5_stars": [
+     18.0,
+     20.0,
+     23.0,
+     25.0,
+     28.0,
+     30.0,
+     30.0,
+     32.0,
+     35.0,
+     37.0
+    ],
+    "rows_7_to": [
+     11.0,
+     13.0,
+     15.0,
+     17.0,
+     19.0,
+     21.0,
+     23.0,
+     25.0,
+     27.0,
+     29.0
+    ],
+    "shaping": "3 further rows: decrease (1 hdc instead of 2 in each of the 2 centre eyes), star row, decrease; each decrease removes one star",
+    "seam": "fold in half, whip stitch across the top",
+    "optional": true
+   },
+   "page": 10,
+   "how": "Hood (Optional) p10-11, Hood Shaping, Hood Seam"
+  },
+  "seams": {
+   "value": [
+    "hood: fold, whip stitch across the top",
+    "sleeve and side seams: fold RS facing, sew cuff to underarm and down the side"
+   ],
+   "page": 11,
+   "how": "Hood Seam; Sleeve and Side Seams"
+  },
+  "edging": {
+   "value": "sc evenly up the right front (3 sc per 2 rows), across the band sts, around the hood edge, down the left front; 5 mm hook",
+   "page": 11,
+   "how": "Edging p11-12"
+  },
+  "buttonholes": {
+   "value": {
+    "count": "4-6, evenly spaced along the right front edge",
+    "where": "in the centre of the collar band width at each marker",
+    "small": "ch 1, skip 1",
+    "large": "ch 2, skip 2"
+   },
+   "page": 12,
+   "how": "Mark Buttonholes, Buttonhole Row"
+  },
+  "collar_band": {
+   "value": {
+    "stitches": [
+     5.0,
+     5.0,
+     6.0,
+     6.0,
+     7.0,
+     7.0,
+     8.0,
+     8.0,
+     10.0,
+     10.0
+    ],
+    "how": "sc blo ribbing joined as you go along the whole front/hood edge from the bottom of the right front to the bottom of the left front; buttons sewn on the left collar edge"
+   },
+   "page": 12,
+   "how": "Collar"
+  },
+  "cuff": {
+   "value": {
+    "round1_sts": [
+     18.0,
+     18.0,
+     20.0,
+     22.0,
+     24.0,
+     26.0,
+     28.0,
+     30.0,
+     32.0,
+     36.0
+    ],
+    "how": "sc round, then sc-blo ribbing joined as you go; first and last ribbing rows seamed"
+   },
+   "page": 12,
+   "how": "Cuff"
+  }
+ },
+ "derived": {
+  "per_size": [
+   {
+    "size": "0-3m",
+    "back_sts": 42.0,
+    "back_stars": 21.0,
+    "body_rows": 11.0,
+    "sleeve_chain": 20.0,
+    "yoke_sts": 82.0,
+    "yoke_stars": 41.0,
+    "sleeve_rows_before_neck": 6.0,
+    "neck_sts": 18.0,
+    "neck_side_count": 32.0,
+    "front_right_final_sts": 38.0,
+    "front_panel_sts": 18.0,
+    "front_panel_stars": 9.0,
+    "front_panel_rows": 10.0,
+    "band_sts": 5.0,
+    "band_rows": 38.0,
+    "front_band_rows": 17.0,
+    "hood_join_row_down": 2.0,
+    "hood_row1_sts": 26.0,
+    "hood_width_sts": 36.0,
+    "hood_rows": 14.0,
+    "cuff_sts": 18.0,
+    "collar_sts": 5.0,
+    "sleeve_rows_after_neck_stated": 6.0,
+    "sleeve_rows_total_from_width": 12,
+    "sleeve_rows_after_neck_derived": 6.0,
+    "cm": {
+     "back_width": 23.7,
+     "front_width": 10.2,
+     "underarm_to_hem": 11.2,
+     "hem_band": 2.5,
+     "sleeve_width": 12.2,
+     "sleeve_length": 11.3,
+     "cuff": 2.5,
+     "neck_opening": 10.2,
+     "hood_width": 20.3,
+     "hood_height": 14.2,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 46.3
+    },
+    "stated_in": {
+     "back_width": 9.5,
+     "front_width": 4.0,
+     "underarm_to_hem": 4.5,
+     "hem_band": 1.0,
+     "sleeve_width": 4.75,
+     "sleeve_length": 4.5,
+     "cuff": 1.0,
+     "neck_opening": 4.0,
+     "hood_height": 5.75,
+     "hood_width": 8.0
+    },
+    "finished_chest_in": 18.75,
+    "yards": 345
+   },
+   {
+    "size": "3-6m",
+    "back_sts": 46.0,
+    "back_stars": 23.0,
+    "body_rows": 13.0,
+    "sleeve_chain": 22.0,
+    "yoke_sts": 90.0,
+    "yoke_stars": 45.0,
+    "sleeve_rows_before_neck": 8.0,
+    "neck_sts": 18.0,
+    "neck_side_count": 36.0,
+    "front_right_final_sts": 42.0,
+    "front_panel_sts": 20.0,
+    "front_panel_stars": 10.0,
+    "front_panel_rows": 12.0,
+    "band_sts": 5.0,
+    "band_rows": 42.0,
+    "front_band_rows": 19.0,
+    "hood_join_row_down": 3.0,
+    "hood_row1_sts": 30.0,
+    "hood_width_sts": 40.0,
+    "hood_rows": 16.0,
+    "cuff_sts": 18.0,
+    "collar_sts": 5.0,
+    "sleeve_rows_after_neck_stated": 6.0,
+    "sleeve_rows_total_from_width": 16,
+    "sleeve_rows_after_neck_derived": 8.0,
+    "cm": {
+     "back_width": 26.0,
+     "front_width": 11.3,
+     "underarm_to_hem": 13.2,
+     "hem_band": 2.5,
+     "sleeve_width": 16.3,
+     "sleeve_length": 12.4,
+     "cuff": 2.5,
+     "neck_opening": 10.2,
+     "hood_width": 22.6,
+     "hood_height": 16.3,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 50.8
+    },
+    "stated_in": {
+     "back_width": 10.25,
+     "front_width": 4.5,
+     "underarm_to_hem": 5.25,
+     "hem_band": 1.0,
+     "sleeve_width": 6.5,
+     "sleeve_length": 5.0,
+     "cuff": 1.0,
+     "neck_opening": 4.0,
+     "hood_height": 6.5,
+     "hood_width": 9.0
+    },
+    "finished_chest_in": 20.5,
+    "yards": 460
+   },
+   {
+    "size": "6-12m",
+    "back_sts": 50.0,
+    "back_stars": 25.0,
+    "body_rows": 15.0,
+    "sleeve_chain": 24.0,
+    "yoke_sts": 98.0,
+    "yoke_stars": 49.0,
+    "sleeve_rows_before_neck": 10.0,
+    "neck_sts": 22.0,
+    "neck_side_count": 38.0,
+    "front_right_final_sts": 46.0,
+    "front_panel_sts": 22.0,
+    "front_panel_stars": 11.0,
+    "front_panel_rows": 14.0,
+    "band_sts": 6.0,
+    "band_rows": 46.0,
+    "front_band_rows": 21.0,
+    "hood_join_row_down": 3.0,
+    "hood_row1_sts": 34.0,
+    "hood_width_sts": 46.0,
+    "hood_rows": 18.0,
+    "cuff_sts": 20.0,
+    "collar_sts": 6.0,
+    "sleeve_rows_after_neck_stated": null,
+    "sleeve_rows_total_from_width": 20,
+    "sleeve_rows_after_neck_derived": 10.0,
+    "cm": {
+     "back_width": 28.2,
+     "front_width": 12.4,
+     "underarm_to_hem": 15.2,
+     "hem_band": 3.0,
+     "sleeve_width": 20.3,
+     "sleeve_length": 13.5,
+     "cuff": 3.0,
+     "neck_opening": 12.4,
+     "hood_width": 26.0,
+     "hood_height": 18.3,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 55.3
+    },
+    "stated_in": {
+     "back_width": 11.25,
+     "front_width": 5.0,
+     "underarm_to_hem": 6.0,
+     "hem_band": 1.25,
+     "sleeve_width": 8.0,
+     "sleeve_length": 5.5,
+     "cuff": 1.25,
+     "neck_opening": 5.0,
+     "hood_height": 7.25,
+     "hood_width": 10.25
+    },
+    "finished_chest_in": 22.25,
+    "yards": 660
+   },
+   {
+    "size": "12-18m",
+    "back_sts": 54.0,
+    "back_stars": 27.0,
+    "body_rows": 17.0,
+    "sleeve_chain": 26.0,
+    "yoke_sts": 106.0,
+    "yoke_stars": 53.0,
+    "sleeve_rows_before_neck": 10.0,
+    "neck_sts": 22.0,
+    "neck_side_count": 42.0,
+    "front_right_final_sts": 50.0,
+    "front_panel_sts": 24.0,
+    "front_panel_stars": 12.0,
+    "front_panel_rows": 16.0,
+    "band_sts": 6.0,
+    "band_rows": 50.0,
+    "front_band_rows": 23.0,
+    "hood_join_row_down": 4.0,
+    "hood_row1_sts": 38.0,
+    "hood_width_sts": 50.0,
+    "hood_rows": 20.0,
+    "cuff_sts": 22.0,
+    "collar_sts": 6.0,
+    "sleeve_rows_after_neck_stated": 10.0,
+    "sleeve_rows_total_from_width": 20,
+    "sleeve_rows_after_neck_derived": 10.0,
+    "cm": {
+     "back_width": 30.5,
+     "front_width": 13.5,
+     "underarm_to_hem": 17.3,
+     "hem_band": 3.0,
+     "sleeve_width": 20.3,
+     "sleeve_length": 14.7,
+     "cuff": 3.0,
+     "neck_opening": 12.4,
+     "hood_width": 28.2,
+     "hood_height": 20.3,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 59.8
+    },
+    "stated_in": {
+     "back_width": 12.0,
+     "front_width": 5.5,
+     "underarm_to_hem": 6.75,
+     "hem_band": 1.25,
+     "sleeve_width": 8.0,
+     "sleeve_length": 5.75,
+     "cuff": 1.25,
+     "neck_opening": 5.0,
+     "hood_height": 8.0,
+     "hood_width": 11.25
+    },
+    "finished_chest_in": 24.0,
+    "yards": 745
+   },
+   {
+    "size": "2-3T",
+    "back_sts": 58.0,
+    "back_stars": 29.0,
+    "body_rows": 19.0,
+    "sleeve_chain": 30.0,
+    "yoke_sts": 118.0,
+    "yoke_stars": 59.0,
+    "sleeve_rows_before_neck": 12.0,
+    "neck_sts": 22.0,
+    "neck_side_count": 48.0,
+    "front_right_final_sts": 56.0,
+    "front_panel_sts": 26.0,
+    "front_panel_stars": 13.0,
+    "front_panel_rows": 18.0,
+    "band_sts": 7.0,
+    "band_rows": 54.0,
+    "front_band_rows": 25.0,
+    "hood_join_row_down": 5.0,
+    "hood_row1_sts": 42.0,
+    "hood_width_sts": 56.0,
+    "hood_rows": 22.0,
+    "cuff_sts": 24.0,
+    "collar_sts": 7.0,
+    "sleeve_rows_after_neck_stated": 10.0,
+    "sleeve_rows_total_from_width": 24,
+    "sleeve_rows_after_neck_derived": 12.0,
+    "cm": {
+     "back_width": 32.7,
+     "front_width": 14.7,
+     "underarm_to_hem": 19.3,
+     "hem_band": 3.6,
+     "sleeve_width": 24.4,
+     "sleeve_length": 16.9,
+     "cuff": 3.6,
+     "neck_opening": 12.4,
+     "hood_width": 31.6,
+     "hood_height": 22.4,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 66.6
+    },
+    "stated_in": {
+     "back_width": 13.0,
+     "front_width": 5.75,
+     "underarm_to_hem": 7.5,
+     "hem_band": 1.5,
+     "sleeve_width": 9.75,
+     "sleeve_length": 6.75,
+     "cuff": 1.5,
+     "neck_opening": 5.0,
+     "hood_height": 8.75,
+     "hood_width": 12.5
+    },
+    "finished_chest_in": 25.75,
+    "yards": 935
+   },
+   {
+    "size": "4",
+    "back_sts": 62.0,
+    "back_stars": 31.0,
+    "body_rows": 21.0,
+    "sleeve_chain": 34.0,
+    "yoke_sts": 130.0,
+    "yoke_stars": 65.0,
+    "sleeve_rows_before_neck": 12.0,
+    "neck_sts": 26.0,
+    "neck_side_count": 52.0,
+    "front_right_final_sts": 62.0,
+    "front_panel_sts": 28.0,
+    "front_panel_stars": 14.0,
+    "front_panel_rows": 20.0,
+    "band_sts": 7.0,
+    "band_rows": 58.0,
+    "front_band_rows": 27.0,
+    "hood_join_row_down": 5.0,
+    "hood_row1_sts": 46.0,
+    "hood_width_sts": 60.0,
+    "hood_rows": 24.0,
+    "cuff_sts": 26.0,
+    "collar_sts": 7.0,
+    "sleeve_rows_after_neck_stated": 12.0,
+    "sleeve_rows_total_from_width": 24,
+    "sleeve_rows_after_neck_derived": 12.0,
+    "cm": {
+     "back_width": 35.0,
+     "front_width": 15.8,
+     "underarm_to_hem": 21.3,
+     "hem_band": 3.6,
+     "sleeve_width": 24.4,
+     "sleeve_length": 19.2,
+     "cuff": 3.6,
+     "neck_opening": 14.7,
+     "hood_width": 33.9,
+     "hood_height": 24.4,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 73.4
+    },
+    "stated_in": {
+     "back_width": 13.75,
+     "front_width": 6.25,
+     "underarm_to_hem": 8.5,
+     "hem_band": 1.5,
+     "sleeve_width": 9.75,
+     "sleeve_length": 7.5,
+     "cuff": 1.5,
+     "neck_opening": 5.75,
+     "hood_height": 9.75,
+     "hood_width": 13.5
+    },
+    "finished_chest_in": 27.5,
+    "yards": 1045
+   },
+   {
+    "size": "6",
+    "back_sts": 66.0,
+    "back_stars": 33.0,
+    "body_rows": 23.0,
+    "sleeve_chain": 38.0,
+    "yoke_sts": 142.0,
+    "yoke_stars": 71.0,
+    "sleeve_rows_before_neck": 14.0,
+    "neck_sts": 26.0,
+    "neck_side_count": 58.0,
+    "front_right_final_sts": 68.0,
+    "front_panel_sts": 30.0,
+    "front_panel_stars": 15.0,
+    "front_panel_rows": 22.0,
+    "band_sts": 8.0,
+    "band_rows": 62.0,
+    "front_band_rows": 29.0,
+    "hood_join_row_down": 5.0,
+    "hood_row1_sts": 46.0,
+    "hood_width_sts": 60.0,
+    "hood_rows": 26.0,
+    "cuff_sts": 28.0,
+    "collar_sts": 8.0,
+    "sleeve_rows_after_neck_stated": 12.0,
+    "sleeve_rows_total_from_width": 28,
+    "sleeve_rows_after_neck_derived": 14.0,
+    "cm": {
+     "back_width": 37.3,
+     "front_width": 16.9,
+     "underarm_to_hem": 23.4,
+     "hem_band": 4.1,
+     "sleeve_width": 28.4,
+     "sleeve_length": 21.4,
+     "cuff": 4.1,
+     "neck_opening": 14.7,
+     "hood_width": 33.9,
+     "hood_height": 26.4,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 80.2
+    },
+    "stated_in": {
+     "back_width": 14.75,
+     "front_width": 6.75,
+     "underarm_to_hem": 9.25,
+     "hem_band": 1.75,
+     "sleeve_width": 11.25,
+     "sleeve_length": 8.5,
+     "cuff": 1.75,
+     "neck_opening": 5.75,
+     "hood_height": 10.5,
+     "hood_width": 13.5
+    },
+    "finished_chest_in": 29.5,
+    "yards": 1265
+   },
+   {
+    "size": "8",
+    "back_sts": 70.0,
+    "back_stars": 35.0,
+    "body_rows": 25.0,
+    "sleeve_chain": 42.0,
+    "yoke_sts": 154.0,
+    "yoke_stars": 77.0,
+    "sleeve_rows_before_neck": 14.0,
+    "neck_sts": 26.0,
+    "neck_side_count": 64.0,
+    "front_right_final_sts": 74.0,
+    "front_panel_sts": 32.0,
+    "front_panel_stars": 16.0,
+    "front_panel_rows": 24.0,
+    "band_sts": 8.0,
+    "band_rows": 66.0,
+    "front_band_rows": 31.0,
+    "hood_join_row_down": 6.0,
+    "hood_row1_sts": 50.0,
+    "hood_width_sts": 64.0,
+    "hood_rows": 28.0,
+    "cuff_sts": 30.0,
+    "collar_sts": 8.0,
+    "sleeve_rows_after_neck_stated": 14.0,
+    "sleeve_rows_total_from_width": 28,
+    "sleeve_rows_after_neck_derived": 14.0,
+    "cm": {
+     "back_width": 39.5,
+     "front_width": 18.1,
+     "underarm_to_hem": 25.4,
+     "hem_band": 4.1,
+     "sleeve_width": 28.4,
+     "sleeve_length": 23.7,
+     "cuff": 4.1,
+     "neck_opening": 14.7,
+     "hood_width": 36.1,
+     "hood_height": 28.4,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 86.9
+    },
+    "stated_in": {
+     "back_width": 15.5,
+     "front_width": 7.25,
+     "underarm_to_hem": 10.0,
+     "hem_band": 1.75,
+     "sleeve_width": 11.25,
+     "sleeve_length": 9.5,
+     "cuff": 1.75,
+     "neck_opening": 5.75,
+     "hood_height": 11.25,
+     "hood_width": 14.25
+    },
+    "finished_chest_in": 31.25,
+    "yards": 1405
+   },
+   {
+    "size": "10",
+    "back_sts": 74.0,
+    "back_stars": 37.0,
+    "body_rows": 27.0,
+    "sleeve_chain": 46.0,
+    "yoke_sts": 166.0,
+    "yoke_stars": 83.0,
+    "sleeve_rows_before_neck": 16.0,
+    "neck_sts": 30.0,
+    "neck_side_count": 68.0,
+    "front_right_final_sts": 78.0,
+    "front_panel_sts": 32.0,
+    "front_panel_stars": 16.0,
+    "front_panel_rows": 26.0,
+    "band_sts": 10.0,
+    "band_rows": 70.0,
+    "front_band_rows": 31.0,
+    "hood_join_row_down": 6.0,
+    "hood_row1_sts": 54.0,
+    "hood_width_sts": 70.0,
+    "hood_rows": 30.0,
+    "cuff_sts": 32.0,
+    "collar_sts": 10.0,
+    "sleeve_rows_after_neck_stated": 16.0,
+    "sleeve_rows_total_from_width": 32,
+    "sleeve_rows_after_neck_derived": 16.0,
+    "cm": {
+     "back_width": 41.8,
+     "front_width": 18.1,
+     "underarm_to_hem": 27.4,
+     "hem_band": 5.1,
+     "sleeve_width": 32.5,
+     "sleeve_length": 26.0,
+     "cuff": 5.1,
+     "neck_opening": 16.9,
+     "hood_width": 39.5,
+     "hood_height": 30.5,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 93.7
+    },
+    "stated_in": {
+     "back_width": 16.5,
+     "front_width": 7.25,
+     "underarm_to_hem": 10.75,
+     "hem_band": 2.0,
+     "sleeve_width": 12.75,
+     "sleeve_length": 10.25,
+     "cuff": 2.0,
+     "neck_opening": 6.75,
+     "hood_height": 12.0,
+     "hood_width": 15.5
+    },
+    "finished_chest_in": 33.0,
+    "yards": 1625
+   },
+   {
+    "size": "12",
+    "back_sts": 78.0,
+    "back_stars": 39.0,
+    "body_rows": 29.0,
+    "sleeve_chain": 50.0,
+    "yoke_sts": 178.0,
+    "yoke_stars": 89.0,
+    "sleeve_rows_before_neck": 18.0,
+    "neck_sts": 30.0,
+    "neck_side_count": 74.0,
+    "front_right_final_sts": 84.0,
+    "front_panel_sts": 34.0,
+    "front_panel_stars": 17.0,
+    "front_panel_rows": 28.0,
+    "band_sts": 10.0,
+    "band_rows": 74.0,
+    "front_band_rows": 33.0,
+    "hood_join_row_down": 7.0,
+    "hood_row1_sts": 58.0,
+    "hood_width_sts": 74.0,
+    "hood_rows": 32.0,
+    "cuff_sts": 36.0,
+    "collar_sts": 10.0,
+    "sleeve_rows_after_neck_stated": 18.0,
+    "sleeve_rows_total_from_width": 36,
+    "sleeve_rows_after_neck_derived": 18.0,
+    "cm": {
+     "back_width": 44.0,
+     "front_width": 19.2,
+     "underarm_to_hem": 29.5,
+     "hem_band": 5.1,
+     "sleeve_width": 36.6,
+     "sleeve_length": 28.2,
+     "cuff": 5.1,
+     "neck_opening": 16.9,
+     "hood_width": 41.8,
+     "hood_height": 32.5,
+     "star_pitch": 1.13,
+     "row_pair_pitch": 2.03,
+     "wingspan": 100.5
+    },
+    "stated_in": {
+     "back_width": 17.5,
+     "front_width": 7.5,
+     "underarm_to_hem": 11.75,
+     "hem_band": 2.0,
+     "sleeve_width": 14.5,
+     "sleeve_length": 11.25,
+     "cuff": 2.0,
+     "neck_opening": 6.75,
+     "hood_height": 12.75,
+     "hood_width": 16.5
+    },
+    "finished_chest_in": 34.75,
+    "yards": 1900
+   }
+  ],
+  "checks": [
+   {
+    "check": "stars = sts / 2 on the back",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": "row 2 stars vs row 1 sts"
+   },
+   {
+    "check": "body row 1 = setup + 4",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": "2 sc in the first 2 and last 2 sts"
+   },
+   {
+    "check": "back band rows = body setup sts (1 sc per band row)",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "back band foundation = sts + 1",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "yoke sts = 2 x sleeve chain + back sts",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "right sleeve chain = left chain + 3",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": "the first star's turning chains"
+   },
+   {
+    "check": "yoke stars = yoke sts / 2",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "neck: 2 x side count + opening = yoke sts",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "front right row 1 stars = side count / 2",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "front right row 2 = side count + 2 (neck shaping)",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "front right ends with sleeve chain + front panel sts",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "mark sleeve = sleeve chain",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "front panel stars = sts / 2",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "hood row 1 = neck sts + 4 x join row (2 sc per row, both fronts)",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "hood row 3 stars = row 2 sts / 2",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "hood row 4 = row 2 + 4",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "stated back width within 6 % of sts x gauge",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "stated front width within 6 % of sts x gauge",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "stated underarm-to-hem within 6 % of body rows x gauge",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "stated hem band within a quarter inch of band sts x ribbing gauge (the schematic rounds to 1/4 in)",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": "7 sts x 0.2 in = 1.4 vs stated 1.5; 8 sts = 1.6 vs 1.75: rounding, recorded"
+   },
+   {
+    "check": "stated sleeve length within 6 % of sleeve chain x gauge",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "stated hood width within 6 % of hood sts x gauge",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "stated hood height within 6 % of (hood rows + 3 shaping rows) x gauge",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": ""
+   },
+   {
+    "check": "stated neck opening within 12 % of neck sts x gauge",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": "the schematic rounds the neck to the quarter inch"
+   },
+   {
+    "check": "sleeve rows before the neck = half the rows the stated sleeve width implies",
+    "status": "PASS",
+    "per_size": [
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true,
+     true
+    ],
+    "detail": "the sleeve is folded: half its width is worked before the neck marker, half after"
+   }
+  ],
+  "ambiguities": [
+   {
+    "where": "p9-10 'Rows - (-, 9, 9, 9, 11, 11, 11, 11) to row - (-, 10, 10, 12, 12, 14, 16, 18)'",
+    "what": "the later-size row-range line lists nine entries for ten sizes; read literally it ends size 10 at row 18 and gives size 12 nothing",
+    "consistent_reading": "the sleeve rows after the neck must equal the rows before it ([6.0, 8.0, 10.0, 10.0, 12.0, 12.0, 14.0, 14.0, 16.0, 18.0]); the line is one value short (size 8 = 14 was dropped), so sizes 6-12m..12 end at rows [10.0, 10.0, 12.0, 12.0, 14.0, 14.0, 16.0, 18.0]",
+    "stated_literal": [
+     6.0,
+     6.0,
+     null,
+     10.0,
+     10.0,
+     12.0,
+     12.0,
+     14.0,
+     16.0,
+     18.0
+    ],
+    "used": [
+     6.0,
+     8.0,
+     10.0,
+     10.0,
+     12.0,
+     12.0,
+     14.0,
+     14.0,
+     16.0,
+     18.0
+    ],
+    "material": "row count only; the finished sleeve width is stated on the schematic and used"
+   },
+   {
+    "where": "p11 Hood Shaping 'Work the final 3 rows as follows'",
+    "what": "whether the 3 shaping rows replace the last 3 pattern rows or follow them",
+    "consistent_reading": "they follow them: hood height = (rows 7-N + 3) x row gauge matches the schematic within 6 % on all ten sizes; replacing would miss by 3 rows",
+    "used": "additional"
+   },
+   {
+    "where": "p12 buttons",
+    "what": "4-6 buttons 'depending on size and preference'; placement by markers",
+    "used": "5 buttons, evenly spaced on the right collar band, for the benchmark size (declared)"
+   },
+   {
+    "where": "colour",
+    "what": "yarn shown in Oat Milk and Toasted Almond; the gallery also shows a dusty pink; no RGB in the text",
+    "used": "Oat Milk (a warm cream), RGB sampled from the designer's photograph of it, declared"
+   }
+  ],
+  "units": {
+   "stitch_in": 0.2222,
+   "row_in": 0.4,
+   "star_in": 0.4444,
+   "rib_stitch_in": 0.2,
+   "rib_row_in": 0.2
+  }
+ },
+ "cir_for_size": {
+  "size": "2-3T",
+  "fingerprint": "962acf0ad919",
+  "components": [
+   "back_band",
+   "back_body",
+   "yoke_with_sleeves",
+   "front_with_sleeve",
+   "front_panel",
+   "hood",
+   "collar_band",
+   "cuff"
+  ],
+  "compile": {
+   "ok": true,
+   "errors": []
+  }
+ }
+}

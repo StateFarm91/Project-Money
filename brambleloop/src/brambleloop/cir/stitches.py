@@ -59,6 +59,7 @@ UK_TERMS: dict[str, str] = {
     # because "absent from the table" and "identical in both" are different facts and only
     # one of them is safe to print.
     "bob": "bob", "cable2x2": "cable2x2", "cable1x1": "cable1x1",
+    "beg_star": "beg star", "star": "star st", "end_star": "end star", "hdc_inc": "htr inc", "hdc3": "3 htr in next st",
 }
 
 
@@ -137,6 +138,26 @@ CABLE_2X2 = _register(Stitch("cable2x2", "2-over-2 cable crossing", "2-over-2 ca
                              consumes=4, produces=4, height=3.0, row_height=2.0))
 CABLE_1X1 = _register(Stitch("cable1x1", "1-over-1 cable crossing", "1-over-1 cable crossing",
                              consumes=2, produces=2, height=3.0, row_height=2.0))
+
+# The star-stitch family (added 2026-09-26 for commercial benchmark 2, a purchased children's
+# cardigan whose body fabric is star stitch). A star row is worked as a beginning star, a run
+# of stars and an end star; each star closes six loops into one "eye" (a chain), and the return
+# row works two half doubles into every eye. Modelled by what each op consumes from the row
+# below and produces for the row above, which is the only arithmetic the compiler checks:
+#   beg_star  consumes 3 (the sts under the first five loops after the turning chains), makes 1 eye
+#   star      consumes 2 (the eye, leg and base are re-used anchors, then two new sts), makes 1 eye
+#   end_star  consumes 1 (the last st), makes 2 anchors: its eye and its top
+#   hdc_inc   consumes 1 eye, produces 2 (the return row's "2 hdc in each eye")
+# so 42 sts -> beg + 19 stars + end = 21 stars producing 22 anchors -> hdc, 20 hdc_inc, hdc = 42.
+# `height` is the star row's height in sc units (a star row sits between sc and hdc).
+BEG_STAR = _register(Stitch("beg_star", "beginning star stitch", "beginning star stitch", consumes=3, produces=1, height=1.5, row_height=1.4))
+STAR = _register(Stitch("star", "star stitch", "star stitch", consumes=2, produces=1, height=1.5, row_height=1.4))
+END_STAR = _register(Stitch("end_star", "end star stitch", "end star stitch", consumes=1, produces=2, height=1.5, row_height=1.4))
+HDC_INC = _register(Stitch("hdc_inc", "half double crochet increase", "half treble crochet increase", consumes=1, produces=2, height=2.0, row_height=1.5))
+# Three half doubles worked into one anchor: the star-stitch pattern's neck and hood shaping
+# works one hdc into a star's eye and one into its top and two into the next eye -- five
+# stitches from two stars, which the eye-per-star model counts as a 3-into-1 at the edge.
+HDC_INC3 = _register(Stitch("hdc3", "three half double crochet in one stitch", "three half treble crochet in one stitch", consumes=1, produces=3, height=2.0, row_height=1.5))
 
 
 def get(code: str) -> Stitch:
