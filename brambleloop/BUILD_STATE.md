@@ -399,7 +399,7 @@ isolated branch, `fcb982d` untouched:
   without new physical input would be prettier pictures chasing a score, so it was not made
   (D-W6-13). `twin.calibrated` stays False.
 - Suites: test_drape 157/0, test_render 15/0 (strand continuity added), test_milestone_d 21/0
-  (judge reading and decision rule, offline). Full suite: FULL_FINAL_PLACEHOLDER.
+  (judge reading and decision rule, offline). Full suite: **4,247 passing, 1 suite failing** -- the same pre-existing, date-dependent spender check that reproduces on untouched `fcb982d`; nothing else, read from the run's own TOTAL PASSING line.
 - Not done, per the brief: no purchased-pattern generation, no GPT Image work, no Etsy imagery,
   no merge, no deploy.
 

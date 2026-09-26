@@ -318,3 +318,5 @@ Judge cost US$0.0433 (hdc 0.0217, sc 0.0216); records `judge_<kind>_presentation
 That is the blocker the brief asked to be proved rather than assumed: three judge rounds, five stable failures, each closable only by calibration data that does not exist or by a model this milestone may not invent. Nothing was tuned toward a threshold; no bar moved; the judge was never shown the standard as a checklist.
 
 **Total additional external-provider spend for the close-out: US$0.1423** (six judge calls of gpt-5-2025-08-07 across three rounds: 0.0552 + 0.0438 + 0.0433). No image-generation call. No ledger row exists for it in production because this session holds no database; every call's tokens, response id and list-price cost are in the `judge_*.json` records.
+
+**Full suite at close-out (commit ed3f1d7 code): **4,247 passing, 1 suite failing** -- the same pre-existing, date-dependent spender check that reproduces on untouched `fcb982d`; nothing else, read from the run's own TOTAL PASSING line.**
