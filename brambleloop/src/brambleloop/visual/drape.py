@@ -810,7 +810,7 @@ def worst_third_loop_margin(fab: topo.Fabric) -> float:
     Returns -1e9 for a fabric with no frameable stitch, which is the same convention the
     suite's copy used: no measurable stitch is not a measured failure.
     """
-    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    hdc = [o for o in fab.ops if topo.is_stitch(o)]
     by = {(o.row, o.position): o for o in hdc}
     rws = sorted({r for r, _ in by})
     worst = -1e9
@@ -830,6 +830,8 @@ def worst_third_loop_margin(fab: topo.Fabric) -> float:
             u, t = -u, -t
         m = ss.shape_margins(o, fab.L, fab.H, fab.D, (a, u, t))
         if m:
+            if "third_loop_below_v_mm" not in m:
+                continue            # a single crochet has no third loop to have a margin on
             worst = max(worst, m["third_loop_below_v_mm"])
     return worst
 
@@ -1676,7 +1678,7 @@ def intrinsic_dimensions(fab: topo.Fabric, rows: int, cols: int) -> dict:
     surface. Projected extent is reported too, clearly labelled, because it is what a camera
     sees and it is a legitimate thing to know -- just not the product's dimensions.
     """
-    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    hdc = [o for o in fab.ops if topo.is_stitch(o)]
     by = {(o.row, o.position): o.points.mean(axis=0) for o in hdc}
     rs = sorted({r for r, _ in by})
     ps = sorted({p for _, p in by})
@@ -1721,9 +1723,9 @@ def relief_profile(flat: topo.Fabric, draped: topo.Fabric,
     d = np.asarray(down, dtype=float)
     d = d / np.linalg.norm(d)
     a = {(o.row, o.position): o.points.mean(axis=0)
-         for o in flat.ops if o.kind == "hdc"}
+         for o in flat.ops if topo.is_stitch(o)}
     b = {(o.row, o.position): o.points.mean(axis=0)
-         for o in draped.ops if o.kind == "hdc"}
+         for o in draped.ops if topo.is_stitch(o)}
     keys = sorted(set(a) & set(b))
     if len(keys) < 4:
         return {"stitches": len(keys), "within_row_fraction": 0.0,

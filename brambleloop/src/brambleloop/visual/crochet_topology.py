@@ -225,11 +225,38 @@ def _away_vector(fab, down=None) -> np.ndarray:
 _NEIGHBOURHOOD = tuple((i, j, k) for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1))
 
 
+# The stitch families this module has a unit cell for. `build` refuses anything else rather
+# than substituting: an sc basket pushed through here once came out as 24 half doubles and
+# nothing said so, because the cell builder was called unconditionally. A stitch this module
+# cannot draw is refused by name, not drawn as its nearest relative.
+STITCH_KINDS: tuple[str, ...] = ("sc", "hdc")
+
+
+class UnmodelledStitch(ValueError):
+    """The CIR orders a stitch this module has no cell for. Refused, never substituted."""
+
+
+class UnmodelledConstruction(ValueError):
+    """The twin is worked in a way this module cannot lay out. Refused, never approximated.
+
+    `build` lays FLAT ROWS: alternating direction, a turning chain at every reversal. A piece
+    worked in the round -- every round in the same direction, joined or spiralled, from a
+    ring -- is a different topology, and laying its cells as flat rows would produce a fabric
+    the pattern does not make while every count still matched. The twin says which it is (a
+    round piece carries a `Revolution` and a shape), so the refusal is by evidence.
+    """
+
+
+def is_stitch(op: "Op") -> bool:
+    """A worked stitch (any modelled family), as opposed to a chain or a turn."""
+    return op.kind in STITCH_KINDS
+
+
 @dataclass
 class Op:
     """One certified operation, and where its yarn went."""
 
-    kind: str                      # "hdc" | "chain" | "turn"
+    kind: str                      # one of STITCH_KINDS | "chain" | "turn"
     row: int
     position: int
     loop_target: str               # "front" | "back" | "both"
@@ -245,7 +272,7 @@ class Op:
     # The strand the opening yarn-over leaves lying across the back of the stitch, below the
     # V. A half double has one; a single crochet does not, and a double crochet's is consumed
     # by the second pull-through. It is the stitch's signature, so the shape check names it.
-    third_loop: tuple[int, int] = (0, 0)
+    third_loop: tuple[int, int] | None = (0, 0)
 
 
 @dataclass
@@ -444,6 +471,112 @@ def _hdc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
     return pts, spans
 
 
+def _sc_cell(L: float, H: float, D: float, direction: int, loop_target: str,
+             anchor_top_y: float, yarn: float) -> tuple[np.ndarray, dict]:
+    """One single crochet, as key points of the yarn centre path.
+
+    Built from the fabrication sequence a single crochet actually follows:
+
+        live loop on the hook
+          -> insert into the CIR's loop target of the stitch below      (NO yarn over first)
+          -> yarn over, pull up a loop THROUGH it   (two loops on the hook)
+          -> yarn over, pull through both
+          -> the new live loop, which is this stitch's top
+
+    What is shared with the half double, deliberately: the entry point (so the previous
+    stitch's exit is this stitch's entry and the yarn is continuous), the whole
+    insert -> through -> behind -> emerge routing (that span is the linkage the topology
+    validator certifies, and it is the same act of drawing yarn through the loop below), and
+    the flattened top V the next row works into. What is different, and is the identity of
+    the stitch: there is no opening yarn over, so there is no strand laid across the back
+    below the V -- no third loop -- and the post is the two legs of the single pulled-up
+    loop, standing to the gauge's own row height, which for a single crochet is close to
+    its pitch rather than half again taller.
+
+    The cell does NOT name a third loop. `Op.third_loop` is None for it, and the shape check
+    treats an sc that names one as a half double wearing the wrong label.
+    """
+    leg = D * 0.43
+    clear = yarn * 0.95
+    enter_z = 0.0
+    exit_z = +(leg + clear) if loop_target == "front" else -(leg + clear)
+    y0 = anchor_top_y
+    yt = y0 + H
+    c = 0.5 * L
+    p = [
+        # The yarn arrives from the previous stitch's top loop. Same place the half double's
+        # opening wrap started, so the join between consecutive stitches is identical --
+        # but here it goes straight to the insertion instead of wrapping first.
+        ("entry",        (0.00 * L, yt - 0.30 * H, +D * 0.46)),
+        # The descent toward the insertion, on the same line the half double's descent takes.
+        # This is a PATH, not a yarn over: nothing is wrapped and nothing is laid across the
+        # back. Without it the yarn ran a straight diagonal from the previous top to the
+        # insertion and passed 0.65mm from the turning chain as built (the half double's
+        # own descent passes 0.60mm from its turning chain as built; both are relieved by
+        # relaxation). Kept because it is the route the yarn actually takes off the hook.
+        ("approach",     (0.20 * L, yt - 0.46 * H, +D * 0.26)),
+        # --- insert, and pull a loop THROUGH the anchor -- unchanged from the hdc ---------
+        ("insert",       (c - 0.11 * L, y0 + 0.16 * H, enter_z + D * 0.16)),
+        ("through",      (c - 0.02 * L, y0 + 0.03 * H - yarn, enter_z)),
+        ("behind",       (c + 0.10 * L, y0 - 0.04 * H - yarn, exit_z)),
+        ("emerge",       (c + 0.11 * L, y0 + 0.16 * H, exit_z * 0.85)),
+        # --- the post: the two legs of the pulled-up loop, short and upright ----------------
+        # One leg rises behind, the closing pull brings the other forward: two strands, held
+        # close in x, standing the height of a row. There is no yarn-over strand to lay
+        # across the back, so the close goes straight from the crown into the top loop.
+        # The post stands beside the cell centre, as the half double's does: dead centre is
+        # where the next row's hook comes down. As BUILT, the post's closing strand passes
+        # within 0.5mm of that descent in the sc regime -- and the half double's passes
+        # within 0.6mm of its own in its regime. Neither cell clears the contact floor by
+        # construction; `relaxation.relax` is what relieves the built overlaps, and the
+        # validator certifies the relaxed fabric. See the constants above for the sweep.
+        ("rise",         (c + SC_POST_X * L, y0 + 0.60 * H, -D * 0.32)),
+        ("crown",        (c + (SC_POST_X + 0.01) * L, yt - 0.18 * H, +D * SC_CROWN_Z)),
+        # Below the back loop it then rises into, by a yarn's width as built: the closing
+        # yo pulls the new loop up from the post's crown into the top V.
+        ("close",        (c + (SC_POST_X - 0.06) * L, yt - 0.24 * H, -D * 0.46)),
+        # --- the two top loops: as the half double's, so the row above finds them ----------
+        ("back_loop",    (c + 0.300 * L, yt + 0.045 * H, -D * 0.42)),
+        ("back_loop_e",  (c - 0.300 * L, yt + 0.055 * H, -D * 0.40)),
+        ("v_turn_a",     (c - 0.400 * L, yt + 0.060 * H, -D * 0.22)),
+        ("v_turn",       (c - 0.435 * L, yt + 0.065 * H, +D * 0.02)),
+        ("v_turn_b",     (c - 0.400 * L, yt + 0.070 * H, +D * 0.26)),
+        ("front_loop",   (c - 0.300 * L, yt + 0.075 * H, +D * 0.42)),
+        ("front_loop_e", (c + 0.300 * L, yt + 0.065 * H, +D * 0.44)),
+        ("away",         (1.00 * L, yt - 0.30 * H, +D * 0.46)),
+    ]
+    names = [n for n, _ in p]
+    pts = np.asarray([xyz for _, xyz in p], dtype=np.float64)
+    if direction < 0:
+        pts[:, 0] = L - pts[:, 0]      # mirror only; see _hdc_cell for why not also reverse
+
+    def span(first: str, last: str) -> tuple[int, int]:
+        a, b = names.index(first), names.index(last)
+        return (a, b) if a <= b else (b, a)
+    spans = {
+        "pull_through": span("insert", "emerge"),
+        "back_loop": span("back_loop", "back_loop_e"),
+        "front_loop": span("front_loop", "front_loop_e"),
+        "third_loop": None,            # a single crochet has none; that is the point
+    }
+    return pts, spans
+
+
+# Where the single crochet's post stands, as a fraction of the pitch off the cell centre, and
+# how far in front of the mid-plane its crown reaches. Swept 0.16-0.34 through the FULL
+# certifying chain (build -> settle -> relax -> validate) in two sc regimes: the relaxed
+# clearance is identical at every offset (1.368-1.371mm against a 1.00mm floor; 2.059 against
+# 1.50), linkage 20/20 and shape 25/25 throughout, so the offset is not what clears the floor
+# -- relaxation is, exactly as for the half double, which relaxes to its floor from 0.609mm.
+# 0.16 is kept because it is where the half double's post stands and it leaves the least
+# bending energy after relaxation (7.9e2 against 8.9e2 at 0.28). Measured in
+# research/d/sc_post_sweep.py, not chosen.
+SC_POST_X = 0.16
+SC_CROWN_Z = 0.10
+
+CELLS = {"hdc": _hdc_cell, "sc": _sc_cell}
+
+
 def _turning_chain(L: float, H: float, D: float, direction: int,
                    y_top: float) -> np.ndarray:
     """The transition between rows: a chain stitch that lifts the yarn to the next row.
@@ -506,6 +639,14 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
     D = yarn_d * 2.2
     fab = Fabric(L=L, H=H, D=D, yarn_diameter=yarn_d)
 
+    if getattr(twin, 'geometry', None) is not None or getattr(twin, 'shape', None):
+
+        raise UnmodelledConstruction(
+
+            f"this twin is worked in the round (shape={getattr(twin, 'shape', None)!r}); "
+
+            f"`build` lays flat rows only and will not draw rounds as rows.")
+
     rows = sorted({c.row for c in twin.cells})
     if max_rows:
         rows = rows[:max_rows]
@@ -550,9 +691,15 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
             fab.ops.append(Op("turn", r, -1, "both", direction, turn))
         for c in cells:
             fp = getattr(c, "fabric_position", c.position)
-            pts, spans = _hdc_cell(cell_w[ri, fp], row_h[ri], D, direction,
-                                   getattr(c, "loop", "both"),
-                                   anchor_top_y, fab.yarn_diameter)
+            kind = getattr(c, "stitch", None)
+            cell_fn = CELLS.get(kind)
+            if cell_fn is None:
+                raise UnmodelledStitch(
+                    f"row {r} position {fp}: the CIR orders {kind!r} and this module has a "
+                    f"cell only for {list(CELLS)}. Refusing to draw it as something else.")
+            pts, spans = cell_fn(cell_w[ri, fp], row_h[ri], D, direction,
+                                 getattr(c, "loop", "both"),
+                                 anchor_top_y, fab.yarn_diameter)
             pts = pts + np.array([left[ri, fp], 0.0, 0.0])
             if ri:
                 # THE STITCH LEANS. With varying widths, row ri's stitch centres no longer
@@ -568,7 +715,7 @@ def build(twin, gauge, *, max_rows: int | None = None, max_cols: int | None = No
                 anchor_c = left[ri - 1, fp] + 0.5 * cell_w[ri - 1, fp]
                 lean = np.clip(1.0 - (pts[:, 1] - anchor_top_y) / row_h[ri], 0.0, 1.0)
                 pts[:, 0] += (anchor_c - own_c) * lean
-            fab.ops.append(Op("hdc", r, fp, getattr(c, "loop", "both"), direction, pts,
+            fab.ops.append(Op(kind, r, fp, getattr(c, "loop", "both"), direction, pts,
                               front_loop=spans["front_loop"], back_loop=spans["back_loop"],
                               pull_through=spans["pull_through"],
                               third_loop=spans["third_loop"]))
@@ -730,7 +877,7 @@ def certified_linkage_pairs(fab: Fabric, rows: list | None = None) -> list[Linka
     The foundation row is not in the result: it was not worked into anything, and the
     validator does not demand a linking number for it either.
     """
-    hdc_idx = [i for i, o in enumerate(fab.ops) if o.kind == "hdc"]
+    hdc_idx = [i for i, o in enumerate(fab.ops) if is_stitch(o)]
     by_key = {(fab.ops[i].row, fab.ops[i].position): i for i in hdc_idx}
     if rows is None:
         rows = sorted({fab.ops[i].row for i in hdc_idx})
@@ -775,7 +922,7 @@ def stitch_frames(fab: Fabric, rows: list | None = None) -> dict:
     to happen. Anything outside this module that needs the fabric's local frame uses it too,
     for the same reason.
     """
-    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    hdc = [o for o in fab.ops if is_stitch(o)]
     by_key = {(o.row, o.position): o for o in hdc}
     if rows is None:
         rows = sorted({o.row for o in hdc})
@@ -824,7 +971,7 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     findings: list[str] = []
     checks: dict[str, object] = {}
 
-    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    hdc = [o for o in fab.ops if is_stitch(o)]
     turns = [o for o in fab.ops if o.kind == "turn"]
 
     # --- correspondence with the CIR ---------------------------------------
@@ -872,7 +1019,7 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     same_row, at_turn = [], []
     for a, b in zip(fab.ops[:-1], fab.ops[1:]):
         gap = float(np.linalg.norm(b.points[0] - a.points[-1]))
-        if a.kind == "hdc" and b.kind == "hdc" and a.row == b.row:
+        if is_stitch(a) and is_stitch(b) and a.row == b.row:
             same_row.append(gap)
         else:
             at_turn.append(gap)
@@ -998,7 +1145,7 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     # own line.
     terminal = None
     for o in fab.ops:
-        if o.kind == "hdc":
+        if is_stitch(o):
             terminal = (o.row, o.position)
     loose_end: list[str] = []
     unframeable: list[tuple[int, int]] = []
@@ -1030,8 +1177,8 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     if misshapen:
         seen = sorted({m for _, _, m in misshapen})
         findings.append(
-            f"{len(misshapen)} of {len(hdc)} stitches are not shaped like a half double "
-            f"crochet: {seen[0]}")
+            f"{len(misshapen)} of {len(hdc)} stitches are not shaped like the "
+            f"{fab.ops[0].kind if fab.ops else 'certified'} stitch the CIR ordered: {seen[0]}")
 
     # --- no impossible intersections ---------------------------------------
     # Yarn cannot occupy the same space as yarn. Measured between SEGMENTS: the version this
@@ -1212,7 +1359,7 @@ def coverage(fab: Fabric) -> dict:
     was true and meant nothing. A fixture that does not contain a case cannot have tested it,
     so the cases are enumerated and counted rather than assumed.
     """
-    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    hdc = [o for o in fab.ops if is_stitch(o)]
     rows = sorted({o.row for o in hdc})
     anchored = {(o.row, o.position) for o in hdc if o.row != (rows[0] if rows else None)}
     states = {
@@ -1256,7 +1403,7 @@ def reconciles_with_gauge(fab: Fabric, twin, gauge, *,
     eats twice the yarn it should and cannot adjudicate ten per cent. It is reported with
     that limit attached rather than dressed up as a tight tolerance.
     """
-    hdc = [o for o in fab.ops if o.kind == "hdc"]
+    hdc = [o for o in fab.ops if is_stitch(o)]
     out: dict = {}
     if not hdc:
         return out
@@ -1305,7 +1452,7 @@ def diagnostic_svg(fab: Fabric, *, width: int = 1100) -> str:
     tint = {"back": "#b4654a", "front": "#4a7fb4", "both": "#6f6f6f"}
     segs = []
     for o in fab.ops:
-        colour = tint.get(o.loop_target, "#6f6f6f") if o.kind == "hdc" else "#9a8f5c"
+        colour = tint.get(o.loop_target, "#6f6f6f") if is_stitch(o) else "#9a8f5c"
         for a, b in zip(o.points[:-1], o.points[1:]):
             segs.append((0.5 * (a[2] + b[2]), place(a), place(b), colour))
     segs.sort(key=lambda s: s[0])            # far first, so near strands cover them
