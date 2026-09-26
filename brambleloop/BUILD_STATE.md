@@ -368,6 +368,37 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Commercial benchmark 1: purchased cardigan pattern → certified listing hero, 1 of 12, through a recorded pipeline
+
+From checkpoint `90fa87a`. Report `research/VISUAL_BENCH1.md`; every fact, digest, call and cost in
+`research/bench1/out/`. External spend **US$3.45** of a US$5.00 ceiling. The seller's PDF, its
+text and photographs stay outside the repository (asserted by `test_bench1.py`).
+
+- **Product Truth from the real pattern** (12-page PDF, text parsed at run time, every fact
+  page-cited): side-to-side one-piece body 94 sts × 91 rows (20/50/20+1) with a 10-st integral
+  hem rib, two chained sleeve openings, side-to-side sleeves with slip-stitch cuffs, 7-st neckband,
+  two 24×13 pockets, 14.5 × 9.5 gauge, size S sample. All consistency checks pass; the CIR
+  compiles; the sleeve-to-opening join is sound under the derived chain gauge; the independent
+  earlier encoding agrees on every count. Pocket placement and colour RGB declared ASSUMED.
+- **Seller photographs read independently** by one fixed reader: all four agree with Product
+  Truth on every gated property; ridge direction is unreadable by the reader even on ground
+  truth (recorded, not gated).
+- **Full-product reference:** deterministic flat lay at counts × gauge with every texture cell a
+  counted stitch; three versions, the third fixing a cuff-end defect the gate exposed (a ribbed
+  insert at the shoulder that the generator faithfully reproduced).
+- **Hero generation and gate:** gpt-image-1.5 high fidelity (E5's best), 12 draws, plus 2 Gemini;
+  every draw gated automatically (silhouette, proportions, sleeve span, **stitch scale**, twelve
+  material reader properties, seven judge items). **One certified hero**
+  (`oa15_hifi_10.png`, sha `1879561f…`); eleven rejected for stated reasons, most often the
+  generator's gauge drawn 1.6–3.6× coarser (two independently read as child-sized).
+- **Discrepancies traced:** gauge → generator (+ reference pixel scale); stitch-pattern
+  appearance (seed-like, not crumpled waffle) → generator, not yet gated; ribbed inserts → our
+  reference (fixed); sleeve-length reads → flat-lay ambiguity; ridge direction → reader.
+- **Readiness:** hero as a gated loop, yes; detail and sizing images, possible now; on-body and
+  lifestyle, not yet (no body form or drape in the reference; E5's pose drift applies). Not
+  published, not integrated. `90fa87a`, `a447c2f`, `1229442`, `4a08871`, `fcb982d` untouched.
+- Tests: `test_bench1.py` 34. No `src/` change.
+
 ### 2026-09-26 — Visual E5: structure-locked photorealisation benchmark across providers — no repeatable route; realism solved, pose lock unavailable
 
 From checkpoint `a447c2f`. Report `research/VISUAL_E5.md`; every request and output digest,

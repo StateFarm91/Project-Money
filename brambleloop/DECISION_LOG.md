@@ -1059,3 +1059,35 @@ rejection-sampling loop would produce certified images at roughly US$0.40–0.60
 best modes, without a termination guarantee. That is recorded as the honest production option
 and not called a structure lock, because none exists on any reachable provider.
 
+## 2026-09-26 — Commercial benchmark 1 (isolated branch, from checkpoint 90fa87a)
+
+**D-B1-1. Product Truth is parsed from the purchased document at run time and cited to its
+page; nothing is taken from memory, from earlier experiments or from the photographs.** The
+earlier encoding in `cir/benchmarks.py` is diffed against the parse afterwards as an
+independent cross-check and agrees on every count; it was never a source. The seller's text
+and photographs stay outside the repository; what is recorded is counts, gauge, construction,
+measurements and assembly, each a fact about how the garment is made.
+
+**D-B1-2. Commercially material truth is gated; microscopic correspondence is a research
+track.** The gate fails any material misrepresentation (type, opening, closures, bands, cuffs,
+pockets, sleeve length, body length, silhouette, proportions, colour count, invented features,
+and the yarn's gauge as it appears) and does not require per-stitch correspondence. Two
+reader properties are deliberately not vetoes: ridge direction, because the reader cannot
+read it on the seller's own photographs, and hand-crocheted, which a rendering fails by
+nature. A property the reader could not see on the reference is recorded beside the verdict,
+never used to veto a truthful photograph.
+
+**D-B1-3. Gauge as it appears is material, and it is measured, not read.** The reader called
+two draws "child-sized" before any measure existed; the texture period inside the front panel
+against the reference's, after the silhouette alignment, is the measure (bar ±35 %, CHOSEN).
+It failed nine of twelve draws, and it is the reason the certified yield is one of twelve.
+
+**D-B1-4. A reference defect found by the gate is fixed in a new reference version, never by
+editing a version that draws were made from.** ref/ref2 placed the sleeve's cuff stitches at
+the shoulder; ref3 corrects it; every draw records the digest of the reference it saw.
+
+**D-B1-5. Success is claimed for exactly what was achieved.** One hero of twelve, recorded end
+to end, certified by the gate as built; the stitch-pattern appearance (seed-like rather than
+crumpled waffle) is named as the borderline-material discrepancy the gate does not yet cover,
+and the readiness verdict is: hero as a gated loop yes, on-body and lifestyle not yet.
+

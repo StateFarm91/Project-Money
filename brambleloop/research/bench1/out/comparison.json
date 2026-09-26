@@ -1,0 +1,351 @@
+{
+ "comparison": [
+  {
+   "property": "product_type",
+   "pattern_truth": "cardigan",
+   "reference_read": "cardigan",
+   "seller_reads": [
+    "cardigan",
+    "cardigan",
+    "cardigan",
+    "cardigan"
+   ],
+   "hero_read": "cardigan",
+   "all_candidates": {
+    "cardigan": 14
+   }
+  },
+  {
+   "property": "front",
+   "pattern_truth": "open",
+   "reference_read": "open",
+   "seller_reads": [
+    "open",
+    "open",
+    "open",
+    "open"
+   ],
+   "hero_read": "open",
+   "all_candidates": {
+    "open": 14
+   }
+  },
+  {
+   "property": "closure_count",
+   "pattern_truth": 0,
+   "reference_read": 0,
+   "seller_reads": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "hero_read": 0,
+   "all_candidates": {
+    "0": 14
+   }
+  },
+  {
+   "property": "front_band",
+   "pattern_truth": "ribbed_band (7-st BLO hdc band along the whole neckline, 4.8 cm)",
+   "reference_read": "ribbed_band",
+   "seller_reads": [
+    "ribbed_band",
+    "ribbed_band",
+    "ribbed_band",
+    "ribbed_band"
+   ],
+   "hero_read": "ribbed_band",
+   "all_candidates": {
+    "ribbed_band": 14
+   }
+  },
+  {
+   "property": "hem_band",
+   "pattern_truth": "ribbed (10 BLO sts worked into every body row, 6.9 cm)",
+   "reference_read": "ribbed",
+   "seller_reads": [
+    "ribbed",
+    "ribbed",
+    "ribbed",
+    "ribbed"
+   ],
+   "hero_read": "ribbed",
+   "all_candidates": {
+    "ribbed": 14
+   }
+  },
+  {
+   "property": "cuffs",
+   "pattern_truth": "gathered/ribbed (BLO slip-stitch rows, 10 sts)",
+   "reference_read": "ribbed",
+   "seller_reads": [
+    "ribbed",
+    "ribbed",
+    "ribbed",
+    "ribbed"
+   ],
+   "hero_read": "ribbed",
+   "all_candidates": {
+    "ribbed": 14
+   }
+  },
+  {
+   "property": "pocket_count",
+   "pattern_truth": 2,
+   "reference_read": 2,
+   "seller_reads": [
+    null,
+    2,
+    2,
+    2
+   ],
+   "hero_read": 2,
+   "all_candidates": {
+    "2": 14
+   }
+  },
+  {
+   "property": "pocket_position",
+   "pattern_truth": "hip (placement left to the maker)",
+   "reference_read": "hip",
+   "seller_reads": [
+    null,
+    "hip",
+    "hip",
+    "hip"
+   ],
+   "hero_read": "hip",
+   "all_candidates": {
+    "hip": 14
+   }
+  },
+  {
+   "property": "sleeve_length",
+   "pattern_truth": "long (39 cm stated + drop shoulder)",
+   "reference_read": "long",
+   "seller_reads": [
+    "long",
+    "long",
+    "long",
+    "long"
+   ],
+   "hero_read": "long",
+   "all_candidates": {
+    "long": 12,
+    "three_quarter": 2
+   }
+  },
+  {
+   "property": "body_length",
+   "pattern_truth": "65 cm stated; ~mid-thigh on the 160 cm model",
+   "reference_read": "hip",
+   "seller_reads": [
+    "hip",
+    "mid_thigh",
+    "mid_thigh",
+    "mid_thigh"
+   ],
+   "hero_read": "hip",
+   "all_candidates": {
+    "hip": 12,
+    "mid_thigh": 2
+   }
+  },
+  {
+   "property": "texture",
+   "pattern_truth": "crumpled waffle: alternating BLO/FLO hdc, checkered surface",
+   "reference_read": "waffle_textured",
+   "seller_reads": [
+    "waffle_textured",
+    "waffle_textured",
+    "waffle_textured",
+    "other"
+   ],
+   "hero_read": "other",
+   "all_candidates": {
+    "other": 11,
+    "waffle_textured": 3
+   }
+  },
+  {
+   "property": "body_ridge_direction",
+   "pattern_truth": "vertical (rows run side to side)",
+   "reference_read": "none",
+   "seller_reads": [
+    "vertical",
+    "horizontal",
+    "horizontal",
+    "horizontal"
+   ],
+   "hero_read": "none",
+   "all_candidates": {
+    "none": 13,
+    "horizontal": 1
+   }
+  },
+  {
+   "property": "colour_count",
+   "pattern_truth": 1,
+   "reference_read": 1,
+   "seller_reads": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "hero_read": 1,
+   "all_candidates": {
+    "1": 14
+   }
+  },
+  {
+   "property": "main_colour",
+   "pattern_truth": "Stonewash (named); dusty pink in the seller's photographs",
+   "reference_read": "pink",
+   "seller_reads": [
+    "pink",
+    "pink",
+    "pink",
+    "pink"
+   ],
+   "hero_read": "pink",
+   "all_candidates": {
+    "pink": 14
+   }
+  },
+  {
+   "property": "extra_features",
+   "pattern_truth": "none",
+   "reference_read": [
+    "none"
+   ],
+   "seller_reads": [
+    [
+     "none"
+    ],
+    [
+     "none"
+    ],
+    [
+     "none"
+    ],
+    [
+     "none"
+    ]
+   ],
+   "hero_read": [
+    "none"
+   ],
+   "all_candidates": {
+    "['none']": 14
+   }
+  }
+ ],
+ "discrepancies": [
+  {
+   "id": 1,
+   "property": "stitch scale / gauge appearance",
+   "finding": "the generator draws the fabric 1.6-3.6x coarser than the pattern's 14.5 st x 9.5 rows per 10 cm on 9 of 12 draws; the reader independently called two of those 'child-sized'",
+   "traced_to": "generative presentation (the model invents a gauge) and the reference's pixel scale (4.5 px per stitch at 1024 px); a 1.6x larger reference reduced but did not remove it",
+   "material": true,
+   "gated": "yes: deterministic stitch_scale, bar +-35 %"
+  },
+  {
+   "id": 2,
+   "property": "stitch pattern appearance",
+   "finding": "the reader called the generated texture 'other' (seed-stitch-like) on 11 of 14 candidate reads and 'waffle_textured' on 3; the seller's photographs read waffle 3 of 4",
+   "traced_to": "generative presentation: the material re-synthesis changes the stitch look while keeping an all-over texture",
+   "material": "borderline: for a pattern listing the stitch is the design's identity; the gate accepts any all-over texture today",
+   "gated": "no (recorded as the next instrument to build: per-stitch correspondence once gauge is held)"
+  },
+  {
+   "id": 3,
+   "property": "invented feature: ribbed inserts at the upper sleeves",
+   "finding": "rounds 1-3 carried a ribbed patch at each shoulder; the reader caught it on 2 of 3 round-3 draws and missed it on 6 of 6 earlier",
+   "traced_to": "full-product geometry: the reference drew the sleeve's cuff stitches (fabric position 0-9) at the shoulder end; fixed in ref3",
+   "material": true,
+   "gated": "partly: the reader's extra_features check is unreliable for small invented features"
+  },
+  {
+   "id": 4,
+   "property": "sleeve length",
+   "finding": "read 'three_quarter' on 2 of 12 candidates (flat lay) against 'long' on all four seller photographs",
+   "traced_to": "validation: a flat lay does not show where a sleeve falls on a body; the reader guesses from proportion",
+   "material": true,
+   "gated": "yes, and it fails the candidate when read wrong (strict)"
+  },
+  {
+   "id": 5,
+   "property": "body ridge direction",
+   "finding": "pattern: vertical; reader: horizontal on 3 of 4 seller photographs, none on the reference and most candidates",
+   "traced_to": "validation: the reader cannot read this property even on ground truth (the bands' ridges dominate)",
+   "material": false,
+   "gated": "reported, not gated"
+  },
+  {
+   "id": 6,
+   "property": "pocket placement",
+   "finding": "the pattern leaves it to the maker; the reference assumes centred on each front, 5 cm above the hem rib; the seller's photographs show pockets low on the fronts near the hem, consistent with the assumption",
+   "traced_to": "missing physical information (declared ASSUMED)",
+   "material": false,
+   "gated": "pocket count and hip position are gated; exact placement is not"
+  },
+  {
+   "id": 7,
+   "property": "colour",
+   "finding": "the pattern names the colourway only; the seller's photographs show dusty pink; the pattern's own process photographs show a blue-grey sample",
+   "traced_to": "missing physical information: colour is not derivable from text; RGB taken from the seller photograph of the named colourway and declared",
+   "material": true,
+   "gated": "colour_count gated; hue not gated"
+  },
+  {
+   "id": 8,
+   "property": "seller photograph 4",
+   "finding": "reads as a chunkier, more oversized garment than photographs 1-3 (a different make or yarn); all four agree with Product Truth on every gated property",
+   "traced_to": "benchmark material: not every seller photograph is the sample garment",
+   "material": false,
+   "gated": "n/a"
+  },
+  {
+   "id": 9,
+   "property": "sleeve-to-armhole join",
+   "finding": "sound only under the pattern's implied chain gauge (18.65 per 10 cm, +-6 %); at stitch gauge the slit reads 38.6 cm against a 31.6 cm sleeve top",
+   "traced_to": "pattern parsing / CIR: chains are narrower than stitches and the pattern does not state chain gauge",
+   "material": false,
+   "gated": "n/a (assembly check reports it)"
+  }
+ ],
+ "yield_by_configuration": {
+  "ref|v2|oa15_hifi": {
+   "draws": 3,
+   "structural_pass": 0,
+   "judge_pass": 1,
+   "certified": 0
+  },
+  "ref|v2|g3pro": {
+   "draws": 2,
+   "structural_pass": 0,
+   "judge_pass": 2,
+   "certified": 0
+  },
+  "ref2|v2|oa15_hifi": {
+   "draws": 3,
+   "structural_pass": 0,
+   "judge_pass": 3,
+   "certified": 0
+  },
+  "ref3|v2|oa15_hifi": {
+   "draws": 3,
+   "structural_pass": 1,
+   "judge_pass": 3,
+   "certified": 1
+  },
+  "ref|v1|oa15_hifi": {
+   "draws": 3,
+   "structural_pass": 0,
+   "judge_pass": 0,
+   "certified": 0
+  }
+ }
+}
