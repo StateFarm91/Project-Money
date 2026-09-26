@@ -55,14 +55,10 @@ NOT_A_MODEL_PROVIDER: dict[str, str] = {
 # entry should be deleted in the same commit, because a list of open holes that still names a
 # closed one stops being read.
 KNOWN_UNGUARDED: dict[tuple[str, str], str] = {
-    ("brambleloop/gateway/model_gateway.py", "complete_json"): (
-        "Owner: the gateway. It bills through `agents.registry.record_cost`, which checks "
-        "the agent's daily ceiling *after* the provider has answered and checks the "
-        "authorised month not at all. A post-hoc check is a measurement, not a control, and "
-        "the cross-process reservation never touches this path. Closing it means calling "
-        "`check_budget(agent=..., purpose=...)` before `breaker.call` and releasing in the "
-        "`_record` path; the estimate is already available as "
-        "`prompt.max_output_tokens` and the rendered user text."),
+    # `gateway/model_gateway.py::complete_json` was here until 2026-09-26. It now calls
+    # `check_budget_cad(agent=..., purpose=prompt.ref)` before `breaker.call` and releases the
+    # reservation in `_record`, so the daily permission and the authorised month bind before
+    # the provider is asked rather than being measured after it answered.
     ("brambleloop/publish/motif_fidelity.py", "check"): (
         "Owner: Publishing (`publish/**`). One vision call per customer-facing asset, "
         "billed nowhere and checked nowhere -- it does not even write a `spend_report` row, "
@@ -71,37 +67,46 @@ KNOWN_UNGUARDED: dict[tuple[str, str], str] = {
         "two image allowances in the estimate because it shows the render and the chart."),
 }
 
-# Image *generation* call sites. None of them passes through `check_budget` and none of them
-# can today, which is a different finding from the two above and is kept separate so that it
-# cannot be read as the same one.
+# Image *generation* call sites that reach a provider with no ceiling mechanism in front of
+# them. Until 2026-09-26 this held nine entries and could hold nothing else: `check_budget`
+# priced per token, an image is priced per image (`ImageProvider.cad_per_image`), and the
+# image provider keys are not in `PRICES_USD_PER_MTOK`, so the mechanism could not price a
+# render and the sites were pinned as outside it.
 #
-# `check_budget` prices a call with `estimate_cad(model, input_tokens, output_tokens)` from
-# `PRICES_USD_PER_MTOK`, which is a per-token table. An image render is priced per image
-# (`gateway.images.ImageProvider.cad_per_image`) and its provider keys -- `gpt-image-2`,
-# `flux-2-pro`, `nano-banana-2` -- are not in that table at all, so `check_budget` on one
-# raises "has no price on file" rather than checking anything. The mechanism has to learn a
-# per-image estimate before any of these can pass through it; inventing a second ceiling
-# mechanism for images is the one thing the owner's rule forbids.
-#
-# Pinned so that the set cannot grow silently while that is true.
-KNOWN_IMAGE_GENERATION: dict[tuple[str, str], str] = {
-    ("brambleloop/gateway/image_bench.py", "_run_inside"): "the benchmark's own renders",
-    ("brambleloop/gateway/images.py", "reference_probe"): "two renders, four times a day",
-    ("brambleloop/gateway/images.py", "probe"): "one render per capability probe",
-    ("brambleloop/publish/model_photography.py", "make"): "one render per model frame",
-    ("brambleloop/publish/owned_photography.py", "make"): "one render per owned frame",
-    ("brambleloop/visual/portrait_repair.py", "propose"): "one render per repair proposal",
-    ("brambleloop/visual/reference_pack.py", "_render"): "one render per pack frame",
-    ("brambleloop/visual/tournament.py", "generate_candidates"): "one render per candidate",
-    ("brambleloop/visual/tournament.py", "stress_test"): "one render per stress scene",
-}
+# The mechanism learned a dollar estimate instead of a second mechanism being built:
+# `gateway.anthropic.check_budget_cad` takes `estimate_cad` directly, and `images.generate`
+# calls it -- through `images.reserve_render` -- before `_post`, releasing with the price once
+# the picture exists. Every site below rendered through `images.generate`, so every one of
+# them is guarded centrally now and the table is empty. It stays, and stays pinned, because
+# the next render path that bypasses `images.generate` belongs here with its owner.
+KNOWN_IMAGE_GENERATION: dict[tuple[str, str], str] = {}
+
+# The render sites the scan must still see, so an empty table above cannot be an empty scan.
+EXPECTED_IMAGE_SITES: frozenset[tuple[str, str]] = frozenset({
+    ("brambleloop/gateway/image_bench.py", "_run_inside"),
+    ("brambleloop/gateway/images.py", "reference_probe"),
+    ("brambleloop/gateway/images.py", "probe"),
+    ("brambleloop/publish/model_photography.py", "make"),
+    ("brambleloop/publish/owned_photography.py", "make"),
+    ("brambleloop/visual/portrait_repair.py", "propose"),
+    ("brambleloop/visual/reference_pack.py", "_render"),
+    ("brambleloop/visual/tournament.py", "generate_candidates"),
+    ("brambleloop/visual/tournament.py", "stress_test"),
+})
 
 _IMAGE_GENERATORS = ("images.generate", "generate", "generator or generate")
 
 
+# The two front doors of the one mechanism: the token-priced check and the dollar-priced one
+# it delegates to. Both count, and only these: a helper that wraps either would have to be
+# named here on purpose, because a scanner that accepted any name ending in "budget" is an
+# exclusion list with a tidy name.
+CEILING_CHECKS = ("check_budget", "check_budget_cad")
+
+
 def _calls_check_budget(fn: ast.AST) -> bool:
     for node in ast.walk(fn):
-        if isinstance(node, ast.Call) and ast.unparse(node.func).endswith("check_budget"):
+        if isinstance(node, ast.Call) and ast.unparse(node.func).endswith(CEILING_CHECKS):
             return True
     return False
 
@@ -318,34 +323,62 @@ def test_the_exclusion_list_is_not_a_bypass():
 
 
 def test_image_generation_is_outside_this_mechanism_and_the_set_is_pinned():
-    """A separate finding, kept separate, and unable to grow quietly.
+    """Every render site goes through `images.generate`, and `generate` reserves first.
 
-    `check_budget` prices per token. An image render is priced per image and its provider
-    keys are not in `PRICES_USD_PER_MTOK` at all, so routing one through `check_budget`
-    today raises "has no price on file" instead of checking anything. That is a gap in the
-    mechanism, not a licence for a second one -- so the sites are enumerated and pinned
-    until the mechanism can price them.
+    The name is kept so the history reads: this test used to pin nine render sites as
+    outside the ceiling mechanism, because the mechanism priced per token and an image is
+    priced per image. The image keys are still not per-token prices -- that was never the
+    fix -- and the render sites are still found by the scan, so the empty table below is a
+    closed finding rather than a blind scanner. What closed it is the source-order fact
+    asserted at the end: in `images.generate`, the reservation is taken before the request
+    is built into a provider call, so an exhausted ceiling refuses with nothing sent.
     """
+    import inspect as _inspect
+
     from brambleloop.gateway import anthropic as gw
     from brambleloop.gateway import images
 
     for key in ("gpt-image-2", "flux-2-pro", "nano-banana-2"):
         assert key in images.BY_KEY
         assert key not in gw.PRICES_USD_PER_MTOK, (
-            f"{key} now has a per-token price, so the reason these call sites cannot pass "
-            f"through check_budget may no longer hold. Re-read the finding before editing "
-            f"this test")
+            f"{key} has a per-token price now; an image is priced per image and the guard "
+            f"reserves `cad_per_image`, so re-read the mechanism before editing this test")
 
     found = scan_tree()
     sites = _sites(found["image_calls"])
-    added = sorted(sites - set(KNOWN_IMAGE_GENERATION))
-    removed = sorted(set(KNOWN_IMAGE_GENERATION) - sites)
-    assert not added, (
-        f"{added} render images and no ceiling mechanism reaches them. Adding one is a "
-        f"decision about spend, not a refactor: record it here with its owner")
-    assert not removed, (
-        f"{removed} no longer renders an image. Delete the entry so the list stays the "
-        f"list of what is actually open")
+    missing = sorted(EXPECTED_IMAGE_SITES - sites)
+    assert not missing, f"the scan no longer sees {missing}; the instrument is broken"
+
+    source = _inspect.getsource(images.generate)
+    reserve_at = source.find("reserve_render(")
+    call_at = source.find("_generate_reserved(")
+    assert 0 < reserve_at < call_at, (
+        "images.generate must reserve the image's price before anything reaches a provider")
+    assert "_post(" not in source, (
+        "the provider request belongs inside the reserved path, not beside the reservation")
+    inner = _inspect.getsource(images._generate_reserved)
+    assert "_post(" in inner and "release_render(" in inner
+    reserve_src = _inspect.getsource(images.reserve_render)
+    assert "check_budget_cad(" in reserve_src and "cad_per_image" in reserve_src
+    # The scan finds `images.generate` callers, and every one of those is guarded by the
+    # reservation inside `generate`. What would reopen this finding is a render that reaches a
+    # provider *without* `generate` -- so the provider requests in `images.py` are pinned to
+    # the one function that runs inside the reservation, and the open-holes table is pinned
+    # empty. An entry appearing in either place is a decision about spend, not a refactor.
+    tree = ast.parse((SRC / "brambleloop/gateway/images.py").read_text())
+    requesters: set[str] = set()
+    for fn in ast.walk(tree):
+        if isinstance(fn, ast.FunctionDef):
+            for node in ast.walk(fn):
+                if (isinstance(node, ast.Call)
+                        and ast.unparse(node.func) in ("_post", "_get")):
+                    requesters.add(fn.name)
+    assert requesters == {"_generate_reserved"}, (
+        f"{sorted(requesters - {'_generate_reserved'})} send provider requests outside the "
+        f"reserved render path: that is a render the ceiling cannot refuse")
+    assert not KNOWN_IMAGE_GENERATION, (
+        f"{sorted(KNOWN_IMAGE_GENERATION)} are recorded as rendering outside the mechanism; "
+        f"close them through `images.generate` rather than leaving the table to grow")
 
 
 class _Provider:

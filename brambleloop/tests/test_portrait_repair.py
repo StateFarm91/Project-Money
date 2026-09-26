@@ -435,6 +435,104 @@ def test_reassess_still_reports_a_drifted_candidate_as_a_different_woman():
     assert out["repaired_candidate"] is None
 
 
+# ---------------------------------------------------------------------------
+# Adopting a repair is the owner's decision, recorded, and only for a repair (2026-09-26)
+
+
+def _frozen_db(tmp_face: Path) -> Database:
+    from brambleloop.visual import model_registry
+
+    db = _db()
+    model_registry.record_candidate(
+        db, "brambleloop-canonical",
+        fields={**{f: f"{f} as described" for f in identity.IDENTITY_FIELDS},
+                "reference_hashes": {"neutral_portrait": "a" * 64,
+                                     "torso_fit_reference": "b" * 64,
+                                     "full_length_standing": "c" * 64}},
+        image_refs=[str(tmp_face), "b" * 64, "c" * 64])
+    model_registry.select_canonical(db, "brambleloop-canonical", owner_approved=True)
+    return db
+
+
+def _approval(**overrides) -> dict:
+    record = {"at": "2026-10-01", "decision": "adopt the repaired portrait of the same woman",
+              "supersedes_version": 1, "scope": "portrait_repair"}
+    record.update(overrides)
+    return record
+
+
+def test_only_a_repaired_verdict_is_ever_adopted():
+    import tempfile
+
+    tmp = Path(tempfile.mkdtemp())
+    (tmp / "approved.jpg").write_bytes(b"approved")
+    (tmp / "candidate.png").write_bytes(b"candidate")
+    db = _frozen_db(tmp / "approved.jpg")
+    for verdict in (pr.DIFFERENT_WOMAN, pr.UNVERIFIABLE, pr.NOT_REPAIRED, ""):
+        try:
+            pr.adopt(db, candidate_ref=str(tmp / "candidate.png"), verdict=verdict,
+                     redesign_approval=_approval())
+        except identity.IdentityRefused as exc:
+            assert "is not adopted" in str(exc)
+            continue
+        raise AssertionError(f"a candidate with verdict {verdict!r} was adopted")
+    from brambleloop.visual import model_registry
+
+    assert model_registry.canonical_pack(db).version == 1
+
+
+def test_adopting_needs_a_portrait_repair_approval_and_not_a_redesign_one():
+    import tempfile
+
+    tmp = Path(tempfile.mkdtemp())
+    (tmp / "approved.jpg").write_bytes(b"approved")
+    (tmp / "candidate.png").write_bytes(b"candidate")
+    db = _frozen_db(tmp / "approved.jpg")
+    for bad in (None, {}, _approval(scope="redesign")):
+        try:
+            pr.adopt(db, candidate_ref=str(tmp / "candidate.png"), verdict=pr.REPAIRED,
+                     redesign_approval=bad)
+        except identity.IdentityRefused as exc:
+            assert "portrait_repair" in str(exc)
+            continue
+        raise AssertionError(f"a repair was adopted on {bad!r}")
+
+
+def test_a_repaired_portrait_becomes_version_two_with_the_body_carried_over():
+    import tempfile
+
+    from sqlalchemy import select
+
+    from brambleloop.core.models import ModelIdentity
+    from brambleloop.visual import brief, model_registry
+
+    tmp = Path(tempfile.mkdtemp())
+    (tmp / "approved.jpg").write_bytes(b"approved")
+    (tmp / "candidate.png").write_bytes(b"repaired candidate bytes")
+    db = _frozen_db(tmp / "approved.jpg")
+
+    out = pr.adopt(db, candidate_ref=str(tmp / "candidate.png"), verdict=pr.REPAIRED,
+                   redesign_approval=_approval())
+    assert out["adopted"] is True and out["version"] == 2
+    assert out["face_sha256"] == brief.sha256_of(str(tmp / "candidate.png"))
+
+    pack = model_registry.canonical_pack(db)
+    assert pack.version == 2
+    assert pack.fields["reference_image"] == str(tmp / "candidate.png")
+    assert pack.fields["reference_hashes"] == {"neutral_portrait": out["face_sha256"],
+                                               "torso_fit_reference": "b" * 64,
+                                               "full_length_standing": "c" * 64}
+    assert pack.fields["bust_proportions"] == "bust_proportions as described", \
+        "a portrait repair changed the woman's description"
+    assert model_registry.canonical_image_refs(db) == [str(tmp / "candidate.png"),
+                                                        "b" * 64, "c" * 64]
+    with db.session() as s:
+        old = s.scalar(select(ModelIdentity).where(ModelIdentity.key == "brambleloop-canonical"))
+        assert old.state == identity.RETIRED and old.retired_at
+        new = s.scalar(select(ModelIdentity).where(ModelIdentity.key == "brambleloop-canonical-v2"))
+        assert new.predecessor_key == "brambleloop-canonical"
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -354,6 +354,185 @@ def test_a_corrected_brief_is_not_locked_out_by_the_hours_idempotency_key():
     assert release.tournament_boot_key(later) == before, "the hour must not change the key"
 
 
+# ---------------------------------------------------------------------------
+# Provenance: was the frame made from the approved bytes? (2026-09-26)
+
+
+def _hashed_pack(db) -> identity.ReferencePack:
+    fields = {**_complete_fields(),
+              "reference_hashes": {"neutral_portrait": "a" * 64,
+                                   "torso_fit_reference": "b" * 64,
+                                   "full_length_standing": "c" * 64}}
+    M.record_candidate(db, "face-a", fields=fields, image_refs=["/tmp/reference.png"])
+    return M.select_canonical(db, "face-a", owner_approved=True)
+
+
+def test_provenance_is_a_hash_comparison_and_a_path_is_not_a_hash():
+    db = _db()
+    pack = _hashed_pack(db)
+    assert "reference_hashes" in pack.fields, "the hashes survived the freeze"
+
+    same = identity.provenance_check(
+        {"conditioned_on": {"reference_hashes": {"neutral_portrait": "a" * 64,
+                                                 "torso_fit_reference": "b" * 64},
+                            "body_reference_frame": "torso_fit_reference"}}, pack)
+    assert same["verdict"] == identity.PROVENANCE_VERIFIED and not same["blocks_release"]
+
+    other = identity.provenance_check(
+        {"conditioned_on": {"reference_hashes": {"neutral_portrait": "f" * 64}}}, pack)
+    assert other["verdict"] == identity.PROVENANCE_MISMATCH and other["blocks_release"]
+    assert "different bytes" in other["why"]
+
+    # The record model_photography writes today: paths, no hashes. Unhashed is unverifiable.
+    unhashed = identity.provenance_check(
+        {"conditioned_on": {"reference_image": "/tmp/ref.jpg",
+                            "body_reference_image": "/tmp/body.png"}}, pack)
+    assert unhashed["verdict"] == identity.PROVENANCE_UNVERIFIABLE
+    assert "only a hash says what it was" in unhashed["why"]
+
+    # A body frame named but not hashed is unverifiable even when the face verifies.
+    half = identity.provenance_check(
+        {"conditioned_on": {"reference_hashes": {"neutral_portrait": "a" * 64},
+                            "body_reference_frame": "torso_fit_reference"}}, pack)
+    assert half["verdict"] == identity.PROVENANCE_UNVERIFIABLE
+    assert "torso_fit_reference" in half["missing"]
+
+
+def test_provenance_against_no_pack_or_an_unhashed_pack_is_unverifiable():
+    assert identity.provenance_check({"conditioned_on": {}}, None)["verdict"] == \
+        identity.PROVENANCE_UNVERIFIABLE
+    legacy = _pack()  # no reference_hashes, like the production row of 2026-09-22
+    out = identity.provenance_check(
+        {"conditioned_on": {"reference_hashes": {"neutral_portrait": "a" * 64}}}, legacy)
+    assert out["verdict"] == identity.PROVENANCE_UNVERIFIABLE
+    assert "records no reference hashes" in out["why"]
+
+
+def test_the_gate_blocks_a_frame_whose_provenance_does_not_verify():
+    """Drift asks whether she looks like the pack; provenance asks whether the reference
+    she was made from *was* the pack. A frame that passes the first and fails the second
+    was made from other bytes and happens to resemble her."""
+    db = _db()
+    _hashed_pack(db)
+    same = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
+    frame = {"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}
+
+    # No claim, no provenance check: judged on drift alone, as before.
+    plain = M.gate_frames(db, [frame], observer=lambda _db, r, c: dict(same))
+    assert plain["verdict"] == "pass" and "provenance" not in plain["results"][0]
+
+    hashed = M.gate_frames(db, [{**frame, "conditioned_on": {
+        "reference_hashes": {"neutral_portrait": "a" * 64}}}],
+        observer=lambda _db, r, c: dict(same))
+    assert hashed["verdict"] == "pass"
+    assert hashed["results"][0]["provenance"] == identity.PROVENANCE_VERIFIED
+
+    unhashed = M.gate_frames(db, [{**frame, "conditioned_on": {
+        "reference_image": "/tmp/ref.jpg"}}], observer=lambda _db, r, c: dict(same))
+    assert unhashed["verdict"] == "fail"
+    assert "provenance unverifiable" in unhashed["blocking"][0]
+
+    wrong = M.gate_frames(db, [{**frame, "conditioned_on": {
+        "reference_hashes": {"neutral_portrait": "f" * 64}}}],
+        observer=lambda _db, r, c: dict(same))
+    assert wrong["verdict"] == "fail"
+    assert "provenance mismatch" in wrong["blocking"][0]
+
+
+# ---------------------------------------------------------------------------
+# Replacing her is a recorded owner decision with a lineage (2026-09-26)
+
+
+def _approval(**overrides) -> dict:
+    record = {"at": "2026-10-01", "decision": "adopt the repaired portrait of the same woman",
+              "supersedes_version": 1, "scope": "portrait_repair", "approved_by": "owner"}
+    record.update(overrides)
+    return record
+
+
+def test_a_second_canonical_is_refused_without_a_replacement_record():
+    db = _db()
+    _hashed_pack(db)
+    M.record_candidate(db, "face-b", fields=_complete_fields())
+    for bad in (None, {}, {"at": "2026-10-01"}, _approval(scope="whim"),
+                _approval(supersedes_version=7)):
+        try:
+            M.replace_canonical(db, new_key="face-b", redesign_approval=bad)
+        except identity.IdentityRefused:
+            continue
+        raise AssertionError(f"a replacement went through on {bad!r}")
+    pack = M.canonical_pack(db)
+    assert pack.version == 1 and pack.fields["reference_hashes"]["neutral_portrait"] == "a" * 64
+    # And the plain selection path still refuses outright, record or no record.
+    try:
+        M.select_canonical(db, "face-b", owner_approved=True)
+    except identity.IdentityRefused as exc:
+        assert "redesign" in str(exc)
+    else:
+        raise AssertionError("select_canonical wrote a second canonical")
+
+
+def test_a_replacement_increments_the_version_and_retires_rather_than_deletes():
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog, ModelIdentity
+
+    db = _db()
+    _hashed_pack(db)
+    M.record_candidate(db, "face-b", fields=_complete_fields(),
+                       image_refs=["/tmp/repaired.png", "b" * 64, "c" * 64])
+    pack = M.replace_canonical(db, new_key="face-b", redesign_approval=_approval(),
+                               reference_hashes={"neutral_portrait": "d" * 64,
+                                                 "torso_fit_reference": "b" * 64,
+                                                 "full_length_standing": "c" * 64})
+    assert pack.version == 2
+    assert M.canonical_pack(db).version == 2
+    assert M.canonical_pack(db).fields["reference_image"] == "/tmp/repaired.png"
+    assert M.canonical_pack(db).fields["reference_hashes"]["neutral_portrait"] == "d" * 64
+
+    with db.session() as s:
+        rows = {r.key: r for r in s.scalars(select(ModelIdentity))}
+        assert set(rows) == {"face-a", "face-b"}, "the old row was deleted"
+        old, new = rows["face-a"], rows["face-b"]
+        assert old.state == identity.RETIRED and old.version == 1
+        assert old.retired_at and "retired by owner" in old.note
+        assert new.state == identity.CANONICAL and new.predecessor_key == "face-a"
+        audit = [r for r in s.scalars(select(AuditLog)) if r.action == M.REPLACED_ACTION]
+        assert len(audit) == 1 and audit[0].actor == "owner"
+        assert audit[0].detail["approval"]["scope"] == "portrait_repair"
+        assert audit[0].detail["retired"]["key"] == "face-a"
+    assert M.replacements(db)[0]["canonical"]["version"] == 2
+
+    # A second replacement needs an approval naming version 2, not the stale one.
+    M.record_candidate(db, "face-c", fields=_complete_fields())
+    try:
+        M.replace_canonical(db, new_key="face-c", redesign_approval=_approval())
+    except identity.IdentityRefused as exc:
+        assert "version 1" in str(exc) and "version 2" in str(exc)
+    else:
+        raise AssertionError("a stale approval was replayed against a later identity")
+    # Bringing back the retired woman is not a replacement either.
+    try:
+        M.replace_canonical(db, new_key="face-a",
+                            redesign_approval=_approval(supersedes_version=2))
+    except M.RegistryRefused as exc:
+        assert "retired" in str(exc)
+    else:
+        raise AssertionError("a retired identity was re-promoted")
+
+
+def test_the_replacement_procedure_is_not_invoked_anywhere_with_a_real_approval():
+    """PROCEDURE only. The owner has not approved a replacement, so nothing in `src`
+    may call it except the adopt path that itself requires the owner's record."""
+    callers = []
+    for path in (ROOT / "src/brambleloop").rglob("*.py"):
+        text = path.read_text()
+        if "replace_canonical(" in text and path.name not in ("model_registry.py",):
+            callers.append(path.name)
+    assert callers == ["portrait_repair.py"], callers
+    assert "identity.select(" not in (ROOT / "src/brambleloop/visual/freeze.py").read_text()
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -57,6 +57,24 @@ OWNER_APPROVAL: dict = {
                    "selection"),
     "does_not_authorise": ("Etsy publication, advertising, customer communication or any "
                            "other live launch action. Shadow Mode stands"),
+    # Who and how, so the record can be compared with the row it produced. The approval
+    # came from the owner in the operator session on the date above; it is recorded here
+    # rather than in that conversation for the reason given at the top of this block.
+    "approved_by": "owner",
+    "channel": "owner instruction in the operator session, recorded as code the same day",
+    # Which pack build the approval froze. The version string is the one the build record
+    # names (BUILD_STATE, 2026-09-22: "it froze v15, not the newest pack"). The candidate
+    # fingerprint of that build is a runtime hash -- brief state, pack method and candidate
+    # bytes as they stood on that commit -- and it exists only in the production
+    # `model.frozen` audit row, so it is not determinable from code and is left None rather
+    # than invented. `enforcement_proof` compares whatever is known and says so.
+    "approved_pack_version": "v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is",
+    "approved_pack_fingerprint": None,
+    "approved_pack_fingerprint_note": (
+        "not determinable from code: the fingerprint is computed at run time from the brief, "
+        "the pack method and the candidate bytes of that commit, and the only copy is the "
+        "`freeze.candidate_fingerprint` field of the production model.frozen audit row. "
+        "Left None rather than invented; the proof compares it only when it is known"),
 }
 
 
@@ -250,6 +268,11 @@ def freeze(db, *, owner_approved: bool, key: str = "brambleloop-canonical",
     refs += [sha for sha in ((f.get("image") or {}).get("sha256")
                              for f in chosen["package"].get("reference_frames") or [])
              if sha]
+    # The bytes she is, not the paths they were at. `reference_paths` verifies every file it
+    # hands out against these, and `identity.provenance_check` verifies every frame's
+    # conditioning against them, so a replaced file or a frame made from other bytes is
+    # caught by a hash comparison rather than trusted by its filename.
+    fields = {**fields, "reference_hashes": expected_reference_hashes(chosen["package"])}
     record = approved()
     note = (f"frozen from {chosen['pack_version']} on the owner's approval of "
             f"{record.get('at', 'an unrecorded date')}, including "
@@ -410,6 +433,46 @@ def enforcement_proof(db) -> dict:
           "an unjudged model frame must block, and a product-only frame must not be "
           "held up by a check that does not apply to it")
 
+    # 8. The references the gate compares against are the approved bytes.
+    #
+    # Everything above proves the *logic* holds against the persisted pack. This proves the
+    # *pictures* do: every path `reference_paths` returns hashes to what the frozen pack
+    # pins, the face is actually there, and where the approval record names the pack it
+    # froze, the pack on file is that one. A gate that compares against the right rules
+    # and the wrong photograph is enforcing somebody else.
+    paths = reference_paths(db)
+    expected = paths.get("expected_hashes") or {}
+    verified = paths.get("hashes") or {}
+    face_ok = bool(paths.get("face")) and verified.get(FACE_FRAME) == expected.get(FACE_FRAME)
+    returned = {k: paths.get(k) for k in ("face", "body", "full_length") if paths.get(k)}
+    frame_of = {"face": FACE_FRAME, "body": paths.get("body_frame") or BODY_FRAME,
+                "full_length": FULL_LENGTH_FRAME}
+    mismatched = [k for k in returned
+                  if verified.get(frame_of[k]) != expected.get(frame_of[k])]
+    record = approved()
+    frozen = frozen_package(db) or {}
+    want_version = record.get("approved_pack_version")
+    want_fingerprint = record.get("approved_pack_fingerprint")
+    version_ok = (want_version is None or not frozen
+                  or str(frozen.get("pack_version")) == str(want_version))
+    fingerprint_ok = (want_fingerprint is None or not frozen
+                      or str(frozen.get("candidate_fingerprint")) == str(want_fingerprint))
+    check("references_are_the_approved_bytes",
+          face_ok and not mismatched and version_ok and fingerprint_ok,
+          {"face_present": bool(paths.get("face")),
+           "face_hash_matches": face_ok,
+           "body_recoverable": bool(paths.get("body")),
+           "returned_paths_verified": {k: k not in mismatched for k in returned},
+           "expected": {k: str(v)[:12] for k, v in expected.items()},
+           "frozen_pack_version": frozen.get("pack_version"),
+           "approved_pack_version": want_version, "pack_version_matches": version_ok,
+           "approved_pack_fingerprint": want_fingerprint,
+           "fingerprint_compared": want_fingerprint is not None and bool(frozen),
+           "fingerprint_matches": fingerprint_ok},
+          "a gate that compares against the right rules and the wrong photograph is "
+          "enforcing somebody else. The face must be the approved bytes and every "
+          "reference handed out must hash to what the frozen pack pins")
+
     failed = [c["check"] for c in checks if not c["holds"]]
     return {
         "proved": not failed,
@@ -496,29 +559,100 @@ def _materialise(db, frame: dict) -> str:
     return str(path) if path.is_file() else ""
 
 
+def expected_reference_hashes(package: dict | None, pack=None) -> dict:
+    """The sha256 each reference frame must hash to, keyed by frame name.
+
+    Read from the frozen pack's `reference_hashes` when it recorded them. A pack frozen
+    before hashes were recorded (the production row of 2026-09-22 is one) is not left
+    unpinned: its face is the committed approved portrait by construction -- the freeze put
+    `brief.approved_portrait()` at `image_refs[0]` -- so the manifest's `approved_face` hash
+    is its face hash, and its body frames are the sha256 values the pack build wrote into
+    the audit row when it kept the bytes. Nothing here hashes a file to decide what the
+    file should be: every value comes from a record made before the question was asked.
+    """
+    from . import brief, identity
+
+    recorded = dict(((pack.fields if pack is not None else {}) or {})
+                    .get("reference_hashes") or {})
+    if any(identity._is_sha256(v) for v in recorded.values()):
+        return {k: str(v).lower() for k, v in recorded.items() if identity._is_sha256(v)}
+
+    out: dict[str, str] = {}
+    try:
+        out[FACE_FRAME] = brief.manifest_entry(role=brief.APPROVED_FACE)["sha256"].lower()
+    except identity.IdentityRefused:
+        pass
+    for frame in (package or {}).get("reference_frames") or []:
+        name = frame.get("frame")
+        sha = str(((frame.get("image") or {}).get("sha256")) or "").lower()
+        if name in (BODY_FRAME, FULL_LENGTH_FRAME) and identity._is_sha256(sha):
+            out[name] = sha
+    return out
+
+
+def _verified(path: str, want: str) -> str:
+    """`path` if its bytes hash to `want`, else ''. No hash to check against is a ''."""
+    from . import brief
+
+    if not path or not want:
+        return ""
+    return path if brief.sha256_of(path) == str(want).lower() else ""
+
+
 def reference_paths(db, *, package: dict | None = None) -> dict:
     """Which image answers for the face and which answers for the body.
 
     Returns paths, never a verdict: a caller with no body reference is told so and reports
     `unverifiable`, rather than being handed a portrait and a body question.
+
+    Every path returned has been hashed and found to be the bytes the pack pins
+    (`expected_reference_hashes`). A file that materialises but hashes to something else
+    is returned as '' -- the same answer as a file that could not be recovered, because
+    for the caller they are the same fact: there is no approved reference to hand over.
+    The face used to fall back to whatever sat at the committed portrait's path; it now
+    falls back to the committed portrait only if those bytes are the approved bytes.
     """
-    from . import brief
+    from . import brief, identity, model_registry
 
     # `package` lets a caller ask about a pack that is not canonical yet, which is what
     # the freeze-time realism gate needs: the question has to be answered *before* the
     # pack becomes the one every render is conditioned on, not after.
     package = package if package is not None else frozen_package(db)
     frames = {f.get("frame"): f for f in (package or {}).get("reference_frames") or []}
+    pack = None
+    if db is not None:
+        try:
+            pack = model_registry.canonical_pack(db)
+        except Exception:  # noqa: BLE001 - no registry is no pack, not a crash
+            pack = None
+    expected = expected_reference_hashes(package, pack)
 
-    face = _materialise(db, frames.get(FACE_FRAME)) or brief.approved_portrait()
-    body = _materialise(db, frames.get(BODY_FRAME))
-    full_length = _materialise(db, frames.get(FULL_LENGTH_FRAME))
+    face = _verified(_materialise(db, frames.get(FACE_FRAME)), expected.get(FACE_FRAME))
+    if not face:
+        try:
+            face = _verified(brief.approved_portrait(), expected.get(FACE_FRAME))
+        except identity.IdentityRefused:
+            # The committed portrait is not the approved bytes. That is not a missing
+            # reference, it is a replaced one, and nothing conditions on it.
+            face = ""
+    body = _verified(_materialise(db, frames.get(BODY_FRAME)), expected.get(BODY_FRAME))
+    full_length = _verified(_materialise(db, frames.get(FULL_LENGTH_FRAME)),
+                            expected.get(FULL_LENGTH_FRAME))
+
+    hashes = {name: expected[name] for name, path in
+              ((FACE_FRAME, face), (BODY_FRAME, body), (FULL_LENGTH_FRAME, full_length))
+              if path and name in expected}
 
     return {
         "face": face,
         "body": body or full_length,
         "body_frame": (BODY_FRAME if body else FULL_LENGTH_FRAME if full_length else ""),
         "full_length": full_length,
+        # The verified sha256 of each path returned, keyed by frame, so a caller that
+        # conditions a render can record *what* it conditioned on rather than *where*, and
+        # `identity.provenance_check` can later hold the frame to it.
+        "hashes": hashes,
+        "expected_hashes": expected,
         "pack_version": (package or {}).get("pack_version"),
         "why_the_face_is_separate": (
             "a head-and-shoulders portrait cannot answer for bust, torso, waist or hips, "
@@ -529,4 +663,9 @@ def reference_paths(db, *, package: dict | None = None) -> dict:
             "the committed body references are the pre-revision pack. Using them when the "
             "revised reference cannot be recovered would enforce the superseded body the "
             "owner replaced, so the morphology floor reads `unverifiable` instead"),
+        "why_every_path_is_hashed": (
+            "a filename is a label somebody can move. Each path here was hashed and found "
+            "to be the bytes the frozen pack pins; a file that hashes to anything else is "
+            "returned as '' exactly as an unrecoverable one is, because either way there "
+            "is no approved reference to hand over"),
     }

@@ -446,6 +446,36 @@ class Seam:
 
 
 @dataclass
+class Provenance:
+    """Where a Brambleloop design came from, stated so it can be checked.
+
+    A design's stitch tables can be compared against every benchmark this company has
+    encoded (`specification.refuse_a_benchmark_in_our_clothes`), but a match is only the
+    *symptom* of the failure the Execution Directive forbids. The cause is a design whose
+    numbers were read off somebody else's pattern, and the defence against that is a record
+    of what the design was actually built from: which concept, which brief, which generic
+    primitives (grading, shaping, assembly), and which benchmarks were consulted -- for
+    demand and merchandising intelligence only, never as a source of stitch counts.
+
+    Optional on the CIR and omitted from `to_dict` when absent, because every existing
+    product's serialised form is a frozen Product Truth digest and adding a key to it would
+    change what those digests point at without changing a single stitch.
+    """
+
+    concept_key: str
+    brief_digest: str
+    primitives_used: tuple[str, ...] = ()
+    benchmarks_consulted: tuple[str, ...] = ()
+    generated_by: str = "brambleloop"
+    at: str | None = None   # ISO 8601, UTC
+
+    def __post_init__(self) -> None:
+        # JSON turns tuples into lists; one representation, so the fingerprint is stable.
+        self.primitives_used = tuple(str(p) for p in (self.primitives_used or ()))
+        self.benchmarks_consulted = tuple(str(b) for b in (self.benchmarks_consulted or ()))
+
+
+@dataclass
 class CIR:
     """The canonical pattern object."""
 
@@ -475,6 +505,8 @@ class CIR:
     designer_notes: str | None = None
     finished_size_note: str | None = None
     assembly: list[Seam] = field(default_factory=list)
+    # Optional. Absent from `to_dict` when None: see `Provenance`.
+    provenance: Provenance | None = None
 
     def __post_init__(self) -> None:
         if not self.components:
@@ -482,6 +514,8 @@ class CIR:
         names = [c.name for c in self.components]
         if len(names) != len(set(names)):
             raise ValueError(f"component names must be unique, got {names}")
+        if isinstance(self.provenance, dict):
+            self.provenance = Provenance(**self.provenance)
 
     @property
     def makes_a_closed_form(self) -> bool:
@@ -516,16 +550,30 @@ class CIR:
 
     # ---- serialization -------------------------------------------------
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        out = asdict(self)
+        # Omitted rather than serialised as null. Every certified product's `to_dict` is a
+        # frozen Product Truth digest, and a key that did not exist when those digests were
+        # taken must not appear in the payload they were taken over.
+        if out.get("provenance") is None:
+            out.pop("provenance", None)
+        return out
 
     def to_json(self, **kw: Any) -> str:
         return json.dumps(self.to_dict(), indent=2, sort_keys=True, **kw)
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "CIR":
+        # Every field `to_dict` writes is read back here, and `tests/test_cir_roundtrip.py`
+        # holds the two to the same set. Until 2026-09-26 this dropped `Op.loop`, `Op.spans`,
+        # `Row.skips`, `Component.holds/resumes/grain` and `CIR.authored`: the benchmark
+        # cardigan round-tripped into a CIR that failed to compile (its armhole rows lost
+        # their skips and became underruns), relabelled itself as Brambleloop's own work,
+        # turned its side-to-side grain upright and flattened every textured stitch to
+        # plain fabric. Every pipeline hop serialises, so every pipeline hop did that.
         def node(x: dict[str, Any]) -> OpNode:
             if "stitch" in x:
-                return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"))
+                return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"),
+                          loop=x.get("loop", "both"), spans=x.get("spans", 0))
             return Repeat(
                 ops=[node(o) for o in x["ops"]], times=x.get("times"), note=x.get("note")
             )
@@ -538,6 +586,9 @@ class CIR:
                 foundation_kind=c.get("foundation_kind", "chain"),
                 make=c.get("make", 1),
                 note=c.get("note"),
+                holds=[Hold(**h) for h in c.get("holds", [])],
+                resumes=c.get("resumes"),
+                grain=c.get("grain", "up"),
                 rows=[
                     Row(
                         index=r["index"],
@@ -549,6 +600,7 @@ class CIR:
                         into=r.get("into"),
                         allow_remainder=r.get("allow_remainder", False),
                         note=r.get("note"),
+                        skips=r.get("skips", 0),
                     )
                     for r in c["rows"]
                 ],
@@ -565,9 +617,11 @@ class CIR:
             materials=[Material(**m) for m in d.get("materials", [])],
             colors=d.get("colors", {}),
             risk_class=d.get("risk_class", "A"),
+            authored=d.get("authored", "brambleloop"),
             designer_notes=d.get("designer_notes"),
             finished_size_note=d.get("finished_size_note"),
             assembly=[Seam(**seam) for seam in d.get("assembly", [])],
+            provenance=Provenance(**d["provenance"]) if d.get("provenance") else None,
         )
 
     @staticmethod

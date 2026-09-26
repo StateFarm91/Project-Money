@@ -53,6 +53,13 @@ EVIDENCE_GRADES: dict[str, str] = {
     "gallery_image_observation": MANDATED,
     "listing_metadata_capture": MANDATED,
     "official_api_read": MANDATED,
+    # The #222/#320 acceptance runner's own evidence: the sanctioned API path (resolve,
+    # enumerate, deep audit, gallery URLs) plus the vision model's gallery observations,
+    # proved offline from stored rows. Graded as the two mandated kinds it is composed of
+    # are. Whether an API traversal satisfies a requirement worded "browser/vision" is a
+    # decision the owner's log has not recorded yet (B-105); until it is, this grade is
+    # provisional and the acceptance report says so beside every step.
+    "api_gallery_traversal": MANDATED,
     # Real, and explicitly named in #221 as things that must not silently replace the above.
     "search_snippet": SUPPORTING,
     "manual_screenshot": SUPPORTING,

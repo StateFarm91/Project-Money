@@ -133,6 +133,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "model.frozen": ("lifetime_total",
                      "visual.freeze and visual.bible read the canonical identity freeze, "
                      "which is permanent provenance and not re-derivable"),
+    "model.replaced": ("lifetime_total",
+                       "visual.model_registry.replacements reads every owner-approved "
+                       "replacement of the canonical identity: the lineage from one "
+                       "version to the next is permanent provenance and not re-derivable"),
     "design.provenance": ("lifetime_total",
                           "ops.artefacts proves what each derived artefact was made from; "
                           "a missing row reads as unproven, which blocks publication"),

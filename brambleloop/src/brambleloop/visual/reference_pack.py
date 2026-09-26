@@ -42,6 +42,22 @@ PACK_ACTION = "model.reference_pack"
 # how a corrected method quietly never runs.
 PACK_VERSION = "v16-the-fallback-provider-has-time-to-render"
 
+
+def pack_number(version) -> int:
+    """The ordinal of a pack version string: `v16-...` is 16. Unparseable is 0.
+
+    Exists so a job stamped for an *older* pack than the running build produces can be
+    told from one stamped for a *newer* one. They are opposite situations: a newer stamp
+    means this replica is stale and must stand aside for the build that can do the work;
+    an older stamp means the work it asked for has been superseded and no build will ever
+    produce it again, so failing it forever poisons the dead-letter queue with a job nobody
+    can take.
+    """
+    import re
+
+    match = re.match(r"^\s*v(\d+)(?:\b|-|_|$)", str(version or ""), re.I)
+    return int(match.group(1)) if match else 0
+
 # The scenes the pack is stress-tested across: the brief's controlled set, minus the neutral
 # portrait, which is now a reference frame rather than a scene.
 STRESS_SCENES: tuple[tuple[str, str], ...] = tuple(

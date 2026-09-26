@@ -41,7 +41,11 @@ BACKOFF_CAP_SECONDS = 3600
 # counted it correctly, which is one signal contradicting another about the same row.
 DELIBERATE_REFUSAL_TYPES: frozenset[str] = frozenset({"store.publish"})
 
-DELIBERATE_REFUSAL_MARKERS: tuple[str, ...] = ("another replica",)
+# Two markers for the pack stand-aside, because the row it produced in production carries
+# the *front* of the message and not always the back: `last_error` is the exception text and
+# the "another replica" clause is its last sentence, so a truncated or reformatted copy kept
+# "asked for pack" and lost the marker that classified it. Either phrase is the same refusal.
+DELIBERATE_REFUSAL_MARKERS: tuple[str, ...] = ("another replica", "asked for pack")
 
 
 def deliberate_refusal(job_type: str, last_error: str = "") -> bool:

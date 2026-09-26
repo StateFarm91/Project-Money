@@ -1312,11 +1312,17 @@ def handle_improvement_retrospective(ctx: JobContext) -> dict:
 
     GREEN: reads rows and writes an audit record. It changes nothing.
     """
+    from ..improve import roi
     from ..improve.bus import compounding
     from ..improve.cells import raise_plateau_defect, retrospective
 
     report = retrospective(ctx.db)
     report["compounding"] = compounding(ctx.db)
+    # #99: what the promoted changes actually returned, against the baselines captured at
+    # proposal time. Cost is known on the day and benefit is known later, so benefit is the
+    # number nobody goes back for; the retrospective is where somebody reads, so it goes here.
+    realised = roi.realised_benefit(ctx.db)
+    report["realised_benefit"] = realised
     # #104: a creative plateau is a top-level business defect, so it opens an incident
     # rather than appearing in a paragraph. Opened and closed here, because a defect that
     # never resolves becomes furniture and a company learns to read past it.
@@ -1327,7 +1333,12 @@ def handle_improvement_retrospective(ctx: JobContext) -> dict:
             "regressed": report["regressed_cells"],
             "unmeasured": len(report["unmeasured_cells"]),
             "creative_plateau": plateau["verdict"],
-            "plateau_incident": plateau["incident"]}
+            "plateau_incident": plateau["incident"],
+            "promotions_assessed": realised["assessed"],
+            "returned": len(realised["returned"]),
+            "no_return": len(realised["no_return"]),
+            "regressed_promotions": len(realised["regressed"]),
+            "hit_rate": realised["hit_rate"]}
 
 @handlers.register("launch.readiness")
 def handle_launch_readiness(ctx: JobContext) -> dict:
@@ -2276,30 +2287,70 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
 
     GREEN: it reads rows, writes an audit record and queues nothing that promotes itself.
     """
-    from sqlalchemy import desc, func, select
+    from sqlalchemy import desc, select
 
-    from ..core.models import AuditLog, CapabilityPoint, ConfigVersion, Incident, Lesson
-    from ..improve import freshness, nightly
+    from ..core.models import AuditLog, CapabilityPoint, ConfigVersion, Lesson
+    from ..improve import bootstrap, freshness, mine, nightly, profiles
+
+    def _aware(value):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    previous = None
+    previous_at = None
+    with ctx.db.session() as session:
+        row = session.scalar(select(AuditLog).where(AuditLog.action == "improve.nightly")
+                             .order_by(desc(AuditLog.id)).limit(1))
+        if row is not None:
+            previous = (row.detail or {}).get("delta")
+            previous_at = _aware(row.at)
 
     results = []
+
+    # INGEST reads the evidence `improve.measure` wrote: every capability point, and the ones
+    # recorded since the previous sweep are what was found. Twelve empty sources read as
+    # zero and `did_not_run`, which is the honest reading of a company nothing has measured.
     with ctx.db.session() as session:
-        evidence = session.scalar(select(func.count()).select_from(CapabilityPoint)) or 0
-        results.append(nightly.stage_ran(nightly.INGEST, read=evidence,
-                                         found=evidence))
+        points = [(p.cell, _aware(p.at), (p.detail or {}).get("from", ""))
+                  for p in session.scalars(select(CapabilityPoint))]
+    fresh = [p for p in points if previous_at is None or p[1] > previous_at]
+    results.append(nightly.stage_ran(
+        nightly.INGEST, read=len(points), found=len(fresh),
+        cells_measured=sorted({cell for cell, _at, _src in fresh}),
+        sources=sorted({src for _c, _at, src in fresh if src})))
 
-        incidents = list(session.scalars(select(Incident).where(Incident.resolved.is_(False))))
-        results.append(nightly.stage_ran(nightly.MINE, read=len(incidents),
-                                         found=len(incidents)))
+    # MINE reads the failures -- unresolved incidents, gate and asset refusals, dead letters
+    # -- groups them by signature and publishes each group through the lesson bus, once.
+    mined = mine.mine(ctx.db)
+    results.append(nightly.stage_ran(
+        nightly.MINE, read=mined["read"], found=mined["found"],
+        groups=mined["groups"], reused=len(mined["reused"]),
+        incidents=mined["incidents"], blocked=mined["blocked"], dead=mined["dead"],
+        regression_fixtures=len(mined["regression_fixtures"])))
 
+    # LESSONS: what the bus now routes, and to whom. Found is the departments that received
+    # something new tonight, because a lesson filed and routed nowhere is not learning.
+    with ctx.db.session() as session:
         lessons = list(session.scalars(select(Lesson)))
-        unacted = [row for row in lessons if row.routed_to and not row.acted_on_by]
-        results.append(nightly.stage_ran(nightly.LESSONS, read=len(lessons),
-                                         found=len(unacted)))
+    unacted = [row for row in lessons if row.routed_to and not row.acted_on_by]
+    reached = sorted({cell for entry in mined["published"] for cell in entry["routed_to"]})
+    results.append(nightly.stage_ran(
+        nightly.LESSONS, read=len(lessons), found=len(reached),
+        routed_to=reached, unacted=len(unacted),
+        published=[e["evidence_ref"] for e in mined["published"]]))
 
-        configs = list(session.scalars(select(ConfigVersion)))
-        challengers = [row for row in configs if not row.incumbent]
-        results.append(nightly.stage_ran(nightly.CHALLENGERS, read=len(configs),
-                                         found=len(challengers)))
+    # CHALLENGERS: the league's incumbents are registered from the code that runs them, and
+    # any trial verdict on file is copied onto the rows it judged. No challenger is run here;
+    # that is a spending decision. What is found is every configuration with a challenger.
+    booted = bootstrap.ensure(ctx.db)
+    with ctx.db.session() as session:
+        configs = [(row.kind, row.key, row.incumbent, bool(row.measured_outcome))
+                   for row in session.scalars(select(ConfigVersion))]
+    challengers = [c for c in configs if not c[2]]
+    results.append(nightly.stage_ran(
+        nightly.CHALLENGERS, read=len(configs), found=len(challengers),
+        incumbents=sum(1 for c in configs if c[2]),
+        incumbents_unmeasured=sum(1 for c in configs if c[2] and not c[3]),
+        bootstrap=booted))
 
     sweep = freshness.sweep(ctx.db)
     stuck = sorted(set(sweep["stale_learning"]) | set(sweep["churning"])
@@ -2310,21 +2361,20 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
                                      churning=sweep["churning"],
                                      never_measured=sweep["never_measured"]))
 
-    # Queueing is where this sweep deliberately stops. It opens nothing that promotes itself;
-    # #190's pipeline and #178's tiers decide that, and a nightly job that could promote is a
-    # company rewriting itself faster than it can observe the results.
-    results.append(nightly.stage_skipped(
-        nightly.QUEUE,
-        "no safe improvement was queued: bottlenecks here are unmeasured departments, which "
-        "need instrumenting rather than a proposal"
-        if stuck else "nothing was stuck, so there was nothing to queue"))
-
-    previous = None
-    with ctx.db.session() as session:
-        row = session.scalar(select(AuditLog).where(AuditLog.action == "improve.nightly")
-                             .order_by(desc(AuditLog.id)).limit(1))
-        if row is not None:
-            previous = (row.detail or {}).get("delta")
+    # QUEUE opens bounded proposals from each cell's own self-review and stops there. Every
+    # one goes through cells.propose -- the governance boundary, the rollback requirement and
+    # the declared surfaces -- and nothing here tests or promotes: #190's pipeline and #178's
+    # tiers decide that, and a nightly job that could promote is a company rewriting itself
+    # faster than it can observe the results.
+    queued = profiles.queue_proposals(ctx.db)
+    results.append(nightly.stage_ran(
+        nightly.QUEUE, read=queued["cells_reviewed"], found=queued["persisted"],
+        proposals_seen=queued["proposals_seen"],
+        queued=[{"improvement": q["improvement"], "cell": q["cell"], "kind": q["kind"]}
+                for q in queued["queued"]],
+        already_open=len(queued["already_open"]),
+        refused=queued["refused"],
+        resolved_by_measurement=len(queued["resolved_by_measurement"])))
 
     results.append(nightly.stage_ran(nightly.DELTA, read=len(results), found=len(results)))
     delta = nightly.delta(results, previous=previous)
@@ -2349,15 +2399,26 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
     """
     from sqlalchemy import func, select
 
-    from ..core.models import CapabilityPoint, Incident, LedgerEntry, SupportCase
-    from ..improve import freshness, weekly
+    from ..core.models import (AuditLog, CapabilityPoint, Incident, Job, JobStatus,
+                               LedgerEntry, PatternVersion, SupportCase)
+    from ..improve import freshness, roi, weekly
 
     readings = []
     with ctx.db.session() as session:
         points = session.scalar(select(func.count()).select_from(CapabilityPoint)) or 0
         incidents = session.scalar(select(func.count()).select_from(Incident)) or 0
+        open_incidents = session.scalar(select(func.count()).select_from(Incident)
+                                        .where(Incident.resolved.is_(False))) or 0
         cases = session.scalar(select(func.count()).select_from(SupportCase)) or 0
         ledger = session.scalar(select(func.count()).select_from(LedgerEntry)) or 0
+        versions = session.scalar(select(func.count()).select_from(PatternVersion)) or 0
+        uncertified = session.scalar(select(func.count()).select_from(PatternVersion)
+                                     .where(PatternVersion.certified.is_(False))) or 0
+        jobs = session.scalar(select(func.count()).select_from(Job)) or 0
+        dead = session.scalar(select(func.count()).select_from(Job)
+                              .where(Job.status == JobStatus.DEAD)) or 0
+        tournaments = session.scalar(select(func.count()).select_from(AuditLog)
+                                     .where(AuditLog.action == "creative.tournament")) or 0
 
     sweep = freshness.sweep(ctx.db)
     stuck = sorted(set(sweep["stale_learning"]) | set(sweep["churning"]))
@@ -2366,24 +2427,94 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
     # zero here reads `not_audited` rather than clean, which is what keeps the weekly report
     # from describing a healthy business nobody has looked at.
     for domain, read, found in (
-            ("product_creativity", points, len(stuck)),
-            ("pattern_correctness", points, 0),
+            ("product_creativity", points + tournaments, len(stuck)),
+            ("pattern_correctness", versions, uncertified),
             ("competitor_intelligence", len(sweep["departments"]),
              len(sweep["stale_learning"])),
             ("conversion", 0, 0),
             ("ads", 0, 0),
             ("support", cases, 0),
-            ("infrastructure", incidents, incidents),
+            ("infrastructure", incidents + jobs, open_incidents + dead),
             ("cost", ledger, 0)):
         readings.append(weekly.DomainReading(domain=domain, read=read, findings=found))
 
     cycle = weekly.cycle(readings, [])
     plan = weekly.roadmap(cycle)
+    realised = roi.realised_benefit(ctx.db)
     detail = {"complete": cycle["complete"], "not_audited": cycle["not_audited"],
               "total_read": cycle["total_read"], "total_findings": cycle["total_findings"],
-              "roadmap": plan}
+              "roadmap": plan,
+              "realised_benefit": {k: realised[k] for k in
+                                   ("promotions", "assessed", "spent_cad", "hit_rate")}}
     ctx.audit("improve.weekly", detail=detail)
     return detail
+
+
+@handlers.register("improve.measure")
+def handle_capability_measure(ctx: JobContext) -> dict:
+    """Measure every capability cell from the rows its `Cell.measure` string names (#90, #94).
+
+    The department had twelve cells, each stating in words how its number is produced, and
+    nothing ever produced it: production reported twelve of twelve UNMEASURED because
+    `cells.record_capability` had no caller outside a test. This is the caller. One
+    deterministic query per cell, the same every day; a cell whose source is empty records
+    nothing and says which table has to fill first, because a zero written into an empty
+    table reads downstream as "defects: none" when the truth is "defects: unknowable".
+
+    GREEN: reads rows, writes capability points and an audit record. Spends nothing.
+    """
+    from ..improve import measure
+
+    out = measure.record_all(ctx.db)
+    detail = {"recorded": out["recorded"], "skipped": out["skipped"],
+              "read": out["read"], "found": out["found"], "cells": out["cells"],
+              "note": out["note"]}
+    ctx.audit("improve.measure", detail=detail)
+    return {"ran": True, "measured": out["found"], "of": out["cells"],
+            "read": out["read"],
+            "cells": [r["cell"] for r in out["recorded"]],
+            "skipped": {k: v["reason"] for k, v in out["skipped"].items()}}
+
+
+@handlers.register("improve.mine")
+def handle_failure_mine(ctx: JobContext) -> dict:
+    """Mine the failures for the pattern behind them and publish each as a routed lesson (#97).
+
+    The nightly sweep runs this as its MINE stage; the handler exists so mining can also be
+    driven on demand, because nightly is the minimum sweep and not the only one. Idempotent
+    on evidence: an unresolved incident re-read on its thirtieth night is one lesson a month
+    old, not thirty.
+
+    GREEN: reads incidents, refusals and dead letters; writes lessons and an audit record.
+    """
+    from ..improve import mine
+
+    out = mine.mine(ctx.db)
+    return {"ran": True, "read": out["read"], "groups": out["groups"],
+            "published": out["found"], "reused": len(out["reused"]),
+            "regression_fixtures": [f for f in out["regression_fixtures"] if f["captured"]],
+            "routed_to": sorted({c for e in out["published"] for c in e["routed_to"]})}
+
+
+@handlers.register("improve.monitor")
+def handle_promotion_monitor(ctx: JobContext) -> dict:
+    """Judge every promoted change against its newest production reading (#93, #99).
+
+    `cells.monitor` reverts a promotion whose metric came back worse than the sandbox said,
+    and nothing called it, so every promotion stayed promoted because nobody was looking.
+    This looks, once per new production reading, and only at readings neither the promotion
+    nor the monitor wrote itself -- reading either back would make every promotion hold by
+    construction.
+
+    GREEN: reads capability points, may revert an improvement row, writes an audit record.
+    """
+    from ..improve import bootstrap, monitor
+
+    bootstrap.ensure(ctx.db)
+    out = monitor.sweep(ctx.db)
+    return {"ran": True, "promoted": out["promoted"], "judged": out["judged"],
+            "held": len(out["held"]), "reverted": [r["improvement"] for r in out["reverted"]],
+            "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
 @handlers.register("ops.health")
@@ -3736,6 +3867,21 @@ def handle_model_reference_pack(ctx: JobContext) -> dict:
     # was a true sentence about a different question.
     wanted = ctx.job.inputs.get("pack_version")
     if wanted and wanted != reference_pack.PACK_VERSION:
+        asked, produces = (reference_pack.pack_number(wanted),
+                           reference_pack.pack_number(reference_pack.PACK_VERSION))
+        if asked and produces and asked < produces:
+            # The opposite case, found in the dead-letter queue: a job stamped for a pack
+            # *older* than any running build produces. No replica will ever take it, so
+            # raising would fail it on every attempt for ever -- a poisoned row that reads
+            # as a defect. The work it asked for is superseded; completing it as a
+            # stand-aside says so once and lets the row rest.
+            return {"ran": False, "superseded_by": reference_pack.PACK_VERSION,
+                    "asked_for": wanted,
+                    "why": (f"this job asked for pack {wanted!r}, which is older than the "
+                            f"{reference_pack.PACK_VERSION!r} every running build now "
+                            f"produces. Nothing will ever build the older pack again, so "
+                            f"the job is completed as superseded rather than failed for "
+                            f"another replica that does not exist")}
         raise RuntimeError(
             f"this job asked for pack {wanted!r} and this build produces "
             f"{reference_pack.PACK_VERSION!r}. Failing so another replica takes it, rather "

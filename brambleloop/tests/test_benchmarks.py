@@ -149,7 +149,8 @@ def test_every_metric_states_what_it_needs_before_it_means_anything():
 
 def test_state_reports_the_axes_and_the_floors():
     out = B.state()
-    assert set(out["axes"]) == {"category", "traffic_source", "price_band", "maturity"}
+    assert set(out["axes"]) == set(B.AXES) == {"category", "traffic_source", "price_band",
+                                                "maturity", "season", "listing_age"}
     assert out["floors"]["listings_per_cell"] == B.MIN_LISTINGS_PER_CELL
     assert "refused by name" in out["note"]
 

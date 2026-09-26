@@ -9,6 +9,7 @@ made permanent rather than broken once, which is the worse of the two.
 """
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -16,6 +17,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+
+# Before the artifact store is imported: it reads its root once, and the body reference
+# the hash tests below file has to be somewhere the test owns.
+_ART = tempfile.TemporaryDirectory(prefix="freeze-artifacts-")
+os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = _ART.name
 
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import AuditLog  # noqa: E402
@@ -193,6 +199,8 @@ def test_the_seven_properties_hold_against_the_persisted_pack():
         "unmeasurable_never_becomes_pass",
         "a_face_match_cannot_compensate_for_body_drift",
         "model_bearing_assets_cannot_bypass_the_gate",
+        # The eighth, added 2026-09-26: the pictures, not only the logic.
+        "references_are_the_approved_bytes",
     ]
     assert all(c["holds"] for c in proof["checks"])
 
@@ -353,6 +361,165 @@ def test_a_reference_the_judge_could_not_read_is_unproven_rather_than_sound():
         assert "unproven rather than sound" in str(exc)
     else:
         raise AssertionError("a pack nobody could judge was frozen")
+
+
+# ---------------------------------------------------------------------------
+# The references are the approved bytes (2026-09-26)
+
+
+def _kept_body(db, *, frame: str) -> tuple[str, str]:
+    """A body frame the artifact store can actually recover, and its sha256."""
+    from brambleloop.visual import tournament
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as fh:
+        fh.write(b"\x89PNG\r\n\x1a\n" + frame.encode())
+        path = fh.name
+    kept = tournament._keep(path, db=db, why="a test body reference")
+    return path, kept["sha256"]
+
+
+def _package_with_real_body(db) -> dict:
+    package = _package(version="v15")
+    _, torso = _kept_body(db, frame="torso")
+    _, full = _kept_body(db, frame="full")
+    package["reference_frames"] = [
+        {"frame": "neutral_portrait", "image": {"sha256": brief.sha256_of(brief.approved_portrait())}},
+        {"frame": "torso_fit_reference", "image": {"sha256": torso}},
+        {"frame": "full_length_standing", "image": {"sha256": full}},
+    ]
+    return package
+
+
+def _tampered_assets_dir() -> str:
+    import shutil
+
+    tmp = Path(tempfile.mkdtemp())
+    for path in Path(brief.ASSETS_DIR).iterdir():
+        if path.is_file():
+            shutil.copy(path, tmp / path.name)
+    (tmp / "identity_portrait.jpg").write_bytes(b"\xff\xd8not her")
+    return str(tmp)
+
+
+def test_the_freeze_pins_every_reference_by_hash():
+    """The bytes she is, not the paths they were at."""
+    db = _db()
+    package = _package_with_real_body(db)
+    _file(db, package)
+    record = freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
+    hashes = record["fields"]["reference_hashes"]
+    assert hashes["neutral_portrait"] == brief.manifest_entry(role=brief.APPROVED_FACE)["sha256"]
+    assert hashes["torso_fit_reference"] == package["reference_frames"][1]["image"]["sha256"]
+    assert hashes["full_length_standing"] == package["reference_frames"][2]["image"]["sha256"]
+    # Persisted, not only returned: the gate reads the row.
+    assert model_registry.canonical_pack(db).fields["reference_hashes"] == hashes
+
+
+def test_reference_paths_hands_out_only_files_that_hash_to_the_pinned_bytes():
+    db = _db()
+    package = _package_with_real_body(db)
+    _file(db, package)
+    freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
+
+    paths = freeze.reference_paths(db, package=package)
+    assert paths["face"] == brief.approved_portrait()
+    assert paths["body"] and paths["body_frame"] == freeze.BODY_FRAME
+    assert brief.sha256_of(paths["body"]) == paths["hashes"]["torso_fit_reference"]
+    assert paths["hashes"]["neutral_portrait"].startswith("a42aeac7")
+
+
+def test_a_replaced_committed_portrait_is_not_the_face_and_is_not_a_fallback():
+    """The defect this closes: `reference_paths` fell back to whatever bytes sat at the
+    committed portrait's path. A replaced file would have become the approved face
+    without anybody deciding it, and every frame conditioned on it would have agreed."""
+    db = _db()
+    _file(db, _package(version="v15"))
+    freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
+
+    original = brief.ASSETS_DIR
+    brief.ASSETS_DIR = _tampered_assets_dir()
+    try:
+        paths = freeze.reference_paths(db, package=_package(version="v15"))
+        assert paths["face"] == "", "tampered portrait bytes were handed out as the face"
+        assert paths["expected_hashes"]["neutral_portrait"].startswith("a42aeac7")
+        proof = freeze.enforcement_proof(db)
+        assert "references_are_the_approved_bytes" in proof["failed"]
+    finally:
+        brief.ASSETS_DIR = original
+    assert freeze.reference_paths(db, package=_package(version="v15"))["face"] == \
+        brief.approved_portrait()
+
+
+def test_a_body_frame_that_recovers_as_different_bytes_is_returned_as_nothing():
+    """Same answer as an unrecoverable frame, because for the caller it is the same fact:
+    there is no approved body reference to hand over."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import ModelIdentity
+
+    db = _db()
+    package = _package_with_real_body(db)
+    _file(db, package)
+    freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
+    assert freeze.reference_paths(db, package=package)["body"]
+
+    with db.session() as s:
+        row = s.scalar(select(ModelIdentity))
+        fields = dict(row.fields)
+        fields["reference_hashes"] = {**fields["reference_hashes"],
+                                      "torso_fit_reference": "0" * 64,
+                                      "full_length_standing": "1" * 64}
+        row.fields = fields
+
+    paths = freeze.reference_paths(db, package=package)
+    assert paths["body"] == "" and paths["full_length"] == ""
+    assert paths["face"] == brief.approved_portrait(), "the face was not touched"
+
+
+def test_a_pack_frozen_before_hashes_were_recorded_is_still_pinned():
+    """The production row of 2026-09-22 has no `reference_hashes`. Its face is the
+    committed portrait by construction and its body frames are the sha256 values the
+    build wrote when it kept the bytes, so nothing about it is unpinned."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import ModelIdentity
+
+    db = _db()
+    package = _package_with_real_body(db)
+    _file(db, package)
+    freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
+    with db.session() as s:
+        row = s.scalar(select(ModelIdentity))
+        fields = dict(row.fields)
+        del fields["reference_hashes"]
+        row.fields = fields
+
+    expected = freeze.expected_reference_hashes(package, model_registry.canonical_pack(db))
+    assert expected["neutral_portrait"].startswith("a42aeac7")
+    assert expected["torso_fit_reference"] == package["reference_frames"][1]["image"]["sha256"]
+    paths = freeze.reference_paths(db, package=package)
+    assert paths["face"] == brief.approved_portrait() and paths["body"]
+    # ...but a frame's provenance against such a pack is unverifiable, not verified.
+    verdict = identity.provenance_check(
+        {"conditioned_on": {"reference_hashes": {"neutral_portrait": expected["neutral_portrait"]}}},
+        model_registry.canonical_pack(db))
+    assert verdict["verdict"] == identity.PROVENANCE_UNVERIFIABLE
+
+
+def test_the_approval_record_names_who_and_how_and_does_not_invent_the_fingerprint():
+    record = freeze.approved()
+    assert record["approved_by"] == "owner"
+    assert record["channel"]
+    assert record["approved_pack_version"].startswith("v15-")
+    assert record["approved_pack_fingerprint"] is None
+    assert "not determinable from code" in record["approved_pack_fingerprint_note"]
+    # When the fingerprint is unknown the proof says so rather than claiming a match.
+    db = _db()
+    _file(db, _package(version="v15"))
+    freeze.freeze(db, owner_approved=True, realism_judger=_SoundReference())
+    check = [c for c in freeze.enforcement_proof(db)["checks"]
+             if c["check"] == "references_are_the_approved_bytes"][0]
+    assert check["evidence"]["fingerprint_compared"] is False
 
 
 if __name__ == "__main__":

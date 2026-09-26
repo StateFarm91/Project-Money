@@ -694,3 +694,132 @@ def last_run(db) -> dict | None:
             f"rather than on the idea. The verdict below is kept for the record and is not a "
             f"measurement of creative capability")
     return run
+
+
+# ---------------------------------------------------------------------------
+# The search-grid blind tournament (#126)
+#
+# #126 asks that concept boards or thumbnails be rendered into a simulated Etsy-style grid
+# beside a current category-matched benchmark set, with seller and review signals hidden, and
+# that independent judges rank attention, comprehension, desire and distinctiveness against a
+# defined threshold. What follows builds the grid deterministically -- the cells, the blinding
+# and the seeded interleaving -- and holds the judge fields empty until a judge fills them.
+# It does not fill them itself, and a grid nobody has judged is a `fail`, because a
+# threshold cleared by default is the brand favouritism the requirement forbids.
+
+GRID_JUDGE_FIELDS: tuple[str, ...] = ("attention", "comprehension", "desire",
+                                      "distinctiveness")
+# The defined threshold: our cells must be ranked in the top half on every judge field, by
+# judges who did not know which cells were ours. A mean below this fails.
+GRID_THRESHOLD = 0.5
+# A grid needs enough benchmark cells to be a search page rather than a pair.
+MIN_GRID_BENCHMARKS = 6
+GRID_COLUMNS = 4
+
+
+class GridRefused(ValueError):
+    """A grid that could not be built honestly: too few benchmarks, nothing of ours, or a leak."""
+
+
+def _grid_cell_id(seed: int, index: int) -> str:
+    return "c" + hashlib.sha256(f"{seed}:{index}".encode()).hexdigest()[:8]
+
+
+def render_grid(db, ours: list[dict], *, pod: str, seed: int = 0,
+                benchmark_key: str = "", columns: int = GRID_COLUMNS,
+                judgements: dict[str, dict] | None = None) -> dict:
+    """A simulated search grid of benchmark thumbnails and our renders, blinded and seeded.
+
+    `ours` are our frame records for products in `pod` -- what `listing_asset.frames_for`
+    returns -- each carrying `slug` and an `image_ref` or `image`. Their side is every
+    audited listing in the pod with a first gallery image on file, referenced by URL and
+    never fetched, copied or stored here: a cell carries the URL as a pointer for a judge
+    with a browser, and nothing else about the listing. Seller, price, favourites, reviews
+    and title are all withheld, which is what "signals hidden" means.
+
+    `judgements` maps cell id to ranks in 0..1 on the four judge fields. Without them every
+    field is None and the verdict is `fail`, reported as unjudged rather than as a threshold
+    miss, so the two are never confused and neither is a pass.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..intel import benchmarks
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key,
+            BenchmarkListing.pod == pod,
+            BenchmarkListing.audit_state == "audited")))
+        theirs = [{"side": THEIRS, "ref": r.listing_ref,
+                   "thumbnail": ((r.detail or {}).get("image_urls") or [""])[0]}
+                  for r in rows if ((r.detail or {}).get("image_urls") or [""])[0]]
+
+    mine = [{"side": OURS, "ref": str(f.get("slug") or ""),
+             "thumbnail": str(f.get("image_ref") or f.get("image") or "")}
+            for f in ours if f.get("made", True) and (f.get("image_ref") or f.get("image"))]
+    if len(theirs) < MIN_GRID_BENCHMARKS:
+        raise GridRefused(
+            f"{len(theirs)} benchmark thumbnail(s) on file for pod {pod!r}, below "
+            f"{MIN_GRID_BENCHMARKS}. A grid of two is a pair, not a search page, and the "
+            f"tournament would measure the pairing")
+    if not mine:
+        raise GridRefused(
+            f"no render of ours in pod {pod!r} carries an image, so there is nothing to "
+            f"place in the grid. An empty side is not a favourable one")
+
+    rng = random.Random(seed)
+    cells = theirs + mine
+    rng.shuffle(cells)
+    key: dict[str, dict] = {}
+    presented = []
+    for index, cell in enumerate(cells):
+        cell_id = _grid_cell_id(seed, index)
+        key[cell_id] = {"side": cell["side"], "ref": cell["ref"]}
+        # What a judge sees: a position, a pointer to a picture, a pod. No side, no ref, no
+        # seller, no price, no reviews, no title.
+        presented.append({"cell": cell_id, "row": index // max(1, columns),
+                          "col": index % max(1, columns), "thumbnail": cell["thumbnail"],
+                          "pod": pod})
+    for cell in presented:
+        leak = [k for k in cell if k in ("side", "ref", "seller", "price", "reviews", "title")]
+        if leak:
+            raise GridRefused(f"grid cell leaks {leak}")
+
+    judgements = judgements or {}
+    ours_ids = [c for c, k in key.items() if k["side"] == OURS]
+    scores: dict[str, float | None] = {}
+    for field_name in GRID_JUDGE_FIELDS:
+        got = [float(judgements[c][field_name]) for c in ours_ids
+               if c in judgements and judgements[c].get(field_name) is not None]
+        scores[field_name] = round(sum(got) / len(got), 4) if len(got) == len(ours_ids) else None
+    unjudged = [f for f, v in scores.items() if v is None]
+    below = [f for f, v in scores.items() if v is not None and v < GRID_THRESHOLD]
+    verdict = "fail" if unjudged or below else "clear"
+    return {
+        "pod": pod,
+        "seed": seed,
+        "columns": columns,
+        "cells": presented,
+        "benchmark_cells": len(theirs),
+        "our_cells": len(mine),
+        "judge_fields": list(GRID_JUDGE_FIELDS),
+        "threshold": GRID_THRESHOLD,
+        "our_scores": scores,
+        "unjudged": unjudged,
+        "below_threshold": below,
+        "verdict": verdict,
+        "why": ("no judge has ranked the grid, and a threshold cleared by default is brand "
+                "favouritism" if unjudged and not judgements else
+                f"unjudged on {unjudged}" if unjudged else
+                f"below {GRID_THRESHOLD} on {below}" if below else
+                "our cells rank in the top half on every judge field, blinded"),
+        # Held apart from the cells so a judge is handed `cells` and never `key`.
+        "key": key,
+        "hidden": ["seller", "price", "favourites", "reviews", "title", "side"],
+        "note": ("Deterministic grid, seeded and blinded. Benchmark thumbnails are URL "
+                 "pointers for a judge with a browser; none is fetched, copied or stored "
+                 "here. The judges are still to be appointed; until they rank it, this "
+                 "grid fails (#126)"),
+    }

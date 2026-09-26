@@ -236,8 +236,11 @@ def test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling():
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
                           now=NOW, agent="gateway")
     assert out["agent_permission"] is None
+    # `now=NOW`: the rows above are stamped at the frozen instant, so the reader has to be
+    # asked about that day rather than the wall clock's -- the exact defect the test below
+    # this one documents, and the reason this check went red at the first UTC midnight.
     assert any(r["agent"] == "gateway"
-               for r in spend_report.per_agent_today(db)["spenders_with_no_agent_row"])
+               for r in spend_report.per_agent_today(db, now=NOW)["spenders_with_no_agent_row"])
 
 
 def test_the_permission_and_the_month_are_asked_about_the_same_day():

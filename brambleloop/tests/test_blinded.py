@@ -543,6 +543,93 @@ def test_a_current_run_is_not_marked_superseded():
     assert "superseded" not in B.last_run(db)
 
 
+
+# ---- the search-grid blind tournament (#126) ------------------------------
+
+
+def _audited_pod(db, pod="blankets", n=6):
+    with db.session() as s:
+        for i in range(n):
+            s.add(BenchmarkListing(
+                benchmark_key=benchmarks.MJS_KEY, listing_ref=f"{pod}-{i}",
+                title=f"Chunky Throw Blanket {i}", pod=pod, audit_state="audited",
+                price_cad=9.0, media_count=6,
+                detail={"image_urls": [f"https://i.etsystatic.com/{pod}-{i}_fullxfull.jpg"],
+                        "num_favorers": 400}))
+
+
+def _our_frames():
+    return [{"made": True, "slug": "autumn-oak-mosaic-throw", "role": "hero",
+             "image_ref": "artifacts/autumn-oak-hero.png"},
+            {"made": True, "slug": "cloudline-baby-blanket", "role": "hero",
+             "image_ref": "artifacts/cloudline-hero.png"}]
+
+
+def test_the_grid_is_blinded_seeded_and_fails_until_a_judge_ranks_it():
+    """The expected result today, and the finding: no judge has ranked the grid, so it
+    fails. A threshold cleared by default is the brand favouritism #126 forbids."""
+    db = _db()
+    _audited_pod(db)
+    grid = B.render_grid(db, _our_frames(), pod="blankets", seed=7)
+
+    assert grid["benchmark_cells"] == 6 and grid["our_cells"] == 2
+    assert len(grid["cells"]) == 8
+    # What a judge sees carries no side, no ref, no seller, no price, no reviews, no title.
+    for cell in grid["cells"]:
+        assert set(cell) == {"cell", "row", "col", "thumbnail", "pod"}
+    assert set(grid["key"]) == {c["cell"] for c in grid["cells"]}
+    assert sorted(k["side"] for k in grid["key"].values()).count(B.OURS) == 2
+    assert grid["judge_fields"] == list(B.GRID_JUDGE_FIELDS)
+    assert all(v is None for v in grid["our_scores"].values())
+    assert grid["verdict"] == "fail"
+    assert "no judge has ranked" in grid["why"]
+
+    # Seeded: the same seed gives the same order; a different seed moves things.
+    again = B.render_grid(db, _our_frames(), pod="blankets", seed=7)
+    assert [c["cell"] for c in again["cells"]] == [c["cell"] for c in grid["cells"]]
+    assert [c["thumbnail"] for c in again["cells"]] == [c["thumbnail"] for c in grid["cells"]]
+    other = B.render_grid(db, _our_frames(), pod="blankets", seed=8)
+    assert [c["thumbnail"] for c in other["cells"]] != [c["thumbnail"] for c in grid["cells"]]
+
+
+def test_a_thin_grid_or_an_empty_side_is_refused_rather_than_padded():
+    db = _db()
+    _audited_pod(db, n=3)
+    for ours in (_our_frames(), []):
+        try:
+            B.render_grid(db, ours, pod="blankets")
+        except B.GridRefused:
+            pass
+        else:
+            raise AssertionError("a three-benchmark grid was built")
+    _audited_pod(db, pod="hats", n=6)
+    try:
+        B.render_grid(db, [], pod="hats")
+    except B.GridRefused as exc:
+        assert "nothing to place" in str(exc)
+    else:
+        raise AssertionError("a grid with no side of ours was built")
+
+
+def test_judgements_are_read_against_the_threshold_and_a_partial_judging_still_fails():
+    db = _db()
+    _audited_pod(db)
+    grid = B.render_grid(db, _our_frames(), pod="blankets", seed=1)
+    ours = [c for c, k in grid["key"].items() if k["side"] == B.OURS]
+
+    ranked = {c: {f: 0.8 for f in B.GRID_JUDGE_FIELDS} for c in ours}
+    clear = B.render_grid(db, _our_frames(), pod="blankets", seed=1, judgements=ranked)
+    assert clear["verdict"] == "clear" and clear["below_threshold"] == []
+
+    weak = {c: {**{f: 0.8 for f in B.GRID_JUDGE_FIELDS}, "desire": 0.2} for c in ours}
+    failed = B.render_grid(db, _our_frames(), pod="blankets", seed=1, judgements=weak)
+    assert failed["verdict"] == "fail" and failed["below_threshold"] == ["desire"]
+
+    partial = {ours[0]: {f: 0.9 for f in B.GRID_JUDGE_FIELDS}}
+    half = B.render_grid(db, _our_frames(), pod="blankets", seed=1, judgements=partial)
+    assert half["verdict"] == "fail" and set(half["unjudged"]) == set(B.GRID_JUDGE_FIELDS)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

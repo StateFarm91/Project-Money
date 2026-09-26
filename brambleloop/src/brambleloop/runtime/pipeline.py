@@ -971,9 +971,11 @@ def handle_finance_challenge(ctx: JobContext) -> dict:
 
     from ..core.models import SpendLimit
     from ..finance.books import Books, cfo_challenge, trajectory
+    from ..finance.spend_policy import INFRA_CEILING_CAD, INFRA_MONTHLY_CAD
 
-    infra = float(ctx.job.inputs.get("infra_monthly_cad", 7.0))
-    ceiling = float(ctx.job.inputs.get("infra_ceiling_cad", 20.0))
+    # Declared by the owner, not observed from a bill: `spend_policy.INFRA_BASIS` says so.
+    infra = float(ctx.job.inputs.get("infra_monthly_cad", INFRA_MONTHLY_CAD))
+    ceiling = float(ctx.job.inputs.get("infra_ceiling_cad", INFRA_CEILING_CAD))
 
     books = Books(ctx.db)
     pl = books.profit_and_loss()
@@ -989,6 +991,67 @@ def handle_finance_challenge(ctx: JobContext) -> dict:
     return {"challenges": [c.to_dict() for c in challenges],
             "blocking": len(blocks),
             "trajectory": trajectory(pl)}
+
+
+@handlers.register("finance.escalation_check")
+def handle_finance_escalation_check(ctx: JobContext) -> dict:
+    """Tell the owner at four-fifths of the month, as a job rather than as a page.
+
+    `spend_policy.escalation` carried the six fields the owner asked for and was computed in
+    exactly one place: the GET handler for /api/spend-report. An escalation that exists only
+    when somebody fetches it is a report, not an escalation -- a month that reached 80% with
+    nobody looking reached the first refusal with nobody told, which is the outcome the
+    policy's "approaching the ceiling is a report, never a quiet downgrade" exists to
+    prevent.
+
+    One owner action per calendar month, keyed `spend.ceiling.<YYYY-MM>`. A rerun in the same
+    month restates the figures on the open row rather than adding a second; a row the owner
+    has already closed is left closed, because "done" is their decision and not this job's to
+    re-open. Under the line it writes nothing but the audit of having looked.
+
+    `as_of` in the inputs pins the instant for a deterministic run; production passes none.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+    from ..finance import spend_policy
+
+    raw = ctx.job.inputs.get("as_of")
+    now = datetime.fromisoformat(raw) if raw else datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
+    report = spend_policy.escalation(ctx.db, now=now)
+    key = spend_policy.escalation_key(now)
+    result = {"as_of": now.isoformat(), "required": bool(report["required"]),
+              "share_of_ceiling": report.get("share_of_ceiling", report.get("share")),
+              "requirement_key": key, "owner_action": None}
+
+    if not report["required"]:
+        ctx.audit("finance.escalation_checked", detail={**result, "why": report.get("why")})
+        return result
+
+    fields = spend_policy.owner_action_fields(report)
+    with ctx.db.session() as s:
+        existing = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key))
+        if existing is None:
+            s.add(OwnerAction(requirement_key=key, **fields))
+            result["owner_action"] = "queued"
+        elif existing.done:
+            result["owner_action"] = "already_decided"
+        else:
+            for name, value in fields.items():
+                setattr(existing, name, value)
+            result["owner_action"] = "restated"
+
+    ctx.audit("finance.escalation_checked", detail={
+        **result, "current_spend_cad": report["current_spend_cad"],
+        "ceiling_cad": report["ceiling_cad"],
+        "proposed_ceiling_cad": report["proposed_ceiling_cad"],
+        "what_is_constrained": report["what_is_constrained"]})
+    return result
 
 
 @handlers.register("plan.strategy")

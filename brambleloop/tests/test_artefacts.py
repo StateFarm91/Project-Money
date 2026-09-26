@@ -348,9 +348,15 @@ def test_the_sentinel_cadence_runs_against_artefacts_that_actually_exist():
                      queue=queue, registry=Registry(db), phase=None)
     out = handle_stale_artefact_sentinel(ctx)
 
-    # A certificate, listing copy and SEO exist and none of them carries provenance.
-    assert out["checked"] == 3
-    assert out["unproven"] == 3
+    # A certificate, listing copy, SEO and a price exist and none of them carries provenance,
+    # because these rows were inserted behind the write path's back. That is deliberate and
+    # this count is not the estate's gap any more: the chain's own writes now record lineage
+    # as they go (tests/test_provenance_write_path.py proves expected - rows is empty after a
+    # real run), so what this codifies is that a row nobody recorded still reads unproven
+    # rather than fresh. The count rose from 3 to 4 when `expected_from_db` began counting
+    # the price on a listing; the 275 the production audit reported was a lower bound.
+    assert out["checked"] == 4
+    assert out["unproven"] == 4
     assert out["stale"] == 0
     assert out["publication_blocked"] == []          # an absence is a backlog
     assert out["may_enforce_unproven"] is False

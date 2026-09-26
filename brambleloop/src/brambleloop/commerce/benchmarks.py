@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from statistics import median
 
 from ..intel.pods import POD_KEYS
+from ..radar.market import SEASONAL_EVENTS
 
 # Price bands, in CAD, from what the observed market actually charges rather than from round
 # numbers: crochet patterns cluster at CA$4-12 and pattern-plus-video sits CA$8.50-14, so the
@@ -61,6 +62,26 @@ MATURITY: tuple[str, ...] = ("new", "establishing", "established")
 ESTABLISHING_AFTER_ORDERS = 25
 ESTABLISHED_AFTER_ORDERS = 250
 ESTABLISHED_AFTER_DAYS = 365
+
+# Season (#238). The buying windows the radar already tracks, plus "none" for evergreen and
+# `UNSEGMENTED` for a cell that has not been split on this axis. An unsegmented cell is a
+# wider funnel than a seasonal one, and the two differ on this axis like any other two values.
+UNSEGMENTED = "any"
+SEASONS: tuple[str, ...] = tuple(e.name for e in SEASONAL_EVENTS) + ("none", UNSEGMENTED)
+
+# Listing age (#238). Etsy itself notes conversion moves with a listing's age and history, and
+# a listing lasts four months before renewal, so the bands break at the platform's own
+# boundaries rather than at round numbers.
+LISTING_AGE_BANDS: tuple[tuple[str, int, int], ...] = (
+    ("first_30_days", 0, 30),
+    ("30_to_120_days", 30, 120),
+    ("120_to_365_days", 120, 365),
+    ("over_365_days", 365, 10**9),
+)
+LISTING_AGE_KEYS: tuple[str, ...] = tuple(b[0] for b in LISTING_AGE_BANDS) + (UNSEGMENTED,)
+
+AXES: tuple[str, ...] = ("category", "traffic_source", "price_band", "maturity",
+                         "season", "listing_age")
 
 # The five funnels the requirement names, and what each needs before it means anything.
 METRICS: dict[str, dict] = {
@@ -96,23 +117,26 @@ class Cell:
     traffic_source: str
     price_band: str
     maturity: str
+    season: str = UNSEGMENTED
+    listing_age: str = UNSEGMENTED
 
     def __post_init__(self) -> None:
         for value, allowed, name in ((self.category, POD_KEYS, "category"),
                                      (self.traffic_source, TRAFFIC_SOURCES, "traffic source"),
                                      (self.price_band, PRICE_BAND_KEYS, "price band"),
-                                     (self.maturity, MATURITY, "shop maturity")):
+                                     (self.maturity, MATURITY, "shop maturity"),
+                                     (self.season, SEASONS, "season"),
+                                     (self.listing_age, LISTING_AGE_KEYS, "listing age")):
             if value not in allowed:
                 raise BenchmarkRefused(
                     f"{value!r} is not a {name}: {list(allowed)}. A cell keyed on a typo is "
                     f"a cell nothing ever matches, and it fails by looking empty")
 
     def key(self) -> str:
-        return "|".join((self.category, self.traffic_source, self.price_band, self.maturity))
+        return "|".join(getattr(self, a) for a in AXES)
 
     def differences(self, other: "Cell") -> list[str]:
-        return [name for name in ("category", "traffic_source", "price_band", "maturity")
-                if getattr(self, name) != getattr(other, name)]
+        return [name for name in AXES if getattr(self, name) != getattr(other, name)]
 
 
 @dataclass
@@ -137,6 +161,16 @@ def band_for(price_cad: float) -> str:
         if low <= price_cad < high:
             return name
     return PRICE_BAND_KEYS[-1]
+
+
+def listing_age_for(days_listed: int) -> str:
+    """Which age band a listing falls in. Lower bound inclusive, upper exclusive."""
+    if days_listed < 0:
+        raise BenchmarkRefused("a listing cannot have been live for a negative number of days")
+    for name, low, high in LISTING_AGE_BANDS:
+        if low <= days_listed < high:
+            return name
+    return LISTING_AGE_BANDS[-1][0]
 
 
 def maturity_for(*, days_live: int, orders: int) -> str:
@@ -285,14 +319,90 @@ def state() -> dict:
                  "price_band": [{"key": k, "from_cad": lo,
                                  "to_cad": None if hi == float("inf") else hi}
                                 for k, lo, hi in PRICE_BANDS],
-                 "maturity": list(MATURITY)},
+                 "maturity": list(MATURITY),
+                 "season": list(SEASONS),
+                 "listing_age": [{"key": k, "from_days": lo,
+                                  "to_days": None if hi >= 10**9 else hi}
+                                 for k, lo, hi in LISTING_AGE_BANDS] + [{"key": UNSEGMENTED}]},
         "metrics": {k: {"needs": list(v["needs"]), "higher_is_better": v["higher_is_better"],
                         "why": v["why"]} for k, v in METRICS.items()},
         "floors": {"listings_per_cell": MIN_LISTINGS_PER_CELL,
                    "impressions_per_cell": MIN_IMPRESSIONS_PER_CELL,
                    "orders_before_a_refund_rate": MIN_ORDERS_FOR_REFUND_RATE},
         "note": ("A baseline belongs to a cell -- category, traffic source, price band, shop "
-                 "maturity -- and a comparison across cells is refused by name with the axes "
+                 "maturity, season, listing age -- and a comparison across cells is refused by name with the axes "
                  "that differ. A thin cell answers, which makes it more dangerous than an "
                  "empty one, so below the floor the number is not produced at all (#14)."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# #239: share of opportunity, ranked on expected incremental contribution.
+
+
+def opportunities(markets: list[dict]) -> dict:
+    """Rank micro-markets by what improving them would earn, not by where they rank (#239).
+
+    Each market is {market, relative_demand, impressions, ctr, conversion,
+    contribution_per_order_cad}. `relative_demand` is `radar.arbitrage`'s demand dimension
+    (0-1, relative to the strongest observed market); everything else is this shop's own
+    measurement of the market and may be None. A market with no impressions has no share of
+    anything yet and is UNMEASURED: the demand is real, the opportunity is not a number.
+
+    The levers are the requirement's own -- visibility, CTR, conversion -- and each is
+    valued as the contribution that moving it to the cell's *supplied* baseline would add.
+    Without a baseline for a lever the lever is unmeasured, never valued against a guess.
+    """
+    rows = []
+    for m in markets:
+        demand = m.get("relative_demand")
+        impressions = m.get("impressions")
+        if demand is None or not 0 <= demand <= 1:
+            raise BenchmarkRefused(f"{m.get('market')!r}: relative demand is a share between "
+                                   f"0 and 1 from radar.arbitrage, got {demand!r}")
+        if impressions is None:
+            rows.append({"market": m.get("market"), "relative_demand": demand,
+                         "status": "UNMEASURED", "score": None,
+                         "why": ("no impressions measured: demand is real and this shop's "
+                                 "share of it is nothing yet, which is not a small number")})
+            continue
+        ctr, conv = m.get("ctr"), m.get("conversion")
+        cpo = m.get("contribution_per_order_cad")
+        bench_ctr, bench_conv = m.get("baseline_ctr"), m.get("baseline_conversion")
+        levers = {}
+        if None not in (ctr, conv, cpo, bench_ctr) and bench_ctr > ctr:
+            levers["ctr"] = round(impressions * (bench_ctr - ctr) * conv * cpo, 2)
+        elif bench_ctr is None:
+            levers["ctr"] = None
+        if None not in (ctr, conv, cpo, bench_conv) and bench_conv > conv:
+            levers["conversion"] = round(impressions * ctr * (bench_conv - conv) * cpo, 2)
+        elif bench_conv is None:
+            levers["conversion"] = None
+        if None not in (ctr, conv, cpo):
+            # Visibility: what one more impression at today's funnel is worth, scaled by how
+            # much demand is still out there relative to what we already see.
+            levers["visibility_per_1000_impressions"] = round(1000 * ctr * conv * cpo, 2)
+        else:
+            levers["visibility_per_1000_impressions"] = None
+        measured = [v for v in levers.values() if v is not None]
+        rows.append({
+            "market": m.get("market"), "relative_demand": demand, "impressions": impressions,
+            "status": "measured",
+            # The headline: demand-weighted impressions. A market we are shown in often but
+            # nobody wants scores low; one everybody wants and we are barely shown in scores
+            # on what it could be, once the levers above are valued.
+            "score": round(demand * impressions, 2),
+            "incremental_contribution_by_lever_cad": levers,
+            "best_lever": (max((k for k, v in levers.items() if v is not None),
+                               key=lambda k: levers[k]) if measured else None),
+        })
+    ranked = sorted((r for r in rows if r["status"] == "measured"),
+                    key=lambda r: -r["score"])
+    return {
+        "ranked": ranked,
+        "unmeasured": [r for r in rows if r["status"] == "UNMEASURED"],
+        "note": ("ranked on relative demand weighted by this shop's own impressions, with each "
+                 "lever valued as the contribution moving it to a supplied baseline would add; "
+                 "a market with no impressions is UNMEASURED because the shop has no share of "
+                 "it yet, and a share of nothing is not a rank (#239)"),
     }

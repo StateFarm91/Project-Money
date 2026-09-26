@@ -313,3 +313,114 @@ def allowable_cac(aov_cad: float, contribution_rate: float, *,
                  "how a business buys customers at a loss while every headline number "
                  "rises."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #243: new-customer CAC, blended CAC, contribution after advertising.
+
+# The share of a risk-adjusted allowable CAC that is held back for what the forecast got
+# wrong. A policy constant rather than a measurement: it says how much of the modelled
+# contribution the company is willing to bet on the model being right, and it is stated so it
+# can be argued with rather than discovered inside a number.
+DEFAULT_SAFETY_MARGIN = 0.30
+
+
+def cac_split(*, ad_spend_cad: float, new_customers_from_ads: int | None,
+              new_customers_all_sources: int | None,
+              contribution_cad: float | None = None,
+              offsite_fees_cad: float = 0.0) -> dict:
+    """The three numbers #243 says to keep apart, each measured or UNMEASURED (#243).
+
+    New-customer CAC is spend over the customers the ads actually brought. Blended CAC is
+    spend over every new customer in the period, ads or not, and it is always the flattering
+    one because organic customers make paid ones look cheap. Contribution after advertising
+    is what was left once the ads and the Offsite Ads fees were paid, which is the only one
+    of the three that can go negative while both CACs look fine.
+    """
+    if ad_spend_cad < 0 or offsite_fees_cad < 0:
+        raise RunRateRefused("spend and fees are non-negative")
+
+    def _per(count: int | None, what: str) -> dict:
+        if count is None:
+            return {"value": None, "status": "UNMEASURED",
+                    "why": f"{what} has not been counted"}
+        if count == 0:
+            return {"value": None, "status": "UNMEASURED",
+                    "why": (f"{what} is zero: CA${ad_spend_cad:.2f} spent for nobody is not "
+                            f"an infinite CAC, it is a campaign with no result yet")}
+        return {"value": round(ad_spend_cad / count, 2), "status": "measured",
+                "customers": count}
+
+    new_cac = _per(new_customers_from_ads, "new customers from ads")
+    blended = _per(new_customers_all_sources, "new customers from all sources")
+    if (new_customers_from_ads is not None and new_customers_all_sources is not None
+            and new_customers_from_ads > new_customers_all_sources):
+        raise RunRateRefused("more customers from ads than from all sources is a counting fault")
+
+    if contribution_cad is None:
+        after = {"value": None, "status": "UNMEASURED",
+                 "why": "contribution has not been measured for the period"}
+    else:
+        after = {"value": round(contribution_cad - ad_spend_cad - offsite_fees_cad, 2),
+                 "status": "measured", "contribution_cad": contribution_cad,
+                 "ad_spend_cad": ad_spend_cad, "offsite_fees_cad": offsite_fees_cad}
+
+    return {
+        "ad_spend_cad": ad_spend_cad,
+        "new_customer_cac_cad": new_cac,
+        "blended_cac_cad": blended,
+        "contribution_after_ads_cad": after,
+        "note": ("kept apart on purpose: blended CAC is always the flattering one because "
+                 "organic customers make paid ones look cheap, and contribution after "
+                 "advertising is the only figure here that can go negative while both CACs "
+                 "look fine (#243)"),
+    }
+
+
+def allowable_cac_risk_adjusted(*, price_cad: float, fee_rate: float, refund_rate: float,
+                                discount_rate: float, cost_of_sale_cad: float,
+                                expected_repeat_contribution_cad: float,
+                                safety_margin: float = DEFAULT_SAFETY_MARGIN) -> dict:
+    """What a customer may cost, from every term #243 names, with a stated haircut (#243).
+
+    Price, fees, expected refunds, discounts, repeat contribution and margin. The first-order
+    contribution is what is left of a discounted price after fees, refunds and the cost of
+    sale; the repeat term is added only as *expected* contribution the caller has measured,
+    because a repeat rate this shop has not observed is a wish with a decimal point. The
+    safety margin is the share held back for the model being wrong, and it is a parameter so
+    the bet is visible.
+    """
+    if price_cad <= 0:
+        raise RunRateRefused("allowable CAC needs a positive price")
+    for name, value in (("fee_rate", fee_rate), ("refund_rate", refund_rate),
+                        ("discount_rate", discount_rate), ("safety_margin", safety_margin)):
+        if not 0 <= value < 1:
+            raise RunRateRefused(f"{name} is a share between 0 and 1, got {value}")
+    if cost_of_sale_cad < 0 or expected_repeat_contribution_cad < 0:
+        raise RunRateRefused("cost of sale and repeat contribution are non-negative")
+
+    net_price = price_cad * (1 - discount_rate)
+    after_fees = net_price * (1 - fee_rate)
+    after_refunds = after_fees * (1 - refund_rate)
+    first_order = after_refunds - cost_of_sale_cad
+    lifetime = first_order + expected_repeat_contribution_cad
+    allowable = max(0.0, lifetime * (1 - safety_margin))
+    return {
+        "allowable_cac_cad": round(allowable, 2),
+        "terms": {"price_cad": price_cad, "discount_rate": discount_rate,
+                  "net_price_cad": round(net_price, 2), "fee_rate": fee_rate,
+                  "after_fees_cad": round(after_fees, 2), "refund_rate": refund_rate,
+                  "after_refunds_cad": round(after_refunds, 2),
+                  "cost_of_sale_cad": cost_of_sale_cad,
+                  "first_order_contribution_cad": round(first_order, 2),
+                  "expected_repeat_contribution_cad": expected_repeat_contribution_cad,
+                  "lifetime_contribution_cad": round(lifetime, 2),
+                  "safety_margin": safety_margin},
+        "first_order_negative": first_order < 0,
+        "note": ("set against contribution after discounts, fees, refunds and cost of sale, "
+                 "with repeat contribution added only where measured and a stated share held "
+                 "back for the forecast being wrong (#243)"
+                 if first_order >= 0 else
+                 "the first order loses money before any ad is bought; no CAC is allowable "
+                 "and the problem is the price or the cost of sale, not the campaign"),
+    }

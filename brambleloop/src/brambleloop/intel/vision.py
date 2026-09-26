@@ -24,6 +24,25 @@ OBSERVATION_FIELDS: tuple[str, ...] = (
     "shot_type", "composition", "product_visibility", "model_product_relationship",
     "setting", "scale_communication", "detail_coverage", "infographic_use", "typography",
     "palette_role", "thumbnail_readability", "emotional_merchandising",
+    # #2's two weaknesses no text can answer, asked of the photograph: whether the shop and
+    # its listings read as one coherent thing, and whether the styling looks like this year.
+    # Recorded as short phrases; `radar.arbitrage` reads them as measured openings.
+    "brand_coherence", "aesthetic_currency",
+    # #86's abstract commercial attributes, learned from legitimate current examples and
+    # stored as attributes rather than as anything that could reproduce the product. Each is
+    # a judgement about how the offer is *built to sell*, never about what it depicts:
+    # `motif_legibility` is whether a motif reads at a glance, not what the motif is.
+    "transformation", "silhouette_strength", "motif_legibility", "characterisation",
+    "minimalism", "gift_narrative", "modularity", "low_sew_appeal", "surprising_function",
+    "collection_logic",
+)
+
+# The #86 vocabulary on its own, so the creativity benchmark memory can read exactly the
+# attributes the requirement names and nothing borrowed from the merchandising fields.
+COMMERCIAL_ATTRIBUTE_FIELDS: tuple[str, ...] = (
+    "transformation", "silhouette_strength", "motif_legibility", "characterisation",
+    "minimalism", "gift_narrative", "modularity", "low_sew_appeal", "surprising_function",
+    "collection_logic",
 )
 
 SHOT_TYPES: tuple[str, ...] = (
@@ -335,7 +354,10 @@ def analysis_prompt() -> str:
         + "\n".join(f"- {field}" for field in OBSERVATION_FIELDS)
         + f"\n\n`shot_type`, when present, must be exactly one of: "
         + ", ".join(SHOT_TYPES)
-        + "\n\nEvery other value is one short phrase. Omit any key you cannot judge."
+        + "\n\nEvery other value is one short phrase. Omit any key you cannot judge. "
+        + "`motif_legibility` is whether a motif reads at a glance, never what the motif is; "
+        + "`brand_coherence` is whether this frame reads as the same shop as a typical "
+        + "listing of its kind; `aesthetic_currency` is whether the styling looks current."
     )
 
 

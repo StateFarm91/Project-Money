@@ -571,6 +571,7 @@ def api_catalogue() -> dict:
 def api_finance() -> dict:
     """The books, the CFO's view and where CA$100K stands. Every figure observed."""
     from ..finance.books import Books, cfo_challenge, trajectory
+    from ..finance.spend_policy import INFRA_CEILING_CAD, INFRA_MONTHLY_CAD
 
     books = Books(db)
     pl = books.profit_and_loss()
@@ -585,7 +586,8 @@ def api_finance() -> dict:
         "unit_economics": books.unit_economics(products_validated=validated,
                                                listings_drafted=listings),
         "cfo_challenges": [c.to_dict() for c in cfo_challenge(
-            pl, limits=limits, infra_monthly_cad=7.0, infra_ceiling_cad=20.0)],
+            pl, limits=limits, infra_monthly_cad=INFRA_MONTHLY_CAD,
+            infra_ceiling_cad=INFRA_CEILING_CAD)],
         "trajectory": trajectory(pl),
     }
 
@@ -1449,7 +1451,119 @@ def api_spend_report() -> dict:
     report = spend_report.what_it_bought(db)
     return {**report,
             "headroom": spend_policy.headroom(report["spent_cad"]),
-            "escalation": spend_policy.escalation(db)}
+            "escalation": spend_policy.escalation(db),
+            # Whether the reservations still describe the bills, and how often the ceiling
+            # actually said no. Both are how a guard is told apart from one that never fires.
+            "drift": spend_report.estimate_drift(db),
+            "refusals": spend_report.refusals(db),
+            "this_week": {"period": "iso_week",
+                          "spent_cad": round(sum(float(r.amount_cad or 0.0)
+                                                 for r in spend_report.rows(db, period="week")),
+                                             6)},
+            "provider_ceilings_cad": dict(spend_policy.PROVIDER_CEILINGS_CAD),
+            "department_allocation": dict(spend_policy.DEPARTMENT_ALLOCATION),
+            "owner_gated_tables_note": (
+                "an empty provider or department table is no cap, not a cap of zero; the "
+                "mechanism is live and an entry binds the day it is written")}
+
+
+def _spend_governance_data() -> dict:
+    """The live spend controls, from the functions that enforce them (`spend_report.governance`)."""
+    from ..finance import spend_report
+
+    return spend_report.governance(db)
+
+
+def _spend_governance_html() -> str:
+    """The dashboard's spend block.
+
+    It used to read the `SpendLimit` table alone and print "No spend limits configured." --
+    true of that table, which holds scoped paid-media caps nobody has authority to set, and
+    false of the company, whose every model call is refused against a monthly ceiling, an
+    agent permission, a purpose allocation and a live reservation table. Those are shown
+    here from the functions that enforce them; the scoped caps are a sub-row, named for what
+    they are.
+    """
+    import html as _html
+
+    def esc(value) -> str:
+        return _html.escape(str(value))
+
+    def table(items, cols, empty):
+        if not items:
+            return f'<div class="empty">{esc(empty)}</div>'
+        head = "".join(f"<th>{esc(c)}</th>" for c in cols)
+        body = "".join("<tr>" + "".join(f"<td>{esc(c)}</td>" for c in r) + "</tr>"
+                       for r in items)
+        return f"<table><tr>{head}</tr>{body}</table>"
+
+    try:
+        g = _spend_governance_data()
+    except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
+        return ('<h2>Spend governance</h2><div class="empty">unavailable: '
+                f'{esc(type(e).__name__)}: {esc(e)}</div>')
+
+    h = g.get("headroom") or {}
+    res = g.get("reservations") or {}
+    refused = g.get("refusals") or {}
+    drift = g.get("drift") or {}
+    agents = g.get("agents") or {}
+    scoped = g.get("scoped_caps") or {}
+
+    headline = [
+        ("Monthly model ceiling",
+         f"CA${h.get('spent_cad', 0.0):.2f} of CA${h.get('ceiling_cad', 0.0):.2f} spent "
+         f"({float(h.get('share') or 0.0) * 100:.0f}%)",
+         ("ESCALATE to owner" if h.get("escalate") else
+          f"under the {float(h.get('escalate_at_share') or 0) * 100:.0f}% escalation line")),
+        ("Reserved, not yet billed",
+         f"CA${float(res.get('cad') or 0.0):.4f} in {int(res.get('count') or 0)} live "
+         f"reservation(s)",
+         (f"{len(res.get('expired_unreleased') or [])} expired unreleased"
+          if res.get("expired_unreleased") else "ok")),
+        ("Refusals this month", str(int(refused.get("count") or 0)),
+         ", ".join(f"{k}: {v}" for k, v in (refused.get("by_ceiling") or {}).items()) or "-"),
+        ("Estimate drift", drift.get("state", "unknown"),
+         (drift.get("why") or "reservations describe the bills")[:120]),
+    ]
+    allocations = [(purpose,
+                    f"CA${a.get('spent_cad', 0.0):.2f} of CA${a.get('allowed_cad', 0.0):.2f}",
+                    "stopped" if not a.get("may_spend", True) else "room left")
+                   for purpose, a in (g.get("allocations") or {}).items()
+                   if isinstance(a, dict) and a.get("capped")]
+    over = [(o["agent"], f"CA${o['spent_today_cad']:.4f}", f"CA${o['daily_ceiling_cad']:.2f}")
+            for o in (agents.get("over") or [])]
+    unregistered = [(u["agent"], f"CA${u['spent_today_cad']:.4f}", "no agent row")
+                    for u in (agents.get("spenders_with_no_agent_row") or [])]
+    providers = g.get("provider_ceilings_cad") or {}
+    departments = g.get("department_allocations") or {}
+    scoped_rows = [(l["scope"], f"CA${l['spent_today_cad']:.2f}/{l['daily_cap_cad']:.2f}",
+                    f"CA${l['spent_lifetime_cad']:.2f}/{l['lifetime_cap_cad']:.2f}",
+                    "PAUSED" if l["paused"] else "ok") for l in (scoped.get("limits") or [])]
+
+    return (
+        "<h2>Spend governance</h2>"
+        + table(headline, ["Control", "Where it stands", "State"], "")
+        + "<h3>Purpose allocations (a stop, not an allowance)</h3>"
+        + table(allocations, ["Purpose", "This month", "State"], "no purpose is capped")
+        + "<h3>Agents over their daily ceiling today</h3>"
+        + table(over, ["Agent", "Spent today", "Daily ceiling"],
+                "none: every registered agent is inside its permission today")
+        + "<h3>Spenders with no agent row</h3>"
+        + table(unregistered, ["Spender", "Spent today", ""],
+                "none: every spender today is a registered agent")
+        + "<h3>Provider and department caps</h3>"
+        + table([("provider " + k, f"CA${v:.2f}/month", "set") for k, v in providers.items()]
+                + [("department " + k, f"{v * 100:.0f}% of the month", "set")
+                   for k, v in departments.items()],
+                ["Cap", "Value", "State"],
+                "none set: an empty table is no cap, not a cap of zero -- the mechanism is "
+                "live and an entry binds the day the owner writes it")
+        + "<h3>Scoped caps (paid media)</h3>"
+        + table(scoped_rows, ["Scope", "Today", "Lifetime", "State"],
+                "Scoped caps (paid media): none configured -- advertising authority not "
+                "granted, so there is no paid-media scope to cap")
+    )
 
 
 @app.get("/api/teardown/readiness")
@@ -1535,10 +1649,15 @@ def api_model_pack() -> dict:
     be looked at rather than a list of paths into a container's `/tmp`.
     """
     from ..runtime.release import _candidate_fingerprint, _pack_attempts, _pack_on_file
-    from ..visual import brief, reference_pack
+    from ..visual import brief, freeze, model_registry, reference_pack
 
     package = _pack_on_file(db)
     attempts = _pack_attempts(db)
+    # Read, not asserted. This said `frozen: False` / "awaiting owner approval" as literals
+    # for four days after the identity was frozen, which is the same defect as a gate
+    # reading configuration: true when written, with nothing keeping it true.
+    canonical = model_registry.canonical_pack(db)
+    frozen_from = freeze.frozen_package(db) or {}
     return {
         "candidate": {
             "given_at": brief.CANDIDATE_GIVEN_AT,
@@ -1549,10 +1668,18 @@ def api_model_pack() -> dict:
         "pack": package,
         "candidate_fingerprint": _candidate_fingerprint(),
         "attempts": attempts,
-        "state": ("awaiting owner approval" if package else
+        "state": ("frozen" if canonical is not None else
+                  "awaiting owner approval" if package else
                   "attempted and unfinished" if attempts else
                   "not yet built for this candidate"),
-        "frozen": False,
+        "frozen": canonical is not None,
+        "canonical": (None if canonical is None else {
+            "version": canonical.version,
+            "approved_at": canonical.approved_by_owner_at,
+            "frozen_from_pack_version": frozen_from.get("pack_version"),
+            "frozen_from_fingerprint": frozen_from.get("candidate_fingerprint"),
+            "reference_hashes_recorded": bool(canonical.fields.get("reference_hashes")),
+        }),
     }
 
 
@@ -2823,7 +2950,7 @@ def api_console() -> dict:
                               for j in jobs]},
         "products": {"count": int(products), "certified_versions": int(certified)},
         "agents": agents,
-        "spend": {"limits": limits},
+        "spend": {"limits": limits, **_spend_governance_data()},
         "incidents": [{"signature": i.signature, "severity": i.severity,
                        "halts_publication": i.halts_publication,
                        "product_slug": i.product_slug, "summary": i.summary}
@@ -4069,7 +4196,6 @@ def dashboard() -> str:
         owner = list(s.scalars(
             select(OwnerAction).where(OwnerAction.done == False)))  # noqa: E712
         products = list(s.scalars(select(Product).order_by(Product.id.desc()).limit(10)))
-        limits = list(s.scalars(select(SpendLimit)))
         agents = list(s.scalars(select(Agent).order_by(Agent.name)))
 
     def rows(items, cols, empty):
@@ -4348,11 +4474,7 @@ Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
 {rows([(i.severity, i.product_slug or "-", i.report_count, i.summary[:70],
         "HALTS" if i.halts_publication else "") for i in incidents],
       [["Sev", "Product", "Reports", "Summary", ""]], "No open incidents.")}
-<h2>Spend limits</h2>
-{rows([(l.scope, f"CA${l.spent_today_cad:.2f}/{l.daily_cap_cad:.2f}",
-        f"CA${l.spent_lifetime_cad:.2f}/{l.lifetime_cap_cad:.2f}",
-        "PAUSED" if l.paused else "ok") for l in limits],
-      [["Scope", "Today", "Lifetime", "State"]], "No spend limits configured.")}
+{_spend_governance_html()}
 <h2>Agents</h2>
 {rows([(a.name, a.authority.value, a.phase.value, f"CA${a.daily_cost_ceiling_cad:.2f}",
         "on" if a.enabled else "off") for a in agents],

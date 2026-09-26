@@ -89,6 +89,18 @@ def canonical_pack(db) -> identity.ReferencePack | None:
     return identity.canonical(packs(db))
 
 
+def canonical_image_refs(db) -> list[str]:
+    """The canonical row's image references: the face first, then the body frame hashes."""
+    from sqlalchemy import select
+
+    from ..core.models import ModelIdentity
+
+    with db.session() as s:
+        row = s.scalar(select(ModelIdentity).where(
+            ModelIdentity.state == identity.CANONICAL))
+        return list((row.image_refs if row is not None else None) or [])
+
+
 def candidates(db) -> list[identity.Candidate]:
     from sqlalchemy import select
 
@@ -152,6 +164,133 @@ def select_canonical(db, key: str, *, owner_approved: bool) -> identity.Referenc
         row.version = pack.version
         row.approved_by_owner_at = pack.approved_by_owner_at
         return pack
+
+
+REPLACED_ACTION = "model.replaced"
+
+
+def replace_canonical(db, *, new_key: str, redesign_approval: dict,
+                      fields: dict | None = None, image_refs: list[str] | None = None,
+                      reference_hashes: dict | None = None,
+                      note: str = "") -> identity.ReferencePack:
+    """Retire the canonical identity and freeze her successor as version + 1.
+
+    The procedure the owner would use to replace her, and only the procedure: nothing in
+    this repository calls it with a real approval, because the owner has not given one.
+    It exists so that when they do, the replacement is a recorded decision with a lineage
+    rather than a row edit -- and so that `select_canonical` can keep refusing a second
+    canonical outright, which is the property everything downstream relies on.
+
+    `redesign_approval` is validated by `identity.validate_redesign_approval`: it has to
+    name the version it retires and say whether it is a portrait repair or a redesign. The
+    retired row is moved to `RETIRED` with `retired_at` set and is never deleted; the new
+    row carries `predecessor_key`. Both directions of the lineage are then on the table,
+    and the `model.replaced` audit row holds the approval verbatim.
+
+    `fields` defaults to the row already recorded as a candidate under `new_key`, and
+    failing that -- for a portrait repair, where the woman is unchanged and only her
+    photograph is -- to the current canonical's own fields.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..agents.registry import Registry
+    from ..core.models import ModelIdentity
+
+    current = canonical_pack(db)
+    if current is None:
+        raise RegistryRefused(
+            "there is no canonical identity to replace. A first selection is "
+            "`select_canonical`, and it needs the owner too")
+    approval = identity.validate_redesign_approval(redesign_approval, existing=current)
+
+    with db.session() as s:
+        old_row = s.scalar(select(ModelIdentity).where(
+            ModelIdentity.state == identity.CANONICAL))
+        if old_row is None:  # pragma: no cover - canonical_pack just read it
+            raise RegistryRefused("the canonical row vanished between two reads")
+        if old_row.key == new_key:
+            raise RegistryRefused(
+                f"{new_key!r} is the canonical identity's own key. A replacement is a new "
+                f"row with a predecessor, not the same row rewritten: rewriting her in place "
+                f"would leave no evidence of who she was")
+        new_row = s.scalar(select(ModelIdentity).where(ModelIdentity.key == new_key))
+        if new_row is not None and new_row.state == identity.RETIRED:
+            raise RegistryRefused(
+                f"{new_key!r} is a retired identity. Bringing back a retired woman is a "
+                f"redesign to a previous version, and it needs its own row and approval")
+
+        chosen_fields = dict(fields or (new_row.fields if new_row is not None and
+                                        new_row.fields else {}) or current.fields)
+        chosen_fields.pop("reference_image", None)
+        chosen_fields.pop("reference_hashes", None)
+        candidate = identity.Candidate(key=new_key, fields=chosen_fields)
+        pack = identity.select(candidate, owner_approved=True, existing=current,
+                               redesign_approval=approval)
+
+        refs = list(image_refs or (new_row.image_refs if new_row is not None else [])
+                    or old_row.image_refs or [])
+        hashes = dict(reference_hashes or {})
+        if not hashes and approval["scope"] == "portrait_repair":
+            # A portrait repair leaves the body alone, so the body hashes carry over; the
+            # face hash is the caller's to supply because it is the thing that changed.
+            hashes = {k: v for k, v in
+                      (current.fields.get("reference_hashes") or {}).items()
+                      if k != identity.FACE_HASH_KEY}
+        pack_fields = dict(pack.fields)
+        if refs:
+            pack_fields["reference_image"] = refs[0]
+        if hashes:
+            pack_fields["reference_hashes"] = hashes
+        pack = identity.ReferencePack(version=pack.version, fields=pack_fields,
+                                      approved_by_owner_at=pack.approved_by_owner_at)
+
+        now = datetime.now(timezone.utc).isoformat()
+        old_row.state = identity.RETIRED
+        old_row.retired_at = now
+        old_row.note = ((old_row.note + "\n") if old_row.note else "") + (
+            f"retired by {approval.get('approved_by', 'owner')} on {approval['at']} "
+            f"({approval['scope']}): {approval['decision']}. Succeeded by {new_key!r}")
+
+        if new_row is None:
+            new_row = ModelIdentity(key=new_key)
+            s.add(new_row)
+        new_row.state = identity.CANONICAL
+        new_row.version = pack.version
+        new_row.fields = dict(pack.fields)
+        new_row.image_refs = refs
+        new_row.approved_by_owner_at = pack.approved_by_owner_at
+        new_row.predecessor_key = old_row.key
+        new_row.note = note or (f"version {pack.version}, replacing {old_row.key!r} on the "
+                                f"owner's {approval['scope']} approval of {approval['at']}")
+        retired_key, retired_version = old_row.key, old_row.version
+
+    Registry(db).audit(
+        approval.get("approved_by", "owner"), REPLACED_ACTION, detail={
+            "retired": {"key": retired_key, "version": retired_version,
+                        "retired_at": now, "state": identity.RETIRED},
+            "canonical": {"key": new_key, "version": pack.version,
+                          "predecessor_key": retired_key,
+                          "approved_at": pack.approved_by_owner_at},
+            "approval": dict(approval),
+            "reference_hashes": {k: str(v)[:12] for k, v in hashes.items()},
+            "kept": ("the retired row is kept, not deleted. It is the evidence of who "
+                     "she was, and the successor points back at it")})
+    return pack
+
+
+def replacements(db, *, limit: int = 20) -> list[dict]:
+    """Every owner-approved replacement on file, newest first. Empty means never."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog)
+                              .where(AuditLog.action == REPLACED_ACTION)
+                              .order_by(desc(AuditLog.id)).limit(limit)))
+        return [{"at": str(r.at), **(r.detail or {})} for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -530,11 +669,24 @@ def gate_frames(db, frames: list[dict], *, observer=None) -> dict:
             seen = {"error": "no reference image to compare against"} if ref else {
                 "error": "no image to look at"}
         verdict = identity.drift_check(seen, pack)
-        results.append({"role": frame.get("role"), "verdict": verdict["verdict"],
-                        "failed": verdict.get("failed", []),
-                        "observation_error": seen.get("error", "")})
+        result = {"role": frame.get("role"), "verdict": verdict["verdict"],
+                  "failed": verdict.get("failed", []),
+                  "observation_error": seen.get("error", "")}
         if verdict["blocks_release"]:
             blocking.append(f"{frame.get('role', '?')}: {verdict['reason'] or 'unverifiable'}")
+        # Provenance, for a frame that says what it was conditioned on. The drift check
+        # asks whether she looks like the pack; this asks whether the reference she was
+        # made from *was* the pack, by hash, and a frame that names its conditioning
+        # without hashing it is unverifiable rather than fine. A frame with no
+        # `conditioned_on` record at all has made no claim to check, and is judged on
+        # drift alone as before.
+        if "conditioned_on" in frame:
+            provenance = identity.provenance_check(frame, pack)
+            result["provenance"] = provenance["verdict"]
+            if provenance["blocks_release"]:
+                blocking.append(f"{frame.get('role', '?')}: provenance "
+                                f"{provenance['verdict']} -- {provenance['why']}")
+        results.append(result)
 
     return {"checked": len(modelled), "results": results, "blocking": blocking,
             "verdict": "pass" if not blocking else "fail",

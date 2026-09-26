@@ -396,6 +396,13 @@ class ModelIdentity(Base):
     image_refs: Mapped[list] = mapped_column(JSON, default=list)
     note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Set when the owner replaces her (`model_registry.replace_canonical`). A retired row is
+    # kept, never deleted: it is the evidence of who she was, and the new row's
+    # `predecessor_key` points back at it so the lineage reads in both directions. Nullable
+    # so `core.migrate` can add both columns to a table that already has rows.
+    retired_at: Mapped[str | None] = mapped_column(String(40), nullable=True, default=None)
+    predecessor_key: Mapped[str | None] = mapped_column(String(80), nullable=True,
+                                                       default=None)
 
 
 class ListingAsset(Base):

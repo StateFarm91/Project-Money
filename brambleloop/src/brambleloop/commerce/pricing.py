@@ -15,13 +15,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Etsy's published Canadian rates as observed 2026-09-17. Listing fees are per-listing and
-# amortised separately; these are the per-sale charges.
-TRANSACTION_FEE = 0.065
-PAYMENT_PERCENT = 0.030
-PAYMENT_FLAT_CAD = 0.25
-LISTING_FEE_CAD = 0.20          # USD 0.20, charged per listing and per renewal
-LISTING_RENEWAL_MONTHS = 4      # a listing runs four months before it renews
+from ..finance.currency import ASSUMED_USD_PER_CAD
+from . import fee_schedule as FS
+
+# Etsy's per-sale charges, read from the company's dated reading of Etsy's fee pages
+# (`gates.policy_knowledge.TOPICS["fees"]`, via `commerce.fee_schedule`) rather than typed
+# here. The names are kept because other modules import them; the numbers are the schedule's,
+# and each carries its source, read date and evidence grade there. Listing fees are
+# per-listing and amortised separately; these are the per-sale charges.
+TRANSACTION_FEE = FS.TRANSACTION.rate
+PAYMENT_PERCENT = FS.PAYMENT_PROCESSING.rate
+PAYMENT_FLAT_CAD = FS.PAYMENT_PROCESSING.amount
+LISTING_FEE_USD = FS.LISTING.amount
+# This used to read `LISTING_FEE_CAD = 0.20  # USD 0.20`: a USD figure under a CAD name, so
+# the amortised listing fee was understated by the exchange rate. Converted once, at the
+# stated assumed rate, in the one place the conversion lives.
+LISTING_FEE_CAD = FS.listing_fee_cad(ASSUMED_USD_PER_CAD)
+LISTING_RENEWAL_MONTHS = FS.LISTING_RENEWAL_MONTHS  # "lasts four months", per the reading
 
 # Regulatory floor: the offer must be a real offer. A reference price we never charged is a
 # deceptive discount whatever the category does.
@@ -48,22 +58,35 @@ MIN_PRICE_CAD = 3.00
 # consumer of this module can quote a take rate as complete.
 
 #: (key, what it is, basis, rate if the secondary source is right, when it applies)
+#:
+#: The rates come from `commerce.fee_schedule` where the reading states one. The basis line of
+#: each says why it is *unmodelled*, which is a different question from how well its rate is
+#: evidenced: the Offsite Ads rate is PRIMARY (it is in a verbatim excerpt of Etsy's help page)
+#: and it is still unmodelled, because Etsy's OpenAPI document has no offsite endpoint and no
+#: fee line, so which orders carry it cannot be read back from a settlement.
 UNMODELLED_FEES: tuple[tuple[str, str, str, float, str], ...] = (
     ("offsite_ads",
      "Etsy's fee on an order it attributes to an advert it placed off Etsy",
-     "SECONDARY -- third-party reports of 12% or 15%; etsy.com/legal/fees is 403 from here",
-     0.15,
-     "only on attributed orders, and reportedly compulsory below a revenue threshold"),
+     f"SECONDARY as a per-order charge: the {FS.OFFSITE_ADS.rate:.0%} rate itself is "
+     f"{FS.OFFSITE_ADS.evidence} (excerpt of {FS.OFFSITE_ADS.source_url}, read "
+     f"{FS.OFFSITE_ADS.checked_on}), but attribution has no API surface and no settlement "
+     f"line, so whether a given order carries it is unreadable from here",
+     FS.OFFSITE_ADS.rate,
+     "only on attributed orders, and compulsory once the shop passes US$10,000 in any "
+     "365 days (advertising_rules reading)"),
     ("regulatory_operating_fee",
      "a country-specific operating fee Etsy charges in some jurisdictions",
-     "SECONDARY and contested -- some third-party sources report ~1.15% for Canada and "
-     "others report none",
+     f"SECONDARY and contested -- third-party reports (2026-09-25) of ~1.15% for Canada and "
+     f"others report none; the company's reading of Etsy's fee page (read "
+     f"{FS.REGULATORY_OPERATING.checked_on}) records the Canadian figure as "
+     f"{FS.REGULATORY_OPERATING.evidence}, so this is a stress assumption, not a fee fact",
      0.0115,
      "every order, if Canada carries it at all"),
     ("currency_conversion",
      "Etsy's conversion charge when the buyer pays in a currency other than the shop's",
-     "SECONDARY -- commonly reported at 2.5%; unreadable from here",
-     0.025,
+     f"SECONDARY -- the reading states {FS.CURRENCY_CONVERSION.rate:.1%} without a verbatim "
+     f"excerpt (read {FS.CURRENCY_CONVERSION.checked_on}); unreadable from here",
+     FS.CURRENCY_CONVERSION.rate,
      "orders paid in a currency other than CAD, which for an international pattern shop is "
      "most of them"),
 )
@@ -110,7 +133,8 @@ class FeeBreakdown:
                 "total_fees": self.total_fees, "net_cad": self.net_cad,
                 "take_rate": self.take_rate,
                 "unmodelled_fees": list(self.unmodelled),
-                "take_rate_is_a_floor": True}
+                "take_rate_is_a_floor": True,
+                "fee_schedule": {"read_on": FS.READ_ON, "basis": FS.BASIS}}
 
 
 def fees(price_cad: float, expected_sales_per_listing_period: float = 10.0) -> FeeBreakdown:

@@ -264,3 +264,148 @@ def review_all(db, *, now: datetime | None = None) -> dict:
                  "unsupervised rewriting arriving from inside the department that is "
                  "supposed to be measuring (#177, #178)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Persisting the review's proposals, so the nightly QUEUE stage is real
+
+# The two proposal kinds a self-review may put into the ordinary pipeline unattended. The
+# others -- a stale baseline, an answered tactic, an unused lesson -- are findings about how
+# the cell is being run rather than hypotheses about how to run it, and a proposal opened
+# for each of them every night is the fluent-proposer failure the review's own docstring
+# names.
+QUEUEABLE_KINDS: tuple[str, ...] = ("never_measured", "declining_capability")
+
+REVIEW_SOURCE = "profiles.self_review"
+
+# A cell nobody has measured is remedied by a measurement, which is a cadence: the tooling
+# tier, with its regression test and rollback, not the scoring lane. A change is classified
+# by what it touches, and an instrument is a tool.
+MEASUREMENT_TOUCHES: tuple[str, ...] = ("cadence",)
+
+
+def _remedy(db, cell_key: str, proposal: dict) -> tuple[tuple[str, ...], str, str]:
+    """What a queued proposal touches, how it is undone, and what it is expected to do."""
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+    from .cells import capability_history
+
+    if proposal["kind"] == "declining_capability":
+        # "The last promoted change in this cell should be re-examined": the way back is
+        # that change's own rollback reference, and the surfaces are the ones it touched.
+        with db.session() as s:
+            last = s.scalar(select(Improvement).where(
+                Improvement.cell == cell_key, Improvement.state == PROMOTED)
+                .order_by(Improvement.promoted_at.desc(), Improvement.id.desc()).limit(1))
+            if last is not None and last.rollback_ref:
+                touches = tuple((last.evidence or {}).get("touches") or ()) or ("weights",)
+                return (touches, last.rollback_ref,
+                        f"re-examining improvement {last.id} halts the decline in "
+                        f"{BY_KEY[cell_key].metric}")
+        n = len(capability_history(db, cell_key, limit=1000))
+        return (("weights",), f"capability:{cell_key}:{n}",
+                f"the decline in {BY_KEY[cell_key].metric} is explained and stops")
+    n = len(capability_history(db, cell_key, limit=1000))
+    return (MEASUREMENT_TOUCHES, f"capability:{cell_key}:{n}",
+            f"a first measurement of {BY_KEY[cell_key].metric} exists, which is a baseline "
+            f"and never a win")
+
+
+def queue_proposals(db, *, now: datetime | None = None,
+                    reviews: list[dict] | None = None) -> dict:
+    """Put each queueable self-review proposal into the ordinary pipeline, once.
+
+    Every proposal goes through `cells.propose`, which is the only door: the governance
+    boundary (a hypothesis may never weaken a protected gate, fabricate evidence or widen the
+    system's own authority), the rollback requirement and the declared surfaces all apply
+    here exactly as they apply to a proposal a person wrote. A refusal is reported, not
+    worked around, and nothing here tests, promotes or monitors.
+
+    Idempotent per cell and kind: a proposal already open for this cell and this pattern is
+    not reopened, so a cell unmeasured for a month carries one proposal a month old rather
+    than thirty. A never-measured proposal whose cell has since been measured is closed as
+    resolved, because the proposal was to measure and the measurement has happened.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+    from . import governance
+    from .cells import ImprovementRefused, propose
+
+    now = now or datetime.now(timezone.utc)
+    if reviews is None:
+        reviews = review_all(db, now=now)["reviews"]
+
+    with db.session() as s:
+        open_rows = [(row.cell, (row.evidence or {}).get("kind"), row.id)
+                     for row in s.scalars(select(Improvement).where(
+                         Improvement.state.in_((PROPOSED, TESTING))))
+                     if (row.evidence or {}).get("from") == REVIEW_SOURCE]
+
+    measured_now = {r["cell"] for r in reviews if r.get("measurements", 0) > 0}
+    resolved = []
+    for cell_key, kind, row_id in open_rows:
+        if kind == "never_measured" and cell_key in measured_now:
+            with db.session() as s:
+                row = s.get(Improvement, row_id)
+                row.state = REJECTED
+                row.evidence = {**(row.evidence or {}),
+                                "why": ("resolved_by_measurement: the proposal was to "
+                                        "measure, and the cell has since been measured. "
+                                        "That is the proposal done, not a tactic that "
+                                        "failed"),
+                                "resolved_at": now.isoformat()}
+            resolved.append({"improvement": row_id, "cell": cell_key})
+    still_open = {(c, k) for c, k, i in open_rows
+                  if not any(r["improvement"] == i for r in resolved)}
+
+    persisted, already, refused, not_queueable = [], [], [], []
+    for review in reviews:
+        cell_key = review["cell"]
+        for proposal in review.get("proposals", []):
+            kind = proposal.get("kind")
+            if kind not in QUEUEABLE_KINDS:
+                not_queueable.append({"cell": cell_key, "kind": kind})
+                continue
+            if (cell_key, kind) in still_open:
+                already.append({"cell": cell_key, "kind": kind})
+                continue
+            touches = tuple(proposal.get("touches") or ()) or None
+            rollback_ref = proposal.get("rollback_ref") or ""
+            derived_touches, derived_rollback, expected = _remedy(db, cell_key, proposal)
+            touches = touches or derived_touches
+            rollback_ref = rollback_ref or derived_rollback
+            try:
+                improvement_id = propose(
+                    db, cell=cell_key, hypothesis=proposal["hypothesis"],
+                    expected_effect=proposal.get("expected_effect") or expected,
+                    rollback_ref=rollback_ref, touches=touches)
+            except (ImprovementRefused, governance.GovernanceRefused) as exc:
+                refused.append({"cell": cell_key, "kind": kind, "touches": list(touches),
+                                "why": str(exc)[:300]})
+                continue
+            with db.session() as s:
+                row = s.get(Improvement, improvement_id)
+                row.evidence = {**(row.evidence or {}), "kind": kind, "from": REVIEW_SOURCE,
+                                "review_evidence": proposal.get("evidence") or {},
+                                "queued_at": now.isoformat()}
+            still_open.add((cell_key, kind))
+            persisted.append({"improvement": improvement_id, "cell": cell_key,
+                              "kind": kind, "touches": list(touches),
+                              "rollback_ref": rollback_ref})
+
+    return {
+        "cells_reviewed": len(reviews),
+        "proposals_seen": sum(len(r.get("proposals", [])) for r in reviews),
+        "persisted": len(persisted),
+        "queued": persisted,
+        "already_open": already,
+        "refused": refused,
+        "resolved_by_measurement": resolved,
+        "not_queueable": not_queueable,
+        "queueable_kinds": list(QUEUEABLE_KINDS),
+        "note": ("every queued proposal went through cells.propose: the governance boundary, "
+                 "the rollback requirement and the declared surfaces apply exactly as they "
+                 "do to a proposal a person wrote. Nothing here tests, promotes or monitors"),
+    }

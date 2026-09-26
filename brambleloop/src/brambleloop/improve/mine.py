@@ -103,9 +103,13 @@ def _read(db, since: dict) -> dict:
 
 
 def _gate_code(detail: dict) -> str:
-    reasons = detail.get("reasons")
-    if isinstance(reasons, list) and reasons:
-        return error_code(str(reasons[0]))
+    # `gate.blocked` carries `reasons`; the asset builders carry `blocking`; `gate.halted`
+    # carries one `reason`. The first entry names the group, because a refusal lists its
+    # findings in the order the check found them and the first is the one that fired.
+    for key in ("reasons", "blocking"):
+        found = detail.get(key)
+        if isinstance(found, list) and found:
+            return error_code(str(found[0]))
     return error_code(str(detail.get("reason") or detail.get("why") or ""))
 
 

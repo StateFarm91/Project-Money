@@ -337,6 +337,37 @@ def promote(db, config_id: int, *, outcome: dict, evidence_ref: str) -> dict:
                 "version": row.version, "incumbent": True}
 
 
+def record_measured_outcome(db, config_id: int, *, outcome: dict, evidence_ref: str) -> dict:
+    """Attach what a configuration was measured to do, without changing what is running.
+
+    Promotion records a measured outcome as a side effect of switching; this records one for
+    a configuration that is *not* switching -- an incumbent that was first and has now been
+    put to a trial, or a challenger whose trial recommended against it. Idempotent on the
+    evidence reference: the same trial re-read tomorrow adds nothing, so a standings row
+    carries one line per run rather than one per night the run was noticed.
+    """
+    from ..core.models import ConfigVersion
+
+    ref = evidence_ref.strip()
+    if not ref:
+        raise LeagueRefused("a measured outcome names the run that measured it")
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        if row is None:
+            raise LeagueRefused(f"no configuration version {config_id}")
+        current = dict(row.measured_outcome or {})
+        refs = list(current.get("evidence_refs") or [])
+        if ref in refs:
+            return {"config_id": config_id, "recorded": False, "evidence_ref": ref,
+                    "why": "this run's outcome is already on the row"}
+        refs.append(ref)
+        row.measured_outcome = {**current, **dict(outcome), "evidence_ref": ref,
+                                "evidence_refs": refs}
+        return {"config_id": config_id, "recorded": True, "evidence_ref": ref,
+                "kind": row.kind, "key": row.key, "version": row.version,
+                "incumbent": row.incumbent}
+
+
 def rollback(db, *, kind: str, key: str, to_config_id: int, why: str) -> dict:
     """Put a previous version back, and record why (#180).
 

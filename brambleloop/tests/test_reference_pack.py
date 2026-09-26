@@ -1095,6 +1095,61 @@ def test_a_job_asking_for_a_newer_pack_than_this_build_makes_fails_rather_than_a
         raise AssertionError("a stale build answered for a pack it cannot produce")
 
 
+def test_a_job_asking_for_an_older_pack_than_this_build_makes_is_completed_as_superseded():
+    """The opposite case, found in the dead-letter queue on 2026-09-26.
+
+    A job stamped for a pack *older* than any running build produces is not one another
+    replica can take: nothing will ever build that pack again. Raising for it failed the
+    same job on every attempt for ever -- a poisoned row that read as a defect -- so it is
+    completed as a stand-aside that names what superseded it. A *newer* stamp still
+    raises, because that replica really is stale and the right one really is coming.
+    """
+    from brambleloop.runtime import release
+
+    assert rp.pack_number("v16-the-fallback-provider-has-time-to-render") == 16
+    assert rp.pack_number("v6") == 6 and rp.pack_number("V15-x") == 15
+    assert rp.pack_number("") == 0 and rp.pack_number("sixteen") == 0
+    assert rp.pack_number(rp.PACK_VERSION) > 6
+
+    class _Ctx:
+        db = None
+        job = type("J", (), {"inputs": {"pack_version": "v6-older-than-any-running-build"}})()
+
+        def audit(self, *a, **k):  # pragma: no cover - must not be reached
+            raise AssertionError("a superseded job wrote an audit row")
+
+    out = release.handle_model_reference_pack(_Ctx())
+    assert out["ran"] is False
+    assert out["superseded_by"] == rp.PACK_VERSION
+    assert out["asked_for"] == "v6-older-than-any-running-build"
+    assert "older" in out["why"] and "completed as superseded" in out["why"]
+
+    # The historical dead letter classifies as a refusal from its opening words alone, so
+    # retention may let it rest once it is old enough; a genuine defect never is.
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.ops import retention
+    from brambleloop.queue.durable import deliberate_refusal
+
+    stale = ("RuntimeError: this job asked for pack 'v15-the-revised-dimension' and this "
+             "build produces 'v16-the-fallback-provider'.")
+    assert deliberate_refusal("creative.model_reference_pack", stale) is True
+    assert deliberate_refusal("creative.model_reference_pack", "KeyError: 'frames'") is False
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        s.add(Job(agent="creative_director", job_type="creative.model_reference_pack",
+                  status=JobStatus.DEAD, finished_at=now - timedelta(days=120),
+                  last_error=stale))
+        s.add(Job(agent="creative_director", job_type="creative.model_reference_pack",
+                  status=JobStatus.DEAD, finished_at=now - timedelta(days=120),
+                  last_error="KeyError: 'frames'"))
+    plan = retention.dead_letter_plan(db, now=now)
+    assert plan["deletable"] == 1 and plan["kept"]["is_a_defect"] == 1
+
+
 def test_the_tournament_does_not_run_once_the_owner_has_chosen_a_candidate():
     """Rendering twenty more women answers a question the owner has answered."""
     assert brief.owner_candidate_supplied() is True
