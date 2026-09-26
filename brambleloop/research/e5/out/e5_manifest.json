@@ -1,0 +1,1177 @@
+{
+ "cap_usd": 3.0,
+ "frozen": {
+  "geometry_npz": "3eaae06df07b2a8410a98d84f45a430b32396a50e95aab775b8a61377a3f2f56",
+  "assessment": "4aaca8f9ab5ceb4159026a01353d29d40bb708f8a4389838c20409ca4cae8a24",
+  "reference_rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+  "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+  "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3",
+  "depth_npz": "1c191852de387958a7b714756dae45a4225dd84910bea469cec3c3cd44ad0c5e",
+  "manifest": "c9b35caf4201b7704d957ec8b26b5dc4b2825ffa6182b0bc7058e9efdabd9989",
+  "e4_baseline": "46eebcecd2c19e123c358f7da9f7c76e8c48035f65e22c972fb73db43d0eaf40"
+ },
+ "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+ "modes": {
+  "oa1_hifi": {
+   "provider": "openai",
+   "model": "gpt-image-1",
+   "endpoint": "images/edits",
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "prompt": "The first image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. The second image is the outline mask of the piece and the third shows its surface orientation; use them only to keep the piece's outline, position and surface placement exactly. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "price_basis": "usage",
+   "why": "the one OpenAI image model with an explicit reference-fidelity control (verified on the wire: gpt-image-2 and 2.5 refuse it)"
+  },
+  "oa15_hifi": {
+   "provider": "openai",
+   "model": "gpt-image-1.5",
+   "endpoint": "images/edits",
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "prompt": "The first image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. The second image is the outline mask of the piece and the third shows its surface orientation; use them only to keep the piece's outline, position and surface placement exactly. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "price_basis": "usage",
+   "why": "the newer model that still accepts input_fidelity (verified); rates assumed equal to gpt-image-1 until billed"
+  },
+  "oa1_hifi_mask": {
+   "provider": "openai",
+   "model": "gpt-image-1",
+   "endpoint": "images/edits",
+   "refs": [
+    "rgb"
+   ],
+   "mask": "editmask_openai",
+   "prompt": "Replace the rendered yarn in the editable region with real spun wool yarn photographed with an ordinary camera: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands, the same colour, every strand exactly where it is. Soft daylight from one side, a little grain.",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "price_basis": "usage",
+   "why": "regional edit: only the yarn region (silhouette dilated 3 px) is editable, so silhouette and proportions are locked by construction"
+  },
+  "bfl_fill": {
+   "provider": "bfl",
+   "model": "flux-pro-1.0-fill",
+   "endpoint": "/v1/flux-pro-1.0-fill",
+   "refs": [
+    "rgb"
+   ],
+   "mask": "editmask_bfl",
+   "prompt": "Replace the rendered yarn in the editable region with real spun wool yarn photographed with an ordinary camera: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands, the same colour, every strand exactly where it is. Soft daylight from one side, a little grain.",
+   "params": {
+    "guidance": 60,
+    "steps": 50,
+    "prompt_upsampling": false,
+    "output_format": "png"
+   },
+   "price_basis": "credits",
+   "why": "mask inpainting with an explicit guidance control; the silhouette is locked by construction"
+  },
+  "bfl_flex": {
+   "provider": "bfl",
+   "model": "flux-2-flex",
+   "endpoint": "/v1/flux-2-flex",
+   "refs": [
+    "rgb"
+   ],
+   "prompt": "This image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+   "params": {
+    "guidance": 5.0,
+    "steps": 50,
+    "prompt_upsampling": false,
+    "width": 1024,
+    "height": 1024,
+    "output_format": "png"
+   },
+   "price_basis": "credits",
+   "why": "the FLUX.2 variant that exposes guidance and steps and is documented for preserving small details"
+  },
+  "bfl_2max": {
+   "provider": "bfl",
+   "model": "flux-2-max",
+   "endpoint": "/v1/flux-2-max",
+   "refs": [
+    "rgb"
+   ],
+   "prompt": "This image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+   "params": {
+    "disable_pup": true,
+    "width": 1024,
+    "height": 1024,
+    "output_format": "png"
+   },
+   "price_basis": "credits",
+   "why": "documented as the strongest editing consistency in the FLUX.2 family"
+  },
+  "bfl_kmax": {
+   "provider": "bfl",
+   "model": "flux-kontext-max",
+   "endpoint": "/v1/flux-kontext-max",
+   "refs": [
+    "rgb"
+   ],
+   "prompt": "This image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+   "params": {
+    "prompt_upsampling": false,
+    "output_format": "png"
+   },
+   "price_basis": "credits",
+   "why": "the dedicated editing model of the previous generation, for comparison"
+  },
+  "g3pro": {
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "prompt": "The first image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. The second image is the outline mask of the piece and the third shows its surface orientation; use them only to keep the piece's outline, position and surface placement exactly. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+   "params": {
+    "imageSize": "1K"
+   },
+   "price_basis": "list",
+   "usd_list": 0.134,
+   "why": "Google's high-fidelity editing model, takes several images; no fidelity parameter exists to set"
+  },
+  "g31flash": {
+   "provider": "google",
+   "model": "gemini-3.1-flash-image",
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "prompt": "The first image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. The second image is the outline mask of the piece and the third shows its surface orientation; use them only to keep the piece's outline, position and surface placement exactly. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+   "params": {
+    "imageSize": "1K"
+   },
+   "price_basis": "list",
+   "usd_list": 0.067,
+   "why": "the gateway's own Google candidate at 1K"
+  }
+ },
+ "runs": [
+  {
+   "mode": "oa1_hifi",
+   "draw": 1,
+   "provider": "openai",
+   "model": "gpt-image-1",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:19:19Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/oa1_hifi_1.png",
+   "output_sha256": "b3b0a7c30d0866e6449ba422ce68290623005dcfb5a4f73505266613578ff835",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 17.2,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1056,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 0
+    },
+    "total_tokens": 14347
+   },
+   "usd": 0.174,
+   "price_basis": "usage tokens at gpt-image-1 list rates (5/10/40 USD per M)"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 1,
+   "provider": "openai",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:19:37Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/oa15_hifi_1.png",
+   "output_sha256": "89e77df9287621172a7de06ce5cf0d52a23c92d5982b0a7ab5e35a08d843f3c1",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 26.1,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1387,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 331
+    },
+    "total_tokens": 14678
+   },
+   "usd": 0.18724,
+   "price_basis": "usage tokens at gpt-image-1 list rates (5/10/40 USD per M)"
+  },
+  {
+   "mode": "oa1_hifi_mask",
+   "draw": 1,
+   "provider": "openai",
+   "model": "gpt-image-1",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "refs": [
+    "rgb"
+   ],
+   "mask": "editmask_openai",
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "editmask_openai": "a92d73a87120be11209ea80d70f067e8d3d88cab91dbeaa2a363a9d1f96bead6"
+   },
+   "prompt_sha256": "64d0d54d38da214161a2ca5569bfd1c2cefa384ec849ec924e4a03d072af25d7",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:20:03Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/oa1_hifi_mask_1.png",
+   "output_sha256": "f4fb2dadffbb782def0f868f330cd0fa0e843becee3fefb3567262408c0efec2",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 18.0,
+   "usage": {
+    "input_tokens": 4447,
+    "input_tokens_details": {
+     "image_tokens": 4354,
+     "text_tokens": 93
+    },
+    "output_tokens": 1056,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 0
+    },
+    "total_tokens": 5503
+   },
+   "usd": 0.08625,
+   "price_basis": "usage tokens at gpt-image-1 list rates (5/10/40 USD per M)"
+  },
+  {
+   "mode": "bfl_fill",
+   "draw": 1,
+   "provider": "bfl",
+   "model": "flux-pro-1.0-fill",
+   "params": {
+    "guidance": 60,
+    "steps": 50,
+    "prompt_upsampling": false,
+    "output_format": "png"
+   },
+   "refs": [
+    "rgb"
+   ],
+   "mask": "editmask_bfl",
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "editmask_bfl": "a0ad01b9a069d3ce86a7ff87330836d68f974258acf713384f54880ef79701bb"
+   },
+   "prompt_sha256": "64d0d54d38da214161a2ca5569bfd1c2cefa384ec849ec924e4a03d072af25d7",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:20:21Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/bfl_fill_1.png",
+   "output_sha256": "361184f8211390dae8603138592e77a2abd5f0d3080aedf41a03cd777f64a137",
+   "size": [
+    1000,
+    1000
+   ],
+   "seconds": 20.8,
+   "credits_before": 1397.0,
+   "credits_after": 1397.0,
+   "credits_used": 0.0,
+   "usd": 0.05,
+   "price_basis": "BFL credits, reconciled; BFL's credit balance updates lazily: fill's 5 credits appeared before the 2max call, and flex+2max together cost 20 credits (split unknown); the four BFL draws cost 33 credits = US$0.33 in all, reconciled against the balance 1397 -> 1364"
+  },
+  {
+   "mode": "bfl_flex",
+   "draw": 1,
+   "provider": "bfl",
+   "model": "flux-2-flex",
+   "params": {
+    "guidance": 5.0,
+    "steps": 50,
+    "prompt_upsampling": false,
+    "width": 1024,
+    "height": 1024,
+    "output_format": "png"
+   },
+   "refs": [
+    "rgb"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db"
+   },
+   "prompt_sha256": "6478bb371f73b4782c5c5c3fe27632bab4270460ee9cbd3a1effe8ef0d6fabd3",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:20:42Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/bfl_flex_1.png",
+   "output_sha256": "e5788e0df2c0c61f1fc3636ec8500475aecf7c7a1833f1aac91355e54e468b40",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 16.2,
+   "credits_before": 1397.0,
+   "credits_after": 1397.0,
+   "credits_used": 0.0,
+   "usd": 0.1,
+   "price_basis": "BFL credits, reconciled; BFL's credit balance updates lazily: fill's 5 credits appeared before the 2max call, and flex+2max together cost 20 credits (split unknown); the four BFL draws cost 33 credits = US$0.33 in all, reconciled against the balance 1397 -> 1364"
+  },
+  {
+   "mode": "bfl_2max",
+   "draw": 1,
+   "provider": "bfl",
+   "model": "flux-2-max",
+   "params": {
+    "disable_pup": true,
+    "width": 1024,
+    "height": 1024,
+    "output_format": "png"
+   },
+   "refs": [
+    "rgb"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db"
+   },
+   "prompt_sha256": "6478bb371f73b4782c5c5c3fe27632bab4270460ee9cbd3a1effe8ef0d6fabd3",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:20:58Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/bfl_2max_1.png",
+   "output_sha256": "2b8e0091ba039c7b68ba665dd5298978a5e01cad4ad38cb450c1ea53ea8da427",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 27.4,
+   "credits_before": 1392.0,
+   "credits_after": 1372.0,
+   "credits_used": 20.0,
+   "usd": 0.1,
+   "price_basis": "BFL credits, reconciled; BFL's credit balance updates lazily: fill's 5 credits appeared before the 2max call, and flex+2max together cost 20 credits (split unknown); the four BFL draws cost 33 credits = US$0.33 in all, reconciled against the balance 1397 -> 1364"
+  },
+  {
+   "mode": "bfl_kmax",
+   "draw": 1,
+   "provider": "bfl",
+   "model": "flux-kontext-max",
+   "params": {
+    "prompt_upsampling": false,
+    "output_format": "png"
+   },
+   "refs": [
+    "rgb"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db"
+   },
+   "prompt_sha256": "6478bb371f73b4782c5c5c3fe27632bab4270460ee9cbd3a1effe8ef0d6fabd3",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:21:25Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/bfl_kmax_1.png",
+   "output_sha256": "cf51b533106ffa310ea81096ade017b8e77e73e1b5b8999308a50a0cab7bafe0",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 18.6,
+   "credits_before": 1372.0,
+   "credits_after": 1364.0,
+   "credits_used": 8.0,
+   "usd": 0.08,
+   "price_basis": "BFL credits, reconciled; BFL's credit balance updates lazily: fill's 5 credits appeared before the 2max call, and flex+2max together cost 20 credits (split unknown); the four BFL draws cost 33 credits = US$0.33 in all, reconciled against the balance 1397 -> 1364"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 1,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:21:44Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_1.png",
+   "output_sha256": "2dad12dbf61eecd17172757b880490faa0736a816a110908f5a5c81a86d64af0",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 16.8,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1290,
+    "totalTokenCount": 2394,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 160,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "g31flash",
+   "draw": 1,
+   "provider": "google",
+   "model": "gemini-3.1-flash-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:22:01Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g31flash_1.png",
+   "output_sha256": "98fd291ac30dc34ea5d32ca3b26a3e8edf6ddcffa532cfcb7d1dc7ae6d543fb6",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 8.4,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1353,
+    "totalTokenCount": 2297,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "serviceTier": "standard"
+   },
+   "usd": 0.067,
+   "price_basis": "list, US$0.067 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 2,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:26:59Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_2.png",
+   "output_sha256": "1d072bba5f4391f42833013c7762b3c60f355aa6409b10713c912ba8436ec422",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 18.9,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1293,
+    "totalTokenCount": 2412,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 175,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 3,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:27:18Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_3.png",
+   "output_sha256": "854c7fb1e4e13f52c824b86898dd8de2e2b74d1e49bffdf177c813bc13cae34b",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 17.1,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1257,
+    "totalTokenCount": 2424,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 223,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 4,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:27:35Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_4.png",
+   "output_sha256": "b55cc910a302953642fc6ac458c962b292e871be99fcf9321b10e91b815fb8f3",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 17.9,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1272,
+    "totalTokenCount": 2412,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 196,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "bfl_flex",
+   "draw": 2,
+   "provider": "bfl",
+   "model": "flux-2-flex",
+   "params": {
+    "guidance": 5.0,
+    "steps": 50,
+    "prompt_upsampling": false,
+    "width": 1024,
+    "height": 1024,
+    "output_format": "png"
+   },
+   "refs": [
+    "rgb"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db"
+   },
+   "prompt_sha256": "6478bb371f73b4782c5c5c3fe27632bab4270460ee9cbd3a1effe8ef0d6fabd3",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:27:54Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/bfl_flex_2.png",
+   "output_sha256": "81999b4ee4ba83a4e6d6a973220060ab105e78765910f62b7636684319329ce5",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 16.0,
+   "credits_before": 1364.0,
+   "credits_after": 1354.0,
+   "credits_used": 10.0,
+   "usd": 0.1,
+   "price_basis": "BFL credit balance delta at US$0.01 per credit"
+  },
+  {
+   "mode": "bfl_flex",
+   "draw": 3,
+   "provider": "bfl",
+   "model": "flux-2-flex",
+   "params": {
+    "guidance": 5.0,
+    "steps": 50,
+    "prompt_upsampling": false,
+    "width": 1024,
+    "height": 1024,
+    "output_format": "png"
+   },
+   "refs": [
+    "rgb"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db"
+   },
+   "prompt_sha256": "6478bb371f73b4782c5c5c3fe27632bab4270460ee9cbd3a1effe8ef0d6fabd3",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:28:10Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/bfl_flex_3.png",
+   "output_sha256": "e8095ff2f8c650757d5f4b830bacd04a4a7b72ecec4f96a311212c7c7c064903",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 15.0,
+   "credits_before": 1354.0,
+   "credits_after": 1354.0,
+   "credits_used": 0.0,
+   "usd": 0.0,
+   "price_basis": "BFL credit balance delta at US$0.01 per credit"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 5,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:44:39Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_5.png",
+   "output_sha256": "1e84841f6d123c9ed267793a44cc7b9baae58ad4542fda2598b62892cf77878c",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 15.6,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1265,
+    "totalTokenCount": 2436,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 227,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 6,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:44:55Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_6.png",
+   "output_sha256": "6f41a4aed7824cc8e322abc5c7b47414568ae908a00aab75d72e0aca255d66d9",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 16.8,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1263,
+    "totalTokenCount": 2397,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 190,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 7,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:45:12Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_7.png",
+   "output_sha256": "c2907c015aaf6eb75f0933da3fd0f66e782a305626fb4c829b9968922d105777",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 14.9,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1292,
+    "totalTokenCount": 2413,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 177,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 8,
+   "provider": "google",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "1K"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:45:27Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/g3pro_8.png",
+   "output_sha256": "e64a56195f9870d00f732c44f0d4e9a669abe577bc815e3d46653939b07ec294",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 16.1,
+   "usage": {
+    "promptTokenCount": 944,
+    "candidatesTokenCount": 1263,
+    "totalTokenCount": 2335,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 170
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 128,
+    "serviceTier": "standard"
+   },
+   "usd": 0.134,
+   "price_basis": "list, US$0.134 per image (gateway table / Google pricing page, 1K)"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 2,
+   "provider": "openai",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:51:13Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/oa15_hifi_2.png",
+   "output_sha256": "94788347aa6e67ca79190186202f5b6884cff892310c5c223e058206cb426ea3",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 21.5,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1334,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 278
+    },
+    "total_tokens": 14625
+   },
+   "usd": 0.18513,
+   "price_basis": "usage tokens at gpt-image-1 list rates (5/10/40 USD per M)"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 3,
+   "provider": "openai",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:51:34Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/oa15_hifi_3.png",
+   "output_sha256": "a43dff4e48d6d54ee2775aac9869bd4b637dcbee45e4571f346cce0d2afd5233",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 16.8,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1374,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 318
+    },
+    "total_tokens": 14665
+   },
+   "usd": 0.18673,
+   "price_basis": "usage tokens at gpt-image-1 list rates (5/10/40 USD per M)"
+  },
+  {
+   "mode": "oa15_hifi",
+   "draw": 4,
+   "provider": "openai",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1024"
+   },
+   "refs": [
+    "rgb",
+    "mask",
+    "normal"
+   ],
+   "mask": null,
+   "conditioning_sha256": {
+    "rgb": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "mask": "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "normal": "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   },
+   "prompt_sha256": "f5dfca5a4550257065a20c4b18c168f722d7ae23714d258ef6cb7a9dd025ed47",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "started": "2026-09-26T13:51:51Z",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e5/out/gen/oa15_hifi_4.png",
+   "output_sha256": "5fbb3207dd9ddfaf4b57715261a9959c7a96cce7de9215806d443f7c7c7ac335",
+   "size": [
+    1024,
+    1024
+   ],
+   "seconds": 19.4,
+   "usage": {
+    "input_tokens": 13291,
+    "input_tokens_details": {
+     "image_tokens": 13062,
+     "text_tokens": 229
+    },
+    "output_tokens": 1414,
+    "output_tokens_details": {
+     "image_tokens": 1056,
+     "text_tokens": 358
+    },
+    "total_tokens": 14705
+   },
+   "usd": 0.18832,
+   "price_basis": "usage tokens at gpt-image-1 list rates (5/10/40 USD per M)"
+  }
+ ],
+ "spent_usd": 2.8007,
+ "judge_usd": 0.224
+}

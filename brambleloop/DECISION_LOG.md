@@ -1028,3 +1028,34 @@ draw is recorded with its full result, and the one image that passes both is rep
 of fourteen. E4 is FAIL as a pipeline, with the generator's coupling of literalness and
 material named as the blocker and the provider benchmark named as the place to answer it.
 
+## 2026-09-26 — Visual E5 (isolated branch, from checkpoint a447c2f)
+
+**D-E5-1. A provider's control is what its API answers, not what its name or documentation
+suggests.** Every mode in E5 was admitted on a wire-level probe that could not render or bill:
+the fidelity parameter exists on two OpenAI models and is refused by three; the structural
+conditioning endpoints the benchmark was designed around no longer exist on BFL. Ranking and
+spend followed the verified table.
+
+**D-E5-2. The instrument's alignment may be improved; its bars may not.** The refinement climbs
+scale and shift to the maximum silhouette overlap only, never the quantity it then measures;
+it is an option that leaves E4's default and records intact; every E5 verdict is reported under
+both aligners; the adversarial suite runs under both; and the E4 baseline was re-measured under
+both before any comparison was drawn. A measurement change that could not be shown both ways
+would not have been made.
+
+**D-E5-3. Certification stays strict under a benchmark that wants a winner.** A draw is
+certified only when the structural verdict is PASS and every judge item is PASS; UNKNOWN never
+counts; no draw was selected or re-drawn on its score, and every draw is in the tables. Two of
+four is reported as two of four, not as a rate.
+
+**D-E5-4. Spend followed evidence, and stopped.** One draw per mode to eliminate; further draws
+only for modes whose structural control showed an advantage (gemini-3-pro-image, then
+gpt-image-1.5 high-fidelity once the refined alignment exposed it); stopped at US$2.80 with the
+picture clear and the ceiling unbreached. The mask modes were not re-drawn: their failure is
+mechanical, not statistical.
+
+**D-E5-5. No winner is declared, and the cost model is named for what it is.** A gated
+rejection-sampling loop would produce certified images at roughly US$0.40–0.60 each on the two
+best modes, without a termination guarantee. That is recorded as the honest production option
+and not called a structure lock, because none exists on any reachable provider.
+

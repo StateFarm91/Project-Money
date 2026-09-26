@@ -17,7 +17,23 @@ D = os.path.join(os.path.dirname(HERE), "d", "out")
 W = P.W
 
 
-def aligned_masks(kind, view, gen_path):
+def _place(z, dy, dx):
+    out = np.zeros((W, W), bool); h, w = z.shape; sy0, sx0 = int(round(dy)), int(round(dx))
+    y0, x0 = max(sy0, 0), max(sx0, 0); y1, x1 = min(sy0 + h, W), min(sx0 + w, W)
+    if y1 > y0 and x1 > x0: out[y0:y1, x0:x1] = z[y0 - sy0:y1 - sy0, x0 - sx0:x1 - sx0]
+    return out
+
+
+def aligned_masks(kind, view, gen_path, refine=False):
+    """Global similarity alignment of the photograph's yarn mask to the certified silhouette:
+    scale and shift only, never shape.  is E4's aligner (scale from the area
+    ratio, shift from the centroids), kept as it was so E4's records stay reproducible.
+     (E5) starts from that and then climbs scale and shift to the maximum
+    silhouette IoU: E5 measured that the area/centroid estimate is thrown by the colour
+    segmentation catching warm scene pixels (wooden ball, linen), which under-read the
+    structure correlation by up to 0.4 on otherwise well-placed photographs. The refinement
+    optimises the silhouette overlap only, never the structure or per-stitch quantities it
+    then feeds; research/e4/test_e4.py runs its adversarial cases under both."""
     ref_mask = np.array(Image.open(os.path.join(OUT, f"{kind}_{view}_mask.png"))) > 127
     gen = Image.open(gen_path).convert("RGB").resize((W, W), Image.LANCZOS)
     gmask, gh = yarn_mask(gen)
@@ -29,18 +45,30 @@ def aligned_masks(kind, view, gen_path):
         return ref_mask, np.zeros_like(ref_mask), {"scale": None, "shift_px": None, "why": "no yarn region found in the photograph"}, gh, gmask
     s = np.sqrt(len(rys) / len(ys)); z = zoom(gmask.astype(float), s, order=1) > 0.5
     zys, zxs = np.nonzero(z); dy, dx = rys.mean() - zys.mean(), rxs.mean() - zxs.mean()
-    out = np.zeros_like(ref_mask); h, w = z.shape; sy0, sx0 = int(round(dy)), int(round(dx))
-    y0, x0 = max(sy0, 0), max(sx0, 0); y1, x1 = min(sy0 + h, W), min(sx0 + w, W)
-    out[y0:y1, x0:x1] = z[y0 - sy0:y1 - sy0, x0 - sx0:x1 - sx0]
-    return ref_mask, out, {"scale": float(s), "shift_px": [float(dy), float(dx)]}, gh, gmask
+    align = {"scale": float(s), "shift_px": [float(dy), float(dx)], "refined": False}
+    if refine:
+        def iou(m): u = (m | ref_mask).sum(); return float((m & ref_mask).sum() / u) if u else 0.0
+        best = (iou(_place(z, dy, dx)), s, dy, dx); seed = best
+        for scales, step, span in (((0.90, 0.94, 0.97, 1.0, 1.03, 1.06, 1.10), 8, 48), ((0.985, 0.99, 0.995, 1.0, 1.005, 1.01, 1.015), 2, 8)):
+            _, s1, dy1, dx1 = best
+            for f in scales:
+                zz = zoom(gmask.astype(float), s1 * f, order=1) > 0.5
+                for ddy in range(-span, span + 1, step):
+                    for ddx in range(-span, span + 1, step):
+                        v = iou(_place(zz, dy1 + ddy, dx1 + ddx))
+                        if v > best[0]: best = (v, s1 * f, dy1 + ddy, dx1 + ddx)
+        _, s, dy, dx = best; z = zoom(gmask.astype(float), s, order=1) > 0.5
+        align = {"scale": float(s), "shift_px": [float(dy), float(dx)], "refined": True, "seed": {"iou": round(seed[0], 4), "scale": float(seed[1]), "shift_px": [float(seed[2]), float(seed[3])]}, "iou_after": round(best[0], 4)}
+    out = _place(z, dy, dx)
+    return ref_mask, out, align, gh, gmask
 
 
-def local(kind, view, gen_path):
+def local(kind, view, gen_path, refine=False):
     man = json.load(open(os.path.join(OUT, f"{kind}_{view}_manifest.json")))
     sv = man.get("self_validation", {})
     if not sv.get("valid"):
         return {"status": "UNKNOWN", "why": "the instrument did not validate itself on the reference; it does not judge", "self_validation": sv}
-    ref_mask, gen_al, align, _, _ = aligned_masks(kind, view, gen_path)
+    ref_mask, gen_al, align, _, _ = aligned_masks(kind, view, gen_path, refine=refine)
     bar = man["criteria"]["stitch_present_iou"]["value"]
     per = {}
     for s in man["stitches"]:
@@ -55,10 +83,9 @@ def local(kind, view, gen_path):
             "mean_iou": float(np.mean([v["iou"] for v in tested])) if tested else None, "alignment": align, "per_stitch": per, "bar": bar}
 
 
-def global_props(kind, view, gen_path):
-    num = C.numeric(kind, view, gen_path) if False else None
+def global_props(kind, view, gen_path, refine=False):
     # E3's numeric measures, against the E4 masks (the mask directory differs); reuse the pieces
-    ref_mask, gen_al, align, gh, gmask = aligned_masks(kind, view, gen_path)
+    ref_mask, gen_al, align, gh, gmask = aligned_masks(kind, view, gen_path, refine=refine)
     if align["scale"] is None:
         why = {"why": align["why"]}
         names = ("silhouette", "major_proportions", "colour_regions", "row_placement", "structure_placement", "construction_cues", "macro_deformation", "handedness")

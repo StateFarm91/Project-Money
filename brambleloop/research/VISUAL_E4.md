@@ -85,12 +85,14 @@ Per-stitch detail for every image is in `<tag>_validation.json` (`local.per_stit
 
 ## 6. Yield, and where the failure lives
 
+*Erratum 2026-09-26 (E5): this table originally split the sc draws as 6 camera / 5 oblique; the correct split is 4 camera (r1, r2, y1, y2) / 6 oblique (r1, r2, y1–y4). The per-image table above and every record were already correct; only the two row labels changed.*
+
 Over 14 images with the same geometry and package:
 
 | | structural PASS | judge 7/7 | both |
 |---|---|---|---|
-| sc camera (6 draws) | 2 | 1 | **1** |
-| sc oblique (5 draws) | 0 | 3 | 0 |
+| sc camera (4 draws) | 2 | 1 | **1** |
+| sc oblique (6 draws) | 0 | 3 | 0 |
 | hdc camera (2) | 0 | 1 | 0 |
 | hdc oblique (2) | 0 | 1 | 0 |
 

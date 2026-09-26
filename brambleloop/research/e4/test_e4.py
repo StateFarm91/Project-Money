@@ -55,37 +55,42 @@ img = np.array(Image.open(ref).convert("RGB")); bg = img[5:40, 5:40].reshape(-1,
 target = next(s for s in man["stitches"] if s["id"] == "r3p2")
 x0, y0, x1, y1 = target["bbox_px"]
 bad = img.copy(); bad[y0:y1, x0:x1] = bg
-with tempfile.TemporaryDirectory(prefix="brambleloop-e4-") as td:
+# the same adversarial cases under both aligners: E4's (refine=False) and E5's silhouette-refined one
+for REFINE in (False, True):
+  tagr = "E5 refined aligner" if REFINE else "E4 aligner"
+  def L(pth): return V.local(kind, view, pth, refine=REFINE)
+  def G(pth): return V.global_props(kind, view, pth, refine=REFINE)
+  with tempfile.TemporaryDirectory(prefix="brambleloop-e4-") as td:
     p = os.path.join(td, "erased.png"); Image.fromarray(bad.astype(np.uint8)).save(p)
-    loc = V.local(kind, view, p)
+    loc = L(p)
     def overlaps(s):
         a = s["bbox_px"]; return not (a[2] <= x0 or a[0] >= x1 or a[3] <= y0 or a[1] >= y1)
     allowed = {s["id"] for s in man["stitches"] if overlaps(s)}
-    check("erasing one stitch from the reference is caught, and the manifest names it", loc["status"] == "FAIL" and "r3p2" in loc["failed_stitches"], str(loc["failed_stitches"]))
-    check("the failures are confined to stitches whose regions overlap the erased one", set(loc["failed_stitches"]) <= allowed, str(set(loc["failed_stitches"]) - allowed))
-    check("stitches away from the erasure still pass", all(loc["per_stitch"][s["id"]]["status"] == "PASS" for s in man["stitches"] if s["testable"] and s["id"] not in allowed))
+    check(f"[{tagr}] erasing one stitch from the reference is caught, and the manifest names it", loc["status"] == "FAIL" and "r3p2" in loc["failed_stitches"], str(loc["failed_stitches"]))
+    check(f"[{tagr}] the failures are confined to stitches whose regions overlap the erased one", set(loc["failed_stitches"]) <= allowed, str(set(loc["failed_stitches"]) - allowed))
+    check(f"[{tagr}] stitches away from the erasure still pass", all(loc["per_stitch"][s["id"]]["status"] == "PASS" for s in man["stitches"] if s["testable"] and s["id"] not in allowed))
     # a photograph of nothing (background only) never passes
     p2 = os.path.join(td, "blank.png"); Image.fromarray(np.full_like(img, bg.astype(np.uint8))).save(p2)
-    loc2 = V.local(kind, view, p2)
-    check("a blank photograph does not pass the stitch test", loc2["status"] != "PASS", str(loc2["status"]))
+    loc2 = L(p2)
+    check(f"[{tagr}] a blank photograph does not pass the stitch test", loc2["status"] != "PASS", str(loc2["status"]))
     # the same fabric moved and scaled in frame still passes: the alignment is scale and shift, never shape
     moved = np.full_like(img, bg.astype(np.uint8)); small = np.array(Image.fromarray(img).resize((800, 800), Image.LANCZOS)); moved[150:950, 100:900] = small
     p3 = os.path.join(td, "moved.png"); Image.fromarray(moved).save(p3)
-    loc3 = V.local(kind, view, p3)
-    check("the reference re-framed (scaled 0.8, shifted) still passes every testable stitch", loc3["status"] == "PASS", str(loc3["failed_stitches"]))
+    loc3 = L(p3)
+    check(f"[{tagr}] the reference re-framed (scaled 0.8, shifted) still passes every testable stitch", loc3["status"] == "PASS", str(loc3["failed_stitches"]))
     # mirrored fabric is not the certified fabric
     p4 = os.path.join(td, "mirrored.png"); Image.fromarray(img[:, ::-1]).save(p4)
-    loc4 = V.local(kind, view, p4)
+    loc4 = L(p4)
     # A LIMITATION, RECORDED AS A TEST: the presence test cannot tell a mirror image of this
     # near-symmetric swatch from the swatch. Handedness is a separate global property.
-    check("known limit: the mirrored reference passes the presence test (so handedness must be tested elsewhere)", loc4["status"] == "PASS", str(loc4["status"]))
-    g4 = V.global_props(kind, view, p4)
-    check("the mirrored reference FAILS the handedness property", g4["items"]["handedness"]["status"] == "FAIL", str(g4["items"]["handedness"]))
-    g0 = V.global_props(kind, view, ref)
-    check("the reference itself PASSES the handedness property", g0["items"]["handedness"]["status"] == "PASS", str(g0["items"]["handedness"]))
-    g2 = V.global_props(kind, view, p2)
-    check("a blank photograph is UNKNOWN or FAIL on handedness, never PASS", g2["items"]["handedness"]["status"] != "PASS", str(g2["items"]["handedness"]))
-    check("a blank photograph fails the global structural properties", g2["status"] == "FAIL", str(g2["status"]))
+    check(f"[{tagr}] known limit: the mirrored reference passes the presence test (so handedness must be tested elsewhere)", loc4["status"] == "PASS", str(loc4["status"]))
+    g4 = G(p4)
+    check(f"[{tagr}] the mirrored reference FAILS the handedness property", g4["items"]["handedness"]["status"] == "FAIL", str(g4["items"]["handedness"]))
+    g0 = G(ref)
+    check(f"[{tagr}] the reference itself PASSES the handedness property", g0["items"]["handedness"]["status"] == "PASS", str(g0["items"]["handedness"]))
+    g2 = G(p2)
+    check(f"[{tagr}] a blank photograph is UNKNOWN or FAIL on handedness, never PASS", g2["items"]["handedness"]["status"] != "PASS", str(g2["items"]["handedness"]))
+    check(f"[{tagr}] a blank photograph fails the global structural properties", g2["status"] == "FAIL", str(g2["status"]))
 
 # projection: the analytic camera puts the certified stitch centroids where the manifest says
 uv = np.array([s["centroid_px"] for s in man["stitches"]])

@@ -1,0 +1,85 @@
+{
+ "note": "E4's four sc camera draws (gpt-image-2 edits, no fidelity control) re-measured under both aligners for the E5 comparison; E4's own records are untouched",
+ "rows": [
+  {
+   "image": "sc_camera_e4",
+   "judge_all_pass": true,
+   "v1": {
+    "structural": "PASS",
+    "sil": 0.89,
+    "drift": 0.042,
+    "ncc": 0.471,
+    "hand": "PASS"
+   },
+   "v2": {
+    "structural": "PASS",
+    "sil": 0.896,
+    "drift": 0.042,
+    "ncc": 0.504,
+    "hand": "PASS"
+   },
+   "certified_v1": true,
+   "certified_v2": true
+  },
+  {
+   "image": "sc_camera_e4r2",
+   "judge_all_pass": false,
+   "v1": {
+    "structural": "PASS",
+    "sil": 0.911,
+    "drift": 0.086,
+    "ncc": 0.437,
+    "hand": "PASS"
+   },
+   "v2": {
+    "structural": "PASS",
+    "sil": 0.922,
+    "drift": 0.086,
+    "ncc": 0.583,
+    "hand": "PASS"
+   },
+   "certified_v1": false,
+   "certified_v2": false
+  },
+  {
+   "image": "sc_camera_e4y_1",
+   "judge_all_pass": false,
+   "v1": {
+    "structural": "FAIL",
+    "sil": 0.916,
+    "drift": 0.166,
+    "ncc": 0.452,
+    "hand": "PASS"
+   },
+   "v2": {
+    "structural": "FAIL",
+    "sil": 0.926,
+    "drift": 0.166,
+    "ncc": 0.567,
+    "hand": "PASS"
+   },
+   "certified_v1": false,
+   "certified_v2": false
+  },
+  {
+   "image": "sc_camera_e4y_2",
+   "judge_all_pass": false,
+   "v1": {
+    "structural": "FAIL",
+    "sil": 0.88,
+    "drift": 0.173,
+    "ncc": 0.564,
+    "hand": "PASS"
+   },
+   "v2": {
+    "structural": "FAIL",
+    "sil": 0.884,
+    "drift": 0.173,
+    "ncc": 0.586,
+    "hand": "PASS"
+   },
+   "certified_v1": false,
+   "certified_v2": false
+  }
+ ]
+}

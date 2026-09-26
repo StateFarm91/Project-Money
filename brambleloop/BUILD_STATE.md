@@ -368,6 +368,38 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Visual E5: structure-locked photorealisation benchmark across providers — no repeatable route; realism solved, pose lock unavailable
+
+From checkpoint `a447c2f`. Report `research/VISUAL_E5.md`; every request and output digest,
+parameter, judge id and cost in `research/e5/out/`. External spend **US$2.80** of a US$3.00
+ceiling (21 draws US$2.58, judge US$0.22), stopped with the picture clear.
+
+- **Capabilities verified on the wire, not assumed:** gpt-image-1 / 1.5 accept
+  `input_fidelity=high` and a mask; gpt-image-2 and both 2.5 variants refuse it. BFL exposes
+  FLUX.2 pro/max/flex editing, Kontext and Fill inpainting, but its depth and canny control
+  endpoints answer 404. Google's three image models edit from several images with no fidelity,
+  strength, mask or structure parameter. No reachable provider offers structure conditioning.
+- **Frozen package** (E4 SC camera: geometry `e0762cc0…`, reference `acdfc2d8…`, mask, normals,
+  manifest) re-hashed before every mode; nothing in the reference changed for any provider.
+- **Nine modes, 21 draws, every one measured by the unchanged E4 instrument and judge.**
+  Realism: 18/21 pass all seven judge items. Structure: certified draws — gpt-image-1.5
+  high-fidelity **2 of 4**, gemini-3-pro-image **2 of 8**, everything else 0; E4's gpt-image-2
+  re-measured on the same view 1 of 4. No consecutive certified draws on any mode.
+- **Instrument:** the E4 aligner's area/centroid estimate is thrown by warm scene pixels on real
+  photographs (structure NCC under-read by up to 0.44, measured before any change); E5 adds a
+  silhouette-refined alignment as an option, E4's default untouched, both verdicts reported on
+  every image, adversarial tests green under both (66). No threshold moved.
+- **Failure mode, provider-independent:** the object is re-posed or re-framed on 50–75 % of
+  draws (aspect drift 0.13–0.45 against a 0.10 bar). When it is not, 5 of 6 draws certify. Mask
+  inpainting destroys the structure it is meant to protect (two modes, silhouette 0.33 and 0.01).
+- **Verdict: no winner.** A gated rejection-sampling loop on the two best modes would cost about
+  US$0.40–0.60 per certified SC image with no termination guarantee; recorded as a cost model,
+  not a route. Best configurations preserved exactly in `run_e5.MODES` and the manifest. Not
+  integrated. `twin.calibrated` False. `a447c2f`, `4a08871`, `1229442`, `fcb982d` untouched.
+- Tests: `test_e5.py` 19, `test_e4.py` 66, `test_e3.py` 10. No `src/` change this phase.
+- Also: `research/VISUAL_E4.md` carries an erratum on its sc draw split (4 camera / 6
+  oblique, not 6 / 5); no E4 result changed.
+
 ### 2026-09-26 — Visual E4: stitch-addressable correspondence, continuous reference, yield of the photographic layer — FAIL as a pipeline, one image proves both properties
 
 From checkpoint `1229442`. Report `research/VISUAL_E4.md`; every manifest, per-stitch result, judge
