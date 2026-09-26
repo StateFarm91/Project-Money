@@ -222,3 +222,59 @@ Final evidence: `milestone_d.assess`, 6,400 iterations, the friction model of co
 CV 2.3 %, row-height CV 3.3 % — under the 3.4 % craft bar at the specified 5 % loop-length CV,
 which is a finding about the anchor, not applied to the assessed build). Friction coefficient
 for this yarn: UNKNOWN. A judge for the seven UNKNOWN items: none ran.
+
+## 10. Close-out (owner's instruction, 2026-09-26): the UNKNOWNs resolved with the evidence each criterion requires
+
+### 10a. The independent judge on the authoritative instrument renders — FAIL
+
+Judge: `d_judge` → OpenAI `gpt-5-2025-08-07`, image inline at high detail, the seven B-700 fabric items in the vocabulary of the failure, omitted keys UNKNOWN, this module deciding (PASS only when every authoritative view is sound). Views: the draped camera and oblique renders of each swatch at the assessed geometry hash. Cost: **US$0.0552** (hdc 0.0303, sc 0.0249). Full records: `research/d/out/judge_hdc.json`, `judge_sc.json` (prompt, system, raw answers, response ids, usage, image sha256).
+
+**hdc**
+
+| item | status | per view |
+|---|---|---|
+| fabric_folds_naturally | FAIL | camera: None, oblique: False |
+| lighting_is_realistic | UNKNOWN | camera: None, oblique: True |
+| shadows_are_coherent | UNKNOWN | camera: None, oblique: True |
+| has_ordinary_photographic_imperfection | FAIL | camera: None, oblique: False |
+| melted_yarn | FAIL | camera: None, oblique: False |
+| synthetic_stitch_texture | FAIL | camera: None, oblique: False |
+| catalogue_perfect_sterility | FAIL | camera: None, oblique: False |
+
+- `hdc_draped_plied_camera.png` — gpt-5-2025-08-07, `chatcmpl-ESCc8Ey1n86OlEPkFtUaZhVAYYQdF`, 1007+1500 tokens, US$0.0163: no JSON in the answer (the model spent its 1500 tokens reasoning; budget since raised to 4,000)
+- `hdc_draped_plied_oblique.png` — gpt-5-2025-08-07, `chatcmpl-ESCcSQcNU1fJUd6yWxlpYY8wqos2W`, 1007+1280 tokens, US$0.0141: “Swatch floats in space and the yarn appears like smooth, clay-like tubes without fibers. Uniform studio backdrop and procedural-looking loops make it read as CG.”
+
+**sc**
+
+| item | status | per view |
+|---|---|---|
+| fabric_folds_naturally | FAIL | camera: False, oblique: False |
+| lighting_is_realistic | PASS | camera: True, oblique: True |
+| shadows_are_coherent | PASS | camera: True, oblique: True |
+| has_ordinary_photographic_imperfection | FAIL | camera: False, oblique: False |
+| melted_yarn | FAIL | camera: False, oblique: False |
+| synthetic_stitch_texture | FAIL | camera: False, oblique: False |
+| catalogue_perfect_sterility | FAIL | camera: False, oblique: False |
+
+- `sc_draped_plied_camera.png` — gpt-5-2025-08-07, `chatcmpl-ESCcjwin7NmIslyAwvNkYPngDmI59`, 1007+958 tokens, US$0.0108: “Yarn appears smooth and plastic with no fibers, and the swatch floats on a seamless background with uniform renderer-like noise and highly regular structure.”
+- `sc_draped_plied_oblique.png` — gpt-5-2025-08-07, `chatcmpl-ESCcy5dJ4BU1dHtP6g10qERvc46NA`, 1007+1280 tokens, US$0.0141: “The swatch floats in space and the yarn looks like smooth uniform tubes with no fiber detail. The sterile grey background and plastic-like material read as CG.”
+
+**Verdict from the executable criterion after the judgement: D = FAIL on both swatches** — the photographic-presentation items fail. Every mechanical item still passes. The judge's stated reasons are all properties of the *scene*: the yarn drawn without a resolvable fibre population, the form the fabric rests on never drawn ("floats"), a seamless grey backdrop, integrator noise. Three of them are exactly what `STAGING_PLIED["not_reproduced"]` declared.
+
+### 10b. Stationarity — resolved by finishing the solve, not by moving the bar
+
+| | hdc | sc |
+|---|---|---|
+| 6,400 it (momentum) | 2.3 % → UNKNOWN | 2.1 % → UNKNOWN |
+| 12,800 it (momentum) | 2.3 % → UNKNOWN; creep constant at 0.031 mm / 200 it | **1.58 % → PASS** |
+| 12,800 + 3,200 momentum-off settle | **0.55 % → PASS**; creep 0.006 mm / 200 it | SC_SETTLE_PLACEHOLDER |
+
+Semantics: the criterion measures whether the fabric has stopped; a constant creep under momentum can never satisfy a bar stated over the last tenth of a growing solve, and should not. The creep was the momentum method's floor, not the force law: with momentum off (how a FIRE minimisation is finished; rest state carried, trace measured from the same origin) it fell fivefold and the unchanged 2 % criterion is met. Every result states `settle_iterations`; the `_12800_settle.json` records are the evidence configurations, and their draped points are saved with their hashes (`*_draped.npz`).
+
+### 10c. The geometric hand-irregularity item — a measurement, not a gate (D-W6-11)
+
+At the sourced 5 % loop-length input the realised variation under the owner's per-row anchor is 2.3 % (stitch width) and 3.3 % (row height); the 3.4 % "half a stitch over a swatch" bar is a gauge-deviation statement the anchor makes unsatisfiable by construction. Reported beside the judged imperfection items; not gated.
+
+### 10d. Presentation iteration on the failing property
+
+PRESENTATION_PLACEHOLDER

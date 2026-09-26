@@ -1434,7 +1434,8 @@ def shape_match(pts: np.ndarray, rest: np.ndarray, slices: list, *, alpha: float
 def drape(fab: topo.Fabric, setup: DrapeSetup,
           material: rx.Material | None = None,
           rest_curvature: np.ndarray | None = None,
-          rest_points: np.ndarray | None = None) -> tuple[topo.Fabric, DrapeReport]:
+          rest_points: np.ndarray | None = None,
+          trace_from: np.ndarray | None = None) -> tuple[topo.Fabric, DrapeReport]:
     """Find the fabric's equilibrium under gravity, contact and its boundary conditions.
 
     `rest_curvature`, when given, is the rest state to bend against, as produced by
@@ -1469,6 +1470,9 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     down = np.asarray(setup.down, dtype=float)
     down = down / np.linalg.norm(down)
     start = pts.copy()
+    # `trace_from` lets a second phase of one solve measure its motion from the first
+    # phase's origin, so the two phases read as one motion.
+    trace_origin = start if trace_from is None else np.asarray(trace_from, dtype=float)
 
     # Vertex masses from the yarn either side of each vertex.
     lumped = np.zeros(n)
@@ -1836,7 +1840,7 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         scale = min(scale * 1.05, 1.0)
         vel = delta
         if (it + 1) % TRACE_EVERY == 0:
-            report.trace.append((it + 1, float(np.sqrt(np.mean(np.sum((pts - start) ** 2, axis=1)))), worst))
+            report.trace.append((it + 1, float(np.sqrt(np.mean(np.sum((pts - trace_origin) ** 2, axis=1)))), worst))
         report.largest_step_mm = max(report.largest_step_mm, worst)
         report.final_step_mm = worst
         budget -= worst

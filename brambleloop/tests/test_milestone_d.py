@@ -65,5 +65,40 @@ check("a PASS handed to the ladder is still subject to the ordering rule: nothin
       "top of a milestone that failed, and a PARTIAL earlier rung does not block",
       d_row3["status"] in (ML.PASS, ML.BLOCKED), d_row3["status"])
 
+# --- the independent judge: what it asks, how it reads, how it decides -- no call is made ----
+from brambleloop.visual import d_judge as DJ
+check("every judged D item has a judge key phrased so that True means sound, and the judge is "
+      "never shown the standard as something to agree with",
+      set(DJ.ITEM_TO_CHECK) == set(MD.JUDGED + MD.JUDGED_REJECTS)
+      and all(DJ.ITEM_TO_CHECK[i] in DJ.CHECKS for i in DJ.ITEM_TO_CHECK)
+      and "omit the key" in DJ.prompt() and "Do not guess" in DJ.prompt())
+check("the judge model is pinned by a dated id and its price basis is written down",
+      DJ.MODEL.count("-20") == 1 and "list" in DJ.see.__doc__ + str(DJ.PRICE_USD_PER_M) or DJ.PRICE_USD_PER_M["input"] > 0)
+_r = DJ.read({"raw": 'thinking... {"fabric_folds_naturally": true, "yarn_is_not_melted": false, "shadows_are_coherent": "true", "notes": "x"}'})
+check("the reading keeps only the closed vocabulary and real booleans: a string 'true' is unmade",
+      _r["judged"] and _r["checks"] == {"fabric_folds_naturally": True, "yarn_is_not_melted": False})
+check("an answer with no JSON is unjudged, never passed", DJ.read({"raw": "I cannot tell."})["judged"] is False)
+_views = [{"reading": {"checks": {"fabric_folds_naturally": True, "yarn_is_not_melted": True}}, "image": "a.png"},
+          {"reading": {"checks": {"fabric_folds_naturally": False}}, "image": "b.png"}]
+def _decide(views):
+    out = {}
+    for item, key in DJ.ITEM_TO_CHECK.items():
+        votes = [v["reading"]["checks"].get(key) for v in views]
+        out[item] = "FAIL" if any(x is False for x in votes) else "PASS" if votes and all(x is True for x in votes) else "UNKNOWN"
+    return out
+_d = _decide(_views)
+check("the decision rule: FAIL on any view, PASS only when every view is sound, UNKNOWN otherwise",
+      _d["fabric_folds_naturally"] == "FAIL" and _d["melted_yarn"] == "UNKNOWN" and _d["lighting_is_realistic"] == "UNKNOWN"
+      and _decide(_views[:1])["melted_yarn"] == "PASS")
+import os as _os
+_saved = (_os.environ.pop("OPENAI_API_KEY", None), _os.environ.pop("OPENAI_API_KEY_FILE", None))
+try:
+    DJ._key(); _refused = False
+except RuntimeError:
+    _refused = True
+if _saved[0]: _os.environ["OPENAI_API_KEY"] = _saved[0]
+if _saved[1]: _os.environ["OPENAI_API_KEY_FILE"] = _saved[1]
+check("without a credential the judge refuses rather than inventing an answer", _refused)
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

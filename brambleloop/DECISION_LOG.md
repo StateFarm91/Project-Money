@@ -920,3 +920,40 @@ repository's family. D is PARTIAL with the seven items named.
 **D-W6-8. Renders are committed as JPEG evidence, not as PNG instrument output.** Eight PNGs at
 ~1 MB each are instrument output that the JSON beside them reproduces; the JPEGs are the
 before/after the owner asked to see. `research/d/out/*.png` is ignored.
+
+**D-W6-9. The judge of D's photographic items is a vision model that had no part in making the
+image, pinned by dated id, its price written beside its tokens.** The renders are Mitsuba path
+traces of the certified geometry; `d_judge` puts the seven B-700 fabric items to
+`gpt-5-2025-08-07` in the vocabulary of the failure, omitted keys are UNKNOWN, and this module
+decides (PASS only when every authoritative view is sound). The committed `photoreal.judge`
+was not used because its checks are for a photograph of a person and its provider needs a
+credential this environment does not hold. First reading of the instrument renders:
+FAIL on folds, imperfection, melted yarn, synthetic texture, sterility; US$0.055.
+
+**D-W6-10. The stationarity bar was not moved; the solve was finished the way a FIRE
+minimisation is finished.** At 6,400 and 12,800 iterations the hdc motion crept at a constant
+0.031 mm per 200 iterations under momentum -- a constant creep can never satisfy a bar stated
+over the last tenth of a growing solve, and it should not. A 3,200-iteration phase with
+momentum off, the rest state carried and the trace measured from the same origin, brought the
+creep to 0.006 mm per 200 (0.55 % over the last tenth): the creep was the momentum method's
+floor, not the force law. Both swatches now pass the unchanged 2 % criterion; the phase is
+stated on every result as `settle_iterations`.
+
+**D-W6-11. The geometric hand-irregularity item is a measurement, not a gate.** Its bar (3.4 %,
+a swatch reading uneven by half a stitch) is a statement about gauge deviation, and the
+owner's per-row anchor -- pinned in tests/test_hand_tension.py as the hard constraint -- makes
+that deviation zero by construction. A gate an owner constraint makes unsatisfiable is not a
+gate. B-700 asks whether the PHOTOGRAPH has ordinary imperfection and whether the texture
+reads as synthetic; those are judged, and the realised geometric variation at the sourced 5 %
+input (2.3 % width, 3.3 % height) is reported beside them.
+
+**D-W6-12. The presentation staging answers the judge with physics, not retouching, and is
+committed as data.** Every failure the judge named was a property of the instrument scene --
+"floats in space" (the form was never drawn), "clay-like tubes without fibers" (the halo was 5 %
+of the population), "uniform backdrop", "renderer-like noise". `STAGING_PRESENTATION` draws
+the form the fabric was draped over with the backdrop at its foot, focuses a thin lens on the
+fabric, lights it through a window, draws the DERIVED fibre population (336 a ply, the one
+number the ply model had called chosen), and samples enough that the noise is the sensor's.
+The geometry is loaded from the assessment's saved points and refused unless its hash matches
+the record. Nothing is re-rendered to please the judge: the judge's reading of these is the
+evidence, whichever way it goes, and what the scene still lacks is in `not_reproduced`.
