@@ -1,0 +1,116 @@
+{
+ "model": "gpt-5-2025-08-07",
+ "system": "You are a working photographer looking at an image and deciding whether it reads as a real photograph of a real object or as a computer-generated image. You are not judging whether it is attractive. Report what you can actually see, and say plainly when the image does not show you enough to tell.",
+ "prompt": "This is an image of a crochet swatch. Answer as JSON. For each key give true if the statement holds, false if it does not, and omit the key entirely if the image does not show you enough to judge it. Do not guess: an omitted key is a useful answer and a wrong one is not.\n\n  \"fabric_folds_naturally\": the fabric's bends and hang read as cloth under its own weight rather than a stiff, posed or arbitrarily warped shape\n  \"lighting_is_realistic\": the light on the object is what a real lamp or window would produce, with no contradictory or impossible illumination\n  \"shadows_are_coherent\": shadows and highlights agree with one light situation\n  \"has_ordinary_photographic_imperfection\": the frame has the ordinary imperfection of a photograph -- grain, slight unevenness of tone or focus, an unstyled detail -- rather than frictionless synthetic cleanliness\n  \"yarn_is_not_melted\": the yarn reads as twisted, plied fibre with real surface rather than a melted, smooth or plastic rope\n  \"stitch_texture_is_not_synthetic\": the stitch texture reads as hand-worked crochet fabric rather than a tiled, repeated or computer-generated pattern\n  \"not_catalogue_perfect_sterility\": the image is not sterile catalogue perfection: something in it is ordinary, imperfect or unarranged\n\nAdd \"notes\": one or two short sentences naming anything that made the image read as generated, or an empty string.",
+ "views": [
+  {
+   "image": "research/e3/out/gen/sc_camera_0.png",
+   "image_sha256": "af2f7b5b4c75ecc0ac77ceab7e4d0b0e5a632b0fcb9f8c097da2c4c41b1c7d90",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESDyuombLCUiD1SUNjdE9eXkSYTDY",
+   "seconds": 10.8,
+   "prompt_tokens": 1007,
+   "completion_tokens": 737,
+   "reasoning_tokens": 640,
+   "cost_usd": 0.008629,
+   "cost_cad": 0.011821,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": true,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": true,\n  \"yarn_is_not_melted\": true,\n  \"stitch_texture_is_not_synthetic\": true,\n  \"not_catalogue_perfect_sterility\": true,\n  \"notes\": \"\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": true,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": true,
+     "yarn_is_not_melted": true,
+     "stitch_texture_is_not_synthetic": true,
+     "not_catalogue_perfect_sterility": true
+    },
+    "notes": ""
+   }
+  },
+  {
+   "image": "research/e3/out/gen/sc_oblique_0.png",
+   "image_sha256": "6076995d5a48f47a8e31bc2e304b5b8100f7a1806026c3e00be391468651fc3f",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESDz543KdqPSJphunDsSxKNm662uK",
+   "seconds": 20.7,
+   "prompt_tokens": 1007,
+   "completion_tokens": 1269,
+   "reasoning_tokens": 1152,
+   "cost_usd": 0.013949,
+   "cost_cad": 0.01911,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": true,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": true,\n  \"yarn_is_not_melted\": true,\n  \"stitch_texture_is_not_synthetic\": true,\n  \"not_catalogue_perfect_sterility\": false,\n  \"notes\": \"Very clean studio setup with a prop sphere and smooth background makes it feel like a styled product shot.\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": true,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": true,
+     "yarn_is_not_melted": true,
+     "stitch_texture_is_not_synthetic": true,
+     "not_catalogue_perfect_sterility": false
+    },
+    "notes": "Very clean studio setup with a prop sphere and smooth background makes it feel like a styled product shot."
+   }
+  }
+ ],
+ "items": {
+  "fabric_folds_naturally": {
+   "status": "PASS",
+   "per_view": {
+    "sc_camera_0.png": true,
+    "sc_oblique_0.png": true
+   }
+  },
+  "lighting_is_realistic": {
+   "status": "PASS",
+   "per_view": {
+    "sc_camera_0.png": true,
+    "sc_oblique_0.png": true
+   }
+  },
+  "shadows_are_coherent": {
+   "status": "PASS",
+   "per_view": {
+    "sc_camera_0.png": true,
+    "sc_oblique_0.png": true
+   }
+  },
+  "has_ordinary_photographic_imperfection": {
+   "status": "PASS",
+   "per_view": {
+    "sc_camera_0.png": true,
+    "sc_oblique_0.png": true
+   }
+  },
+  "melted_yarn": {
+   "status": "PASS",
+   "per_view": {
+    "sc_camera_0.png": true,
+    "sc_oblique_0.png": true
+   }
+  },
+  "synthetic_stitch_texture": {
+   "status": "PASS",
+   "per_view": {
+    "sc_camera_0.png": true,
+    "sc_oblique_0.png": true
+   }
+  },
+  "catalogue_perfect_sterility": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_camera_0.png": true,
+    "sc_oblique_0.png": false
+   }
+  }
+ },
+ "total_cost_usd": 0.022578,
+ "total_cost_cad": 0.030931,
+ "rule": "an item is PASS only when every authoritative view is sound on it, FAIL when any view is not, UNKNOWN when the judge could not tell on any view",
+ "tag": "e3_generated"
+}

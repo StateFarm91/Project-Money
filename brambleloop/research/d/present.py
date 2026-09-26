@@ -24,6 +24,16 @@ for view in ("camera", "oblique"):
     t = time.time()
     path = os.path.join(out, f"{kind}_draped_{tag}_{view}.png")
     r = PS.render(draped, path, view=view, spp=spp, plied_tex=tex, staging=PS.STAGING_PRESENTATION, form=form, frame=flat)
+    # Mitsuba's write_bitmap is asynchronous: the first version hashed the file while it was
+    # still being written, and every `image_sha256` in the presentation records up to commit
+    # 4a08871 is of a partial file. The judge records hashed the finished files and are the
+    # authoritative image hashes; here the hash waits for the file to stop changing.
+    last = -1
+    while True:
+        size = os.path.getsize(path)
+        if size == last:
+            break
+        last = size; time.sleep(1.0)
     res["views"][view] = {"path": path, "image_sha256": hashlib.sha256(open(path, "rb").read()).hexdigest(),
                           "plies": r["plied"]["plies"], "fibres": r["plied"]["fibres"], "spp": r["spp"],
                           "staging": r["staging"], "form_drawn": r["form_drawn"], "not_reproduced": r["not_reproduced"],
