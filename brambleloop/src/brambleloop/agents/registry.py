@@ -176,7 +176,15 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["support.reply", "support.triage"], authority=Authority.YELLOW,
          daily_cost_ceiling_cad=2.0),
     dict(name="cfo", description="Challenges spend; reconciles the ledger",
-         allowed_job_types=["finance.reconcile", "finance.challenge"], authority=Authority.GREEN,
+         allowed_job_types=["finance.reconcile", "finance.challenge",
+                            # The four-fifths escalation as a job rather than a page view:
+                            # `spend_policy.escalation` was computed only when somebody
+                            # fetched /api/spend-report, so a month that reached 80% with
+                            # nobody looking reached the first refusal with nobody told
+                            # (2026-09-26). Reads the ledger, writes at most one owner
+                            # action a month, spends nothing.
+                            "finance.escalation_check"],
+         authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
 ]
 

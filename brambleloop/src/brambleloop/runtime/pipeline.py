@@ -460,9 +460,10 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                                          PatternVersion.version == cir.version)
         )
         if existing is None:
-            s.add(PatternVersion(product_id=product.id, version=cir.version,
-                                 cir_json=cir.to_dict(), release_hash=release_hash,
-                                 certified=True, certificate=certificate))
+            existing = PatternVersion(product_id=product.id, version=cir.version,
+                                      cir_json=cir.to_dict(), release_hash=release_hash,
+                                      certified=True, certificate=certificate)
+            s.add(existing)
         elif existing.release_hash != release_hash:
             # Re-certification of a version that already exists. Insert-if-absent was how the
             # agent-permission fix failed to reach production (B-027), and it would fail the
@@ -478,6 +479,28 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
                       detail={"previous_release_hash": previous,
                               "release_hash": release_hash,
                               "doc_version": DOC_VERSION})
+        s.flush()
+
+        # The certificate is the first derived artefact of a release, and it is recorded
+        # against the *stored* design rather than the CIR in hand: `current_from_db`
+        # fingerprints `cir_json`, and a second spelling of the same design would make every
+        # certificate read stale the moment it was issued (#171). No `chain:release` input
+        # on purpose -- the certificate is a fact about the design and the gates, not about
+        # the post-certification chain, and a chain bump must not revoke it.
+        from ..ops import artefacts as provenance
+
+        inputs = {f"cir:{cir.slug}": provenance.fingerprint(existing.cir_json)}
+        if release_hash:
+            inputs[f"release:{cir.slug}"] = release_hash[:16]
+        provenance.record_lineage(
+            s, artefact_class="certificate",
+            artefact_key=provenance.release_key(cir.slug, cir.version),
+            product_slug=cir.slug, inputs=inputs, chain_version=str(DOC_VERSION),
+            lineage=provenance.Lineage(
+                created_by=ctx.job.agent, job_id=ctx.job.id,
+                sha256=release_hash if len(release_hash or "") == 64 else "",
+                validation_status="certified",
+                publication_authority=ctx.phase.value if ctx.phase else "shadow"))
 
 
 @handlers.register("listing.draft")

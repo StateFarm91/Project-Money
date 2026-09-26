@@ -808,6 +808,7 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
     stopped, because a discovery run that consumes the month's model allowance is a worse
     outcome than a shorter one that can be repeated.
     """
+    from ..gateway import anthropic as gw
     from ..gateway import routing
 
     catalogue = list(catalogue or [])
@@ -824,8 +825,13 @@ def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = N
     stopped = False
     for slot in chosen:
         try:
-            routing.check(db, GENERATION_TASK)
-        except routing.CeilingReached as e:
+            # The one mechanism -- month, agent permission, live reservations -- in place of
+            # `routing.check`'s month-only arithmetic; the gateway reserves when it calls.
+            task, tier = routing.route(GENERATION_TASK)
+            gw.check_budget(db, model=tier.model, input_tokens=task.typical_input_tokens,
+                            max_tokens=task.max_output_tokens, agent=agent,
+                            purpose=GENERATION_TASK, reserve=False)
+        except gw.BudgetExceeded as e:
             stopped = True
             refusals.append(str(e)[:200])
             break
@@ -1079,6 +1085,7 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
     everything. Depth within an arena is what makes a benchmark comparison possible at all:
     a field spread over twelve departments puts two or three concepts against each of them.
     """
+    from ..gateway import anthropic as gw
     from ..gateway import routing
 
     found = arenas(db, today=today)
@@ -1114,8 +1121,11 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
         if index > len(reachable) * 12:
             break
         try:
-            routing.check(db, IDEATION_TASK)
-        except routing.CeilingReached as e:
+            task, tier = routing.route(IDEATION_TASK)
+            gw.check_budget(db, model=tier.model, input_tokens=task.typical_input_tokens,
+                            max_tokens=task.max_output_tokens, agent=agent,
+                            purpose=IDEATION_TASK, reserve=False)
+        except gw.BudgetExceeded as e:
             stopped = True
             problems.append(str(e)[:200])
             break

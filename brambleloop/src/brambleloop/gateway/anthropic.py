@@ -249,8 +249,50 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
     budget for its TTL rather than for the rest of the month -- `finance.reservations` has the
     reasoning. `reserve=False` is for a caller that only wants the arithmetic, and it is not
     what a caller about to spend money should pass.
+
+    This is the token-priced front door. The arithmetic lives in `check_budget_cad`, which
+    takes an estimate in dollars, so a purchase that is not priced per token -- an image, at
+    `ImageProvider.cad_per_image` -- passes through the same ceiling, the same permission and
+    the same reservation table rather than through a second mechanism beside them.
     """
-    from ..finance import reservations
+    try:
+        estimate = estimate_cad(model, input_tokens=input_tokens, output_tokens=max_tokens)
+    except BudgetExceeded as exc:
+        from ..finance import spend_report
+
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=monthly_ceiling_cad(), estimate_cad=0.0,
+            committed_cad=0.0, which="unpriced_model", why=str(exc), purpose=purpose,
+            now=now, detail={"model": model, "provider": "anthropic", "job_id": job_id})
+        raise
+    return check_budget_cad(db, estimate_cad=estimate, model=model, provider="anthropic",
+                            now=now, uncommitted_cad=uncommitted_cad, agent=agent,
+                            purpose=purpose, job_id=job_id, reserve=reserve, holder=holder,
+                            ttl_seconds=ttl_seconds)
+
+
+def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str = "",
+                     job_id: int | None = None, uncommitted_cad: float = 0.0,
+                     holder: str | None = None, ttl_seconds: int | None = None,
+                     now: datetime | None = None, reserve: bool = True,
+                     model: str = "", provider: str = "") -> dict:
+    """The ceiling check itself, on an estimate already expressed in dollars.
+
+    Factored out of `check_budget` on 2026-09-26 so that image generation could stop being
+    "outside this mechanism" (`tests/test_model_spend_paths.py` pinned nine render sites as
+    exactly that). The order and the meaning of the checks are unchanged:
+
+    1. the authorised month (billed + this caller's unbilled + others' live reservations);
+    2. a provider's own ceiling, when the owner has set one in
+       `spend_policy.PROVIDER_CEILINGS_CAD` -- an empty table binds nothing and says so;
+    3. this agent's daily permission;
+    4. a reservation written down before the call.
+
+    **Every refusal leaves a row.** Each raise path writes `spend.refused` to the audit log
+    with the ceiling, the estimate and what was committed, because a guard whose refusals
+    cannot be counted is a guard nobody can tell from one that never fires.
+    """
+    from ..finance import reservations, spend_policy, spend_report
 
     me = holder or reservations.holder_id()
     spent = spent_this_month_cad(db, now=now)
@@ -258,38 +300,64 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
     others = reservations.outstanding(db, exclude_holder=me, now=now)
     committed = round(spent + mine + others["cad"], 6)
     ceiling = monthly_ceiling_cad()
-    estimate = estimate_cad(model, input_tokens=input_tokens, output_tokens=max_tokens)
+    estimate = round(float(estimate_cad), 6)
+
+    def _refuse(exc_type, which: str, message: str, **extra):
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=extra.pop("ceiling", ceiling), estimate_cad=estimate,
+            committed_cad=extra.pop("committed", committed), which=which, why=message,
+            purpose=purpose, now=now,
+            detail={"model": model, "provider": provider, "job_id": job_id, **extra})
+        raise exc_type(message)
 
     # 1. The authorised month. This is the budget, and it is the one that stops the company.
     if committed + estimate > ceiling:
-        raise BudgetExceeded(
-            f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
-            f"already committed this month (CA${spent:.4f} billed, "
-            f"CA${mine:.4f} spent by this run and not yet billed, "
-            f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
-            f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
-            f"than found on the invoice. The way past this is the owner raising the ceiling "
-            f"with measured usage attached, not a cheaper model")
+        _refuse(BudgetExceeded, "monthly_ceiling",
+                f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
+                f"already committed this month (CA${spent:.4f} billed, "
+                f"CA${mine:.4f} spent by this run and not yet billed, "
+                f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
+                f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
+                f"than found on the invoice. The way past this is the owner raising the ceiling "
+                f"with measured usage attached, not a cheaper model")
 
-    # 2. This agent's daily permission. Second, because the month is authoritative and a
-    #    per-agent ceiling is a permission rather than a slice of it.
+    # 2. A provider's own ceiling, if the owner has set one. Read from this month's ledger by
+    #    provider; an empty table is no cap rather than a cap of zero.
+    provider_ceiling = spend_policy.PROVIDER_CEILINGS_CAD.get(provider) if provider else None
+    provider_spent = None
+    if provider_ceiling is not None:
+        by_provider = spend_report.what_it_bought(db, now=now)["by_provider"]
+        provider_spent = float((by_provider.get(provider) or {}).get("cad") or 0.0)
+        if provider_spent + mine + estimate > provider_ceiling:
+            _refuse(BudgetExceeded, "provider_ceiling",
+                    f"provider {provider!r} has spent CA${provider_spent:.4f} of its "
+                    f"CA${provider_ceiling:.2f} monthly ceiling (spend_policy."
+                    f"PROVIDER_CEILINGS_CAD) and this call is estimated at CA${estimate:.4f}. "
+                    f"Refused before the call. The monthly ceiling still has "
+                    f"CA${round(ceiling - committed, 2):.2f}; this is the owner's cap on this "
+                    f"provider, not the budget",
+                    ceiling=provider_ceiling, committed=round(provider_spent + mine, 6))
+
+    # 3. This agent's daily permission. After the month, because the month is authoritative
+    #    and a per-agent ceiling is a permission rather than a slice of it.
     permission = agent_daily_ceiling(db, agent, now=now)
     if permission is not None:
         today = permission["spent_today_cad"]
         allowed = permission["daily_ceiling_cad"]
         if today + mine + estimate > allowed:
-            raise AgentCeilingExceeded(
-                f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
-                f"CA${today + mine:.4f} of it (CA${today:.4f} billed, CA${mine:.4f} unbilled "
-                f"in this run); this call is estimated at CA${estimate:.4f}. Refused before "
-                f"the call. This is a daily permission, not the budget -- the month still "
-                f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
-                f"work resumes at the next UTC day. To do more today, either lower the work "
-                f"this agent asks for (the cadence is derived from this ceiling, so it will "
-                f"follow) or have the owner raise the agent's ceiling in "
-                f"`agents.registry.DEFAULT_AGENTS`")
+            _refuse(AgentCeilingExceeded, "agent_daily_ceiling",
+                    f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
+                    f"CA${today + mine:.4f} of it (CA${today:.4f} billed, CA${mine:.4f} unbilled "
+                    f"in this run); this call is estimated at CA${estimate:.4f}. Refused before "
+                    f"the call. This is a daily permission, not the budget -- the month still "
+                    f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
+                    f"work resumes at the next UTC day. To do more today, either lower the work "
+                    f"this agent asks for (the cadence is derived from this ceiling, so it will "
+                    f"follow) or have the owner raise the agent's ceiling in "
+                    f"`agents.registry.DEFAULT_AGENTS`",
+                    ceiling=allowed, committed=round(today + mine, 6))
 
-    # 3. Written down before the call, so another process reading the same month sees it.
+    # 4. Written down before the call, so another process reading the same month sees it.
     reservation_id = None
     if reserve:
         # `now` is threaded through deliberately. Without it the row's expiry is stamped from
@@ -311,6 +379,9 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
             "reserved_by_others_count": others["count"],
             "expired_unreleased_cad": others["expired_unreleased_cad"],
             "agent_permission": permission,
+            "provider": provider,
+            "provider_ceiling_cad": provider_ceiling,
+            "provider_spent_cad": provider_spent,
             "holder": me,
             "reservation_id": reservation_id}
 

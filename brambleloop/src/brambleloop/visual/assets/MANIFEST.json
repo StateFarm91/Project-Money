@@ -1,0 +1,47 @@
+{
+  "_what_this_is": "Every image committed under visual/assets, with the sha256 of the bytes and the role those bytes play. brief.asset_manifest() reads it; brief.approved_portrait() refuses to hand out a face whose bytes do not match the approved_face entry; freeze.reference_paths() refuses any reference whose bytes do not match the frozen pack's reference_hashes. Roles: approved_face is the one face the owner approved on 2026-09-22 and the only committed asset a render may be conditioned on; superseded_body frames are the pre-revision body the owner replaced and are never a fallback reference; owner_concept is the owner's own generated concept, the direction the pack was built from, and not the model.",
+  "assets": [
+    {
+      "file": "identity_portrait.jpg",
+      "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+      "role": "approved_face",
+      "committed_on": "2026-09-21",
+      "supersedes": null,
+      "note": "the neutral portrait the owner approved as the target face; carried into every reference pack unchanged and placed as reference_image on the frozen canonical row"
+    },
+    {
+      "file": "identity_torso_v5.jpg",
+      "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342",
+      "role": "superseded_body",
+      "committed_on": "2026-09-21",
+      "supersedes": null,
+      "superseded_by": "the revised torso_fit_reference frame of the frozen pack, held in the DurableArtifact store and referenced by sha256 in model_identities.image_refs",
+      "note": "pre-revision body frame kept only so the bust revision could be measured against it; forbidden as a fallback reference"
+    },
+    {
+      "file": "identity_full_length_v5.jpg",
+      "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd",
+      "role": "superseded_body",
+      "committed_on": "2026-09-21",
+      "supersedes": null,
+      "superseded_by": "the revised full_length_standing frame of the frozen pack, held in the DurableArtifact store and referenced by sha256 in model_identities.image_refs",
+      "note": "pre-revision body frame kept only so the bust revision could be measured against it; forbidden as a fallback reference"
+    },
+    {
+      "file": "owner_candidate_concept.jpg",
+      "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
+      "role": "owner_concept",
+      "committed_on": "2026-09-21",
+      "supersedes": "the five rejected tournament finalists, which remain audit evidence",
+      "note": "the owner's generated concept as supplied, whole; the direction of record, not the model"
+    },
+    {
+      "file": "owner_candidate_reference.png",
+      "sha256": "e2f19a28ccabcc94c030167cb7a0b4c58b3891f1c2ed35d5473ec122975b1ade",
+      "role": "owner_concept",
+      "committed_on": "2026-09-21",
+      "supersedes": null,
+      "note": "one clean frame of the owner's concept used as the conditioning source for the pack build; not the model"
+    }
+  ]
+}

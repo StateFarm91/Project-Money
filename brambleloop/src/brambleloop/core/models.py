@@ -1199,6 +1199,32 @@ class ArtefactProvenance(Base):
     chain_version: Mapped[str] = mapped_column(String(20), default="")
     built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    # Lineage (2026-09-26). The production estate held 275 derived artefacts and 275 of them
+    # carried no row here: only the video planner ever called `record`, and every chain
+    # handler wrote its listing, frame, certificate and content piece with nothing tying it
+    # to a job, a commit, a model or a cost. These columns are what a row has to say about
+    # *who made it and under what authority*, beside `inputs`, which says what it was made
+    # from. Every scalar has a default so the additive migration can backfill it; the two
+    # JSON columns are left NULL by the migration and read with `or {}`.
+    #
+    # `source` separates a row the write path recorded at build time from one the backfill
+    # derived afterwards from evidence already on file (a job's outputs, an audit row, a
+    # certificate's own release hash). A backfilled row cites that evidence in `evidence`
+    # and carries `code_commit="unknown"`, because the commit that built it was never
+    # recorded and inventing one would be worse than admitting that.
+    created_by: Mapped[str] = mapped_column(String(64), default="")
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    code_commit: Mapped[str] = mapped_column(String(40), default="unknown")
+    provider: Mapped[str] = mapped_column(String(40), default="")
+    model: Mapped[str] = mapped_column(String(80), default="")
+    cost_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sha256: Mapped[str] = mapped_column(String(64), default="")
+    parents: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    validation_status: Mapped[str] = mapped_column(String(20), default="unknown")
+    publication_authority: Mapped[str] = mapped_column(String(20), default="shadow")
+    source: Mapped[str] = mapped_column(String(12), default="recorded")
+    evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     __table_args__ = (UniqueConstraint("artefact_class", "artefact_key",
                                        name="uq_artefact_provenance"),)
 
@@ -1350,3 +1376,93 @@ class OAuthCredential(Base):
     def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of tracebacks
         return (f"<OAuthCredential {self.provider} ***{self.token_fingerprint} "
                 f"rotations={self.rotations}>")
+
+
+# ---------------------------------------------------------------------------
+# Customers and orders (#11, #12, #252). Added last, and empty on purpose.
+#
+# These three tables exist so that the first hundred buyers can be a validation cohort from
+# customer one rather than reconstructed later from Etsy's CSV. Nothing writes to them today:
+# there is no shop, no listing and no order, and `commerce.cohorts` says so rather than
+# computing a repeat rate over an empty table. Reading Etsy's transaction history into them
+# needs the `transactions_r` OAuth scope, which is an owner decision (#11 note), so the
+# schema is here and the pipe is not.
+
+
+class Customer(Base):
+    """One legitimate buyer, keyed on a stable reference rather than on personal data.
+
+    `customer_ref` is whatever the order source gives us that is stable across orders -- on
+    Etsy, the buyer user id -- never a name or an email. The columns are the things #11
+    asks to learn about the first hundred: where they came from, what they searched, what
+    they bought first, and whether they came back. What they are called is not one of them.
+    """
+
+    __tablename__ = "customers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                    index=True)
+    acquisition_source: Mapped[str] = mapped_column(String(40), default="unknown", index=True)
+    search_term: Mapped[str] = mapped_column(String(200), default="")
+    first_product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    first_category: Mapped[str] = mapped_column(String(40), default="", index=True)
+    first_season: Mapped[str] = mapped_column(String(40), default="none", index=True)
+    # Owned-audience segmentation by demonstrated interest (#12). A list of pod keys the
+    # buyer has actually bought from, never an inferred taste.
+    interests: Mapped[list] = mapped_column(JSON, default=list)
+    # Consent for commercial electronic messages is a CASL fact, recorded or absent.
+    casl_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Order(Base):
+    """One order, with the context #11 says to track and the money #12 says to sum.
+
+    `contribution_cad` is what the order left after fees and cost of sale, not its price:
+    lifetime *contribution* is the metric, and revenue would flatter every bundle.
+    """
+
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    external_ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    category: Mapped[str] = mapped_column(String(40), default="", index=True)
+    price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    revenue_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    contribution_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    acquisition_source: Mapped[str] = mapped_column(String(40), default="unknown", index=True)
+    search_term: Mapped[str] = mapped_column(String(200), default="")
+    # Offsite Ads attribution changes the fee, so it is a column and not a note (#244).
+    offsite_ad_attributed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    is_repeat: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    cross_sell_of: Mapped[str] = mapped_column(String(80), default="")
+    refunded: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    support_case_id: Mapped[int | None] = mapped_column(ForeignKey("support_cases.id"),
+                                                        nullable=True)
+    reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CohortMembership(Base):
+    """Which validation cohort a customer belongs to, by which axis (#11, #12, #252).
+
+    A customer is in several cohorts at once -- by first product, by first category, by
+    first season, by acquisition source -- and each is a row here, so a repeat rate is a
+    query over one axis rather than a recomputation of all of them.
+    """
+
+    __tablename__ = "cohort_memberships"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    axis: Mapped[str] = mapped_column(String(40), index=True)
+    value: Mapped[str] = mapped_column(String(80), index=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("customer_id", "axis", name="uq_cohort_axis"),)

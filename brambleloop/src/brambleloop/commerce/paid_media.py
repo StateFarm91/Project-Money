@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ..core.models import Phase
+from ..gates.policy_knowledge import READINGS
+from ..growth.loops import MEASURED_SAMPLE
 
 
 class PaidMediaNotAuthorised(PermissionError):
@@ -166,8 +168,18 @@ def should_pause(state: CampaignState, caps: Caps) -> PauseDecision:
     return PauseDecision(paused=bool(reasons), reasons=reasons)
 
 
-def may_scale(state: CampaignState, caps: Caps) -> tuple[bool, str]:
-    """Section 11: scale only on profitable evidence."""
+def may_scale(state: CampaignState, caps: Caps,
+              organic: "OrganicPeriod | None" = None) -> tuple[bool, str]:
+    """Section 11: scale only on profitable evidence -- and only over a listing that has
+    proved itself without ads first (#242).
+
+    The organic-first gate comes before the campaign's own numbers. A campaign can be
+    profitable on a listing nobody has ever found organically, and scaling it hides a weak
+    listing behind paid traffic, which is the exact thing #242 says not to do.
+    """
+    gate = organic_first_gate(organic)
+    if not gate["allowed"]:
+        return False, f"organic-first (#242): {gate['reason']}"
     decision = should_pause(state, caps)
     if decision.paused:
         return False, f"cannot scale a campaign that should be paused: {decision.reasons[0]}"
@@ -243,4 +255,232 @@ def status(state: CampaignState, caps: Caps, *, today: date | None = None) -> di
         "live": False,
         "why_not_live": ("no ad integration exists, paid media has not graduated from shadow "
                          "mode, and the owner has not granted paid-media authority"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# #242: organic-first proof before heavy ads.
+
+# The organic period a listing must have been measured over before a paid scale decision may
+# read its appeal. Both are UNLEARNED defaults with their source named: the visit floor is
+# `growth.loops.MEASURED_SAMPLE`, the same floor a loop needs before it counts as evidence;
+# the day floor is the requirement's own instruction to respect attribution lag, sized to the
+# Offsite Ads attribution window in `gates.policy_knowledge` rather than to a number chosen
+# here. Neither is a fact about this shop.
+MIN_ORGANIC_VISITS = MEASURED_SAMPLE
+
+
+def _advertising_rule(rule: str) -> dict:
+    reading = READINGS["advertising_rules"]
+    for c in reading.conclusions:
+        if c.get("rule") == rule:
+            return dict(c)
+    raise KeyError(f"gates.policy_knowledge has no advertising rule {rule!r}")
+
+
+def _number_in(text: str, pattern: str, *, what: str) -> float:
+    """Read one figure out of a reading's text, or refuse.
+
+    The numbers below come from the reading and are never restated here. A reading whose
+    text changed shape makes this refuse loudly rather than fall back to a figure written
+    into code before the change.
+    """
+    import re
+
+    m = re.search(pattern, text)
+    if not m:
+        raise PaidMediaNotAuthorised(
+            f"the advertising reading no longer states {what} in a form this arithmetic can "
+            f"read; re-read the reading before forecasting with it")
+    return float(m.group(1).replace(",", ""))
+
+
+def offsite_ads_terms() -> dict:
+    """The Offsite Ads fee terms, read from `gates.policy_knowledge` and never hardcoded (#244)."""
+    fee = _advertising_rule("offsite_ads_fee")
+    mandatory = _advertising_rule("offsite_ads_mandatory_above_threshold")
+    text = fee["text"]
+    reading = READINGS["advertising_rules"]
+    return {
+        "standard_fee_rate": _number_in(text, r"(\d+)% of the order total", what="the standard fee") / 100.0,
+        "reduced_fee_rate": _number_in(text, r";\s*(\d+)% once", what="the reduced fee") / 100.0,
+        "fee_cap_usd": _number_in(text, r"capped at US\$(\d[\d,]*)", what="the per-order cap"),
+        "threshold_usd": _number_in(text, r"under US\$(\d[\d,]*)", what="the sales threshold"),
+        "attribution_window_days": int(_number_in(text, r"(\d+) days from the click",
+                                                  what="the attribution window")),
+        "mandatory_above_threshold": "mandatory" in mandatory["text"],
+        "source": {"reading": reading.source, "read_on": reading.read_on,
+                   "basis": reading.basis, "urls": list(reading.urls)},
+    }
+
+
+MIN_ORGANIC_DAYS = offsite_ads_terms()["attribution_window_days"]
+
+
+@dataclass(frozen=True)
+class OrganicPeriod:
+    """A listing's life before any paid traffic touched it. All counts are organic only."""
+
+    days: int
+    visits: int
+    orders: int
+    impressions: int | None = None
+
+    @property
+    def conversion(self) -> float | None:
+        return self.orders / self.visits if self.visits else None
+
+
+def organic_first_gate(organic: OrganicPeriod | None,
+                       *, min_conversion: float | None = None) -> dict:
+    """Whether a paid scale decision may be read over this listing at all (#242).
+
+    Three refusals, in order: no organic period was measured; the period is too short or too
+    thin to say what the listing's appeal is; the appeal it shows is weak, and a weak listing
+    is not to be hidden behind paid traffic. `min_conversion` is the caller's learned
+    baseline for the cell; with none supplied the third test is reported UNMEASURED rather
+    than judged against a number invented here.
+    """
+    if organic is None:
+        return {"allowed": False, "status": "UNMEASURED",
+                "reason": ("no organic period has been measured for this listing. Paid "
+                           "scaling reads the listing's appeal from traffic it did not buy, "
+                           "and there is none to read")}
+    reasons = []
+    if organic.days < MIN_ORGANIC_DAYS:
+        reasons.append(f"{organic.days} organic days against a floor of {MIN_ORGANIC_DAYS}, "
+                       f"which is the attribution window the platform itself uses; a shorter "
+                       f"period cannot separate the listing from its launch")
+    if organic.visits < MIN_ORGANIC_VISITS:
+        reasons.append(f"{organic.visits} organic visits against a floor of "
+                       f"{MIN_ORGANIC_VISITS}: a conversion rate over fewer is a hopeful one")
+    if reasons:
+        return {"allowed": False, "status": "insufficient_organic_period",
+                "reason": "; ".join(reasons),
+                "floors": {"days": MIN_ORGANIC_DAYS, "visits": MIN_ORGANIC_VISITS}}
+    conversion = organic.conversion or 0.0
+    if min_conversion is None:
+        appeal = {"status": "UNMEASURED",
+                  "why": ("no learned conversion baseline was supplied for this cell, so the "
+                          "listing's appeal is measured but not judged; see "
+                          "commerce.benchmarks for what a baseline needs")}
+    elif conversion < min_conversion:
+        return {"allowed": False, "status": "weak_listing",
+                "reason": (f"organic conversion {conversion:.2%} is below the cell baseline "
+                           f"{min_conversion:.2%}. A weak listing is not to be hidden behind "
+                           f"paid traffic; fix the listing, then buy the visits"),
+                "organic_conversion": round(conversion, 5)}
+    else:
+        appeal = {"status": "measured", "organic_conversion": round(conversion, 5),
+                  "baseline": min_conversion}
+    return {"allowed": True, "status": "organic_proof_present",
+            "reason": (f"{organic.days} organic days and {organic.visits} organic visits "
+                       f"measured before any paid traffic"),
+            "organic_conversion": round(conversion, 5), "appeal": appeal,
+            "floors": {"days": MIN_ORGANIC_DAYS, "visits": MIN_ORGANIC_VISITS}}
+
+
+# ---------------------------------------------------------------------------
+# #244: Offsite Ads attribution split in the forecast.
+
+
+def offsite_ads_forecast(*, orders: int, aov_usd: float, offsite_share: float,
+                         trailing_365_sales_usd: float, contribution_rate: float) -> dict:
+    """Contribution with and without the Offsite Ads fee, on the platform's own terms (#244).
+
+    `offsite_share` is the share of orders attributed to an Offsite Ad. It is an input
+    because it is a measurement, and today it is UNMEASURED: pass what Etsy Stats reports,
+    never a guess. The fee terms come from the policy reading, and the mandatory-participation
+    threshold is applied because above it the forecast cannot opt out.
+    """
+    if not 0 <= offsite_share <= 1 or not 0 < contribution_rate <= 1:
+        raise ValueError("offsite share and contribution rate are shares between 0 and 1")
+    if orders < 0 or aov_usd < 0 or trailing_365_sales_usd < 0:
+        raise ValueError("counts and money here are non-negative")
+    terms = offsite_ads_terms()
+    above = trailing_365_sales_usd >= terms["threshold_usd"]
+    rate = terms["reduced_fee_rate"] if above else terms["standard_fee_rate"]
+    fee_per_order = min(aov_usd * rate, terms["fee_cap_usd"])
+    attributed = orders * offsite_share
+    gross_contribution = orders * aov_usd * contribution_rate
+    fees = attributed * fee_per_order
+    return {
+        "orders": orders, "attributed_orders": round(attributed, 2),
+        "fee_rate_applied": rate, "fee_per_attributed_order_usd": round(fee_per_order, 2),
+        "offsite_fees_usd": round(fees, 2),
+        "contribution_before_fees_usd": round(gross_contribution, 2),
+        "contribution_after_offsite_fees_usd": round(gross_contribution - fees, 2),
+        "participation": ("mandatory" if above and terms["mandatory_above_threshold"]
+                          else "optional"),
+        "threshold_usd": terms["threshold_usd"],
+        "attribution_window_days": terms["attribution_window_days"],
+        "terms_source": terms["source"],
+        "offsite_share_status": "supplied by caller; UNMEASURED until Etsy Stats reports it",
+        "note": ("attributed orders are tracked separately because the fee changes their "
+                 "contribution materially; the rate, cap, window and threshold are read from "
+                 "the policy reading and not written here (#244)"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# #245: Share & Save / direct-link economics.
+
+
+def share_and_save(*, orders_via_link: int, aov_cad: float, contribution_rate: float,
+                   fee_benefit_rate: float | None, programme_source: str = "") -> dict:
+    """Net contribution of orders that arrived through the seller's own trackable links (#245).
+
+    The fee benefit is an input, not a constant: this repository holds no reading of the
+    programme's current rules, and a rate written here would be a rate remembered rather
+    than read. With none supplied the arithmetic refuses and says what it needs -- the
+    official programme page, read and recorded in `gates.policy_knowledge`.
+    """
+    if orders_via_link < 0 or aov_cad < 0 or not 0 < contribution_rate <= 1:
+        raise ValueError("orders and order value are non-negative; contribution rate is a share")
+    if fee_benefit_rate is None:
+        return {
+            "measurable": False, "status": "UNMEASURED",
+            "why": ("no official Share & Save rate is recorded. The benefit is a programme "
+                    "rule and changes; it must be read from the official page into "
+                    "gates.policy_knowledge and passed here, never assumed"),
+            "needs": ["the programme's current fee benefit, from its official rules"],
+        }
+    if not 0 <= fee_benefit_rate < 1:
+        raise ValueError("a fee benefit is a share of the order between 0 and 1")
+    if not programme_source:
+        raise ValueError("a fee benefit needs the official source it was read from")
+    revenue = orders_via_link * aov_cad
+    ordinary = revenue * contribution_rate
+    benefit = revenue * fee_benefit_rate
+    return {
+        "measurable": True, "status": "measured",
+        "orders_via_link": orders_via_link, "revenue_cad": round(revenue, 2),
+        "contribution_ordinary_cad": round(ordinary, 2),
+        "fee_benefit_cad": round(benefit, 2),
+        "contribution_via_link_cad": round(ordinary + benefit, 2),
+        "uplift_per_order_cad": round(aov_cad * fee_benefit_rate, 2),
+        "fee_benefit_rate": fee_benefit_rate, "programme_source": programme_source,
+        "note": ("qualified traffic sent through eligible trackable links is compared with "
+                 "ordinary marketplace acquisition on net contribution after the fee benefit, "
+                 "using only the official rate supplied (#245)"),
+    }
+
+
+def economics_state() -> dict:
+    """What the paid-media economics can compute today, and what none of it can do: spend."""
+    terms = offsite_ads_terms()
+    return {
+        "organic_first": {"floors": {"days": MIN_ORGANIC_DAYS, "visits": MIN_ORGANIC_VISITS},
+                          "status": organic_first_gate(None)["status"]},
+        "offsite_ads": {k: terms[k] for k in ("standard_fee_rate", "reduced_fee_rate",
+                                              "fee_cap_usd", "threshold_usd",
+                                              "attribution_window_days",
+                                              "mandatory_above_threshold")},
+        "offsite_terms_source": terms["source"],
+        "share_and_save": share_and_save(orders_via_link=0, aov_cad=0.0,
+                                         contribution_rate=1.0, fee_benefit_rate=None),
+        "can_spend": False,
+        "why_not": ("arithmetic only. No function in this module enqueues, schedules or "
+                    "authorises ad spend; authorise_spend refuses outside production and "
+                    "without the owner's grant, and neither exists"),
     }

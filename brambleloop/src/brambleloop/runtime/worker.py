@@ -156,8 +156,39 @@ class Worker:
 
         ctx = JobContext(job=job, db=self.db, queue=self.queue,
                          registry=self.agents, phase=self.phase)
+        from ..ops import artefacts as provenance
+
         try:
             outputs = handler(ctx) or {}
+            # Provenance backstop (#171). The write path records lineage as it writes; this
+            # is the check that it did, after the handler and before the job is marked done.
+            # Any listing, frame, certificate or content piece this job created without a
+            # provenance row is audited as `provenance.refused`, and once the estate's
+            # backlog is closed (`may_enforce_unproven`, read without this job's own rows so
+            # the row that should fail the job cannot also excuse it) the job fails rather
+            # than completing with an artefact nobody can prove fresh. Before then it is
+            # audited and logged only -- failing a whole catalogue of jobs over
+            # instrumentation nobody had fitted is a different problem from a stale artefact.
+            try:
+                with self.db.session() as s:
+                    gap = provenance.assert_instrumented(s, since=job.started_at,
+                                                         job_id=job.id)
+                    enforce = bool(gap["missing"]) and provenance.may_enforce_unproven(
+                        s, ignoring=gap["missing"])["may_enforce_unproven"]
+            except Exception as exc:  # noqa: BLE001 - the check must not break what it checks
+                gap, enforce = {"missing": [], "error": f"{type(exc).__name__}: {exc}"}, False
+            if gap["missing"]:
+                self.agents.audit(job.agent, "provenance.refused", artifact=job.job_type,
+                                  job_id=job.id, phase=self.phase,
+                                  detail={"count": len(gap["missing"]),
+                                          "missing": [list(m) for m in gap["missing"]][:50],
+                                          "enforcing": enforce})
+                if enforce:
+                    raise provenance.ProvenanceRefused(
+                        f"{job.job_type} wrote {len(gap['missing'])} derived artefact(s) "
+                        f"with no provenance row: {gap['missing'][:3]}. The backlog is "
+                        f"closed, so an absent row is a defect rather than an unfitted "
+                        f"instrument, and a job that leaves one does not complete")
             # A handler that caught a spent balance and recorded it honestly still completes,
             # so the funding check reads the outputs as well as the exceptions. The pack
             # build did exactly that: `built: false`, the provider's own sentence in `why`,
@@ -177,6 +208,13 @@ class Worker:
             self.queue.fail(job.id, f"budget exceeded: {e}", retry=False)
             self.agents.audit(job.agent, "job.budget_exceeded", job_id=job.id,
                               phase=self.phase, detail={"error": str(e)})
+            self.stats.failed += 1
+        except provenance.ProvenanceRefused as e:
+            # Terminal, like a capability gate: a handler that cannot say what made its
+            # artefact will not be able to say so on the next attempt either.
+            self.queue.fail(job.id, f"provenance refused: {e}", retry=False)
+            self.agents.audit(job.agent, "job.provenance_refused", artifact=job.job_type,
+                              job_id=job.id, phase=self.phase, detail={"error": str(e)[:500]})
             self.stats.failed += 1
         except Exception as e:  # noqa: BLE001 - a worker must survive any handler
             _note_funding(self.db, str(e))

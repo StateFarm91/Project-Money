@@ -591,6 +591,7 @@ def run(db, concepts: list[Concept], *, gateway=None, agent: str = "creative_dir
     whole month's model budget is a worse outcome than a measurement that reports
     `unmeasured` and says how many pairs it managed, so the partial run is kept and labelled.
     """
+    from ..gateway import anthropic as gw
     from ..gateway import routing
 
     listings = benchmark_cards(db, benchmark_key=benchmark_key)
@@ -624,8 +625,14 @@ def run(db, concepts: list[Concept], *, gateway=None, agent: str = "creative_dir
 
     for p in pairs:
         try:
-            routing.check(db, TASK)
-        except routing.CeilingReached as e:
+            # The one mechanism: the month, this agent's daily permission and the live
+            # reservations, rather than `routing.check`'s month-only arithmetic. The
+            # reservation itself is taken by the gateway when it makes the call.
+            task, tier = routing.route(TASK)
+            gw.check_budget(db, model=tier.model, input_tokens=task.typical_input_tokens,
+                            max_tokens=task.max_output_tokens, agent=agent, purpose=TASK,
+                            reserve=False)
+        except gw.BudgetExceeded as e:
             stopped_on_ceiling = True
             problems.append(str(e)[:200])
             break

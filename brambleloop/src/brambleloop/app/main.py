@@ -2870,15 +2870,21 @@ def api_provenance() -> dict:
     with db.session() as session:
         current = provenance.current_from_db(session)
         expected = provenance.expected_from_db(session)
-        verdicts = provenance.check(session, current=current, expected=expected)
         out["graduation"] = provenance.graduation(session, current=current,
                                                   expected=expected)
-    out["estate"] = {
-        "checked": len(verdicts),
-        "fresh": sum(1 for v in verdicts if v.state == provenance.FRESH),
-        "stale": sum(1 for v in verdicts if v.state == provenance.STALE),
-        "unproven": sum(1 for v in verdicts if v.state == provenance.UNPROVEN),
-    }
+        summary = provenance.summary(session, current=current, expected=expected)
+    # `by_class` is each class's fresh/stale/unproven; `by_source` says how each row came to
+    # exist (recorded by the build that made it, or backfilled from evidence on file);
+    # `unknown_fields` counts what the rows could not say -- a backfilled row's commit is
+    # `unknown` because it was never recorded, not because nobody looked. `enforcing` is
+    # whether the worker now fails a job that leaves an artefact without a row.
+    out["estate"] = summary["estate"]
+    out["rows"] = summary["rows"]
+    out["by_class"] = summary["by_class"]
+    out["by_source"] = summary["by_source"]
+    out["unknown_fields"] = summary["unknown_fields"]
+    out["enforcing"] = summary["enforcing"]
+    out["lineage_note"] = summary["note"]
     return out
 
 

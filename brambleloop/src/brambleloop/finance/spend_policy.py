@@ -159,6 +159,33 @@ ALLOCATION: dict[str, float] = {
     "gallery_observation": 0.40,
 }
 
+# The same stop, per department. Empty on purpose and enforced anyway: the mechanism exists so
+# that the day the owner names a department's share of the month it binds by adding one line
+# here, rather than by somebody building a second guard in a hurry. An empty table is not a
+# cap of zero and it is not a cap of everything -- it is "no department cap has been set",
+# and `may_spend(department=...)` and `state()` both say so in those words rather than
+# letting the absence read as a limit that held.
+DEPARTMENT_ALLOCATION: dict[str, float] = {}
+
+# Per-provider ceilings, CAD per calendar month, keyed by the provider name a ledger row
+# carries (`CostEntry.provider`: "anthropic", "gpt-image-2", ...). Owner-gated values in an
+# owner-independent mechanism: `gateway.anthropic.check_budget_cad` reads this against
+# `spend_report.what_it_bought()["by_provider"]` before every call, so an entry binds the
+# moment it is written and nothing binds while the table is empty. The monthly ceiling above
+# is still the authority; a provider ceiling can only be tighter than it, never a second
+# budget beside it.
+PROVIDER_CEILINGS_CAD: dict[str, float] = {}
+
+# Recurring infrastructure: a separate ceiling from the model ceiling, and one this system
+# does not observe. The two figures were literals in three places (`app.main`,
+# `runtime.pipeline` twice) -- the defect this file exists to prevent, one number written
+# thrice. They live here now, and they are marked for what they are: declared by the owner,
+# not measured from a bill. Nothing in this repository reads the hosting invoice, so the
+# CA$7.00 is what the owner said the platform costs and not what it charged.
+INFRA_CEILING_CAD = 20.0
+INFRA_MONTHLY_CAD = 7.0
+INFRA_BASIS = "declared_not_observed"
+
 
 SECONDS_PER_DAY = int(timedelta(days=1).total_seconds())
 
@@ -279,37 +306,69 @@ def work_that_fits(db, *, agent: str, purpose: str, period_seconds: int,
     }
 
 
-def may_spend(db, purpose: str, *, now: datetime | None = None) -> dict:
+def may_spend(db, purpose: str, *, now: datetime | None = None,
+              department: str = "") -> dict:
     """Whether this purpose has room left in its share of the month.
 
     Returns rather than raises: the caller is a drain loop, and a loop that crashes on a
     budget boundary loses the work it had already done. It stops, records why, and the
     reason reaches the owner as constrained work instead of as a smaller number nobody
     queried.
+
+    `department` asks the same question of `DEPARTMENT_ALLOCATION`. Both stops have to hold
+    for the answer to be yes, and the report says which one said no -- a purpose inside its
+    share whose department is over its own is refused by the department, in those words.
     """
     from . import spend_report
 
     share = ALLOCATION.get(purpose)
-    if share is None:
+    dept_share = DEPARTMENT_ALLOCATION.get(department) if department else None
+    if share is None and dept_share is None:
         return {"may_spend": True, "purpose": purpose, "capped": False,
-                "why": "no allocation: this purpose cannot run away on its own"}
+                "department": department, "department_capped": False,
+                "why": ("no allocation: this purpose cannot run away on its own"
+                        + (f", and no department cap is set for {department!r} "
+                           f"(DEPARTMENT_ALLOCATION is empty: that is no cap, not a cap "
+                           f"of zero)" if department else ""))}
 
     report = spend_report.what_it_bought(db, now=now)
-    spent = float((report["by_purpose"].get(purpose) or {}).get("cad") or 0.0)
-    allowed = round(CEILING_CAD * share, 4)
-    return {
-        "may_spend": spent < allowed,
-        "purpose": purpose,
-        "capped": True,
-        "spent_cad": round(spent, 4),
-        "allowed_cad": allowed,
-        "share_of_ceiling": share,
-        "why": (f"{purpose} has spent CA${spent:.2f} of the CA${allowed:.2f} this month's "
+    out: dict = {"may_spend": True, "purpose": purpose, "capped": share is not None,
+                 "department": department, "department_capped": dept_share is not None}
+    reasons: list[str] = []
+
+    if share is not None:
+        spent = float((report["by_purpose"].get(purpose) or {}).get("cad") or 0.0)
+        allowed = round(CEILING_CAD * share, 4)
+        out.update(spent_cad=round(spent, 4), allowed_cad=allowed, share_of_ceiling=share)
+        if spent >= allowed:
+            out["may_spend"] = False
+            reasons.append(
+                f"{purpose} has spent CA${spent:.2f} of the CA${allowed:.2f} this month's "
                 f"policy allows it. Stopping here keeps the ceiling available for the "
-                f"priorities above it rather than letting one backlog consume the month"
-                if spent >= allowed else
-                f"CA${round(allowed - spent, 2):.2f} of this purpose's share remains"),
-    }
+                f"priorities above it rather than letting one backlog consume the month")
+        else:
+            reasons.append(f"CA${round(allowed - spent, 2):.2f} of this purpose's share remains")
+
+    if dept_share is not None:
+        dept_spent = float((report["by_department"].get(department) or {}).get("cad") or 0.0)
+        dept_allowed = round(CEILING_CAD * dept_share, 4)
+        out.update(department_spent_cad=round(dept_spent, 4),
+                   department_allowed_cad=dept_allowed,
+                   department_share_of_ceiling=dept_share)
+        if dept_spent >= dept_allowed:
+            out["may_spend"] = False
+            reasons.append(
+                f"department {department!r} has spent CA${dept_spent:.2f} of the "
+                f"CA${dept_allowed:.2f} its allocation allows this month; refused by the "
+                f"department cap")
+        else:
+            reasons.append(f"CA${round(dept_allowed - dept_spent, 2):.2f} of "
+                           f"{department!r}'s department share remains")
+    elif department:
+        reasons.append(f"no department cap is set for {department!r}")
+
+    out["why"] = "; ".join(reasons)
+    return out
 
 
 class PolicyRefused(ValueError):
@@ -400,6 +459,46 @@ def escalation(db, *, now: datetime | None = None,
     }
 
 
+def escalation_key(now: datetime | None = None) -> str:
+    """The owner-queue identity of this month's ceiling decision: one per calendar month.
+
+    `OwnerAction` de-duplicates on `requirement_key`, so a key that carries the month is what
+    makes the escalation idempotent within it and new when the ceiling resets.
+    """
+    now = now or datetime.now(timezone.utc)
+    return f"spend.ceiling.{now:%Y-%m}"
+
+
+def owner_action_fields(report: dict) -> dict:
+    """The six fields the owner asked every action to carry, from an `escalation()` report.
+
+    Maximum cost is the *increase* being asked for, not the new ceiling: the owner is deciding
+    whether to authorise more money, and the figure beside that decision has to be the money.
+    """
+    constrained = report.get("what_is_constrained") or []
+    produced = report.get("what_the_money_produced") or {}
+    top = sorted(produced.items(), key=lambda kv: -float(kv[1].get("cad") or 0.0))[:4]
+    bought = ", ".join(f"{k} CA${float(v.get('cad') or 0.0):.2f}" for k, v in top) or "nothing yet"
+    increase = round(float(report["proposed_ceiling_cad"]) - float(report["ceiling_cad"]), 2)
+    return {
+        "action": (f"Decide the authorised monthly model and creative spend ceiling: raise "
+                   f"CA${report['ceiling_cad']:.2f} to CA${report['proposed_ceiling_cad']:.2f}, "
+                   f"or confirm it and accept that the named work waits"),
+        "reason": (f"CA${report['current_spend_cad']:.2f} of CA${report['ceiling_cad']:.2f} "
+                   f"is spent ({report['share_of_ceiling'] * 100:.0f}%), burning "
+                   f"CA${report['burn_rate_cad_per_day']:.2f}/day towards a projected "
+                   f"CA${report['projected_month_end_cad']:.2f} by month end. The money "
+                   f"bought: {bought}. Expected improvement from more: "
+                   f"{report['expected_improvement']}"),
+        "max_cost_cad": max(0.0, increase),
+        "minutes": int(report.get("minutes") or 2),
+        "consequence_of_delay": report["consequence_of_waiting"],
+        "blocks": "; ".join(constrained) if constrained else (
+            "work at the standard the policy sets stops at the ceiling rather than being "
+            "done worse; nothing is named as constrained yet"),
+    }
+
+
 def state(db=None) -> dict:
     """The policy as a readable object, for the console and for the owner."""
     body = {
@@ -421,8 +520,28 @@ def state(db=None) -> dict:
             "only purposes that can run away have an entry. The cap exists for priority "
             "order rather than thrift: a four-day image backlog must not consume the month "
             "and leave concept generation refused at the ceiling"),
+        "per_department_allocation": dict(DEPARTMENT_ALLOCATION),
+        "department_caps": (
+            f"{len(DEPARTMENT_ALLOCATION)} department cap(s) set. "
+            + ("None binds: an empty table is no cap, not a cap of zero. The mechanism is "
+               "live in `may_spend(department=...)` and an entry binds the day it is written"
+               if not DEPARTMENT_ALLOCATION else
+               "each is enforced by `may_spend(department=...)` as a share of the month")),
+        "per_provider_ceilings_cad": dict(PROVIDER_CEILINGS_CAD),
+        "provider_ceilings": (
+            f"{len(PROVIDER_CEILINGS_CAD)} provider ceiling(s) set. "
+            + ("None binds: an empty table is no cap, not a cap of zero. The mechanism is "
+               "live in `gateway.anthropic.check_budget_cad` and an entry binds the day it "
+               "is written" if not PROVIDER_CEILINGS_CAD else
+               "each is checked before every call against this month's spend by provider")),
         "infrastructure_is_separate": (
-            "recurring infrastructure has its own CA$20 ceiling and is not governed here"),
+            f"recurring infrastructure has its own CA${INFRA_CEILING_CAD:.0f} ceiling and "
+            f"is not governed here"),
+        "infrastructure": {"ceiling_cad": INFRA_CEILING_CAD,
+                           "monthly_cad": INFRA_MONTHLY_CAD,
+                           "basis": INFRA_BASIS,
+                           "why": ("the owner declared these figures; nothing here reads "
+                                   "the hosting invoice, so neither is an observation")},
     }
     if db is not None:
         from . import spend_report

@@ -176,9 +176,18 @@ def handle_assets_build(ctx: JobContext) -> dict:
     docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on)
             for t in TERMINOLOGIES}
     doc = docs["US"]
+    # Every file this handler stores is a derived artefact the provenance sentinel watches,
+    # so the store is told which class each one is and refuses the write without lineage
+    # (#171). The upstream fingerprints come from the stored release, not the CIR in hand.
+    from ..ops import artefacts as provenance
+
+    with ctx.db.session() as s:
+        design = provenance.design_inputs(s, slug, version)
+    lineage = _lineage(ctx)
+    certificate_ref = f"certificate:{provenance.release_key(slug, version)}"
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     pdfs = {t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
-                         "application/pdf")
+                         "application/pdf", artefact_class="pdf", lineage=lineage)
             for t, d in docs.items()}
     pdf = pdfs["US"]
 
@@ -206,11 +215,29 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # an illegible one with a URL on it. `publish.pdf.chart_image` chooses on the size a ring
     # or cell actually lands at on the page, and it is the one the buyer sees.
     chart_image(cir, twin).save(chart_png, format="PNG")
-    chart = store.put(f"{slug}/{version}/chart.png", chart_png.getvalue(), "image/png")
+    chart = store.put(f"{slug}/{version}/chart.png", chart_png.getvalue(), "image/png",
+                      artefact_class="chart", lineage=lineage)
 
     legend_png = io.BytesIO()
     render_legend(cir, twin).save(legend_png, format="PNG")
-    legend = store.put(f"{slug}/{version}/legend.png", legend_png.getvalue(), "image/png")
+    legend = store.put(f"{slug}/{version}/legend.png", legend_png.getvalue(), "image/png",
+                       artefact_class="chart", lineage=lineage)
+
+    with ctx.db.session() as s:
+        for terminology, stored in sorted(pdfs.items()):
+            provenance.record_lineage(
+                s, artefact_class="pdf",
+                artefact_key=provenance.pdf_key(slug, version, terminology),
+                product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+                lineage=lineage.for_file(stored.sha256).under(certificate_ref).validated(
+                    "problems" if docs[terminology].problems else "passed"))
+        for which, stored in (("chart", chart), ("legend", legend)):
+            provenance.record_lineage(
+                s, artefact_class="chart",
+                artefact_key=provenance.chart_key(slug, version, which),
+                product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+                lineage=lineage.for_file(stored.sha256).under(certificate_ref).validated(
+                    "passed"))
 
     ctx.audit("assets.built", artifact=f"{slug}@{version}", detail={
         "pdf": pdf.to_dict(), "chart": chart.to_dict(), "legend": legend.to_dict(),
@@ -260,7 +287,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
     stored_frames = []
     for frame in frames:
         art = store.put(f"{slug}/{version}/frame-{frame.position}.png", frame.png(),
-                        "image/png")
+                        "image/png", artefact_class="visual_truth", lineage=lineage)
         stored_frames.append({"position": frame.position, "role": frame.role,
                               "asset_class": frame.asset_class.value,
                               "sha256": art.sha256})
@@ -426,12 +453,32 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             "attributes": attributes, "search_coverage": coverage.to_dict()}
 
 
+def _lineage(ctx: JobContext, **overrides):
+    """Who is making this artefact, from the job that is making it (#171).
+
+    The agent, the job, the running commit and the phase are all known at the moment of the
+    write, and nowhere else afterwards: the production estate had 275 artefacts whose maker
+    could not be named because nothing wrote it down at the time.
+    """
+    from ..ops import artefacts as provenance
+
+    fields = dict(created_by=ctx.job.agent, job_id=ctx.job.id,
+                  publication_authority=ctx.phase.value if ctx.phase else "shadow")
+    fields.update(overrides)
+    return provenance.Lineage(**fields)
+
+
+def _content_hash(*parts: str) -> str:
+    return hashlib.sha256("\x1f".join(p or "" for p in parts).encode()).hexdigest()
+
+
 def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: float,
                      release: str = "") -> None:
     """Drafted, never published. Shadow mode holds the whole shop ready rather than open."""
     from sqlalchemy import select
 
     from ..core.models import Listing
+    from ..ops import artefacts as provenance
 
     with ctx.db.session() as s:
         row = s.scalar(select(Listing).where(Listing.product_slug == slug,
@@ -447,6 +494,30 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
         row.state = "draft"
         row.chain_version = CHAIN_VERSION
         row.release_hash = release or ""
+        s.flush()
+
+        # Three derived artefacts live on this one row -- the words, the tags and the price
+        # -- and each is recorded against the stored release so a redesign under the same
+        # slug turns all three stale rather than leaving a current-looking listing (#171).
+        key = provenance.release_key(slug, version)
+        design = provenance.design_inputs(s, slug, version)
+        lineage = _lineage(ctx, validation_status="passed")
+        certificate_ref = f"certificate:{key}"
+        provenance.record_lineage(
+            s, artefact_class="listing_copy", artefact_key=key, product_slug=slug,
+            inputs=design, chain_version=CHAIN_VERSION,
+            lineage=lineage.for_file(_content_hash(copy.title, copy.description))
+                           .under(certificate_ref))
+        provenance.record_lineage(
+            s, artefact_class="seo", artefact_key=key, product_slug=slug,
+            inputs=design, chain_version=CHAIN_VERSION,
+            lineage=lineage.for_file(_content_hash(copy.title, *sorted(copy.tags)))
+                           .under(f"listing_copy:{key}"))
+        if (copy.price_cad or 0) > 0:
+            provenance.record_lineage(
+                s, artefact_class="pricing", artefact_key=key, product_slug=slug,
+                inputs=design, chain_version=CHAIN_VERSION,
+                lineage=lineage.under(certificate_ref))
 
 
 @handlers.register("launch.plan")
@@ -527,16 +598,30 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     with ctx.db.session() as s:
         from sqlalchemy import select
 
+        from ..ops import artefacts as provenance
+
+        design = provenance.design_inputs(s, slug, version)
+        lineage = _lineage(ctx, validation_status="blocked" if problems else "passed")
+        listing_ref = f"listing_copy:{provenance.release_key(slug, version)}"
         for piece in pieces:
             existing = s.scalar(select(ContentPiece).where(
                 ContentPiece.product_slug == slug,
                 ContentPiece.channel == piece.channel,
                 ContentPiece.title == piece.title))
             if existing is not None:
+                # Written by an earlier run under inputs this run cannot vouch for. Its
+                # lineage is the backfill's to derive from that run's evidence, or it
+                # stays unproven; recording it here would be a lineage nobody had.
                 continue
             s.add(ContentPiece(product_slug=slug, channel=piece.channel, title=piece.title,
                                body=piece.body, scheduled_for=piece.scheduled_for,
                                state="drafted", detail=piece.detail))
+            provenance.record_lineage(
+                s, artefact_class="marketing_asset",
+                artefact_key=provenance.marketing_key(slug, piece.channel, piece.title),
+                product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+                lineage=lineage.for_file(_content_hash(piece.title, piece.body))
+                               .under(listing_ref))
 
     ctx.audit("marketing.scheduled" if not problems else "marketing.blocked",
               artifact=f"{slug}@{version}",
@@ -622,6 +707,25 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                           "colors": list(frame.claims.colors)}
             row.approved = not reasons
             row.blocked_reasons = reasons[:10]
+        s.flush()
+
+        # One visual-truth row per frame, keyed by the frame's own row id and carrying the
+        # rendered file's hash, so a frame that outlives its design is found by the same
+        # sweep that finds a stale PDF (#171).
+        from ..ops import artefacts as provenance
+
+        design = provenance.design_inputs(s, slug, version)
+        lineage = _lineage(ctx, validation_status="blocked" if reasons else "passed")
+        certificate_ref = f"certificate:{provenance.release_key(slug, version)}"
+        for frame in frames:
+            row = s.scalar(select(ListingAsset).where(
+                ListingAsset.product_slug == slug, ListingAsset.version == version,
+                ListingAsset.position == frame.position))
+            provenance.record_lineage(
+                s, artefact_class="visual_truth",
+                artefact_key=provenance.visual_key(slug, version, row.id),
+                product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+                lineage=lineage.for_file(row.sha256).under(certificate_ref))
 
 
 def _motifs_for(slug: str) -> list[str]:
@@ -738,6 +842,37 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
         listing.state = "draft"
         listing.seo_score = 0.0
         listing.chain_version = CHAIN_VERSION
+        s.flush()
+
+        # A bundle has no design of its own, so its listing is derived from every member's
+        # stored release: a redesign of any one member turns the collection stale (#171).
+        from ..ops import artefacts as provenance
+
+        inputs: dict[str, str] = {}
+        parents: list[str] = []
+        for member_slug, member_version in certified:
+            if member_slug not in ready:
+                continue
+            inputs.update(provenance.design_inputs(s, member_slug, member_version,
+                                                   chain=False))
+            parents.append(f"certificate:{provenance.release_key(member_slug, member_version)}")
+        inputs["chain:release"] = provenance.chain_fingerprint()
+        key = provenance.release_key(slug, "collection")
+        lineage = _lineage(ctx, validation_status="name_problems" if name_problems
+                           else "passed")
+        provenance.record_lineage(
+            s, artefact_class="listing_copy", artefact_key=key, product_slug=slug,
+            inputs=inputs, chain_version=CHAIN_VERSION,
+            lineage=lineage.for_file(_content_hash(listing.title, listing.description))
+                           .under(*parents))
+        provenance.record_lineage(
+            s, artefact_class="seo", artefact_key=key, product_slug=slug,
+            inputs=inputs, chain_version=CHAIN_VERSION,
+            lineage=lineage.for_file(_content_hash(listing.title, *listing.tags))
+                           .under(f"listing_copy:{key}"))
+        provenance.record_lineage(
+            s, artefact_class="pricing", artefact_key=key, product_slug=slug,
+            inputs=inputs, chain_version=CHAIN_VERSION, lineage=lineage.under(*parents))
 
     ctx.audit("collection.assembled", artifact=slug, detail={
         "members": [m[0] for m in certified], "price_cad": verdict.price_cad,
@@ -2395,6 +2530,33 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
     return detail
 
 
+@handlers.register("ops.provenance_backfill")
+def handle_provenance_backfill(ctx: JobContext) -> dict:
+    """Lineage for the artefacts that already exist, from evidence already on file (#171).
+
+    The write path now records every derived artefact as it is made. This is for the ones
+    made before it did: production held 275 without a row. Each is tied to the job, audit
+    row or output hash that proves what made it -- a certificate to its own release hash and
+    the `gate.certified` row, a frame to the `assets.build` output carrying its sha256, a
+    content piece to the `marketing.schedule` job whose window it was written in -- and an
+    artefact nothing on file can account for is left unproven and counted, not invented.
+    Every backfilled row says `code_commit=unknown`, because it is.
+
+    GREEN: it reads records, writes provenance and audit rows, changes no artefact and spends
+    nothing. Idempotent: a row that exists is never overwritten. `dry_run: true` reports
+    without writing.
+    """
+    from ..ops import backfill
+
+    dry_run = bool(ctx.job.inputs.get("dry_run"))
+    with ctx.db.session() as session:
+        report = backfill.run(session, dry_run=dry_run)
+    ctx.audit("ops.provenance_backfill", detail={
+        "dry_run": dry_run, "backfilled": report["backfilled"],
+        "left_unproven": report["left_unproven"], "why": report["why"]})
+    return report
+
+
 @handlers.register("ops.capacity")
 def handle_capacity_review(ctx: JobContext) -> dict:
     """This week's allocation, recorded rather than remembered (#30, #5).
@@ -2668,6 +2830,53 @@ def handle_gallery_analysis(ctx: JobContext) -> dict:
             "batch_units": fit["units"], "binding_ceiling": fit["binding_ceiling"],
             "stopped_by": result.get("stopped_by", ""),
             "failures": len(result["failures"])}
+
+
+@handlers.register("creative.blind_review")
+def handle_blind_review(ctx: JobContext) -> dict:
+    """Write the competitive blind review row `visual.parity` reads (#75, #71, #218, #315).
+
+    Deterministic and free: it compares the listing renders on file against what the
+    category-matched benchmark galleries were *observed* to be -- the recorded vision
+    vocabulary and the deep audit's API facts -- and asks no model anything. One row per
+    catalogue product, every run, so the reader in `runtime.pipeline._benchmark_quality`
+    finds a dated verdict rather than nothing.
+
+    A pod nobody has judged enough of, or a product with no render, is written as
+    `materially_inferior: None`, which parity reads as unjudged and blocks. Today's expected
+    outcome is `inferior` or UNKNOWN across the catalogue; that is the finding, not a fault.
+
+    GREEN: reads its own asset records and already-recorded observations, writes audit rows,
+    spends nothing, publishes nothing.
+    """
+    from ..creative import blind_review
+
+    result = blind_review.run(ctx.db, job_id=ctx.job.id)
+    ctx.audit("creative.blind_review_run", detail={
+        "reviewed": result["reviewed"], "counts": result["counts"],
+        "method_version": result["method_version"]})
+    return {"ran": True, **{k: result[k] for k in ("reviewed", "counts", "method_version")}}
+
+
+@handlers.register("intel.acceptance")
+def handle_intel_acceptance(ctx: JobContext) -> dict:
+    """Run the API+vision acceptance checklist offline against the DB (#222, #320).
+
+    Files one mission report per step, each graded through `launch.access` under the
+    evidence kind `api_gallery_traversal`, and records the run. Nothing is fetched: every
+    step is proved or failed from evidence the scans and the gallery analysis already stored,
+    which is the only kind of evidence an acceptance test should accept.
+
+    GREEN: read-only against the DB apart from its own observation rows and audit row.
+    """
+    from ..intel import acceptance
+
+    result = acceptance.run(ctx.db, job_id=ctx.job.id)
+    ctx.audit("intel.acceptance", detail={
+        "verdict": result["verdict"], "passed": result["passed"], "of": result["of"],
+        "failed_steps": result["failed_steps"], "grade": result["grade"]})
+    return {"ran": True, "verdict": result["verdict"], "passed": result["passed"],
+            "of": result["of"], "failed_steps": result["failed_steps"]}
 
 
 @handlers.register("ops.retention")

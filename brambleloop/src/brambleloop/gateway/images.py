@@ -610,11 +610,73 @@ BFL_POLL_SECONDS = 2.0
 BFL_POLL_ATTEMPTS = 150
 
 
+# The database the render guard reads when a caller passes none. `generate` had no `db`
+# parameter and nine call sites across `visual/**`, `publish/**` and the benchmark, none of
+# which could pass through `check_budget` because an image is priced per image rather than
+# per token. The mechanism learned a per-image estimate (`anthropic.check_budget_cad`) and
+# the guard moved *here*, in front of the provider call, so every render is checked whether
+# or not the caller knew to check. A caller that has a database passes it; one that does not
+# is checked against the process's own, which in production is the one database there is.
+_DEFAULT_DB = None
+# Who a render is attributed to when the caller says nothing. Not a registered agent, on
+# purpose: `agent_daily_ceiling` returns None for it, so no permission is invented, and
+# `spend_report.per_agent_today` reports it under `spenders_with_no_agent_row`.
+DEFAULT_RENDER_AGENT = "gateway"
+DEFAULT_RENDER_PURPOSE = "image.generate"
+
+
+def _budget_db(db):
+    global _DEFAULT_DB
+    if db is not None:
+        return db
+    if _DEFAULT_DB is None:
+        from ..core.db import Database
+
+        _DEFAULT_DB = Database()
+    return _DEFAULT_DB
+
+
+def reserve_render(db, provider: ImageProvider, *, agent: str = "", purpose: str = "",
+                   job_id: int | None = None) -> dict:
+    """Claim one image's price against the monthly ceiling before the provider is asked.
+
+    Raises `anthropic.BudgetExceeded` (or its agent-permission subclass) with the provider
+    untouched. The estimate is `provider.cad_per_image`, which is also what the bill will be,
+    so this reservation reconciles by construction and the drift report says so.
+    """
+    from . import anthropic as gw
+
+    return gw.check_budget_cad(
+        _budget_db(db), estimate_cad=provider.cad_per_image,
+        agent=agent or DEFAULT_RENDER_AGENT, purpose=purpose or DEFAULT_RENDER_PURPOSE,
+        job_id=job_id, model=provider.key, provider=provider.key)
+
+
+def release_render(db, budget: dict | None, *, billed: bool) -> None:
+    """Give the claim back: with the price when the provider rendered, without one when it
+    did not, so a refused render never reads as a bill."""
+    if not budget or budget.get("reservation_id") is None:
+        return
+    from . import anthropic as gw
+
+    gw.release_reservation(_budget_db(db), budget["reservation_id"],
+                           actual_cad=budget["estimate_cad"] if billed else None)
+
+
 def generate(prompt: str, *, reference_urls: list[str] | None = None,
              env: dict[str, str] | None = None, size: str = "1024x1024",
              provider_key: str | None = None, work_dir: str | None = None,
-             timeout: float = 120.0, extra_fields: dict | None = None) -> dict:
+             timeout: float = 120.0, extra_fields: dict | None = None,
+             db=None, agent: str = "", purpose: str = "", job_id: int | None = None) -> dict:
     """Ask one provider for one image. Raises rather than returning nothing.
+
+    **Every render is checked against the ceiling here, before the provider is asked.**
+    `reserve_render` claims `provider.cad_per_image` through `anthropic.check_budget_cad` --
+    the same month, the same agent permission and the same reservation table every
+    token-priced call passes through -- and the claim is released with the price once the
+    picture exists. A ceiling that is exhausted raises `BudgetExceeded` with no request sent.
+    `db`, `agent`, `purpose` and `job_id` attribute the reservation; a caller that passes none
+    is still checked (see `_budget_db`) and attributed to `gateway`.
 
     Returns `image_ref`: whatever the judge can be handed, which is a URL when the provider
     gives one and a path on this disk when it returns the bytes inline. Google returns
@@ -632,9 +694,6 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
     caller that got a temporary directory had a slow disk failure nobody could attribute.
     """
-    import base64
-    from pathlib import Path
-
     if not work_dir:
         raise ImagesRefused(
             "generate() needs a work_dir: the path it returns has to outlive the call, so "
@@ -662,7 +721,25 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             f"key. This is the state the gate describes rather than a failure to retry")
 
     url, headers, payload = _request_for(provider, key, prompt, reference_urls, size, extra_fields)
+    # Reserved before the request leaves. A refusal here has cost nothing; the same refusal
+    # after `_post` would be a report about money already spent.
+    budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id)
     started = time.time()
+    try:
+        return _generate_reserved(provider, url, headers, payload, size, work_dir, timeout,
+                                  started, budget, db)
+    except BaseException:
+        release_render(db, budget, billed=False)
+        raise
+
+
+def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload: bytes,
+                       size: str, work_dir: str, timeout: float, started: float,
+                       budget: dict, db) -> dict:
+    """The provider call and everything after it, inside the reservation `generate` took."""
+    import base64
+    from pathlib import Path
+
     body = _post(url, headers, payload, label=provider.key, timeout=timeout)
 
     if provider.dialect == "bfl" and body.get("polling_url"):
@@ -720,12 +797,17 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
     Path(path).write_bytes(raw)
 
+    # The picture exists, so the provider has billed: the claim comes back with the price.
+    release_render(db, budget, billed=True)
+
     return {"provider": provider.key, "url": image_url, "path": path,
             "image_ref": path, "bytes": len(raw),
             # Reported rather than assumed: the first version defaulted this to image/png
             # and said so about a JPEG that BFL had plainly labelled.
             "mime": mime or "", "size": size,
             "cad": provider.cad_per_image,
+            "reservation_id": budget.get("reservation_id"),
+            "ceiling_headroom_cad": budget.get("headroom_cad"),
             "latency_ms": round((time.time() - started) * 1000, 2)}
 
 

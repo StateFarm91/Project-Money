@@ -54,15 +54,99 @@ def _aware(value):
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
-def rows(db, *, now: datetime | None = None, kind: str = "llm") -> list:
+def _week_bounds(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """The ISO week: Monday 00:00 UTC to the next Monday, not "the last seven days".
+
+    A rolling window and a calendar week answer different questions and the report has to
+    say which one it is answering. The ceilings reset on calendar boundaries, so the period
+    the owner compares against them is the calendar one.
+    """
+    now = now or datetime.now(timezone.utc)
+    monday = datetime(now.year, now.month, now.day, tzinfo=timezone.utc) - timedelta(
+        days=now.isoweekday() - 1)
+    return monday, monday + timedelta(days=7)
+
+
+def period_bounds(period: str, now: datetime | None = None) -> tuple[datetime, datetime]:
+    if period == "month":
+        return _month_bounds(now)
+    if period == "week":
+        return _week_bounds(now)
+    raise ValueError(f"period must be 'month' or 'week', not {period!r}")
+
+
+def rows(db, *, now: datetime | None = None, kind: str = "llm",
+         period: str = "month") -> list:
     from sqlalchemy import select
 
     from ..core.models import CostEntry
 
-    start, end = _month_bounds(now)
+    start, end = period_bounds(period, now)
     with db.session() as s:
         return [r for r in s.scalars(select(CostEntry).where(CostEntry.kind == kind))
                 if start <= (_aware(r.at) or start) < end]
+
+
+# The audit action a ceiling refusal writes. A refusal that leaves no row is a guard whose
+# work cannot be counted, and "how often did the ceiling actually say no this month" is the
+# first question anybody asks about a ceiling. Read by name in `refusals` below over the
+# calendar month only, so pruning older audit rows does not change what the count claims.
+REFUSED_ACTION = "spend.refused"
+
+
+def record_refusal(db, *, agent: str, ceiling_cad: float, estimate_cad: float,
+                   committed_cad: float, which: str, why: str,
+                   purpose: str = "", now: datetime | None = None,
+                   detail: dict | None = None) -> None:
+    """One audit row per refusal, with the four numbers the refusal was decided on.
+
+    Never raises: a refusal is already an exception in flight, and a failure to write the
+    record of it must not turn the refusal into a different error.
+    """
+    from ..core.models import AuditLog
+
+    try:
+        with db.session() as s:
+            s.add(AuditLog(
+                at=now or datetime.now(timezone.utc),
+                actor=(agent or "gateway")[:64], action=REFUSED_ACTION,
+                artifact=(purpose or which)[:200],
+                detail={"ceiling": round(float(ceiling_cad), 6),
+                        "estimate": round(float(estimate_cad), 6),
+                        "committed": round(float(committed_cad), 6),
+                        "agent": agent or "", "which": which, "purpose": purpose,
+                        "why": why[:600], **dict(detail or {})}))
+    except Exception:  # noqa: BLE001 - the refusal itself is what must reach the caller
+        return
+
+
+def refusals(db, *, now: datetime | None = None) -> dict:
+    """This month's ceiling refusals, counted and split by which ceiling said no."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    start, end = _month_bounds(now)
+    action = REFUSED_ACTION
+    by_which: dict[str, int] = {}
+    by_agent: dict[str, int] = {}
+    total = 0
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == action)):
+            at = _aware(row.at)
+            if at is None or not (start <= at < end):
+                continue
+            total += 1
+            which = (row.detail or {}).get("which") or "unknown"
+            by_which[which] = by_which.get(which, 0) + 1
+            agent = (row.detail or {}).get("agent") or row.actor or UNATTRIBUTED
+            by_agent[agent] = by_agent.get(agent, 0) + 1
+    return {"month": start.date().isoformat(), "count": total,
+            "by_ceiling": dict(sorted(by_which.items())),
+            "by_agent": dict(sorted(by_agent.items(), key=lambda kv: -kv[1])),
+            "why": ("every `check_budget` refusal writes one audit row with the ceiling, the "
+                    "estimate and what was committed, so a ceiling that says no is a "
+                    "ceiling whose work can be counted")}
 
 
 def _bucket(rows_, attribute: str) -> dict:
@@ -250,3 +334,144 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
         s.add(row)
         s.flush()
         return row.id
+
+
+# ---------------------------------------------------------------------------
+# Drift: is the reservation still the bill?
+
+# A purpose is judged on its estimates only once it has this many calls behind them. One call
+# can be anything; twenty consistently outside the band is a price that is wrong.
+DRIFT_MIN_CALLS = 20
+# The share of the month's calls that may carry no reservation before the mechanism itself is
+# the finding: past this, "the ceiling is checked before every call" is not what the ledger
+# shows.
+UNRESERVED_SHARE_TOLERANCE = 0.10
+
+
+def _image_provider_keys() -> set[str]:
+    try:
+        from ..gateway.images import BY_KEY
+    except Exception:  # noqa: BLE001 - a report must not fail on an import
+        return set()
+    return set(BY_KEY)
+
+
+def estimate_drift(db, *, now: datetime | None = None) -> dict:
+    """Whether the pre-call estimates still describe the bills, this month.
+
+    `degraded` when a purpose with at least `DRIFT_MIN_CALLS` estimated calls averages
+    outside `VARIANCE_TOLERANCE`, or when more than `UNRESERVED_SHARE_TOLERANCE` of the
+    month's calls carry no reservation at all. Both are the same fault seen from two sides:
+    a ceiling being checked against a number that is not the bill.
+
+    Image rows are set aside and labelled `reconciles_by_construction`. An image is priced per
+    image (`gateway.images.ImageProvider.cad_per_image`) and the reservation *is* that price,
+    so estimate and bill agree by definition -- counting them would flatter every purpose that
+    renders and hide the token-priced calls, which are the ones that can drift.
+    """
+    month = rows(db, now=now)
+    image_keys = _image_provider_keys()
+    image_rows = [r for r in month
+                  if (r.provider or "") in image_keys or (r.model or "") in image_keys]
+    token_rows = [r for r in month if r not in image_rows]
+
+    v = variance(token_rows)
+    outside = {k: b for k, b in v["by_purpose"].items()
+               if b["calls"] >= DRIFT_MIN_CALLS and not b["within_tolerance"]}
+    unreserved = v["calls_with_no_reservation"]
+    unreserved_share = round(unreserved / len(token_rows), 4) if token_rows else 0.0
+    too_many_unreserved = token_rows and unreserved_share > UNRESERVED_SHARE_TOLERANCE
+
+    reasons = []
+    for key, bucket in outside.items():
+        reasons.append(
+            f"{key}: {bucket['calls']} calls estimated CA${bucket['estimated_cad']:.4f} and "
+            f"billed CA${bucket['actual_cad']:.4f} (ratio {bucket['ratio']}), outside "
+            f"±{int(VARIANCE_TOLERANCE * 100)}%"
+            + (" -- under-estimated, which is the direction that breaks the ceiling"
+               if bucket["under_estimated"] else ""))
+    if too_many_unreserved:
+        reasons.append(
+            f"{unreserved} of {len(token_rows)} token-priced calls ({unreserved_share * 100:.0f}%) "
+            f"carry no reservation, over the {int(UNRESERVED_SHARE_TOLERANCE * 100)}% the "
+            f"mechanism tolerates: those calls were checked against nothing")
+
+    return {
+        "state": "degraded" if reasons else "healthy",
+        "degraded": bool(reasons),
+        "why": "; ".join(reasons),
+        "purposes_outside_tolerance": outside,
+        "purposes_measured": {k: b for k, b in v["by_purpose"].items()
+                              if b["calls"] >= DRIFT_MIN_CALLS},
+        "purposes_too_few_calls_to_judge": sorted(
+            k for k, b in v["by_purpose"].items() if b["calls"] < DRIFT_MIN_CALLS),
+        "min_calls_to_judge": DRIFT_MIN_CALLS,
+        "tolerance": VARIANCE_TOLERANCE,
+        "calls_with_no_reservation": unreserved,
+        "calls_with_no_reservation_share": unreserved_share,
+        "unreserved_share_tolerance": UNRESERVED_SHARE_TOLERANCE,
+        "token_priced_calls": len(token_rows),
+        "image_rows": {"calls": len(image_rows),
+                       "cad": round(sum(float(r.amount_cad or 0.0) for r in image_rows), 6),
+                       "reconciles_by_construction": True,
+                       "why": ("an image is priced per image and reserved at that price, so "
+                               "its estimate and its bill agree by definition. Set aside so "
+                               "it cannot flatter the token-priced calls that can drift")},
+    }
+
+
+def governance(db, *, now: datetime | None = None) -> dict:
+    """The live spend controls in one reading, for the dashboard and the console.
+
+    This is what `SpendLimit` was mistaken for. That table holds *scoped* caps -- paid media,
+    which no agent has authority over -- and it is empty, so a dashboard reading it alone
+    said "No spend limits configured." over a company whose every model call is refused
+    against a monthly ceiling, an agent permission, a purpose allocation and a live
+    reservation table. Every one of those is here, each from the function that enforces it,
+    and each part is guarded so a fault in one leaves the others readable.
+    """
+    from ..core.models import SpendLimit
+    from . import reservations, spend_policy
+
+    now = now or datetime.now(timezone.utc)
+    out: dict = {"as_of": now.isoformat()}
+
+    def _part(key, build):
+        try:
+            out[key] = build()
+        except Exception as exc:  # noqa: BLE001 - one unreadable control must not hide the rest
+            out[key] = {"unavailable": f"{type(exc).__name__}: {exc}"[:200]}
+
+    produced = what_it_bought(db, now=now)
+    out["month"] = {"spent_cad": produced["spent_cad"], "calls": produced["calls"],
+                    "burn_rate_cad_per_day": produced["burn_rate_cad_per_day"],
+                    "projected_month_end_cad": produced["projected_month_end_cad"],
+                    "by_provider": produced["by_provider"]}
+    out["headroom"] = spend_policy.headroom(produced["spent_cad"])
+    _part("reservations", lambda: reservations.outstanding(db, now=now))
+    _part("allocations", lambda: {
+        purpose: spend_policy.may_spend(db, purpose, now=now)
+        for purpose in sorted(spend_policy.ALLOCATION)})
+    out["department_allocations"] = dict(spend_policy.DEPARTMENT_ALLOCATION)
+    out["provider_ceilings_cad"] = dict(spend_policy.PROVIDER_CEILINGS_CAD)
+    _part("agents", lambda: per_agent_today(db, now=now))
+    _part("refusals", lambda: refusals(db, now=now))
+    _part("drift", lambda: estimate_drift(db, now=now))
+    _part("escalation", lambda: spend_policy.escalation(db, now=now))
+
+    def _scoped():
+        with db.session() as s:
+            from sqlalchemy import select
+            limits = list(s.scalars(select(SpendLimit)))
+        return {"count": len(limits),
+                "limits": [{"scope": l.scope, "daily_cap_cad": l.daily_cap_cad,
+                            "lifetime_cap_cad": l.lifetime_cap_cad,
+                            "spent_today_cad": l.spent_today_cad,
+                            "spent_lifetime_cad": l.spent_lifetime_cad,
+                            "paused": l.paused} for l in limits],
+                "why_none": ("" if limits else
+                             "no scoped cap is configured: advertising authority has not "
+                             "been granted, so there is no paid-media scope to cap. This is "
+                             "not the model ceiling, which is live above")}
+    _part("scoped_caps", _scoped)
+    return out

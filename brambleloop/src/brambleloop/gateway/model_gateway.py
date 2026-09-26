@@ -192,6 +192,23 @@ class ModelGateway:
             if breaker.is_open:
                 continue
             for attempt in range(1, max_attempts_per_provider + 1):
+                # The ceiling, the agent's daily permission and a reservation, *before* the
+                # provider is asked -- and outside the retry `try`, because a refusal is not a
+                # provider fault to retry past. Until 2026-09-26 this path billed through
+                # `registry.record_cost`, which checks the permission after the answer and the
+                # authorised month not at all: a measurement, not a control, and the one model
+                # path the cross-process reservation never touched. Only when a registry (and
+                # so a database) is attached; a gateway with neither has nothing to check
+                # against and no ledger to bill, which is the test configuration and no other.
+                reservation = None
+                if self.registry is not None:
+                    from . import anthropic as gw
+
+                    reservation = gw.check_budget_cad(
+                        self.registry.db,
+                        estimate_cad=self._estimate_cad(prompt, provider, user),
+                        agent=agent, purpose=prompt.ref, job_id=self.job_id,
+                        model=provider.model, provider=provider.name)
                 started = time.time()
                 try:
                     response = breaker.call(
@@ -202,20 +219,22 @@ class ModelGateway:
                     # A schema violation is the provider's fault, not the network's: retry
                     # this provider once, then move on rather than looping on bad output.
                     last = e
-                    self._record(prompt, provider, agent, 0, 0, attempt, False, str(e))
+                    self._record(prompt, provider, agent, 0, 0, attempt, False, str(e),
+                                 reservation=reservation)
                     if attempt >= max_attempts_per_provider:
                         break
                     continue
                 except (TransientError, Exception) as e:  # noqa: BLE001
                     last = e
-                    self._record(prompt, provider, agent, 0, 0, attempt, False, str(e))
+                    self._record(prompt, provider, agent, 0, 0, attempt, False, str(e),
+                                 reservation=reservation)
                     if attempt >= max_attempts_per_provider:
                         break
                     continue
                 elapsed_ms = (time.time() - started) * 1000
                 cost = self._record(prompt, provider, agent, response.input_tokens,
                                     response.output_tokens, attempt, True, "",
-                                    latency_ms=elapsed_ms)
+                                    latency_ms=elapsed_ms, reservation=reservation)
                 data["_meta"] = {
                     "prompt": prompt.ref, "prompt_sha256": prompt.sha256,
                     "provider": provider.name, "model": provider.model,
@@ -227,10 +246,41 @@ class ModelGateway:
         assert last is not None
         raise last
 
+    @staticmethod
+    def _estimate_cad(prompt, provider, user: str) -> float:
+        """What this call may cost, padded, assuming the model writes its whole allowance.
+
+        Priced from the one table that bills (`anthropic.PRICES_USD_PER_MTOK`) when the model
+        is in it, and from the provider's own declared per-1k rates -- padded the same way --
+        when it is not, so a stand-in provider is checked against what it says it costs
+        rather than refused as unpriced. Zero-cost stand-ins therefore pass the month and
+        still bind on the agent's permission once that permission is spent.
+        """
+        from . import anthropic as gw
+
+        in_tok = (len(prompt.system) + len(user)) // 4
+        out_tok = int(prompt.max_output_tokens)
+        try:
+            return gw.estimate_cad(provider.model, input_tokens=in_tok, output_tokens=out_tok)
+        except gw.BudgetExceeded:
+            usd_free = (in_tok / 1000 * float(provider.cost_per_1k_input_cad)
+                        + out_tok / 1000 * float(provider.cost_per_1k_output_cad))
+            return round(usd_free * gw.ESTIMATE_PADDING, 6)
+
     def _record(self, prompt, provider, agent: str, in_tok: int, out_tok: int,
-                attempt: int, ok: bool, error: str, latency_ms: float = 0.0) -> float:
+                attempt: int, ok: bool, error: str, latency_ms: float = 0.0,
+                reservation: dict | None = None) -> float:
         cost = (in_tok / 1000 * provider.cost_per_1k_input_cad
                 + out_tok / 1000 * provider.cost_per_1k_output_cad)
+        if reservation is not None and self.registry is not None:
+            # The claim comes back with the bill when there is one, and without one when the
+            # attempt failed, so a failed attempt never reads as a charge. Released before
+            # `record_cost` because that call can itself raise on the daily ceiling, and a
+            # reservation left behind by a refusal would hold budget for its whole TTL.
+            from . import anthropic as gw
+
+            gw.release_reservation(self.registry.db, reservation.get("reservation_id"),
+                                   actual_cad=cost if ok else None)
         self.calls.append(CallRecord(
             prompt_ref=prompt.ref, prompt_sha256=prompt.sha256, provider=provider.name,
             model=provider.model, agent=agent, input_tokens=in_tok, output_tokens=out_tok,

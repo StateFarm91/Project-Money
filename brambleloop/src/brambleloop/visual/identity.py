@@ -181,31 +181,171 @@ def canonical(packs: list[ReferencePack] | None = None) -> ReferencePack | None:
     return max(approved, key=lambda p: p.version) if approved else None
 
 
+# What an owner decision to replace the canonical identity has to look like (#200).
+#
+# The same shape as `freeze.OWNER_APPROVAL`, because a replacement is an approval of the
+# same weight as the original and must be recorded the same way: as code, quoting the owner,
+# not as a flag on a call. `supersedes_version` has to name the version being retired so a
+# stale approval cannot be replayed against a later identity, and `scope` says which of the
+# two things the owner is deciding -- repairing the photograph of the woman they chose, or
+# choosing a different woman. Those are different decisions and the record says which.
+REDESIGN_APPROVAL_KEYS: tuple[str, ...] = ("at", "decision", "supersedes_version", "scope")
+REDESIGN_SCOPES: frozenset[str] = frozenset({"portrait_repair", "redesign"})
+
+
+def validate_redesign_approval(record: dict | None, *, existing: ReferencePack) -> dict:
+    """The owner's replacement decision, or `IdentityRefused` saying exactly what is missing.
+
+    Nothing here is inferred. A record with the right keys and the wrong version is refused
+    rather than corrected, because an approval that applies to whichever version happens
+    to be current is an approval of nothing in particular.
+    """
+    if not isinstance(record, dict) or not record:
+        raise IdentityRefused(
+            "a canonical identity already exists. Replacing her is a redesign, which needs "
+            "explicit owner approval as a separate decision rather than as a side effect of "
+            "a selection call (#200)")
+    missing = [k for k in REDESIGN_APPROVAL_KEYS if not str(record.get(k) or "").strip()]
+    if missing:
+        raise IdentityRefused(
+            f"the replacement approval lacks {missing}. It must carry "
+            f"{list(REDESIGN_APPROVAL_KEYS)}: when the owner decided, what they decided, "
+            f"which version it retires and whether it is a portrait repair or a redesign")
+    scope = str(record["scope"]).strip()
+    if scope not in REDESIGN_SCOPES:
+        raise IdentityRefused(
+            f"the replacement approval's scope is {scope!r}; it must be one of "
+            f"{sorted(REDESIGN_SCOPES)}, because repairing her photograph and choosing a "
+            f"different woman are different decisions and the record has to say which")
+    try:
+        supersedes = int(record["supersedes_version"])
+    except (TypeError, ValueError):
+        raise IdentityRefused(
+            f"the replacement approval's supersedes_version "
+            f"{record['supersedes_version']!r} is not a version number") from None
+    if supersedes != existing.version:
+        raise IdentityRefused(
+            f"the replacement approval retires version {supersedes} and the canonical "
+            f"identity is version {existing.version}. An approval that does not name the "
+            f"version it replaces cannot be replayed against a later one, so it is refused "
+            f"rather than applied to whatever is current")
+    return {**record, "scope": scope, "supersedes_version": supersedes}
+
+
 def select(candidate: Candidate, *, owner_approved: bool,
-           existing: ReferencePack | None = None) -> ReferencePack:
+           existing: ReferencePack | None = None,
+           redesign_approval: dict | None = None) -> ReferencePack:
     """Freeze a candidate as canonical. Only the owner can do this, and only once.
 
     Replacing an existing canonical identity is a redesign, which #200 reserves to the owner
     explicitly — so it is refused here even when `owner_approved` is true, because "approved"
-    on a selection call is not the same as approving a redesign.
+    on a selection call is not the same as approving a redesign. The one path past that is
+    `redesign_approval`: an owner record shaped like `freeze.OWNER_APPROVAL` naming the
+    version it retires, validated by `validate_redesign_approval`. With it the new pack is
+    `existing.version + 1`; the retired version is the caller's to keep, never to delete.
     """
     if not owner_approved:
         raise IdentityRefused(
             f"{candidate.key} cannot become canonical without the owner's selection. A "
             f"candidate that becomes canonical by being first is an identity nobody chose, "
             f"and it is discovered a hundred listings later")
+    version = 1
     if existing is not None:
-        raise IdentityRefused(
-            "a canonical identity already exists. Replacing her is a redesign, which needs "
-            "explicit owner approval as a separate decision rather than as a side effect of "
-            "a selection call (#200)")
+        validate_redesign_approval(redesign_approval, existing=existing)
+        version = existing.version + 1
     missing = [f for f in IDENTITY_FIELDS if not candidate.fields.get(f)]
     if missing:
         raise IdentityRefused(
             f"the reference pack would be incomplete: {missing}. An unpinned field is a field "
             f"that drifts, and drift is what the pack exists to prevent")
-    return ReferencePack(version=1, fields=dict(candidate.fields),
+    return ReferencePack(version=version, fields=dict(candidate.fields),
                          approved_by_owner_at=datetime.now(timezone.utc).isoformat())
+
+
+# ---------------------------------------------------------------------------
+# Provenance: was this frame conditioned on the approved bytes?
+
+# The three reference frames a pack pins by hash, and the key under which a frozen pack
+# and a frame record both carry them. The face is required of every model-bearing frame;
+# a body frame is required when the record says one was used.
+REFERENCE_HASH_KEYS: tuple[str, ...] = ("neutral_portrait", "torso_fit_reference",
+                                        "full_length_standing")
+FACE_HASH_KEY = "neutral_portrait"
+
+PROVENANCE_VERIFIED = "verified"
+PROVENANCE_MISMATCH = "mismatch"
+PROVENANCE_UNVERIFIABLE = "unverifiable"
+
+
+def _is_sha256(value) -> bool:
+    text = str(value or "").strip().lower()
+    return len(text) == 64 and all(c in "0123456789abcdef" for c in text)
+
+
+def provenance_check(frame_record: dict | None, pack: ReferencePack | None) -> dict:
+    """Whether a frame was conditioned on the frozen pack's exact reference bytes.
+
+    Deterministic and offline: it compares the sha256 values the frame record says it was
+    conditioned on (`conditioned_on.reference_hashes`) against the ones the frozen pack
+    carries (`fields.reference_hashes`). No file is opened and no judge is asked, because
+    the question is not "does she look right" -- `drift_check` answers that -- but "was
+    the reference the approved one", and a hash either equals another hash or it does not.
+
+    Three answers. `verified`: every hash the frame names equals the pack's, the face is
+    among them, and so is the body frame the record says it used. `mismatch`: at least one
+    named hash differs -- the frame was conditioned on other bytes. `unverifiable`: a hash
+    is missing, malformed, or the pack never recorded any. A path is not a hash: a record
+    that names `reference_image: /tmp/x.jpg` and nothing else has described where the bytes
+    were, not what they were, and unhashed is unverifiable rather than fine.
+    """
+    if pack is None:
+        return {"verdict": PROVENANCE_UNVERIFIABLE, "compared": {}, "missing": [],
+                "why": "no canonical pack is frozen, so there is nothing to have been "
+                       "conditioned on"}
+    expected = dict((pack.fields or {}).get("reference_hashes") or {})
+    if not any(_is_sha256(v) for v in expected.values()):
+        return {"verdict": PROVENANCE_UNVERIFIABLE, "compared": {}, "missing": [],
+                "why": ("the frozen pack records no reference hashes, so no frame's "
+                        "provenance can be checked against it. Unrecorded is not verified")}
+
+    conditioned = dict((frame_record or {}).get("conditioned_on") or {})
+    claimed = dict(conditioned.get("reference_hashes") or {})
+    body_frame = str(conditioned.get("body_reference_frame") or "").strip()
+
+    required = [FACE_HASH_KEY] + ([body_frame] if body_frame else [])
+    missing = [k for k in required if not _is_sha256(claimed.get(k))]
+    malformed = [k for k, v in claimed.items() if not _is_sha256(v)]
+
+    compared: dict[str, dict] = {}
+    mismatched: list[str] = []
+    for key, value in claimed.items():
+        if not _is_sha256(value):
+            continue
+        want = str(expected.get(key) or "").lower()
+        same = bool(want) and want == str(value).lower()
+        compared[key] = {"claimed": str(value)[:12], "expected": want[:12] or "unpinned",
+                         "same": same}
+        if not same:
+            mismatched.append(key)
+
+    if mismatched:
+        verdict = PROVENANCE_MISMATCH
+        why = (f"this frame was conditioned on different bytes for {mismatched} than the "
+               f"frozen pack pins. Whatever it looks like, it was not made from her "
+               f"approved reference, and a frame that agrees with the wrong reference is "
+               f"the failure nothing downstream can see")
+    elif missing or malformed:
+        verdict = PROVENANCE_UNVERIFIABLE
+        why = (f"the frame record carries no usable sha256 for {sorted(set(missing + malformed))}. "
+               f"A path says where the reference was; only a hash says what it was, and "
+               f"unhashed is unverifiable rather than fine")
+    else:
+        verdict = PROVENANCE_VERIFIED
+        why = (f"every reference hash the frame names ({sorted(compared)}) equals the "
+               f"frozen pack's")
+    return {"verdict": verdict, "compared": compared, "mismatched": mismatched,
+            "missing": sorted(set(missing + malformed)), "body_frame": body_frame,
+            "blocks_release": verdict != PROVENANCE_VERIFIED, "why": why}
 
 
 VERDICTS: frozenset[str] = frozenset({MATCH, DRIFT, UNMEASURABLE})

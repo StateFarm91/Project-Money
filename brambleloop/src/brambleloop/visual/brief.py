@@ -169,7 +169,13 @@ def owner_candidate_supplied() -> bool:
     """
     from pathlib import Path
 
-    return Path(candidate_reference()).is_file()
+    from .identity import IdentityRefused
+
+    try:
+        return Path(candidate_reference()).is_file()
+    except IdentityRefused:
+        # A candidate whose bytes are not the recorded bytes is not the owner's candidate.
+        return False
 
 
 # The identity the owner approved as the target direction on 2026-09-21, held in the
@@ -226,20 +232,136 @@ def revision_clause(*, insist: bool = False) -> str:
         "athletic frame, never exaggerated -- and change nothing else about her at all.")
 
 
-def approved_portrait() -> str:
-    """The neutral portrait the owner approved as the target face. Carried, not re-rendered."""
+# ---------------------------------------------------------------------------
+# The committed assets, pinned by hash
+#
+# Five images live under `assets/`, and until 2026-09-26 the code told them apart by
+# filename alone. A filename is a label somebody can move: `approved_portrait()` returned
+# whatever bytes were sitting at `identity_portrait.jpg`, and `freeze.reference_paths` fell
+# back to that path when the pack's own face frame could not be recovered -- so a replaced
+# file would have become the approved face without anybody deciding it, and every frame
+# conditioned on it would have agreed with it perfectly. The manifest records which bytes
+# play which role, and the accessors refuse a file whose bytes are not those bytes.
+#
+# `ASSETS_DIR` is a module constant rather than computed inline so a test can point it at a
+# directory holding a tampered copy and prove the refusal fires.
+from pathlib import Path as _Path
+
+ASSETS_DIR = str(_Path(__file__).resolve().parent / "assets")
+MANIFEST_NAME = "MANIFEST.json"
+
+APPROVED_FACE = "approved_face"
+SUPERSEDED_BODY = "superseded_body"
+OWNER_CONCEPT = "owner_concept"
+ASSET_ROLES: tuple[str, ...] = (APPROVED_FACE, SUPERSEDED_BODY, OWNER_CONCEPT)
+
+
+def asset_manifest() -> list[dict]:
+    """Every committed asset with its sha256 and role, read from `assets/MANIFEST.json`.
+
+    Raises `IdentityRefused` when the manifest is absent or malformed: a missing manifest
+    is not "no rule", it is the rule's evidence gone, and the functions that rely on it
+    must not quietly revert to trusting filenames.
+    """
+    import json
     from pathlib import Path
 
-    return str(Path(__file__).resolve().parent / "assets" / "identity_portrait.jpg")
+    from .identity import IdentityRefused
+
+    path = Path(ASSETS_DIR) / MANIFEST_NAME
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise IdentityRefused(
+            f"the asset manifest at {path} could not be read ({exc}); without it no "
+            f"committed image can be told apart from a replaced one") from exc
+    assets = loaded.get("assets") if isinstance(loaded, dict) else None
+    if not isinstance(assets, list) or not assets:
+        raise IdentityRefused(f"the asset manifest at {path} lists no assets")
+    for entry in assets:
+        for key in ("file", "sha256", "role", "committed_on"):
+            if not str(entry.get(key) or "").strip():
+                raise IdentityRefused(f"asset manifest entry {entry!r} lacks {key!r}")
+        if entry["role"] not in ASSET_ROLES:
+            raise IdentityRefused(
+                f"asset manifest entry {entry['file']!r} has role {entry['role']!r}, "
+                f"which is not one of {ASSET_ROLES}")
+    return [dict(e) for e in assets]
+
+
+def sha256_of(path: str) -> str:
+    """The content hash of a file, or '' when it cannot be read."""
+    import hashlib
+    from pathlib import Path
+
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def manifest_entry(*, role: str | None = None, file: str | None = None) -> dict:
+    """The one manifest entry for a role or a filename. Refuses ambiguity."""
+    from .identity import IdentityRefused
+
+    found = [e for e in asset_manifest()
+             if (role is None or e["role"] == role) and (file is None or e["file"] == file)]
+    if len(found) != 1:
+        raise IdentityRefused(
+            f"the asset manifest has {len(found)} entries for role={role!r} file={file!r}; "
+            f"exactly one was expected, because a role two files can claim is a role "
+            f"nobody has pinned")
+    return found[0]
+
+
+def verified_asset(file: str, *, expect_role: str | None = None) -> str:
+    """The path of a committed asset, only if its bytes are the manifest's bytes.
+
+    Raises `IdentityRefused` on any mismatch. Refusing rather than returning '' because
+    every caller of these paths goes on to condition a render or a judgement on the file,
+    and a silent empty string would be read as "no reference" rather than "the reference
+    has been replaced", which is the more serious of the two.
+    """
+    from pathlib import Path
+
+    from .identity import IdentityRefused
+
+    entry = manifest_entry(file=file)
+    if expect_role is not None and entry["role"] != expect_role:
+        raise IdentityRefused(
+            f"{file} is recorded as {entry['role']!r}, not {expect_role!r}. A body frame "
+            f"cannot be asked for as a face, or the other way round")
+    path = Path(ASSETS_DIR) / file
+    actual = sha256_of(str(path))
+    if actual != entry["sha256"]:
+        raise IdentityRefused(
+            f"{file} does not hash to the manifest's {entry['sha256'][:12]}... (it reads "
+            f"as {actual[:12] or 'unreadable'}). The bytes at this path are not the "
+            f"{entry['role']} the owner approved, and nothing conditions on them")
+    return str(path)
+
+
+def approved_portrait() -> str:
+    """The neutral portrait the owner approved as the target face. Carried, not re-rendered.
+
+    Verified against the manifest on every call: this is the one committed image a render
+    may be conditioned on, so it is the one whose replacement would matter most and be
+    noticed least. Raises `IdentityRefused` when the bytes are not the approved bytes.
+    """
+    entry = manifest_entry(role=APPROVED_FACE)
+    return verified_asset(entry["file"], expect_role=APPROVED_FACE)
 
 
 def approved_reference(frame: str) -> str:
-    """The approved body references, kept for the revision to be measured against."""
-    from pathlib import Path
+    """The pre-revision body references, kept for the revision to be measured against.
 
+    Superseded, and verified as exactly the superseded bytes: these are compared against
+    (the revision must have moved the bust relative to them) and never conditioned on as
+    the body of record. `freeze.reference_paths` says why they are not a fallback.
+    """
     names = {"torso_fit_reference": "identity_torso_v5.jpg",
              "full_length_standing": "identity_full_length_v5.jpg"}
-    return str(Path(__file__).resolve().parent / "assets" / names[frame])
+    return verified_asset(names[frame], expect_role=SUPERSEDED_BODY)
 
 
 def candidate_reference() -> str:
@@ -250,16 +372,12 @@ def candidate_reference() -> str:
     across it -- a generator handed text renders text, which is how a brand lockup ends up
     baked into a model's face at 1024 pixels.
     """
-    from pathlib import Path
-
-    return str(Path(__file__).resolve().parent / "assets" / "owner_candidate_reference.png")
+    return verified_asset("owner_candidate_reference.png", expect_role=OWNER_CONCEPT)
 
 
 def candidate_concept() -> str:
     """The owner's concept as supplied, kept whole as the direction of record."""
-    from pathlib import Path
-
-    return str(Path(__file__).resolve().parent / "assets" / "owner_candidate_concept.jpg")
+    return verified_asset("owner_candidate_concept.jpg", expect_role=OWNER_CONCEPT)
 
 
 # The two frames a reference pack needs before any scene is rendered, and the reason the
