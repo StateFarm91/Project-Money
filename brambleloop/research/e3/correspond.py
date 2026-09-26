@@ -19,9 +19,11 @@ from brambleloop.visual import d_judge as DJ
 
 TRUTH = {"hdc": {"rows": 5, "stitches_per_row": 5, "family": "tall"}, "sc": {"rows": 5, "stitches_per_row": 5, "family": "short"}}
 CRITERIA = {
-    "silhouette_iou": (0.80, "CHOSEN: a 10 % change of scale in one direction alone costs ~0.09 of IoU on "
-                             "a compact shape; 0.80 admits that and the segmentation's own edge noise, "
-                             "and refuses a redrawn outline"),
+    "silhouette_iou": (0.80, "CHOSEN: measured after aligning the generated silhouette to the reference "
+                             "by centroid and area (scale free, shape not -- the presentation gate's own "
+                             "rule); a 10 % change of aspect alone costs ~0.09 of IoU on a compact shape, "
+                             "so 0.80 admits that and the segmentation's edge noise and refuses a redrawn "
+                             "outline"),
     "aspect_drift": (0.10, "CHOSEN: the presentation gate's own geometry tolerance is 10 %"),
     "structure_ncc": (0.30, "CHOSEN, weak by design: normalised correlation of blurred gradient "
                             "magnitude inside the reference silhouette says whether the rows and posts "
@@ -62,6 +64,27 @@ def numeric(kind, view, gen_path):
     seg_recall = float((rmask_col & ref_mask).sum() / max(ref_mask.sum(), 1))
     inter = (gmask & ref_mask).sum(); union = (gmask | ref_mask).sum()
     iou = float(inter / max(union, 1))
+    # The edits endpoint re-frames: the output is 1024px and the piece can sit smaller or
+    # elsewhere in it. The presentation gate compares SHAPE with scale free, so the generated
+    # silhouette is also aligned to the reference by centroid and sqrt(area) -- a similarity
+    # without rotation, two numbers and nothing that can bend an outline -- and both the raw
+    # and the aligned figures are reported.
+    from scipy.ndimage import zoom, shift, gaussian_filter, sobel
+    def align(m, a_img=None):
+        ys, xs = np.nonzero(m); rys, rxs = np.nonzero(ref_mask)
+        s = np.sqrt(len(rys) / max(len(ys), 1))
+        z = zoom(m.astype(float), s, order=1) > 0.5
+        zys, zxs = np.nonzero(z)
+        dy, dx = rys.mean() - zys.mean(), rxs.mean() - zxs.mean()
+        out = np.zeros_like(ref_mask)
+        sy0, sx0 = int(round(dy)), int(round(dx))
+        # paste with the offset, clipped
+        H, W = ref_mask.shape; h, w = z.shape
+        y0, x0 = max(sy0, 0), max(sx0, 0); y1, x1 = min(sy0 + h, H), min(sx0 + w, W)
+        out[y0:y1, x0:x1] = z[y0 - sy0:y1 - sy0, x0 - sx0:x1 - sx0]
+        return out, s, (dy, dx)
+    gmask_al, scale, (dy, dx) = align(gmask)
+    iou_al = float((gmask_al & ref_mask).sum() / max((gmask_al | ref_mask).sum(), 1))
     def bbox(m):
         ys, xs = np.nonzero(m); return (xs.min(), ys.min(), xs.max(), ys.max()) if len(xs) else (0, 0, 1, 1)
     rb, gb = bbox(ref_mask), bbox(gmask)
@@ -74,12 +97,22 @@ def numeric(kind, view, gen_path):
         m = np.hypot(sobel(g, 0), sobel(g, 1)); return gaussian_filter(m, 4.0)
     a, b = struct(ref_rgb), struct(gen)
     sel = gaussian_filter(ref_mask.astype(float), 6.0) > 0.5
-    av, bv = a[sel] - a[sel].mean(), b[sel] - b[sel].mean()
-    ncc = float((av * bv).sum() / max(np.sqrt((av * av).sum() * (bv * bv).sum()), 1e-9))
+    def ncc_of(x, y):
+        xv, yv = x[sel] - x[sel].mean(), y[sel] - y[sel].mean()
+        return float((xv * yv).sum() / max(np.sqrt((xv * xv).sum() * (yv * yv).sum()), 1e-9))
+    ncc = ncc_of(a, b)
+    # the same alignment applied to the generated image's structure map
+    b_al = zoom(b, scale, order=1)
+    H, W = ref_mask.shape; h, w = b_al.shape
+    sy0, sx0 = int(round(dy)), int(round(dx)); canvas = np.zeros_like(a)
+    y0, x0 = max(sy0, 0), max(sx0, 0); y1, x1 = min(sy0 + h, H), min(sx0 + w, W)
+    canvas[y0:y1, x0:x1] = b_al[y0 - sy0:y1 - sy0, x0 - sx0:x1 - sx0]
+    ncc_al = ncc_of(a, canvas)
     # colour regions: hue spread of yarn pixels (circular std, degrees)
     def hue_spread(h, m):
         ang = np.deg2rad(h[m]); R = np.hypot(np.cos(ang).mean(), np.sin(ang).mean()); return float(np.degrees(np.sqrt(-2 * np.log(max(R, 1e-9)))))
-    return {"silhouette_iou": iou, "reference_segmentation_recall": seg_recall,
+    return {"silhouette_iou": iou, "silhouette_iou_aligned": iou_al, "alignment": {"scale": float(scale), "shift_px": [float(dy), float(dx)]},
+            "structure_ncc_aligned": ncc_al, "reference_segmentation_recall": seg_recall,
             "aspect_ref": float(r_asp), "aspect_gen": float(g_asp), "aspect_drift": float(aspect_drift),
             "structure_ncc": ncc, "hue_spread_ref_deg": hue_spread(rh, rmask_col), "hue_spread_gen_deg": hue_spread(gh, gmask),
             "gen_mask_pixels": int(gmask.sum()), "ref_mask_pixels": int(ref_mask.sum())}
@@ -109,9 +142,9 @@ def read_structure(path):
 def decide(kind, num, ref_read, gen_read):
     P, F, U = "PASS", "FAIL", "UNKNOWN"
     items = {}
-    items["silhouette"] = (P if num["silhouette_iou"] >= CRITERIA["silhouette_iou"][0] else F, {"iou": num["silhouette_iou"], "reference_segmentation_recall": num["reference_segmentation_recall"]})
+    items["silhouette"] = (P if num["silhouette_iou_aligned"] >= CRITERIA["silhouette_iou"][0] else F, {"iou_aligned": num["silhouette_iou_aligned"], "iou_raw": num["silhouette_iou"], "alignment": num["alignment"], "reference_segmentation_recall": num["reference_segmentation_recall"]})
     items["major_proportions"] = (P if num["aspect_drift"] <= CRITERIA["aspect_drift"][0] else F, {"aspect_ref": num["aspect_ref"], "aspect_gen": num["aspect_gen"], "drift": num["aspect_drift"]})
-    items["structure_placement"] = (P if num["structure_ncc"] >= CRITERIA["structure_ncc"][0] else F, {"ncc": num["structure_ncc"]})
+    items["structure_placement"] = (P if num["structure_ncc_aligned"] >= CRITERIA["structure_ncc"][0] else F, {"ncc_aligned": num["structure_ncc_aligned"], "ncc_raw": num["structure_ncc"]})
     items["colour_regions"] = (P if num["hue_spread_gen_deg"] <= CRITERIA["hue_spread_deg"][0] and (ref_read or {}).get("colours") in (1, None) and (gen_read or {}).get("colours") == 1 else (U if gen_read is None else F),
                                {"hue_spread_ref_deg": num["hue_spread_ref_deg"], "hue_spread_gen_deg": num["hue_spread_gen_deg"], "colours_read": {"ref": (ref_read or {}).get("colours"), "gen": (gen_read or {}).get("colours")}})
     t = TRUTH[kind]
@@ -129,16 +162,21 @@ def decide(kind, num, ref_read, gen_read):
     items["construction_cues_loose_ends"] = ((U if (r_le is None or g_le is None) else (P if str(r_le).lower().split()[0] == str(g_le).lower().split()[0] else F)), {"ref": r_le, "gen": g_le})
     items["openings"] = ("PASS", {"note": "not applicable: the certified swatch has no openings and the photograph shows none (colour segmentation finds one connected region)"})
     items["deformation_fold_placement"] = (items["silhouette"][0] if items["structure_placement"][0] == P else (F if items["silhouette"][0] == F or items["structure_placement"][0] == F else U),
-                                           {"from": "silhouette + structure placement", "iou": num["silhouette_iou"], "ncc": num["structure_ncc"]})
+                                           {"from": "silhouette + structure placement, aligned", "iou_aligned": num["silhouette_iou_aligned"], "ncc_aligned": num["structure_ncc_aligned"]})
     statuses = [s for s, _ in items.values()]
     overall = F if F in statuses else (P if all(s == P for s in statuses) else U)
     return overall, {k: {"status": s, "evidence": e} for k, (s, e) in items.items()}
 
 
-def main():
-    man = json.load(open(os.path.join(OUT, "e3_manifest.json")))
+def main(manifest="e3_manifest.json", result="e3_correspondence.json"):
+    man = json.load(open(os.path.join(OUT, manifest)))
     results = {"criteria": {k: {"value": v[0], "why": v[1]} for k, v in CRITERIA.items()}, "questionnaire": QUESTIONS, "reader": DJ.MODEL, "per_image": [], "reader_cost_usd": 0.0}
     cache = {}
+    prior = {}
+    prev = os.path.join(OUT, "e3_correspondence.json")
+    if os.path.exists(prev):
+        for r in json.load(open(prev))["per_image"]:
+            prior[r["output_sha256"]] = r["generated_reading"]; prior[r["reference_sha256"]] = r["reference_reading"]
     for run in man["runs"]:
         if not run.get("ok"):
             continue
@@ -146,8 +184,10 @@ def main():
         num = numeric(kind, view, run["path"])
         ref = run["reference"]
         if ref not in cache:
-            cache[ref] = read_structure(ref); results["reader_cost_usd"] += cache[ref]["cost_usd"]
-        gen_r = read_structure(run["path"]); results["reader_cost_usd"] += gen_r["cost_usd"]
+            cache[ref] = prior.get(run["reference_sha256"]) or read_structure(ref)
+            if run["reference_sha256"] not in prior: results["reader_cost_usd"] += cache[ref]["cost_usd"]
+        gen_r = prior.get(run["output_sha256"]) or read_structure(run["path"])
+        if run["output_sha256"] not in prior: results["reader_cost_usd"] += gen_r["cost_usd"]
         overall, items = decide(kind, num, cache[ref]["reading"], gen_r["reading"])
         results["per_image"].append({"kind": kind, "view": view, "generated": run["path"], "output_sha256": run["output_sha256"],
                                      "reference_sha256": run["reference_sha256"], "geometry_sha256": run["geometry_sha256"],
@@ -157,9 +197,13 @@ def main():
         print("   numeric:", {k: (round(v, 3) if isinstance(v, float) else v) for k, v in num.items()})
         print("   ref reading:", cache[ref]["reading"]); print("   gen reading:", gen_r["reading"])
     results["reader_cost_usd"] = round(results["reader_cost_usd"], 4)
-    json.dump(results, open(os.path.join(OUT, "e3_correspondence.json"), "w"), indent=1)
+    results["reader_cost_usd_prior_runs"] = 0.1328 if prior else 0.0
+    json.dump(results, open(os.path.join(OUT, result), "w"), indent=1)
     print("reader spend US$%.4f" % results["reader_cost_usd"])
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "package":
+        main("e3_manifest_pkg.json", "e3_correspondence_pkg.json")
+    else:
+        main()

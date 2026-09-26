@@ -6,7 +6,7 @@ scene that produced the judged reference renders. No vertex moves. Produced per 
 
   <kind>_<view>_mask.png    the fabric's own silhouette (yarn pixels only; the form and the
                             backdrop are not the product)
-  <kind>_<view>_depth.npy   depth of the fabric where the mask is set, millimetres from camera
+  <kind>_<view>_depth.npz   depth of the fabric where the mask is set, millimetres from camera
   <kind>_<view>_normal.png  shading normals of the fabric, encoded 0-1
 
 The RGB structural reference itself is the judged `<kind>_draped_presentation2_<view>.png`
@@ -68,7 +68,7 @@ def main(kinds=("hdc", "sc"), views=("camera", "oblique")):
             mask = depth > 0
             from PIL import Image
             Image.fromarray((mask * 255).astype(np.uint8)).save(os.path.join(OUT, f"{kind}_{view}_mask.png"))
-            np.save(os.path.join(OUT, f"{kind}_{view}_depth.npy"), np.where(mask, depth, 0.0).astype(np.float32))
+            np.savez_compressed(os.path.join(OUT, f"{kind}_{view}_depth.npz"), depth_mm=np.where(mask, depth, 0.0).astype(np.float32))
             Image.fromarray(np.clip((normal * 0.5 + 0.5) * 255, 0, 255).astype(np.uint8)).save(os.path.join(OUT, f"{kind}_{view}_normal.png"))
             ys, xs = np.nonzero(mask)
             manifest[kind]["views"][view] = {

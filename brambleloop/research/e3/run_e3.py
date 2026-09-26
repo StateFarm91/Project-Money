@@ -26,13 +26,19 @@ PROMPT = (
     "neutral tabletop, an ordinary camera. No text, nothing else in frame.")
 
 
-def main(kinds=("hdc", "sc"), views=("camera", "oblique"), per_view=1):
+PROMPT_PACKAGE = (PROMPT + " The second image is the outline mask of the piece and the third shows its "
+                  "surface orientation; use them only to keep the piece's outline, position and surface "
+                  "placement exactly as in the first image.")
+
+
+def main(kinds=("hdc", "sc"), views=("camera", "oblique"), per_view=1, package="rgb", tag=""):
     out = HERE / "out" / "gen"; out.mkdir(parents=True, exist_ok=True)
     env = {G.key_var("openai"): (SCRATCH / ".oaikey").read_text().strip()}
     price = G.BY_KEY[PROVIDER].usd_per_image
     planned = price * len(kinds) * len(views) * per_view
     assert planned <= CAP_USD, planned
-    man = {"provider": PROVIDER, "endpoint": "images/edits (reference-conditioned)", "prompt": PROMPT,
+    prompt = PROMPT if package == "rgb" else PROMPT_PACKAGE
+    man = {"provider": PROVIDER, "endpoint": "images/edits (reference-conditioned)", "prompt": prompt, "package": package,
            "usd_list_price_per_image": price, "planned_usd": planned, "cap_usd": CAP_USD, "runs": []}
     spent = 0.0
     for kind in kinds:
@@ -43,13 +49,17 @@ def main(kinds=("hdc", "sc"), views=("camera", "oblique"), per_view=1):
             for i in range(per_view):
                 if spent + price > CAP_USD:
                     man["stopped"] = "ceiling"; break
+                refs = [str(ref)]
+                if package == "rgb+mask+normal":
+                    refs += [str(HERE / "out" / f"{kind}_{view}_mask.png"), str(HERE / "out" / f"{kind}_{view}_normal.png")]
                 row = {"kind": kind, "view": view, "index": i, "reference": str(ref), "reference_sha256": ref_sha,
-                       "geometry_sha256": rec["geometry_sha256"]["draped"]}
+                       "geometry_sha256": rec["geometry_sha256"]["draped"], "package": package,
+                       "conditioning_sha256": [hashlib.sha256(open(r, "rb").read()).hexdigest() for r in refs]}
                 t0 = time.time()
                 try:
-                    r = G.generate(PROMPT, reference_urls=[str(ref)], env=env, provider_key=PROVIDER,
+                    r = G.generate(prompt, reference_urls=refs, env=env, provider_key=PROVIDER,
                                    work_dir=str(out), size="1024x1024", timeout=240.0)
-                    src = Path(r["path"]); dst = out / f"{kind}_{view}_{i}{src.suffix}"; src.replace(dst)
+                    src = Path(r["path"]); dst = out / f"{kind}_{view}_{tag}{i}{src.suffix}"; src.replace(dst)
                     row.update(ok=True, path=str(dst), output_sha256=hashlib.sha256(dst.read_bytes()).hexdigest(),
                                seconds=round(time.time() - t0, 1), usd_list_price=price)
                     spent += price
@@ -58,9 +68,12 @@ def main(kinds=("hdc", "sc"), views=("camera", "oblique"), per_view=1):
                 man["runs"].append(row)
                 print(json.dumps({k: row[k] for k in row if k not in ("path", "reference")}))
     man["spent_usd_list_price"] = round(spent, 3)
-    (HERE / "out" / "e3_manifest.json").write_text(json.dumps(man, indent=1))
+    (HERE / "out" / (f"e3_manifest{'_' + tag.rstrip('_') if tag else ''}.json")).write_text(json.dumps(man, indent=1))
     print(f"spent (list) US${spent:.2f} of cap US${CAP_USD}")
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "package":
+        main(views=("oblique",), package="rgb+mask+normal", tag="pkg_")
+    else:
+        main()

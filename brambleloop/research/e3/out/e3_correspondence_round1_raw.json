@@ -1,0 +1,585 @@
+{
+ "criteria": {
+  "silhouette_iou": {
+   "value": 0.8,
+   "why": "CHOSEN: a 10 % change of scale in one direction alone costs ~0.09 of IoU on a compact shape; 0.80 admits that and the segmentation's own edge noise, and refuses a redrawn outline"
+  },
+  "aspect_drift": {
+   "value": 0.1,
+   "why": "CHOSEN: the presentation gate's own geometry tolerance is 10 %"
+  },
+  "structure_ncc": {
+   "value": 0.3,
+   "why": "CHOSEN, weak by design: normalised correlation of blurred gradient magnitude inside the reference silhouette says whether the rows and posts sit where the reference put them; 0.30 is well above what two unrelated textures give (~0) and is reported beside the number"
+  },
+  "hue_spread_deg": {
+   "value": 12.0,
+   "why": "CHOSEN: one dyed yarn is one hue; a second colour region would read as a second mode far outside this"
+  }
+ },
+ "questionnaire": "This is an image of a crocheted swatch. Answer as JSON with exactly these keys, and give null for any value the image does not let you determine: \"rows\": integer number of horizontal rows of stitches you can count; \"stitches_per_row\": integer number of stitches you can count across one full row; \"stitch_height\": \"short\" if each stitch is about as tall as it is wide or less, \"tall\" if each stitch stands clearly taller than it is wide on a visible post; \"loose_ends\": where any loose strand ends are visible (\"bottom\", \"top\", \"sides\", \"none\", or a short phrase); \"colours\": integer number of distinct yarn colours; \"shape\": one short phrase for the overall outline (e.g. \"upright rectangle\", \"square\", \"irregular\"); \"notes\": one sentence on anything structurally notable.",
+ "reader": "gpt-5-2025-08-07",
+ "per_image": [
+  {
+   "kind": "hdc",
+   "view": "camera",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/hdc_camera_0.png",
+   "output_sha256": "21cf49e0cd615b6cfd457f168aefce152056e163685be12773fe329d5aad3838",
+   "reference_sha256": "df76633a0e3f762f94cbfd7b2a1dd6c9c0d8d88492087bb4f969b10f4b693f64",
+   "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
+   "numeric": {
+    "silhouette_iou": 0.6592422227649778,
+    "reference_segmentation_recall": 0.986737096240135,
+    "aspect_ref": 1.2903726708074534,
+    "aspect_gen": 0.99734395750332,
+    "aspect_drift": 0.22708843726577846,
+    "structure_ncc": -0.03358912803828737,
+    "hue_spread_ref_deg": 2.6504601304793676,
+    "hue_spread_gen_deg": 7.694665860962845,
+    "gen_mask_pixels": 350146,
+    "ref_mask_pixels": 383551
+   },
+   "reference_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation2_camera.png",
+    "image_sha256": "df76633a0e3f762f94cbfd7b2a1dd6c9c0d8d88492087bb4f969b10f4b693f64",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE0rdl2dgF8b02ygKlPViQVVZghL",
+    "prompt_tokens": 846,
+    "completion_tokens": 2146,
+    "cost_usd": 0.022517,
+    "raw": "{\n  \"rows\": 6,\n  \"stitches_per_row\": 6,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"sides\",\n  \"colours\": 1,\n  \"shape\": \"upright rectangle\",\n  \"notes\": \"Tall open stitches alternate with flatter horizontal bands, giving a lacy ladder-like look with small bobbly clusters visible along both side edges.\"\n}",
+    "reading": {
+     "rows": 6,
+     "stitches_per_row": 6,
+     "stitch_height": "tall",
+     "loose_ends": "sides",
+     "colours": 1,
+     "shape": "upright rectangle",
+     "notes": "Tall open stitches alternate with flatter horizontal bands, giving a lacy ladder-like look with small bobbly clusters visible along both side edges."
+    }
+   },
+   "generated_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/hdc_camera_0.png",
+    "image_sha256": "21cf49e0cd615b6cfd457f168aefce152056e163685be12773fe329d5aad3838",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE1PX0R9r0idKu6JaQpcme4eHcR8",
+    "prompt_tokens": 846,
+    "completion_tokens": 2074,
+    "cost_usd": 0.021798,
+    "raw": "{\n  \"rows\": 5,\n  \"stitches_per_row\": null,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"none\",\n  \"colours\": 1,\n  \"shape\": \"upright rectangle\",\n  \"notes\": \"Open lattice with elongated loops, and the fabric appears to form a tube rather than a flat swatch.\"\n}",
+    "reading": {
+     "rows": 5,
+     "stitches_per_row": null,
+     "stitch_height": "tall",
+     "loose_ends": "none",
+     "colours": 1,
+     "shape": "upright rectangle",
+     "notes": "Open lattice with elongated loops, and the fabric appears to form a tube rather than a flat swatch."
+    }
+   },
+   "overall": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou": 0.6592422227649778,
+      "reference_segmentation_recall": 0.986737096240135
+     }
+    },
+    "major_proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 1.2903726708074534,
+      "aspect_gen": 0.99734395750332,
+      "drift": 0.22708843726577846
+     }
+    },
+    "structure_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "ncc": -0.03358912803828737
+     }
+    },
+    "colour_regions": {
+     "status": "PASS",
+     "evidence": {
+      "hue_spread_ref_deg": 2.6504601304793676,
+      "hue_spread_gen_deg": 7.694665860962845,
+      "colours_read": {
+       "ref": 1,
+       "gen": 1
+      }
+     }
+    },
+    "rows": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": 6,
+      "gen": 5,
+      "truth": 5,
+      "why": "the reader does not see the truth on the reference render, so it cannot measure the photograph against it"
+     }
+    },
+    "stitches_per_row": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": 6,
+      "gen": null,
+      "truth": 5,
+      "why": "the reader could not determine it on one of the images"
+     }
+    },
+    "stitch_family": {
+     "status": "PASS",
+     "evidence": {
+      "ref": "tall",
+      "gen": "tall",
+      "truth": "tall"
+     }
+    },
+    "construction_cues_loose_ends": {
+     "status": "FAIL",
+     "evidence": {
+      "ref": "sides",
+      "gen": "none"
+     }
+    },
+    "openings": {
+     "status": "PASS",
+     "evidence": {
+      "note": "not applicable: the certified swatch has no openings and the photograph shows none (colour segmentation finds one connected region)"
+     }
+    },
+    "deformation_fold_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "from": "silhouette + structure placement",
+      "iou": 0.6592422227649778,
+      "ncc": -0.03358912803828737
+     }
+    }
+   }
+  },
+  {
+   "kind": "hdc",
+   "view": "oblique",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/hdc_oblique_0.png",
+   "output_sha256": "82edf2284862d14fed7a28c5dce2693c6dbedfbc588e9ce64a48bc44147f2e1a",
+   "reference_sha256": "688e70b92513bca49032d33dd54cb0164e45823934328673ba5a8ee1923da847",
+   "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
+   "numeric": {
+    "silhouette_iou": 0.5910214294016529,
+    "reference_segmentation_recall": 0.9841558156641588,
+    "aspect_ref": 1.4475043029259897,
+    "aspect_gen": 1.4238683127572016,
+    "aspect_drift": 0.016328787500672903,
+    "structure_ncc": -0.011051163861408236,
+    "hue_spread_ref_deg": 2.2474372264343563,
+    "hue_spread_gen_deg": 5.9724993475313735,
+    "gen_mask_pixels": 210203,
+    "ref_mask_pixels": 309956
+   },
+   "reference_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation2_oblique.png",
+    "image_sha256": "688e70b92513bca49032d33dd54cb0164e45823934328673ba5a8ee1923da847",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE28qZAepHvXspizaM6iBN4IHqFU",
+    "prompt_tokens": 846,
+    "completion_tokens": 1307,
+    "cost_usd": 0.014127,
+    "raw": "{\n  \"rows\": 5,\n  \"stitches_per_row\": 5,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"top and sides\",\n  \"colours\": 1,\n  \"shape\": \"upright rectangle\",\n  \"notes\": \"Open, airy pattern with tall posts and wide gaps; edges are uneven and the bottom curls.\"\n}",
+    "reading": {
+     "rows": 5,
+     "stitches_per_row": 5,
+     "stitch_height": "tall",
+     "loose_ends": "top and sides",
+     "colours": 1,
+     "shape": "upright rectangle",
+     "notes": "Open, airy pattern with tall posts and wide gaps; edges are uneven and the bottom curls."
+    }
+   },
+   "generated_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/hdc_oblique_0.png",
+    "image_sha256": "82edf2284862d14fed7a28c5dce2693c6dbedfbc588e9ce64a48bc44147f2e1a",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE2WEgz67jTLr0RelFG3gVktX89t",
+    "prompt_tokens": 846,
+    "completion_tokens": 1499,
+    "cost_usd": 0.016047,
+    "raw": "{\n  \"rows\": 5,\n  \"stitches_per_row\": 4,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"sides\",\n  \"colours\": 1,\n  \"shape\": \"upright rectangle\",\n  \"notes\": \"Open, lacy structure with large elongated loops and several small knotted tassels at the edges.\"\n}",
+    "reading": {
+     "rows": 5,
+     "stitches_per_row": 4,
+     "stitch_height": "tall",
+     "loose_ends": "sides",
+     "colours": 1,
+     "shape": "upright rectangle",
+     "notes": "Open, lacy structure with large elongated loops and several small knotted tassels at the edges."
+    }
+   },
+   "overall": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou": 0.5910214294016529,
+      "reference_segmentation_recall": 0.9841558156641588
+     }
+    },
+    "major_proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.4475043029259897,
+      "aspect_gen": 1.4238683127572016,
+      "drift": 0.016328787500672903
+     }
+    },
+    "structure_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "ncc": -0.011051163861408236
+     }
+    },
+    "colour_regions": {
+     "status": "PASS",
+     "evidence": {
+      "hue_spread_ref_deg": 2.2474372264343563,
+      "hue_spread_gen_deg": 5.9724993475313735,
+      "colours_read": {
+       "ref": 1,
+       "gen": 1
+      }
+     }
+    },
+    "rows": {
+     "status": "PASS",
+     "evidence": {
+      "ref": 5,
+      "gen": 5,
+      "truth": 5
+     }
+    },
+    "stitches_per_row": {
+     "status": "FAIL",
+     "evidence": {
+      "ref": 5,
+      "gen": 4,
+      "truth": 5
+     }
+    },
+    "stitch_family": {
+     "status": "PASS",
+     "evidence": {
+      "ref": "tall",
+      "gen": "tall",
+      "truth": "tall"
+     }
+    },
+    "construction_cues_loose_ends": {
+     "status": "FAIL",
+     "evidence": {
+      "ref": "top and sides",
+      "gen": "sides"
+     }
+    },
+    "openings": {
+     "status": "PASS",
+     "evidence": {
+      "note": "not applicable: the certified swatch has no openings and the photograph shows none (colour segmentation finds one connected region)"
+     }
+    },
+    "deformation_fold_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "from": "silhouette + structure placement",
+      "iou": 0.5910214294016529,
+      "ncc": -0.011051163861408236
+     }
+    }
+   }
+  },
+  {
+   "kind": "sc",
+   "view": "camera",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/sc_camera_0.png",
+   "output_sha256": "af2f7b5b4c75ecc0ac77ceab7e4d0b0e5a632b0fcb9f8c097da2c4c41b1c7d90",
+   "reference_sha256": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "numeric": {
+    "silhouette_iou": 0.623188829379142,
+    "reference_segmentation_recall": 0.9588942359801435,
+    "aspect_ref": 1.004158004158004,
+    "aspect_gen": 1.0951612903225807,
+    "aspect_drift": 0.09062646096306702,
+    "structure_ncc": 0.021164447076368848,
+    "hue_spread_ref_deg": 2.565494133883624,
+    "hue_spread_gen_deg": 6.442405686264319,
+    "gen_mask_pixels": 259772,
+    "ref_mask_pixels": 184524
+   },
+   "reference_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation2_camera.png",
+    "image_sha256": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE38XPl36opXp0cHnSRSUXsK4zXz",
+    "prompt_tokens": 846,
+    "completion_tokens": 2005,
+    "cost_usd": 0.021107,
+    "raw": "{\n  \"rows\": 3,\n  \"stitches_per_row\": null,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"sides\",\n  \"colours\": 1,\n  \"shape\": \"upright rectangle\",\n  \"notes\": \"Open, airy stitches with pronounced vertical posts and slight curling at the edges.\"\n}",
+    "reading": {
+     "rows": 3,
+     "stitches_per_row": null,
+     "stitch_height": "tall",
+     "loose_ends": "sides",
+     "colours": 1,
+     "shape": "upright rectangle",
+     "notes": "Open, airy stitches with pronounced vertical posts and slight curling at the edges."
+    }
+   },
+   "generated_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/sc_camera_0.png",
+    "image_sha256": "af2f7b5b4c75ecc0ac77ceab7e4d0b0e5a632b0fcb9f8c097da2c4c41b1c7d90",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE3ZaDuhdJrnImKiE8gmFgX7aGvy",
+    "prompt_tokens": 846,
+    "completion_tokens": 1046,
+    "cost_usd": 0.011517,
+    "raw": "{\n  \"rows\": 4,\n  \"stitches_per_row\": 5,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"bottom\",\n  \"colours\": 1,\n  \"shape\": \"irregular rectangle\",\n  \"notes\": \"Open, lacy fabric made of crossed elongated stitches creating a zigzag mesh.\"\n}",
+    "reading": {
+     "rows": 4,
+     "stitches_per_row": 5,
+     "stitch_height": "tall",
+     "loose_ends": "bottom",
+     "colours": 1,
+     "shape": "irregular rectangle",
+     "notes": "Open, lacy fabric made of crossed elongated stitches creating a zigzag mesh."
+    }
+   },
+   "overall": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou": 0.623188829379142,
+      "reference_segmentation_recall": 0.9588942359801435
+     }
+    },
+    "major_proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.004158004158004,
+      "aspect_gen": 1.0951612903225807,
+      "drift": 0.09062646096306702
+     }
+    },
+    "structure_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "ncc": 0.021164447076368848
+     }
+    },
+    "colour_regions": {
+     "status": "PASS",
+     "evidence": {
+      "hue_spread_ref_deg": 2.565494133883624,
+      "hue_spread_gen_deg": 6.442405686264319,
+      "colours_read": {
+       "ref": 1,
+       "gen": 1
+      }
+     }
+    },
+    "rows": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": 3,
+      "gen": 4,
+      "truth": 5,
+      "why": "the reader does not see the truth on the reference render, so it cannot measure the photograph against it"
+     }
+    },
+    "stitches_per_row": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": null,
+      "gen": 5,
+      "truth": 5,
+      "why": "the reader could not determine it on one of the images"
+     }
+    },
+    "stitch_family": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": "tall",
+      "gen": "tall",
+      "truth": "short",
+      "why": "the reader does not see the truth on the reference render, so it cannot measure the photograph against it"
+     }
+    },
+    "construction_cues_loose_ends": {
+     "status": "FAIL",
+     "evidence": {
+      "ref": "sides",
+      "gen": "bottom"
+     }
+    },
+    "openings": {
+     "status": "PASS",
+     "evidence": {
+      "note": "not applicable: the certified swatch has no openings and the photograph shows none (colour segmentation finds one connected region)"
+     }
+    },
+    "deformation_fold_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "from": "silhouette + structure placement",
+      "iou": 0.623188829379142,
+      "ncc": 0.021164447076368848
+     }
+    }
+   }
+  },
+  {
+   "kind": "sc",
+   "view": "oblique",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/sc_oblique_0.png",
+   "output_sha256": "6076995d5a48f47a8e31bc2e304b5b8100f7a1806026c3e00be391468651fc3f",
+   "reference_sha256": "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "numeric": {
+    "silhouette_iou": 0.7584268337285716,
+    "reference_segmentation_recall": 0.9676149070048476,
+    "aspect_ref": 1.248138957816377,
+    "aspect_gen": 1.3009708737864079,
+    "aspect_drift": 0.042328552954120094,
+    "structure_ncc": 0.10765988932021625,
+    "hue_spread_ref_deg": 2.2397277818541053,
+    "hue_spread_gen_deg": 3.072076654860034,
+    "gen_mask_pixels": 154099,
+    "ref_mask_pixels": 143986
+   },
+   "reference_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation2_oblique.png",
+    "image_sha256": "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE3y0zCBCTOfG7XpBU80RZI3Tzx5",
+    "prompt_tokens": 846,
+    "completion_tokens": 984,
+    "cost_usd": 0.010897,
+    "raw": "{\n  \"rows\": 4,\n  \"stitches_per_row\": null,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"none\",\n  \"colours\": 1,\n  \"shape\": \"irregular\",\n  \"notes\": \"Open, loosely worked tall loops with large gaps; the swatch is curved and the edges curl.\"\n}",
+    "reading": {
+     "rows": 4,
+     "stitches_per_row": null,
+     "stitch_height": "tall",
+     "loose_ends": "none",
+     "colours": 1,
+     "shape": "irregular",
+     "notes": "Open, loosely worked tall loops with large gaps; the swatch is curved and the edges curl."
+    }
+   },
+   "generated_reading": {
+    "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/sc_oblique_0.png",
+    "image_sha256": "6076995d5a48f47a8e31bc2e304b5b8100f7a1806026c3e00be391468651fc3f",
+    "model": "gpt-5-2025-08-07",
+    "response_id": "chatcmpl-ESE4FoRYjnEvXKKNasLOxyQO2souA",
+    "prompt_tokens": 846,
+    "completion_tokens": 1369,
+    "cost_usd": 0.014748,
+    "raw": "{\n  \"rows\": 4,\n  \"stitches_per_row\": 5,\n  \"stitch_height\": \"tall\",\n  \"loose_ends\": \"none\",\n  \"colours\": 1,\n  \"shape\": \"irregular\",\n  \"notes\": \"Open tall-loop structure with pronounced ridges makes the small swatch appear ruffled and corrugated.\"\n}",
+    "reading": {
+     "rows": 4,
+     "stitches_per_row": 5,
+     "stitch_height": "tall",
+     "loose_ends": "none",
+     "colours": 1,
+     "shape": "irregular",
+     "notes": "Open tall-loop structure with pronounced ridges makes the small swatch appear ruffled and corrugated."
+    }
+   },
+   "overall": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou": 0.7584268337285716,
+      "reference_segmentation_recall": 0.9676149070048476
+     }
+    },
+    "major_proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.248138957816377,
+      "aspect_gen": 1.3009708737864079,
+      "drift": 0.042328552954120094
+     }
+    },
+    "structure_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "ncc": 0.10765988932021625
+     }
+    },
+    "colour_regions": {
+     "status": "PASS",
+     "evidence": {
+      "hue_spread_ref_deg": 2.2397277818541053,
+      "hue_spread_gen_deg": 3.072076654860034,
+      "colours_read": {
+       "ref": 1,
+       "gen": 1
+      }
+     }
+    },
+    "rows": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": 4,
+      "gen": 4,
+      "truth": 5,
+      "why": "the reader does not see the truth on the reference render, so it cannot measure the photograph against it"
+     }
+    },
+    "stitches_per_row": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": null,
+      "gen": 5,
+      "truth": 5,
+      "why": "the reader could not determine it on one of the images"
+     }
+    },
+    "stitch_family": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "ref": "tall",
+      "gen": "tall",
+      "truth": "short",
+      "why": "the reader does not see the truth on the reference render, so it cannot measure the photograph against it"
+     }
+    },
+    "construction_cues_loose_ends": {
+     "status": "PASS",
+     "evidence": {
+      "ref": "none",
+      "gen": "none"
+     }
+    },
+    "openings": {
+     "status": "PASS",
+     "evidence": {
+      "note": "not applicable: the certified swatch has no openings and the photograph shows none (colour segmentation finds one connected region)"
+     }
+    },
+    "deformation_fold_placement": {
+     "status": "FAIL",
+     "evidence": {
+      "from": "silhouette + structure placement",
+      "iou": 0.7584268337285716,
+      "ncc": 0.10765988932021625
+     }
+    }
+   }
+  }
+ ],
+ "reader_cost_usd": 0.1328
+}
