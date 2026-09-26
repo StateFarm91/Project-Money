@@ -212,7 +212,7 @@ Final evidence: `milestone_d.assess`, 6,400 iterations, the friction model of co
 - `tests/test_milestone_d.py`: new, 15 (statuses closed; judged items UNKNOWN; no PASS with an
   UNKNOWN; criteria carry reasons; derived B on the result; friction lock declared; ladder
   UNMEASURED by default; a supplied result flows through gating).
-- Full suite on the isolated branch: not yet run on this commit. Focused suites on this code: test_drape (wave-6 block) in progress; test_crochet_topology 43/0, test_topology_adversarial 28/0, test_linkage 18/0, test_stitch_identity 29/0, test_render 14/0, test_milestone_d 15/0. The full run is recorded in the next commit, from its own TOTAL PASSING line.
+- **Full suite on the isolated branch (commit c6ad3e5 code): 4,239 passing, 1 suite failing** -- `test_cost_governance_wave2`, two checks. One was this wave's: `milestone_d` wrote its curve file under a `TemporaryDirectory` prefix (`brambleloop-d-`) absent from `health.TEMP_PREFIXES`, invisible to the disk signal -- the guard the 2026-09-25 wave verification recorded, catching the same defect again; the prefix is now registered and the check passes. The other, `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`, **reproduces on the untouched integrated checkout fcb982d** and is date-dependent: its rows are stamped at a frozen NOW of 2026-09-25 while `spend_report.per_agent_today` reads the wall clock, so from 2026-09-26 the frozen spend is not "today" -- the very defect class the file's next test names. Not Visual's, not touched here, recorded for the integrator. A rerun with the prefix registered is recorded in the next commit from its own TOTAL PASSING line.
 
 ## 9. Named gaps
 

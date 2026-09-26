@@ -501,7 +501,11 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # removed with the render, so a leftover one means the render died -- which is exactly
     # the case the disk signal exists to show. A prefix used in `src/` and absent here is
     # invisible to that signal, and a test refuses the combination.
-    "brambleloop-render-")
+    "brambleloop-render-",
+    # `visual.milestone_d`'s plied curve file, written to check the render's geometry and
+    # removed with the check. The registry test caught this one the day it was written --
+    # the guard working as recorded in the 2026-09-25 wave verification.
+    "brambleloop-d-")
 
 
 def disk_facts() -> dict:
