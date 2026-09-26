@@ -373,7 +373,7 @@ still a guess.
 Isolated branch `claude/visual-investigation` (worktree), integrated checkpoint `fcb982d`
 untouched. `visual/milestone_d.py` (new), `visual/sc_swatch.py` (new), `drape.py`,
 `crochet_topology.py`, `stitch_shape.py`, `pbr_scene.py`, `milestones.py`, `app/main.py`
-(one colour), `tests/test_milestone_d.py` (new, 15), `test_drape.py` (144 → 156 written; run in progress at this commit),
+(one colour), `tests/test_milestone_d.py` (new, 15), `test_drape.py` (144 → 157),
 `test_stitch_identity.py` (23 → 29), `test_render.py` (11 → 14). Report:
 `research/VISUAL_MILESTONE_D.md`. **CA$0.00 this wave; nothing deployed, published or
 activated; `BRAMBLELOOP_PHASE=shadow`; no paid API call since the owner's freeze.**
@@ -385,11 +385,11 @@ certified 5x5 (hdc and sc) on a sphere, re-validates it, and derives a plied ren
 configuration. Measured items pass on both swatches: identity, the flat locks, the exact fixed
 point (5.7e-15 mm with every option on), energy descent, contact with the form, **no
 structural drift** (20/20 linked, 25/25 shaped in the carried frame, above the floor), double
-curvature (contact patch 3 columns x 2 rows hdc, 3 x 4 sc), the render's geometry hash
+curvature (contact patch 4 columns x 4 rows hdc, 4 x 5 sc), the render's geometry hash
 unchanged and every ply within the yarn radius of its strand. UNKNOWN, and never counted
 toward a PASS: the seven judged items (folds, lighting, shadows, imperfection, melted yarn,
 synthetic texture, sterility) because no judge ran, and hand irregularity because none was
-applied to the assessed build. Stationarity at 1,600 iterations read 4.7 % (hdc) and 2.5 % (sc) of the whole motion over the last tenth, against the 2 % bar -- UNKNOWN, still moving; the 6,400-iteration evidence runs were in progress at this commit and their result is recorded in the next one.
+applied to the assessed build. Stationarity at 6,400 iterations read 2.3 % (hdc) and 2.1 % (sc) of the whole motion over the last tenth against the 2 % bar -- UNKNOWN, still creeping, the bar not moved, the trace on the result. Under load the certified linkages open by up to 1.9 mm (hdc) and 1.3 mm (sc) while staying linked; reported, since no non-invented limit on a link opening exists (wave 5 §4a).
 
 **Three defects under the inherited failure, each measured before it was fixed.**
 

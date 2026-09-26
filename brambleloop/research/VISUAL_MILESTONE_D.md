@@ -120,22 +120,57 @@ a FAIL anywhere is FAIL.*
 
 ## 5. Measured evidence
 
-**At this commit: the 1,600-iteration assessment (carried frame, support friction of the first form).**
+Final evidence: `milestone_d.assess`, 6,400 iterations, the friction model of commit `4c739b1`, renders included. JSON beside the images in `research/d/out/`.
 
-| item | hdc 5x5 | sc 5x5 |
+### hdc 5x5 — PARTIAL (B = 1.27e-06 N m², 6400 iterations, 264.5 s)
+
+| item | status | measured |
 |---|---|---|
-| status | PARTIAL | PARTIAL |
-| B used (N m²) | 1.27e-6 (42.3x committed) | 1.11e-7 (3.7x) |
-| fixed point, every option on | 5.7e-15 mm | 1.8e-15 mm |
-| stationary (last-tenth change) | 0.047 → UNKNOWN | 0.025 → UNKNOWN |
-| contacts the form | −0.011 mm | −0.005 mm |
-| no structural drift | 20/20 linked, 25/25 shaped, floor met | 20/20, 25/25, floor met |
-| contact patch (columns in a row × rows in a column) | 3 × 2 | 3 × 4 |
-| within-row fraction vs wrap target | 0.018 vs 0.027 | 0.044 vs 0.092 |
-| ply within yarn radius | worst 0.976 of 1.667 mm | 0.651 of 1.111 mm |
-| judged items | 7 UNKNOWN | 7 UNKNOWN |
+| stitch_identity | PASS | kinds built ['hdc'], mismatches [] |
+| certified_flat | PASS | linked 20, shaped 25/25, closest 1.5 mm |
+| bending_rigidity_provenance | PASS | used 1.27e-06; derived (wale) 1.27e-06 = 42.3x committed; curvature-independent to 1.0025 |
+| equilibrium_fixed_point | PASS | rms 5.67e-15 mm |
+| energy_descends | PASS | -6.685e-06 → -4.580e-05 J; rejections 0; stalled False |
+| stationary | UNKNOWN | rms motion 6.69 mm; last-tenth change 0.023; final step 1.81e-03 mm; trace (it: mm) … 5650: 6.48, 5850: 6.54, 6050: 6.59, 6250: 6.65 |
+| contacts_the_form | PASS | closest 0.0000 mm to the keep-out; 36937 corrections; form R = 18.1 mm |
+| no_structural_drift | PASS | linked 20/20, shaped 25/25, closest 1.5 mm (floor 1.5), max strain 8.85e-04, linkage opened 1.918 mm, maxOOP 19.27 mm, lock residual 0.062 mm, frame: certified stitch frame carried by each stitch's own rigid motion |
+| double_curvature | PASS | contact patch 10 stitches, 4 columns in one row, 4 rows in one column; within-row fraction 0.0145 vs wrap target 0.0268 (rigid rows: 0); articulation 0.52° → 10.67° |
+| hand_irregularity | UNKNOWN | — |
+| render_consumes_validated_geometry | PASS | sha256 c39c8b669ed1…, unchanged True; worst ply offset 0.976 mm of yarn radius 1.667; 54 strands, 216 plies |
+| images_rendered | PASS | flat_camera: 216 plies, 3456 fibres; flat_oblique: 216 plies, 3456 fibres; draped_camera: 216 plies, 3456 fibres; draped_oblique: 216 plies, 3456 fibres |
+| fabric_folds_naturally | UNKNOWN | — |
+| lighting_is_realistic | UNKNOWN | — |
+| shadows_are_coherent | UNKNOWN | — |
+| has_ordinary_photographic_imperfection | UNKNOWN | — |
+| melted_yarn | UNKNOWN | — |
+| synthetic_stitch_texture | UNKNOWN | — |
+| catalogue_perfect_sterility | UNKNOWN | — |
 
-The 6,400-iteration runs with the final friction model (contact band with memory, and the lock inside the stitch) were in progress when this was committed; their tables replace this one in the next commit.
+### sc 5x5 — PARTIAL (B = 1.11e-07 N m², 6400 iterations, 217.9 s)
+
+| item | status | measured |
+|---|---|---|
+| stitch_identity | PASS | kinds built ['sc'], mismatches [] |
+| certified_flat | PASS | linked 20, shaped 25/25, closest 1.3695 mm |
+| bending_rigidity_provenance | PASS | used 1.11e-07; derived (wale) 1.11e-07 = 3.7x committed; curvature-independent to 1.0005 |
+| equilibrium_fixed_point | PASS | rms 1.79e-15 mm |
+| energy_descends | PASS | -1.706e-06 → -9.527e-06 J; rejections 0; stalled False |
+| stationary | UNKNOWN | rms motion 3.15 mm; last-tenth change 0.021; final step 1.54e-03 mm; trace (it: mm) … 5650: 3.06, 5850: 3.08, 6050: 3.11, 6250: 3.13 |
+| contacts_the_form | PASS | closest 0.0000 mm to the keep-out; 46765 corrections; form R = 12.7 mm |
+| no_structural_drift | PASS | linked 20/20, shaped 25/25, closest 1.3645 mm (floor 1.0), max strain 1.36e-03, linkage opened 1.304 mm, maxOOP 9.14 mm, lock residual 0.011 mm, frame: certified stitch frame carried by each stitch's own rigid motion |
+| double_curvature | PASS | contact patch 14 stitches, 4 columns in one row, 5 rows in one column; within-row fraction 0.0738 vs wrap target 0.0919 (rigid rows: 0); articulation 0.30° → 10.76° |
+| hand_irregularity | UNKNOWN | — |
+| render_consumes_validated_geometry | PASS | sha256 73e4a1a05b95…, unchanged True; worst ply offset 0.651 mm of yarn radius 1.111; 21 strands, 84 plies |
+| images_rendered | PASS | flat_camera: 84 plies, 1344 fibres; flat_oblique: 84 plies, 1344 fibres; draped_camera: 84 plies, 1344 fibres; draped_oblique: 84 plies, 1344 fibres |
+| fabric_folds_naturally | UNKNOWN | — |
+| lighting_is_realistic | UNKNOWN | — |
+| shadows_are_coherent | UNKNOWN | — |
+| has_ordinary_photographic_imperfection | UNKNOWN | — |
+| melted_yarn | UNKNOWN | — |
+| synthetic_stitch_texture | UNKNOWN | — |
+| catalogue_perfect_sterility | UNKNOWN | — |
+
+**Reading the two tables.** Both swatches keep every Product Truth lock through a real drape (hdc 19.3 mm, sc 9.1 mm of out-of-plane motion) and meet the form over a two-way patch (4×4 and 4×5 stitches). Stationarity missed the 2 % bar by a little on both (2.3 %, 2.1 %) with the motion still creeping ~0.05 mm per 200 iterations at the end; it is UNKNOWN, the bar was not moved, and the trace is on the result. The certified linkages open by up to 1.9 mm (hdc) and 1.3 mm (sc) under load while staying linked — reported, not judged, because no non-invented limit on a link opening exists (wave 5 §4a). The stress the friction lock bore never exceeded 0.06 mm (hdc) / 0.011 mm (sc). Within-row relief sits at 54 % (hdc) and 80 % (sc) of what fully wrapping the form would demand; a stiff cloth lifting off a small sphere is expected to sit below 100 %, which is why the bar is the contact patch and not this ratio.
 
 ## 6. Before / after
 
@@ -158,15 +193,15 @@ The 6,400-iteration runs with the final friction model (contact band with memory
   order-of-magnitude argument, not by a measured friction coefficient for this yarn.
 - The derived bending rigidity is derived by the committed procedure on a 5×5; wave 3's
   finding that the energy's bending length grows with swatch size is not resolved here.
-- Stationarity: see §5 for whether the 2 % bar was met; where it was not, the item is UNKNOWN
-  and the trace is on the result.
+- Stationarity: the 2 % bar was missed by a little on both swatches (2.3 %, 2.1 %) at 6,400
+  iterations; the item is UNKNOWN and the trace is on the result.
 - Nothing about `twin.calibrated`, which stays False. No physical calibration exists.
 - The ladder: A PASS, B PARTIAL, C PARTIAL are unchanged; D's PARTIAL rests on them as they
   are, which `_ladder` reports.
 
 ## 8. Tests
 
-- `tests/test_drape.py`: 144 → 156 (run in progress at this commit) (wave-6 block: drift pinned as linear; momentum,
+- `tests/test_drape.py`: 144 → 157 (wave-6 block: drift pinned as linear; momentum,
   step multiplier, trace; the sphere; the fixed point with every option on; the polish meets
   the floor; shape matching; rigid stitches through a real drape re-validate in the carried
   frame; a fabric slides on a frictionless slope and stays with friction).

@@ -73,7 +73,7 @@
    "status": "PASS",
    "measured": {
     "start_J": -6.685370859587497e-06,
-    "final_J": -4.575232951748111e-05,
+    "final_J": -4.580086006331083e-05,
     "energy_rejections": 0,
     "stalled": false
    },
@@ -84,9 +84,9 @@
    "item": "stationary",
    "status": "UNKNOWN",
    "measured": {
-    "rms_motion_mm": 6.627631347674384,
-    "last_tenth_change_fraction": 0.026638144601432597,
-    "final_step_mm": 0.001577221802902334,
+    "rms_motion_mm": 6.6897719450495154,
+    "last_tenth_change_fraction": 0.023082148157520428,
+    "final_step_mm": 0.0018138103501115015,
     "iterations": 6400,
     "trace": [
      [
@@ -96,158 +96,158 @@
      ],
      [
       250,
-      0.6889852427143853,
-      0.006218288662740454
+      0.7630305128808008,
+      0.006319309966143518
      ],
      [
       450,
-      1.1947448845108113,
-      0.0058422264967595144
+      1.3727029456469617,
+      0.0065324423293886
      ],
      [
       650,
-      1.6881689246476017,
-      0.005683639658300401
+      1.829121532278374,
+      0.00629455065777475
      ],
      [
       850,
-      2.090235425412476,
-      0.006031328358105395
+      2.225732078791302,
+      0.006114837652217192
      ],
      [
       1050,
-      2.4652617834367723,
-      0.005760543597434732
+      2.592456392238863,
+      0.006254142224945018
      ],
      [
       1250,
-      2.813486862937418,
-      0.005663782336343097
+      2.955863734991178,
+      0.006151295011401353
      ],
      [
       1450,
-      3.1191786005695965,
-      0.006875431458803113
+      3.295907172425085,
+      0.005583550079785556
      ],
      [
       1650,
-      3.402435256623348,
-      0.005993996233990239
+      3.5682325716223167,
+      0.005901797162985559
      ],
      [
       1850,
-      3.678881335431886,
-      0.005793964276275456
+      3.8128971190744534,
+      0.004902807357876947
      ],
      [
       2050,
-      3.9365612063598614,
-      0.0058906969734606185
+      4.052961279140891,
+      0.0050415268916448545
      ],
      [
       2250,
-      4.187592080267354,
-      0.0049530205810977895
+      4.270380556502877,
+      0.004649357641065791
      ],
      [
       2450,
-      4.415075789583973,
-      0.004477667668218473
+      4.4800954356073515,
+      0.00497896567843193
      ],
      [
       2650,
-      4.623554141057848,
-      0.004578062618420305
+      4.677644002903499,
+      0.004579786191419111
      ],
      [
       2850,
-      4.782359031693119,
-      0.003802975555013914
+      4.859948833892751,
+      0.004043584339367652
      ],
      [
       3050,
-      4.924806092460795,
-      0.003662376060625657
+      5.0269270020298125,
+      0.004032955701363336
      ],
      [
       3250,
-      5.065960759931139,
-      0.004449447963891162
+      5.184230690498574,
+      0.004071891620121582
      ],
      [
       3450,
-      5.204069749752692,
-      0.004131432690458378
+      5.329061846813809,
+      0.0037292404300239
      ],
      [
       3650,
-      5.350718400591366,
-      0.004377097473666375
+      5.471533618185705,
+      0.0037034259031857044
      ],
      [
       3850,
-      5.496450811419902,
-      0.004453935105276934
+      5.619765546280266,
+      0.0037972525001886493
      ],
      [
       4050,
-      5.64165740753646,
-      0.003851223684198827
+      5.766920411414368,
+      0.003880115562883616
      ],
      [
       4250,
-      5.772061798153441,
-      0.0038400406178143894
+      5.907446892244153,
+      0.003597670200009526
      ],
      [
       4450,
-      5.89763355062764,
-      0.002039134943628667
+      6.038029343507615,
+      0.00393784105904064
      ],
      [
       4650,
-      5.967352011203897,
-      0.001889713657286415
+      6.1325276165354685,
+      0.002076529790334094
      ],
      [
       4850,
-      6.054093763932042,
-      0.00317112587021578
+      6.208233706247795,
+      0.002482943329775051
      ],
      [
       5050,
-      6.142376646671123,
-      0.002409927739790046
+      6.281241156415053,
+      0.0022759237096988427
      ],
      [
       5250,
-      6.23389110694261,
-      0.0019822568663675605
+      6.349583834018386,
+      0.0022140258881412646
      ],
      [
       5450,
-      6.306895891862006,
-      0.0022737405326936216
+      6.4127159894226455,
+      0.002160362068595258
      ],
      [
       5650,
-      6.380526795441695,
-      0.002146457984999238
+      6.4750815939854265,
+      0.002096462927039241
      ],
      [
       5850,
-      6.451083545470047,
-      0.0020051212462465946
+      6.535357637873859,
+      0.0019335737095833928
      ],
      [
       6050,
-      6.516688400188277,
-      0.002084764551581312
+      6.591422561842237,
+      0.001854143938549799
      ],
      [
       6250,
-      6.582227388520672,
-      0.0019926396034584703
+      6.646820339862441,
+      0.0017927758533059516
      ]
     ]
    },
@@ -259,7 +259,7 @@
    "status": "PASS",
    "measured": {
     "closest_mm_to_keep_out": 0.0,
-    "support_corrections": 29719,
+    "support_corrections": 36937,
     "form": [
      17.23560857268508,
      24.99105137425396,
@@ -284,11 +284,11 @@
     "frame": "certified stitch frame carried by each stitch's own rigid motion",
     "same_stitches_kinds_and_targets": true,
     "morphology_held_by": "friction lock (rigid_stitches): the stitch's internal shape is an input here, not an outcome; linkage, floor and clearance are outcomes",
-    "shape_residual_max_mm": 0.16452019439388332,
-    "shape_residual_final_mm": 0.08489044994117836,
-    "max_strain": 0.0027595429108412395,
-    "linkage_max_extension_mm": 1.8362519102921442,
-    "max_out_of_plane_mm": 18.810905491853244
+    "shape_residual_max_mm": 0.06184692573782547,
+    "shape_residual_final_mm": 0.06184692573782547,
+    "max_strain": 0.0008851839374264259,
+    "linkage_max_extension_mm": 1.918190622048923,
+    "max_out_of_plane_mm": 19.27222294394827
    },
    "requirement": "`validate` passes on the draped fabric exactly as it did on the flat one: every stitch linked, shaped as ordered, no strand under the compression floor",
    "standard": null
@@ -298,9 +298,9 @@
    "status": "PASS",
    "measured": {
     "fabric": {
-     "total_rms_mm": 6.0902184331073155,
-     "within_row_rms_mm": 0.7852162859559926,
-     "within_row_fraction": 0.01662313218635484
+     "total_rms_mm": 6.129785559933229,
+     "within_row_rms_mm": 0.7391418872193251,
+     "within_row_fraction": 0.01454002206152206
     },
     "wrapped_target": {
      "total_rms_mm": 18.446587038224397,
@@ -308,7 +308,7 @@
      "within_row_fraction": 0.02675125585394891
     },
     "rigid_row_null": 0.0,
-    "ratio_to_target": 0.6213963290961161,
+    "ratio_to_target": 0.5435267092096434,
     "touching": [
      [
       1,
@@ -355,7 +355,7 @@
     "most_columns_in_one_row": 4,
     "most_rows_in_one_column": 4,
     "articulation_flat_rms_deg": 0.5185424110941472,
-    "articulation_draped_rms_deg": 11.222571015146885
+    "articulation_draped_rms_deg": 10.667733089855592
    },
    "requirement": "the fabric meets the form over a patch spanning at least two columns in one row and two rows in one column, and stitches articulate more than they did flat: rows are not rigid bars",
    "standard": "fabric_folds_naturally / crochet_drape_is_physically_plausible"
@@ -373,9 +373,9 @@
    "item": "render_consumes_validated_geometry",
    "status": "PASS",
    "measured": {
-    "geometry_sha256": "a05dd8874c1faef5639f8b93eff93b5d66426175cefc55651ff0b77c2a3b3c80",
+    "geometry_sha256": "c39c8b669ed167af6f0d209460d0ab1a4bea6d646c5eca85200a63f81997e9e0",
     "unchanged_by_render": true,
-    "worst_ply_offset_mm": 0.9763181698259827,
+    "worst_ply_offset_mm": 0.9763177428445206,
     "yarn_radius_mm": 1.6666666666666665,
     "strands": 54,
     "plies": 216,
@@ -422,7 +422,7 @@
     },
     "draped_camera": {
      "path": "research/d/out/hdc_draped_plied_camera.png",
-     "geometry_sha256": "a05dd8874c1faef5639f8b93eff93b5d66426175cefc55651ff0b77c2a3b3c80",
+     "geometry_sha256": "c39c8b669ed167af6f0d209460d0ab1a4bea6d646c5eca85200a63f81997e9e0",
      "plies": 216,
      "fibres": 3456,
      "not_reproduced": [
@@ -434,7 +434,7 @@
     },
     "draped_oblique": {
      "path": "research/d/out/hdc_draped_plied_oblique.png",
-     "geometry_sha256": "a05dd8874c1faef5639f8b93eff93b5d66426175cefc55651ff0b77c2a3b3c80",
+     "geometry_sha256": "c39c8b669ed167af6f0d209460d0ab1a4bea6d646c5eca85200a63f81997e9e0",
      "plies": 216,
      "fibres": 3456,
      "not_reproduced": [
@@ -554,6 +554,6 @@
    "why": "DERIVED: every ply vertex lies within the yarn radius of its centreline by construction; 5 per cent covers the Catmull-Rom resample of the centreline"
   }
  },
- "seconds": 263.4,
+ "seconds": 264.5,
  "rule": "PASS only when every item passes; an UNKNOWN never counts toward a PASS; a FAIL anywhere is FAIL"
 }
