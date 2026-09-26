@@ -1,0 +1,170 @@
+{
+ "slug": "benchmark-cardigan-with-pockets",
+ "size": "S",
+ "source": "purchased pattern PDF, text only, page-cited",
+ "facts": {
+  "gauge_st_per_10cm": 14.5,
+  "gauge_rows_per_10cm": 9.5,
+  "hook_mm": 6.0,
+  "stitch_pattern": "alternating BLO/FLO hdc ('crumpled waffle'), hdc, worked flat",
+  "yarn": {
+   "line": "Lionbrand Color Theory",
+   "weight": "worsted/aran (4)",
+   "fibre": "100% acrylic",
+   "colourway_named": "Stonewash",
+   "colour_rgb": null
+  },
+  "listed_cm": {
+   "bust_to_fit": 81,
+   "back_width": 53,
+   "armhole": 15,
+   "sleeve_length": 39,
+   "length": 65
+  },
+  "body": {
+   "foundation_ch": 95,
+   "sts": 94,
+   "front_rows": 20,
+   "back_rows": 50,
+   "final_row": 1,
+   "hem_rib_sts": 10,
+   "sleeve_opening_ch": 29,
+   "construction": "one piece, side to side: front, back (with two chained sleeve openings), front; foundation runs top-to-bottom"
+  },
+  "sleeve": {
+   "foundation_ch": 63,
+   "sts": 62,
+   "rows": 30,
+   "cuff_rib_sts": 9,
+   "cuff_stitch": "slst BLO",
+   "construction": "side to side, folded lengthways, seamed"
+  },
+  "neckband": {
+   "foundation_ch": 8,
+   "sts": 7,
+   "rib": "BLO hdc 6 + hdc 1",
+   "runs": "entire neckline: up one front edge, across back neck, down the other"
+  },
+  "pocket": {
+   "make": 2,
+   "optional": true,
+   "foundation_ch": 25,
+   "sts": 24,
+   "rows": 13,
+   "top_edge": "slst edging on a row-end edge; rows therefore run vertically",
+   "placement": "UNKNOWN: 'try on to double-check pocket placement, adjust'"
+  },
+  "closure": "none; open front, no buttons, no neck shaping",
+  "assembly": [
+   "fronts on back, whip stitch shoulder seams",
+   "sleeves to armholes",
+   "neckband pinned and whip stitched",
+   "pockets whip stitched to front panel only",
+   "steam block"
+  ]
+ },
+ "derived_cm": {
+  "body_length_cm": 64.8,
+  "front_panel_width_cm": 21.1,
+  "back_width_cm": 52.6,
+  "body_total_width_cm": 95.8,
+  "hem_rib_height_cm": 6.9,
+  "sleeve_opening_depth_cm": 20.0,
+  "sleeve_length_cm": 42.8,
+  "sleeve_circumference_cm": 31.6,
+  "armhole_flat_cm": 15.8,
+  "cuff_rib_length_cm": 6.2,
+  "neckband_width_cm": 4.8,
+  "neckband_length_cm": 182.3,
+  "pocket_h_cm": 16.6,
+  "pocket_w_cm": 13.7
+ },
+ "spec_check_derived_vs_listed": {
+  "length": {
+   "derived": 64.8,
+   "listed": 65,
+   "diff_cm": -0.2,
+   "diff_pct": -0.3
+  },
+  "back_width": {
+   "derived": 52.6,
+   "listed": 53,
+   "diff_cm": -0.4,
+   "diff_pct": -0.8
+  },
+  "armhole": {
+   "derived": 15.8,
+   "listed": 15,
+   "diff_cm": 0.8,
+   "diff_pct": 5.3
+  },
+  "sleeve_length": {
+   "derived": 42.8,
+   "listed": 39,
+   "diff_cm": 3.8,
+   "diff_pct": 9.7
+  }
+ },
+ "twin": {
+  "body": {
+   "w": 64.8,
+   "h": 95.8,
+   "calibrated": false,
+   "yarn_m": {
+    "main": 482.8
+   }
+  },
+  "sleeve": {
+   "w": 42.8,
+   "h": 31.6,
+   "calibrated": false,
+   "yarn_m": {
+    "main": 199.7
+   }
+  },
+  "pocket": {
+   "w": 16.6,
+   "h": 13.7,
+   "calibrated": false,
+   "yarn_m": {
+    "main": 35.7
+   }
+  },
+  "neckband": {
+   "w": 4.8,
+   "h": 182.1,
+   "calibrated": false,
+   "yarn_m": {
+    "main": 71.1
+   }
+  }
+ },
+ "compile_errors": [],
+ "stitch_family": "hdc (BLO/FLO alternating)",
+ "texture_direction_body": "rows VERTICAL (side-to-side construction)",
+ "texture_direction_sleeve": "rows ALONG the sleeve length",
+ "colour_bands": "none: single colour",
+ "colour_rgb": null,
+ "colour_note": "colourway 'Stonewash' named on p3; RGB not derivable from text -> UNKNOWN; reference rendered neutral",
+ "construction_cues": [
+  "open_front_no_closure",
+  "no_neck_shaping",
+  "drop_shoulder",
+  "integral_hem_rib",
+  "cuff_rib",
+  "neckband_full_front_edge_and_back_neck",
+  "two_patch_pockets_on_fronts",
+  "vertical_texture_rows"
+ ],
+ "openings": [
+  "front_opening_full_length",
+  "round_neck_unshaped"
+ ],
+ "ratios": {
+  "length_over_back_width": 1.232,
+  "sleeve_length_over_body_length": 0.66,
+  "pocket_h_over_body_length": 0.256,
+  "front_width_over_back_width": 0.401
+ },
+ "twin_calibrated": false
+}
