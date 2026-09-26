@@ -34,4 +34,17 @@ if parked:
     check("an opened gate returns its requirement to OPEN rather than leaving it parked", row["state"] == C.OPEN and "opened" in row["why"])
 check("the closeout bar is open == 0 and is reported as a boolean, not a percentage", m["closed_out"] == (m["counts"][C.OPEN] == 0))
 print("     matrix:", m["counts"], "closed_out:", m["closed_out"])
+
+# the route reports the same matrix, with gates checked live against the database
+import tempfile as _tf
+_TMP = _tf.TemporaryDirectory()
+os.environ["BRAMBLELOOP_DATABASE_URL"] = f"sqlite:///{_TMP.name}/app.sqlite"
+os.environ.setdefault("BRAMBLELOOP_PHASE", "shadow")
+from fastapi.testclient import TestClient  # noqa: E402
+from brambleloop.app import main as _main  # noqa: E402
+with TestClient(_main.app) as _c:
+    _r = _c.get("/api/closure")
+    _j = _r.json() if _r.status_code == 200 else {}
+check("/api/closure serves the matrix with gates checked live", _r.status_code == 200 and _j.get("gates_checked_live") is True and sum(_j.get("counts", {}).values()) == 320, str(_r.status_code))
+check("/api/closure agrees with the module on every state count except gate-opened rows", set(_j.get("counts", {})) == set(m["counts"]))
 print(f"\n  {PASSED} passing, {FAILED} failing"); sys.exit(1 if FAILED else 0)

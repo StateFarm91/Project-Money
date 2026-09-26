@@ -3568,6 +3568,24 @@ def api_build2() -> dict:
     }
 
 
+@app.get("/api/closure")
+def api_closure() -> dict:
+    """The Build 2 closure matrix: every requirement in one of four final states, or OPEN.
+
+    Computed from evidence rather than the registry status (`build2/closure.py`): a covered
+    row is COMPLETE+PROVEN only when a module it names exists and is tested, and a parked row
+    carries the kind of its gate -- owner, data or external -- checked live against this
+    database, so a gate that has opened returns its requirements to OPEN on this page.
+    """
+    from ..build2 import closure
+
+    out = closure.matrix(db)
+    out["rows"] = [{k: r[k] for k in ("id", "title", "status", "state", "gate", "why")}
+                   for r in out["rows"]]
+    out["open"] = [{k: r[k] for k in ("id", "title", "status", "why")} for r in out["open"]]
+    return out
+
+
 @app.get("/api/build2/maturity")
 def api_build2_maturity(requirement: int | None = None) -> dict:
     """How far the covered requirements actually got, rung by rung.
