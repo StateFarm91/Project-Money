@@ -15,7 +15,7 @@
      174.82106018066406
     ],
     "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation3_camera.png",
-    "reference_rgb_sha256": null
+    "reference_rgb_sha256": "93c9fd25af752562646b04464553c6a0b83eacf65bf5fdc59ffd4d54c1b7617a"
    },
    "oblique": {
     "mask_pixels": 344783,
@@ -30,7 +30,7 @@
      176.44845581054688
     ],
     "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation3_oblique.png",
-    "reference_rgb_sha256": null
+    "reference_rgb_sha256": "986dbe48c2b94e8535e32a823c15a1ef46912f18af61256aca86027221dc020b"
    }
   }
  },
@@ -50,7 +50,7 @@
      163.45761108398438
     ],
     "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation3_camera.png",
-    "reference_rgb_sha256": null
+    "reference_rgb_sha256": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db"
    },
    "oblique": {
     "mask_pixels": 143986,
@@ -65,7 +65,7 @@
      168.10179138183594
     ],
     "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation3_oblique.png",
-    "reference_rgb_sha256": null
+    "reference_rgb_sha256": "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a"
    }
   }
  }

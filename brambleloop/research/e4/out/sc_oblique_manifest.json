@@ -3228,7 +3228,21 @@
   }
  },
  "self_validation": {
-  "valid": null,
-  "why": "no presentation3 render yet"
+  "valid": true,
+  "testable_stitches": 8,
+  "of": 25,
+  "projected_points_in_silhouette": 1.0,
+  "per_stitch_reference_iou": {
+   "r1p3": 0.9280828365233762,
+   "r1p4": 0.9604740775338627,
+   "r2p3": 0.9430606888424661,
+   "r3p4": 0.9716882574174676,
+   "r4p4": 0.9741162835619085,
+   "r4p3": 0.9407222562267527,
+   "r5p0": 0.9882732336558194,
+   "r5p4": 0.9780624587640202
+  },
+  "worst": 0.9280828365233762,
+  "reference_rgb_sha256": "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a"
  }
 }
