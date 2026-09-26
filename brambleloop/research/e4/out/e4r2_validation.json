@@ -3,8 +3,8 @@
   {
    "kind": "sc",
    "view": "camera",
-   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_camera_e4.png",
-   "output_sha256": "46eebcecd2c19e123c358f7da9f7c76e8c48035f65e22c972fb73db43d0eaf40",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_camera_e4r2.png",
+   "output_sha256": "40bf8904cc0c4085bddecf998089c93f94af73f3e08cc48c1ab42ecae3651fce",
    "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
    "conditioning_sha256": [
     "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
@@ -16,18 +16,18 @@
     "tested": 22,
     "untestable": 3,
     "failed_stitches": [],
-    "mean_iou": 0.8985454545454544,
+    "mean_iou": 0.9223636363636363,
     "alignment": {
-     "scale": 1.0102461804593688,
+     "scale": 0.9461983064083849,
      "shift_px": [
-      14.087934321558748,
-      -0.3073276535728269
+      18.91965502494861,
+      21.160981359214304
      ]
     },
     "per_stitch": {
      "r1p0": {
       "status": "PASS",
-      "iou": 0.905,
+      "iou": 0.82,
       "reference_iou": 0.924,
       "row": 1,
       "position": 0,
@@ -35,7 +35,7 @@
      },
      "r1p1": {
       "status": "PASS",
-      "iou": 0.889,
+      "iou": 0.852,
       "reference_iou": 0.903,
       "row": 1,
       "position": 1,
@@ -43,7 +43,7 @@
      },
      "r1p2": {
       "status": "PASS",
-      "iou": 0.865,
+      "iou": 0.868,
       "reference_iou": 0.903,
       "row": 1,
       "position": 2,
@@ -51,7 +51,7 @@
      },
      "r1p3": {
       "status": "PASS",
-      "iou": 0.808,
+      "iou": 0.821,
       "reference_iou": 0.902,
       "row": 1,
       "position": 3,
@@ -59,7 +59,7 @@
      },
      "r1p4": {
       "status": "PASS",
-      "iou": 0.849,
+      "iou": 0.873,
       "reference_iou": 0.943,
       "row": 1,
       "position": 4,
@@ -67,7 +67,7 @@
      },
      "r2p4": {
       "status": "PASS",
-      "iou": 0.862,
+      "iou": 0.96,
       "reference_iou": 0.956,
       "row": 2,
       "position": 4,
@@ -75,7 +75,7 @@
      },
      "r2p3": {
       "status": "PASS",
-      "iou": 0.875,
+      "iou": 0.964,
       "reference_iou": 0.924,
       "row": 2,
       "position": 3,
@@ -83,7 +83,7 @@
      },
      "r2p2": {
       "status": "PASS",
-      "iou": 0.932,
+      "iou": 0.974,
       "reference_iou": 0.92,
       "row": 2,
       "position": 2,
@@ -91,7 +91,7 @@
      },
      "r2p1": {
       "status": "PASS",
-      "iou": 0.95,
+      "iou": 0.968,
       "reference_iou": 0.918,
       "row": 2,
       "position": 1,
@@ -99,7 +99,7 @@
      },
      "r2p0": {
       "status": "PASS",
-      "iou": 0.944,
+      "iou": 0.902,
       "reference_iou": 0.948,
       "row": 2,
       "position": 0,
@@ -107,7 +107,7 @@
      },
      "r3p0": {
       "status": "PASS",
-      "iou": 0.93,
+      "iou": 0.929,
       "reference_iou": 0.97,
       "row": 3,
       "position": 0,
@@ -120,7 +120,7 @@
      },
      "r3p2": {
       "status": "PASS",
-      "iou": 0.944,
+      "iou": 0.966,
       "reference_iou": 0.959,
       "row": 3,
       "position": 2,
@@ -128,7 +128,7 @@
      },
      "r3p3": {
       "status": "PASS",
-      "iou": 0.905,
+      "iou": 0.975,
       "reference_iou": 0.962,
       "row": 3,
       "position": 3,
@@ -136,7 +136,7 @@
      },
      "r3p4": {
       "status": "PASS",
-      "iou": 0.865,
+      "iou": 0.944,
       "reference_iou": 0.969,
       "row": 3,
       "position": 4,
@@ -149,7 +149,7 @@
      },
      "r4p3": {
       "status": "PASS",
-      "iou": 0.871,
+      "iou": 0.958,
       "reference_iou": 0.927,
       "row": 4,
       "position": 3,
@@ -157,7 +157,7 @@
      },
      "r4p2": {
       "status": "PASS",
-      "iou": 0.912,
+      "iou": 0.943,
       "reference_iou": 0.924,
       "row": 4,
       "position": 2,
@@ -165,7 +165,7 @@
      },
      "r4p1": {
       "status": "PASS",
-      "iou": 0.933,
+      "iou": 0.945,
       "reference_iou": 0.949,
       "row": 4,
       "position": 1,
@@ -173,7 +173,7 @@
      },
      "r4p0": {
       "status": "PASS",
-      "iou": 0.919,
+      "iou": 0.922,
       "reference_iou": 0.967,
       "row": 4,
       "position": 0,
@@ -181,7 +181,7 @@
      },
      "r5p0": {
       "status": "PASS",
-      "iou": 0.942,
+      "iou": 0.926,
       "reference_iou": 0.973,
       "row": 5,
       "position": 0,
@@ -189,7 +189,7 @@
      },
      "r5p1": {
       "status": "PASS",
-      "iou": 0.918,
+      "iou": 0.941,
       "reference_iou": 0.968,
       "row": 5,
       "position": 1,
@@ -197,7 +197,7 @@
      },
      "r5p2": {
       "status": "PASS",
-      "iou": 0.88,
+      "iou": 0.916,
       "reference_iou": 0.933,
       "row": 5,
       "position": 2,
@@ -205,7 +205,7 @@
      },
      "r5p3": {
       "status": "PASS",
-      "iou": 0.87,
+      "iou": 0.925,
       "reference_iou": 0.931,
       "row": 5,
       "position": 3,
@@ -225,12 +225,12 @@
      "silhouette": {
       "status": "PASS",
       "evidence": {
-       "iou_aligned": 0.8902396540948165,
+       "iou_aligned": 0.9106865486175831,
        "alignment": {
-        "scale": 1.0102461804593688,
+        "scale": 0.9461983064083849,
         "shift_px": [
-         14.087934321558748,
-         -0.3073276535728269
+         18.91965502494861,
+         21.160981359214304
         ]
        }
       }
@@ -239,25 +239,25 @@
       "status": "PASS",
       "evidence": {
        "aspect_ref": 1.004158004158004,
-       "aspect_gen": 0.9624060150375939,
-       "drift": 0.04157910303709579
+       "aspect_gen": 0.9181818181818182,
+       "drift": 0.08562017692452462
       }
      },
      "colour_regions": {
       "status": "PASS",
       "evidence": {
-       "hue_spread_gen_deg": 7.4482782832152115
+       "hue_spread_gen_deg": 5.990962272687241
       }
      },
      "row_placement": {
       "status": "PASS",
       "evidence": {
        "per_row_iou": {
-        "1": 0.866,
-        "2": 0.907,
-        "3": 0.909,
-        "4": 0.905,
-        "5": 0.898
+        "1": 0.85,
+        "2": 0.942,
+        "3": 0.943,
+        "4": 0.946,
+        "5": 0.926
        },
        "bar": 0.72
       }
@@ -265,29 +265,29 @@
      "structure_placement": {
       "status": "PASS",
       "evidence": {
-       "ncc_aligned": 0.4708337123123166
+       "ncc_aligned": 0.43702543959026363
       }
      },
      "construction_cues": {
       "status": "PASS",
       "evidence": {
        "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
-       "iou": 0.8902396540948165,
-       "ncc": 0.4708337123123166
+       "iou": 0.9106865486175831,
+       "ncc": 0.43702543959026363
       }
      },
      "macro_deformation": {
       "status": "PASS",
       "evidence": {
-       "iou": 0.8902396540948165,
-       "ncc": 0.4708337123123166
+       "iou": 0.9106865486175831,
+       "ncc": 0.43702543959026363
       }
      },
      "handedness": {
       "status": "PASS",
       "evidence": {
-       "ncc_certified": 0.4708337123123166,
-       "ncc_mirrored": 0.056259480766276855,
+       "ncc_certified": 0.43702543959026363,
+       "ncc_mirrored": 0.08840226617552126,
        "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
       }
      }
@@ -296,22 +296,22 @@
    "structural": "PASS",
    "judge_reused": true,
    "judge": {
-    "fabric_folds_naturally": "PASS",
+    "fabric_folds_naturally": "UNKNOWN",
     "lighting_is_realistic": "PASS",
     "shadows_are_coherent": "PASS",
     "has_ordinary_photographic_imperfection": "PASS",
-    "melted_yarn": "PASS",
-    "synthetic_stitch_texture": "PASS",
+    "melted_yarn": "FAIL",
+    "synthetic_stitch_texture": "FAIL",
     "catalogue_perfect_sterility": "PASS"
    },
-   "judge_notes": "",
-   "judge_response_id": "chatcmpl-ESEfOjAjMBHtIeVV7dTCKbtFp1cPj"
+   "judge_notes": "Yarn surface looks plastic with identical stripe/dot pattern and no fiber fuzz. Stitches repeat too perfectly and the swatch holds an unusually stiff shape.",
+   "judge_response_id": "chatcmpl-ESEkSNg40t0oaOjHSXjb6I67Cua1i"
   },
   {
    "kind": "sc",
    "view": "oblique",
-   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_oblique_e4.png",
-   "output_sha256": "6b2a440b6fad4d813f1fec1455a0e06144431ce8ebcc1ab6d2288dca17888c46",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_oblique_e4r2.png",
+   "output_sha256": "56d751daac3357e3a16dc5fad1fa70d47ebd56813d7e4f348ee33b5623cd396b",
    "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
    "conditioning_sha256": [
     "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
@@ -323,12 +323,12 @@
     "tested": 8,
     "untestable": 17,
     "failed_stitches": [],
-    "mean_iou": 0.886875,
+    "mean_iou": 0.913125,
     "alignment": {
-     "scale": 0.8980130306823558,
+     "scale": 0.9348987025295591,
      "shift_px": [
-      33.514255013540605,
-      57.07722042387104
+      28.497048331012763,
+      1.3501103503798504
      ]
     },
     "per_stitch": {
@@ -349,7 +349,7 @@
      },
      "r1p3": {
       "status": "PASS",
-      "iou": 0.836,
+      "iou": 0.903,
       "reference_iou": 0.928,
       "row": 1,
       "position": 3,
@@ -357,7 +357,7 @@
      },
      "r1p4": {
       "status": "PASS",
-      "iou": 0.707,
+      "iou": 0.821,
       "reference_iou": 0.96,
       "row": 1,
       "position": 4,
@@ -370,7 +370,7 @@
      },
      "r2p3": {
       "status": "PASS",
-      "iou": 0.979,
+      "iou": 0.957,
       "reference_iou": 0.943,
       "row": 2,
       "position": 3,
@@ -413,7 +413,7 @@
      },
      "r3p4": {
       "status": "PASS",
-      "iou": 0.965,
+      "iou": 0.954,
       "reference_iou": 0.972,
       "row": 3,
       "position": 4,
@@ -421,7 +421,7 @@
      },
      "r4p4": {
       "status": "PASS",
-      "iou": 0.968,
+      "iou": 0.947,
       "reference_iou": 0.974,
       "row": 4,
       "position": 4,
@@ -429,7 +429,7 @@
      },
      "r4p3": {
       "status": "PASS",
-      "iou": 0.99,
+      "iou": 0.948,
       "reference_iou": 0.941,
       "row": 4,
       "position": 3,
@@ -452,7 +452,7 @@
      },
      "r5p0": {
       "status": "PASS",
-      "iou": 0.817,
+      "iou": 0.95,
       "reference_iou": 0.988,
       "row": 5,
       "position": 0,
@@ -475,7 +475,7 @@
      },
      "r5p4": {
       "status": "PASS",
-      "iou": 0.833,
+      "iou": 0.825,
       "reference_iou": 0.978,
       "row": 5,
       "position": 4,
@@ -490,39 +490,39 @@
      "silhouette": {
       "status": "PASS",
       "evidence": {
-       "iou_aligned": 0.8405459834414858,
+       "iou_aligned": 0.8848022024843499,
        "alignment": {
-        "scale": 0.8980130306823558,
+        "scale": 0.9348987025295591,
         "shift_px": [
-         33.514255013540605,
-         57.07722042387104
+         28.497048331012763,
+         1.3501103503798504
         ]
        }
       }
      },
      "major_proportions": {
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": {
        "aspect_ref": 1.248138957816377,
-       "aspect_gen": 1.1532710280373832,
-       "drift": 0.07600750636368692
+       "aspect_gen": 0.95,
+       "drift": 0.23886679920477136
       }
      },
      "colour_regions": {
       "status": "PASS",
       "evidence": {
-       "hue_spread_gen_deg": 7.218186166028608
+       "hue_spread_gen_deg": 11.182968659278854
       }
      },
      "row_placement": {
       "status": "PASS",
       "evidence": {
        "per_row_iou": {
-        "1": 0.723,
-        "2": 0.979,
-        "3": 0.965,
-        "4": 0.972,
-        "5": 0.865
+        "1": 0.848,
+        "2": 0.957,
+        "3": 0.954,
+        "4": 0.945,
+        "5": 0.89
        },
        "bar": 0.72
       }
@@ -530,29 +530,29 @@
      "structure_placement": {
       "status": "PASS",
       "evidence": {
-       "ncc_aligned": 0.34096171642686435
+       "ncc_aligned": 0.4696192089068883
       }
      },
      "construction_cues": {
       "status": "PASS",
       "evidence": {
        "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
-       "iou": 0.8405459834414858,
-       "ncc": 0.34096171642686435
+       "iou": 0.8848022024843499,
+       "ncc": 0.4696192089068883
       }
      },
      "macro_deformation": {
       "status": "PASS",
       "evidence": {
-       "iou": 0.8405459834414858,
-       "ncc": 0.34096171642686435
+       "iou": 0.8848022024843499,
+       "ncc": 0.4696192089068883
       }
      },
      "handedness": {
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": {
-       "ncc_certified": 0.34096171642686435,
-       "ncc_mirrored": 0.2107731179502615,
+       "ncc_certified": 0.4696192089068883,
+       "ncc_mirrored": 0.11279102052032988,
        "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
       }
      }
@@ -561,22 +561,22 @@
    "structural": "FAIL",
    "judge_reused": true,
    "judge": {
-    "fabric_folds_naturally": "FAIL",
+    "fabric_folds_naturally": "PASS",
     "lighting_is_realistic": "PASS",
     "shadows_are_coherent": "PASS",
     "has_ordinary_photographic_imperfection": "PASS",
-    "melted_yarn": "FAIL",
-    "synthetic_stitch_texture": "FAIL",
+    "melted_yarn": "PASS",
+    "synthetic_stitch_texture": "PASS",
     "catalogue_perfect_sterility": "PASS"
    },
-   "judge_notes": "The yarn looks plasticky and uniformly striped with no visible fibers, and the stitch loops are very regular and rigid.",
-   "judge_response_id": "chatcmpl-ESEfZtNTmdaL67hQyKoeKmqFCMeOm"
+   "judge_notes": "",
+   "judge_response_id": "chatcmpl-ESEkoLfbV89ov5RDyEXZiyVg9AnCc"
   },
   {
    "kind": "hdc",
    "view": "camera",
-   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/hdc_camera_e4.png",
-   "output_sha256": "58031336c1361f623a9b4876180375fc68cf28f6189b08c7ba51603b75bda7a9",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/hdc_camera_e4r2.png",
+   "output_sha256": "dbb066db92f92cb55615d961550e80ab7d651a46bb9ef7a8eddc8f7d0126f776",
    "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
    "conditioning_sha256": [
     "93c9fd25af752562646b04464553c6a0b83eacf65bf5fdc59ffd4d54c1b7617a",
@@ -588,18 +588,18 @@
     "tested": 23,
     "untestable": 2,
     "failed_stitches": [],
-    "mean_iou": 0.8891304347826086,
+    "mean_iou": 0.8678695652173912,
     "alignment": {
-     "scale": 1.0475303982081754,
+     "scale": 0.9892564568985467,
      "shift_px": [
-      -93.5141775524906,
-      -28.258921808923446
+      -31.815660161308188,
+      -6.206511149357482
      ]
     },
     "per_stitch": {
      "r1p0": {
       "status": "PASS",
-      "iou": 0.748,
+      "iou": 0.819,
       "reference_iou": 0.966,
       "row": 1,
       "position": 0,
@@ -607,7 +607,7 @@
      },
      "r1p1": {
       "status": "PASS",
-      "iou": 0.816,
+      "iou": 0.899,
       "reference_iou": 0.952,
       "row": 1,
       "position": 1,
@@ -615,7 +615,7 @@
      },
      "r1p2": {
       "status": "PASS",
-      "iou": 0.855,
+      "iou": 0.892,
       "reference_iou": 0.938,
       "row": 1,
       "position": 2,
@@ -623,7 +623,7 @@
      },
      "r1p3": {
       "status": "PASS",
-      "iou": 0.823,
+      "iou": 0.812,
       "reference_iou": 0.928,
       "row": 1,
       "position": 3,
@@ -631,7 +631,7 @@
      },
      "r1p4": {
       "status": "PASS",
-      "iou": 0.766,
+      "iou": 0.78,
       "reference_iou": 0.952,
       "row": 1,
       "position": 4,
@@ -639,7 +639,7 @@
      },
      "r2p4": {
       "status": "PASS",
-      "iou": 0.924,
+      "iou": 0.89,
       "reference_iou": 0.966,
       "row": 2,
       "position": 4,
@@ -647,7 +647,7 @@
      },
      "r2p3": {
       "status": "PASS",
-      "iou": 0.943,
+      "iou": 0.895,
       "reference_iou": 0.94,
       "row": 2,
       "position": 3,
@@ -655,7 +655,7 @@
      },
      "r2p2": {
       "status": "PASS",
-      "iou": 0.956,
+      "iou": 0.92,
       "reference_iou": 0.954,
       "row": 2,
       "position": 2,
@@ -663,7 +663,7 @@
      },
      "r2p1": {
       "status": "PASS",
-      "iou": 0.975,
+      "iou": 0.949,
       "reference_iou": 0.971,
       "row": 2,
       "position": 1,
@@ -671,7 +671,7 @@
      },
      "r2p0": {
       "status": "PASS",
-      "iou": 0.878,
+      "iou": 0.85,
       "reference_iou": 0.978,
       "row": 2,
       "position": 0,
@@ -689,7 +689,7 @@
      },
      "r3p2": {
       "status": "PASS",
-      "iou": 0.953,
+      "iou": 0.908,
       "reference_iou": 0.979,
       "row": 3,
       "position": 2,
@@ -697,7 +697,7 @@
      },
      "r3p3": {
       "status": "PASS",
-      "iou": 0.948,
+      "iou": 0.872,
       "reference_iou": 0.972,
       "row": 3,
       "position": 3,
@@ -705,7 +705,7 @@
      },
      "r3p4": {
       "status": "PASS",
-      "iou": 0.86,
+      "iou": 0.838,
       "reference_iou": 0.98,
       "row": 3,
       "position": 4,
@@ -713,7 +713,7 @@
      },
      "r4p4": {
       "status": "PASS",
-      "iou": 0.968,
+      "iou": 0.905,
       "reference_iou": 0.98,
       "row": 4,
       "position": 4,
@@ -721,7 +721,7 @@
      },
      "r4p3": {
       "status": "PASS",
-      "iou": 0.965,
+      "iou": 0.853,
       "reference_iou": 0.961,
       "row": 4,
       "position": 3,
@@ -729,7 +729,7 @@
      },
      "r4p2": {
       "status": "PASS",
-      "iou": 0.958,
+      "iou": 0.873,
       "reference_iou": 0.965,
       "row": 4,
       "position": 2,
@@ -737,7 +737,7 @@
      },
      "r4p1": {
       "status": "PASS",
-      "iou": 0.962,
+      "iou": 0.918,
       "reference_iou": 0.973,
       "row": 4,
       "position": 1,
@@ -745,7 +745,7 @@
      },
      "r4p0": {
       "status": "PASS",
-      "iou": 0.863,
+      "iou": 0.871,
       "reference_iou": 0.983,
       "row": 4,
       "position": 0,
@@ -753,7 +753,7 @@
      },
      "r5p0": {
       "status": "PASS",
-      "iou": 0.794,
+      "iou": 0.839,
       "reference_iou": 0.983,
       "row": 5,
       "position": 0,
@@ -761,7 +761,7 @@
      },
      "r5p1": {
       "status": "PASS",
-      "iou": 0.932,
+      "iou": 0.871,
       "reference_iou": 0.973,
       "row": 5,
       "position": 1,
@@ -769,7 +769,7 @@
      },
      "r5p2": {
       "status": "PASS",
-      "iou": 0.926,
+      "iou": 0.844,
       "reference_iou": 0.978,
       "row": 5,
       "position": 2,
@@ -777,7 +777,7 @@
      },
      "r5p3": {
       "status": "PASS",
-      "iou": 0.86,
+      "iou": 0.829,
       "reference_iou": 0.98,
       "row": 5,
       "position": 3,
@@ -785,7 +785,7 @@
      },
      "r5p4": {
       "status": "PASS",
-      "iou": 0.777,
+      "iou": 0.834,
       "reference_iou": 0.981,
       "row": 5,
       "position": 4,
@@ -800,12 +800,12 @@
      "silhouette": {
       "status": "PASS",
       "evidence": {
-       "iou_aligned": 0.8402267975816371,
+       "iou_aligned": 0.8271807734482253,
        "alignment": {
-        "scale": 1.0475303982081754,
+        "scale": 0.9892564568985467,
         "shift_px": [
-         -93.5141775524906,
-         -28.258921808923446
+         -31.815660161308188,
+         -6.206511149357482
         ]
        }
       }
@@ -814,25 +814,25 @@
       "status": "PASS",
       "evidence": {
        "aspect_ref": 1.2678843226788432,
-       "aspect_gen": 1.1531393568147015,
-       "drift": 0.09050113153990531
+       "aspect_gen": 1.3191176470588235,
+       "drift": 0.04040851634771555
       }
      },
      "colour_regions": {
       "status": "PASS",
       "evidence": {
-       "hue_spread_gen_deg": 6.484996247199983
+       "hue_spread_gen_deg": 9.003632460756938
       }
      },
      "row_placement": {
       "status": "PASS",
       "evidence": {
        "per_row_iou": {
-        "1": 0.789,
-        "2": 0.909,
-        "3": 0.912,
-        "4": 0.923,
-        "5": 0.848
+        "1": 0.819,
+        "2": 0.883,
+        "3": 0.863,
+        "4": 0.873,
+        "5": 0.835
        },
        "bar": 0.72
       }
@@ -840,29 +840,29 @@
      "structure_placement": {
       "status": "FAIL",
       "evidence": {
-       "ncc_aligned": 0.19145761066339306
+       "ncc_aligned": 0.2067042251417958
       }
      },
      "construction_cues": {
       "status": "FAIL",
       "evidence": {
        "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
-       "iou": 0.8402267975816371,
-       "ncc": 0.19145761066339306
+       "iou": 0.8271807734482253,
+       "ncc": 0.2067042251417958
       }
      },
      "macro_deformation": {
       "status": "FAIL",
       "evidence": {
-       "iou": 0.8402267975816371,
-       "ncc": 0.19145761066339306
+       "iou": 0.8271807734482253,
+       "ncc": 0.2067042251417958
       }
      },
      "handedness": {
       "status": "PASS",
       "evidence": {
-       "ncc_certified": 0.19145761066339306,
-       "ncc_mirrored": 0.030431420200875525,
+       "ncc_certified": 0.2067042251417958,
+       "ncc_mirrored": 0.03122482475833634,
        "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
       }
      }
@@ -871,22 +871,22 @@
    "structural": "FAIL",
    "judge_reused": true,
    "judge": {
-    "fabric_folds_naturally": "UNKNOWN",
+    "fabric_folds_naturally": "PASS",
     "lighting_is_realistic": "PASS",
     "shadows_are_coherent": "PASS",
     "has_ordinary_photographic_imperfection": "PASS",
-    "melted_yarn": "FAIL",
-    "synthetic_stitch_texture": "FAIL",
+    "melted_yarn": "PASS",
+    "synthetic_stitch_texture": "PASS",
     "catalogue_perfect_sterility": "PASS"
    },
-   "judge_notes": "Strands have a uniform plaid/plastic surface with bead-like clumps and repeated details, lacking fibrous twist. The texture repetition makes the crochet read as generated.",
-   "judge_response_id": "chatcmpl-ESEfsPbWqeKZYn5uGrvryJtkgc8Ma"
+   "judge_notes": "",
+   "judge_response_id": "chatcmpl-ESEl1FyvVnGMoGbmXzv4uK3o40BLK"
   },
   {
    "kind": "hdc",
    "view": "oblique",
-   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/hdc_oblique_e4.png",
-   "output_sha256": "71f0591d4e069b296a42775e47c773474383814e4feb5f8836fb9b9b8264ba2e",
+   "generated": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/hdc_oblique_e4r2.png",
+   "output_sha256": "342d188c688d1aec79356a18ce4c84ef8923a5f555fc5bfd3ab15dc8885c9a82",
    "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
    "conditioning_sha256": [
     "986dbe48c2b94e8535e32a823c15a1ef46912f18af61256aca86027221dc020b",
@@ -898,12 +898,12 @@
     "tested": 8,
     "untestable": 17,
     "failed_stitches": [],
-    "mean_iou": 0.9001250000000001,
+    "mean_iou": 0.9295,
     "alignment": {
-     "scale": 1.0421472819109938,
+     "scale": 1.0460045171153811,
      "shift_px": [
-      -59.464183897987596,
-      8.021936469085631
+      -37.2591350548044,
+      -49.67761113698214
      ]
     },
     "per_stitch": {
@@ -934,7 +934,7 @@
      },
      "r2p4": {
       "status": "PASS",
-      "iou": 0.934,
+      "iou": 0.956,
       "reference_iou": 0.97,
       "row": 2,
       "position": 4,
@@ -982,7 +982,7 @@
      },
      "r3p4": {
       "status": "PASS",
-      "iou": 0.928,
+      "iou": 0.948,
       "reference_iou": 0.985,
       "row": 3,
       "position": 4,
@@ -990,7 +990,7 @@
      },
      "r4p4": {
       "status": "PASS",
-      "iou": 0.936,
+      "iou": 0.957,
       "reference_iou": 0.989,
       "row": 4,
       "position": 4,
@@ -998,7 +998,7 @@
      },
      "r4p3": {
       "status": "PASS",
-      "iou": 0.941,
+      "iou": 0.965,
       "reference_iou": 0.984,
       "row": 4,
       "position": 3,
@@ -1021,7 +1021,7 @@
      },
      "r5p0": {
       "status": "PASS",
-      "iou": 0.89,
+      "iou": 0.922,
       "reference_iou": 0.993,
       "row": 5,
       "position": 0,
@@ -1029,7 +1029,7 @@
      },
      "r5p1": {
       "status": "PASS",
-      "iou": 0.891,
+      "iou": 0.919,
       "reference_iou": 0.99,
       "row": 5,
       "position": 1,
@@ -1037,7 +1037,7 @@
      },
      "r5p2": {
       "status": "PASS",
-      "iou": 0.886,
+      "iou": 0.91,
       "reference_iou": 0.99,
       "row": 5,
       "position": 2,
@@ -1050,7 +1050,7 @@
      },
      "r5p4": {
       "status": "PASS",
-      "iou": 0.795,
+      "iou": 0.859,
       "reference_iou": 0.987,
       "row": 5,
       "position": 4,
@@ -1065,12 +1065,12 @@
      "silhouette": {
       "status": "PASS",
       "evidence": {
-       "iou_aligned": 0.8498720416348563,
+       "iou_aligned": 0.8927417073780238,
        "alignment": {
-        "scale": 1.0421472819109938,
+        "scale": 1.0460045171153811,
         "shift_px": [
-         -59.464183897987596,
-         8.021936469085631
+         -37.2591350548044,
+         -49.67761113698214
         ]
        }
       }
@@ -1079,24 +1079,24 @@
       "status": "FAIL",
       "evidence": {
        "aspect_ref": 1.4239864864864864,
-       "aspect_gen": 1.2741935483870968,
-       "drift": 0.10519266827382999
+       "aspect_gen": 1.173216885007278,
+       "drift": 0.17610391942549397
       }
      },
      "colour_regions": {
       "status": "PASS",
       "evidence": {
-       "hue_spread_gen_deg": 8.669053012051489
+       "hue_spread_gen_deg": 8.361951950960185
       }
      },
      "row_placement": {
       "status": "PASS",
       "evidence": {
        "per_row_iou": {
-        "2": 0.934,
-        "3": 0.928,
-        "4": 0.931,
-        "5": 0.852
+        "2": 0.956,
+        "3": 0.948,
+        "4": 0.952,
+        "5": 0.897
        },
        "bar": 0.72
       }
@@ -1104,29 +1104,29 @@
      "structure_placement": {
       "status": "PASS",
       "evidence": {
-       "ncc_aligned": 0.4434943888674015
+       "ncc_aligned": 0.40732308784123344
       }
      },
      "construction_cues": {
       "status": "PASS",
       "evidence": {
        "basis": "the yarn's two real ends and the row edges are part of the silhouette and structure maps; no separate blind reading",
-       "iou": 0.8498720416348563,
-       "ncc": 0.4434943888674015
+       "iou": 0.8927417073780238,
+       "ncc": 0.40732308784123344
       }
      },
      "macro_deformation": {
       "status": "PASS",
       "evidence": {
-       "iou": 0.8498720416348563,
-       "ncc": 0.4434943888674015
+       "iou": 0.8927417073780238,
+       "ncc": 0.40732308784123344
       }
      },
      "handedness": {
       "status": "PASS",
       "evidence": {
-       "ncc_certified": 0.4434943888674015,
-       "ncc_mirrored": 0.10355884002526757,
+       "ncc_certified": 0.40732308784123344,
+       "ncc_mirrored": 0.17712815701773782,
        "rule": "CHOSEN: certified >= 2 x mirrored; UNKNOWN when neither reaches 0.10"
       }
      }
@@ -1139,12 +1139,12 @@
     "lighting_is_realistic": "PASS",
     "shadows_are_coherent": "PASS",
     "has_ordinary_photographic_imperfection": "PASS",
-    "melted_yarn": "FAIL",
-    "synthetic_stitch_texture": "FAIL",
+    "melted_yarn": "PASS",
+    "synthetic_stitch_texture": "PASS",
     "catalogue_perfect_sterility": "PASS"
    },
-   "judge_notes": "Cord has identical ribbed bands and bead-like nodes with no loose fibers, giving a plasticky, repeated look.",
-   "judge_response_id": "chatcmpl-ESEg7CmAvFlapPBPM8czjka4g98qL"
+   "judge_notes": "",
+   "judge_response_id": "chatcmpl-ESElBUFAWZEDGumqG9QsdUDy7kO6f"
   }
  ],
  "judge_cost_usd": 0.0

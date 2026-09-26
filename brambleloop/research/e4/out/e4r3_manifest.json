@@ -1,0 +1,72 @@
+{
+ "provider": "gpt-image-2",
+ "endpoint": "images/edits (reference-conditioned)",
+ "prompt": "The first image is a computer rendering of a crocheted swatch resting on a plain wooden ball. Make a real product photograph of that same physical object for a handmade craft marketplace listing. Keep the piece exactly as shown: the same outline, the same proportions, every strand of yarn where it is, the same colour. The second image is the outline mask of the piece and the third shows its surface orientation; use them only to keep the piece's outline, position and surface placement exactly. Replace the rendered material with real spun wool yarn: a matte surface with a fine fibre halo, a slightly uneven twist, no plastic sheen, no stripes, no beads or knobs anywhere along the strands. Soft window daylight from one side, a plain linen tablecloth with its ordinary creases, an ordinary camera with a little grain. No text, nothing else in frame.",
+ "round_tag": "e4r3",
+ "extra_fields": {
+  "input_fidelity": "high"
+ },
+ "price_note": "list price per image from the gateway's table; input_fidelity=high bills the uploaded reference's input tokens on top, a cost not on file here, so the ceiling is checked at twice the list price for that round",
+ "package": "rgb(presentation3, continuous yarn) + mask + normal",
+ "usd_list_price_per_image": 0.03,
+ "cap_usd": 1.0,
+ "runs": [
+  {
+   "kind": "sc",
+   "view": "camera",
+   "reference": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation3_camera.png",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+    "c0980cec58e3e8b960d436a0c7798720a1f4469bf052a3e6834560633ba4f9eb",
+    "8d3b03ecaab2e416ede9cb7661a113af0e034f457f2850359ef4ca42cbc1e9f3"
+   ],
+   "ok": false,
+   "error": "ImagesRefused: gpt-image-2 400: {\n  \"error\": {\n    \"message\": \"The model 'gpt-image-2' does not support the 'input_fidelity' parameter.\",\n    \"type\": \"image_generation_user_error\",\n    \"param\": \"input_fidelity\",\n    \"code\": \"invalid_input_fidelity_model\"\n",
+   "seconds": 0.7
+  },
+  {
+   "kind": "sc",
+   "view": "oblique",
+   "reference": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation3_oblique.png",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "conditioning_sha256": [
+    "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+    "1fd4dbe7aa9dcac2b0ccd5e08f288459097418979f76b0c90b02c04bab5d0cbb",
+    "644442086260152dab82dfb254dd6187519b8f1f1ce369ee31cf7e6e0c787ed9"
+   ],
+   "ok": false,
+   "error": "ImagesRefused: gpt-image-2 400: {\n  \"error\": {\n    \"message\": \"The model 'gpt-image-2' does not support the 'input_fidelity' parameter.\",\n    \"type\": \"image_generation_user_error\",\n    \"param\": \"input_fidelity\",\n    \"code\": \"invalid_input_fidelity_model\"\n",
+   "seconds": 0.6
+  },
+  {
+   "kind": "hdc",
+   "view": "camera",
+   "reference": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation3_camera.png",
+   "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
+   "conditioning_sha256": [
+    "93c9fd25af752562646b04464553c6a0b83eacf65bf5fdc59ffd4d54c1b7617a",
+    "ccebeffc3d9e3e96e49fc6e402c7dcf8bd4130e6ff985e56d1b23228e8d2091f",
+    "555834dfc9535a3836d6225222c0da6817f30d879e73db5965e4e84ff29cc618"
+   ],
+   "ok": false,
+   "error": "ImagesRefused: gpt-image-2 400: {\n  \"error\": {\n    \"message\": \"The model 'gpt-image-2' does not support the 'input_fidelity' parameter.\",\n    \"type\": \"image_generation_user_error\",\n    \"param\": \"input_fidelity\",\n    \"code\": \"invalid_input_fidelity_model\"\n",
+   "seconds": 0.4
+  },
+  {
+   "kind": "hdc",
+   "view": "oblique",
+   "reference": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation3_oblique.png",
+   "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
+   "conditioning_sha256": [
+    "986dbe48c2b94e8535e32a823c15a1ef46912f18af61256aca86027221dc020b",
+    "2cd36872fd8cce962d3cf3a27352159a9122924e37336f025e2b8b83274e63a6",
+    "ca9fde01421ec8f70068412a750c194d70fe86af60a5663c1aba8afbb705a772"
+   ],
+   "ok": false,
+   "error": "ImagesRefused: gpt-image-2 400: {\n  \"error\": {\n    \"message\": \"The model 'gpt-image-2' does not support the 'input_fidelity' parameter.\",\n    \"type\": \"image_generation_user_error\",\n    \"param\": \"input_fidelity\",\n    \"code\": \"invalid_input_fidelity_model\"\n",
+   "seconds": 0.4
+  }
+ ],
+ "spent_usd_list_price": 0.0
+}

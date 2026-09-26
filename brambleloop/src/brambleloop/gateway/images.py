@@ -425,7 +425,8 @@ def _google_tier(size: str) -> str:
 
 
 def _request_for(provider: ImageProvider, key: str, prompt: str,
-                 reference_urls: list[str] | None, size: str) -> tuple[str, dict, bytes]:
+                 reference_urls: list[str] | None, size: str,
+                 extra_fields: dict | None = None) -> tuple[str, dict, bytes]:
     """The URL, headers and body this provider actually accepts.
 
     Verified against the live API for `google` on 2026-09-21: the auth header, the
@@ -474,6 +475,9 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
         # reference as an uploaded file rather than a JSON value.
         url = provider.endpoint.replace("/images/generations", "/images/edits")
         fields = {"model": provider.model, "prompt": prompt, "size": size, "n": "1"}
+        # `extra_fields` is the caller's, verbatim, edits path only: e.g. `input_fidelity`,
+        # which asks the model to keep the uploaded reference's detail. Nothing here adds it.
+        fields.update({k: str(v) for k, v in (extra_fields or {}).items()})
         files = [("image[]", Path(r).name, Path(r).read_bytes()) for r in refs
                  if Path(r).is_file()]
         if not files:
@@ -609,7 +613,7 @@ BFL_POLL_ATTEMPTS = 150
 def generate(prompt: str, *, reference_urls: list[str] | None = None,
              env: dict[str, str] | None = None, size: str = "1024x1024",
              provider_key: str | None = None, work_dir: str | None = None,
-             timeout: float = 120.0) -> dict:
+             timeout: float = 120.0, extra_fields: dict | None = None) -> dict:
     """Ask one provider for one image. Raises rather than returning nothing.
 
     Returns `image_ref`: whatever the judge can be handed, which is a URL when the provider
@@ -657,7 +661,7 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
             f"key. This is the state the gate describes rather than a failure to retry")
 
-    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size)
+    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size, extra_fields)
     started = time.time()
     body = _post(url, headers, payload, label=provider.key, timeout=timeout)
 
