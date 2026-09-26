@@ -1697,7 +1697,7 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             if setup.support_friction:
                 release = stuck & (depth < setup.support_at - 2.0 * limit)
                 stuck[release] = False
-                newly = (depth > setup.support_at - limit) & ~held & ~stuck
+                newly = (depth >= setup.support_at) & ~held & ~stuck
                 if newly.any():
                     stuck[newly] = True
                     anchor[newly] = (pts[newly] - np.outer(depth[newly], down)
@@ -1722,19 +1722,21 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             keep_out = R + 0.5 * fab.yarn_diameter
             inside = (dist < keep_out) & ~held
             if setup.support_friction:
-                # Static friction. A vertex is IN CONTACT if it is within one force step of
-                # the surface (`limit` is the most a force step may move anything, so a
-                # vertex nearer than that can reach the surface this iteration; a vertex
-                # placed on the surface last iteration is still in contact now). A vertex in
-                # contact keeps the tangential position it had at the start of the iteration
-                # and is a fixed point for the length projection below. The first version
-                # pinned only vertices found INSIDE the form: a resting vertex sits exactly
-                # ON the surface, was not inside, and so was free again every other
-                # iteration -- measured as 0.95mm of sliding against 1.15mm without friction.
+                # Static friction. A vertex that reaches the surface is anchored where it
+                # touched, is a fixed point for the length projection below, and stays
+                # anchored until something lifts it two force steps clear (`limit` is the
+                # most a force step may move anything). Without the memory, a resting vertex
+                # placed on the surface was free again the next iteration and the fabric
+                # crept -- 0.60mm per 300 iterations on a tilted table against 1.15mm with
+                # no friction at all; with it, and the stitches locked, -0.001mm.
                 c = np.array([cx, cy, cz])
                 release = stuck & (dist > keep_out + 2.0 * limit)
                 stuck[release] = False
-                newly = (dist < keep_out + limit) & ~held & ~stuck
+                # A vertex sticks when it has actually reached the surface -- on it or inside
+                # it -- never when it is merely near. Anchoring vertices within a step of the
+                # surface pulled them ONTO it: contact inventing an attraction it does not
+                # have, measured as a 0.017mm rms move of the sc swatch with gravity off.
+                newly = (dist <= keep_out) & ~held & ~stuck
                 if newly.any():
                     stuck[newly] = True
                     anchor[newly] = c + rel[newly] * (keep_out / np.maximum(dist[newly], 1e-9))[:, None]
