@@ -40,6 +40,11 @@ _YARN_FACTOR = {
     "fpdc": 11.5, "bpdc": 11.5, "bob": 48.0,
     # A crossing is four dc that travel around each other.
     "cable2x2": 46.0, "cable1x1": 23.0,
+    # Star stitch (Bench2): five loops pulled up over two stitch widths and closed with a chain,
+    # about two and a half hdc of yarn; the beginning star pulls up loops over three stitches,
+    # the end star one; two or three hdc in one stitch are that many hdc. Estimates until a
+    # physical test calibrates them (YARDAGE_TOLERANCE applies).
+    "beg_star_st": 26.0, "star_st": 20.5, "end_star_st": 14.0, "hdc_inc": 16.4, "hdc3": 24.6,
 }
 YARDAGE_TOLERANCE = 0.20  # +/- 20% until calibrated by a physical test
 

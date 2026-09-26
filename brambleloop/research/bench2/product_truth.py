@@ -218,7 +218,7 @@ def build_cir(F, size):
     fr = F["front_right"]["value"]; fp = F["front_panels"]["value"]; hd = F["hood"]["value"]; cb = F["collar_band"]["value"]; cf = F["cuff"]["value"]
     def star_row(n, sts, note=None):
         stars = sts // 2
-        return Row(index=n, ops=[Op("beg_star"), Op("star", stars - 2), Op("end_star")], declared_count=stars + 1, turning_chain=3, note=note or f"{stars} stars")
+        return Row(index=n, ops=[Op("beg_star_st"), Op("star_st", stars - 2), Op("end_star_st")], declared_count=stars + 1, turning_chain=3, note=note or f"{stars} stars")
     def return_row(n, stars, extra=0):
         # 1 hdc in the first eye, 2 hdc in each remaining eye, 1 hdc in the top of the last star
         ops = [Op("hdc", 1), Op("hdc_inc", stars - 1), Op("hdc", 1)]
@@ -278,7 +278,7 @@ def build_cir(F, size):
                        foundation=cw, grain="across")
     cuff = Component("cuff", "flat_rows", [Row(index=1, ops=[Op("sc", cw)], declared_count=cw, turning_chain=1), Row(index=2, ops=[Op("sc", cw, loop="back")], declared_count=cw, turning_chain=1, note=f"joined as you go around the {int(cf['round1_sts'][i])}-st sleeve edge")], foundation=cw, make=2, grain="across")
     g = F["gauge"]["value"]["body"]
-    gauge = Gauge(stitches_per_10cm=round(g["stitches_per_4in"] / 4 / 2.54 * 10, 3), rows_per_10cm=round(g["rows_per_4in"] / 4 / 2.54 * 10, 3), stitch_type="star", hook_mm=5.5, yarn_weight="dk")
+    gauge = Gauge(stitches_per_10cm=round(g["stitches_per_4in"] / 4 / 2.54 * 10, 3), rows_per_10cm=round(g["rows_per_4in"] / 4 / 2.54 * 10, 3), stitch_type="star_st", hook_mm=5.5, yarn_weight="dk")
     y = F["yarn"]["value"]; mat = Material(name=f"{y['line']} ({y['weight']})", yarn_weight="dk", colorway="Oat Milk", metres_estimate=round(F["size_chart_in"]["value"]["yards"][i] * 0.9144), fibre_content=(("acrylic", 100),))
     seams = [Seam("sew", "hood", "hood", note="fold in half, whip stitch across the top", edge_a="top", edge_b="top"),
              Seam("sew", "front_with_sleeve", "yoke_with_sleeves", note="sleeve and side seams, cuff to underarm and down the side"),

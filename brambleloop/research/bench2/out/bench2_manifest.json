@@ -1,0 +1,785 @@
+{
+ "benchmark": "Commercial benchmark 2 -- Mini Star Stitch Cardigan (MJ's Off The Hook Designs Inc.)",
+ "cap_usd": 5.0,
+ "size": "2-3T",
+ "size_reason": "Mid-range of the ten sizes, so every shaping element exists (front neck increases, hood increases and the 3 shaping rows, all sleeve rows before and after the neck); it is the size the designer photographs on a child in the gallery, so a private comparison of the worn garment is possible; and at the frame that fits its 73.8 cm wingspan a star is 18 px across, inside the identity instrument's envelope (eyes >= 1.5 px) with room for the generator's fuzz.",
+ "product_truth_sha256": "5167e32bf702af7e56d8a8e78a8425b62febc6e69083ec57aaa3bfd0ab3e2aa1",
+ "product_truth_size_row": {
+  "size": "2-3T",
+  "back_sts": 58.0,
+  "back_stars": 29.0,
+  "body_rows": 19.0,
+  "sleeve_chain": 30.0,
+  "yoke_sts": 118.0,
+  "yoke_stars": 59.0,
+  "sleeve_rows_before_neck": 12.0,
+  "neck_sts": 22.0,
+  "neck_side_count": 48.0,
+  "front_right_final_sts": 56.0,
+  "front_panel_sts": 26.0,
+  "front_panel_stars": 13.0,
+  "front_panel_rows": 18.0,
+  "band_sts": 7.0,
+  "band_rows": 54.0,
+  "front_band_rows": 25.0,
+  "hood_join_row_down": 5.0,
+  "hood_row1_sts": 42.0,
+  "hood_width_sts": 56.0,
+  "hood_rows": 22.0,
+  "cuff_sts": 24.0,
+  "collar_sts": 7.0,
+  "sleeve_rows_after_neck_stated": 10.0,
+  "sleeve_rows_total_from_width": 24,
+  "sleeve_rows_after_neck_derived": 12.0,
+  "cm": {
+   "back_width": 32.7,
+   "front_width": 14.7,
+   "underarm_to_hem": 19.3,
+   "hem_band": 3.6,
+   "sleeve_width": 24.4,
+   "sleeve_length": 16.9,
+   "cuff": 3.6,
+   "neck_opening": 12.4,
+   "hood_width": 31.6,
+   "hood_height": 22.4,
+   "star_pitch": 1.13,
+   "row_pair_pitch": 2.03,
+   "wingspan": 66.6
+  },
+  "stated_in": {
+   "back_width": 13.0,
+   "front_width": 5.75,
+   "underarm_to_hem": 7.5,
+   "hem_band": 1.5,
+   "sleeve_width": 9.75,
+   "sleeve_length": 6.75,
+   "cuff": 1.5,
+   "neck_opening": 5.0,
+   "hood_height": 8.75,
+   "hood_width": 12.5
+  },
+  "finished_chest_in": 25.75,
+  "yards": 935
+ },
+ "cir_fingerprint": "ee8a670f3154",
+ "instrument_bars": {
+  "row_pair_scale": 0.35,
+  "star_pitch_scale": 0.35,
+  "pitch_over_pair": [
+   0.39,
+   0.72
+  ],
+  "lattice_peak": 0.1,
+  "column_offset": 0.3,
+  "blob_isotropy": 0.55,
+  "diagonal_fraction": 0.3,
+  "return_row_contrast": 1.25
+ },
+ "instrument_selftest_sha256": "e34f171ecdd757b236d30518ac0ec0b55efd4ae50e9f270ce1f7cd34e9947c85",
+ "prompts": {
+  "v1": "The first image is a flat computer rendering of a hand-crocheted garment laid out flat. Make a real product photograph of that same physical garment for a handmade marketplace listing: laid flat as shown, seen from directly above, on a plain dark charcoal linen cloth that has been used and has its ordinary creases. It was placed by hand, not styled: very slightly askew, one sleeve resting a little differently from the other, the fabric settling with small natural ripples and shadows rather than lying perfectly flat. Keep the garment exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. The second image is the outline mask and the third shows the surface relief; use them only to keep the outline, position and surface placement exactly. Replace the rendered material with real DK-weight acrylic yarn as it actually crochets up: a matte, slightly fuzzy surface with the stitch texture exactly as drawn, ordinary handmade unevenness, soft window daylight from one side, gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame.",
+  "v2": "The first image is a flat computer rendering of a hand-crocheted garment laid out flat. Make a real product photograph of that same physical garment for a handmade marketplace listing: laid flat as shown, seen from directly above, on a plain dark charcoal linen cloth that has been used and has its ordinary creases. It was placed by hand, not styled: very slightly askew, one sleeve resting a little differently from the other, the fabric settling with small natural ripples and shadows rather than lying perfectly flat. Keep the garment exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. The hood lies open and spread flat above the shoulders exactly as it is drawn, not folded or pointed. The front is buttoned with exactly the buttons that are drawn, each where it is drawn, none added and none removed. The second image is the outline mask and the third shows the surface relief; use them only to keep the outline, position and surface placement exactly. Replace the rendered material with real DK-weight acrylic yarn as it actually crochets up: a matte, slightly fuzzy surface with the stitch texture exactly as drawn, ordinary handmade unevenness, soft window daylight from one side, gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame."
+ },
+ "references": {
+  "ref": {
+   "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+   "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+   "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+  }
+ },
+ "calls": [
+  {
+   "key": "designer:p1_0_X0.jpg",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "02597325387f3de0abdfaddb75ca5eb4a4d3490903f409f5726648cbceb061e8",
+   "response_id": "cuW3aoqmBYqY_uMPstH0sQ4",
+   "usd": 0.044432,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "buttoned",
+    "closure_count": 4,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 0,
+    "pocket_position": "none",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "brown",
+    "extra_features": [
+     "hood",
+     "buttons"
+    ],
+    "handmade_crochet": true,
+    "hood": "attached_hood",
+    "hood_edge": "ribbed_band",
+    "cluster_rows_direction": "horizontal",
+    "notes": "The image features two identical baby cardigans in different sizes and yarn colours."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"buttoned\",\n  \"closure_count\": 4,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 0,\n  \"pocket_position\": \"none\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"brown\",\n  \"extra_features\": [\n    \"hood\",\n    \"buttons\"\n  ],\n  \"handmade_crochet\": true,\n  \"hood\": \"attached_hood\",\n  \"hood_edge\": \"ribbed_band\",\n  \"cluster_rows_direction\": \"horizontal\",\n  \"notes\": \"The image features two identical baby cardigans in different sizes and yarn colours.\"\n}"
+  },
+  {
+   "key": "designer:p13_0_X61.jpg",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "531adcadaee422513905e6ba104cf330dfff8475ad184f86a6f16868ad2b43d6",
+   "response_id": "iuW3ar3PBaSe_uMP9_agiAI",
+   "usd": 0.024225,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "open",
+    "closure_count": 4,
+    "front_band": "plain_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 0,
+    "pocket_position": "none",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "star_stitch",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "pink",
+    "extra_features": [
+     "buttons",
+     "hood"
+    ],
+    "handmade_crochet": true,
+    "hood": "attached_hood",
+    "hood_edge": "plain",
+    "cluster_rows_direction": "horizontal",
+    "notes": "The cardigan features a distinct star stitch texture throughout the body and sleeves."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"open\",\n  \"closure_count\": 4,\n  \"front_band\": \"plain_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 0,\n  \"pocket_position\": \"none\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"star_stitch\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"pink\",\n  \"extra_features\": [\n    \"buttons\",\n    \"hood\"\n  ],\n  \"handmade_crochet\": true,\n  \"hood\": \"attached_hood\",\n  \"hood_edge\": \"plain\",\n  \"cluster_rows_direction\": \"horizontal\",\n  \"notes\": \"The cardigan features a distinct star stitch texture throughout the body and sleeves.\"\n}"
+  },
+  {
+   "key": "designer:p13_2_X63.jpg",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "caf2ce7c47d3d3ef5ef8846a60fd66b3106f4befa68a068db2d79599f1691624",
+   "response_id": "leW3aqb-NvCk_PUPq7G32AI",
+   "usd": 0.009347,
+   "answers": {},
+   "raw": "[\n  {\n    \"product_type\": \"cardigan\",\n    \"front\": \"buttoned\",\n    \"closure_count\": 4,\n    \"front_band\": \"none\",\n    \"sleeve_length\": \"long\",\n    \"texture\": \"star_stitch\",\n    \"colour_count\": 1,\n    \"main_colour\": \"brown\",\n    \"extra_features\": [\n      \"hood\",\n      \"buttons\"\n    ],\n    \"handmade_crochet\": true,\n    \"hood\": \"attached_hood\",\n    \"cluster_rows_direction\": \"horizontal\",\n    \"notes\": \"The infant is wearing a brown cardigan with star stitch pattern, and the child holding the infant wears a pink textured cardigan.\"\n  },\n  {\n    \"product_type\": \"cardigan\",\n    \"front\": \"buttoned\",\n    \"closure_count\": 1,\n    \"front_band\": \"none\",\n    \"sleeve_length\": \"long\",\n    \"texture\": \"other\",\n    \"body_ridge_direction\": \"horizontal\",\n    \"colour_count\": 1,\n    \"main_colour\": \"pink\",\n    \"extra_features\": [\n      \"buttons\",\n      \"hood\"\n    ],\n    \"handmade_crochet\": true,\n    \"hood\": \"attached_hood\",\n    \"notes\": \"The infant is wearing a brown cardigan with star stitch pattern, and the child holding the infant wears a pink textured cardigan.\"\n  }\n]"
+  },
+  {
+   "key": "reference_ref:ref_flatlay.png",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+   "response_id": "m-W3avLqH4av1MkP46SH8Qw",
+   "usd": 0.018243,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "buttoned",
+    "closure_count": 5,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 0,
+    "pocket_position": "none",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "star_stitch",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "extra_features": [
+     "hood",
+     "buttons"
+    ],
+    "handmade_crochet": true,
+    "hood": "attached_hood",
+    "hood_edge": "ribbed_band",
+    "cluster_rows_direction": "horizontal",
+    "notes": "The front band, hem, cuffs, and hood edge all feature matching ribbing."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"buttoned\",\n  \"closure_count\": 5,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 0,\n  \"pocket_position\": \"none\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"star_stitch\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"extra_features\": [\n    \"hood\",\n    \"buttons\"\n  ],\n  \"handmade_crochet\": true,\n  \"hood\": \"attached_hood\",\n  \"hood_edge\": \"ribbed_band\",\n  \"cluster_rows_direction\": \"horizontal\",\n  \"notes\": \"The front band, hem, cuffs, and hood edge all feature matching ribbing.\"\n}"
+  },
+  {
+   "key": "candidate:g3pro_1.png",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "46fabed649490b28e05f3ac2138021f19d7c1c6d962de743671621a2b2084086",
+   "response_id": "M-a3aoCDN4y639IPjau_0QY",
+   "usd": 0.007428,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "buttoned",
+    "closure_count": 5,
+    "front_band": "none",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 0,
+    "pocket_position": "none",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "other",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "extra_features": [
+     "hood",
+     "buttons"
+    ],
+    "handmade_crochet": true,
+    "hood": "attached_hood",
+    "hood_edge": "ribbed_band",
+    "notes": "The texture is made of horizontal ridges."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"buttoned\",\n  \"closure_count\": 5,\n  \"front_band\": \"none\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 0,\n  \"pocket_position\": \"none\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"other\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"extra_features\": [\n    \"hood\",\n    \"buttons\"\n  ],\n  \"handmade_crochet\": true,\n  \"hood\": \"attached_hood\",\n  \"hood_edge\": \"ribbed_band\",\n  \"notes\": \"The texture is made of horizontal ridges.\"\n}"
+  },
+  {
+   "key": "judge:g3pro_1",
+   "kind": "judge",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "46fabed649490b28e05f3ac2138021f19d7c1c6d962de743671621a2b2084086",
+   "response_id": "V-a3arq_H-_f-sAPzOq_uQc",
+   "usd": 0.005175
+  },
+  {
+   "key": "candidate:g3pro_2.png",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "389bd7f24fd2cc7ece0af23a65770bd8dada872ae9e6a09fdde70f9e9a298230",
+   "response_id": "Y-a3au_cBqWD-8YPsJ6IgAM",
+   "usd": 0.007817,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "buttoned",
+    "closure_count": 4,
+    "front_band": "none",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 0,
+    "pocket_position": "none",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "smooth",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "beige",
+    "extra_features": [
+     "hood",
+     "buttons"
+    ],
+    "handmade_crochet": true,
+    "hood": "attached_hood",
+    "hood_edge": "none",
+    "cluster_rows_direction": "none",
+    "notes": "The texture is composed of basic horizontal rows of crochet stitches, and the sleeves show prominent ridge lines running lengthwise along the arm."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"buttoned\",\n  \"closure_count\": 4,\n  \"front_band\": \"none\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 0,\n  \"pocket_position\": \"none\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"smooth\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"beige\",\n  \"extra_features\": [\n    \"hood\",\n    \"buttons\"\n  ],\n  \"handmade_crochet\": true,\n  \"hood\": \"attached_hood\",\n  \"hood_edge\": \"none\",\n  \"cluster_rows_direction\": \"none\",\n  \"notes\": \"The texture is composed of basic horizontal rows of crochet stitches, and the sleeves show prominent ridge lines running lengthwise along the arm.\"\n}"
+  },
+  {
+   "key": "judge:g3pro_2",
+   "kind": "judge",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "389bd7f24fd2cc7ece0af23a65770bd8dada872ae9e6a09fdde70f9e9a298230",
+   "response_id": "aea3aqLJJ6mU39IPi9q9iAM",
+   "usd": 0.005175
+  },
+  {
+   "key": "candidate:g3pro_3.png",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "8675eb154df998ef2a46e96fdc68995e7a88ddf528b2df55dcf1049ccef984d2",
+   "response_id": "dua3apu4GcmVjMcPpam84AE",
+   "usd": 0.007848,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "buttoned",
+    "closure_count": 6,
+    "front_band": "plain_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 0,
+    "pocket_position": "none",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "ribbed_all_over",
+    "body_ridge_direction": "horizontal",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "extra_features": [
+     "hood",
+     "buttons"
+    ],
+    "handmade_crochet": true,
+    "hood": "attached_hood",
+    "hood_edge": "ribbed_band",
+    "cluster_rows_direction": "horizontal",
+    "notes": "The texture on the body has horizontal ridges while the sleeves and hood have vertical ridges."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"buttoned\",\n  \"closure_count\": 6,\n  \"front_band\": \"plain_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 0,\n  \"pocket_position\": \"none\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"ribbed_all_over\",\n  \"body_ridge_direction\": \"horizontal\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"extra_features\": [\n    \"hood\",\n    \"buttons\"\n  ],\n  \"handmade_crochet\": true,\n  \"hood\": \"attached_hood\",\n  \"hood_edge\": \"ribbed_band\",\n  \"cluster_rows_direction\": \"horizontal\",\n  \"notes\": \"The texture on the body has horizontal ridges while the sleeves and hood have vertical ridges.\"\n}"
+  },
+  {
+   "key": "judge:g3pro_3",
+   "kind": "judge",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "8675eb154df998ef2a46e96fdc68995e7a88ddf528b2df55dcf1049ccef984d2",
+   "response_id": "fea3aqLkKq_f-sAPsobQmAY",
+   "usd": 0.005175
+  },
+  {
+   "key": "candidate:g3pro_4.png",
+   "kind": "reader",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "b600ea69f4ab22aa9a40b49a29127f236003b8752767c6debb61ff13b775dfb1",
+   "response_id": "iea3arWBGIfSjMcPx6LUoAY",
+   "usd": 0.007743,
+   "answers": {
+    "product_type": "cardigan",
+    "front": "buttoned",
+    "closure_count": 6,
+    "front_band": "ribbed_band",
+    "hem_band": "ribbed",
+    "cuffs": "ribbed",
+    "pocket_count": 0,
+    "pocket_position": "none",
+    "sleeve_length": "long",
+    "body_length": "hip",
+    "texture": "star_stitch",
+    "body_ridge_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "extra_features": [
+     "hood",
+     "buttons"
+    ],
+    "handmade_crochet": true,
+    "hood": "attached_hood",
+    "hood_edge": "ribbed_band",
+    "cluster_rows_direction": "horizontal",
+    "notes": "The texture is rows of small eyelets or star clusters."
+   },
+   "raw": "{\n  \"product_type\": \"cardigan\",\n  \"front\": \"buttoned\",\n  \"closure_count\": 6,\n  \"front_band\": \"ribbed_band\",\n  \"hem_band\": \"ribbed\",\n  \"cuffs\": \"ribbed\",\n  \"pocket_count\": 0,\n  \"pocket_position\": \"none\",\n  \"sleeve_length\": \"long\",\n  \"body_length\": \"hip\",\n  \"texture\": \"star_stitch\",\n  \"body_ridge_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"extra_features\": [\n    \"hood\",\n    \"buttons\"\n  ],\n  \"handmade_crochet\": true,\n  \"hood\": \"attached_hood\",\n  \"hood_edge\": \"ribbed_band\",\n  \"cluster_rows_direction\": \"horizontal\",\n  \"notes\": \"The texture is rows of small eyelets or star clusters.\"\n}"
+  },
+  {
+   "key": "judge:g3pro_4",
+   "kind": "judge",
+   "provider": "google",
+   "model": "gemini-3.1-pro-preview",
+   "substitute_for": "gpt-5-2025-08-07",
+   "image_sha256": "b600ea69f4ab22aa9a40b49a29127f236003b8752767c6debb61ff13b775dfb1",
+   "response_id": "j-a3atbxGfL3jMcP_4vCsAg",
+   "usd": 0.005175
+  }
+ ],
+ "runs": [
+  {
+   "mode": "g3pro",
+   "draw": 1,
+   "prompt_version": "v1",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "e15292253d9b7d87d17340fa399811dd77dde66d15f619e04b764bea685af5eb",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench2/out/gen/g3pro_1.png",
+   "output_sha256": "46fabed649490b28e05f3ac2138021f19d7c1c6d962de743671621a2b2084086",
+   "seconds": 23.9,
+   "usage": {
+    "promptTokenCount": 997,
+    "candidatesTokenCount": 1273,
+    "totalTokenCount": 2438,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 223
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 168,
+    "serviceTier": "standard"
+   },
+   "usd": 0.24,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 2,
+   "prompt_version": "v1",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "e15292253d9b7d87d17340fa399811dd77dde66d15f619e04b764bea685af5eb",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench2/out/gen/g3pro_2.png",
+   "output_sha256": "389bd7f24fd2cc7ece0af23a65770bd8dada872ae9e6a09fdde70f9e9a298230",
+   "seconds": 22.8,
+   "usage": {
+    "promptTokenCount": 997,
+    "candidatesTokenCount": 1306,
+    "totalTokenCount": 2463,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 223
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 160,
+    "serviceTier": "standard"
+   },
+   "usd": 0.24,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 3,
+   "prompt_version": "v1",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "e15292253d9b7d87d17340fa399811dd77dde66d15f619e04b764bea685af5eb",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench2/out/gen/g3pro_3.png",
+   "output_sha256": "8675eb154df998ef2a46e96fdc68995e7a88ddf528b2df55dcf1049ccef984d2",
+   "seconds": 21.7,
+   "usage": {
+    "promptTokenCount": 997,
+    "candidatesTokenCount": 1285,
+    "totalTokenCount": 2485,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 223
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 203,
+    "serviceTier": "standard"
+   },
+   "usd": 0.24,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 4,
+   "prompt_version": "v1",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "e15292253d9b7d87d17340fa399811dd77dde66d15f619e04b764bea685af5eb",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench2/out/gen/g3pro_4.png",
+   "output_sha256": "b600ea69f4ab22aa9a40b49a29127f236003b8752767c6debb61ff13b775dfb1",
+   "seconds": 21.2,
+   "usage": {
+    "promptTokenCount": 997,
+    "candidatesTokenCount": 1294,
+    "totalTokenCount": 2549,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 223
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 258,
+    "serviceTier": "standard"
+   },
+   "usd": 0.24,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 5,
+   "prompt_version": "v2",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "327bd46e5986599252b05cb920232e70fb9d40b32c52b1c021c818e91d4f53f0",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench2/out/gen/g3pro_5.png",
+   "output_sha256": "96e9a66c4e7655c72e72164156922e78e64b445bd2f427922877cd68f875f47c",
+   "seconds": 22.2,
+   "usage": {
+    "promptTokenCount": 1043,
+    "candidatesTokenCount": 1293,
+    "totalTokenCount": 2506,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 269
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 170,
+    "serviceTier": "standard"
+   },
+   "usd": 0.24,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 6,
+   "prompt_version": "v2",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "327bd46e5986599252b05cb920232e70fb9d40b32c52b1c021c818e91d4f53f0",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench2/out/gen/g3pro_6.png",
+   "output_sha256": "6732f958e8c19353135f028c87d4cedb3f588205152494a0158e165e29e538e2",
+   "seconds": 23.0,
+   "usage": {
+    "promptTokenCount": 1043,
+    "candidatesTokenCount": 1312,
+    "totalTokenCount": 2530,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 269
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 175,
+    "serviceTier": "standard"
+   },
+   "usd": 0.24,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 7,
+   "prompt_version": "v2",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "327bd46e5986599252b05cb920232e70fb9d40b32c52b1c021c818e91d4f53f0",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench2/out/gen/g3pro_7.png",
+   "output_sha256": "062c8ed6e735fd417ba1b746e34ac039866891eb35965b218e9f358c1f9bc72e",
+   "seconds": 22.1,
+   "usage": {
+    "promptTokenCount": 1043,
+    "candidatesTokenCount": 1294,
+    "totalTokenCount": 2498,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 269
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 774
+     }
+    ],
+    "candidatesTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1120
+     }
+    ],
+    "thoughtsTokenCount": 161,
+    "serviceTier": "standard"
+   },
+   "usd": 0.24,
+   "price_basis": "list"
+  },
+  {
+   "mode": "g3pro",
+   "draw": 8,
+   "prompt_version": "v2",
+   "reference_version": "ref",
+   "model": "gemini-3-pro-image",
+   "params": {
+    "imageSize": "2K",
+    "aspectRatio": "3:2",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "b0bf8627f670f07e4c79bd53b8974f48e57178270c99a40a54fedee05073d229",
+    "mask": "9d448bc3846a205cf0a57124c1e23cbc443ea9bb049475355269b6afd078eeb4",
+    "normal": "7bb7b580bb4120b3ae2e2cf3ab61b437ea45accb55009a927d8b6953314ceeb7"
+   },
+   "prompt_sha256": "327bd46e5986599252b05cb920232e70fb9d40b32c52b1c021c818e91d4f53f0",
+   "ok": false,
+   "error": "402: {\n  \"error\": {\n    \"code\": 402,\n    \"message\": \"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing. Learn more at https://ai.google.dev/gemini-api/docs/billing#prepay. \",\n    \"status\": \"RESOURCE_EXHAUSTED\"\n  }\n}\n",
+   "usd": 0.0
+  }
+ ],
+ "frozen_utc": "2026-09-26T15:29:32Z",
+ "spent_usd": 1.8278,
+ "blockers": [
+  {
+   "what": "OpenAI account credit exhausted (HTTP 429 insufficient_quota, code credit_balance_exhausted) on 2026-09-26T15:00Z during Bench2 phase 5",
+   "blocks": [
+    "gpt-image-1.5 high-input-fidelity generation (the brief's primary provider)",
+    "the pinned gpt-5 reader",
+    "the pinned gpt-5 D realism judge"
+   ],
+   "route_around": "gemini-3-pro-image for generation (the brief's named alternative), gemini-3.1-pro-preview as a DECLARED substitute for the reader and the judge with the pinned prompts unchanged; every such call is labelled provider/model/substitute_for",
+   "owner_action_required": {
+    "action": "add prepaid credit to the OpenAI API organisation used by this benchmark (platform.openai.com > Settings > Organization > Billing)",
+    "why": "the pinned reader, the pinned D judge and gpt-image-1.5 cannot run without it; certification on the pinned judge waits on it",
+    "max_cost": "owner's choice; US$10 covers re-running this benchmark's reads, judgements and up to ~25 gpt-image-1.5 draws at the recorded rates",
+    "minutes": 3,
+    "consequence_of_waiting": "Bench2 heroes are certified on the substitute judge only; the pinned-judge re-run and any gpt-image-1.5 draws stay open"
+   }
+  },
+  {
+   "what": "Google AI Studio prepaid credit depleted (HTTP 402 RESOURCE_EXHAUSTED) on 2026-09-26T16:05Z after draw 7 of round 2",
+   "blocks": [
+    "gemini-3-pro-image generation (the alternative provider)",
+    "the declared substitute reader and judge (gemini-3.1-pro-preview)"
+   ],
+   "route_around": "none left: no provider with credit remains in this environment; draws 5-7 are gated deterministically only and stay UNKNOWN (never PASS) until a reader and a judge can run",
+   "owner_action_required": {
+    "action": "add prepaid credit to the Google AI Studio project used by this benchmark (ai.studio/projects > billing), or to the OpenAI organisation (preferred: it restores the pinned reader, judge and gpt-image-1.5)",
+    "why": "no external generation, reading or judging can run; the benchmark cannot certify without a reader and the realism judge",
+    "max_cost": "owner's choice; US$5 covers finishing this benchmark's remaining draws and gates at the recorded rates",
+    "minutes": 3,
+    "consequence_of_waiting": "Bench2 closes with the round-1 and round-2 evidence as recorded: no certified hero"
+   }
+  }
+ ],
+ "cir_fingerprint_frozen": "962acf0ad919",
+ "product_truth_sha256_frozen": "2499641bbe64833305f834c41630de9e896e7f05f305bf1cd917b1752f4180e3",
+ "stitch_code_rename_note": "After the full suite ran, the codes beg_star/star/end_star were renamed beg_star_st/star_st/end_star_st because the printed token 'star' collided with the English word in another document's title under the abbreviation-key check. Counts, gauge, checks and the reference are unchanged; the CIR fingerprint and the Product Truth digest changed with the code names (frozen values kept beside them)."
+}

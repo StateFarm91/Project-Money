@@ -1,0 +1,468 @@
+{
+ "size": "2-3T",
+ "size_px": [
+  1536,
+  1024
+ ],
+ "px_per_cm": 16.315,
+ "star_px": 18.44,
+ "row_pair_px": 33.12,
+ "regions": {
+  "back_inside": 1,
+  "front_left": 2,
+  "front_right": 3,
+  "hem_band": 4,
+  "button_band": 5,
+  "neck_band": 6,
+  "sleeve_left": 7,
+  "sleeve_right": 8,
+  "cuff_left": 9,
+  "cuff_right": 10,
+  "hood": 11,
+  "hood_band": 12,
+  "button": 13
+ },
+ "boxes_px": {
+  "front_left": [
+   [
+    501.3,
+    972.8
+   ],
+   [
+    501.3,
+    416.7
+   ],
+   [
+    666.8,
+    416.7
+   ],
+   [
+    741.1,
+    615.7
+   ],
+   [
+    741.1,
+    972.8
+   ]
+  ],
+  "front_right": [
+   [
+    1034.7,
+    972.8
+   ],
+   [
+    1034.7,
+    416.7
+   ],
+   [
+    869.2,
+    416.7
+   ],
+   [
+    794.9,
+    615.7
+   ],
+   [
+    794.9,
+    972.8
+   ]
+  ],
+  "neck_v": [
+   [
+    666.8,
+    416.7
+   ],
+   [
+    869.2,
+    416.7
+   ],
+   [
+    794.9,
+    615.7
+   ],
+   [
+    741.1,
+    615.7
+   ]
+  ],
+  "sleeve_left": [
+   [
+    501.3,
+    416.7
+   ],
+   [
+    267.4,
+    562.8
+   ],
+   [
+    372.9,
+    731.6
+   ],
+   [
+    606.7,
+    585.5
+   ]
+  ],
+  "cuff_left": [
+   [
+    293.8,
+    605.0
+   ],
+   [
+    244.0,
+    636.1
+   ],
+   [
+    296.7,
+    720.5
+   ],
+   [
+    346.5,
+    689.4
+   ]
+  ],
+  "sleeve_right": [
+   [
+    1034.7,
+    416.7
+   ],
+   [
+    1268.6,
+    562.8
+   ],
+   [
+    1163.1,
+    731.6
+   ],
+   [
+    929.3,
+    585.5
+   ]
+  ],
+  "cuff_right": [
+   [
+    1242.2,
+    605.0
+   ],
+   [
+    1292.0,
+    636.1
+   ],
+   [
+    1239.3,
+    720.5
+   ],
+   [
+    1189.5,
+    689.4
+   ]
+  ],
+  "hem_band": [
+   [
+    501.3,
+    972.8
+   ],
+   [
+    1034.7,
+    972.8
+   ],
+   [
+    1034.7,
+    914.1
+   ],
+   [
+    501.3,
+    914.1
+   ]
+  ],
+  "button_band": [
+   [
+    741.1,
+    972.8
+   ],
+   [
+    794.9,
+    972.8
+   ],
+   [
+    794.9,
+    615.7
+   ],
+   [
+    741.1,
+    615.7
+   ]
+  ],
+  "neck_band": [
+   [
+    [
+     741.080300240759,
+     615.697946466506
+    ],
+    [
+     666.8471887834585,
+     416.6553179436339
+    ],
+    [
+     612.4885517124526,
+     436.9284161955254
+    ],
+    [
+     686.7216631697531,
+     635.9710447183975
+    ]
+   ],
+   [
+    [
+     794.919699759241,
+     615.697946466506
+    ],
+    [
+     869.1528112165415,
+     416.6553179436339
+    ],
+    [
+     923.5114482875474,
+     436.9284161955254
+    ],
+    [
+     849.2783368302469,
+     635.9710447183975
+    ]
+   ]
+  ],
+  "hood": [
+   [
+    608.8,
+    416.7
+   ],
+   [
+    927.2,
+    416.7
+   ],
+   [
+    1025.8,
+    307.0
+   ],
+   [
+    1025.8,
+    160.8
+   ],
+   [
+    1025.8,
+    160.8
+   ],
+   [
+    1023.6,
+    146.5
+   ],
+   [
+    1017.0,
+    132.5
+   ],
+   [
+    1006.2,
+    118.9
+   ],
+   [
+    991.2,
+    106.0
+   ],
+   [
+    972.5,
+    94.1
+   ],
+   [
+    950.3,
+    83.3
+   ],
+   [
+    924.9,
+    73.9
+   ],
+   [
+    896.9,
+    65.9
+   ],
+   [
+    866.6,
+    59.5
+   ],
+   [
+    834.7,
+    54.9
+   ],
+   [
+    801.6,
+    52.1
+   ],
+   [
+    768.0,
+    51.2
+   ],
+   [
+    734.4,
+    52.1
+   ],
+   [
+    701.3,
+    54.9
+   ],
+   [
+    669.4,
+    59.5
+   ],
+   [
+    639.1,
+    65.9
+   ],
+   [
+    611.1,
+    73.9
+   ],
+   [
+    585.7,
+    83.3
+   ],
+   [
+    563.5,
+    94.1
+   ],
+   [
+    544.8,
+    106.0
+   ],
+   [
+    529.8,
+    118.9
+   ],
+   [
+    519.0,
+    132.5
+   ],
+   [
+    512.4,
+    146.5
+   ],
+   [
+    510.2,
+    160.8
+   ],
+   [
+    510.2,
+    307.0
+   ]
+  ]
+ },
+ "buttons_px": [
+  [
+   768.0,
+   889.6,
+   15.5
+  ],
+  [
+   768.0,
+   825.2,
+   15.5
+  ],
+  [
+   768.0,
+   760.8,
+   15.5
+  ],
+  [
+   768.0,
+   696.4,
+   15.5
+  ],
+  [
+   768.0,
+   632.0,
+   15.5
+  ]
+ ],
+ "geometry_cm": {
+  "BW": 32.7,
+  "FW": 14.7,
+  "HEM": 3.6,
+  "BACK_BODY": 19.3,
+  "FRONT_BODY": 18.29,
+  "YOKE_HALF": 12.2,
+  "SL": 16.9,
+  "CUFF": 3.6,
+  "NECK": 12.4,
+  "HOODW": 31.6,
+  "HOODH": 22.4,
+  "STAR": 1.13,
+  "PAIR": 2.03,
+  "BAND": 3.56,
+  "SLEEVE_FACE": 12.2,
+  "GAP": 3.3,
+  "UNDERARM_Y": 21.89,
+  "SHOULDER_Y": 34.09,
+  "WINGSPAN": 66.6
+ },
+ "layout": {
+  "view": "flat lay, top-down, front up, buttoned, hood spread flat above the shoulders, sleeves angled down",
+  "sleeve_angle_deg": 32.0,
+  "fill": 0.9,
+  "cuff_face_fraction": 0.5,
+  "centre_gap_cm_DECLARED": 3.3,
+  "band_cm_from_pattern": 3.56,
+  "buttons_DECLARED": "5 buttons 19.0 mm, evenly spaced on the centre band from above the hem band to the neck point (pattern: 4-6 by preference)",
+  "hood_DECLARED": "spread open behind the neck, top seam drawn as a centre line, face-edge band round the outside"
+ },
+ "colour": {
+  "yarn_rgb": [
+   236,
+   224,
+   212
+  ],
+  "surface_rgb": [
+   66,
+   66,
+   70
+  ],
+  "basis": "Oat Milk; RGB is the lit median of the designer's flat-lay photograph of that colourway (evidence about the colourway, not pattern text); dark surface chosen so the cream garment segments by lightness"
+ },
+ "validation": {
+  "dimensions_are_product_truth": true,
+  "silhouette_cm": {
+   "wingspan_incl_cuffs": 73.8,
+   "front_height_hem_to_shoulder": 34.1,
+   "hood_above_shoulder": 22.4,
+   "back_width": 32.7
+  },
+  "star_instrument_on_reference_front": {
+   "status": "PASS",
+   "identity": "PASS",
+   "gauge": {
+    "row_pair_ratio": 0.996,
+    "star_pitch_ratio": 0.976,
+    "status": "PASS"
+   },
+   "star_pitch_px": 18.0,
+   "row_pair_px": 33.0,
+   "pitch_over_pair": 0.545,
+   "column_offset_star": 0.056,
+   "failed": []
+  },
+  "region_pixels": {
+   "back_inside": 25146,
+   "front_left": 87063,
+   "front_right": 87063,
+   "hem_band": 28320,
+   "button_band": 15310,
+   "neck_band": 25102,
+   "sleeve_left": 55106,
+   "sleeve_right": 55106,
+   "cuff_left": 6010,
+   "cuff_right": 6010,
+   "hood": 107377,
+   "hood_band": 58374,
+   "button": 4020
+  },
+  "buttons_drawn": 5
+ },
+ "cir_fingerprint": "962acf0ad919"
+}

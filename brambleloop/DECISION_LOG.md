@@ -1091,3 +1091,34 @@ to end, certified by the gate as built; the stitch-pattern appearance (seed-like
 crumpled waffle) is named as the borderline-material discrepancy the gate does not yet cover,
 and the readiness verdict is: hero as a gated loop yes, on-body and lifestyle not yet.
 
+
+**D-B2-1. A stitch-identity instrument is built from the stitch's mechanics and self-tested
+before any paid generation; its model may be corrected by the mechanics and by photographs of
+the real stitch, its bars may not.** The star-stitch instrument went through three designs;
+what changed on the evidence of the designer's photographs was the model of the fabric (eyes
+stack in near-vertical columns, not half a star apart), which the stitch definitions explain.
+Every bar is a priori and named; the first designs and the correction are recorded in the module.
+
+**D-B2-2. The reader's materiality is calibrated on the designer's own photographs by a
+recorded rule, and a withdrawn property is replaced by code where code can do it.** The reader
+read the closure count wrong on both flat photographs that show buttons, so closure count no
+longer vetoes; a deterministic button counter on the reference's band region does.
+
+**D-B2-3. A provider that runs out of credit is routed around only with a declared substitute,
+every call labelled, and never for certification.** When OpenAI answered insufficient_quota the
+brief's named alternative (gemini-3-pro-image) generated, and gemini-3.1-pro-preview answered
+the pinned reader and judge prompts as a labelled substitute. The substitute judge discriminated
+nothing (7/7 on every draw, no notes) and its verdicts carry no weight; nothing is certified on
+it. When Google ran out too, gating continued deterministically and verdicts stayed UNKNOWN.
+
+**D-B2-4. A prompt may ask that a part the reference already contains stay as drawn; it may
+not name a count, a stitch or a construction detail.** Round 2 named the hood's posture and
+"exactly the buttons drawn"; the reference remains the only source of structure.
+
+**D-B2-5. The reference draws the hood spread flat; the provider folds it every time.** Left
+as drawn: the spread hood shows the hood's size, which is Product Truth. A folded-hood
+reference is a presentation option for the owner to choose, not a correction.
+
+**D-B2-6. No hero is claimed.** Seven draws, seven rejections for measured reasons, both
+providers out of credit; the benchmark closes with the pipeline complete and the yield with
+its intended provider unmeasured. Owner action (credit) is batched in the manifest.

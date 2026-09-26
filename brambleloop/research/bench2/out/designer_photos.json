@@ -1,0 +1,53 @@
+{
+ "cover_flatlay": {
+  "product_type": "cardigan",
+  "front": "buttoned",
+  "closure_count": 4,
+  "front_band": "ribbed_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "pocket_count": 0,
+  "pocket_position": "none",
+  "sleeve_length": "long",
+  "body_length": "hip",
+  "texture": "other",
+  "body_ridge_direction": "horizontal",
+  "colour_count": 1,
+  "main_colour": "brown",
+  "extra_features": [
+   "hood",
+   "buttons"
+  ],
+  "handmade_crochet": true,
+  "hood": "attached_hood",
+  "hood_edge": "ribbed_band",
+  "cluster_rows_direction": "horizontal",
+  "notes": "The image features two identical baby cardigans in different sizes and yarn colours."
+ },
+ "gallery_toddler_worn": {
+  "product_type": "cardigan",
+  "front": "open",
+  "closure_count": 4,
+  "front_band": "plain_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "pocket_count": 0,
+  "pocket_position": "none",
+  "sleeve_length": "long",
+  "body_length": "hip",
+  "texture": "star_stitch",
+  "body_ridge_direction": "horizontal",
+  "colour_count": 1,
+  "main_colour": "pink",
+  "extra_features": [
+   "buttons",
+   "hood"
+  ],
+  "handmade_crochet": true,
+  "hood": "attached_hood",
+  "hood_edge": "plain",
+  "cluster_rows_direction": "horizontal",
+  "notes": "The cardigan features a distinct star stitch texture throughout the body and sleeves."
+ },
+ "gallery_baby_worn": {}
+}

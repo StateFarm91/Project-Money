@@ -1,0 +1,27 @@
+{
+ "ref_flatlay.png": {
+  "product_type": "cardigan",
+  "front": "buttoned",
+  "closure_count": 5,
+  "front_band": "ribbed_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "pocket_count": 0,
+  "pocket_position": "none",
+  "sleeve_length": "long",
+  "body_length": "hip",
+  "texture": "star_stitch",
+  "body_ridge_direction": "horizontal",
+  "colour_count": 1,
+  "main_colour": "cream",
+  "extra_features": [
+   "hood",
+   "buttons"
+  ],
+  "handmade_crochet": true,
+  "hood": "attached_hood",
+  "hood_edge": "ribbed_band",
+  "cluster_rows_direction": "horizontal",
+  "notes": "The front band, hem, cuffs, and hood edge all feature matching ribbing."
+ }
+}

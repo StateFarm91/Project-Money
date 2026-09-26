@@ -114,6 +114,7 @@ COLOURWORK_CLAIMS: tuple[str, ...] = (
 # worked in the back loop leaves a bar on the surface, which is the whole point of it.
 TEXTURE_STITCHES: frozenset[str] = frozenset((
     "fpdc", "bpdc", "bob", "cable2x2", "cable1x1",
+    "beg_star_st", "star_st", "end_star_st",
 ))
 
 # Forms that are more than one piece of fabric by definition, and therefore need `assembly`.

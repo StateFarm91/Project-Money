@@ -59,7 +59,7 @@ UK_TERMS: dict[str, str] = {
     # because "absent from the table" and "identical in both" are different facts and only
     # one of them is safe to print.
     "bob": "bob", "cable2x2": "cable2x2", "cable1x1": "cable1x1",
-    "beg_star": "beg star", "star": "star st", "end_star": "end star", "hdc_inc": "htr inc", "hdc3": "3 htr in next st",
+    "beg_star_st": "beg star st", "star_st": "star st", "end_star_st": "end star st", "hdc_inc": "htr inc", "hdc3": "3 htr in next st",
 }
 
 
@@ -150,9 +150,9 @@ CABLE_1X1 = _register(Stitch("cable1x1", "1-over-1 cable crossing", "1-over-1 ca
 #   hdc_inc   consumes 1 eye, produces 2 (the return row's "2 hdc in each eye")
 # so 42 sts -> beg + 19 stars + end = 21 stars producing 22 anchors -> hdc, 20 hdc_inc, hdc = 42.
 # `height` is the star row's height in sc units (a star row sits between sc and hdc).
-BEG_STAR = _register(Stitch("beg_star", "beginning star stitch", "beginning star stitch", consumes=3, produces=1, height=1.5, row_height=1.4))
-STAR = _register(Stitch("star", "star stitch", "star stitch", consumes=2, produces=1, height=1.5, row_height=1.4))
-END_STAR = _register(Stitch("end_star", "end star stitch", "end star stitch", consumes=1, produces=2, height=1.5, row_height=1.4))
+BEG_STAR = _register(Stitch("beg_star_st", "beginning star stitch", "beginning star stitch", consumes=3, produces=1, height=1.5, row_height=1.4))
+STAR = _register(Stitch("star_st", "star stitch", "star stitch", consumes=2, produces=1, height=1.5, row_height=1.4))
+END_STAR = _register(Stitch("end_star_st", "end star stitch", "end star stitch", consumes=1, produces=2, height=1.5, row_height=1.4))
 HDC_INC = _register(Stitch("hdc_inc", "half double crochet increase", "half treble crochet increase", consumes=1, produces=2, height=2.0, row_height=1.5))
 # Three half doubles worked into one anchor: the star-stitch pattern's neck and hood shaping
 # works one hdc into a star's eye and one into its top and two into the next eye -- five

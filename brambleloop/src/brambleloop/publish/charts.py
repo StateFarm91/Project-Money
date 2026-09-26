@@ -67,6 +67,9 @@ GLYPHS: dict[str, str] = {
     # legend listing that mark twice, is a maker working the wrong stitch off a chart the whole
     # product is sold on. "/" is the single crossing to "X"'s double.
     "fpdc": "]", "bpdc": "[", "bob": "O", "cable2x2": "X", "cable1x1": "/",
+    # Star stitch and the hdc increases (Bench2). "*" for the star, "<" and ">" for the row's
+    # beginning and end stars, "Y" for two hdc in one stitch, "3" for three.
+    "beg_star_st": "<", "star_st": "*", "end_star_st": ">", "hdc_inc": "Y", "hdc3": "3",
 }
 
 
@@ -1064,6 +1067,7 @@ def render_fabric(cir: CIR, twin: TwinModel, *, cell_px: int = 18,
             "cable2x2": -0.20,   # a crossing sits proud of the ground
             "cable1x1": -0.17,
             "fpdc": -0.13,       # a front post stitch stands forward
+            "star_st": -0.12, "beg_star_st": -0.12, "end_star_st": -0.12,   # a star is a raised puff
             "bpdc": 0.10,        # a back post stitch recedes
             "dc": -0.04,
             "tr": -0.07,

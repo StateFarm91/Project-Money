@@ -368,6 +368,38 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Commercial benchmark 2: Mini Star Stitch Cardigan — pipeline complete, 0 of 7 certified, both providers out of credit
+
+From `e4af6f1` (Bench1 untouched). Report `research/VISUAL_BENCH2.md`; every fact, digest, call
+and cost in `research/bench2/out/`. External spend **US$1.83** of a US$5.00 ceiling. The
+designer's PDF, text and photographs stay outside the repository (asserted by `test_bench2.py`).
+
+- **All-size Product Truth** (17-page PDF, ten sizes, parsed at run time, every fact page-cited):
+  25 deterministic cross-checks pass on every size; four ambiguities recorded; the size 2-3T CIR
+  compiles on a new star-stitch vocabulary (`beg_star_st`/`star_st`/`end_star_st`/`hdc_inc`/`hdc3`).
+- **Star-stitch identity + gauge instrument**, built and self-tested before any paid draw: the
+  eye lattice (pitch, columnar next row, pitch/pair band, isotropy, fan fraction, return row) with
+  a priori bars. Truth passes, six controls fail (half-offset model, hdc, seed, knit, Bench1 waffle,
+  Bench1 hero), five of six designer-photo crops pass. Known limit: a cluster texture sharing the
+  lattice passes it; the reader's material texture answer catches that.
+- **Frozen size 2-3T** with reason; **deterministic full-product reference** (one piece, built-in
+  sleeves, V front neck from the increases, spread hood with face band, bands, cuffs, five
+  buttons) that passes its own gate and reads as star stitch at gauge.
+- **Generation and gate:** OpenAI credit exhausted at the first call (blocks gpt-image-1.5, the
+  pinned reader and the pinned D judge); gemini-3-pro-image drew 7 (2K) with a declared
+  substitute reader/judge, then Google credit ran out. **0 of 7 certified**: texture rewritten
+  to hdc or clusters (6/7), hood folded to a point (7/7), 4 or 6 buttons for 5 (4/7); every
+  rejection measured and recorded. The substitute judge discriminated nothing; nothing rests on it.
+- **OWNER ACTION REQUIRED (batched in the manifest):** add prepaid credit to the OpenAI API
+  organisation (restores the pinned reader, judge and gpt-image-1.5; US$10 covers finishing this
+  benchmark) or to Google AI Studio (US$5). Until then no Bench2 hero can be certified.
+- Tests: `test_bench2.py` 42/42. Full suite 4,245 passing; it exposed that the new stitch codes were
+  unregistered in the publishing registries (difficulty, chart glyphs) and that the code `star` collided
+  with the English word under the abbreviation-key check — fixed (codes renamed `*_st`, all five
+  registered in difficulty, glyphs, twin yarn factors, texture list), `test_deliverable_qa.py`,
+  `test_compiler.py`, `test_twin.py` green afterwards; the one remaining failure is the pre-existing
+  date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`.
+
 ### 2026-09-26 — Commercial benchmark 1: purchased cardigan pattern → certified listing hero, 1 of 12, through a recorded pipeline
 
 From checkpoint `90fa87a`. Report `research/VISUAL_BENCH1.md`; every fact, digest, call and cost in
