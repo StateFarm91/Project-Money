@@ -190,9 +190,12 @@ def judge_views(image_paths: list[str], *, model: str = MODEL) -> dict:
 if __name__ == "__main__":                              # pragma: no cover
     import sys
     kind, out_dir = sys.argv[1], sys.argv[2]
-    paths = [os.path.join(out_dir, f"{kind}_draped_plied_{v}.png") for v in ("camera", "oblique")]
+    tag = sys.argv[3] if len(sys.argv) > 3 else "plied"        # which authoritative set
+    paths = [os.path.join(out_dir, f"{kind}_draped_{tag}_{v}.png") for v in ("camera", "oblique")]
     res = judge_views(paths)
-    with open(os.path.join(out_dir, f"judge_{kind}.json"), "w") as f:
+    res["tag"] = tag
+    name = f"judge_{kind}.json" if tag == "plied" else f"judge_{kind}_{tag}.json"
+    with open(os.path.join(out_dir, name), "w") as f:
         json.dump(res, f, indent=1)
     for item, r in res["items"].items():
         print(f"{r['status']:7s} {item}: {r['per_view']}")

@@ -267,7 +267,7 @@ Judge: `d_judge` → OpenAI `gpt-5-2025-08-07`, image inline at high detail, the
 |---|---|---|
 | 6,400 it (momentum) | 2.3 % → UNKNOWN | 2.1 % → UNKNOWN |
 | 12,800 it (momentum) | 2.3 % → UNKNOWN; creep constant at 0.031 mm / 200 it | **1.58 % → PASS** |
-| 12,800 + 3,200 momentum-off settle | **0.55 % → PASS**; creep 0.006 mm / 200 it | SC_SETTLE_PLACEHOLDER |
+| 12,800 + 3,200 momentum-off settle | **0.55 % → PASS**; creep 0.006 mm / 200 it | **0.77 % → PASS**; creep 0.004 mm / 200 it |
 
 Semantics: the criterion measures whether the fabric has stopped; a constant creep under momentum can never satisfy a bar stated over the last tenth of a growing solve, and should not. The creep was the momentum method's floor, not the force law: with momentum off (how a FIRE minimisation is finished; rest state carried, trace measured from the same origin) it fell fivefold and the unchanged 2 % criterion is met. Every result states `settle_iterations`; the `_12800_settle.json` records are the evidence configurations, and their draped points are saved with their hashes (`*_draped.npz`).
 
