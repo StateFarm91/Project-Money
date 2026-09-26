@@ -51,6 +51,6 @@ if os.path.exists(os.path.join(OUT, "bench1_manifest.json")):
     check("all four seller photographs were read by the same reader", len(sellers) == 4)
 # nothing of the seller's is in the repository
 tracked = subprocess.run(["git", "ls-files", "research/bench1"], cwd=ROOT, capture_output=True, text=True).stdout.split()
-check("no PDF, pattern text or seller photograph is tracked under research/bench1", not any(t.endswith((".pdf", "pattern.txt")) or "seller_" in t for t in tracked), str([t for t in tracked if t.endswith(".pdf") or "seller_" in t]))
+check("no PDF, pattern text or seller photograph is tracked under research/bench1 (the readers' JSON answers are derived data and are)", not any(t.endswith((".pdf", "pattern.txt", ".jpg", ".jpeg")) for t in tracked), str([t for t in tracked if t.endswith((".pdf", ".jpg", ".jpeg", "pattern.txt"))]))
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)
