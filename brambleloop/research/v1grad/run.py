@@ -15,8 +15,9 @@ import reader as R, gate as G                                                   
 SCRATCH = Path("/tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad")
 MANIFEST = OUT / "v1grad_manifest.json"; CAP_USD = 5.00
 os.environ.setdefault("OPENAI_API_KEY_FILE", str(SCRATCH / ".oaikey"))
-REFS = {"rgb": str(OUT / "ref_flatlay.png"), "mask": str(OUT / "ref_mask.png"), "normal": str(OUT / "ref_normal.png")}
-OUT_SIZE = "1024x1536"
+REFS_BY = {v: {"rgb": str(OUT / f"{v}_flatlay.png"), "mask": str(OUT / f"{v}_mask.png"), "normal": str(OUT / f"{v}_normal.png")} for v in ("ref", "ref2", "ref3")}
+REFS = REFS_BY["ref"]
+OUT_SIZE = "1024x1536"; OUT_SIZE_BY = {"ref": "1024x1536", "ref2": "1024x1536", "ref3": "1536x1024"}
 # The strongest previously evidenced OpenAI route for structural preservation (E5, Bench1's
 # certified hero): gpt-image-1.5, input_fidelity high, quality medium, the rgb + mask + normal
 # package. Presentation only (Bench1 round-2 wording, D-B1-3 / D-B2-4): names no stitch, count,
@@ -30,7 +31,16 @@ PROMPT = ("The first image is a flat computer rendering of a hand-crocheted text
           "surface placement exactly. Replace the rendered material with real worsted-weight acrylic yarn as it actually crochets up: a matte, "
           "slightly fuzzy surface with the stitch texture exactly as drawn, ordinary handmade unevenness, soft window daylight from one side, "
           "gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame.")
-PROMPTS = {"v1": PROMPT}
+# Round 3 (D-B2-4 rule): a fidelity sentence may name a part the reference already contains and
+# ask that it stay as drawn; it never names a count, a stitch or a construction detail. Round 1
+# drew the raised columns 1.3-1.6x too far apart (columns merged) and the judge read the
+# ruler-straight edges as computer-generated; both are presentation, not design.
+PROMPT_V2 = PROMPT.replace("Keep the piece exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere.",
+                           "Keep the piece exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. "
+                           "Keep exactly the raised columns that are drawn, each one where it is drawn and as narrow as it is drawn, none merged, none added, "
+                           "none removed, with the recessed channels between them as drawn. The edges are the plain edges of the crocheted fabric itself, "
+                           "with no added border, lying as a heavy crocheted blanket lies when set down by hand: slightly uneven, not ruler-straight.")
+PROMPTS = {"v1": PROMPT, "v2": PROMPT_V2}
 MODE = dict(provider="openai", model="gpt-image-1.5", params={"input_fidelity": "high", "quality": "medium"})
 OA_RATES = {"text_in": 5.0, "image_in": 10.0, "image_out": 40.0}
 
@@ -77,8 +87,9 @@ def _multipart(fields, files):
     out += f"--{b}--\r\n".encode(); return b, bytes(out)
 
 
-def draw(prompt):
-    fields = {"model": MODE["model"], "prompt": prompt, "n": "1", **{k: str(v) for k, v in MODE["params"].items()}, "size": OUT_SIZE}
+def draw(prompt, refv="ref"):
+    REFS = REFS_BY[refv]
+    fields = {"model": MODE["model"], "prompt": prompt, "n": "1", **{k: str(v) for k, v in MODE["params"].items()}, "size": OUT_SIZE_BY[refv]}
     files = [("image[]", Path(REFS[r]).name, Path(REFS[r]).read_bytes()) for r in ("rgb", "mask", "normal")]
     b, body = _multipart(fields, files)
     req = urllib.request.Request("https://api.openai.com/v1/images/edits", data=body, method="POST")
@@ -105,17 +116,24 @@ def cmd_read_reference():
     print("reference:", {k: v["status"] for k, v in G.properties(list(ans.values())[0]).items()})
 
 
-def cmd_generate(n, pv="v1"):
+def cmd_generate(n, pv="v1", refv="ref"):
     m = load()
     if m["blind_deterministic_chain"]["verdict"] != "PASS": raise SystemExit("refused: BLIND DETERMINISTIC CHAIN is not PASS")
-    prompt = PROMPTS[pv]
+    prompt = PROMPTS[pv]; REFS = REFS_BY[refv]
+    if refv != "ref":
+        # a later reference version is a re-statement of the same frozen Product Truth (same cells,
+        # same geometry); it is frozen here with its digests and its own self-gate before use
+        meta = json.load(open(OUT / f"{refv}_meta.json")); assert meta["inputs"]["product_truth_sha256"] == m["frozen_digests"]["product_truth.json"], "reference version not built from the frozen Product Truth"
+        assert G.deterministic(REFS["rgb"], refv)["status"] == "PASS", "reference version fails its own gate"
+        m.setdefault("reference_versions", {})[refv] = {k: sha(v) for k, v in REFS.items()} | {"meta_sha256": sha(OUT / f"{refv}_meta.json"), "conventions": meta["conventions_DECLARED"]}
     for _ in range(n):
         if m.get("spent_usd", 0) + 0.35 > CAP_USD: print("ceiling reached; not drawing"); break
         k = 1 + len(m["runs"]); t0 = time.time()
-        row = {"draw": k, "prompt_version": pv, "model": MODE["model"], "params": {**MODE["params"], "size": OUT_SIZE}, "reference_sha256": {kk: sha(v) for kk, v in REFS.items()}, "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest()}
-        assert row["reference_sha256"]["rgb"] == m["frozen_digests"]["ref_rgb"], "the reference changed after the freeze"
+        row = {"draw": k, "prompt_version": pv, "reference_version": refv, "model": MODE["model"], "params": {**MODE["params"], "size": OUT_SIZE_BY[refv]}, "reference_sha256": {kk: sha(v) for kk, v in REFS.items()}, "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest()}
+        if refv == "ref": assert row["reference_sha256"]["rgb"] == m["frozen_digests"]["ref_rgb"], "the reference changed after the freeze"
+        else: assert row["reference_sha256"]["rgb"] == m["reference_versions"][refv]["rgb"]
         try:
-            raw, meta = draw(prompt); img = Image.open(io.BytesIO(raw)).convert("RGB"); dst = GEN / f"oa15_hifi_{k}.png"; img.save(dst)
+            raw, meta = draw(prompt, refv); img = Image.open(io.BytesIO(raw)).convert("RGB"); dst = GEN / f"oa15_hifi_{k}.png"; img.save(dst)
             row.update(ok=True, path=str(dst), output_sha256=sha(dst), seconds=round(time.time() - t0, 1), **meta)
         except urllib.error.HTTPError as exc: row.update(ok=False, error=f"{exc.code}: {exc.read().decode(errors='replace')[:300]}", usd=0.0)
         except Exception as exc: row.update(ok=False, error=f"{type(exc).__name__}: {str(exc)[:300]}", usd=0.0)  # noqa: BLE001
@@ -131,14 +149,14 @@ def cmd_gate():
         if not run.get("ok"): continue
         key = f"oa15_hifi_{run['draw']}"
         if key in results and results[key]["output_sha256"] == run["output_sha256"]: continue
-        det = G.deterministic(run["path"])
-        ans = read_images(m, "candidate", [run["path"]])[os.path.basename(run["path"])]; props = G.properties(ans, ref_ans)
+        det = G.deterministic(run["path"], run.get("reference_version", "ref"))
+        ans = read_images(m, "candidate", [run["path"]])[os.path.basename(run["path"])]; props = G.properties(ans, ref_ans, run.get("reference_version", "ref"))
         cache = OUT / f"judge_{key}.json"; j = json.load(open(cache)) if cache.exists() else None
         if not (j and j["views"][0].get("image_sha256") == run["output_sha256"]):
             j = DJ.judge_views([run["path"]]); json.dump(j, open(cache, "w"), indent=1)
             m["calls"].append({"key": f"judge:{key}", "kind": "judge", "provider": "openai", "model": j.get("model"), "image_sha256": run["output_sha256"], "response_id": j["views"][0]["response_id"], "usd": j["total_cost_usd"]}); save(m)
         judge = {k: v["status"] for k, v in j["items"].items()}; v = G.verdict(det, props, judge)
-        results[key] = {"draw": run["draw"], "prompt_version": run.get("prompt_version", "v1"), "output_sha256": run["output_sha256"], "usd_generation": run.get("usd"), "deterministic": det, "properties": props, "reader_answers": ans, "judge": judge,
+        results[key] = {"draw": run["draw"], "prompt_version": run.get("prompt_version", "v1"), "reference_version": run.get("reference_version", "ref"), "output_sha256": run["output_sha256"], "usd_generation": run.get("usd"), "deterministic": det, "properties": props, "reader_answers": ans, "judge": judge,
                         "judge_notes": j["views"][0]["reading"].get("notes", ""), "verdict": v}
         json.dump(results, open(OUT / "v1grad_gate.json", "w"), indent=1, default=str)
         ci = det["items"].get("cable_identity", {}).get("evidence", {})
@@ -146,6 +164,19 @@ def cmd_gate():
               f"| cable {det['items'].get('cable_identity', {}).get('status')}/{det['items'].get('cable_gauge', {}).get('status')} col {ci.get('column_pitch_px')} cross {ci.get('crossing_period_px')} dom {ci.get('column_dominance')} failed {ci.get('failed')} "
               f"| material fails {v['material_failures']} unknown {v['unknown_material']} | judge fails {v['judge_failures']} | {results[key]['judge_notes'][:90]}")
     save(m); print("spent US$", m["spent_usd"])
+
+
+def cmd_regate():
+    """Offline: recompute every candidate's deterministic result and verdict from the stored
+    reader answers and judge items (no provider call), e.g. after a gate-code correction. The
+    readings never change; the record says the gate version that judged them."""
+    m = load(); g = json.load(open(OUT / "v1grad_gate.json")); rr = OUT / "reference_reading.json"; ref_ans = list(json.load(open(rr)).values())[0] if rr.exists() else None
+    for key, r in g.items():
+        run = next(x for x in m["runs"] if x.get("ok") and f"oa15_hifi_{x['draw']}" == key)
+        det = G.deterministic(run["path"], r.get("reference_version", "ref")); props = G.properties(r["reader_answers"], ref_ans, r.get("reference_version", "ref")); v = G.verdict(det, props, r["judge"])
+        r.update(deterministic=det, properties=props, verdict=v, gate_sha256=sha(HERE / "gate.py"))
+        print(f"{key}: {v['status']} | det {det['status']} | material fails {v['material_failures']} unknown {v['unknown_material']} | judge fails {v['judge_failures']}")
+    json.dump(g, open(OUT / "v1grad_gate.json", "w"), indent=1, default=str)
 
 
 def cmd_report():
@@ -161,6 +192,7 @@ if __name__ == "__main__":
     c = sys.argv[1]
     if c == "freeze": cmd_freeze()
     elif c == "read_reference": cmd_read_reference()
-    elif c == "generate": cmd_generate(int(sys.argv[2]), sys.argv[3] if len(sys.argv) > 3 else "v1")
+    elif c == "generate": cmd_generate(int(sys.argv[2]), sys.argv[3] if len(sys.argv) > 3 else "v1", sys.argv[4] if len(sys.argv) > 4 else "ref")
     elif c == "gate": cmd_gate()
+    elif c == "regate": cmd_regate()
     elif c == "report": cmd_report()

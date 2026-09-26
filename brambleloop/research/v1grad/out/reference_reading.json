@@ -1,0 +1,16 @@
+{
+ "ref_flatlay.png": {
+  "shape": "rectangle",
+  "presentation": "flat",
+  "texture": "cabled",
+  "cable_direction": "along_the_length",
+  "colour_count": 1,
+  "main_colour": "cream",
+  "edging": "none",
+  "extra_features": [
+   "none"
+  ],
+  "handmade_crochet": false,
+  "notes": "Evenly spaced vertical cable columns run the full length across a single-colour piece."
+ }
+}

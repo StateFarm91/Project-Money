@@ -368,6 +368,34 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Product-only Visual V1 graduation (blind Brambleloop product): deterministic chain PASS, 0 of 16 certified — NOT LOCKED
+
+From `ad81e30`. Report `research/VISUAL_V1_GRADUATION.md`; every asset, digest, call, cost and
+verdict in `research/v1grad/out/`. External spend **US$4.86** of a US$5.00 ceiling (OpenAI only;
+Google intentionally unfunded and not substituted).
+
+- **Product:** the Heirloom Cable Throw (`products/texture.py`, class A, 18 cable columns crossing
+  every fourth row on back-post ribbing, 144 x 121, cream worsted), a Brambleloop original that has
+  never been made; the strongest fully specified candidate (no original garment exists yet).
+- **Firewall:** EXTERNAL FINISHED-PRODUCT VISUAL REFERENCES USED BY PRODUCT CONSTRUCTION OR
+  GENERATION: NONE. Every input to every stage listed with digests; a scratchpad chart and the
+  artifact store's image blobs quarantined unopened; no web search.
+- **Blind deterministic chain PASS before any spend:** Product Truth from the CIR (10 cross-checks,
+  4 declared uncertainties), reference at counts x gauge drawing every cell/row/crossing, cable
+  identity + gauge instrument self-tested (reference PASS; rotated, plain, star, waffle controls
+  FAIL; 2x scale fails gauge), reference passes its own gate; frozen with digests at `9cf29f5`.
+- **Generation:** gpt-image-1.5 high input fidelity, 16 draws over five rounds (whole throw; stronger
+  contrast; fidelity prompt; folded landscape at 14.2 px/cm x2). **0 certified.** The generator draws
+  the columns 1.3-1.7x too far apart at the whole-throw scale and rewrites crossings as ladder, moss
+  or rib textures, often adding an edge border; at the folded scale two draws pass every
+  deterministic measure but the reader (texture, edging) and the judge (folds) reject them.
+- **Capability fixed generally:** `visual.fabric.texture_signature` now sees relief stitches
+  (`tests/test_fabric_relief.py`); a gate expectation corrected for the folded view (D-V1-5).
+- **Verdict:** PRODUCT-ONLY VISUAL V1 is NOT locked. Blocker localised to image generation /
+  provider capability at the stitch-structure scale. Shortest next experiment in the report.
+- Tests: `test_v1grad.py` 40/40, `tests/test_fabric_relief.py` 8/8; full suite 4,257 passing, the one
+  failing suite is the pre-existing date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`.
+
 ### 2026-09-26 — Commercial benchmark 2: Mini Star Stitch Cardigan — pipeline complete, 0 of 7 certified, both providers out of credit
 
 From `e4af6f1` (Bench1 untouched). Report `research/VISUAL_BENCH2.md`; every fact, digest, call

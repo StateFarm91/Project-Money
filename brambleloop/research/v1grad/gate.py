@@ -147,9 +147,25 @@ def deterministic(candidate_path, refv="ref"):
     return {"status": status, "items": {k: {"status": s, "evidence": e} for k, (s, e) in items.items()}}
 
 
-def properties(answers: dict, reference_answers: dict | None = None) -> dict:
+def expectations(refv: str = "ref") -> dict:
+    """Product Truth's expectations as the reader will see them in this presentation. The
+    columns run up the rows (along the throw's 129 cm length) in every version; the reader
+    answers the direction RELATIVE TO THE PIECE'S LONGER SIDE AS SHOWN, so in the folded view
+    (the visible half is 90 wide x 64 tall) the same columns run across the longer side.
+    Found by round 4 (draws 11-13), which the first expectation mis-read; the readings did
+    not change, the expectation was corrected to what Product Truth says for that view."""
+    ex = dict(EXPECT)
+    try:
+        meta = json.load(open(os.path.join(OUT, f"{refv}_meta.json")))
+        if meta["conventions_DECLARED"].get("folded") and meta["dimensions_cm"]["width"] > meta["dimensions_cm"]["height"]:
+            ex["cable_direction"] = ({"across_the_width"}, True)
+    except FileNotFoundError: pass
+    return ex
+
+
+def properties(answers: dict, reference_answers: dict | None = None, refv: str = "ref") -> dict:
     out = {}
-    for key, (accept, material) in EXPECT.items():
+    for key, (accept, material) in expectations(refv).items():
         got = answers.get(key); seen = None if reference_answers is None else (key in reference_answers)
         if got is None: out[key] = {"status": "UNKNOWN", "got": None, "why": "not visible to the reader", "material": material}; continue
         if key == "extra_features":

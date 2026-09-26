@@ -142,7 +142,1155 @@
  "prompts": {
   "v1": "The first image is a flat computer rendering of a hand-crocheted textile laid out flat. Make a real product photograph of that same physical piece for a handmade marketplace listing: laid flat as shown, seen from directly above, on a plain dark charcoal linen cloth that has been used and has its ordinary creases. It was placed by hand, not styled: very slightly askew, the fabric settling with small natural ripples and shadows rather than lying perfectly flat. Keep the piece exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. The second image is the outline mask and the third shows the surface relief; use them only to keep the outline, position and surface placement exactly. Replace the rendered material with real worsted-weight acrylic yarn as it actually crochets up: a matte, slightly fuzzy surface with the stitch texture exactly as drawn, ordinary handmade unevenness, soft window daylight from one side, gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame."
  },
- "calls": [],
- "runs": [],
- "spent_usd": 0
+ "calls": [
+  {
+   "key": "candidate:oa15_hifi_1.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "b4b58a2e05dc899a3ab33376d0c7404843a8d86bcaf8edd309a6a0c2722e9be8",
+   "response_id": "chatcmpl-ESQWisdrP5m4IjRfRNJyv12CKBvmY",
+   "usd": 0.01548,
+   "answers": {
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "ribbed",
+    "cable_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Rectangular piece with dense vertical ribs and tidy straight edges; scale not indicated."
+   },
+   "raw": "{\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"ribbed\",\n  \"cable_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Rectangular piece with dense vertical ribs and tidy straight edges; scale not indicated.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_1",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "b4b58a2e05dc899a3ab33376d0c7404843a8d86bcaf8edd309a6a0c2722e9be8",
+   "response_id": "chatcmpl-ESQX5kXMqB1u4zyby3xHlGbXt7eJt",
+   "usd": 0.015269
+  },
+  {
+   "key": "candidate:oa15_hifi_2.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "368da88ff4295af3d94d301f7a58cab26126dcb6419e3d209fa4d3594e5d693e",
+   "response_id": "chatcmpl-ESQXZwOvyQukty7dZisgY8ukEoigt",
+   "usd": 0.01171,
+   "answers": {
+    "product_type": "other",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "ribbed",
+    "cable_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Rectangular panel with pronounced vertical crochet ribbing in a single light color."
+   },
+   "raw": "{\n  \"product_type\": \"other\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"ribbed\",\n  \"cable_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Rectangular panel with pronounced vertical crochet ribbing in a single light color.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_2",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "368da88ff4295af3d94d301f7a58cab26126dcb6419e3d209fa4d3594e5d693e",
+   "response_id": "chatcmpl-ESQXqcgL8l5IZPQouzQ6VdXBU055l",
+   "usd": 0.011649
+  },
+  {
+   "key": "candidate:oa15_hifi_3.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "94483378b012722ba8406d03362aa9461a39d9cc83960f84ee6a464e7e1cdb59",
+   "response_id": "chatcmpl-ESQYBjv5CtKqvJg5BPkeAMp0kCs08",
+   "usd": 0.02071,
+   "answers": {
+    "product_type": "blanket_or_throw",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "cabled",
+    "cable_direction": "along_the_length",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "other",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Evenly spaced vertical rope cables cover the entire single-colour piece."
+   },
+   "raw": "{\n  \"product_type\": \"blanket_or_throw\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"cabled\",\n  \"cable_direction\": \"along_the_length\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"other\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Evenly spaced vertical rope cables cover the entire single-colour piece.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_3",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "94483378b012722ba8406d03362aa9461a39d9cc83960f84ee6a464e7e1cdb59",
+   "response_id": "chatcmpl-ESQYfch2oc678WH1uzyEQJPSxfUSL",
+   "usd": 0.014099
+  },
+  {
+   "key": "candidate:oa15_hifi_4.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "8afc8545a2ba482c3ebff1cbfa1dbbf5e76c15e02fa89a3b464d4f6d1ad354a0",
+   "response_id": "chatcmpl-ESQZ6z0kirKI2QrYqPsmUqiR3AHPn",
+   "usd": 0.01428,
+   "answers": {
+    "product_type": "blanket_or_throw",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "cabled",
+    "cable_direction": "along_the_length",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Even narrow cable columns repeat uniformly across the entire piece."
+   },
+   "raw": "{\n  \"product_type\": \"blanket_or_throw\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"cabled\",\n  \"cable_direction\": \"along_the_length\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Even narrow cable columns repeat uniformly across the entire piece.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_4",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "8afc8545a2ba482c3ebff1cbfa1dbbf5e76c15e02fa89a3b464d4f6d1ad354a0",
+   "response_id": "chatcmpl-ESQZTfFQFoFO7KuRpeZlKsfhDS8Ys",
+   "usd": 0.013499
+  },
+  {
+   "key": "candidate:oa15_hifi_5.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "54f83ad1ad76becd0b75621599a2e1c8896bc490bedaac2e6106e1eb49279761",
+   "response_id": "chatcmpl-ESQsX0Skxpulmg187vKdhNQk3PTuh",
+   "usd": 0.02078,
+   "answers": {
+    "product_type": "other",
+    "shape": "square",
+    "presentation": "flat",
+    "texture": "cabled",
+    "cable_direction": "along_the_length",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "other",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Square panel with many narrow vertical mock\u2011cable columns in a single colour; scale of the piece is not clear."
+   },
+   "raw": "{\n  \"product_type\": \"other\",\n  \"shape\": \"square\",\n  \"presentation\": \"flat\",\n  \"texture\": \"cabled\",\n  \"cable_direction\": \"along_the_length\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"other\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Square panel with many narrow vertical mock\u2011cable columns in a single colour; scale of the piece is not clear.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_5",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "54f83ad1ad76becd0b75621599a2e1c8896bc490bedaac2e6106e1eb49279761",
+   "response_id": "chatcmpl-ESQsuaJ1Pp4PqXQQYX5maJ4rlEWkQ",
+   "usd": 0.009899
+  },
+  {
+   "key": "candidate:oa15_hifi_6.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "e7900928a63f3224344de27776749a9ddc7f471b94d9a64c29a98ed3243d208e",
+   "response_id": "chatcmpl-ESQtJZU7MhFUwaKhHS6gFF7654UQE",
+   "usd": 0.02519,
+   "answers": {
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "cabled",
+    "cable_direction": "across_the_width",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "other",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Evenly spaced narrow cable ribs run vertically in a single solid colour; exact product type cannot be determined from the image."
+   },
+   "raw": "{\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"cabled\",\n  \"cable_direction\": \"across_the_width\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"other\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Evenly spaced narrow cable ribs run vertically in a single solid colour; exact product type cannot be determined from the image.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_6",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "e7900928a63f3224344de27776749a9ddc7f471b94d9a64c29a98ed3243d208e",
+   "response_id": "chatcmpl-ESQtmiTVHCkrGxtFOkv5IyAWCMImW",
+   "usd": 0.011119
+  },
+  {
+   "key": "candidate:oa15_hifi_7.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "89a3eeaaef64f8c8266b9112f1adcfbd9f0f5d8723607e0eddb6c601771c268e",
+   "response_id": "chatcmpl-ESQu7Q18vWafqeLY8bWKQCPuqA3Mb",
+   "usd": 0.01617,
+   "answers": {
+    "product_type": "other",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "ribbed",
+    "cable_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "other",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Uniform vertical rib texture; size or intended use is not visible."
+   },
+   "raw": "{\n  \"product_type\": \"other\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"ribbed\",\n  \"cable_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"other\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Uniform vertical rib texture; size or intended use is not visible.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_7",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "89a3eeaaef64f8c8266b9112f1adcfbd9f0f5d8723607e0eddb6c601771c268e",
+   "response_id": "chatcmpl-ESQuOXtzEOld7jKy01eABaGNsWa9C",
+   "usd": 0.011429
+  },
+  {
+   "key": "candidate:oa15_hifi_8.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "70b0559f84bc0ecc443654ad29b2167c2774f0dc23f10eafb7a25caf7ae49a2a",
+   "response_id": "chatcmpl-ESR5yK4KYH5zWzsErz1u9HWgxUACJ",
+   "usd": 0.01621,
+   "answers": {
+    "product_type": "blanket_or_throw",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "ribbed",
+    "cable_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Even vertical ribs across the fabric; exact size is not discernible."
+   },
+   "raw": "{\n  \"product_type\": \"blanket_or_throw\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"ribbed\",\n  \"cable_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Even vertical ribs across the fabric; exact size is not discernible.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_8",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "70b0559f84bc0ecc443654ad29b2167c2774f0dc23f10eafb7a25caf7ae49a2a",
+   "response_id": "chatcmpl-ESR6MQjUf25nhDszfSDTKQhmypXeq",
+   "usd": 0.010419
+  },
+  {
+   "key": "candidate:oa15_hifi_9.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "868cc09f5c2f741eff8a924408c0b00462d624ec8c635e1d6332ef7a87011eec",
+   "response_id": "chatcmpl-ESR6fmMFG1EXXla046xNUikcaKwDd",
+   "usd": 0.01299,
+   "answers": {
+    "product_type": "blanket_or_throw",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "ribbed",
+    "cable_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Uniform vertical ribbing across the piece with clean straight edges."
+   },
+   "raw": "{\n  \"product_type\": \"blanket_or_throw\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"ribbed\",\n  \"cable_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Uniform vertical ribbing across the piece with clean straight edges.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_9",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "868cc09f5c2f741eff8a924408c0b00462d624ec8c635e1d6332ef7a87011eec",
+   "response_id": "chatcmpl-ESR6xJabkJTATA0Q05CVqVwgXGbGi",
+   "usd": 0.011429
+  },
+  {
+   "key": "candidate:oa15_hifi_10.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "27ebd7c9399e4bd64cf3518388ac5883a6903396e7af57cf8eac754af8bb0161",
+   "response_id": "chatcmpl-ESR7GW0JhtVTD9Jtd8Gc2mBfad6EV",
+   "usd": 0.01495,
+   "answers": {
+    "product_type": "other",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "ribbed",
+    "cable_direction": "along_the_length",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Rectangular piece with evenly spaced vertical ribs; scale and intended use are not shown."
+   },
+   "raw": "{\n  \"product_type\": \"other\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"ribbed\",\n  \"cable_direction\": \"along_the_length\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Rectangular piece with evenly spaced vertical ribs; scale and intended use are not shown.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_10",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "27ebd7c9399e4bd64cf3518388ac5883a6903396e7af57cf8eac754af8bb0161",
+   "response_id": "chatcmpl-ESR7VlsLTuHr6zwoLK0FBrWVdavTW",
+   "usd": 0.012949
+  },
+  {
+   "key": "candidate:oa15_hifi_11.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "72238ba24b40021c3b584cfe728670ab6bf26c86a1c9820c31bb02cf1609a2e3",
+   "response_id": "chatcmpl-ESR9ArnvYH7M61nFAGeYeRYdfvgqL",
+   "usd": 0.02257,
+   "answers": {
+    "shape": "square",
+    "presentation": "flat",
+    "texture": "cabled",
+    "cable_direction": "across_the_width",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "other",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Evenly spaced vertical cable columns separated by textured panels; no scale or product context visible."
+   },
+   "raw": "{\n  \"shape\": \"square\",\n  \"presentation\": \"flat\",\n  \"texture\": \"cabled\",\n  \"cable_direction\": \"across_the_width\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"other\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Evenly spaced vertical cable columns separated by textured panels; no scale or product context visible.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_11",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "72238ba24b40021c3b584cfe728670ab6bf26c86a1c9820c31bb02cf1609a2e3",
+   "response_id": "chatcmpl-ESR9gkWrQLIAqDByELxOpoXurxkuh",
+   "usd": 0.011539
+  },
+  {
+   "key": "candidate:oa15_hifi_12.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "edea2a8266d8235e9b175862155c23ef1265d1674116175dc0f75acf604ed513",
+   "response_id": "chatcmpl-ESR9zbLP0jlcofdj0qf0EctYdZlWo",
+   "usd": 0.02192,
+   "answers": {
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "cabled",
+    "cable_direction": "across_the_width",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Evenly spaced faux-cable vertical columns; scale and product type are not clear."
+   },
+   "raw": "{\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"cabled\",\n  \"cable_direction\": \"across_the_width\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Evenly spaced faux-cable vertical columns; scale and product type are not clear.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_12",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "edea2a8266d8235e9b175862155c23ef1265d1674116175dc0f75acf604ed513",
+   "response_id": "chatcmpl-ESRARjauFcbUPEKO9BhZzdK9LSGeV",
+   "usd": 0.010289
+  },
+  {
+   "key": "candidate:oa15_hifi_13.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "31bddd25b58c70904b97ba7d9a78064c93bf25493001aceb91bd064f444c3d27",
+   "response_id": "chatcmpl-ESRAmwsRVUAS5PXTr2bom8gi9asVU",
+   "usd": 0.02371,
+   "answers": {
+    "product_type": "other",
+    "shape": "square",
+    "presentation": "flat",
+    "texture": "cabled",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "none",
+    "extra_features": [
+     "none"
+    ],
+    "notes": "Square panel with evenly spaced narrow raised cable-like columns; exact end use is not apparent."
+   },
+   "raw": "{\n  \"product_type\": \"other\",\n  \"shape\": \"square\",\n  \"presentation\": \"flat\",\n  \"texture\": \"cabled\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"none\",\n  \"extra_features\": [\"none\"],\n  \"notes\": \"Square panel with evenly spaced narrow raised cable-like columns; exact end use is not apparent.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_13",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "31bddd25b58c70904b97ba7d9a78064c93bf25493001aceb91bd064f444c3d27",
+   "response_id": "chatcmpl-ESRBIp3OlzLpJ2tlwAHZNKHOqbvrb",
+   "usd": 0.013649
+  },
+  {
+   "key": "candidate:oa15_hifi_14.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "47b899ff9f0c4ccab73b5e6232fa00213dc7896a922ca8b0b55983706cce8460",
+   "response_id": "chatcmpl-ESRhFW2rMlW02aB86nO9UTR7QSGo9",
+   "usd": 0.01747,
+   "answers": {
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "waffle",
+    "cable_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "other",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": true,
+    "notes": "Rectangular panel with a regular waffle grid and a plain same-colour border; overall size is not shown."
+   },
+   "raw": "{\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"waffle\",\n  \"cable_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"other\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": true,\n  \"notes\": \"Rectangular panel with a regular waffle grid and a plain same-colour border; overall size is not shown.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_14",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "47b899ff9f0c4ccab73b5e6232fa00213dc7896a922ca8b0b55983706cce8460",
+   "response_id": "chatcmpl-ESRhfXSHOfEqWO41fDIH93RWFQyb0",
+   "usd": 0.011729
+  },
+  {
+   "key": "candidate:oa15_hifi_15.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "a54c96ac6e29cda2ba0e88c2c6f9b96f7e2ad18ad8c30abb031669e0dd4a2777",
+   "response_id": "chatcmpl-ESRi0yP8iPzBbwp4Q8Yl5T8pnqg5H",
+   "usd": 0.03163,
+   "answers": {},
+   "raw": ""
+  },
+  {
+   "key": "judge:oa15_hifi_15",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "a54c96ac6e29cda2ba0e88c2c6f9b96f7e2ad18ad8c30abb031669e0dd4a2777",
+   "response_id": "chatcmpl-ESRijV8mrwJRn0tA7dXfwJ3pjChPF",
+   "usd": 0.013349
+  },
+  {
+   "key": "candidate:oa15_hifi_16.png",
+   "kind": "reader",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "d4ed9270615f3d797db4421785c055b58024d942f008722c1bafc7792a5b18fc",
+   "response_id": "chatcmpl-ESRj68q6NpkEzlhFQecpbw8xciWCx",
+   "usd": 0.01111,
+   "answers": {
+    "product_type": "blanket_or_throw",
+    "shape": "rectangle",
+    "presentation": "flat",
+    "texture": "waffle",
+    "cable_direction": "none",
+    "colour_count": 1,
+    "main_colour": "cream",
+    "edging": "other",
+    "extra_features": [
+     "none"
+    ],
+    "handmade_crochet": false,
+    "notes": "Allover vertical ladder-and-grid texture with a same-colour simple border."
+   },
+   "raw": "{\n  \"product_type\": \"blanket_or_throw\",\n  \"shape\": \"rectangle\",\n  \"presentation\": \"flat\",\n  \"texture\": \"waffle\",\n  \"cable_direction\": \"none\",\n  \"colour_count\": 1,\n  \"main_colour\": \"cream\",\n  \"edging\": \"other\",\n  \"extra_features\": [\"none\"],\n  \"handmade_crochet\": false,\n  \"notes\": \"Allover vertical ladder-and-grid texture with a same-colour simple border.\"\n}"
+  },
+  {
+   "key": "judge:oa15_hifi_16",
+   "kind": "judge",
+   "provider": "openai",
+   "model": "gpt-5-2025-08-07",
+   "image_sha256": "d4ed9270615f3d797db4421785c055b58024d942f008722c1bafc7792a5b18fc",
+   "response_id": "chatcmpl-ESRjLvBkueXG7QgN2VCuzeZxi1U6o",
+   "usd": 0.011539
+  }
+ ],
+ "runs": [
+  {
+   "draw": 1,
+   "prompt_version": "v1",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_1.png",
+   "output_sha256": "b4b58a2e05dc899a3ab33376d0c7404843a8d86bcaf8edd309a6a0c2722e9be8",
+   "seconds": 27.1,
+   "usage": {
+    "input_tokens": 19994,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 305
+    },
+    "output_tokens": 1901,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 317
+    },
+    "total_tokens": 21895
+   },
+   "usd": 0.27446,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 2,
+   "prompt_version": "v1",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_2.png",
+   "output_sha256": "368da88ff4295af3d94d301f7a58cab26126dcb6419e3d209fa4d3594e5d693e",
+   "seconds": 22.2,
+   "usage": {
+    "input_tokens": 19994,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 305
+    },
+    "output_tokens": 1855,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 271
+    },
+    "total_tokens": 21849
+   },
+   "usd": 0.27261,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 3,
+   "prompt_version": "v1",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_3.png",
+   "output_sha256": "94483378b012722ba8406d03362aa9461a39d9cc83960f84ee6a464e7e1cdb59",
+   "seconds": 24.7,
+   "usage": {
+    "input_tokens": 19994,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 305
+    },
+    "output_tokens": 1908,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 324
+    },
+    "total_tokens": 21902
+   },
+   "usd": 0.27474,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 4,
+   "prompt_version": "v1",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_4.png",
+   "output_sha256": "8afc8545a2ba482c3ebff1cbfa1dbbf5e76c15e02fa89a3b464d4f6d1ad354a0",
+   "seconds": 20.7,
+   "usage": {
+    "input_tokens": 19994,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 305
+    },
+    "output_tokens": 1860,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 276
+    },
+    "total_tokens": 21854
+   },
+   "usd": 0.27281,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 5,
+   "prompt_version": "v1",
+   "reference_version": "ref2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "29600940c190247c82e8faf1f422df5eca1474436cdd7540513c802f12cdc1f8",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "d3124bc552ba43d8a6ff310f91467a4c9c996b0d4fea550b4cb67fc8c635f7d4"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_5.png",
+   "output_sha256": "54f83ad1ad76becd0b75621599a2e1c8896bc490bedaac2e6106e1eb49279761",
+   "seconds": 22.1,
+   "usage": {
+    "input_tokens": 19994,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 305
+    },
+    "output_tokens": 1890,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 306
+    },
+    "total_tokens": 21884
+   },
+   "usd": 0.27402,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 6,
+   "prompt_version": "v1",
+   "reference_version": "ref2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "29600940c190247c82e8faf1f422df5eca1474436cdd7540513c802f12cdc1f8",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "d3124bc552ba43d8a6ff310f91467a4c9c996b0d4fea550b4cb67fc8c635f7d4"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_6.png",
+   "output_sha256": "e7900928a63f3224344de27776749a9ddc7f471b94d9a64c29a98ed3243d208e",
+   "seconds": 23.0,
+   "usage": {
+    "input_tokens": 19994,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 305
+    },
+    "output_tokens": 1897,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 313
+    },
+    "total_tokens": 21891
+   },
+   "usd": 0.2743,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 7,
+   "prompt_version": "v1",
+   "reference_version": "ref2",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "29600940c190247c82e8faf1f422df5eca1474436cdd7540513c802f12cdc1f8",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "d3124bc552ba43d8a6ff310f91467a4c9c996b0d4fea550b4cb67fc8c635f7d4"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_7.png",
+   "output_sha256": "89a3eeaaef64f8c8266b9112f1adcfbd9f0f5d8723607e0eddb6c601771c268e",
+   "seconds": 23.6,
+   "usage": {
+    "input_tokens": 19994,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 305
+    },
+    "output_tokens": 1896,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 312
+    },
+    "total_tokens": 21890
+   },
+   "usd": 0.27426,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 8,
+   "prompt_version": "v2",
+   "reference_version": "ref",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c"
+   },
+   "prompt_sha256": "3ed6ca5c33d0f06c885609d56f24b5174d6c2a119d4fe6a3532e5e73468c321c",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_8.png",
+   "output_sha256": "70b0559f84bc0ecc443654ad29b2167c2774f0dc23f10eafb7a25caf7ae49a2a",
+   "seconds": 21.5,
+   "usage": {
+    "input_tokens": 20076,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 387
+    },
+    "output_tokens": 1917,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 333
+    },
+    "total_tokens": 21993
+   },
+   "usd": 0.2755,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 9,
+   "prompt_version": "v2",
+   "reference_version": "ref",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c"
+   },
+   "prompt_sha256": "3ed6ca5c33d0f06c885609d56f24b5174d6c2a119d4fe6a3532e5e73468c321c",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_9.png",
+   "output_sha256": "868cc09f5c2f741eff8a924408c0b00462d624ec8c635e1d6332ef7a87011eec",
+   "seconds": 19.8,
+   "usage": {
+    "input_tokens": 20076,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 387
+    },
+    "output_tokens": 1836,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 252
+    },
+    "total_tokens": 21912
+   },
+   "usd": 0.27226,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 10,
+   "prompt_version": "v2",
+   "reference_version": "ref",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1024x1536"
+   },
+   "reference_sha256": {
+    "rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+    "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+    "normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c"
+   },
+   "prompt_sha256": "3ed6ca5c33d0f06c885609d56f24b5174d6c2a119d4fe6a3532e5e73468c321c",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_10.png",
+   "output_sha256": "27ebd7c9399e4bd64cf3518388ac5883a6903396e7af57cf8eac754af8bb0161",
+   "seconds": 21.8,
+   "usage": {
+    "input_tokens": 20076,
+    "input_tokens_details": {
+     "image_tokens": 19689,
+     "text_tokens": 387
+    },
+    "output_tokens": 1829,
+    "output_tokens_details": {
+     "image_tokens": 1584,
+     "text_tokens": 245
+    },
+    "total_tokens": 21905
+   },
+   "usd": 0.27198,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 11,
+   "prompt_version": "v1",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "4b7e361deb1c85d4c6c03c34f01c6ecbe90463e36281a2b276e888e17f96f690",
+    "mask": "e460ed611ef1c7c00d74e990e624195ac2b81e8a27e6e918651f3c7cbcc090eb",
+    "normal": "517d30b7b0e49f5828e6f1328ed70ad4f6f78453089667ba4a7bfb3211ff4cd2"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_11.png",
+   "output_sha256": "72238ba24b40021c3b584cfe728670ab6bf26c86a1c9820c31bb02cf1609a2e3",
+   "seconds": 24.3,
+   "usage": {
+    "input_tokens": 19898,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 305
+    },
+    "output_tokens": 1866,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 298
+    },
+    "total_tokens": 21764
+   },
+   "usd": 0.27209,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 12,
+   "prompt_version": "v1",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "4b7e361deb1c85d4c6c03c34f01c6ecbe90463e36281a2b276e888e17f96f690",
+    "mask": "e460ed611ef1c7c00d74e990e624195ac2b81e8a27e6e918651f3c7cbcc090eb",
+    "normal": "517d30b7b0e49f5828e6f1328ed70ad4f6f78453089667ba4a7bfb3211ff4cd2"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_12.png",
+   "output_sha256": "edea2a8266d8235e9b175862155c23ef1265d1674116175dc0f75acf604ed513",
+   "seconds": 19.3,
+   "usage": {
+    "input_tokens": 19898,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 305
+    },
+    "output_tokens": 1864,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 296
+    },
+    "total_tokens": 21762
+   },
+   "usd": 0.27202,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 13,
+   "prompt_version": "v1",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "4b7e361deb1c85d4c6c03c34f01c6ecbe90463e36281a2b276e888e17f96f690",
+    "mask": "e460ed611ef1c7c00d74e990e624195ac2b81e8a27e6e918651f3c7cbcc090eb",
+    "normal": "517d30b7b0e49f5828e6f1328ed70ad4f6f78453089667ba4a7bfb3211ff4cd2"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_13.png",
+   "output_sha256": "31bddd25b58c70904b97ba7d9a78064c93bf25493001aceb91bd064f444c3d27",
+   "seconds": 21.8,
+   "usage": {
+    "input_tokens": 19898,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 305
+    },
+    "output_tokens": 1868,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 300
+    },
+    "total_tokens": 21766
+   },
+   "usd": 0.27218,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 14,
+   "prompt_version": "v1",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "4b7e361deb1c85d4c6c03c34f01c6ecbe90463e36281a2b276e888e17f96f690",
+    "mask": "e460ed611ef1c7c00d74e990e624195ac2b81e8a27e6e918651f3c7cbcc090eb",
+    "normal": "517d30b7b0e49f5828e6f1328ed70ad4f6f78453089667ba4a7bfb3211ff4cd2"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_14.png",
+   "output_sha256": "47b899ff9f0c4ccab73b5e6232fa00213dc7896a922ca8b0b55983706cce8460",
+   "seconds": 28.8,
+   "usage": {
+    "input_tokens": 19898,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 305
+    },
+    "output_tokens": 1875,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 307
+    },
+    "total_tokens": 21773
+   },
+   "usd": 0.27246,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 15,
+   "prompt_version": "v1",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "4b7e361deb1c85d4c6c03c34f01c6ecbe90463e36281a2b276e888e17f96f690",
+    "mask": "e460ed611ef1c7c00d74e990e624195ac2b81e8a27e6e918651f3c7cbcc090eb",
+    "normal": "517d30b7b0e49f5828e6f1328ed70ad4f6f78453089667ba4a7bfb3211ff4cd2"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_15.png",
+   "output_sha256": "a54c96ac6e29cda2ba0e88c2c6f9b96f7e2ad18ad8c30abb031669e0dd4a2777",
+   "seconds": 24.8,
+   "usage": {
+    "input_tokens": 19898,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 305
+    },
+    "output_tokens": 1872,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 304
+    },
+    "total_tokens": 21770
+   },
+   "usd": 0.27233,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  },
+  {
+   "draw": 16,
+   "prompt_version": "v1",
+   "reference_version": "ref3",
+   "model": "gpt-image-1.5",
+   "params": {
+    "input_fidelity": "high",
+    "quality": "medium",
+    "size": "1536x1024"
+   },
+   "reference_sha256": {
+    "rgb": "4b7e361deb1c85d4c6c03c34f01c6ecbe90463e36281a2b276e888e17f96f690",
+    "mask": "e460ed611ef1c7c00d74e990e624195ac2b81e8a27e6e918651f3c7cbcc090eb",
+    "normal": "517d30b7b0e49f5828e6f1328ed70ad4f6f78453089667ba4a7bfb3211ff4cd2"
+   },
+   "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/v1grad/out/gen/oa15_hifi_16.png",
+   "output_sha256": "d4ed9270615f3d797db4421785c055b58024d942f008722c1bafc7792a5b18fc",
+   "seconds": 19.2,
+   "usage": {
+    "input_tokens": 19898,
+    "input_tokens_details": {
+     "image_tokens": 19593,
+     "text_tokens": 305
+    },
+    "output_tokens": 1839,
+    "output_tokens_details": {
+     "image_tokens": 1568,
+     "text_tokens": 271
+    },
+    "total_tokens": 21737
+   },
+   "usd": 0.27102,
+   "price_basis": "usage tokens at gpt-image-1 list rates"
+  }
+ ],
+ "spent_usd": 4.8598,
+ "reference_versions": {
+  "ref2": {
+   "rgb": "29600940c190247c82e8faf1f422df5eca1474436cdd7540513c802f12cdc1f8",
+   "mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+   "normal": "d3124bc552ba43d8a6ff310f91467a4c9c996b0d4fea550b4cb67fc8c635f7d4",
+   "meta_sha256": "e768e230a1d6ad032d17268a83125e350b09e3aca7cf8c7bcd1b67df82093be9",
+   "conventions": {
+    "view": "flat lay, straight on, whole throw",
+    "surface_rgb": [
+     66,
+     66,
+     70
+    ],
+    "front_pair": "left",
+    "fill": 0.9,
+    "relief_units": {
+     "fpdc": 1.0,
+     "bpdc": -0.5,
+     "cable2x2": 1.2,
+     "sc": 0.0
+    },
+    "contrast": 1.8,
+    "relief_gain": 8.0
+   }
+  },
+  "ref3": {
+   "rgb": "4b7e361deb1c85d4c6c03c34f01c6ecbe90463e36281a2b276e888e17f96f690",
+   "mask": "e460ed611ef1c7c00d74e990e624195ac2b81e8a27e6e918651f3c7cbcc090eb",
+   "normal": "517d30b7b0e49f5828e6f1328ed70ad4f6f78453089667ba4a7bfb3211ff4cd2",
+   "meta_sha256": "aede6fc95c250f0ac3a028026a6f7e068c2d8dc32ab77018dd4d5577624b09d8",
+   "conventions": {
+    "view": "flat lay, straight on, the throw folded in half across its length with the upper half tucked underneath; the lower half (rows 1-61) is the visible face, the fold is the top edge",
+    "folded": true,
+    "surface_rgb": [
+     66,
+     66,
+     70
+    ],
+    "front_pair": "left",
+    "fill": 0.9,
+    "relief_units": {
+     "fpdc": 1.0,
+     "bpdc": -0.5,
+     "cable2x2": 1.2,
+     "sc": 0.0
+    },
+    "contrast": 1.0,
+    "relief_gain": 4.0
+   }
+  }
+ }
 }

@@ -1,0 +1,3063 @@
+{
+ "oa15_hifi_1": {
+  "draw": 1,
+  "prompt_version": "v1",
+  "output_sha256": "b4b58a2e05dc899a3ab33376d0c7404843a8d86bcaf8edd309a6a0c2722e9be8",
+  "usd_generation": 0.27446,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.942,
+      "alignment": {
+       "scale": 1.1854685015321638,
+       "shift_px": [
+        -156.78249143227117,
+        -64.76094044124113
+       ],
+       "iou": 0.9419654706230219
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.349,
+      "drift": 0.058
+     }
+    },
+    "cable_identity": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_px": 68.0,
+      "column_peak": 0.875,
+      "crossing_period_px": 59.0,
+      "crossing_peak": 0.848,
+      "column_dominance": 2.142,
+      "pitch_ratio": 1.153,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": true
+      },
+      "failed": []
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.328,
+      "crossing_period_ratio": 1.364,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "ribbed",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "ribbed",
+   "cable_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Rectangular piece with dense vertical ribs and tidy straight edges; scale not indicated."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "texture",
+    "cable_direction",
+    "cable_gauge"
+   ],
+   "unknown_material": [
+    "product_type"
+   ],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_2": {
+  "draw": 2,
+  "prompt_version": "v1",
+  "output_sha256": "368da88ff4295af3d94d301f7a58cab26126dcb6419e3d209fa4d3594e5d693e",
+  "usd_generation": 0.27261,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.816,
+      "alignment": {
+       "scale": 1.495570767878044,
+       "shift_px": [
+        -353.0451725627879,
+        -122.40109039769857
+       ],
+       "iou": 0.8156886078193623
+      }
+     }
+    },
+    "proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.164,
+      "drift": 0.187
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 91.0,
+      "column_peak": 0.791,
+      "crossing_period_px": 17.0,
+      "crossing_peak": 0.184,
+      "column_dominance": 1.332,
+      "pitch_ratio": 5.353,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.777,
+      "crossing_period_ratio": 0.393,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "ribbed",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "other",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "ribbed",
+   "cable_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Rectangular panel with pronounced vertical crochet ribbing in a single light color."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "Very regular stitch repetition and centered framing could look stylized, but background wrinkles and fiber detail read as photographic.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "product_type",
+    "texture",
+    "cable_direction",
+    "proportions",
+    "cable_identity",
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_3": {
+  "draw": 3,
+  "prompt_version": "v1",
+  "output_sha256": "94483378b012722ba8406d03362aa9461a39d9cc83960f84ee6a464e7e1cdb59",
+  "usd_generation": 0.27474,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.935,
+      "alignment": {
+       "scale": 1.2811341472732574,
+       "shift_px": [
+        -251.68323958377823,
+        -81.42767375154835
+       ],
+       "iou": 0.93503190564306
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.322,
+      "drift": 0.077
+     }
+    },
+    "cable_identity": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_px": 80.0,
+      "column_peak": 0.852,
+      "crossing_period_px": 54.0,
+      "crossing_peak": 0.784,
+      "column_dominance": 1.699,
+      "pitch_ratio": 1.481,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": true
+      },
+      "failed": []
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.562,
+      "crossing_period_ratio": 1.249,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "blanket_or_throw",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "cabled",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "PASS",
+    "got": "along_the_length",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "blanket_or_throw",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "cabled",
+   "cable_direction": "along_the_length",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "other",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Evenly spaced vertical rope cables cover the entire single-colour piece."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "edging",
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_4": {
+  "draw": 4,
+  "prompt_version": "v1",
+  "output_sha256": "8afc8545a2ba482c3ebff1cbfa1dbbf5e76c15e02fa89a3b464d4f6d1ad354a0",
+  "usd_generation": 0.27281,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.944,
+      "alignment": {
+       "scale": 1.2765055504167344,
+       "shift_px": [
+        -219.0352450489802,
+        -84.84669134986882
+       ],
+       "iou": 0.9439572024671044
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.359,
+      "drift": 0.051
+     }
+    },
+    "cable_identity": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_px": 73.0,
+      "column_peak": 0.836,
+      "crossing_period_px": 55.0,
+      "crossing_peak": 0.858,
+      "column_dominance": 1.275,
+      "pitch_ratio": 1.327,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": true
+      },
+      "failed": []
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.426,
+      "crossing_period_ratio": 1.272,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "blanket_or_throw",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "cabled",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "PASS",
+    "got": "along_the_length",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "blanket_or_throw",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "cabled",
+   "cable_direction": "along_the_length",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Even narrow cable columns repeat uniformly across the entire piece."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "Extremely uniform stitches and very straight, squared edges could read as CG.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_5": {
+  "draw": 5,
+  "prompt_version": "v1",
+  "reference_version": "ref2",
+  "output_sha256": "54f83ad1ad76becd0b75621599a2e1c8896bc490bedaac2e6106e1eb49279761",
+  "usd_generation": 0.27402,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.906,
+      "alignment": {
+       "scale": 1.3942472917727742,
+       "shift_px": [
+        -316.5667666990703,
+        -112.02815219168747
+       ],
+       "iou": 0.9056479979303713
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.303,
+      "drift": 0.09
+     }
+    },
+    "cable_identity": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_px": 89.0,
+      "column_peak": 0.836,
+      "crossing_period_px": 66.0,
+      "crossing_peak": 0.552,
+      "column_dominance": 1.704,
+      "pitch_ratio": 1.348,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": true
+      },
+      "failed": []
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.738,
+      "crossing_period_ratio": 1.526,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "FAIL",
+    "got": "square",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "cabled",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "PASS",
+    "got": "along_the_length",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "other",
+   "shape": "square",
+   "presentation": "flat",
+   "texture": "cabled",
+   "cable_direction": "along_the_length",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "other",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Square panel with many narrow vertical mock\u2011cable columns in a single colour; scale of the piece is not clear."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "Stitches and edges are very uniform and square, which can feel slightly generated, but the fiber detail and wrinkled backdrop look real.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "product_type",
+    "shape",
+    "edging",
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_6": {
+  "draw": 6,
+  "prompt_version": "v1",
+  "reference_version": "ref2",
+  "output_sha256": "e7900928a63f3224344de27776749a9ddc7f471b94d9a64c29a98ed3243d208e",
+  "usd_generation": 0.2743,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.893,
+      "alignment": {
+       "scale": 1.3368435974199875,
+       "shift_px": [
+        -241.0717667234477,
+        -62.52519995203454
+       ],
+       "iou": 0.8926180840052805
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.44,
+      "drift": 0.006
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 84.0,
+      "column_peak": 0.818,
+      "crossing_period_px": 28.0,
+      "crossing_peak": 0.692,
+      "column_dominance": 1.047,
+      "pitch_ratio": 3.0,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": false,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "column_dominance",
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.641,
+      "crossing_period_ratio": 0.648,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "cabled",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "across_the_width",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "cabled",
+   "cable_direction": "across_the_width",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "other",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Evenly spaced narrow cable ribs run vertically in a single solid colour; exact product type cannot be determined from the image."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "The swatch is very rectangular and the stitch columns are highly uniform, which can read a bit generated, but the fiber fuzz and wrinkled backdrop look real.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "cable_direction",
+    "edging",
+    "cable_identity",
+    "cable_gauge"
+   ],
+   "unknown_material": [
+    "product_type"
+   ],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_7": {
+  "draw": 7,
+  "prompt_version": "v1",
+  "reference_version": "ref2",
+  "output_sha256": "89a3eeaaef64f8c8266b9112f1adcfbd9f0f5d8723607e0eddb6c601771c268e",
+  "usd_generation": 0.27426,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.933,
+      "alignment": {
+       "scale": 1.265841043848054,
+       "shift_px": [
+        -289.02707929096357,
+        -69.10419333056223
+       ],
+       "iou": 0.9331617336292092
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.3,
+      "drift": 0.093
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 67.0,
+      "column_peak": 0.886,
+      "crossing_period_px": 20.0,
+      "crossing_peak": 0.692,
+      "column_dominance": 1.254,
+      "pitch_ratio": 3.35,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.309,
+      "crossing_period_ratio": 0.463,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "ribbed",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "other",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "ribbed",
+   "cable_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "other",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Uniform vertical rib texture; size or intended use is not visible."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "product_type",
+    "texture",
+    "cable_direction",
+    "edging",
+    "cable_identity",
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_8": {
+  "draw": 8,
+  "prompt_version": "v2",
+  "reference_version": "ref",
+  "output_sha256": "70b0559f84bc0ecc443654ad29b2167c2774f0dc23f10eafb7a25caf7ae49a2a",
+  "usd_generation": 0.2755,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.94,
+      "alignment": {
+       "scale": 1.2144068321638501,
+       "shift_px": [
+        -178.69235472498212,
+        -49.645978485080036
+       ],
+       "iou": 0.9403562568988895
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.352,
+      "drift": 0.056
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 63.0,
+      "column_peak": 0.892,
+      "crossing_period_px": 18.0,
+      "crossing_peak": 0.752,
+      "column_dominance": 1.28,
+      "pitch_ratio": 3.5,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.23,
+      "crossing_period_ratio": 0.416,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "blanket_or_throw",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "ribbed",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "blanket_or_throw",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "ribbed",
+   "cable_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Even vertical ribs across the fabric; exact size is not discernible."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "The stitches and edges are unusually uniform, which can read a bit computer-perfect.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "texture",
+    "cable_direction",
+    "cable_identity",
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_9": {
+  "draw": 9,
+  "prompt_version": "v2",
+  "reference_version": "ref",
+  "output_sha256": "868cc09f5c2f741eff8a924408c0b00462d624ec8c635e1d6332ef7a87011eec",
+  "usd_generation": 0.27226,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.963,
+      "alignment": {
+       "scale": 1.125523922983892,
+       "shift_px": [
+        -85.69785020599386,
+        -67.28458692809602
+       ],
+       "iou": 0.9631823210816791
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.461,
+      "drift": 0.02
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 70.0,
+      "column_peak": 0.838,
+      "crossing_period_px": 24.0,
+      "crossing_peak": 0.58,
+      "column_dominance": 1.391,
+      "pitch_ratio": 2.917,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.367,
+      "crossing_period_ratio": 0.555,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "blanket_or_throw",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "ribbed",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "blanket_or_throw",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "ribbed",
+   "cable_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Uniform vertical ribbing across the piece with clean straight edges."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "texture",
+    "cable_direction",
+    "cable_identity",
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_10": {
+  "draw": 10,
+  "prompt_version": "v2",
+  "reference_version": "ref",
+  "output_sha256": "27ebd7c9399e4bd64cf3518388ac5883a6903396e7af57cf8eac754af8bb0161",
+  "usd_generation": 0.27198,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.929,
+      "alignment": {
+       "scale": 1.2704578104902482,
+       "shift_px": [
+        -226.50421013373023,
+        -62.12574252382933
+       ],
+       "iou": 0.9286622788445177
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 1.432,
+      "aspect_gen": 1.319,
+      "drift": 0.079
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 80.0,
+      "column_peak": 0.852,
+      "crossing_period_px": 34.0,
+      "crossing_peak": 0.753,
+      "column_dominance": 1.491,
+      "pitch_ratio": 2.353,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.562,
+      "crossing_period_ratio": 0.786,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 51.2,
+       "crossing_period": 43.24,
+       "cable_width": 25.6
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "ribbed",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "PASS",
+    "got": "along_the_length",
+    "expected": [
+     "along_the_length"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "other",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "ribbed",
+   "cable_direction": "along_the_length",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Rectangular piece with evenly spaced vertical ribs; scale and intended use are not shown."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "The swatch is extremely uniform and nearly perfectly rectangular, which can feel generated, but lighting and surface texture look photographic.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "product_type",
+    "texture",
+    "cable_identity",
+    "cable_gauge"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_11": {
+  "draw": 11,
+  "prompt_version": "v1",
+  "reference_version": "ref3",
+  "output_sha256": "72238ba24b40021c3b584cfe728670ab6bf26c86a1c9820c31bb02cf1609a2e3",
+  "usd_generation": 0.27209,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.962,
+      "alignment": {
+       "scale": 1.1664571789551388,
+       "shift_px": [
+        -99.67271677414772,
+        -133.55473249219676
+       ],
+       "iou": 0.96160946491525
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.719,
+      "aspect_gen": 0.757,
+      "drift": 0.052
+     }
+    },
+    "cable_identity": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_px": 87.0,
+      "column_peak": 0.869,
+      "crossing_period_px": 87.0,
+      "crossing_peak": 0.682,
+      "column_dominance": 1.846,
+      "pitch_ratio": 1.0,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": true
+      },
+      "failed": []
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.222,
+      "crossing_period_ratio": 1.447,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 71.19,
+       "crossing_period": 60.12,
+       "cable_width": 35.59
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "shape": {
+    "status": "FAIL",
+    "got": "square",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "cabled",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "PASS",
+    "got": "across_the_width",
+    "expected": [
+     "across_the_width"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "shape": "square",
+   "presentation": "flat",
+   "texture": "cabled",
+   "cable_direction": "across_the_width",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "other",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Evenly spaced vertical cable columns separated by textured panels; no scale or product context visible."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "shape",
+    "edging",
+    "cable_gauge"
+   ],
+   "unknown_material": [
+    "product_type"
+   ],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_12": {
+  "draw": 12,
+  "prompt_version": "v1",
+  "reference_version": "ref3",
+  "output_sha256": "edea2a8266d8235e9b175862155c23ef1265d1674116175dc0f75acf604ed513",
+  "usd_generation": 0.27202,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.942,
+      "alignment": {
+       "scale": 1.2897938235366504,
+       "shift_px": [
+        -103.56730837500379,
+        -222.63050886997803
+       ],
+       "iou": 0.9420109574778959
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.719,
+      "aspect_gen": 0.751,
+      "drift": 0.044
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 91.0,
+      "column_peak": 0.854,
+      "crossing_period_px": 40.0,
+      "crossing_peak": 0.543,
+      "column_dominance": 1.454,
+      "pitch_ratio": 2.275,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_ratio": 1.278,
+      "crossing_period_ratio": 0.665,
+      "status": "PASS",
+      "expected_px": {
+       "cable_column_pitch": 71.19,
+       "crossing_period": 60.12,
+       "cable_width": 35.59
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "cabled",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "PASS",
+    "got": "across_the_width",
+    "expected": [
+     "across_the_width"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "cabled",
+   "cable_direction": "across_the_width",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Evenly spaced faux-cable vertical columns; scale and product type are not clear."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "Extremely uniform rib spacing and very straight edges could suggest generated perfection.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "cable_identity"
+   ],
+   "unknown_material": [
+    "product_type"
+   ],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_13": {
+  "draw": 13,
+  "prompt_version": "v1",
+  "reference_version": "ref3",
+  "output_sha256": "31bddd25b58c70904b97ba7d9a78064c93bf25493001aceb91bd064f444c3d27",
+  "usd_generation": 0.27218,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.941,
+      "alignment": {
+       "scale": 1.2611451650157457,
+       "shift_px": [
+        -75.796872898311,
+        -203.99255933371967
+       ],
+       "iou": 0.9405329150591523
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.719,
+      "aspect_gen": 0.763,
+      "drift": 0.061
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 86.0,
+      "column_peak": 0.761,
+      "crossing_period_px": 61.0,
+      "crossing_peak": 0.728,
+      "column_dominance": 1.013,
+      "pitch_ratio": 1.41,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": false,
+       "pitch_ratio": true
+      },
+      "failed": [
+       "column_dominance"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_ratio": 1.208,
+      "crossing_period_ratio": 1.015,
+      "status": "PASS",
+      "expected_px": {
+       "cable_column_pitch": 71.19,
+       "crossing_period": 60.12,
+       "cable_width": 35.59
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "FAIL",
+    "got": "square",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "cabled",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "other",
+   "shape": "square",
+   "presentation": "flat",
+   "texture": "cabled",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "none",
+   "extra_features": [
+    "none"
+   ],
+   "notes": "Square panel with evenly spaced narrow raised cable-like columns; exact end use is not apparent."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "The swatch is very uniformly square with highly regular repeats, which can read a bit generated.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "product_type",
+    "shape",
+    "cable_identity"
+   ],
+   "unknown_material": [
+    "cable_direction"
+   ],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_14": {
+  "draw": 14,
+  "prompt_version": "v1",
+  "reference_version": "ref3",
+  "output_sha256": "47b899ff9f0c4ccab73b5e6232fa00213dc7896a922ca8b0b55983706cce8460",
+  "usd_generation": 0.27246,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.977,
+      "alignment": {
+       "scale": 1.3078167095645707,
+       "shift_px": [
+        -173.07018787978734,
+        -232.58407187046737
+       ],
+       "iou": 0.9774398423674324
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.719,
+      "aspect_gen": 0.74,
+      "drift": 0.029
+     }
+    },
+    "cable_identity": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_px": 88.0,
+      "column_peak": 0.837,
+      "crossing_period_px": 25.0,
+      "crossing_peak": 0.708,
+      "column_dominance": 1.073,
+      "pitch_ratio": 3.52,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": false,
+       "pitch_ratio": false
+      },
+      "failed": [
+       "column_dominance",
+       "pitch_ratio"
+      ]
+     }
+    },
+    "cable_gauge": {
+     "status": "FAIL",
+     "evidence": {
+      "column_pitch_ratio": 1.236,
+      "crossing_period_ratio": 0.416,
+      "status": "FAIL",
+      "expected_px": {
+       "cable_column_pitch": 71.19,
+       "crossing_period": 60.12,
+       "cable_width": 35.59
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "waffle",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "across_the_width"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "waffle",
+   "cable_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "other",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Rectangular panel with a regular waffle grid and a plain same-colour border; overall size is not shown."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "The stitch repeat is extremely regular and the rectangle is very square, which can feel slightly rendered.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "texture",
+    "cable_direction",
+    "edging",
+    "cable_identity",
+    "cable_gauge"
+   ],
+   "unknown_material": [
+    "product_type"
+   ],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_15": {
+  "draw": 15,
+  "prompt_version": "v1",
+  "reference_version": "ref3",
+  "output_sha256": "a54c96ac6e29cda2ba0e88c2c6f9b96f7e2ad18ad8c30abb031669e0dd4a2777",
+  "usd_generation": 0.27233,
+  "deterministic": {
+   "status": "PASS",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.938,
+      "alignment": {
+       "scale": 1.3237230246189822,
+       "shift_px": [
+        -141.72954239210696,
+        -247.2484226615677
+       ],
+       "iou": 0.9384157479912625
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.719,
+      "aspect_gen": 0.761,
+      "drift": 0.059
+     }
+    },
+    "cable_identity": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_px": 96.0,
+      "column_peak": 0.781,
+      "crossing_period_px": 74.0,
+      "crossing_peak": 0.8,
+      "column_dominance": 1.241,
+      "pitch_ratio": 1.297,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": true
+      },
+      "failed": []
+     }
+    },
+    "cable_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_ratio": 1.349,
+      "crossing_period_ratio": 1.231,
+      "status": "PASS",
+      "expected_px": {
+       "cable_column_pitch": 71.19,
+       "crossing_period": 60.12,
+       "cable_width": 35.59
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "shape": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "texture": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "cable_direction": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "colour_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "edging": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "extra_features": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "presentation": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   }
+  },
+  "reader_answers": {},
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "UNKNOWN",
+   "material_failures": [],
+   "unknown_material": [
+    "product_type",
+    "shape",
+    "texture",
+    "cable_direction",
+    "colour_count",
+    "edging",
+    "extra_features"
+   ],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ },
+ "oa15_hifi_16": {
+  "draw": 16,
+  "prompt_version": "v1",
+  "reference_version": "ref3",
+  "output_sha256": "d4ed9270615f3d797db4421785c055b58024d942f008722c1bafc7792a5b18fc",
+  "usd_generation": 0.27102,
+  "deterministic": {
+   "status": "PASS",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.942,
+      "alignment": {
+       "scale": 1.269698743178692,
+       "shift_px": [
+        -180.79308145672064,
+        -210.07565687083854
+       ],
+       "iou": 0.9423750944952237
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.719,
+      "aspect_gen": 0.754,
+      "drift": 0.049
+     }
+    },
+    "cable_identity": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_px": 85.0,
+      "column_peak": 0.71,
+      "crossing_period_px": 57.0,
+      "crossing_peak": 0.825,
+      "column_dominance": 1.239,
+      "pitch_ratio": 1.491,
+      "tests": {
+       "column_periodicity": true,
+       "crossing_periodicity": true,
+       "column_dominance": true,
+       "pitch_ratio": true
+      },
+      "failed": []
+     }
+    },
+    "cable_gauge": {
+     "status": "PASS",
+     "evidence": {
+      "column_pitch_ratio": 1.194,
+      "crossing_period_ratio": 0.948,
+      "status": "PASS",
+      "expected_px": {
+       "cable_column_pitch": 71.19,
+       "crossing_period": 60.12,
+       "cable_width": 35.59
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "blanket_or_throw",
+    "expected": [
+     "blanket_or_throw"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": false
+   },
+   "shape": {
+    "status": "PASS",
+    "got": "rectangle",
+    "expected": [
+     "rectangle"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "FAIL",
+    "got": "waffle",
+    "expected": [
+     "cabled"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "across_the_width"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "edging": {
+    "status": "FAIL",
+    "got": "other",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cable_column_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": false
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "presentation": {
+    "status": "PASS",
+    "got": "flat",
+    "expected": [
+     "draped",
+     "flat",
+     "folded"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "blanket_or_throw",
+   "shape": "rectangle",
+   "presentation": "flat",
+   "texture": "waffle",
+   "cable_direction": "none",
+   "colour_count": 1,
+   "main_colour": "cream",
+   "edging": "other",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Allover vertical ladder-and-grid texture with a same-colour simple border."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "texture",
+    "cable_direction",
+    "edging"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property, every deterministic measure (silhouette, proportions, cable identity, cable gauge) and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes",
+   "unknown_deterministic": []
+  },
+  "gate_sha256": "158cd1309e7731b193407ade0e6df5f6a4f617e20fd9fbc0088f6832307f4509"
+ }
+}

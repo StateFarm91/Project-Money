@@ -38,12 +38,22 @@ def hexrgb(h): h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) for i in (0, 
 def shade(rgb, f): return tuple(max(0, min(255, int(c * f))) for c in rgb)
 
 
-def build(out_dir: Path = OUT, prefix: str = "ref", size=FRAME, fill: float = 0.90):
+def build(out_dir: Path = OUT, prefix: str = "ref", size=FRAME, fill: float = 0.90, contrast: float = 1.0, relief_gain: float = 4.0, folded: bool = False):
+    """`contrast` scales the shading between raised columns and recessed channels (1.0 = the
+    first version); `relief_gain` scales the normal map's slope. Geometry and cells never change
+    between versions -- only how plainly the package states the relief (round-2 package, ref2)."""
     WPX, HPX = size
     pt = json.load(open(out_dir / "product_truth.json")); D = pt["derived"]
     cir = T.build_cable_throw(); res = compiler.compile_cir(cir); comp = cir.components[0]; tw = TW.build_twin(cir, res, comp.name)
     yarn = hexrgb(list(cir.colors.values())[0])
     W_cm, H_cm = D["width_cm"], D["height_cm"]
+    # Folded presentation (ref3): the throw folded in half across its length with the upper half
+    # tucked underneath, so the lower half (rows 1-61, right side up) is the visible face, the
+    # fold is the top edge and the foundation edge is the bottom edge. Same cells, same gauge,
+    # same width; a presentation convention a listing commonly uses, declared here.
+    rows_all = comp.rows; visible_rows = rows_all[:61] if folded else rows_all
+    if folded:
+        H_cm = round(sum(max(ST.get(o.stitch).row_height for o in (r.ops[0].ops if hasattr(r.ops[0], "ops") else r.ops)) * D["sc_row_cm"] for r in visible_rows), 2)
     ppc = min(WPX * fill / W_cm, HPX * fill / H_cm)
     cell_w = D["cell_w_cm"] * ppc; sc_row = D["sc_row_cm"] * ppc
     img = Image.new("RGB", (WPX, HPX), BG); d = ImageDraw.Draw(img)
@@ -51,12 +61,13 @@ def build(out_dir: Path = OUT, prefix: str = "ref", size=FRAME, fill: float = 0.
     x0 = (WPX - W_cm * ppc) / 2; y_bottom = (HPX + H_cm * ppc) / 2
     d.rectangle([x0, y_bottom - H_cm * ppc, x0 + W_cm * ppc, y_bottom], fill=yarn)
     # row tops from the registry's row heights, bottom-up
-    rows = comp.rows; y_top = {}; y = y_bottom
+    rows = visible_rows; y_top = {}; y = y_bottom
     for r in rows:
         ops = r.ops[0].ops if hasattr(r.ops[0], "ops") else r.ops
         h = max(ST.get(o.stitch).row_height for o in ops) * sc_row; y -= h; y_top[r.index] = (y, h)
-    lit, dark, deep = shade(yarn, 1.05), shade(yarn, 0.86), shade(yarn, 0.74)
-    cells = sorted(tw.cells, key=lambda c: (c.row, c.position))
+    lit, dark, deep = shade(yarn, 1.0 + 0.05 * contrast), shade(yarn, 1.0 - 0.14 * contrast), shade(yarn, 1.0 - 0.26 * contrast)
+    visible_idx = {r.index for r in rows}
+    cells = sorted((c for c in tw.cells if c.row in visible_idx), key=lambda c: (c.row, c.position))
     by_row = {}
     for c in cells: by_row.setdefault(c.row, []).append(c)
     for ri, rcells in by_row.items():
@@ -87,24 +98,29 @@ def build(out_dir: Path = OUT, prefix: str = "ref", size=FRAME, fill: float = 0.
                 d.rectangle([x, yt, x + cell_w, yb], fill=yarn); d.line([(x, yb), (x + cell_w, yb)], fill=dark, width=1)
                 region[int(yt):int(yb) + 1, int(x):int(x + cell_w) + 1] = REGIONS["foundation_row"]
             pos += 1
+    if folded:
+        # the fold: a soft rounded top edge (the fabric turns under), drawn as a highlight band
+        d = ImageDraw.Draw(img); yt = min(v[0] for v in y_top.values()); band = max(2, int(0.4 * ppc))
+        d.rectangle([x0, yt, x0 + W_cm * ppc, yt + band], fill=lit); height[int(yt):int(yt) + band, int(x0):int(x0 + W_cm * ppc)] = RELIEF["fpdc"]
     # normal map from the relief height field (post stitches ~2 mm proud on a flat lay)
     from scipy.ndimage import gaussian_filter
     mask = region > 0
-    h = gaussian_filter(height, 0.8); gy, gx = np.gradient(h * 4.0)
+    h = gaussian_filter(height, 0.8); gy, gx = np.gradient(h * relief_gain)
     n = np.stack([-gx, -gy, np.ones_like(h)], axis=-1); n /= np.linalg.norm(n, axis=-1, keepdims=True)
     normal = ((n * 0.5 + 0.5) * 255).astype(np.uint8); normal[~mask] = (128, 128, 255)
     out_dir.mkdir(parents=True, exist_ok=True)
     img.save(out_dir / f"{prefix}_flatlay.png"); Image.fromarray((mask * 255).astype(np.uint8)).save(out_dir / f"{prefix}_mask.png")
     Image.fromarray(normal).save(out_dir / f"{prefix}_normal.png"); Image.fromarray(region).save(out_dir / f"{prefix}_regions.png")
-    counts = {"cells_drawn": len(cells), "rows_drawn": len(by_row), "crossings_drawn": sum(1 for c in cells if c.stitch == "cable2x2") // 4}
+    n_cross_rows = sum(1 for r in rows if any(o.stitch == "cable2x2" for o in (r.ops[0].ops if hasattr(r.ops[0], "ops") else r.ops)))
+    counts = {"cells_drawn": len(cells), "rows_drawn": len(by_row), "crossings_drawn": sum(1 for c in cells if c.stitch == "cable2x2") // 4, "rows_visible": len(rows), "crossing_rows_visible": n_cross_rows}
     meta = {"slug": pt["slug"], "size_px": [WPX, HPX], "px_per_cm": round(ppc, 4), "cell_px": [round(cell_w, 3), round(ST.get("fpdc").row_height * sc_row, 3)],
             "expected_px": {"cable_column_pitch": round(8 * cell_w, 2), "crossing_period": round(4 * ST.get("fpdc").row_height * sc_row, 2), "cable_width": round(4 * cell_w, 2)},
             "throw_box_px": [round(x0, 1), round(y_bottom - H_cm * ppc, 1), round(x0 + W_cm * ppc, 1), round(y_bottom, 1)], "dimensions_cm": {"width": W_cm, "height": H_cm, "aspect_h_over_w": D["aspect_h_over_w"]},
             "regions": REGIONS, "region_pixels": {k: int((region == v).sum()) for k, v in REGIONS.items()}, "counts": counts,
-            "conventions_DECLARED": {"view": "flat lay, straight on, whole throw", "surface_rgb": BG, "front_pair": FRONT_PAIR, "fill": fill, "relief_units": RELIEF},
+            "conventions_DECLARED": {"view": ("flat lay, straight on, the throw folded in half across its length with the upper half tucked underneath; the lower half (rows 1-61) is the visible face, the fold is the top edge" if folded else "flat lay, straight on, whole throw"), "folded": folded, "surface_rgb": BG, "front_pair": FRONT_PAIR, "fill": fill, "relief_units": RELIEF, "contrast": contrast, "relief_gain": relief_gain},
             "colour": {"yarn_rgb": yarn, "basis": "the CIR's own colour hex (#FAF6EB cream)"},
             "inputs": {"product_truth_sha256": hashlib.sha256((out_dir / "product_truth.json").read_bytes()).hexdigest(), "cir_fingerprint": cir.fingerprint},
-            "validation": {"every_cell_drawn": counts["cells_drawn"] == len(tw.cells) == 17424, "every_row_drawn": counts["rows_drawn"] == 121, "crossings_drawn_equals_truth": counts["crossings_drawn"] == 30 * 18,
+            "validation": {"every_cell_drawn": counts["cells_drawn"] == len(rows) * 144, "every_row_drawn": counts["rows_drawn"] == len(rows), "crossings_drawn_equals_truth": counts["crossings_drawn"] == n_cross_rows * 18,
                            "every_region_present": all((region == v).any() for v in REGIONS.values()),
                            "drawn_extent_cm": [round((x0 + W_cm * ppc - x0) / ppc, 2), round((y_bottom - min(v[0] for v in y_top.values())) / ppc, 2)]}}
     meta["validation"]["extent_matches_truth"] = abs(meta["validation"]["drawn_extent_cm"][0] - W_cm) < 0.05 and abs(meta["validation"]["drawn_extent_cm"][1] - H_cm) < 0.5
@@ -113,5 +129,7 @@ def build(out_dir: Path = OUT, prefix: str = "ref", size=FRAME, fill: float = 0.
 
 
 if __name__ == "__main__":
-    m = build(prefix=sys.argv[1] if len(sys.argv) > 1 else "ref")
+    prefix = sys.argv[1] if len(sys.argv) > 1 else "ref"
+    if prefix == "ref3": m = build(prefix=prefix, size=(1536, 1024), folded=True)
+    else: m = build(prefix=prefix, contrast=(1.8 if prefix == "ref2" else 1.0), relief_gain=(8.0 if prefix == "ref2" else 4.0))
     print(json.dumps({k: m[k] for k in ("px_per_cm", "cell_px", "expected_px", "counts", "validation", "region_pixels")}, indent=1))

@@ -51,6 +51,12 @@ check("a judge FAIL fails the verdict", G.verdict(det_pass, props_ok, {"a": "FAI
 check("expectations come from Product Truth (throw, rectangle, cabled, columns along the length, one colour, no edging, nothing extra)",
       G.EXPECT["product_type"][0] == {"blanket_or_throw"} and G.EXPECT["texture"][0] == {"cabled"} and G.EXPECT["colour_count"][0] == {1} and G.EXPECT["edging"][0] == {"none"} and G.EXPECT["extra_features"][0] == set())
 check("an invented feature fails (pockets on a throw)", G.properties({"extra_features": ["pockets"]})["extra_features"]["status"] == "FAIL" and G.properties({"extra_features": ["none"]})["extra_features"]["status"] == "PASS")
+check("the reader expectation follows the presentation: columns along the length on the whole throw, across the longer side in the folded view",
+      G.expectations("ref")["cable_direction"][0] == {"along_the_length"} and (G.expectations("ref3")["cable_direction"][0] == {"across_the_width"} if os.path.exists(os.path.join(OUT, "ref3_meta.json")) else True))
+for v in ("ref2", "ref3"):
+    if os.path.exists(os.path.join(OUT, f"{v}_meta.json")):
+        mv = json.load(open(os.path.join(OUT, f"{v}_meta.json")))
+        check(f"{v}: re-states the frozen Product Truth (same digest, same cells drawn) and passes its own gate", mv["inputs"]["product_truth_sha256"] == meta["inputs"]["product_truth_sha256"] and mv["validation"]["every_cell_drawn"] and G.deterministic(os.path.join(OUT, f"{v}_flatlay.png"), v)["status"] == "PASS")
 # manifest
 if os.path.exists(os.path.join(OUT, "v1grad_manifest.json")):
     m = json.load(open(os.path.join(OUT, "v1grad_manifest.json")))
@@ -59,12 +65,15 @@ if os.path.exists(os.path.join(OUT, "v1grad_manifest.json")):
     check("the generation package is the evidenced OpenAI route (gpt-image-1.5, input_fidelity high)", m["generation_package"]["model"] == "gpt-image-1.5" and m["generation_package"]["params"]["input_fidelity"] == "high")
     check("assets by stage name no finished-product image", m["assets_by_stage"]["finished_product_images"].startswith("NONE"))
     check("spend stayed under the ceiling", m["spent_usd"] <= m["cap_usd"], str(m["spent_usd"]))
-    check("every run used the frozen reference", all(r["reference_sha256"]["rgb"] == m["frozen_digests"]["ref_rgb"] for r in m["runs"]))
+    check("every run used the frozen reference or a frozen later version of it (digests recorded before use)",
+          all(r["reference_sha256"]["rgb"] == (m["frozen_digests"]["ref_rgb"] if r.get("reference_version", "ref") == "ref" else m["reference_versions"][r["reference_version"]]["rgb"]) for r in m["runs"]))
     check("every external call records provider and model", all(c.get("provider") and c.get("model") for c in m["calls"]))
     if os.path.exists(os.path.join(OUT, "v1grad_gate.json")):
         gj = json.load(open(os.path.join(OUT, "v1grad_gate.json")))
         check("every successful draw was gated", all(f"oa15_hifi_{r['draw']}" in gj for r in m["runs"] if r.get("ok")))
         check("verdicts follow the rule on every candidate", all(G.verdict(r["deterministic"], r["properties"], r["judge"])["status"] == r["verdict"]["status"] for r in gj.values()))
+        check("every candidate's properties are its stored readings judged by the current expectations (no reading changed)", all(G.properties(r["reader_answers"], None, r.get("reference_version", "ref"))[k]["status"] == v["status"] for r in gj.values() for k, v in r["properties"].items()))
+        check("no candidate is certified unless every deterministic item, every material property and every judge item PASS", all((r["verdict"]["status"] == "PASS") == (r["deterministic"]["status"] == "PASS" and all(p["status"] == "PASS" for p in r["properties"].values() if p["material"]) and all(j == "PASS" for j in r["judge"].values())) for r in gj.values()))
 tracked = subprocess.run(["git", "ls-files", "research/v1grad"], cwd=ROOT, capture_output=True, text=True).stdout.split()
 check("nothing photographic or external is tracked under research/v1grad", not any(t.endswith((".jpg", ".jpeg", ".jp2", ".pdf")) for t in tracked))
 print(f"\n  {PASSED} passing, {FAILED} failing")

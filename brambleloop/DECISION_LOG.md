@@ -1122,3 +1122,43 @@ reference is a presentation option for the owner to choose, not a correction.
 **D-B2-6. No hero is claimed.** Seven draws, seven rejections for measured reasons, both
 providers out of credit; the benchmark closes with the pipeline complete and the yield with
 its intended provider unmeasured. Owner action (credit) is batched in the manifest.
+
+**D-V1-1. The product-only visual graduation test is a Brambleloop-original design with no
+finished-product image anywhere in its inputs, and the firewall is recorded before
+construction begins.** The Heirloom Cable Throw (products/texture.py, 2026-09-18, class A,
+never made) was chosen over the bobble pillow (class B, back panel unspecified), the baskets
+(the trivial case) and the ribbed scarf (a plain strip) because it is fully specified and its
+stitch structure is the most demanding. Every asset supplied to every stage is listed with a
+digest; the two image sources that existed (a scratchpad chart, the artifact store's blobs)
+were quarantined unopened; no web search was made. EXTERNAL FINISHED-PRODUCT VISUAL REFERENCES
+USED BY PRODUCT CONSTRUCTION OR GENERATION: NONE.
+
+**D-V1-2. No paid generation before the blind deterministic chain is frozen PASS, and the
+freeze is a recorded list of checks, not a feeling.** Product Truth compiles and cross-checks;
+the reference draws every cell, row and crossing at counts x gauge and passes its own gate; the
+instrument passes the reference and rejects rotated, plain, star and waffle controls; digests
+of every input, output and code file are recorded; the generation package is named. Only then
+did the runner accept `generate`, and it refuses otherwise.
+
+**D-V1-3. A company capability defect found by a benchmark is fixed in the module with a
+regression test, not worked around in the benchmark.** `visual.fabric.texture_signature`
+called the cable throw flat because it measured loop targets alone; it now measures relief
+stitches too (columns vs checkered, along-row period), with `tests/test_fabric_relief.py`.
+
+**D-V1-4. A later reference version re-states the same frozen Product Truth and is frozen with
+its own digests and self-gate; it never changes cells, counts or geometry.** ref2 (stronger
+column/channel contrast) and ref3 (the throw folded in half, landscape, 14.2 px/cm) were built
+to test two hypotheses about the generator; both are declared presentations of the same design.
+
+**D-V1-5. A gate expectation that contradicts Product Truth under a presentation is corrected
+and every candidate is re-evaluated offline from its stored readings; readings and thresholds
+never change.** The reader answers cable direction relative to the piece's longer side as
+shown; in the folded view the same columns run across it. The correction certified nothing.
+
+**D-V1-6. Product-only Visual V1 does NOT graduate on this evidence, and the blocker is
+localised to image generation (provider capability), not to the deterministic chain.** Sixteen
+draws on the strongest evidenced route: the generator draws the 18 cable columns 1.3-1.7x too
+far apart at the whole-throw scale (12-14 columns), replaces crossings with ladder, moss or rib
+textures, and adds edge borders; at the folded scale (71 px pitch) two draws pass every
+deterministic measure but the reader and the judge reject them. No threshold was moved; no
+reading was retried to change a verdict.
