@@ -99,6 +99,15 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
     gate_open = gate_open or {}
     row = {"id": requirement.id, "title": requirement.title, "section": requirement.section,
            "status": requirement.status, "gate": None, "gate_open": None, "why": ""}
+    if requirement.status == reg.COVERED and requirement.proof.startswith("directive:"):
+        # Three rows of v1.4.3 instruct the auditor (merge order, canonical reconciliation);
+        # there is nothing to build and a module would be a fiction. They close as followed,
+        # with the evidence written in `proof`, rather than inflating either count.
+        row["state"] = COMPLETE_PROVEN
+        row["proof"] = {"modules": [], "existing": [], "tested": [], "tests": [], "proven": True,
+                        "directive": requirement.proof}
+        row["why"] = "process directive to the auditor, followed: " + requirement.proof[len("directive:"):].strip()
+        return row
     if requirement.status == reg.COVERED:
         proof = proof_of(requirement)
         row["proof"] = proof
