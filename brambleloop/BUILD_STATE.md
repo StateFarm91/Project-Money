@@ -368,6 +368,45 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Visual E4: stitch-addressable correspondence, continuous reference, yield of the photographic layer — FAIL as a pipeline, one image proves both properties
+
+From checkpoint `1229442`. Report `research/VISUAL_E4.md`; every manifest, per-stitch result, judge
+record, prompt, digest and cost in `research/e4/out/`. External spend **US$0.60** of a US$1.00
+ceiling (14 images US$0.42 list, judge US$0.18), stopped with the evidence complete.
+
+- **The reference's artificial features were yarn all along.** The 87 "hops" the renderer cut
+  (68 capped ends on hdc) were traced: 83 inside an hdc cell between named key points, 4 in
+  turning chains, none on sc. `fabric_strands(continuous=True)` is now the default; the strand
+  runs on through joins, no control point moved; one strand, two ends, on both swatches
+  (three tests in `tests/test_render.py`). Clean `presentation3` references rendered and hashed.
+- **Projected-stitch instrument** (`research/e4/project.py`): every certified stitch projected
+  through the verified pinhole into the reference with id, family, row, position, points,
+  orientation, colour region, depth-tested visibility and neighbours. **Self-validates on all
+  four views** (100 % of projected points on yarn, worst per-stitch reference IoU 0.90–0.97);
+  56 offline checks in `research/e4/test_e4.py` including erasure caught and named, re-framing
+  tolerated, blank frame refused. **A limit found and recorded:** a mirror image of the
+  near-symmetric swatch passes the presence test, so handedness became its own global
+  property (certified ≥ 2× mirrored; references read 4.2–9.5×).
+- **Generation:** `gpt-image-2` edits on the byte-identical package (clean RGB + mask +
+  normals), presentation-only prompts. Round 1 held proportions (drift 4–11 %) but copied the
+  rendered material (judge FAIL on 3 of 4). Round 2 named the material as a rendering to
+  replace: real wool on 5 of 10 draws by the judge, but the generator re-shot the object (aspect
+  drift 17–47 % on 8 of 10, structure NCC collapsed on the worst). Round 3's localised fix,
+  `input_fidelity=high`, was **refused by the provider before any spend** (unsupported on this
+  model). A yield round of six more sc draws confirmed the rate rather than the luck.
+- **Result over 14 images:** every testable stitch present in 14/14; global structure PASS on
+  2/14 (both sc camera); judge 7/7 on 5/14; **both on 1/14** — `sc_camera_e4.png`, sha256
+  `46eebcec…`, 22/25 stitches testable and present (worst IoU 0.81), proportions +4 %,
+  structure 0.47 vs mirror 0.06, judge all seven true. Oblique view: 0/7 structural.
+- **Localised:** instrument, reference, package and judge each ruled out by measurement; the
+  failure is the generator's coupling of reference literalness and material re-synthesis, with
+  no parameter on this endpoint to separate them. Proven blocker within scope; the remaining
+  US$0.40 could not change a 0/7 oblique reading.
+- **Verdict: E4 FAIL.** Not UNKNOWN: every property measured. No threshold weakened (one
+  property added). Milestone D unchanged (FAIL, physical blocker). `twin.calibrated` False.
+  Production gate, drape solver, assessment and `cir/` untouched. `4a08871`, `1229442`,
+  `fcb982d` untouched. One gateway addition: `generate(..., extra_fields=None)`, default none.
+
 ### 2026-09-26 — Visual E3: certified structure → reference-conditioned photograph → same product? Not yet proven; Option 3
 
 From checkpoint `4a08871`. The frozen assessed geometries (hashes on every record) and their

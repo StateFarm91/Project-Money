@@ -994,3 +994,37 @@ The division is drawn in research/VISUAL_E3.md §7c from these measurements, and
 distinction of §6 -- certified presentation transformation versus unauthorised redesign,
 fail-closed -- classified every E3 output as redesign or UNKNOWN, which is the correct reading
 and is why it is proposed and not integrated.
+
+## 2026-09-26 — Visual E4 (isolated branch, from checkpoint 1229442)
+
+**D-E4-1. The yarn path's long segments are drawn as yarn, because they are yarn.** Each of the
+87 segments the renderer used to cut as "artificial hops" was traced to a named place in the
+stitch; none is a hop. The cut mode is kept and tested for what it does, but the default draws
+one continuous strand with the fabric's two real ends. No control point is inserted or moved,
+so the certified geometry and its digests are unchanged.
+
+**D-E4-2. A stitch is tested only where the camera can see it, and an unseen stitch is UNKNOWN,
+never PASS.** Visibility is depth-tested against the yarn's own depth map and the form; a
+stitch with fewer than half its key points visible is reported with its visible fraction and
+excluded from the count. On the oblique views this leaves 8 of 25 testable, which is the truth
+of that camera and is reported as such rather than padded from the camera view.
+
+**D-E4-3. The instrument's known limit is a test, and the gap is closed by a separate
+property.** The presence test cannot tell a mirror image of a near-symmetric swatch from the
+swatch; `test_e4.py` asserts that it cannot, and handedness is measured globally (certified
+orientation must explain the photograph's structure at least twice as well as its mirror). The
+bar is CHOSEN and recorded beside the readings; it fails the round-1 sc oblique image at 1.6×,
+and that reading stands.
+
+**D-E4-4. The realism judge's spend is cached by image digest.** Re-validating an image whose
+bytes were already judged reuses the record; a changed byte is a new judgement. This is what
+let the handedness property be applied to earlier rounds at no cost and without re-drawing.
+
+**D-E4-5. Iteration was on the localised failure only, and stopped when the blocker was
+proven.** Round 2 changed only the material description (round 1's failure); round 3 added
+only the endpoint's fidelity control (round 2's failure) and was refused by the provider;
+the yield round changed nothing and measured the rate. Selection was never by score: every
+draw is recorded with its full result, and the one image that passes both is reported as one
+of fourteen. E4 is FAIL as a pipeline, with the generator's coupling of literalness and
+material named as the blocker and the provider benchmark named as the place to answer it.
+
