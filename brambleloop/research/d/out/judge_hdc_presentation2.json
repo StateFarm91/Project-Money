@@ -1,0 +1,116 @@
+{
+ "model": "gpt-5-2025-08-07",
+ "system": "You are a working photographer looking at an image and deciding whether it reads as a real photograph of a real object or as a computer-generated image. You are not judging whether it is attractive. Report what you can actually see, and say plainly when the image does not show you enough to tell.",
+ "prompt": "This is an image of a crochet swatch. Answer as JSON. For each key give true if the statement holds, false if it does not, and omit the key entirely if the image does not show you enough to judge it. Do not guess: an omitted key is a useful answer and a wrong one is not.\n\n  \"fabric_folds_naturally\": the fabric's bends and hang read as cloth under its own weight rather than a stiff, posed or arbitrarily warped shape\n  \"lighting_is_realistic\": the light on the object is what a real lamp or window would produce, with no contradictory or impossible illumination\n  \"shadows_are_coherent\": shadows and highlights agree with one light situation\n  \"has_ordinary_photographic_imperfection\": the frame has the ordinary imperfection of a photograph -- grain, slight unevenness of tone or focus, an unstyled detail -- rather than frictionless synthetic cleanliness\n  \"yarn_is_not_melted\": the yarn reads as twisted, plied fibre with real surface rather than a melted, smooth or plastic rope\n  \"stitch_texture_is_not_synthetic\": the stitch texture reads as hand-worked crochet fabric rather than a tiled, repeated or computer-generated pattern\n  \"not_catalogue_perfect_sterility\": the image is not sterile catalogue perfection: something in it is ordinary, imperfect or unarranged\n\nAdd \"notes\": one or two short sentences naming anything that made the image read as generated, or an empty string.",
+ "views": [
+  {
+   "image": "research/d/out/hdc_draped_presentation2_camera.png",
+   "image_sha256": "df76633a0e3f762f94cbfd7b2a1dd6c9c0d8d88492087bb4f969b10f4b693f64",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESDNeJKzzdPjSp8iKAE5O3Y2Od8MM",
+   "seconds": 17.6,
+   "prompt_tokens": 1007,
+   "completion_tokens": 1089,
+   "reasoning_tokens": 960,
+   "cost_usd": 0.012149,
+   "cost_cad": 0.016644,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": false,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": false,\n  \"yarn_is_not_melted\": false,\n  \"stitch_texture_is_not_synthetic\": false,\n  \"not_catalogue_perfect_sterility\": false,\n  \"notes\": \"Yarn reads as smooth plastic tubes with bead-like clumps and a repeated pattern; the piece holds a stiff, gravity-defying shape against a sterile background.\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": false,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": false,
+     "yarn_is_not_melted": false,
+     "stitch_texture_is_not_synthetic": false,
+     "not_catalogue_perfect_sterility": false
+    },
+    "notes": "Yarn reads as smooth plastic tubes with bead-like clumps and a repeated pattern; the piece holds a stiff, gravity-defying shape against a sterile background."
+   }
+  },
+  {
+   "image": "research/d/out/hdc_draped_presentation2_oblique.png",
+   "image_sha256": "688e70b92513bca49032d33dd54cb0164e45823934328673ba5a8ee1923da847",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESDNwFFPcGA0h5uQ9JDrCf5NmskSh",
+   "seconds": 13.1,
+   "prompt_tokens": 1007,
+   "completion_tokens": 834,
+   "reasoning_tokens": 704,
+   "cost_usd": 0.009599,
+   "cost_cad": 0.01315,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": false,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": false,\n  \"yarn_is_not_melted\": false,\n  \"stitch_texture_is_not_synthetic\": false,\n  \"not_catalogue_perfect_sterility\": false,\n  \"notes\": \"Yarn appears as smooth tube-like plastic with bead-like ends and no visible fibres. Repeated, uniform stitches and the sterile sphere/background make it read as CG.\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": false,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": false,
+     "yarn_is_not_melted": false,
+     "stitch_texture_is_not_synthetic": false,
+     "not_catalogue_perfect_sterility": false
+    },
+    "notes": "Yarn appears as smooth tube-like plastic with bead-like ends and no visible fibres. Repeated, uniform stitches and the sterile sphere/background make it read as CG."
+   }
+  }
+ ],
+ "items": {
+  "fabric_folds_naturally": {
+   "status": "FAIL",
+   "per_view": {
+    "hdc_draped_presentation2_camera.png": false,
+    "hdc_draped_presentation2_oblique.png": false
+   }
+  },
+  "lighting_is_realistic": {
+   "status": "PASS",
+   "per_view": {
+    "hdc_draped_presentation2_camera.png": true,
+    "hdc_draped_presentation2_oblique.png": true
+   }
+  },
+  "shadows_are_coherent": {
+   "status": "PASS",
+   "per_view": {
+    "hdc_draped_presentation2_camera.png": true,
+    "hdc_draped_presentation2_oblique.png": true
+   }
+  },
+  "has_ordinary_photographic_imperfection": {
+   "status": "FAIL",
+   "per_view": {
+    "hdc_draped_presentation2_camera.png": false,
+    "hdc_draped_presentation2_oblique.png": false
+   }
+  },
+  "melted_yarn": {
+   "status": "FAIL",
+   "per_view": {
+    "hdc_draped_presentation2_camera.png": false,
+    "hdc_draped_presentation2_oblique.png": false
+   }
+  },
+  "synthetic_stitch_texture": {
+   "status": "FAIL",
+   "per_view": {
+    "hdc_draped_presentation2_camera.png": false,
+    "hdc_draped_presentation2_oblique.png": false
+   }
+  },
+  "catalogue_perfect_sterility": {
+   "status": "FAIL",
+   "per_view": {
+    "hdc_draped_presentation2_camera.png": false,
+    "hdc_draped_presentation2_oblique.png": false
+   }
+  }
+ },
+ "total_cost_usd": 0.021748,
+ "total_cost_cad": 0.029794,
+ "rule": "an item is PASS only when every authoritative view is sound on it, FAIL when any view is not, UNKNOWN when the judge could not tell on any view",
+ "tag": "presentation2"
+}

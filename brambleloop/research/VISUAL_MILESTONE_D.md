@@ -11,7 +11,9 @@ Continues `VISUAL_WAVE5.md`. Labels: **SOURCED / DERIVED / BOUNDED / MEASURED / 
 
 ## THE RESULT, IN ONE LINE
 
-**Milestone D is PARTIAL, measured — not FAIL and not PASS.** Every item of the claim that can
+**Milestone D is FAIL, measured and judged** (close-out, §10–11; the PARTIAL below was the state before the independent judge ran). Original wave text follows.
+
+**Milestone D was PARTIAL, measured — not FAIL and not PASS.** Every item of the claim that can
 be measured without a judge now passes on the certified hdc and sc swatches: identity, the flat
 locks, the fixed point, energy descent, contact with a form, **no structural drift through a
 real drape** (every stitch linked, shaped as ordered, above the compression floor), double
@@ -292,4 +294,27 @@ Lighting and shadows now PASS on both. Still FAIL: folds ("rigid"), imperfection
 
 **Iteration 2 — the fibre scattering model and continuous strands.** Two properties of the *drawing* answered two of the judge's named reasons with physics: (i) the fibre halo is now shaded with the fibre scattering model (Chiang et al. 2016, Mitsuba `hair`; absorption derived from the yarn colour, scaled 0.35 for a single 19 µm fibre) instead of as opaque plastic tubes; (ii) `fabric_strands` no longer cuts the path at the 20 sub-micron joins where one stitch's points meet the next — the yarn continues there — so the 216 capped strand ends ("bead-like ends") become 68, all at the model's artificial hops. Rendered on the same hash-checked geometry (`*_draped_presentation2_*`).
 
-ITERATION2_JUDGE_PLACEHOLDER
+Judge cost US$0.0433 (hdc 0.0217, sc 0.0216); records `judge_<kind>_presentation2.json`.
+
+- hdc: fabric_folds_naturally: FAIL | lighting_is_realistic: PASS | shadows_are_coherent: PASS | has_ordinary_photographic_imperfection: FAIL | melted_yarn: FAIL | synthetic_stitch_texture: FAIL | catalogue_perfect_sterility: FAIL
+- `hdc_draped_presentation2_camera.png` — `chatcmpl-ESDNeJKzzdPjSp8iKAE5O3Y2Od8MM`, US$0.0121: “Yarn reads as smooth plastic tubes with bead-like clumps and a repeated pattern; the piece holds a stiff, gravity-defying shape against a sterile background.”
+- `hdc_draped_presentation2_oblique.png` — `chatcmpl-ESDNwFFPcGA0h5uQ9JDrCf5NmskSh`, US$0.0096: “Yarn appears as smooth tube-like plastic with bead-like ends and no visible fibres. Repeated, uniform stitches and the sterile sphere/background make it read as CG.”
+- sc: fabric_folds_naturally: FAIL | lighting_is_realistic: PASS | shadows_are_coherent: PASS | has_ordinary_photographic_imperfection: FAIL | melted_yarn: FAIL | synthetic_stitch_texture: FAIL | catalogue_perfect_sterility: FAIL
+- `sc_draped_presentation2_camera.png` — `chatcmpl-ESDO9qt1UBafGFkPj1UOL5lQfL067`, US$0.0108: “Yarn appears as smooth plastic tubes without visible twist or fibers, and the background/shadow are perfectly clean studio-like.”
+- `sc_draped_presentation2_oblique.png` — `chatcmpl-ESDONr48SBW6Bpposql2FEf1PCMdO`, US$0.0108: “Yarn appears smooth and plastic without visible fibers, with highly uniform loops. The scene is a sterile render with a perfect sphere and wall.”
+
+**Verdict from the criterion after iteration 2: FAIL, both swatches** — the same five items, for the same stated reasons, in the third independent reading. Records: `milestone_d_<kind>_final.json` (the evidence configuration with the final judgement applied), `*_draped_presentation2_*.jpg`.
+
+## 11. The blocker, and the verdict
+
+**Milestone D = FAIL.** Every measurable item passes on both swatches (identity, the flat locks, the exact fixed point, energy descent, stationarity to 0.55 % / 0.77 %, contact with the form, no structural drift through 19 mm / 9 mm of drape, a two-way contact patch, a hash-checked render of the validated geometry). Two judged items now pass (lighting, shadows). Five judged items fail in three independent readings across two stagings, and each remaining reason traces to a **physical input this repository does not have and may not fabricate**:
+
+| judged failure | what the judge saw | what it traces to | what closing it needs |
+|---|---|---|---|
+| fabric_folds_naturally | "stiff, gravity-defying", "rigid" | `rigid_stitches`: the infinite-friction limit, BOUNDED, uncalibrated. Without it the frictionless law everts the stitches (netting); the compliance between those two limits is a finite yarn-on-yarn friction with real normal forces | a measured friction coefficient and loop tension for this yarn — physical calibration (`twin.calibrated` is False and stays False) |
+| melted_yarn, synthetic_stitch_texture | "smooth plastic tubes, no visible fibres", "repeated, uniform stitches", "bead-like ends" | the ply model's surface is a smooth cylinder (the fibre-grain normal map, `fibre_surface_map`, is not wireable until Mitsuba's curve UV convention is established — probed, inconclusive); the halo model keeps fibres against the ply (lift-off bounded, no protruding staple ends, hairiness uncalibrated); the 68 ends are the yarn-path model's artificial hops, where the yarn between operations is not modelled; the geometry is uniform under the owner's per-row anchor (the sourced 5 % hand input realises 2.2 % and worsens the mechanics evidence) | a photographed reference swatch of this yarn to calibrate hairiness and grain against (Stage 0, deferred by the owner); a continuous yarn path between operations |
+| has_ordinary_photographic_imperfection, catalogue_perfect_sterility | "spotless background", "perfect sphere and wall", "sterile render" | the staging has a matte surface, a window and a form, and nothing else; a "real place" with wear and use is presentation fiction with no evidential basis in this programme | a photographed reference scene, or the downstream generative presentation path (E1, paused by the owner) |
+
+That is the blocker the brief asked to be proved rather than assumed: three judge rounds, five stable failures, each closable only by calibration data that does not exist or by a model this milestone may not invent. Nothing was tuned toward a threshold; no bar moved; the judge was never shown the standard as a checklist.
+
+**Total additional external-provider spend for the close-out: US$0.1423** (six judge calls of gpt-5-2025-08-07 across three rounds: 0.0552 + 0.0438 + 0.0433). No image-generation call. No ledger row exists for it in production because this session holds no database; every call's tokens, response id and list-price cost are in the `judge_*.json` records.

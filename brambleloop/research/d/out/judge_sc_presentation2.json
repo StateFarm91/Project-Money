@@ -1,0 +1,116 @@
+{
+ "model": "gpt-5-2025-08-07",
+ "system": "You are a working photographer looking at an image and deciding whether it reads as a real photograph of a real object or as a computer-generated image. You are not judging whether it is attractive. Report what you can actually see, and say plainly when the image does not show you enough to tell.",
+ "prompt": "This is an image of a crochet swatch. Answer as JSON. For each key give true if the statement holds, false if it does not, and omit the key entirely if the image does not show you enough to judge it. Do not guess: an omitted key is a useful answer and a wrong one is not.\n\n  \"fabric_folds_naturally\": the fabric's bends and hang read as cloth under its own weight rather than a stiff, posed or arbitrarily warped shape\n  \"lighting_is_realistic\": the light on the object is what a real lamp or window would produce, with no contradictory or impossible illumination\n  \"shadows_are_coherent\": shadows and highlights agree with one light situation\n  \"has_ordinary_photographic_imperfection\": the frame has the ordinary imperfection of a photograph -- grain, slight unevenness of tone or focus, an unstyled detail -- rather than frictionless synthetic cleanliness\n  \"yarn_is_not_melted\": the yarn reads as twisted, plied fibre with real surface rather than a melted, smooth or plastic rope\n  \"stitch_texture_is_not_synthetic\": the stitch texture reads as hand-worked crochet fabric rather than a tiled, repeated or computer-generated pattern\n  \"not_catalogue_perfect_sterility\": the image is not sterile catalogue perfection: something in it is ordinary, imperfect or unarranged\n\nAdd \"notes\": one or two short sentences naming anything that made the image read as generated, or an empty string.",
+ "views": [
+  {
+   "image": "research/d/out/sc_draped_presentation2_camera.png",
+   "image_sha256": "acdfc2d869dac12780a8f363e8beff8886866633f120c153c4d97b66a2d348db",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESDO9qt1UBafGFkPj1UOL5lQfL067",
+   "seconds": 13.9,
+   "prompt_tokens": 1007,
+   "completion_tokens": 953,
+   "reasoning_tokens": 832,
+   "cost_usd": 0.010789,
+   "cost_cad": 0.014781,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": false,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": false,\n  \"yarn_is_not_melted\": false,\n  \"stitch_texture_is_not_synthetic\": false,\n  \"not_catalogue_perfect_sterility\": false,\n  \"notes\": \"Yarn appears as smooth plastic tubes without visible twist or fibers, and the background/shadow are perfectly clean studio-like.\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": false,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": false,
+     "yarn_is_not_melted": false,
+     "stitch_texture_is_not_synthetic": false,
+     "not_catalogue_perfect_sterility": false
+    },
+    "notes": "Yarn appears as smooth plastic tubes without visible twist or fibers, and the background/shadow are perfectly clean studio-like."
+   }
+  },
+  {
+   "image": "research/d/out/sc_draped_presentation2_oblique.png",
+   "image_sha256": "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESDONr48SBW6Bpposql2FEf1PCMdO",
+   "seconds": 13.0,
+   "prompt_tokens": 1007,
+   "completion_tokens": 957,
+   "reasoning_tokens": 832,
+   "cost_usd": 0.010829,
+   "cost_cad": 0.014835,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": false,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": false,\n  \"yarn_is_not_melted\": false,\n  \"stitch_texture_is_not_synthetic\": false,\n  \"not_catalogue_perfect_sterility\": false,\n  \"notes\": \"Yarn appears smooth and plastic without visible fibers, with highly uniform loops. The scene is a sterile render with a perfect sphere and wall.\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": false,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": false,
+     "yarn_is_not_melted": false,
+     "stitch_texture_is_not_synthetic": false,
+     "not_catalogue_perfect_sterility": false
+    },
+    "notes": "Yarn appears smooth and plastic without visible fibers, with highly uniform loops. The scene is a sterile render with a perfect sphere and wall."
+   }
+  }
+ ],
+ "items": {
+  "fabric_folds_naturally": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_draped_presentation2_camera.png": false,
+    "sc_draped_presentation2_oblique.png": false
+   }
+  },
+  "lighting_is_realistic": {
+   "status": "PASS",
+   "per_view": {
+    "sc_draped_presentation2_camera.png": true,
+    "sc_draped_presentation2_oblique.png": true
+   }
+  },
+  "shadows_are_coherent": {
+   "status": "PASS",
+   "per_view": {
+    "sc_draped_presentation2_camera.png": true,
+    "sc_draped_presentation2_oblique.png": true
+   }
+  },
+  "has_ordinary_photographic_imperfection": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_draped_presentation2_camera.png": false,
+    "sc_draped_presentation2_oblique.png": false
+   }
+  },
+  "melted_yarn": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_draped_presentation2_camera.png": false,
+    "sc_draped_presentation2_oblique.png": false
+   }
+  },
+  "synthetic_stitch_texture": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_draped_presentation2_camera.png": false,
+    "sc_draped_presentation2_oblique.png": false
+   }
+  },
+  "catalogue_perfect_sterility": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_draped_presentation2_camera.png": false,
+    "sc_draped_presentation2_oblique.png": false
+   }
+  }
+ },
+ "total_cost_usd": 0.021618,
+ "total_cost_cad": 0.029616,
+ "rule": "an item is PASS only when every authoritative view is sound on it, FAIL when any view is not, UNKNOWN when the judge could not tell on any view",
+ "tag": "presentation2"
+}

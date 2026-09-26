@@ -957,3 +957,13 @@ number the ply model had called chosen), and samples enough that the noise is th
 The geometry is loaded from the assessment's saved points and refused unless its hash matches
 the record. Nothing is re-rendered to please the judge: the judge's reading of these is the
 evidence, whichever way it goes, and what the scene still lacks is in `not_reproduced`.
+
+**D-W6-13. Milestone D is recorded as FAIL, and the failing property is declared blocked on
+physical calibration rather than iterated further.** Three independent judge rounds across two
+stagings failed the same five photographic items with the same stated reasons, and every reason
+traces to an input this repository does not have: a measured yarn-on-yarn friction (the
+infinite-friction lock is what keeps the stitches from everting, and it is what reads as
+rigid), a photographed reference for the yarn's hairiness and grain, and a continuous yarn path
+between operations. The owner's rules forbid fabricating calibration, and a fourth staging
+without new physical input would be prettier pictures chasing a score. FAIL is one of the three
+acceptable outcomes and is the true one. `twin.calibrated` stays False.

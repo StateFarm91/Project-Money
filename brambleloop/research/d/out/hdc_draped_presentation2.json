@@ -1,0 +1,37 @@
+{
+ "kind": "hdc",
+ "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
+ "assessment": "milestone_d_hdc_12800_settle.json",
+ "views": {
+  "camera": {
+   "path": "research/d/out/hdc_draped_presentation2_camera.png",
+   "image_sha256": "cfadb677e0bcede0e9bd7da2a18a6facf4d97a26dc711259e9feff4c1b3a3ffe",
+   "plies": 136,
+   "fibres": 45696,
+   "spp": 256,
+   "staging": "presentation",
+   "form_drawn": true,
+   "not_reproduced": [
+    "fibre surface normal map (`fibre_surface_map`, not wired to a curve UV)",
+    "hand tension drift",
+    "a real environment beyond a matte surface and a window"
+   ],
+   "seconds": 567.8
+  },
+  "oblique": {
+   "path": "research/d/out/hdc_draped_presentation2_oblique.png",
+   "image_sha256": "ae5c3e01db9389b003c53739149d364d2c50a1edff095339833cadedf913d157",
+   "plies": 136,
+   "fibres": 45696,
+   "spp": 256,
+   "staging": "presentation",
+   "form_drawn": true,
+   "not_reproduced": [
+    "fibre surface normal map (`fibre_surface_map`, not wired to a curve UV)",
+    "hand tension drift",
+    "a real environment beyond a matte surface and a window"
+   ],
+   "seconds": 226.4
+  }
+ }
+}

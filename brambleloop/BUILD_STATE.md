@@ -368,6 +368,41 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Visual wave 6 close-out: Milestone D judged — FAIL, on a blocker that is physical
+
+The owner lifted the spend freeze for the minimum needed to resolve D's UNKNOWNs. Done, on the
+isolated branch, `fcb982d` untouched:
+
+- **Independent judge.** `visual/d_judge.py` puts the seven B-700 fabric items to
+  `gpt-5-2025-08-07` (a model with no part in the Mitsuba renders), in the vocabulary of the
+  failure, omitted keys UNKNOWN, this module deciding. Three rounds on the authoritative draped
+  views of both swatches: the instrument renders, then `STAGING_PRESENTATION` (the form drawn,
+  thin lens, window key, the derived fibre population), then the same with the fibre scattering
+  model and continuous strands. **Lighting and shadows moved to PASS; folds, imperfection,
+  melted yarn, synthetic texture and sterility failed in all three readings**, for the same
+  stated reasons. Six calls, **US$0.142 in total**; every prompt, answer, response id, token
+  count and list-price cost is in `research/d/out/judge_*.json`.
+- **Stationarity, bar unchanged at 2 %.** 12,800 momentum iterations left the hdc creeping at a
+  constant 0.031 mm / 200 (sc converged, 1.58 %); a 3,200-iteration momentum-off settle phase --
+  how a FIRE minimisation is finished, rest state carried, trace from the same origin -- gave
+  **0.55 % (hdc) and 0.77 % (sc): PASS.** `settle_iterations` is on every result; the assessed
+  points are saved with their hashes and the judged renders were refused unless they matched.
+- **The hand-tension experiment** (`HandTension()`, sourced 5 % input): certifies and keeps every
+  lock, realises 2.2 % width CV, lands on the form on 3 and 2 stitches with worse stationarity.
+  Recorded, not adopted. The geometric irregularity item is a measurement, not a gate (D-W6-11).
+- **Verdict from the executable criterion: D = FAIL on both swatches** (`milestone_d_<kind>_final.json`).
+  Every measured item passes. The five judged failures each trace to a physical input the
+  repository lacks and may not fabricate: a measured yarn-on-yarn friction (the infinite-friction
+  lock is what stops the stitches everting and what reads as rigid -- BOUNDED, uncalibrated), a
+  photographed reference swatch for hairiness and fibre grain (Stage 0, deferred), a continuous
+  yarn path between operations (the 68 "bead-like ends" are the model's hops). A fourth staging
+  without new physical input would be prettier pictures chasing a score, so it was not made
+  (D-W6-13). `twin.calibrated` stays False.
+- Suites: test_drape 157/0, test_render 15/0 (strand continuity added), test_milestone_d 21/0
+  (judge reading and decision rule, offline). Full suite: FULL_FINAL_PLACEHOLDER.
+- Not done, per the brief: no purchased-pattern generation, no GPT Image work, no Etsy imagery,
+  no merge, no deploy.
+
 ### 2026-09-26 — Visual wave 6: Milestone D measured, PARTIAL — the drift, the frictionless law, and the frame
 
 Isolated branch `claude/visual-investigation` (worktree), integrated checkpoint `fcb982d`
