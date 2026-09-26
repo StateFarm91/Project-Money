@@ -117,7 +117,7 @@ from . import stitch_shape as ss
 
 __all__ = ["DrapeSetup", "DrapeReport", "drape", "areal_mass", "bending_bracket",
            "cantilever_test", "intrinsic_dimensions", "CALIBRATED_BENDING_N_M2",
-           "PROVENANCE", "rest_curvature_of", "angular_radius_to_lap", "relief_profile",
+           "PROVENANCE", "rest_curvature_of", "shape_match", "op_slices", "angular_radius_to_lap", "relief_profile",
            "genuine_yarn_vertices", "corotational_rotations", "bending_energy_J",
            "rigid_motion_response", "cylindrical_bend", "flexural_rigidity",
            "derive_bending_rigidity", "cantilever_equilibrium_bound",
@@ -235,6 +235,34 @@ PROVENANCE = {
                          "continuous function of the configuration. What this COSTS is real "
                          "and is measured: the mask alone makes the fabric 1.47x floppier at "
                          "the same B. See research/VISUAL_WAVE5.md",
+    "momentum": "SOURCED, OFF BY DEFAULT. FIRE, Bitzek et al. PRL 97 170201 (2006): velocity "
+                "carried between descent steps and zeroed per vertex when the force opposes "
+                "it. A convergence-rate device with no effect on where the forces balance. "
+                "It exists because the plain step moves a vertex ~0.7um per iteration under "
+                "gravity on the 5x5, measured as 0.566/1.130/4.44mm at 800/1600/6400 "
+                "iterations: linear, i.e. free drift, i.e. no displacement reported at 800 "
+                "iterations was ever an equilibrium",
+    "step_multiplier": "DERIVED, 1.0 BY DEFAULT. The explicit step sits at 0.2 of the bending "
+                       "stencil's stability limit (step x 16 x bend_coeff < 2), so up to 8x "
+                       "is inside the margin. A convergence-rate device, like `momentum`",
+    "rigid_stitches": "BOUNDED ASSUMPTION, OFF BY DEFAULT. Shape matching (Mueller et al. "
+                      "2005) per operation as the infinite-friction limit: yarn-on-yarn "
+                      "friction (mu 0.2-0.3, spun acrylic) locks a stitch's internal geometry "
+                      "against a 3e-4 N gravity load whenever residual loop tension exceeds "
+                      "~1.5mN. Measured need: without it the frictionless law everts 14-16 of "
+                      "25 hdc stitches and unlinks 13 of 20 sc stitches at every B in the "
+                      "derived bracket once the drape actually proceeds. Holds the stitch's "
+                      "internal shape; linkage, floor, contact, curvature and equilibrium "
+                      "remain the mechanics' to lose",
+    "support_friction": "BOUNDED ASSUMPTION, OFF BY DEFAULT. Static friction between fabric and "
+                        "form in its infinite limit: a vertex the support touched keeps its "
+                        "tangential position. Needed because a frictionless sphere gives the "
+                        "fabric no equilibrium short of sliding off (measured: rms motion still "
+                        "growing after 6,400 iterations)",
+    "polish_passes": "DERIVED, no new constant, OFF BY DEFAULT. Alternating contact and length "
+                     "projections after the last iteration, ending on the hard floor, so that "
+                     "the configuration handed to `validate` satisfies the floor it was "
+                     "solved against instead of sitting a few hundred nanometres under it",
     "monotone_descent": "DERIVED, no new constant, OFF BY DEFAULT. Rejects any iteration whose "
                         "finished configuration raises the total energy and retries at half "
                         "the force step. The comparison bound is 64*eps, a floating-point "
@@ -318,6 +346,12 @@ class DrapeSetup:
     # choices have already proved able to masquerade as fabric properties here.
     down: tuple = (0.0, 0.0, -1.0)
     support_at: float | None = None       # plane the fabric rests on, along `down`
+    # A rigid sphere the fabric may not enter: (cx, cy, cz, radius) in fabric millimetres. The
+    # load a sphere applies is not uniform, which is the whole point of it: under gravity alone
+    # a uniform row has no reason to bend within itself, and the standing conformability
+    # question -- do rows articulate, or bow as rigid bars -- cannot be asked of a cantilever.
+    # Wave 5 Section 6c named this experiment; this is the form it needed.
+    support_sphere: tuple | None = None
     # Whether the yarn's REST shape is straight, or the shape it was relaxed into.
     #
     # This is the single most consequential physical choice in the module, so it is named
@@ -480,6 +514,75 @@ class DrapeSetup:
     # the hard contact floor had to be enforced is exempt, because un-squeezing yarn is not
     # optional and is not a descent step.
     monotone_descent: bool = False
+    # MOMENTUM, OFF BY DEFAULT, and why it exists. The force step is scaled so the LARGEST
+    # force in the fabric -- the yarn's own bending, 200-30,000x gravity -- moves a vertex
+    # 0.05 of a segment. Gravity therefore moves a vertex about 0.7 MICROMETRES per iteration
+    # on the 5x5, which was measured: 800 iterations gave 0.566mm of out-of-plane motion,
+    # 1600 gave 1.130mm, 6400 gave 4.44mm -- linear in the iteration count, which is the
+    # signature of a fabric in free drift toward an equilibrium it is nowhere near. Every
+    # displacement this solver has reported at 800 iterations was that drift, and a uniformly
+    # drifting fabric moves every row as a rigid unit BY CONSTRUCTION: the force on a vertex
+    # is proportional to its mass and so is its step. That is the "rigid bar" symptom.
+    #
+    # This is the FIRE scheme (Bitzek et al., PRL 97, 170201, 2006): a velocity carried
+    # between iterations, scaled by `momentum`, and reset to zero on any vertex whose force
+    # opposes its velocity. It changes the RATE only: the equilibrium is still where the
+    # forces balance, every projection, budget and guard runs on the finished move exactly as
+    # before, and the move is still capped by the measured clearance.
+    momentum: float = 0.0
+    # END ON THE CONSTRAINTS, OFF BY DEFAULT. Each iteration ends on the length projection so
+    # that inextensibility wins, and the length projection moves the pair pinned at the hard
+    # contact floor by a few hundred nanometres -- below the floor, which `validate` then
+    # reads as a strict violation. `polish_passes` alternating (contacts, lengths) passes at
+    # the end, finishing on contacts, find the configuration that satisfies both; the residual
+    # strain that leaves is reported, not hidden.
+    polish_passes: int = 0
+    # STEP MULTIPLIER, 1.0 BY DEFAULT. The force step is 0.05 of a segment at the reference
+    # force, which puts the explicit descent at step x lambda_max = 0.2 for the four-point
+    # bending stencil (lambda_max = 16 x bend_coeff; the stability limit is 2). Up to 8x is
+    # therefore inside the stencil's stability margin, and is arithmetic rather than tuning.
+    # It exists for the same reason `momentum` does -- at a bending rigidity 42x the committed
+    # constant the gravity drift is 42x slower still -- and like `momentum` it changes the
+    # rate only. The clearance budget, the guards and every projection see the finished move.
+    step_multiplier: float = 1.0
+    # RIGID STITCHES, OFF BY DEFAULT: the yarn inside each stitch is locked by friction.
+    #
+    # WHAT WAS MEASURED WITHOUT IT. Once the solve actually proceeds (momentum on, or 25,600
+    # plain iterations), the frictionless force law takes the hdc 5x5 apart on a sphere at
+    # EVERY bending rigidity in the derived bracket: 14 of 25 third loops above the V at the
+    # committed 3.0e-8 N m^2, 16 of 25 at the derived 1.27e-6 after 6,400 iterations, and the
+    # sc swatch loses 13 of 20 linkages -- it becomes netting, which is the exact failure the
+    # Product Truth locks name. Strands that can slide freely across one another reorganise
+    # under a load a thousand times smaller than what holds a real stitch together.
+    #
+    # THE PHYSICS, as an order of magnitude and labelled BOUNDED: one hdc stitch on the 5x5
+    # weighs 0.03g, a gravity load of 3e-4 N. Yarn-on-yarn friction for spun acrylic is
+    # quoted at mu = 0.2-0.3, so any residual loop tension above about 1.5mN locks the
+    # stitch's internal geometry against that load, and a hand-worked loop carries far more.
+    # Friction is therefore not a refinement here; it is the dominant intra-stitch force and
+    # the model had none.
+    #
+    # THE MODEL: shape matching (Mueller, Heidelberger, Teschner, Gross, "Meshless
+    # deformations based on shape matching", SIGGRAPH 2005), applied per operation, with
+    # `rigid_stitches` as the infinite-friction limit: each stitch's points are pulled onto
+    # the best-fit rigid placement of their certified shape. The fabric then bends where a
+    # crochet fabric bends -- at the hinges between stitches and at the linkage between rows.
+    # What this holds fixed is the stitch's INTERNAL shape, so `validate`'s morphology check
+    # is no longer an outcome of the load (that is stated on every result that uses it).
+    # What it leaves to the mechanics, and what `validate` still measures independently, is
+    # linkage, the compression floor, contact with the form, curvature and equilibrium.
+    # `shape_residual_max_mm` reports how far the other constraints pulled any point from its
+    # rigid placement in one iteration -- the stress the friction lock is being asked to bear.
+    rigid_stitches: bool = False
+    # FRICTION AGAINST THE SUPPORT, OFF BY DEFAULT. The plane and the sphere were frictionless:
+    # a vertex found inside was put back on the surface and left free to slide along it. On
+    # the sphere that means the fabric has no equilibrium short of sliding off -- measured as
+    # an rms motion still growing 6 per cent per 640 iterations after 6,400. A form is not
+    # frictionless (fabric on a dress form, a table, a body: mu of order 0.3), and a resting
+    # vertex's tangential position is held by that. With this on, a vertex the support has
+    # touched keeps the tangential position it arrived with -- the static-friction limit,
+    # the same limit `rigid_stitches` takes within the stitch -- and is put back radially.
+    support_friction: bool = False
     # THE CONTINUOUS MORPHOLOGY GUARD. OFF BY DEFAULT.
     #
     # Every Product Truth lock in this repository is evaluated at the END of a solve.
@@ -607,6 +710,18 @@ class DrapeReport:
     # How many vertices the bending term actually acted on. Equal to the vertex count unless
     # `bend_on_yarn_only` excluded the path's hops and joins.
     bending_vertices: int = 0
+    momentum_resets: int = 0
+    # Sampled every TRACE_EVERY accepted iterations: (iteration, rms displacement from the
+    # start in mm, largest step that iteration in mm). A solve that is still moving and one
+    # that has stopped look identical in every scalar above; they do not look identical here.
+    trace: list = field(default_factory=list)
+    polish_reverted_for_morphology: bool = False
+    shape_residual_max_mm: float = 0.0
+    shape_residual_final_mm: float = 0.0
+    stuck_vertices: int = 0            # held by support friction at the end of the solve
+    stuck_drift_mm: float = 0.0        # how far any of them is from where it stuck: 0 if the pin held
+    polish_floor_pairs: int = 0
+    polish_max_strain: float = 0.0
 
     @property
     def energy_rise_J(self) -> float:
@@ -1277,6 +1392,45 @@ def cantilever_equilibrium_bound(fab: topo.Fabric, setup: DrapeSetup,
     }
 
 
+def op_slices(fab: topo.Fabric) -> list[tuple[int, int]]:
+    """(start, stop) into the concatenated path for every operation with three or more points."""
+    out, at = [], 0
+    for o in fab.ops:
+        n = len(o.points)
+        if n >= 3:
+            out.append((at, at + n))
+        at += n
+    return out
+
+
+def shape_match(pts: np.ndarray, rest: np.ndarray, slices: list, *, alpha: float = 1.0,
+                fixed: np.ndarray | None = None) -> float:
+    """Pull each operation's points onto the best-fit rigid placement of its rest shape.
+
+    Mueller et al. 2005: with centroids removed, the rotation is the polar factor of the
+    cross-covariance sum p q^T, taken here by SVD with the reflection excluded. `alpha` is
+    the stiffness; 1.0 is rigid. Returns the largest distance any point was from its rigid
+    placement BEFORE the pull, which is the stress the lock absorbed this iteration. Points
+    in `fixed` are neither moved nor counted."""
+    worst = 0.0
+    for a, b in slices:
+        q = rest[a:b]
+        p = pts[a:b]
+        qc = q.mean(axis=0)
+        pc = p.mean(axis=0)
+        h = (q - qc).T @ (p - pc)
+        u, _, vt = np.linalg.svd(h)
+        d = np.sign(np.linalg.det(vt.T @ u.T))
+        r = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+        goal = (q - qc) @ r.T + pc
+        move = goal - p
+        if fixed is not None:
+            move[fixed[a:b]] = 0.0
+        worst = max(worst, float(np.linalg.norm(move, axis=1).max()))
+        pts[a:b] = p + alpha * move
+    return worst
+
+
 def drape(fab: topo.Fabric, setup: DrapeSetup,
           material: rx.Material | None = None,
           rest_curvature: np.ndarray | None = None,
@@ -1361,7 +1515,7 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     # the step means the same thing in both. Arithmetic, not a tuning constant.
     bend_scale = 4.0 if setup.energy_gradient_bending else 1.0
     ref = max(bend_scale * bend_coeff * ell, float(np.abs(grav_force).max()), 1e-30)
-    step = 0.05 * ell / ref
+    step = 0.05 * ell / ref * float(setup.step_multiplier)
 
     # Kaldor's two plasticity radii, once, in this solver's rest-state units.
     r_rel = angular_radius_to_lap(setup.p_plastic_rad, ell)
@@ -1448,6 +1602,17 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
     # the same one -- just bought in bulk. When the budget runs out the gap is remeasured
     # early rather than the cap being guessed.
     GAP_EVERY = 12
+    TRACE_EVERY = 50
+    slices = op_slices(fab) if setup.rigid_stitches else None
+    last_touching = np.zeros(n, bool)
+    # Static friction's memory: a vertex that has touched the support stays where it touched
+    # until something lifts it clearly off (two force steps). Pinning only the vertices found
+    # in contact THIS iteration let the fabric creep -- a vertex lifted a hair by the length
+    # projection was free again next iteration -- measured as 0.60mm of sliding per 300
+    # iterations on a tilted table against 1.15mm with no friction at all.
+    stuck = np.zeros(n, bool)
+    anchor = pts.copy()
+    vel = np.zeros_like(pts)
     gap = float("inf")
     budget = 0.0
     scale = 1.0
@@ -1461,6 +1626,8 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         cap = max(min(budget, 0.5 * float(np.median(rest))), 1e-5)
 
         before = pts.copy()
+        stuck_before, anchor_before = stuck.copy(), anchor.copy()
+        touching = np.zeros(n, bool)
         force = grav_force.copy()
         lap = _laplacian(pts)
         if setup.frame_invariant_rest:
@@ -1493,12 +1660,24 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         # free to be satisfied exactly, and the resulting displacement is then measured
         # rather than assumed.
         move = step * scale * force * 1e3
+        if setup.momentum > 0.0:
+            against = np.einsum("ij,ij->i", vel, force) < 0.0
+            report.momentum_resets += int(against.sum())
+            vel[against] = 0.0
+            move = move + setup.momentum * vel
         worst_force = float(np.linalg.norm(move, axis=1).max()) if len(move) else 0.0
         limit = 0.15 * cap
         if worst_force > limit:
             move *= limit / worst_force
         pts = pts + move
         pts[held] = before[held]
+
+        if slices is not None:
+            # The friction lock, before every other constraint: the stitch keeps its certified
+            # shape and the constraints below decide where that shape sits.
+            res = shape_match(pts, rest_frame_pts, slices, fixed=held)
+            report.shape_residual_max_mm = max(report.shape_residual_max_mm, res)
+            report.shape_residual_final_mm = res
 
         # The tensile linkage, BEFORE contact and before the length projection, so that the
         # constraint that wins is still inextensibility. Pulling a stitch back into its loop
@@ -1515,12 +1694,66 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
         if setup.support_at is not None:
             depth = pts @ down
             through = depth > setup.support_at
-            if through.any():
+            if setup.support_friction:
+                release = stuck & (depth < setup.support_at - 2.0 * limit)
+                stuck[release] = False
+                newly = (depth > setup.support_at - limit) & ~held & ~stuck
+                if newly.any():
+                    stuck[newly] = True
+                    anchor[newly] = (pts[newly] - np.outer(depth[newly], down)
+                                     + np.outer(np.full(int(newly.sum()), setup.support_at), down))
+                if stuck.any():
+                    pts[stuck] = anchor[stuck]
+                    touching |= stuck
+                report.support_violations += int(through.sum())
+            elif through.any():
                 pts[through] -= np.outer(depth[through] - setup.support_at, down)
                 report.support_violations += int(through.sum())
 
-        # Inextensibility LAST and boundary-aware, so it is the constraint that wins.
-        pts = rx.project_lengths(pts, rest, passes=24, fixed=held)
+        if setup.support_sphere is not None:
+            # Same discipline as the plane: a vertex found inside the form is put back on its
+            # surface radially, and every such correction is counted, so a fabric that keeps
+            # pushing into the form is reported rather than quietly held out of it. The
+            # yarn's own radius stands off the surface, because the centreline of a strand
+            # resting on a sphere sits a radius above it.
+            cx, cy, cz, R = setup.support_sphere
+            rel = pts - np.array([cx, cy, cz])
+            dist = np.linalg.norm(rel, axis=1)
+            keep_out = R + 0.5 * fab.yarn_diameter
+            inside = (dist < keep_out) & ~held
+            if setup.support_friction:
+                # Static friction. A vertex is IN CONTACT if it is within one force step of
+                # the surface (`limit` is the most a force step may move anything, so a
+                # vertex nearer than that can reach the surface this iteration; a vertex
+                # placed on the surface last iteration is still in contact now). A vertex in
+                # contact keeps the tangential position it had at the start of the iteration
+                # and is a fixed point for the length projection below. The first version
+                # pinned only vertices found INSIDE the form: a resting vertex sits exactly
+                # ON the surface, was not inside, and so was free again every other
+                # iteration -- measured as 0.95mm of sliding against 1.15mm without friction.
+                c = np.array([cx, cy, cz])
+                release = stuck & (dist > keep_out + 2.0 * limit)
+                stuck[release] = False
+                newly = (dist < keep_out + limit) & ~held & ~stuck
+                if newly.any():
+                    stuck[newly] = True
+                    anchor[newly] = c + rel[newly] * (keep_out / np.maximum(dist[newly], 1e-9))[:, None]
+                if stuck.any():
+                    pts[stuck] = anchor[stuck]
+                    touching |= stuck
+                report.support_violations += int(inside.sum())
+            elif inside.any():
+                pts[inside] = np.array([cx, cy, cz]) + rel[inside] * (keep_out / np.maximum(dist[inside], 1e-9))[:, None]
+                report.support_violations += int(inside.sum())
+
+        # Inextensibility LAST and boundary-aware, so it is the constraint that wins. A vertex
+        # static friction holds on the support is a boundary condition for this iteration too:
+        # the first version put it back on the surface and then let the length projection
+        # drag it along, which halved the sliding instead of stopping it (measured on a
+        # tilted plane: 1.00mm without friction, 0.49mm with).
+        pts = rx.project_lengths(pts, rest, passes=24,
+                                 fixed=(held | touching) if touching.any() else held)
+        last_touching = touching
 
         # The guarantee has to cover the FINISHED move, not the force step. Capping the
         # input bounds only part of it: contact and the length projection move vertices too,
@@ -1540,6 +1773,8 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             budget = 0.45 * gap
             if worst > budget:
                 pts = before
+                vel[:] = 0.0
+                stuck, anchor = stuck_before, anchor_before
                 scale *= 0.5
                 report.retries += 1
                 if scale < 1e-6:
@@ -1568,6 +1803,8 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
                 trial = total_energy(pts)
                 if trial > energy + 64.0 * np.finfo(float).eps * max(abs(energy), abs(trial)):
                     pts = before
+                    vel[:] = 0.0
+                    stuck, anchor = stuck_before, anchor_before
                     scale *= 0.5
                     report.energy_rejections += 1
                     if scale < 1e-6:
@@ -1583,6 +1820,8 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             m = worst_third_loop_margin(replace(fab, ops=_rewrite(fab, pts)))
             if m >= 0.0:
                 pts = before
+                vel[:] = 0.0
+                stuck, anchor = stuck_before, anchor_before
                 scale *= 0.5
                 report.morphology_rejections += 1
                 if scale < 1e-6:
@@ -1593,6 +1832,9 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
                 report.margin_max_mm = m
                 report.margin_worst_iteration = it + 1
         scale = min(scale * 1.05, 1.0)
+        vel = delta
+        if (it + 1) % TRACE_EVERY == 0:
+            report.trace.append((it + 1, float(np.sqrt(np.mean(np.sum((pts - start) ** 2, axis=1)))), worst))
         report.largest_step_mm = max(report.largest_step_mm, worst)
         report.final_step_mm = worst
         budget -= worst
@@ -1632,6 +1874,63 @@ def drape(fab: topo.Fabric, setup: DrapeSetup,
             return float(2.0 * np.arcsin(np.clip(v / (2.0 * ell), 0.0, 1.0)))
         report.rest_migration_max_rad = _as_angle(float(moved.max()))
         report.rest_migration_mean_rad = _as_angle(float(moved.mean()))
+
+    def _keep_out_of_support(p):
+        """Put every vertex found inside the support back on its surface, radially."""
+        if setup.support_at is not None:
+            depth = p @ down
+            through = depth > setup.support_at
+            if through.any():
+                p[through] -= np.outer(depth[through] - setup.support_at, down)
+        if setup.support_sphere is not None:
+            cx, cy, cz, R = setup.support_sphere
+            c = np.array([cx, cy, cz])
+            rel = p - c
+            dist = np.linalg.norm(rel, axis=1)
+            keep_out = R + 0.5 * fab.yarn_diameter
+            inside = (dist < keep_out) & ~held
+            if inside.any():
+                p[inside] = c + rel[inside] * (keep_out / np.maximum(dist[inside], 1e-9))[:, None]
+        return p
+
+    if setup.polish_passes > 0:
+        stats: dict = {}
+        _pre_polish = pts.copy()
+        _fixed = (held | last_touching) if setup.support_friction else held
+        for _ in range(setup.polish_passes):
+            rx.apply_contacts(pts, fab.yarn_diameter, rest_sep, floor_sep,
+                              pair_rest=pair_rest, stats=stats)
+            pts[held] = start[held]
+            report.polish_floor_pairs += int(stats.get("floor_pairs", 0))
+            pts = _keep_out_of_support(pts)
+            pts = rx.project_lengths(pts, rest, passes=24, fixed=_fixed)
+        # Finish on the contact floor ONLY, repeated until no pair is under it: one pass moves
+        # a pair's closest points by less than the correction when those points are interior
+        # to their segments (the endpoints carry it at weights (1-s, s), so the interior
+        # point moves by (1-s)^2 + s^2 of it), which left the pinned pair 50 nanometres under
+        # the floor after a single pass and `validate`, correctly, refused it. The soft
+        # target is left alone so this cannot re-shape the fabric, and what it does to the
+        # yarn lengths is measured.
+        for _ in range(64):
+            rx.apply_contacts(pts, fab.yarn_diameter, floor_sep, floor_sep,
+                              pair_rest=None, stats=stats)
+            pts[held] = start[held]
+            if int(stats.get("floor_pairs", 0)) == 0:
+                break
+        # And out of the form, last: the support is as hard as the floor, and a fabric handed
+        # back a tenth of a millimetre inside it is not resting on it.
+        pts = _keep_out_of_support(pts)
+        _pol = _segment_lengths(pts)
+        report.polish_max_strain = float(np.abs(_pol[measurable] / rest[measurable] - 1.0).max())
+        if guard_on and worst_third_loop_margin(replace(fab, ops=_rewrite(fab, pts))) >= 0.0:
+            # The guard judged every iteration; it must judge this move too, or a stitch the
+            # solve refused to break can be broken by the tidy-up after it.
+            pts = _pre_polish
+            report.polish_reverted_for_morphology = True
+
+    if setup.support_friction and stuck.any():
+        report.stuck_vertices = int(stuck.sum())
+        report.stuck_drift_mm = float(np.linalg.norm(pts[stuck] - anchor[stuck], axis=1).max())
 
     # The energy at the end, always, in the form this configuration is supposed to be
     # minimising. Evaluated once rather than every iteration so the control costs nothing.

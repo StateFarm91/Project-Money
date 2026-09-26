@@ -32,7 +32,8 @@ import numpy as np
 from . import crochet_topology as topo
 from . import drape as dr
 
-__all__ = ["fabric_strands", "write_curve_file", "STAGING", "scene_dict", "render"]
+__all__ = ["fabric_strands", "write_curve_file", "write_plied_curve_file", "STAGING",
+           "STAGING_PLIED", "scene_dict", "render"]
 
 
 def fabric_strands(fab: topo.Fabric, *, per_segment: int = 6) -> list[np.ndarray]:
@@ -96,6 +97,59 @@ def write_curve_file(fab: topo.Fabric, filename: str, *, per_segment: int = 6,
     return len(strands), n
 
 
+def write_plied_curve_file(fab: topo.Fabric, filename: str, *, tex: float,
+                           per_segment: int = 6, fibres_per_ply: int = 16,
+                           seed: int = 20260924, plies: int | None = None) -> dict:
+    """The same strands as `write_curve_file`, drawn as the yarn is built: plies twisted
+    around each strand's centreline and a sparse halo of surface fibres over the plies.
+
+    THE BRIDGE. Until this existed the repository had two geometry pipelines that never met:
+    the certified `crochet_topology.Fabric` -- built, relaxed, validated, draped, measured --
+    was rendered as a smooth tube, while the ply-and-fibre yarn construction was only ever
+    drawn on `visual/yarn.py`'s separate, unvalidated path. Every mechanics number was of one
+    geometry and every convincing picture of another. This function is the single place the
+    two meet: the centreline it takes is the certified fabric's own strands, cut at the same
+    artificial hops `fabric_strands` refuses to draw, and `yarn_construction.ply_geometry`
+    derives the plies from it without moving a control point.
+
+    The lock is the one `yarn_construction` states: everything here is a rendering derivation
+    from the validated centreline. Nothing feeds back.
+
+    Returns what was written -- strand, ply and fibre counts, radii, the PlySpec -- so a
+    render can say what it drew.
+    """
+    from . import yarn_construction as yc
+    kw = {} if plies is None else {"plies": plies}
+    spec = yc.PlySpec(yarn_diameter_mm=float(fab.yarn_diameter), tex=float(tex), **kw)
+    strands = fabric_strands(fab, per_segment=per_segment)
+    r_ply = spec.ply_radius_mm
+    n_ply = n_fib = verts = 0
+    r_fib = None
+    with open(filename, "w") as f:
+        for k, s in enumerate(strands):
+            if len(s) < 2:
+                continue
+            plies_k = yc.ply_geometry(s, spec)
+            for ply in plies_k:
+                for x, y, z in ply:
+                    f.write("%.5f %.5f %.5f %.5f\n" % (x, y, z, r_ply))
+                    verts += 1
+                f.write("\n")
+                n_ply += 1
+            if fibres_per_ply > 0:
+                fibres, r_fib = yc.surface_fibres(plies_k, spec, per_ply=fibres_per_ply,
+                                                  seed=seed + k)
+                for fb in fibres:
+                    for x, y, z in fb:
+                        f.write("%.5f %.5f %.5f %.5f\n" % (x, y, z, r_fib))
+                        verts += 1
+                    f.write("\n")
+                    n_fib += 1
+    return {"strands": len(strands), "plies": n_ply, "fibres": n_fib, "vertices": verts,
+            "ply_radius_mm": r_ply, "fibre_radius_mm": r_fib, "spec": spec.describe(),
+            "yarn_diameter_mm": float(fab.yarn_diameter)}
+
+
 # THE STAGING. One dictionary, so "identical camera, lighting, material and staging" is a
 # literal that two renders can be checked against rather than a sentence in a commit message.
 # Distances are in millimetres, the same units the certified geometry is in.
@@ -148,6 +202,21 @@ def framing_centre(fab: topo.Fabric) -> tuple[float, float, float]:
     """The centre of a fabric's bounding box, which is what the camera looks at."""
     p = np.asarray(fab.points, dtype=float)
     return tuple(float(x) for x in (p.min(axis=0) + p.max(axis=0)) / 2.0)
+
+
+# The same scene with the yarn drawn by `write_plied_curve_file`. It differs from STAGING in
+# exactly one field, and that field is the honest one: what the picture does not have. Plies
+# and a surface-fibre halo are now geometry in the curve file; the fibre normal map
+# (`fibre_surface_map`), hand tension drift and the rest of the Layer 1-5 material stack are
+# still absent, and a picture from this scene is still a geometry instrument, not evidence
+# about appearance.
+STAGING_PLIED = dict(STAGING)
+STAGING_PLIED["not_reproduced"] = ("fibre surface normal map", "surface fuzz beyond the "
+                                   "sparse fibre halo", "hand tension drift",
+                                   "the Layer 3-5 material stack")
+STAGING_PLIED["reproduced_as_geometry"] = ("plies at the derived radius and twist",
+                                           "a sparse surface-fibre halo at the derived "
+                                           "fibre radius")
 
 
 def scene_dict(curve_file: str, centre, *, view: str = "camera",
@@ -207,8 +276,13 @@ def scene_dict(curve_file: str, centre, *, view: str = "camera",
 
 def render(fab: topo.Fabric, out_png: str, *, view: str = "camera", spp: int | None = None,
            per_segment: int = 6, curve_file: str | None = None,
-           frame: topo.Fabric | None = None) -> dict:
+           frame: topo.Fabric | None = None, plied_tex: float | None = None,
+           fibres_per_ply: int = 16) -> dict:
     """Render one certified fabric. Raises a plain message if Mitsuba is not installed.
+
+    `plied_tex`, when given, draws the yarn through `write_plied_curve_file` at that linear
+    density -- plies and fibres rather than a tube -- under `STAGING_PLIED`. The geometry the
+    camera sees is still the certified fabric's; only how its yarn is drawn changes.
 
     `frame` is the fabric whose bounding box aims the camera. For a comparison, pass the SAME
     fabric -- normally the certified flat swatch -- to every render, so a fabric that has
@@ -244,10 +318,18 @@ def render(fab: topo.Fabric, out_png: str, *, view: str = "camera", spp: int | N
                     tempfile.TemporaryDirectory(prefix="brambleloop-render-")),
                 "fabric.txt")
             caller_owns = False
-        strands, verts = write_curve_file(fab, tmp, per_segment=per_segment)
+        if plied_tex is not None:
+            drawn = write_plied_curve_file(fab, tmp, tex=plied_tex, per_segment=per_segment,
+                                           fibres_per_ply=fibres_per_ply)
+            strands, verts = drawn["strands"], drawn["vertices"]
+            staging = STAGING_PLIED
+        else:
+            strands, verts = write_curve_file(fab, tmp, per_segment=per_segment)
+            drawn = None
+            staging = STAGING
 
         centre = framing_centre(frame if frame is not None else fab)
-        spec = scene_dict(tmp, centre, view=view)
+        spec = scene_dict(tmp, centre, view=view, staging=staging)
         if spp is not None:
             spec["sensor"]["sampler"]["sample_count"] = int(spp)
         cam_origin = spec["sensor"]["to_world"][1]
@@ -281,4 +363,5 @@ def render(fab: topo.Fabric, out_png: str, *, view: str = "camera", spp: int | N
                 "curve_file": tmp if caller_owns else None,
                 "curve_file_was_temporary": not caller_owns, "out": out_png, "centre": centre,
                 "camera_origin": tuple(origin), "camera_target": tuple(target),
-                "fov": spec["sensor"]["fov"], "radius_mm": fab.yarn_diameter / 2.0}
+                "fov": spec["sensor"]["fov"], "radius_mm": fab.yarn_diameter / 2.0,
+                "plied": drawn, "not_reproduced": staging["not_reproduced"]}

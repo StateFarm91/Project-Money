@@ -4178,7 +4178,8 @@ def dashboard() -> str:
         except Exception as e:  # noqa: BLE001 - a broken milestone must not blank the console
             return f"<p>unavailable: {type(e).__name__}: {e}</p>"
         tone = {"PASS": "#1a7f37", "PARTIAL": "#9a6700", "FAIL": "#cf222e",
-                "NOT_STARTED": "#57606a", "BLOCKED_ON_EARLIER": "#cf222e"}
+                "NOT_STARTED": "#57606a", "BLOCKED_ON_EARLIER": "#cf222e",
+                "UNMEASURED": "#57606a"}
         rows = "".join(
             f"<tr><td><b>{r['milestone']}</b></td><td>{r['name']}</td>"
             f"<td style=\"color:{tone.get(r['status'], '#57606a')}\"><b>{r['status']}</b></td>"

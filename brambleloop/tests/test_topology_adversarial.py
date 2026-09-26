@@ -354,13 +354,13 @@ for _axis in ("x", "y", "z"):
     _detail = ""
     for _deg in (15, 30, 45, 90, 137):
         _v = _ct.validate(_rotated(_rot_f, _deg, _axis), TWIN, max_rows=ROWS, max_cols=COLS)
-        if (_v["stitches_linked"], _v["stitches_shaped_like_hdc"],
+        if (_v["stitches_linked"], _v["stitches_shaped_as_ordered"],
                 _v.get("stitches_unframeable", 0)) != (
-                _base["stitches_linked"], _base["stitches_shaped_like_hdc"],
+                _base["stitches_linked"], _base["stitches_shaped_as_ordered"],
                 _base.get("stitches_unframeable", 0)):
             _same = False
             _detail = "%ddeg: linked %s shaped %s" % (
-                _deg, _v["stitches_linked"], _v["stitches_shaped_like_hdc"])
+                _deg, _v["stitches_linked"], _v["stitches_shaped_as_ordered"])
             break
     check("every verdict is invariant under rigid rotation about %s" % _axis, _same, _detail)
 

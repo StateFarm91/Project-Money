@@ -91,6 +91,38 @@ def _unit(v):
     return v / n
 
 
+def rigid_rotation(rest: np.ndarray, now: np.ndarray) -> np.ndarray:
+    """The proper rotation that best carries `rest` onto `now` (centroids removed): the polar
+    factor of the cross-covariance, by SVD with the reflection excluded. Kabsch/Umeyama."""
+    q = np.asarray(rest, float); p = np.asarray(now, float)
+    h = (q - q.mean(axis=0)).T @ (p - p.mean(axis=0))
+    u, _, vt = np.linalg.svd(h)
+    d = np.sign(np.linalg.det(vt.T @ u.T)) or 1.0
+    return vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+
+
+def carried_frame(op, reference_op, reference_frame):
+    """The reference stitch's frame, carried by THIS stitch's own rigid motion since then.
+
+    WHY A SECOND WAY TO FRAME A STITCH. `local_frame` builds the frame from neighbours so
+    that it travels with the cloth, and on a flat or gently curved fabric that is right. On
+    a fabric that actually drapes it is not: measured on the 5x5 over a sphere with every
+    stitch held rigid to 0.1mm, the neighbour frame's UP sat 17-19.5 degrees off the
+    stitch's own, and four intact stitches -- third loop 1.6mm below the V in their own
+    frame, exactly as certified -- were reported everted. A frame borrowed from a neighbour
+    that has rotated 20 degrees away measures the neighbour's rotation, not this stitch's
+    shape.
+
+    So on a deformed fabric the frame is the certified stitch's own frame, rotated by the
+    least-squares rigid motion of ALL this stitch's points since certification. That is not
+    self-reference: the reference shape was validated in its own right, the rotation is
+    fitted over every point of the stitch, and a loop that has moved 2mm out of place cannot
+    rotate that fit enough to hide itself -- `test_stitch_identity` everts one to prove it.
+    """
+    r = rigid_rotation(reference_op.points, op.points)
+    return tuple(r @ np.asarray(a, float) for a in reference_frame)
+
+
 def local_frame(op, row_neighbour=None, anchor=None, neighbour_is_ahead: bool = True):
     """The fabric's own three directions at this stitch: (across, up, through).
 

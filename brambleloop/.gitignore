@@ -14,3 +14,4 @@ artifacts/
 # generation -- the directory is quarantined in code as well as here, because an ignore rule
 # only stops the accident it happens to match.
 benchmark_library/
+research/d/out/*.png

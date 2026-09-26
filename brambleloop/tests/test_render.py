@@ -171,6 +171,56 @@ def test_the_scene_states_which_yarn_layers_it_does_not_reproduce():
     assert "surface fuzz" in PS.STAGING["not_reproduced"]
 
 
+# --- wave 6: the bridge between the certified geometry and the yarn as it is built --------
+def test_the_plied_writer_draws_the_certified_strands_and_nothing_else():
+    import tempfile, os
+    fab = _fabric()
+    path = os.path.join(tempfile.mkdtemp(), "plied.txt")
+    info = PS.write_plied_curve_file(fab, path, tex=444.0, fibres_per_ply=3)
+    strands = PS.fabric_strands(fab)
+    assert info["strands"] == len(strands)
+    assert info["plies"] == 4 * len(strands), info
+    assert info["fibres"] == 3 * info["plies"], info
+    blocks = [b for b in open(path).read().split("\n\n") if b.strip()]
+    assert len(blocks) == info["plies"] + info["fibres"]
+    # every ply vertex lies within the yarn radius of its own strand: geometry derived from
+    # the validated centreline, never a second geometry
+    r_yarn = fab.yarn_diameter / 2.0
+    at = 0
+    for k, s in enumerate(strands):
+        for _ in range(4):
+            v = np.array([[float(x) for x in line.split()[:3]] for line in blocks[at].splitlines()])
+            d = np.linalg.norm(v[:, None, :] - s[None, :, :], axis=2).min(axis=1)
+            assert d.max() <= 1.05 * r_yarn, (k, d.max(), r_yarn)
+            at += 1
+        at += 3 * 4          # the strand's fibres follow its plies
+    radii = {round(float(line.split()[3]), 5) for line in open(path) if line.strip()}
+    assert round(info["ply_radius_mm"], 5) in radii and round(info["fibre_radius_mm"], 5) in radii
+    assert abs(info["fibre_radius_mm"] - 0.00943) < 1e-4, "the fibre radius is derived, 18.9um"
+
+
+def test_the_plied_writer_moves_no_control_point():
+    import tempfile, os, hashlib
+    fab = _fabric()
+    before = hashlib.sha256(np.ascontiguousarray(fab.points).tobytes()).hexdigest()
+    PS.write_plied_curve_file(fab, os.path.join(tempfile.mkdtemp(), "p.txt"), tex=444.0)
+    after = hashlib.sha256(np.ascontiguousarray(fab.points).tobytes()).hexdigest()
+    assert before == after
+
+
+def test_the_plied_staging_differs_from_the_committed_one_only_in_what_it_admits():
+    keys = {k for k in set(PS.STAGING) | set(PS.STAGING_PLIED)
+            if PS.STAGING.get(k) != PS.STAGING_PLIED.get(k)}
+    assert keys == {"not_reproduced", "reproduced_as_geometry"}, keys
+    assert "fibre surface normal map" in PS.STAGING_PLIED["not_reproduced"]
+    assert "hand tension drift" in PS.STAGING_PLIED["not_reproduced"]
+    assert "plies" in " ".join(PS.STAGING_PLIED["reproduced_as_geometry"])
+    # the render says which staging it used, so a picture cannot be passed off as the other
+    import inspect
+    src = inspect.getsource(PS.render)
+    assert "STAGING_PLIED" in src and '"not_reproduced": staging["not_reproduced"]' in src
+
+
 if __name__ == "__main__":
     import traceback
     fails = 0

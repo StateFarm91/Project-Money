@@ -868,3 +868,55 @@ and resolve to real CIRs. The genuine defect is that the same products are keyed
 this wave: renaming a registry key touches the radar, the portfolio and the product row, which
 is a merchandising decision and not an integration one. Per the finish-line rule, an
 improvement that remains possible is not made into a launch prerequisite.
+
+## 2026-09-26 — Visual wave 6 (isolated branch `claude/visual-investigation`)
+
+**D-W6-1. The drape solver's rate devices (momentum, step multiplier) are options, not new
+defaults.** Every committed Visual number was produced by the plain step, and the plain step
+was measured to be free drift (0.566/1.130/4.44 mm at 800/1600/6400 iterations — linear). The
+honest record is that those numbers stand as what they were, with the finding beside them;
+changing the default would silently re-derive every one of them. Both devices change the rate
+only; the fixed-point control with them on reads 5.7e-15 mm.
+
+**D-W6-2. Yarn-on-yarn friction enters as its infinite limit (per-stitch shape matching),
+labelled BOUNDED, rather than as a fitted coefficient.** Without it the force law took the
+stitches apart at every bending rigidity in the derived bracket (14–16 of 25 hdc everted,
+13 of 20 sc unlinked) once the drape actually proceeded. A fitted µ would have been a number
+chosen so the stitches hold; the limit is an assumption stated as one, with the order-of-
+magnitude argument (3e-4 N of gravity per stitch against µ 0.2–0.3 times residual loop
+tension) on the option, and with `shape_residual_max_mm` reporting the stress the lock bore.
+Every result that uses it says that morphology is then an input and lists what remains an
+outcome: linkage, floor, contact, curvature, equilibrium.
+
+**D-W6-3. The D solve uses the derived bending rigidity; the committed constant is not
+touched.** `derive_bending_rigidity` is the committed procedure and wave 5 §6c named re-deriving
+as the next mechanism. Changing `CALIBRATED_BENDING_N_M2` moves every committed result and is
+owner-visible; using the derived value on a result that states it does neither.
+
+**D-W6-4. On a deformed fabric the morphology frame is the certified stitch's own, carried by
+its rigid motion — and the neighbour frame is kept for the flat case.** The neighbour frame
+was adopted so that a rigid rotation could not change the verdict; it did that, and then
+reported intact stitches as everted once neighbours rotated 17° apart. The carried frame is
+not self-reference: the reference shape was validated in its own right, the rotation is
+fitted over every point of the stitch, and a lifted third loop is still caught (test). The
+frame used is named on every `validate` result.
+
+**D-W6-5. The compression floor is compared to a nanometre; the floor is not moved.** A
+projection that pushes a pair back to the floor converges from below and never crosses it, so
+"< floor" refused a pair at 1.5 − 2e-13 mm. A nanometre is a million times finer than the
+path's own resolution (`DEGENERATE_SEGMENT_MM`), and the tolerance is named as numerical in
+the code rather than absorbed into the constant.
+
+**D-W6-6. The ladder reports D as UNMEASURED when nobody measured it.** A hard-coded FAIL was a
+stored claim wearing the costume of a measurement — right by accident, and it would have
+stayed FAIL after the evidence changed. UNMEASURED is not PASS, not PARTIAL and not FAIL; it
+blocks `current` exactly as the others do, and the console renders it grey.
+
+**D-W6-7. Judged realism items are UNKNOWN, and an UNKNOWN never counts toward a PASS.** The
+owner froze paid judges. Inferring "lighting is realistic" from "the path tracer is physically
+based" would be a verdict from the absence of a judge, which is the first defect in this
+repository's family. D is PARTIAL with the seven items named.
+
+**D-W6-8. Renders are committed as JPEG evidence, not as PNG instrument output.** Eight PNGs at
+~1 MB each are instrument output that the JSON beside them reproduces; the JPEGs are the
+before/after the owner asked to see. `research/d/out/*.png` is ignored.

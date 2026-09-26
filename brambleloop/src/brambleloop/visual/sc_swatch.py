@@ -1,16 +1,16 @@
 """An sc-only flat swatch, through the real CIR compiler and twin, for validating the sc cell.
 
+Lives in the package because `milestone_d` measures the single crochet regime as well as the
+half double; the research copy under research/d/ is the same fixture with a path hack.
+
 Not a product: a fixture. Gauge and hook are the Launch-0 basket's (18 st x 20 rows per
 10 cm on a 4.0 mm hook, p3 of that pattern's own gauge), so the cell is validated in the
 regime a Launch-0 product actually puts it in -- yarn 44% of row height -- rather than in the
 roomier hdc cardigan regime.
 """
 from __future__ import annotations
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from brambleloop.cir.model import CIR, Component, Gauge, Material, Op, Row      # noqa: E402
-from brambleloop.cir import compiler, twin as T                                  # noqa: E402
+from ..cir.model import CIR, Component, Gauge, Material, Op, Row
+from ..cir import compiler, twin as T
 
 def sc_cir(rows: int = 8, cols: int = 8, *, st_per_10=18, rows_per_10=20, hook=4.0) -> CIR:
     g = Gauge(stitches_per_10cm=st_per_10, rows_per_10cm=rows_per_10, stitch_type="sc", hook_mm=hook, yarn_weight="worsted")

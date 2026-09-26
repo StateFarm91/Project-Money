@@ -96,7 +96,7 @@ for label, kw in (("Launch-0 basket gauge", dict(st_per_10=18, rows_per_10=20, h
     flat, rep = RX.relax(CT.settle(CT.build(stw, scir.gauge, max_rows=5, max_cols=5)))
     v = CT.validate(flat, stw, max_rows=5, max_cols=5)
     check(f"sc 5x5 at {label}: every stitch linked", v["stitches_linked"] == v["stitches_needing_linkage"] == 20, str((v["stitches_linked"], v["stitches_needing_linkage"])))
-    check(f"sc 5x5 at {label}: every stitch shaped like a single crochet", v["stitches_shaped_like_hdc"] == v["stitches_built"] == 25, str(v["misshapen"][:2]))
+    check(f"sc 5x5 at {label}: every stitch shaped like a single crochet", v["stitches_shaped_as_ordered"] == v["stitches_built"] == 25, str(v["misshapen"][:2]))
     check(f"sc 5x5 at {label}: clear of the contact floor", v["closest_non_adjacent_mm"] >= v["contact_floor_mm"], f"{v['closest_non_adjacent_mm']} < {v['contact_floor_mm']}")
     check(f"sc 5x5 at {label}: the validator passes it", v["passes"] is True, str(v["findings"][:1]))
 
@@ -130,6 +130,63 @@ try:
           any("half double" in m for m in complaints), str(complaints[:1]))
 finally:
     CT.CELLS["sc"] = saved
+
+# =========================================================================================
+# THE FRAME THE SHAPE IS MEASURED IN. On a fabric that has actually draped, the neighbour
+# frame reports intact stitches as everted: measured on the 5x5 over a sphere with every
+# stitch held rigid to 0.1mm, four stitches whose third loop sat 1.6mm below the V in their
+# own frame read +0.2 to +0.56mm in a frame borrowed from a neighbour that had rotated 17-19
+# degrees away. `validate(..., reference=flat)` carries each stitch's certified frame by its
+# own rigid motion instead. Both frames must clear a rigid rotation, both must catch a real
+# eversion, and only the carried frame may clear an intact stitch on a folded fabric.
+# =========================================================================================
+import numpy as np
+from dataclasses import replace
+from brambleloop.visual import stitch_shape as SS2
+cir_h = B.cardigan("S"); twin_h = T.build_twin(cir_h, compiler.compile_cir(cir_h), component="body")
+flat_h, _ = RX.relax(CT.settle(CT.build(twin_h, cir_h.gauge, max_rows=5, max_cols=5)), iterations=600)
+v_self = CT.validate(flat_h, twin_h, max_rows=5, max_cols=5, reference=flat_h)
+check("the certified flat, with itself as reference, passes in the carried frame and names it",
+      v_self["passes"] and "carried" in v_self["frame"], v_self.get("frame"))
+_th = np.radians(40.0)
+_R = np.array([[1, 0, 0], [0, np.cos(_th), -np.sin(_th)], [0, np.sin(_th), np.cos(_th)]])
+rot = replace(flat_h, ops=[replace(o, points=o.points @ _R.T) for o in flat_h.ops])
+check("a rigid 40-degree rotation changes nothing physical and both frames say so",
+      CT.validate(rot, twin_h, max_rows=5, max_cols=5)["stitches_shaped_as_ordered"] == 25
+      and CT.validate(rot, twin_h, max_rows=5, max_cols=5, reference=flat_h)["stitches_shaped_as_ordered"] == 25)
+ops = list(flat_h.ops)
+_i = next(i for i, o in enumerate(ops) if CT.is_stitch(o) and o.row == 3 and o.position == 2)
+_o = ops[_i]; _pts = _o.points.copy(); _a, _b = _o.third_loop; _pts[_a:_b + 1, 1] += 0.35 * flat_h.H
+ops[_i] = replace(_o, points=_pts); everted = replace(flat_h, ops=ops)
+v_ev = CT.validate(everted, twin_h, max_rows=5, max_cols=5, reference=flat_h)
+check("a third loop lifted 0.35H is caught in the carried frame -- the rigid fit over the whole "
+      "stitch cannot hide one loop that moved",
+      not v_ev["passes"] and v_ev["stitches_shaped_as_ordered"] == 24 and "third loop" in str(v_ev["misshapen"][0]),
+      str(v_ev["misshapen"][:1]))
+check("and in the neighbour frame too",
+      CT.validate(everted, twin_h, max_rows=5, max_cols=5)["stitches_shaped_as_ordered"] == 24)
+# A FOLD: rows 4 and 5 turned 40 degrees about the row axis at the row 3/4 boundary, every
+# stitch rigid. Nothing inside any stitch changed. (At 25 degrees the neighbour frame still
+# clears it; from 35 degrees it reports five eversions that are not there.)
+_ys = sorted({o.points[:, 1].mean() for o in flat_h.ops if CT.is_stitch(o) and o.row == 4})
+_hinge_y = min(_ys) - 0.5 * flat_h.H
+_phi = np.radians(40.0)
+_Rx = np.array([[1, 0, 0], [0, np.cos(_phi), -np.sin(_phi)], [0, np.sin(_phi), np.cos(_phi)]])
+def _fold(o):
+    if o.row >= 4 or (o.kind == "turn" and o.points[:, 1].mean() > _hinge_y):
+        q = o.points - np.array([0.0, _hinge_y, 0.0])
+        return replace(o, points=q @ _Rx.T + np.array([0.0, _hinge_y, 0.0]))
+    return o
+folded = replace(flat_h, ops=[_fold(o) for o in flat_h.ops])
+v_fn = CT.validate(folded, twin_h, max_rows=5, max_cols=5)
+v_fc = CT.validate(folded, twin_h, max_rows=5, max_cols=5, reference=flat_h)
+check("THE DEFECT, PINNED: on a folded fabric of intact stitches the neighbour frame reports "
+      "eversions that are not there, and the carried frame reports none",
+      v_fn["stitches_shaped_as_ordered"] < 25 and v_fc["stitches_shaped_as_ordered"] == 25,
+      "neighbour frame %d/25, carried frame %d/25" % (v_fn["stitches_shaped_as_ordered"],
+                                                       v_fc["stitches_shaped_as_ordered"]))
+check("`rigid_rotation` is a proper rotation that recovers a known one",
+      float(np.abs(SS2.rigid_rotation(flat_h.points[:40], flat_h.points[:40] @ _R.T) - _R).max()) < 1e-9)
 
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

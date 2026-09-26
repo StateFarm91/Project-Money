@@ -20,7 +20,7 @@ for px, cz in itertools.product((0.22, 0.28), (0.10, 0.02)):
         v = CT.validate(fab, tw, max_rows=5, max_cols=5)
         floor = fab.yarn_diameter * CT.COMPRESSED_CONTACT
         out.append(f"{name}: gap {g0:.2f}->{v['closest_non_adjacent_mm']:.2f} (floor {floor:.2f}) "
-                   f"link {v['stitches_linked']}/{v['stitches_needing_linkage']} shaped {v['stitches_shaped_like_hdc']}/{v['stitches_built']} "
+                   f"link {v['stitches_linked']}/{v['stitches_needing_linkage']} shaped {v['stitches_shaped_as_ordered']}/{v['stitches_built']} "
                    f"{'PASS' if v['passes'] else 'FAIL'}")
         ok_all &= v["passes"]
     rows.append((ok_all, " | ".join(out)))

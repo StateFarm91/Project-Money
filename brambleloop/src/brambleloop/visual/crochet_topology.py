@@ -64,6 +64,7 @@ DEFAULT_D_OVER_L = 0.29
 # invisible. With the correct yarn it tore the fabric apart -- linkage 208 -> 189, and only
 # 15 of 224 stitches still shaped like half double crochet.
 COMPRESSED_CONTACT = 0.45
+FLOOR_TOLERANCE_MM = 1e-9      # numerical, see validate(); the floor is COMPRESSED_CONTACT
 
 # What relaxation AIMS for, which is not the same quantity as the floor above. The floor is
 # the point past which yarn cannot be squeezed; this is where two touching strands actually
@@ -912,9 +913,15 @@ def certified_linkage_pairs(fab: Fabric, rows: list | None = None) -> list[Linka
     return out
 
 
-def stitch_frames(fab: Fabric, rows: list | None = None) -> dict:
+def stitch_frames(fab: Fabric, rows: list | None = None, reference: "Fabric | None" = None) -> dict:
     """The fabric's own three directions at every stitch: {(row, position): (across, up,
     through)}, or None where the stitch has no neighbour to orient it.
+
+    `reference`, when given, is the certified flat fabric this one is a deformed configuration
+    of. Each stitch's frame is then the reference stitch's neighbour frame carried by that
+    stitch's own rigid motion (`stitch_shape.carried_frame`), because on a fabric that has
+    actually draped the neighbour frame measures the neighbours' rotation rather than the
+    stitch's shape. Without it, the frame comes from neighbours as before.
 
     ONE definition, shared. `validate` uses this for both the linkage check -- to aim the
     fictitious closure along the cloth's local down -- and the morphology check, because
@@ -954,6 +961,17 @@ def stitch_frames(fab: Fabric, rows: list | None = None) -> dict:
         return across, up, through
 
     frames: dict = {}
+    if reference is not None:
+        ref_ops = {(o.row, o.position): o for o in reference.ops if is_stitch(o)}
+        ref_frames = stitch_frames(reference, rows)
+        for o in hdc:
+            key = (o.row, o.position)
+            ro, rf = ref_ops.get(key), ref_frames.get(key)
+            if o.row not in rows or ro is None or rf is None or len(ro.points) != len(o.points):
+                frames[key] = None
+                continue
+            frames[key] = stitch_shape.carried_frame(o, ro, rf)
+        return frames
     for o in hdc:
         if o.row not in rows:
             frames[(o.row, o.position)] = None
@@ -966,8 +984,13 @@ def stitch_frames(fab: Fabric, rows: list | None = None) -> dict:
 
 
 def validate(fab: Fabric, twin, *, max_rows: int | None = None,
-             max_cols: int | None = None) -> dict:
-    """Mechanically check the yarn against the certified operations. Renders nothing."""
+             max_cols: int | None = None, reference: "Fabric | None" = None) -> dict:
+    """Mechanically check the yarn against the certified operations. Renders nothing.
+
+    `reference` is the certified flat fabric when `fab` is a deformed configuration of it;
+    see `stitch_frames`. It changes only the frame the morphology is measured in, never the
+    morphology lock itself, and the frame used is named in the result.
+    """
     findings: list[str] = []
     checks: dict[str, object] = {}
 
@@ -1075,7 +1098,9 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     # morphology check (to measure the stitch's features against the cloth rather than
     # against the world). Sharing one frame is deliberate: these two checks disagreeing about
     # which way is "down" at the same stitch is a defect waiting to happen.
-    frames = stitch_frames(fab, rows=rows)
+    frames = stitch_frames(fab, rows=rows, reference=reference)
+    checks["frame"] = ("certified stitch frame carried by each stitch's own rigid motion"
+                       if reference is not None else "neighbours along the row and the column")
 
     # The pairing itself is `certified_linkage_pairs`, shared with everything else that acts
     # on this relation, so there is one definition of which stitch was worked into which.
@@ -1166,7 +1191,7 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
             loose_end.append(complaints[0])
         else:
             misshapen.append((o.row, o.position, complaints[0]))
-    checks["stitches_shaped_like_hdc"] = (len(hdc) - len(misshapen) - len(loose_end)
+    checks["stitches_shaped_as_ordered"] = (len(hdc) - len(misshapen) - len(loose_end)
                                          - len(unframeable))
     # A stitch with no neighbour to orient it is not a passing stitch. The foundation row has
     # no anchor below it and so cannot be framed; that is a real limit of the measurement and
@@ -1191,7 +1216,13 @@ def validate(fab: Fabric, twin, *, max_rows: int | None = None,
     checks["closest_pair_segments"] = list(offenders)
     floor = fab.yarn_diameter * COMPRESSED_CONTACT
     checks["contact_floor_mm"] = round(floor, 3)
-    if gap < floor:
+    # The floor is compared to within FLOOR_TOLERANCE_MM, one nanometre. A projection that
+    # pushes a pair back to the floor converges to it from below and never crosses it: the
+    # pair the certified hdc pins at exactly 1.5000mm came back from drape at 1.5 - 2e-13 and
+    # was refused as "within 1.500mm". A nanometre is a million times finer than the yarn
+    # path's own resolution (DEGENERATE_SEGMENT_MM = 0.01) and is a statement about floating
+    # point, not about how far yarn compresses; the floor itself is unchanged.
+    if gap < floor - FLOOR_TOLERANCE_MM:
         findings.append(f"two strands come within {gap:.3f}mm, closer than yarn can compress "
                         f"at {fab.yarn_diameter:.2f}mm diameter (floor {floor:.2f}mm)")
 

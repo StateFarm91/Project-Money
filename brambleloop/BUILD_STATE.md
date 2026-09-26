@@ -368,6 +368,77 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Visual wave 6: Milestone D measured, PARTIAL — the drift, the frictionless law, and the frame
+
+Isolated branch `claude/visual-investigation` (worktree), integrated checkpoint `fcb982d`
+untouched. `visual/milestone_d.py` (new), `visual/sc_swatch.py` (new), `drape.py`,
+`crochet_topology.py`, `stitch_shape.py`, `pbr_scene.py`, `milestones.py`, `app/main.py`
+(one colour), `tests/test_milestone_d.py` (new, 15), `test_drape.py` (144 → 156 written; run in progress at this commit),
+`test_stitch_identity.py` (23 → 29), `test_render.py` (11 → 14). Report:
+`research/VISUAL_MILESTONE_D.md`. **CA$0.00 this wave; nothing deployed, published or
+activated; `BRAMBLELOOP_PHASE=shadow`; no paid API call since the owner's freeze.**
+
+**Full suite on the isolated branch: not yet run on this commit. Focused suites on this code: test_drape (wave-6 block) in progress; test_crochet_topology 43/0, test_topology_adversarial 28/0, test_linkage 18/0, test_stitch_identity 29/0, test_render 14/0, test_milestone_d 15/0. The full run is recorded in the next commit, from its own TOTAL PASSING line.**
+
+**Milestone D: PARTIAL, measured — not FAIL, not PASS.** `milestone_d.assess` drapes the
+certified 5x5 (hdc and sc) on a sphere, re-validates it, and derives a plied render from that
+configuration. Measured items pass on both swatches: identity, the flat locks, the exact fixed
+point (5.7e-15 mm with every option on), energy descent, contact with the form, **no
+structural drift** (20/20 linked, 25/25 shaped in the carried frame, above the floor), double
+curvature (contact patch 3 columns x 2 rows hdc, 3 x 4 sc), the render's geometry hash
+unchanged and every ply within the yarn radius of its strand. UNKNOWN, and never counted
+toward a PASS: the seven judged items (folds, lighting, shadows, imperfection, melted yarn,
+synthetic texture, sterility) because no judge ran, and hand irregularity because none was
+applied to the assessed build. Stationarity at 1,600 iterations read 4.7 % (hdc) and 2.5 % (sc) of the whole motion over the last tenth, against the 2 % bar -- UNKNOWN, still moving; the 6,400-iteration evidence runs were in progress at this commit and their result is recorded in the next one.
+
+**Three defects under the inherited failure, each measured before it was fixed.**
+
+1. **The reported drape was free drift.** The force step is scaled to the yarn's bending
+   force, so gravity moved a vertex 0.7 µm per iteration: 0.566 / 1.130 / 4.44 mm at 800 /
+   1600 / 6400 iterations, linear. Every displacement the solver had reported at 800
+   iterations was the first half-millimetre of a fall, and a uniformly drifting fabric moves
+   every row as a unit by construction — that was wave 5's "rigid bar" symptom. Pinned as a
+   test. `momentum` (FIRE) and `step_multiplier` (inside the stencil's stability margin) let
+   a solve arrive; both off by default, both rate-only, fixed point unchanged.
+2. **The frictionless force law takes stitches apart once the drape proceeds**, at every
+   bending rigidity in the derived bracket: 14 of 25 hdc third loops above the V after 25,600
+   plain iterations at the committed constant, 16 of 25 at the derived 1.27e-6 N m^2, and the
+   sc swatch loses 13 of 20 linkages — netting, the failure the locks name. The force missing
+   was yarn-on-yarn friction, which outweighs gravity on a stitch by orders of magnitude.
+   `rigid_stitches` is its infinite limit (per-stitch shape matching, Müller 2005), BOUNDED
+   and stated on every result as holding the stitch's internal shape; linkage, floor,
+   contact, curvature and equilibrium remain the mechanics' to lose. Friction against the
+   form (`support_friction`) only works together with it: measured, the fabric crept 0.6 mm
+   past vertices that had not moved a nanometre until the stitches were locked too.
+3. **The morphology check's frame measured the neighbours, not the stitch.** With every
+   stitch rigid to 0.1 mm through a 26 mm drape, four intact stitches read as everted because
+   the neighbour frame's UP sat 17–19.5° off their own. `validate(reference=flat)` carries
+   each stitch's certified frame by its own rigid motion; a lifted third loop is still caught
+   (test), a 40° rotation is cleared, and a folded fabric of intact stitches — which the
+   neighbour frame fails from 35° — is cleared. The frame used is named on every result.
+
+Also: the pinned pair came back from every drape 2e-13 mm under the floor and was refused;
+the floor is now compared to a nanometre (named as numerical; the floor unchanged). The
+constraint polish ends on the floor and the form. `stitches_shaped_like_hdc` counted sc
+stitches "like hdc" and is `stitches_shaped_as_ordered`. The ladder reports D as
+**UNMEASURED** unless measured on the call — a hard-coded FAIL was a stored claim.
+
+**The bridge wave 5 §6c asked for exists.** `pbr_scene.write_plied_curve_file` draws the
+certified fabric's own strands through `yarn_construction.ply_geometry` and `surface_fibres`
+under the committed scene; `STAGING_PLIED` differs from `STAGING` only in what it admits it
+does not reproduce. Before/after: `wave5_reconciled_oblique.png` (0.566 mm of drift, tubes)
+against `research/d/out/*_draped_plied_*.jpg` (the re-validated draped configuration, plies
+and fibre halo, same camera and key). They are instrument images and are not offered as
+evidence about appearance.
+
+**What is not claimed.** D is not PASS. Morphology under drape is an input of the friction
+lock, not an outcome. The friction limits are BOUNDED by an order-of-magnitude argument, not
+a measured coefficient. The derived bending rigidity (42x the committed constant, which was
+not changed) comes from the committed procedure on a 5x5. `twin.calibrated` stays False.
+`dc`, `inc` and joined rounds are refused by name, not modelled.
+
+## Previously — last completed milestone
+
 ### 2026-09-24 — Physically based yarn relaxation: the increment works; D still not passed
 
 `src/brambleloop/visual/relaxation.py` (new), `crochet_topology.py`, `stitch_shape.py`,
