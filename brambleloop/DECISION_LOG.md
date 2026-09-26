@@ -1162,3 +1162,57 @@ far apart at the whole-throw scale (12-14 columns), replaces crossings with ladd
 textures, and adds edge borders; at the folded scale (71 px pitch) two draws pass every
 deterministic measure but the reader and the judge reject them. No threshold was moved; no
 reading was retried to change a verdict.
+
+## 2026-09-26 — Build 2 closeout (isolated branch, from checkpoint 4cf6959)
+
+**D-B2C-1. The Visual result is accepted as an external blocker and frozen: no further paid
+image draws in this closeout.** Blind deterministic chain PASS (9cf29f5); 0 of 16 gpt-image-1.5
+draws certified (4cf6959); 0 of 7 gemini draws on Bench2 (ad81e30). The provider is the
+ceiling. Requirements whose remaining work is a model-bearing or stitch-faithful render are
+parked on `model_bearing_render` and reported EXTERNAL-BLOCKED, not owner-gated and not
+"draining".
+
+**D-B2C-2. The closeout vocabulary is four final states and one remainder, computed from
+evidence, never from the registry status.** `build2/closure.py`: COMPLETE+PROVEN needs a named
+module that exists and a test that exercises it; OWNER-GATED, DATA-GATED and EXTERNAL-BLOCKED
+each need a checkable gate of that declared kind, closed; everything else is OPEN. A gate that
+opens returns its requirements to OPEN. Sixty-seven `covered` rows named no module when the
+matrix was first computed and were OPEN until each was proven or reclassified; a `proof` field
+on the registry carries the module and test when the note does not.
+
+**D-B2C-3. Reading Etsy's own policy pages is EXTERNAL-BLOCKED for automation, and the company
+records what it knows with its basis declared.** etsy.com/legal and help.etsy.com return HTTP
+403 to honest automated fetchers (B-268, B-500, re-proven twice on 2026-09-26). The nineteen
+rows parked on `rendered_pages` are therefore EXTERNAL-BLOCKED, not owner-gated: the owner
+approved a browser in principle and it cannot read the pages. `gates/policy_knowledge.py`
+holds dated readings of the six watched surfaces and six commerce topics from search-engine
+excerpts of the official pages, basis `search_engine_excerpt_of_official_page`, digests
+stable, unknowns marked UNKNOWN (the Canadian regulatory operating fee). The policy watch seeds
+those readings for a never-read surface and resolves the `policy_stale` incident with the
+snapshot named; the reading goes stale on the same 30-day rule as any snapshot, and a page
+read by a person supersedes it. No bot protection was evaded and none will be.
+
+**D-B2C-4. An incident closes only with evidence in its resolution, and a detector that opens
+incidents must be able to close them.** Every detector records `detail.resolution` and
+`detail.resolved_at` stating the evidence (the snapshot, the passed event, the audit rows), or
+the incident stays open. Seasonal incidents raised against products that do not target the
+event, or milestones no evidence could ever mark done, are defects in the detector and are fixed
+there; the detection of a genuinely late product is not weakened.
+
+**D-B2C-5. The deployed build loop keeps the decision about what to build next alive; only a
+build session builds.** `build.tick` syncs, queues and watches; it cannot claim or complete a
+requirement, and it now says so (`awaiting_build_session`) instead of raising a stall incident
+that measured session cadence.
+
+**D-B2C-6. Provenance is never manufactured.** A derived artefact written from now on carries
+its lineage or the write is refused (fail-closed on the single write path, enforcement gated
+by graduation). Historical rows are backfilled only where a job, audit or hash match proves
+the lineage, with the evidence recorded and `source=backfilled`; anything unmatched stays
+UNPROVEN and the count says so.
+
+**D-B2C-7. Cost-governance mechanisms are complete now; owner numbers stay gated.** The
+CA$100 monthly ceiling, the 24 agent ceilings and the paid-media scope are the owner's numbers
+and are not changed here. Mechanisms that needed no owner input (dashboard truth, escalation
+as an OwnerAction, reservation before image spend, gateway agent-permission checks, refusal
+audit, provider/department ceiling tables left empty) are built with empty values reported
+honestly as "no cap set", never as "capped".
