@@ -313,3 +313,16 @@ risk — image dimensions are predictions from gauge), prove sc mechanics, or cl
   ratio code was not located in this pass.
 - The true finished dimensions of any product (`twin.calibrated` False). Every centimetre
   in every image is a gauge prediction.
+
+---
+
+## Corrections after adversarial re-check (2026-09-26)
+
+Three claims above were wrong or overstated; the full table is in
+`VISUAL_ARCHITECTURE_DECISION.md` §2. In brief: (1) mechanics is not "hdc-only" — `build()`
+**accepts an sc twin and silently emits hdc cells**, which is worse; (2) `presentation.py`'s
+lock is **never called**, so the conflict I described as forbidding the target architecture
+is latent, not active; (3) the contact search runs every 12 iterations, not every iteration —
+the O(n²) conclusion stands, the constant was overstated. E1 was run: see the decision
+document for design, result (confirmed on GPT Image via the edits endpoint, falsified on FLUX
+via `image_prompt`), cost (US$0.22 list) and what it does not establish.
