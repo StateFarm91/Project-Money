@@ -277,4 +277,19 @@ At the sourced 5 % loop-length input the realised variation under the owner's pe
 
 ### 10d. Presentation iteration on the failing property
 
-PRESENTATION_PLACEHOLDER
+**Iteration 1 — `STAGING_PRESENTATION` on the evidence configurations** (form drawn, thin lens, window key, the DERIVED fibre population of 336 a ply, principled sheen material, 256 spp; hash-checked against `milestone_d_<kind>_12800_settle.json`). Judge cost US$0.0438 (hdc 0.0216, sc 0.0222); records `judge_<kind>_presentation.json`.
+
+- hdc: fabric_folds_naturally: FAIL | lighting_is_realistic: PASS | shadows_are_coherent: PASS | has_ordinary_photographic_imperfection: FAIL | melted_yarn: FAIL | synthetic_stitch_texture: FAIL | catalogue_perfect_sterility: FAIL
+- `hdc_draped_presentation_camera.png` — `chatcmpl-ESD0osDpDNdmdQK8Fettw6wMWQr6l`, US$0.0108: “Yarn looks like smooth, plasticine tubes with bead-like ends, and the swatch floats rigidly against a perfectly clean background.”
+- `hdc_draped_presentation_oblique.png` — `chatcmpl-ESD11OrX1qKl9a4qIJwFjUt5Hg31x`, US$0.0108: “Yarn appears smooth and plastic with no fibers and highly uniform twists; overall scene (sphere and background) is sterile and CG-clean.”
+- sc: fabric_folds_naturally: FAIL | lighting_is_realistic: PASS | shadows_are_coherent: PASS | has_ordinary_photographic_imperfection: FAIL | melted_yarn: FAIL | synthetic_stitch_texture: FAIL | catalogue_perfect_sterility: FAIL
+- `sc_draped_presentation_camera.png` — `chatcmpl-ESD1OYxkfmsPalE8ST32EhhO0KhAk`, US$0.0114: “The swatch appears rigid and floating, with plasticky uniform yarn and highly regular loops on a spotless background.”
+- `sc_draped_presentation_oblique.png` — `chatcmpl-ESD1bz2fLAJbJoXFQRZD88dPWkXl5`, US$0.0108: “Yarn appears as smooth plastic tubes with highly uniform loops. Sparse scene with a perfect sphere and very clean surfaces reads as computer-generated.”
+
+Lighting and shadows now PASS on both. Still FAIL: folds ("rigid"), imperfection, melted yarn ("smooth plastic, no fibers"), synthetic texture ("highly uniform loops"), sterility ("spotless"). **Verdict from the criterion: FAIL, both swatches.**
+
+**The hand-tension experiment (the pipeline's own `HandTension()`, sourced 5 % loop-length CV, applied at build; `research/d/out/hand/`).** Both builds certify flat (20/20 linked, 25/25 shaped) and keep every lock through the drape, and the realised variation is 2.28 % (hdc) / 2.13 % (sc) stitch-width CV under the owner's anchor. But the varied swatch lands on the form differently: contact patch 3 stitches (hdc) and 2 (sc, one column — the patch bar fails), stationarity 0.054 / 0.032. It is not adopted as the evidence configuration: it would trade measured items for a 2 % geometric irregularity the judge is unlikely to read, and the criterion does not permit trading. Recorded, not used.
+
+**Iteration 2 — the fibre scattering model and continuous strands.** Two properties of the *drawing* answered two of the judge's named reasons with physics: (i) the fibre halo is now shaded with the fibre scattering model (Chiang et al. 2016, Mitsuba `hair`; absorption derived from the yarn colour, scaled 0.35 for a single 19 µm fibre) instead of as opaque plastic tubes; (ii) `fabric_strands` no longer cuts the path at the 20 sub-micron joins where one stitch's points meet the next — the yarn continues there — so the 216 capped strand ends ("bead-like ends") become 68, all at the model's artificial hops. Rendered on the same hash-checked geometry (`*_draped_presentation2_*`).
+
+ITERATION2_JUDGE_PLACEHOLDER

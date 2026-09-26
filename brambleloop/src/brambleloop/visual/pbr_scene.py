@@ -47,7 +47,16 @@ def fabric_strands(fab: topo.Fabric, *, per_segment: int = 6) -> list[np.ndarray
     """
     pts = np.asarray(fab.points, dtype=float)
     seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
-    cut = (seg >= dr.JUMP_SEGMENT_MM) | (seg <= dr.DEGENERATE_SEGMENT_MM)
+    # A sub-micron join is where one stitch's point list meets the next at the SAME place:
+    # the yarn continues through it. The first version cut the path there as well as at the
+    # hops, which drew two capped strand ends at every stitch boundary -- the "bead-like
+    # ends" the independent judge named on 2026-09-26 -- for a yarn that has no end there.
+    # The duplicate point is dropped and the strand runs on; only the hops, which are not
+    # yarn, still cut it. No control point moves.
+    keep = np.concatenate([[True], seg > dr.DEGENERATE_SEGMENT_MM])
+    pts = pts[keep]
+    seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+    cut = seg >= dr.JUMP_SEGMENT_MM
     strands: list[np.ndarray] = []
     start = 0
     for i, bad in enumerate(cut):
@@ -99,7 +108,8 @@ def write_curve_file(fab: topo.Fabric, filename: str, *, per_segment: int = 6,
 
 def write_plied_curve_file(fab: topo.Fabric, filename: str, *, tex: float,
                            per_segment: int = 6, fibres_per_ply: int = 16,
-                           seed: int = 20260924, plies: int | None = None) -> dict:
+                           seed: int = 20260924, plies: int | None = None,
+                           fibre_file: str | None = None) -> dict:
     """The same strands as `write_curve_file`, drawn as the yarn is built: plies twisted
     around each strand's centreline and a sparse halo of surface fibres over the plies.
 
@@ -125,7 +135,10 @@ def write_plied_curve_file(fab: topo.Fabric, filename: str, *, tex: float,
     r_ply = spec.ply_radius_mm
     n_ply = n_fib = verts = 0
     r_fib = None
-    with open(filename, "w") as f:
+    import contextlib
+    with contextlib.ExitStack() as stack:
+        f = stack.enter_context(open(filename, "w"))
+        ff = stack.enter_context(open(fibre_file, "w")) if fibre_file else f
         for k, s in enumerate(strands):
             if len(s) < 2:
                 continue
@@ -141,9 +154,9 @@ def write_plied_curve_file(fab: topo.Fabric, filename: str, *, tex: float,
                                                   seed=seed + k)
                 for fb in fibres:
                     for x, y, z in fb:
-                        f.write("%.5f %.5f %.5f %.5f\n" % (x, y, z, r_fib))
+                        ff.write("%.5f %.5f %.5f %.5f\n" % (x, y, z, r_fib))
                         verts += 1
-                    f.write("\n")
+                    ff.write("\n")
                     n_fib += 1
     return {"strands": len(strands), "plies": n_ply, "fibres": n_fib, "vertices": verts,
             "ply_radius_mm": r_ply, "fibre_radius_mm": r_fib, "spec": spec.describe(),
@@ -250,6 +263,14 @@ STAGING_PRESENTATION.update({
     "form": {"reflectance": (0.86, 0.84, 0.80)},
     "material": {"base": (0.62, 0.30, 0.36), "roughness": 0.78, "sheen": 0.55,
                  "sheen_tint": 0.5, "specular": 0.25},
+    # The fibre halo is drawn with the fibre scattering model (Chiang, Bitterli, Tappan,
+    # Burley, "A practical and controllable hair and fur model", 2016 -- Mitsuba's `hair`),
+    # which is what a fibre IS optically, rather than as a tiny opaque plastic tube. Its
+    # absorption is derived from the yarn colour: sigma_a = -ln(base) per channel, scaled by
+    # 0.35 because a single 19um fibre is far thinner than the path length that colour was
+    # measured over. The plies keep the sheen-bearing surface material.
+    "fibre_material": {"model": "hair", "absorption_scale": 0.35,
+                       "longitudinal_roughness": 0.35, "azimuthal_roughness": 0.4},
     # The WHOLE fibre population: `yarn_construction.fibres_per_yarn(tex)` over the plies, so
     # the one number the ply model called "chosen for the image scale" is now derived. 336 a
     # ply for the 444 tex yarn; 72,576 fibre curves on the 5x5, 139 s a view at 96 spp.
@@ -259,12 +280,14 @@ STAGING_PRESENTATION.update({
                        "window"),
     "reproduced_as_geometry": ("plies at the derived radius and twist",
                                "the derived fibre population as a surface halo at the derived "
-                               "fibre radius", "the form the fabric was draped over"),
+                               "fibre radius, shaded with the fibre scattering model",
+                               "the form the fabric was draped over"),
 })
 
 
 def scene_dict(curve_file: str, centre, *, view: str = "camera",
-               staging: dict | None = None, form: tuple | None = None) -> dict:
+               staging: dict | None = None, form: tuple | None = None,
+               fibre_file: str | None = None) -> dict:
     """The scene as a plain dictionary, checkable without Mitsuba.
 
     This is the ONLY description of the scene. `render` builds from it and substitutes the
@@ -332,6 +355,15 @@ def scene_dict(curve_file: str, centre, *, view: str = "camera",
         }),
         "fill": {"type": "constant",
                  "radiance": {"type": "rgb", "value": [st["ambient"]] * 3}},
+        **({"fibres": {
+            "type": "linearcurve", "filename": fibre_file,
+            "bsdf": {"type": "hair",
+                     "sigma_a": {"type": "rgb", "value": [
+                         float(-np.log(max(c, 0.02)) * st["fibre_material"]["absorption_scale"])
+                         for c in mat["base"]]},
+                     "longitudinal_roughness": st["fibre_material"]["longitudinal_roughness"],
+                     "azimuthal_roughness": st["fibre_material"]["azimuthal_roughness"]},
+        }} if fibre_file and st.get("fibre_material", {}).get("model") == "hair" else {}),
         **({"form": {
             "type": "sphere", "radius": form[3],
             "to_world": ("translate", tuple(form[:3])),
@@ -392,16 +424,20 @@ def render(fab: topo.Fabric, out_png: str, *, view: str = "camera", spp: int | N
             if n_fib == "derived":
                 from . import yarn_construction as yc
                 n_fib = yc.fibres_per_yarn(plied_tex) // yc.WORSTED_PLIES
+            fibre_tmp = (os.path.join(os.path.dirname(tmp), "fibres.txt")
+                         if staging.get("fibre_material", {}).get("model") == "hair" else None)
             drawn = write_plied_curve_file(fab, tmp, tex=plied_tex, per_segment=per_segment,
-                                           fibres_per_ply=n_fib)
+                                           fibres_per_ply=n_fib, fibre_file=fibre_tmp)
             strands, verts = drawn["strands"], drawn["vertices"]
         else:
             strands, verts = write_curve_file(fab, tmp, per_segment=per_segment)
             drawn = None
+            fibre_tmp = None
             staging = staging or STAGING
 
         centre = framing_centre(frame if frame is not None else fab)
-        spec = scene_dict(tmp, centre, view=view, staging=staging, form=form)
+        spec = scene_dict(tmp, centre, view=view, staging=staging, form=form,
+                          fibre_file=fibre_tmp)
         if spp is not None:
             spec["sensor"]["sampler"]["sample_count"] = int(spp)
         cam_origin = spec["sensor"]["to_world"][1]

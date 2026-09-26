@@ -12,7 +12,8 @@ from brambleloop.visual import milestone_d as MD, pbr_scene as PS, drape as DR
 kind = sys.argv[1]; out = sys.argv[2]; spp = int(sys.argv[3]) if len(sys.argv) > 3 else 384
 tag = sys.argv[4] if len(sys.argv) > 4 else "presentation"
 record = json.load(open(os.path.join(out, sys.argv[5] if len(sys.argv) > 5 else f"milestone_d_{kind}_12800_settle.json")))
-cir, twin, flat, _, tex = MD.certified_swatch(kind, 5, 5)
+hand = MD.HandTension() if os.environ.get("PRESENT_HAND") else None
+cir, twin, flat, _, tex = MD.certified_swatch(kind, 5, 5, hand=hand)
 z = np.load(os.path.join(out, f"{kind}_draped.npz"))
 pts = z["points"]; sha = hashlib.sha256(np.ascontiguousarray(pts, dtype=np.float64).tobytes()).hexdigest()
 assert sha == str(z["sha256"]) == record["geometry_sha256"]["draped"], "the saved geometry is not the assessed geometry"
