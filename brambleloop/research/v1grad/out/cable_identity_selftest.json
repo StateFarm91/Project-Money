@@ -1,0 +1,187 @@
+{
+ "bars": {
+  "silhouette_iou": 0.8,
+  "aspect_drift": 0.1,
+  "period_scale": 0.35,
+  "peak": 0.1,
+  "column_dominance": 1.2,
+  "pitch_ratio_band": [
+   0.83,
+   1.65
+  ]
+ },
+ "why": {
+  "silhouette_iou": "E3-E5 / Bench1 rule: scale- and shift-free outline agreement >= 0.80",
+  "aspect_drift": "Bench1 rule: the outline's aspect within +-10 % of Product Truth's",
+  "period_scale": "Bench1/2 rule: a measured period within +-35 % of the expected one (generator fuzz widens a peak, must not move it)",
+  "peak": "Bench2 rule: a periodicity exists when the normalised autocorrelation peak is >= 0.10",
+  "column_dominance": "DERIVED: post-stitch ribs are vertical edges, so along-row gradient energy exceeds across-row energy; accepted >= 1.2 (a plain or isotropic fabric sits near 1)",
+  "pitch_ratio_band": "DERIVED: column pitch / crossing period = 8 sts x 0.625 cm over 4 rows x 1.056 cm = 1.18, accepted +-30 % (0.83-1.65)"
+ },
+ "results": {
+  "reference": {
+   "column_pitch_px": 51.0,
+   "column_peak": 0.836,
+   "crossing_period_px": 44.0,
+   "crossing_peak": 0.957,
+   "column_dominance": 7.668,
+   "pitch_ratio": 1.159,
+   "tests": {
+    "column_periodicity": true,
+    "crossing_periodicity": true,
+    "column_dominance": true,
+    "pitch_ratio": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "gauge": {
+    "column_pitch_ratio": 0.996,
+    "crossing_period_ratio": 1.018,
+    "status": "PASS"
+   },
+   "status": "PASS"
+  },
+  "reference_without_column_map": {
+   "column_pitch_px": 51.0,
+   "column_peak": 0.836,
+   "crossing_period_px": 44.0,
+   "crossing_peak": 0.958,
+   "column_dominance": 7.668,
+   "pitch_ratio": 1.159,
+   "tests": {
+    "column_periodicity": true,
+    "crossing_periodicity": true,
+    "column_dominance": true,
+    "pitch_ratio": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "gauge": {
+    "column_pitch_ratio": 0.996,
+    "crossing_period_ratio": 1.018,
+    "status": "PASS"
+   },
+   "status": "PASS"
+  },
+  "reference_rotated_quarter_turn(must_fail)": {
+   "column_pitch_px": 44.0,
+   "column_peak": 0.874,
+   "crossing_period_px": 51.0,
+   "crossing_peak": 0.939,
+   "column_dominance": 0.13,
+   "pitch_ratio": 0.863,
+   "tests": {
+    "column_periodicity": true,
+    "crossing_periodicity": true,
+    "column_dominance": false,
+    "pitch_ratio": true
+   },
+   "identity": "FAIL",
+   "failed": [
+    "column_dominance"
+   ],
+   "gauge": {
+    "column_pitch_ratio": 0.859,
+    "crossing_period_ratio": 1.179,
+    "status": "PASS"
+   },
+   "status": "FAIL"
+  },
+  "reference_2x_scale(gauge_must_fail)": {
+   "column_pitch_px": 102.0,
+   "column_peak": 0.852,
+   "crossing_period_px": 88.0,
+   "crossing_peak": 0.956,
+   "column_dominance": 10.057,
+   "pitch_ratio": 1.159,
+   "tests": {
+    "column_periodicity": true,
+    "crossing_periodicity": true,
+    "column_dominance": true,
+    "pitch_ratio": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "gauge": {
+    "column_pitch_ratio": 1.992,
+    "crossing_period_ratio": 2.035,
+    "status": "FAIL"
+   },
+   "status": "FAIL"
+  },
+  "control_plain_rows(must_fail)": {
+   "column_pitch_px": 32.0,
+   "column_peak": 0.516,
+   "crossing_period_px": 11.0,
+   "crossing_peak": 0.905,
+   "column_dominance": 0.613,
+   "pitch_ratio": 2.909,
+   "tests": {
+    "column_periodicity": true,
+    "crossing_periodicity": true,
+    "column_dominance": false,
+    "pitch_ratio": false
+   },
+   "identity": "FAIL",
+   "failed": [
+    "column_dominance",
+    "pitch_ratio"
+   ],
+   "gauge": {
+    "column_pitch_ratio": 0.625,
+    "crossing_period_ratio": 0.254,
+    "status": "FAIL"
+   },
+   "status": "FAIL"
+  },
+  "control_star_truth(must_fail)": {
+   "column_pitch_px": 18.0,
+   "column_peak": 0.952,
+   "crossing_period_px": 33.0,
+   "crossing_peak": 0.944,
+   "column_dominance": 1.093,
+   "pitch_ratio": 0.545,
+   "tests": {
+    "column_periodicity": true,
+    "crossing_periodicity": true,
+    "column_dominance": false,
+    "pitch_ratio": false
+   },
+   "identity": "FAIL",
+   "failed": [
+    "column_dominance",
+    "pitch_ratio"
+   ],
+   "gauge": {
+    "column_pitch_ratio": 0.352,
+    "crossing_period_ratio": 0.763,
+    "status": "FAIL"
+   },
+   "status": "FAIL"
+  },
+  "control_bench1_waffle_reference(must_fail)": {
+   "column_pitch_px": 11.0,
+   "column_peak": 0.471,
+   "crossing_period_px": 7.0,
+   "crossing_peak": 0.481,
+   "column_dominance": 1.082,
+   "pitch_ratio": 1.571,
+   "tests": {
+    "column_periodicity": true,
+    "crossing_periodicity": true,
+    "column_dominance": false,
+    "pitch_ratio": true
+   },
+   "identity": "FAIL",
+   "failed": [
+    "column_dominance"
+   ],
+   "gauge": {
+    "column_pitch_ratio": 0.215,
+    "crossing_period_ratio": 0.162,
+    "status": "FAIL"
+   },
+   "status": "FAIL"
+  }
+ }
+}

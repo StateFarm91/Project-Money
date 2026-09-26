@@ -1,0 +1,148 @@
+{
+ "benchmark": "Product-only Visual V1 graduation -- blind Brambleloop product (Heirloom Cable Throw)",
+ "cap_usd": 5.0,
+ "frozen_utc": "2026-09-26T17:19:19Z",
+ "firewall": {
+  "allowed_inputs": {
+   "design_source": {
+    "path": "src/brambleloop/products/texture.py",
+    "what": "the design: stitch pattern, counts, gauge, yarn, colour, notes",
+    "owned": true,
+    "sha256": "449caaa1b44f19b9e43ff086e03be48844b94633133323eded9a04ba15aedbeb"
+   },
+   "stitch_registry": {
+    "path": "src/brambleloop/cir/stitches.py",
+    "what": "stitch definitions (consumption, height, row height)",
+    "owned": true,
+    "sha256": "acc48d07fdbcc0354dd54b22cd5379cb8199f96947f407240be412bfe643b233"
+   },
+   "compiler_and_twin": {
+    "path": "src/brambleloop/cir/compiler.py, src/brambleloop/cir/twin.py",
+    "what": "counts per row, dimensions from counts x gauge, yardage",
+    "owned": true,
+    "sha256": null
+   },
+   "relief_rule": {
+    "path": "src/brambleloop/visual/fabric.py, src/brambleloop/publish/charts.py",
+    "what": "which stitches stand proud or recede (visual.fabric, charts.relief)",
+    "owned": true,
+    "sha256": null
+   },
+   "generalised_capabilities": {
+    "path": "research/bench1, research/bench2, research/e4, research/e5",
+    "what": "flat-lay reference conventions, alignment, texture-period and lattice instruments, reader/gate/judge structure, provider route evidence -- code only, no images of any product",
+    "owned": true,
+    "sha256": null
+   }
+  },
+  "forbidden_and_not_used": [
+   "finished-product photographs of this design (none exist)",
+   "earlier generated images of this design",
+   "competitor / seller / MJ's imagery",
+   "Bench1 or Bench2 finished-product imagery",
+   "internet products, web search",
+   "any image chosen as 'approximately what it should look like'",
+   "hidden target renders"
+  ],
+  "quarantine": [
+   {
+    "what": "a 6 KB chart render of a cable pattern found in the session scratchpad from an earlier session (a Brambleloop chart, not a photograph)",
+    "sha256_prefix": "be6da6539aca0d76",
+    "moved_to": "scratchpad/v1grad_quarantine/ before any construction work; not opened by this benchmark"
+   },
+   {
+    "what": "the production artifact store `artifacts/` holds 93 content-addressed image blobs (charts, heroes and possibly provider-trial images of catalogue products, including perhaps this design)",
+    "action": "none opened, listed or matched to a product by this benchmark; they are outside every stage's inputs"
+   }
+  ],
+  "web_search": "none",
+  "statement": "EXTERNAL FINISHED-PRODUCT VISUAL REFERENCES USED BY PRODUCT CONSTRUCTION OR GENERATION: NONE"
+ },
+ "blind_deterministic_chain": {
+  "checks": {
+   "product_truth_compiles_and_cross_checks_pass": true,
+   "cir_validates": true,
+   "reference_exists_and_draws_every_cell_row_and_crossing": true,
+   "reference_dimensions_are_product_truth": true,
+   "reference_inputs_are_the_frozen_product_truth": true,
+   "instrument_reads_reference_as_cable_at_gauge": true,
+   "instrument_rejects_rotated_plain_star_waffle": true,
+   "instrument_gauge_fails_at_2x_scale": true,
+   "reference_passes_its_own_gate": true,
+   "firewall_statement_true": true
+  },
+  "verdict": "PASS"
+ },
+ "frozen_digests": {
+  "product_truth.json": "cf3b9d1a9e92cff41ca2e461b9795cecbaa12d42d89ddb47420aad6307d85808",
+  "ref_meta.json": "25a1024a016c544132bbaa15a0d82124f2e4dcdbe490a07a2ca604be7e6bde8e",
+  "ref_rgb": "7b8d24189e5ce5564bb80d3e79933f06de53d1f40813bf419d7f850ffdee5b95",
+  "ref_mask": "28fbffa57416d62edc45033445ce239775b310d8dbbc91698308feef2df4ea1d",
+  "ref_normal": "fa180bf989c51c6405336494e476864baf5c50036138f587d3a24ebd5c2e095c",
+  "ref_regions.png": "0e8365f620f2fe162d2d921007f49c5453acbb8b4ec362821704f1f7fa429e50",
+  "cable_identity_selftest.json": "88a58e23eb64b12f84e065528c28b5b702f1cdd5dc28ccc557d4676b8b3c6c21",
+  "gate.py": "66b685e04b580e9730a76193fbdea5a859e9fe97ffc971eb41f121420a3e4329",
+  "reference.py": "e10f892aa5390c91f55ea5573c75870079e7b782bf3dd3572484caa286eb4e6d",
+  "product_truth.py": "ab6ec64f28e7ffea95a1de76341efb78ffc4f49b2a78179512bdccdc86cafddb",
+  "reader.py": "2785857d97c7bc3c6a63f95a461061dfefae3a41bf656ffe8fbf9a6e3e4abdff",
+  "run.py": "4580edf375f833fc39c492bf063b309b10eee602f3e1231d522760424eeca154"
+ },
+ "generation_package": {
+  "provider": "openai",
+  "model": "gpt-image-1.5",
+  "params": {
+   "input_fidelity": "high",
+   "quality": "medium",
+   "size": "1024x1536"
+  },
+  "images_in_order": [
+   "ref_flatlay.png (rgb)",
+   "ref_mask.png (outline)",
+   "ref_normal.png (relief)"
+  ],
+  "prompt_sha256": "a7796e40a39e83af6d985b577cafd011d4506aeba9df14376f40a8edd3080e8a",
+  "prompt": "The first image is a flat computer rendering of a hand-crocheted textile laid out flat. Make a real product photograph of that same physical piece for a handmade marketplace listing: laid flat as shown, seen from directly above, on a plain dark charcoal linen cloth that has been used and has its ordinary creases. It was placed by hand, not styled: very slightly askew, the fabric settling with small natural ripples and shadows rather than lying perfectly flat. Keep the piece exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. The second image is the outline mask and the third shows the surface relief; use them only to keep the outline, position and surface placement exactly. Replace the rendered material with real worsted-weight acrylic yarn as it actually crochets up: a matte, slightly fuzzy surface with the stitch texture exactly as drawn, ordinary handmade unevenness, soft window daylight from one side, gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame."
+ },
+ "assets_by_stage": {
+  "product_truth": [
+   "src/brambleloop/products/texture.py",
+   "cir.stitches / compiler / twin",
+   "visual.fabric"
+  ],
+  "reference": [
+   "out/product_truth.json",
+   "the CIR's cells"
+  ],
+  "generation": [
+   "out/ref_flatlay.png",
+   "out/ref_mask.png",
+   "out/ref_normal.png",
+   "the prompt"
+  ],
+  "gate": [
+   "out/ref_mask.png",
+   "out/ref_regions.png",
+   "out/ref_meta.json",
+   "the reader",
+   "the D judge"
+  ],
+  "finished_product_images": "NONE at any stage"
+ },
+ "instrument_bars": {
+  "silhouette_iou": 0.8,
+  "aspect_drift": 0.1,
+  "period_scale": 0.35,
+  "peak": 0.1,
+  "column_dominance": 1.2,
+  "pitch_ratio_band": [
+   0.83,
+   1.65
+  ]
+ },
+ "prompts": {
+  "v1": "The first image is a flat computer rendering of a hand-crocheted textile laid out flat. Make a real product photograph of that same physical piece for a handmade marketplace listing: laid flat as shown, seen from directly above, on a plain dark charcoal linen cloth that has been used and has its ordinary creases. It was placed by hand, not styled: very slightly askew, the fabric settling with small natural ripples and shadows rather than lying perfectly flat. Keep the piece exactly as shown: the same outline, the same proportions, every part where it is, the same colour everywhere. The second image is the outline mask and the third shows the surface relief; use them only to keep the outline, position and surface placement exactly. Replace the rendered material with real worsted-weight acrylic yarn as it actually crochets up: a matte, slightly fuzzy surface with the stitch texture exactly as drawn, ordinary handmade unevenness, soft window daylight from one side, gentle shadows, an ordinary camera with a little grain. No text, no props, nothing else in frame."
+ },
+ "calls": [],
+ "runs": [],
+ "spent_usd": 0
+}
