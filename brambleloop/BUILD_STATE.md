@@ -406,6 +406,10 @@ ceiling (14 images US$0.42 list, judge US$0.18), stopped with the evidence compl
   property added). Milestone D unchanged (FAIL, physical blocker). `twin.calibrated` False.
   Production gate, drape solver, assessment and `cir/` untouched. `4a08871`, `1229442`,
   `fcb982d` untouched. One gateway addition: `generate(..., extra_fields=None)`, default none.
+- **Suite on this branch head: 4,249 passing, 1 suite failing** — the pre-existing
+  date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`,
+  which fails identically on `fcb982d` and was not touched. E4's own tests: `test_e4.py` 56,
+  `test_e3.py` 10, `test_render.py` green, `test_gateway.py` 30. Checkpoint tag `checkpoint-e4`.
 
 ### 2026-09-26 — Visual E3: certified structure → reference-conditioned photograph → same product? Not yet proven; Option 3
 
