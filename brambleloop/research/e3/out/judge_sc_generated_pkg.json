@@ -1,0 +1,81 @@
+{
+ "model": "gpt-5-2025-08-07",
+ "system": "You are a working photographer looking at an image and deciding whether it reads as a real photograph of a real object or as a computer-generated image. You are not judging whether it is attractive. Report what you can actually see, and say plainly when the image does not show you enough to tell.",
+ "prompt": "This is an image of a crochet swatch. Answer as JSON. For each key give true if the statement holds, false if it does not, and omit the key entirely if the image does not show you enough to judge it. Do not guess: an omitted key is a useful answer and a wrong one is not.\n\n  \"fabric_folds_naturally\": the fabric's bends and hang read as cloth under its own weight rather than a stiff, posed or arbitrarily warped shape\n  \"lighting_is_realistic\": the light on the object is what a real lamp or window would produce, with no contradictory or impossible illumination\n  \"shadows_are_coherent\": shadows and highlights agree with one light situation\n  \"has_ordinary_photographic_imperfection\": the frame has the ordinary imperfection of a photograph -- grain, slight unevenness of tone or focus, an unstyled detail -- rather than frictionless synthetic cleanliness\n  \"yarn_is_not_melted\": the yarn reads as twisted, plied fibre with real surface rather than a melted, smooth or plastic rope\n  \"stitch_texture_is_not_synthetic\": the stitch texture reads as hand-worked crochet fabric rather than a tiled, repeated or computer-generated pattern\n  \"not_catalogue_perfect_sterility\": the image is not sterile catalogue perfection: something in it is ordinary, imperfect or unarranged\n\nAdd \"notes\": one or two short sentences naming anything that made the image read as generated, or an empty string.",
+ "views": [
+  {
+   "image": "research/e3/out/gen/sc_oblique_pkg_0.png",
+   "image_sha256": "be934ce0c601043d53f765c5ffe34616b1558b14d8d759207a0cab30759d94c3",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESE8mufg5ymrMjqml8J9OZlNmu2oB",
+   "seconds": 72.2,
+   "prompt_tokens": 1007,
+   "completion_tokens": 1394,
+   "reasoning_tokens": 1280,
+   "cost_usd": 0.015199,
+   "cost_cad": 0.020822,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": true,\n  \"yarn_is_not_melted\": true,\n  \"stitch_texture_is_not_synthetic\": true,\n  \"not_catalogue_perfect_sterility\": false,\n  \"notes\": \"Very smooth, seamless backdrop and a perfectly matte white sphere create a stylized, almost CG display. The ruffled pattern is highly uniform.\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": true,
+     "yarn_is_not_melted": true,
+     "stitch_texture_is_not_synthetic": true,
+     "not_catalogue_perfect_sterility": false
+    },
+    "notes": "Very smooth, seamless backdrop and a perfectly matte white sphere create a stylized, almost CG display. The ruffled pattern is highly uniform."
+   }
+  }
+ ],
+ "items": {
+  "fabric_folds_naturally": {
+   "status": "UNKNOWN",
+   "per_view": {
+    "sc_oblique_pkg_0.png": null
+   }
+  },
+  "lighting_is_realistic": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_pkg_0.png": true
+   }
+  },
+  "shadows_are_coherent": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_pkg_0.png": true
+   }
+  },
+  "has_ordinary_photographic_imperfection": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_pkg_0.png": true
+   }
+  },
+  "melted_yarn": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_pkg_0.png": true
+   }
+  },
+  "synthetic_stitch_texture": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_pkg_0.png": true
+   }
+  },
+  "catalogue_perfect_sterility": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_oblique_pkg_0.png": false
+   }
+  }
+ },
+ "total_cost_usd": 0.015199,
+ "total_cost_cad": 0.020822,
+ "rule": "an item is PASS only when every authoritative view is sound on it, FAIL when any view is not, UNKNOWN when the judge could not tell on any view",
+ "tag": "e3_generated_package"
+}

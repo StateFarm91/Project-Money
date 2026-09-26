@@ -967,3 +967,30 @@ rigid), a photographed reference for the yarn's hairiness and grain, and a conti
 between operations. The owner's rules forbid fabricating calibration, and a fourth staging
 without new physical input would be prettier pictures chasing a score. FAIL is one of the three
 acceptable outcomes and is the true one. `twin.calibrated` stays False.
+
+## 2026-09-26 — Visual E3 (isolated branch, from checkpoint 4a08871)
+
+**D-E3-1. The conditioning input to the generative layer is the frozen, hash-checked
+assessed geometry's own render, and the output is measured back against that same digest.**
+Nothing was regenerated to make the photograph easier; every consumer of the geometry refuses
+it unless its sha256 matches `milestone_d_<kind>_final.json`, and the gate specification treats
+a revalidation made against any other digest as redesign.
+
+**D-E3-2. Structural correspondence is measured with scale free and shape not, and the raw
+figure is kept beside the aligned one.** The edits endpoint re-frames the piece by up to 21 %
+and 134 px; comparing placement would fail every output for a change that is not a change of
+product. The presentation gate's own geometry lock already compares ratios for this reason.
+
+**D-E3-3. A counted property passes only when the instrument can see the truth on the
+reference.** The independent reader read 6×6, 3 rows and "tall" on deterministic renders whose
+truth is 5×5 single crochet; where the instrument cannot see the truth, the photograph's
+property is UNKNOWN, not PASS and not FAIL. Three of four views are UNKNOWN on counts for this
+reason, which is a finding about the reference at this scale and is recorded as one.
+
+**D-E3-4. Option 3.** The photographic properties are the generative layer's (four of five
+repaired on sc in one conditioned generation, all five failed by three deterministic rounds);
+stitch-level Product Truth is not (counts drifted 5 → 4 and 5 → 6, cut ends became tassels).
+The division is drawn in research/VISUAL_E3.md §7c from these measurements, and the gate
+distinction of §6 -- certified presentation transformation versus unauthorised redesign,
+fail-closed -- classified every E3 output as redesign or UNKNOWN, which is the correct reading
+and is why it is proposed and not integrated.

@@ -368,6 +368,37 @@ still a guess.
 
 ## Last completed milestone
 
+### 2026-09-26 — Visual E3: certified structure → reference-conditioned photograph → same product? Not yet proven; Option 3
+
+From checkpoint `4a08871`. The frozen assessed geometries (hashes on every record) and their
+judged presentation renders were the only conditioning; `gpt-image-2` through the edits
+endpoint, one image per view plus a two-image arm with silhouette mask and normals added
+-- six images, **US$0.18** of a US$1.00 ceiling; judge and reader **US$0.25**; E3 total
+**US$0.43**. Report `research/VISUAL_E3.md`; every artefact, hash, prompt, response id and cost in
+`research/e3/out/`.
+
+- **Photographic realism (the unchanged independent judge):** on the sc swatch one conditioned
+  generation repaired four of the five D failures -- folds, imperfection, melted yarn, synthetic
+  texture -- and failed only sterility, which is the prop-sphere scene we chose for
+  measurability. On the hdc swatch it repaired none, because it faithfully carried the
+  reference's own artefacts: the 68 cut strand ends of the yarn-path model became "bead-like
+  nubs" and "knotted tassels".
+- **Structural correspondence (measured, property by property):** outline preserved (aligned
+  IoU 0.82–0.93 on all six); rows and stitch family preserved where readable; with mask and
+  normals in the package, row/post placement preserved (NCC 0.40–0.60). **Drift caught:** 4 and
+  6 stitches per row for a certified 5, tassels the product does not have, one view re-shaped
+  as a tube. The independent reader cannot count the truth on three of four deterministic
+  references (UNKNOWN there by rule). No output reaches "same product proven": FAIL ×5, UNKNOWN ×1.
+- **Gate:** the two-category distinction (certified presentation transformation vs unauthorised
+  redesign, fail-closed, `research/e3/gate_spec.py`, 10/10) classifies every E3 output as
+  redesign or UNKNOWN. Proposed, not integrated; production gate unchanged.
+- **Decision: Option 3.** Deterministic: CIR, topology, linkage, morphology, colour placement,
+  the certified deformation, the reference and its digests. Generative: fibre, yarn surface,
+  material, lighting, shadows, camera, background. Not yet certifiable: stitch-level structure,
+  until a projected-stitch correspondence instrument exists and the reference has no cut ends.
+- Not done, per the brief: no purchased-pattern work, no model photography, no tournament,
+  no gate change, no merge, no deploy. `twin.calibrated` False. `4a08871` and `fcb982d` untouched.
+
 ### 2026-09-26 — Visual wave 6 close-out: Milestone D judged — FAIL, on a blocker that is physical
 
 The owner lifted the spend freeze for the minimum needed to resolve D's UNKNOWNs. Done, on the

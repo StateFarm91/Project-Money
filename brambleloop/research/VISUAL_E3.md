@@ -59,12 +59,107 @@ Against the close-out (`4a08871`, deterministic presentation2 renders: both swat
 
 ## 5. Structural correspondence (`research/e3/correspond.py`)
 
-CORRESPONDENCE_PLACEHOLDER
+Method. Numeric properties are measured against the silhouette mask derived from the frozen geometry under the same camera; because the edits endpoint re-frames (the piece sits at 0.84–1.21× and up to 134 px away), the generated silhouette is **aligned to the reference by centroid and area** — scale free, shape not, the presentation gate's own rule — and both the raw and aligned figures are recorded. Structure placement is the normalised correlation of blurred gradient magnitude inside the reference silhouette (where rows and posts sit). Counted properties are read blind by the independent model (`gpt-5-2025-08-07`) from the reference render AND the photograph with one neutral questionnaire; such a property passes only when the reader sees the certified truth on the reference (the instrument can see it) and the photograph reads the same. Bars: IoU ≥ 0.80, aspect drift ≤ 10 %, NCC ≥ 0.30, hue spread ≤ 12° — each CHOSEN and stated with its reason in `e3_correspondence.json`. Reader spend US$0.133 (round 1) + US$0.041 (package arm).
+
+**Round 1 — conditioned on the RGB structural render alone (four images)**
+
+| property | hdc camera | hdc oblique | sc camera | sc oblique |
+|---|---|---|---|---|
+| silhouette | **PASS** IoU 0.82 (raw 0.66) | **PASS** IoU 0.84 (raw 0.59) | **PASS** IoU 0.88 (raw 0.62) | **PASS** IoU 0.90 (raw 0.76) |
+| major_proportions | **FAIL** aspect 1.29→1.00 (+23%) | **PASS** aspect 1.45→1.42 (+2%) | **PASS** aspect 1.00→1.10 (+9%) | **PASS** aspect 1.25→1.30 (+4%) |
+| structure_placement | **FAIL** NCC 0.15 (raw -0.03) | **FAIL** NCC 0.24 (raw -0.01) | **FAIL** NCC 0.08 (raw 0.02) | **PASS** NCC 0.57 (raw 0.11) |
+| colour_regions | **PASS** hue spread 7.7°, colours read 1 | **PASS** hue spread 6.0°, colours read 1 | **PASS** hue spread 6.4°, colours read 1 | **PASS** hue spread 3.1°, colours read 1 |
+| rows | **UNKNOWN** truth 5, ref read 6, gen read 5 | **PASS** truth 5, ref read 5, gen read 5 | **UNKNOWN** truth 5, ref read 3, gen read 4 | **UNKNOWN** truth 5, ref read 4, gen read 4 |
+| stitches_per_row | **UNKNOWN** truth 5, ref read 6, gen read None | **FAIL** truth 5, ref read 5, gen read 4 | **UNKNOWN** truth 5, ref read None, gen read 5 | **UNKNOWN** truth 5, ref read None, gen read 5 |
+| stitch_family | **PASS** truth tall, ref read tall, gen read tall | **PASS** truth tall, ref read tall, gen read tall | **UNKNOWN** truth short, ref read tall, gen read tall | **UNKNOWN** truth short, ref read tall, gen read tall |
+| construction_cues_loose_ends | **FAIL** ref “sides”, gen “none” | **FAIL** ref “top and sides”, gen “sides” | **FAIL** ref “sides”, gen “bottom” | **PASS** ref “none”, gen “none” |
+| openings | **PASS** n/a | **PASS** n/a | **PASS** n/a | **PASS** n/a |
+| deformation_fold_placement | **FAIL** IoU 0.82, NCC 0.15 | **FAIL** IoU 0.84, NCC 0.24 | **FAIL** IoU 0.88, NCC 0.08 | **PASS** IoU 0.90, NCC 0.57 |
+| **overall** | **FAIL** | **FAIL** | **FAIL** | **UNKNOWN** |
+
+- hdc camera — reference read: “Tall open stitches alternate with flatter horizontal bands, giving a lacy ladder-like look with small bobbly clusters visible along both side edges.”; photograph read: “Open lattice with elongated loops, and the fabric appears to form a tube rather than a flat swatch.”
+- hdc oblique — reference read: “Open, airy pattern with tall posts and wide gaps; edges are uneven and the bottom curls.”; photograph read: “Open, lacy structure with large elongated loops and several small knotted tassels at the edges.”
+- sc camera — reference read: “Open, airy stitches with pronounced vertical posts and slight curling at the edges.”; photograph read: “Open, lacy fabric made of crossed elongated stitches creating a zigzag mesh.”
+- sc oblique — reference read: “Open, loosely worked tall loops with large gaps; the swatch is curved and the edges curl.”; photograph read: “Open tall-loop structure with pronounced ridges makes the small swatch appear ruffled and corrugated.”
+
+**Package arm — RGB + silhouette mask + normals (two oblique views)**
+
+| property | hdc oblique | sc oblique |
+|---|---|---|
+| silhouette | **PASS** IoU 0.93 (raw 0.77) | **PASS** IoU 0.84 (raw 0.89) |
+| major_proportions | **PASS** aspect 1.45→1.47 (+1%) | **FAIL** aspect 1.25→0.80 (+36%) |
+| structure_placement | **PASS** NCC 0.59 (raw 0.08) | **PASS** NCC 0.40 (raw 0.65) |
+| colour_regions | **PASS** hue spread 3.2°, colours read 1 | **PASS** hue spread 9.6°, colours read 1 |
+| rows | **PASS** truth 5, ref read 5, gen read 5 | **UNKNOWN** truth 5, ref read 4, gen read 4 |
+| stitches_per_row | **FAIL** truth 5, ref read 5, gen read 6 | **UNKNOWN** truth 5, ref read None, gen read None |
+| stitch_family | **PASS** truth tall, ref read tall, gen read tall | **UNKNOWN** truth short, ref read tall, gen read tall |
+| construction_cues_loose_ends | **FAIL** ref “top and sides”, gen “sides” | **PASS** ref “none”, gen “none” |
+| openings | **PASS** n/a | **PASS** n/a |
+| deformation_fold_placement | **PASS** IoU 0.93, NCC 0.59 | **PASS** IoU 0.84, NCC 0.40 |
+| **overall** | **FAIL** | **FAIL** |
+
+- hdc oblique — photograph read: “Open, lacy mesh with very tall twisted posts and large gaps between rows.”
+- sc oblique — photograph read: “Deep wavy ridges form a highly textured, ruffled surface with open gaps between rows.”
+
+**What the correspondence says.** The photographs keep the *outline* of the certified object (aligned IoU 0.82–0.93 on all six) and, where the package arm was used, where its rows and posts sit (NCC 0.40–0.60). They do **not** reliably keep the *stitch-level* structure: where the independent reader can count the truth on the reference at all (hdc oblique only), the photograph shows 4 or 6 stitches per row for 5, and the reference's cut strand ends become "knotted tassels"; the hdc camera photograph reads as "a tube rather than a flat swatch" (aspect −23 %). On three of four views the reader cannot see the certified counts **on the deterministic reference itself** (6×6, 3 rows, "tall" for single crochet), so those properties are UNKNOWN for the photograph too — an instrument limit of the 5×5 swatch at this yarn scale, not evidence either way. No image reaches "same product proven": overall FAIL ×3 / UNKNOWN ×1 (round 1), FAIL ×2 (package).
+
 
 ## 6. Presentation-gate distinction, tested (`research/e3/gate_spec.py`, not integrated)
 
-GATE_PLACEHOLDER
+`gate_spec.classify` — a generative operation that touched the product is a **certified presentation transformation** only when it declares the frozen geometry *and* reference digests it was conditioned on, its revalidation was made against those same digests, and every structural property PASSED; a FAIL anywhere is unauthorised redesign; an UNKNOWN with no FAIL blocks as UNKNOWN. `test_e3.py`, 10/10: against E3's actual evidence every round-1 image classifies as
+
+- hdc camera (RGB): **UNAUTHORISED_REDESIGN**
+- hdc oblique (RGB): **UNAUTHORISED_REDESIGN**
+- sc camera (RGB): **UNAUTHORISED_REDESIGN**
+- sc oblique (RGB): **UNKNOWN**
+
+and the boundaries hold — no declared reference is redesign however good the picture, a non-frozen reference is redesign, never revalidated is redesign ("conditioning is a claim, revalidation the proof"), revalidation against a different digest is redesign, one UNKNOWN never certifies. **The distinction works experimentally and fails closed; nothing in it was satisfied by this experiment's outputs, which is the correct reading of them.** Proposed treatment (not integrated): `presentation.PresentationPlan` gains `conditioned_on` (geometry + reference digests) per generative operation and a `correspondence` result; `refuse_if_the_product_is_redesigned` raises unless the plan classifies as certified; the existing `ProductRedesigned` path is unchanged for every unconditioned or unrevalidated operation. The current production gate is not changed.
+
 
 ## 7. Architecture decision
 
-DECISION_PLACEHOLDER
+### 7a. Did generative presentation repair the five D photographic failures?
+
+| item | deterministic (4a08871) | sc, RGB arm | sc, package arm | hdc, RGB arm | hdc, package arm |
+|---|---|---|---|---|---|
+| fabric_folds_naturally | FAIL | PASS | UNKNOWN | FAIL | FAIL |
+| has_ordinary_photographic_imperfection | FAIL | PASS | PASS | FAIL | FAIL |
+| melted_yarn | FAIL | PASS | PASS | FAIL | FAIL |
+| synthetic_stitch_texture | FAIL | PASS | PASS | FAIL | FAIL |
+| catalogue_perfect_sterility | FAIL | FAIL | FAIL | FAIL | FAIL |
+| lighting / shadows | PASS / PASS | PASS / PASS | PASS / PASS | PASS / PASS | PASS / PASS |
+
+Package-arm judge notes — hdc: “Yarn has a uniform ribbed surface with no fibers and identically repeated stitch shapes with bead-like nubs; the scene is extremely clean and sterile, reading as CG.”; sc: “Very smooth, seamless backdrop and a perfectly matte white sphere create a stylized, almost CG display. The ruffled pattern is highly uniform.”.
+
+Read together with §4: on the **sc** swatch one reference-conditioned generation repaired **four of the five** (folds, imperfection, melted yarn, synthetic texture); the fifth, sterility, is the *scene we asked for* (a prop sphere on a seamless surface, chosen so correspondence could be measured) and the judge says exactly that. On the **hdc** swatch the generator repaired nothing — and the reason is the other half of the finding: it **faithfully carried the reference's own artefacts** (the 68 cut strand ends of the yarn-path model became "bead-like nubs" and "knotted tassels"; the uniform ribbing stayed uniform). A generator that preserves the reference this literally is evidence for conditioning fidelity, and it means a deterministic reference with artefacts produces a photograph with artefacts.
+
+### 7b. Did any Product Truth property drift?
+
+Yes, at the stitch level, and it was caught: stitches per row read 4 (RGB arm) and 6 (package arm) against a certified 5 on the one view where the instrument can count the reference (hdc oblique); cut ends became tassels — a feature the product does not have; the hdc camera photograph reads as a tube (aspect −23 %). Preserved: outline (aligned IoU 0.82–0.93 on all six), rows (5 where readable), stitch family at the reader's level, single colour, and — with the mask + normals package — where the rows and posts sit (NCC 0.40–0.60). The gate classifies every output as redesign or UNKNOWN, which is right.
+
+### 7c. The decision — OPTION 3, hybrid, with the split drawn by this evidence
+
+**Option 1 is refuted for the photographic properties.** Three deterministic rounds failed all five in three independent readings; one conditioned generation repaired four of them on the sc swatch at US$0.03. The deterministic renderer does not need to become a camera.
+
+**Option 2 is refuted for stitch-level Product Truth.** Counts drifted (5 → 4, 5 → 6), artefacts became features, one silhouette re-shaped. A generative layer cannot be trusted with the stitches, and no validation this experiment could run establishes the same product at that level.
+
+**Option 3, with this division:**
+
+| stays deterministic (certified, measured) | may be generated (presentation authority) | must be revalidated, and today cannot be |
+|---|---|---|
+| CIR → stitch identity, topology, linkage, morphology, colour placement; the certified deformation on the form; the structural reference and its digests | fibre and fuzz, yarn surface and material response, lighting, shadows, camera response, background and surface | stitch count and organisation, and any construction cue at stitch scale: the independent reader could not count the truth on three of four *deterministic reference renders* (6×6, 3 rows, "tall" for single crochet), so the photograph cannot be measured against it there |
+
+The conditioning package matters: RGB + silhouette mask + normals raised structure placement from 0.24 to 0.60 (hdc oblique) and silhouette from 0.84 to 0.93. The minimum package that answers the next experiment is therefore the three-image one, not the RGB render alone.
+
+### 7d. What the hybrid needs before it can certify anything (the next phase's work, not started)
+
+1. **A stitch-level correspondence instrument that does not read pixels blind.** The geometry is ours: project every certified stitch centre into the reference camera and test the photograph *at those locations* (local structure present, row/column adjacency preserved) rather than asking a model to count. Counting was UNKNOWN on three of four references; a projected-stitch test has no such limit.
+2. **A reference without artefacts of the model.** The 68 cut ends are the yarn-path model's hops between operations; a continuous path removes the "tassels" at the source. This is a Visual/topology increment, not a rendering one.
+3. **A scene that is a real place.** Sterility is the one item the sc swatch failed, and the scene was chosen for measurability. The next phase's benchmark scene (a listing photograph's) answers it directly.
+4. **The gate treatment in §6**, integrated only once 1–2 make a certified transformation reachable.
+
+### 7e. Spend and boundaries
+
+External spend for E3: **image generation US$0.18** (six gpt-image-2 edits at list; ceiling US$1.00), independent judge US$0.0773, structural reader US$0.1738 — **US$0.43 in all**. Session total across D close-out and E3: US$0.57 list, plus the earlier E1/E2 US$0.46.
+
+Not done, per the brief: no purchased-pattern work, no lifestyle or model photography, no provider tournament, no gate change in production, no merge, no deploy, no Etsy change, no calibration claim; `twin.calibrated` False. Checkpoints `4a08871` (tag `checkpoint-milestone-d-closeout`) and `fcb982d` untouched.
