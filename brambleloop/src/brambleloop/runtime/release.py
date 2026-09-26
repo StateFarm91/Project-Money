@@ -1480,20 +1480,41 @@ def handle_policy_watch(ctx: JobContext) -> dict:
     """
     from sqlalchemy import select
 
-    from ..core.models import Incident
+    from ..core.models import Incident, utcnow
     from ..gates.platform_policy import MAX_AGE_DAYS, POLICY_SOURCES, freshness
+    from ..gates import policy_knowledge
 
+    # A reading recorded in the repository (dated, sourced, digested, with its basis declared)
+    # is a reading: seeded once for a source nobody has ever read, never over a page reading,
+    # and reported stale on the same 30-day rule as any other snapshot.
+    seeded = policy_knowledge.seed_snapshots(ctx.db)
     report = freshness(ctx.db)
     unread = list(report["never_checked"])
     stale = [e["source"] for e in report["stale"]]
     needs_attention = unread + stale
 
     opened: list[str] = []
+    resolved: list[str] = []
     with ctx.db.session() as s:
         open_signatures = {
             i.signature for i in s.scalars(select(Incident).where(
                 Incident.resolved == False))  # noqa: E712
         }
+        # A policy incident closes only with the evidence that opened it reversed: the source
+        # now has a current snapshot. The resolution names the snapshot and its basis.
+        current = {e["source"]: e for e in report["current"]}
+        for inc in s.scalars(select(Incident).where(Incident.resolved == False)):  # noqa: E712
+            if not inc.signature.startswith("policy_stale:"):
+                continue
+            source = inc.signature.split(":", 1)[1]
+            if source in current:
+                detail = dict(inc.detail or {})
+                detail["resolution"] = (f"{source} read on {current[source]['checked_on']} (version {current[source]['version']}); "
+                                        f"the watch reports it current")
+                detail["resolved_at"] = utcnow().isoformat()
+                inc.detail = detail
+                inc.resolved = True
+                resolved.append(source)
         for source in needs_attention:
             signature = f"policy_stale:{source}"
             if signature in open_signatures:
@@ -1516,14 +1537,16 @@ def handle_policy_watch(ctx: JobContext) -> dict:
 
     ctx.audit("policy.watched", detail={
         "all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
-        "incidents_opened": opened, "blocked_workflows": report["blocked_workflows"]})
+        "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
+        "blocked_workflows": report["blocked_workflows"]})
 
     return {"all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
-            "incidents_opened": opened,
+            "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
             "blocked_workflows": report["blocked_workflows"],
-            "note": ("This cadence does not fetch. No policy reader is connected, and a "
-                     "cadence that fails every run because a dependency is absent is a dead "
-                     "letter with a schedule.")}
+            "note": ("This cadence does not fetch: direct retrieval is refused by Etsy's bot "
+                     "protection (recorded in gates.policy_knowledge.RETRIEVAL_BLOCK). It seeds the "
+                     "repository's dated reading of a source nobody has read, and otherwise "
+                     "reports staleness honestly.")}
 
 
 @handlers.register("build.tick")

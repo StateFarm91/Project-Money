@@ -297,7 +297,7 @@ def ladder(db, requirement, *, signals: dict | None = None,
     `_signals` rather than queried per requirement -- 320 requirements against a live
     Postgres is a report that nobody runs twice.
     """
-    modules = modules_named(requirement.note)
+    modules = modules_named(requirement.note + " " + getattr(requirement, "proof", ""))
     if not modules:
         return {
             "requirement_id": requirement.id,
