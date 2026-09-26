@@ -1,0 +1,72 @@
+{
+ "hdc": {
+  "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
+  "views": {
+   "camera": {
+    "mask_pixels": 423154,
+    "bbox": [
+     173,
+     20,
+     830,
+     853
+    ],
+    "depth_mm_range": [
+     9.242565155029297,
+     174.82106018066406
+    ],
+    "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation3_camera.png",
+    "reference_rgb_sha256": null
+   },
+   "oblique": {
+    "mask_pixels": 344783,
+    "bbox": [
+     284,
+     0,
+     876,
+     843
+    ],
+    "depth_mm_range": [
+     8.63917064666748,
+     176.44845581054688
+    ],
+    "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation3_oblique.png",
+    "reference_rgb_sha256": null
+   }
+  }
+ },
+ "sc": {
+  "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+  "views": {
+   "camera": {
+    "mask_pixels": 184524,
+    "bbox": [
+     254,
+     234,
+     735,
+     717
+    ],
+    "depth_mm_range": [
+     9.280877113342285,
+     163.45761108398438
+    ],
+    "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation3_camera.png",
+    "reference_rgb_sha256": null
+   },
+   "oblique": {
+    "mask_pixels": 143986,
+    "bbox": [
+     340,
+     212,
+     743,
+     715
+    ],
+    "depth_mm_range": [
+     9.000049591064453,
+     168.10179138183594
+    ],
+    "reference_rgb": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation3_oblique.png",
+    "reference_rgb_sha256": null
+   }
+  }
+ }
+}

@@ -36,14 +36,29 @@ __all__ = ["fabric_strands", "write_curve_file", "write_plied_curve_file", "STAG
            "STAGING_PLIED", "STAGING_PRESENTATION", "scene_dict", "render"]
 
 
-def fabric_strands(fab: topo.Fabric, *, per_segment: int = 6) -> list[np.ndarray]:
-    """The fabric's yarn, as separate strands, with the path's artefacts removed.
+def fabric_strands(fab: topo.Fabric, *, per_segment: int = 6,
+                   continuous: bool = True) -> list[np.ndarray]:
+    """The fabric's yarn as strands. With `continuous` (the default) it is ONE strand per
+    yarn, cut nowhere: the certified path is the yarn, and a flat swatch has exactly two
+    ends, where the yarn starts and where the live loop is.
 
-    A segment is not yarn if it is longer than `drape.JUMP_SEGMENT_MM` (an artificial hop
-    between ops) or shorter than `drape.DEGENERATE_SEGMENT_MM` (a join between one stitch's
-    point list and the next). The path is cut at every such segment. `per_segment` Catmull-Rom
-    samples are then taken inside each strand, because yarn does not turn corners: a polyline
-    with hard corners renders as bent wire. The control points are not moved.
+    WHAT THE CUTS WERE. The first version cut the path at every segment longer than
+    `drape.JUMP_SEGMENT_MM` on the belief that those were "artificial hops between ops". On
+    the certified hdc 5x5 the 87 such segments were traced (E4, 2026-09-26): 83 lie INSIDE
+    one stitch, between named key points of the cell -- the yarn-over settling into the
+    insert, the strand behind the fabric, the top loop running to `away` -- real yarn spans
+    that are simply longer than 5mm at a 6.9mm pitch; the other four are the turning chain's
+    own strands. Not one is computational. The sc swatch has none at all. Cutting them drew
+    68 capped ends inside the stitches, and E3's generator faithfully turned those ends into
+    "knotted tassels" -- a product feature the crochet does not have. The mechanics still
+    label the same segments as non-yarn for the bending term (`drape.genuine_yarn_vertices`);
+    that is recorded there and left, because with the friction lock on it changes nothing
+    and it is a different question from what the picture shows.
+
+    `continuous=False` keeps the old cut behaviour for the wave-5 comparison instrument. A
+    sub-micron join (one stitch's points meeting the next at the same place) is always
+    dropped, never cut. `per_segment` Catmull-Rom samples are taken inside each strand,
+    because yarn does not turn corners. No control point moves.
     """
     pts = np.asarray(fab.points, dtype=float)
     seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
@@ -56,7 +71,7 @@ def fabric_strands(fab: topo.Fabric, *, per_segment: int = 6) -> list[np.ndarray
     keep = np.concatenate([[True], seg > dr.DEGENERATE_SEGMENT_MM])
     pts = pts[keep]
     seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
-    cut = seg >= dr.JUMP_SEGMENT_MM
+    cut = np.zeros(len(seg), bool) if continuous else (seg >= dr.JUMP_SEGMENT_MM)
     strands: list[np.ndarray] = []
     start = 0
     for i, bad in enumerate(cut):
@@ -88,14 +103,14 @@ def _smooth(p: np.ndarray, per_segment: int) -> np.ndarray:
 
 
 def write_curve_file(fab: topo.Fabric, filename: str, *, per_segment: int = 6,
-                     radius_mm: float | None = None) -> tuple[int, int]:
+                     radius_mm: float | None = None, continuous: bool = True) -> tuple[int, int]:
     """Mitsuba's linear-curve format: `x y z radius` per vertex, a blank line per strand.
 
     Returns (strands, vertices). The radius is the fabric's own derived yarn radius unless one
     is given, so the picture is the size the geometry says and not a size chosen for it.
     """
     r = float(radius_mm if radius_mm is not None else fab.yarn_diameter / 2.0)
-    strands = fabric_strands(fab, per_segment=per_segment)
+    strands = fabric_strands(fab, per_segment=per_segment, continuous=continuous)
     n = 0
     with open(filename, "w") as f:
         for s in strands:
@@ -109,7 +124,7 @@ def write_curve_file(fab: topo.Fabric, filename: str, *, per_segment: int = 6,
 def write_plied_curve_file(fab: topo.Fabric, filename: str, *, tex: float,
                            per_segment: int = 6, fibres_per_ply: int = 16,
                            seed: int = 20260924, plies: int | None = None,
-                           fibre_file: str | None = None) -> dict:
+                           fibre_file: str | None = None, continuous: bool = True) -> dict:
     """The same strands as `write_curve_file`, drawn as the yarn is built: plies twisted
     around each strand's centreline and a sparse halo of surface fibres over the plies.
 
@@ -131,7 +146,7 @@ def write_plied_curve_file(fab: topo.Fabric, filename: str, *, tex: float,
     from . import yarn_construction as yc
     kw = {} if plies is None else {"plies": plies}
     spec = yc.PlySpec(yarn_diameter_mm=float(fab.yarn_diameter), tex=float(tex), **kw)
-    strands = fabric_strands(fab, per_segment=per_segment)
+    strands = fabric_strands(fab, per_segment=per_segment, continuous=continuous)
     r_ply = spec.ply_radius_mm
     n_ply = n_fib = verts = 0
     r_fib = None

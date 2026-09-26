@@ -103,11 +103,13 @@ def _fabric():
                     iterations=120)[0]
 
 
-def test_the_scene_does_not_draw_the_paths_artificial_hops_as_yarn():
+def test_the_cut_instrument_mode_still_refuses_the_long_segments():
+    # The wave-5 comparison instrument cut the path at every segment over JUMP_SEGMENT_MM.
+    # That mode is kept, explicitly, for comparing those renders; it is no longer the default.
     fab = _fabric()
     seg = np.linalg.norm(np.diff(np.asarray(fab.points, float), axis=0), axis=1)
     bad = int(((seg >= DR.JUMP_SEGMENT_MM) | (seg <= DR.DEGENERATE_SEGMENT_MM)).sum())
-    strands = PS.fabric_strands(fab, per_segment=1)
+    strands = PS.fabric_strands(fab, per_segment=1, continuous=False)
     assert bad > 0, "this fixture is supposed to contain hops and joins"
     # One cut per artefact segment, so the strand count is bounded by it and is never one.
     assert 1 < len(strands) <= bad + 1, (len(strands), bad)
@@ -136,7 +138,7 @@ def test_the_curve_file_carries_the_fabrics_own_yarn_radius():
     text = open(path).read().strip().splitlines()
     radii = {round(float(line.split()[3]), 5) for line in text if line.strip()}
     assert radii == {round(fab.yarn_diameter / 2.0, 5)}, radii
-    assert verts == sum(len(s) for s in PS.fabric_strands(fab)) and strands > 1
+    assert verts == sum(len(s) for s in PS.fabric_strands(fab)) and strands == 1
 
 
 def test_two_fabrics_compared_under_this_scene_get_the_same_camera_and_lights():
@@ -221,6 +223,33 @@ def test_the_plied_staging_differs_from_the_committed_one_only_in_what_it_admits
     assert "STAGING_PLIED" in src and '"not_reproduced": staging["not_reproduced"]' in src
 
 
+def test_the_yarn_is_one_strand_with_exactly_two_ends_where_the_yarn_starts_and_stops():
+    # E4: the "hops" were traced and every one of them is yarn -- 83 of 87 inside a stitch,
+    # between named key points of the cell; four in the turning chains. A flat swatch is one
+    # continuous yarn, and the only two ends the picture may show are the path's own.
+    fab = _fabric()
+    pts = np.asarray(fab.points, float)
+    strands = PS.fabric_strands(fab, per_segment=1)
+    assert len(strands) == 1, len(strands)
+    s = strands[0]
+    assert np.allclose(s[0], pts[0]) and np.allclose(s[-1], pts[-1])
+    seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+    assert int((seg >= DR.JUMP_SEGMENT_MM).sum()) > 0, "this fixture is supposed to contain long segments"
+    # and every stored point that is not a duplicate is on the strand, in order
+    kept = pts[np.concatenate([[True], seg > DR.DEGENERATE_SEGMENT_MM])]
+    assert len(s) == len(kept) and np.allclose(s, kept)
+
+
+def test_the_curve_file_draws_the_whole_yarn_by_default():
+    import tempfile, os
+    fab = _fabric()
+    path = os.path.join(tempfile.mkdtemp(), "c.txt")
+    strands, verts = PS.write_curve_file(fab, path, per_segment=1)
+    assert strands == 1
+    blocks = [b for b in open(path).read().split("\n\n") if b.strip()]
+    assert len(blocks) == 1
+
+
 def test_the_yarn_runs_on_through_the_joins_and_ends_only_at_the_hops():
     # A sub-micron join is where one stitch's point list meets the next at the same place;
     # the yarn has no end there. Cutting there drew two capped ends per stitch boundary --
@@ -230,8 +259,8 @@ def test_the_yarn_runs_on_through_the_joins_and_ends_only_at_the_hops():
     seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
     joins = int((seg <= DR.DEGENERATE_SEGMENT_MM).sum())
     assert joins > 0, "this fixture is supposed to contain joins"
-    strands = PS.fabric_strands(fab, per_segment=1)
-    # every strand end sits at a hop, never at a join: the point before/after each end is
+    strands = PS.fabric_strands(fab, per_segment=1, continuous=False)
+    # in the cut mode every strand end sits at a long segment, never at a join: the point before/after each end is
     # further than a degenerate segment away along the stored path
     ends = [s[0] for s in strands] + [s[-1] for s in strands]
     for e in ends:
