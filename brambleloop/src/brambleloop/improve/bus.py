@@ -62,7 +62,13 @@ def route_for(subject: str) -> tuple[str, ...]:
 
 def publish(db, *, origin_cell: str, subject: str, statement: str,
             evidence_ref: str = "", confidence: str = "observed") -> int:
-    """Record a lesson and route it to every cell the subject concerns."""
+    """Record a lesson and route it to every cell the subject concerns.
+
+    Idempotent on `evidence_ref` + `subject`: the same evidence produces one lesson, however
+    many nights the miner re-reads it, and the existing lesson's id comes back.
+    """
+    from sqlalchemy import select
+
     from ..core.models import Lesson
 
     if origin_cell not in BY_KEY:
@@ -75,6 +81,15 @@ def publish(db, *, origin_cell: str, subject: str, statement: str,
 
     audience = [c for c in route_for(subject) if c != origin_cell]
     with db.session() as s:
+        if evidence_ref:
+            # Idempotent by evidence. The nightly miner reads the same unresolved incident
+            # every night until somebody resolves it, and a lesson republished nightly is
+            # thirty lessons about one defect -- which reads as thirty times the learning.
+            existing = s.scalar(select(Lesson).where(
+                Lesson.evidence_ref == evidence_ref, Lesson.subject == subject,
+                Lesson.superseded_by.is_(None)).order_by(Lesson.id))
+            if existing is not None:
+                return existing.id
         row = Lesson(origin_cell=origin_cell, subject=subject, statement=statement,
                      evidence_ref=evidence_ref, confidence=confidence,
                      routed_to=audience, acted_on_by=[])
