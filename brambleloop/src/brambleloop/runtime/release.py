@@ -466,7 +466,29 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     queries = search_mod.build_query_set(category, motifs, season, techniques)
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
-    tags = search_mod.choose_tags(queries)
+    # #97: Listings read their lesson inbox. A search-language or construction lesson whose
+    # words match one of this product's candidate queries puts that query in a tag slot --
+    # the listing surfaces what the company learned buyers look for -- and the lesson is
+    # recorded as acted on.
+    from ..improve import consume
+
+    listing_text = " ".join([cir.title, category, " ".join(motifs)]
+                            + [q.phrase for q in queries])
+    seo_lessons = [l for l in consume.matching(ctx.db, "seo_search", listing_text)
+                   if l["direction"] >= 0]
+    must = []
+    for lesson in seo_lessons:
+        for q in queries:
+            if (len(q.phrase) <= 20 and q.phrase not in must
+                    and set(lesson["shared"]) & set(q.phrase.split())):
+                must.append(q.phrase)
+                break
+    must = must[:2]
+    tags = search_mod.choose_tags(queries, must_include=must) if must else \
+        search_mod.choose_tags(queries)
+    if must:
+        consume.act(ctx.db, "seo_search", seo_lessons,
+                    how=f"listing.seo for {slug} gave a tag slot to {must}")
     # #240: a slot spent on a phrase another listing of ours already spends one on is our
     # own listings ranked against each other. Re-chosen from the remaining queries, never
     # fewer slots, and the swap is recorded with the catalogue reading below.
@@ -1119,6 +1141,37 @@ def handle_support_triage(ctx: JobContext) -> dict:
                                             "needing_reply", "sent")}
     out["confusion"] = triaged["confusion"]
     out["case_window"] = triaged["case_window"]
+    # #155 / #158: Pattern Help consumes the teardown traps -- an open case about one is
+    # routed to the pattern_help specialist with the obligation on it.
+    from ..teardown import enforce as teardown_enforce
+
+    out["pattern_help"] = teardown_enforce.apply_pattern_help(ctx.db)
+    # #97: Support reads its lesson inbox. A lesson matching an open case's question is
+    # attached to the case (support tracks whether it reduces confusion) and acted on.
+    from sqlalchemy import select as _select
+
+    from ..core.models import SupportCase as _Case
+    from ..improve import consume
+
+    lessons_used = []
+    with ctx.db.session() as s:
+        cases = [(c.id, c.question or "", list((c.detail or {}).get("lessons") or []))
+                 for c in s.scalars(_select(_Case).where(_Case.resolved.is_(False)))]
+    for case_id, question, have in cases:
+        hits = [l for l in consume.matching(ctx.db, "customer_experience", question,
+                                            min_shared=1)
+                if l["id"] not in have]
+        if not hits:
+            continue
+        with ctx.db.session() as s:
+            case = s.get(_Case, case_id)
+            case.detail = {**(case.detail or {}),
+                           "lessons": have + [l["id"] for l in hits]}
+        consume.act(ctx.db, "customer_experience", hits,
+                    how=f"attached to support case {case_id} to track whether it reduces "
+                        f"confusion")
+        lessons_used.append({"case": case_id, "lessons": [l["id"] for l in hits]})
+    out["lessons_used"] = lessons_used
     ctx.audit("support.mined", detail={"cases": out["cases"],
                                        "hotspots": out["row_hotspots"][:5],
                                        "triaged": len(triaged["triaged"]),
@@ -3328,21 +3381,36 @@ def handle_role_work(ctx: JobContext) -> dict:
             read = len(assets)
             found = sum(1 for r in assets if not r.approved)
         else:  # experiment_designer
-            # Experiments live in the growth portfolio, which has no rows in shadow mode.
-            read = 0
-            found = 0
+            # The experiments it designed and the hypotheses it turns into tests: every
+            # improvement the sandbox runner has taken, and the open ones no registered trial
+            # can evaluate -- those are the ones waiting on its job.
+            from ..core.models import Experiment, Improvement
+            from ..improve import runner as _runner
 
-    activity = roles.Activity(role_key=role_key, proposals_made=0, proposals_kept=0,
-                              realised_uplift=0.0)
+            experiments = list(session.scalars(select(Experiment)))
+            open_rows = list(session.scalars(select(Improvement).where(
+                Improvement.state.in_(("proposed", "testing")))))
+            read = len(experiments) + len(open_rows)
+            found = sum(1 for r in open_rows
+                        if _runner.trial_for(dict(r.evidence or {})) is None
+                        and (r.evidence or {}).get("kind") not in _runner.MEASUREMENT_KINDS)
+
+    # #179: what the role did, from the rows -- proposals it authored, the ones kept, and the
+    # realised uplift `improve.roi` measured after promotion -- never a literal zero.
+    activity, activity_detail = roles.activity_from_db(ctx.db, role_key)
     card = roles.scorecard(activity)
     detail = {
         "role": role_key, "reads": roles.ROLE_READS[role_key],
         "rows_read": read, "found": found,
         "measured_by": role.measured_by,
         "scorecard": card,
-        "proposed": 0,
-        "why": (f"read {read} row(s) and found {found}. This pass reports; proposing runs "
-                f"through the upgrade pipeline and promotion through the tiers"),
+        "proposed": activity.proposals_made,
+        "kept": activity.proposals_kept,
+        "realised_uplift": activity.realised_uplift,
+        "activity": activity_detail,
+        "why": (f"read {read} row(s) and found {found}; {activity.proposals_made} "
+                f"proposal(s) in the window, {activity.proposals_kept} kept, realised "
+                f"uplift {activity.realised_uplift:+.4f}. Scored on uplift alone"),
     }
     ctx.audit("improve.role_work", detail=detail)
     return detail
@@ -3516,18 +3584,24 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
 
     # Each domain reports the rows it actually read. Several are zero in shadow mode, and a
     # zero here reads `not_audited` rather than clean, which is what keeps the weekly report
-    # from describing a healthy business nobody has looked at.
+    # from describing a healthy business nobody has looked at. Conversion, ads, support and
+    # cost are read from their own tables by `improve.evolution` (#194), never constants.
+    from ..improve import evolution
+
+    measured = evolution.domain_findings(ctx.db)
     for domain, read, found in (
             ("product_creativity", points + tournaments, len(stuck)),
             ("pattern_correctness", versions, uncertified),
             ("competitor_intelligence", len(sweep["departments"]),
              len(sweep["stale_learning"])),
-            ("conversion", 0, 0),
-            ("ads", 0, 0),
-            ("support", cases, 0),
+            ("conversion", measured["conversion"]["read"], measured["conversion"]["findings"]),
+            ("ads", measured["ads"]["read"], measured["ads"]["findings"]),
+            ("support", measured["support"]["read"], measured["support"]["findings"]),
             ("infrastructure", incidents + jobs, open_incidents + dead),
-            ("cost", ledger, 0)):
-        readings.append(weekly.DomainReading(domain=domain, read=read, findings=found))
+            ("cost", measured["cost"]["read"], measured["cost"]["findings"])):
+        note = (measured.get(domain) or {}).get("why", "")
+        readings.append(weekly.DomainReading(domain=domain, read=read, findings=found,
+                                             note=note[:300]))
 
     # #85: the catalogue's own jury autopsy, computed on every request and never kept, is
     # kept as a lesson -- once per distinct pattern of deaths, so a week with the same
@@ -3550,7 +3624,30 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
                     because=(f"{r['reason']}, into {r['into']}; preserve "
                              f"{len(r['preserve'])} lesson(s) first"))
                 for r in review["merge"]]
-    cycle = weekly.cycle(readings, changes)
+    # #194: the architecture review can add. A specialist is proposed where the rows show
+    # work nothing can own -- a domain with findings and no agent holding its job types, or
+    # unowned open work of one kind (#176) -- and the additions reach the owner as one card.
+    added = evolution.additions(ctx.db, measured)
+    changes += added
+    cycle = weekly.cycle(
+        readings, changes,
+        nothing_to_subtract_because=("" if review["retire"] or review["merge"] else
+                                     "the retirement review found no idle or redundant cell "
+                                     "this week"))
+    add_card = evolution.route_owner_card(
+        ctx.db, evolution.ADD_CARD_KEY, [f"add {c.subject}: {c.because}" for c in added],
+        reason=("#194: adding a specialist agent is a permission change, reviewed like any "
+                "other; the weekly cycle found work no current agent can own"))
+    # #53: the STOP half of the review, from rows. Stale experiments are stopped here; the
+    # cadence, polish, query and infrastructure stops reach the owner as one card.
+    stops = evolution.stop_list(ctx.db)
+    stop_rows = stops["review"]["stop"]["stopped"]
+    stop_card = evolution.route_owner_card(
+        ctx.db, evolution.STOP_CARD_KEY,
+        [f"stop {r['category']} {r['subject']}: {r['reason']}" for r in stop_rows
+         if r["category"] != "experiment"],
+        reason=("#53: every weekly review produces a STOP list; removing a cadence, a "
+                "monitored query or a polishing loop changes how the company runs"))
     # ...and the recommendations reach the owner as one batched card rather than a report
     # (#192). Nothing is disabled: an agent disabled here would dead-letter its cadences.
     retirement_routing = director.route_retirements(ctx.db, review)
@@ -3571,6 +3668,14 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
               "executed": executed["executed"],
               "queued_for_authority": executed["queued_for_authority"],
               "catalogue_autopsy_lesson": catalogue_memory.get("lesson"),
+              "domains_measured": {k: {kk: v[kk] for kk in ("read", "findings", "reading",
+                                                             "why")}
+                                   for k, v in measured.items()},
+              "added": [c.subject for c in added], "add_card": add_card,
+              "stop_list": {"stopped": stop_rows, "executed": stops["executed"],
+                            "nothing_to_stop_because": stops["review"]["stop"].get(
+                                "nothing_to_stop_because"),
+                            "card": stop_card},
               "conflicts": director.conflicts(ctx.db),
               "roadmap": plan,
               "realised_benefit": {k: realised[k] for k in

@@ -373,3 +373,43 @@ def sweep(db) -> dict:
             "note": ("no purchased benchmark has been torn down, so there is nothing to "
                      "enforce yet; an absent standard is not a lenient one" if not reqs else
                      f"{len(reqs)} requirement(s) enforced across {len(slugs)} product(s)")}
+
+
+PATTERN_HELP = "pattern_help"
+
+
+def apply_pattern_help(db) -> dict:
+    """Attach every matching Pattern Help obligation to the open support cases it concerns.
+
+    #155 / #158: the beginner traps and materials observations are consumed where a customer
+    meets them. A case whose question is about a trap the benchmarks fell into is routed to
+    the `pattern_help` specialist with the obligation and its guidance on the case, so the
+    draft reply and the person reading it answer the trap rather than the words. Idempotent:
+    a case already carrying an obligation is not re-annotated.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import SupportCase
+
+    obligations = [o for o in pattern_help_obligations(db) if o["topic_words"]]
+    routed = []
+    if not obligations:
+        return {"obligations": 0, "routed": [], "reading": "UNMEASURED",
+                "why": "no beginner or materials trap has been recorded from a teardown"}
+    with db.session() as s:
+        for case in s.scalars(select(SupportCase).where(SupportCase.resolved.is_(False))):
+            question = (case.question or "").lower()
+            have = {o["key"] for o in (case.detail or {}).get(PATTERN_HELP) or []}
+            hits = [o for o in obligations if o["key"] not in have
+                    and any(w in question for w in o["topic_words"])]
+            if not hits:
+                continue
+            case.detail = {**(case.detail or {}), PATTERN_HELP: list(
+                (case.detail or {}).get(PATTERN_HELP) or []) + [
+                    {"key": o["key"], "element": o["element"], "guidance": o["guidance"],
+                     "binding": o["binding"], "confidence": o["confidence"]} for o in hits]}
+            if any(o["binding"] for o in hits) and case.specialist == "concierge":
+                case.specialist = PATTERN_HELP
+            routed.append({"case": case.id, "obligations": [o["key"] for o in hits],
+                           "specialist": case.specialist})
+    return {"obligations": len(obligations), "routed": routed, "reading": "measured"}

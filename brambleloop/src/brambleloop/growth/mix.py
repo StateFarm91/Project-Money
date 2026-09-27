@@ -380,16 +380,36 @@ def next_role(positions: list[Position], *, pending: list[str] | None = None) ->
     shortfall: dict[str, float] = {}
     for role, (low, _high) in HEALTHY_SHARE.items():
         shortfall[role] = low - report["counts"][role] / total
-    ranked = sorted(HEALTHY_SHARE, key=lambda r: (-shortfall[r], ROLES.index(r)))
+    # #231: high concentration triggers diversification. When one SKU carries the alarm share
+    # of revenue, the next product is not another of the winner's role in the winner's
+    # family: the winner's role drops to the back of the ranking and the brief names the
+    # family to build away from. Exploitation of the winner is preserved -- a BUNDLE or
+    # CROSS_SELL that attaches to it stays eligible, because that grows the winner without
+    # deepening the dependence on it.
+    conc = concentration(positions)
+    top = next((p for p in positions if conc.get("top_sku") == p.slug), None)
+    diversify = bool(conc.get("measurable") and conc.get("alarm") and top is not None)
+    avoid_role = top.role if diversify and top.role not in (BUNDLE, CROSS_SELL) else None
+    ranked = sorted(HEALTHY_SHARE, key=lambda r: (r == avoid_role, -shortfall[r],
+                                                  ROLES.index(r)))
     role = ranked[0]
     if shortfall[role] <= 0:
         # Every creatable role is at or above its floor: the portfolio has no hole, and the
         # next product is a learning vehicle rather than a fill.
         role = EXPERIMENT
+    brief = ROLE_BRIEF[role]["brief"]
+    if diversify:
+        brief = (f"{brief} Diversify: {conc['note']}; build outside the "
+                 f"{top.family or top.slug!r} family.")
     return {
         "role": role,
         "lanes": list(ROLE_BRIEF[role]["lanes"]),
-        "brief": ROLE_BRIEF[role]["brief"],
+        "brief": brief,
+        "concentration": {k: conc.get(k) for k in ("measurable", "top_1_share",
+                                                   "top_5_share", "top_sku", "alarm")},
+        "diversifying": diversify,
+        "avoid_family": (top.family or top.slug) if diversify else None,
+        "deprioritised_role": avoid_role,
         "shortfall": round(max(0.0, shortfall.get(role, 0.0)), 3),
         "catalogue_skus": len(positions),
         "pending": pending,

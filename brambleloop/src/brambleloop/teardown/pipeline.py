@@ -121,6 +121,11 @@ def promote(db, finding_id: int, *, touches: tuple[str, ...], rollback_ref: str,
         row = s.get(TeardownFinding, finding_id)
         if row is None:
             raise PipelineRefused(f"no teardown finding {finding_id}")
+        if row.benchmark_ref.startswith("brambleloop:"):
+            raise PipelineRefused(
+                f"finding {finding_id} is an audit of Brambleloop's own product. It is the "
+                f"measurement the teardown hypotheses are judged by (the self_audit trial), "
+                f"not a hypothesis about a competitor's mechanism")
         if row.promoted:
             raise PipelineRefused(
                 f"finding {finding_id} was already promoted as improvement "
