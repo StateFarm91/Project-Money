@@ -479,6 +479,54 @@ def _buildable_share(db, pod: str, benchmark_key: str) -> float | None:
     return round(buildable / total, 4)
 
 
+DENSITY_LABEL = "api_index_count"
+
+
+def listing_density(db) -> dict:
+    """Listing density per micro-market keyword, from the API index's result count (#2).
+
+    Read from `SerpSnapshot.total_count`, the `count` Etsy's `findAllListingsActive` returns
+    for the keyword. It is labelled `api_index_count` everywhere it surfaces: it is how many
+    active listings the API's search index matches, not a claim about the rendered search
+    page. A keyword nobody has searched is absent -- unmeasured, not zero competition.
+    """
+    from ..intel import serp
+
+    by_query = serp.density(db)
+    pod_of = {t["query"]: t for t in serp.target_queries()}
+    keywords, pods_counts = {}, {}
+    for query, reading in sorted(by_query.items()):
+        target = pod_of.get(query) or {}
+        keywords[query] = {**reading, "label": DENSITY_LABEL, "pod": target.get("pod"),
+                           "keyword": target.get("keyword")}
+        if target.get("pod"):
+            pods_counts.setdefault(target["pod"], []).append(reading["count"])
+    by_pod = {pod: {"median_count": _median([float(c) for c in counts]),
+                    "keywords": len(counts), "label": DENSITY_LABEL}
+              for pod, counts in pods_counts.items()}
+    return {
+        "measurable": bool(keywords),
+        "label": DENSITY_LABEL,
+        "keywords": keywords,
+        "by_pod": by_pod,
+        "reason": ("" if keywords else
+                   "no marketplace search has been captured, so listing density is "
+                   "unmeasured -- which is not the same as an empty market"),
+    }
+
+
+def _density_values(density: dict) -> dict[str, float]:
+    """Oriented so fewer competing listings is a higher number, relative to the densest pod."""
+    by_pod = density.get("by_pod") or {}
+    ceiling = max((v["median_count"] for v in by_pod.values()), default=0.0)
+    out: dict[str, float] = {}
+    for pod, reading in by_pod.items():
+        relative = _relative(reading["median_count"], ceiling)
+        if relative is not None:
+            out[pod] = round(1.0 - relative, 4)
+    return out
+
+
 def score_observed(db, *, benchmark_key: str = "") -> dict:
     """Score every observed department on the dimensions observation supports.
 
@@ -486,9 +534,11 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
     dimensions are filled -- demand, the opening in the incumbents' offers, what the market
     charges, and whether the construction can be machine-checked -- which is 52% of the
     weight, above the floor and comparable across departments because every department is
-    scored from the same source. The other five are named: listing density needs more than
-    one catalogue, season timing belongs to a chosen occasion, differentiation is a claim
-    about us rather than them, and the last two need orders.
+    scored from the same source. Listing density joins them for a department whose
+    keywords the SERP laboratory has searched (`api_index_count`, never the rendered page).
+    The rest are named: listing density elsewhere needs a captured search, season timing
+    belongs to a chosen occasion, differentiation is a claim about us rather than them, and
+    the last two need orders.
     """
     from sqlalchemy import select
 
@@ -532,6 +582,11 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
             "buildable_share": _buildable_share(db, pod, benchmark_key),
         }
 
+    # Listing density from the API index's result counts, where a pod's keywords have been
+    # searched. A pod whose keywords nobody searched keeps the dimension unmeasured.
+    density = listing_density(db)
+    density_values = _density_values(density)
+
     favourite_ceiling = max((v["median_favourites"] or 0.0) for v in raw.values())
     price_ceiling = max((v["median_price_cad"] or 0.0) for v in raw.values())
 
@@ -551,6 +606,10 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
             values["offer_quality"] = measured["opportunity"]
         if measured["buildable_share"] is not None:
             values["verifiability"] = measured["buildable_share"]
+        if pod in density_values:
+            values["listing_density"] = density_values[pod]
+            measured = {**measured, "listing_density": {
+                **density["by_pod"][pod], "value": density_values[pod]}}
         card = score_market(pod, values=values)
         card["observed"] = measured
         scored.append(card)
@@ -571,6 +630,7 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
         "ranking": ranking,
         "ranking_refused": refused,
         "departments_too_thin_to_score": too_thin,
+        "listing_density": density,
         "relative_to": {
             "median_favourites": favourite_ceiling,
             "median_price_cad": price_ceiling,
@@ -582,8 +642,10 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
         },
         "note": ("Scored from one benchmark catalogue. That is first-party evidence about "
                  "where a proven seller concentrates and what it charges, and it is not the "
-                 "whole market -- which is why listing density stays unmeasured rather than "
-                 "being taken from a single shop's shelf space"),
+                 "whole market -- which is why listing density is never taken from a single "
+                 "shop's shelf space: it comes from the API index's result count per "
+                 "keyword (`api_index_count`) where a search has been captured, and stays "
+                 "unmeasured where none has"),
     }
 
 
@@ -597,6 +659,7 @@ def state(db, *, pod: str = "") -> dict:
     hunt = weakness_hunt(db, pod=pod)
     return {
         "pod": pod,
+        "listing_density": listing_density(db),
         "dimensions": [{"dimension": d.key, "what": d.what, "weight": d.weight,
                         "needs": d.needs} for d in DIMENSIONS],
         "weakness_hunt": hunt,

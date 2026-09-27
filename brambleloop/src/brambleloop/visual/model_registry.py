@@ -250,7 +250,7 @@ def replace_canonical(db, *, new_key: str, redesign_approval: dict,
         old_row.state = identity.RETIRED
         old_row.retired_at = now
         old_row.note = ((old_row.note + "\n") if old_row.note else "") + (
-            f"retired by {approval.get('approved_by', 'owner')} on {approval['at']} "
+            f"retired by {approval['approved_by']} on {approval['at']} "
             f"({approval['scope']}): {approval['decision']}. Succeeded by {new_key!r}")
 
         if new_row is None:
@@ -267,7 +267,7 @@ def replace_canonical(db, *, new_key: str, redesign_approval: dict,
         retired_key, retired_version = old_row.key, old_row.version
 
     Registry(db).audit(
-        approval.get("approved_by", "owner"), REPLACED_ACTION, detail={
+        approval["approved_by"], REPLACED_ACTION, detail={
             "retired": {"key": retired_key, "version": retired_version,
                         "retired_at": now, "state": identity.RETIRED},
             "canonical": {"key": new_key, "version": pack.version,
@@ -677,15 +677,15 @@ def gate_frames(db, frames: list[dict], *, observer=None) -> dict:
         # Provenance, for a frame that says what it was conditioned on. The drift check
         # asks whether she looks like the pack; this asks whether the reference she was
         # made from *was* the pack, by hash, and a frame that names its conditioning
-        # without hashing it is unverifiable rather than fine. A frame with no
-        # `conditioned_on` record at all has made no claim to check, and is judged on
-        # drift alone as before.
-        if "conditioned_on" in frame:
-            provenance = identity.provenance_check(frame, pack)
-            result["provenance"] = provenance["verdict"]
-            if provenance["blocks_release"]:
-                blocking.append(f"{frame.get('role', '?')}: provenance "
-                                f"{provenance['verdict']} -- {provenance['why']}")
+        # without hashing it is unverifiable rather than fine. Certification C-23: a
+        # model-bearing frame with no `conditioned_on` record at all carries no hashes,
+        # and no hashes is unverifiable -- it blocks release, it is never judged on drift
+        # alone. (Product-only frames never reach here; they stay not_applicable above.)
+        provenance = identity.provenance_check(frame, pack)
+        result["provenance"] = provenance["verdict"]
+        if provenance.get("blocks_release", True):
+            blocking.append(f"{frame.get('role', '?')}: provenance "
+                            f"{provenance['verdict']} -- {provenance['why']}")
         results.append(result)
 
     return {"checked": len(modelled), "results": results, "blocking": blocking,

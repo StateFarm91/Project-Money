@@ -189,7 +189,10 @@ def canonical(packs: list[ReferencePack] | None = None) -> ReferencePack | None:
 # stale approval cannot be replayed against a later identity, and `scope` says which of the
 # two things the owner is deciding -- repairing the photograph of the woman they chose, or
 # choosing a different woman. Those are different decisions and the record says which.
-REDESIGN_APPROVAL_KEYS: tuple[str, ...] = ("at", "decision", "supersedes_version", "scope")
+# `approved_by` is required and audited exactly as given (certification C-26): an unsigned
+# record must not be attributed to the owner by a default.
+REDESIGN_APPROVAL_KEYS: tuple[str, ...] = ("at", "decision", "supersedes_version", "scope",
+                                           "approved_by")
 REDESIGN_SCOPES: frozenset[str] = frozenset({"portrait_repair", "redesign"})
 
 
@@ -217,19 +220,39 @@ def validate_redesign_approval(record: dict | None, *, existing: ReferencePack) 
             f"the replacement approval's scope is {scope!r}; it must be one of "
             f"{sorted(REDESIGN_SCOPES)}, because repairing her photograph and choosing a "
             f"different woman are different decisions and the record has to say which")
-    try:
-        supersedes = int(record["supersedes_version"])
-    except (TypeError, ValueError):
+    raw_version = record["supersedes_version"]
+    # A true integer only (certification C-25). `int(1.9)` is 1 and `int(True)` is 1: a
+    # validator that truncates has corrected the record rather than checked it. A decimal
+    # string such as "1" is accepted because it names exactly one integer.
+    if isinstance(raw_version, bool):
+        supersedes = None
+    elif isinstance(raw_version, int):
+        supersedes = raw_version
+    elif isinstance(raw_version, str) and raw_version.strip().isdigit():
+        supersedes = int(raw_version.strip())
+    else:
+        supersedes = None
+    if supersedes is None:
         raise IdentityRefused(
-            f"the replacement approval's supersedes_version "
-            f"{record['supersedes_version']!r} is not a version number") from None
+            f"the replacement approval's supersedes_version {raw_version!r} is not an "
+            f"integer version number. It is refused rather than truncated")
+    at = str(record["at"]).strip()
+    try:
+        datetime.fromisoformat(at.replace("Z", "+00:00"))
+    except ValueError:
+        raise IdentityRefused(
+            f"the replacement approval's `at` {record['at']!r} is not an ISO 8601 date. When "
+            f"the owner decided is part of the record, and an unparseable date is no "
+            f"date") from None
+    approved_by = str(record["approved_by"]).strip()
     if supersedes != existing.version:
         raise IdentityRefused(
             f"the replacement approval retires version {supersedes} and the canonical "
             f"identity is version {existing.version}. An approval that does not name the "
             f"version it replaces cannot be replayed against a later one, so it is refused "
             f"rather than applied to whatever is current")
-    return {**record, "scope": scope, "supersedes_version": supersedes}
+    return {**record, "scope": scope, "supersedes_version": supersedes, "at": at,
+            "approved_by": approved_by}
 
 
 def select(candidate: Candidate, *, owner_approved: bool,
@@ -300,11 +323,13 @@ def provenance_check(frame_record: dict | None, pack: ReferencePack | None) -> d
     """
     if pack is None:
         return {"verdict": PROVENANCE_UNVERIFIABLE, "compared": {}, "missing": [],
+                "blocks_release": True,
                 "why": "no canonical pack is frozen, so there is nothing to have been "
                        "conditioned on"}
     expected = dict((pack.fields or {}).get("reference_hashes") or {})
     if not any(_is_sha256(v) for v in expected.values()):
         return {"verdict": PROVENANCE_UNVERIFIABLE, "compared": {}, "missing": [],
+                "blocks_release": True,
                 "why": ("the frozen pack records no reference hashes, so no frame's "
                         "provenance can be checked against it. Unrecorded is not verified")}
 

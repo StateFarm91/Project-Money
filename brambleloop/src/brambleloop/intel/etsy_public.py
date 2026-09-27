@@ -54,7 +54,20 @@ ALLOWED: dict[str, str] = {
     "listing_images": "/v3/application/listings/{listing_id}/images",
     "listing_videos": "/v3/application/listings/{listing_id}/videos",
     "ping": "/v3/application/openapi-ping",
+    # findAllListingsActive, added 2026-09-27 (#2 listing density, #15 SERP laboratory, #98
+    # search behaviour). A read-only public search of the marketplace's active listings,
+    # marked `api_key`-only in Etsy's published OpenAPI exactly as the nine above are, and
+    # already recorded as such in `intel.etsy_surfaces` (search_visibility). It widens what
+    # is read, not what is authorised: same credential, no OAuth scope, no Authorization
+    # header, nothing written. Its ranking is the API index's `sort_on=score` order and its
+    # `count` is the API index's result count -- neither is a claim about the rendered
+    # etsy.com search page, and every consumer labels them so.
+    "search_listings": "/v3/application/listings/active",
 }
+
+# The orderings `findAllListingsActive` accepts that the mission uses. `score` is the
+# API's relevance order; `created` and `price` are the plain sorts.
+SEARCH_SORTS: tuple[str, ...] = ("score", "created", "price")
 
 KEYSTRING_VAR = "ETSY_API_KEY"
 SECRET_VAR = "ETSY_SHARED_SECRET"
@@ -273,6 +286,28 @@ class PublicReader:
         return (self.get("shop_sections",
                          path={"shop_id": shop_id}).get("results") or [])
 
+    def search(self, keywords: str = "", *, taxonomy_id: int | None = None,
+               sort_on: str = "score", limit: int = PAGE_MAX, offset: int = 0) -> dict:
+        """One page of the public marketplace search (`findAllListingsActive`).
+
+        Returns Etsy's body unchanged: `count` is the API index's total result count for
+        the query and `results` is this page in `sort_on` order. Both describe the API's
+        search index, not the rendered etsy.com search page -- a caller that reports either
+        says `api_index`, never "Etsy search shows".
+        """
+        if sort_on not in SEARCH_SORTS:
+            raise EndpointRefused(
+                f"sort_on={sort_on!r} is not one of {SEARCH_SORTS}; an ordering nobody "
+                f"declared is a ranking nobody can compare against the last one")
+        if not str(keywords or "").strip() and taxonomy_id is None:
+            raise EndpointRefused(
+                "a marketplace search needs keywords or a taxonomy_id; an unscoped search "
+                "is the whole marketplace and answers no question the mission asks")
+        query = {"keywords": str(keywords).strip() or None, "taxonomy_id": taxonomy_id,
+                 "sort_on": sort_on, "sort_order": "desc" if sort_on == "score" else None,
+                 "limit": max(1, min(int(limit), PAGE_MAX)), "offset": max(0, int(offset))}
+        return self.get("search_listings", query=query)
+
 
 # ---------------------------------------------------------------------------
 # What the sanctioned route can and cannot do (#224)
@@ -322,6 +357,12 @@ MANDATE_COVERAGE: dict[str, dict] = {
                "type, composition, styling or thumbnail legibility",
         "alternative": "fetch the public image URL and analyse it with the approved model "
                        "provider — no browser, no scraping, inside the authorised ceiling",
+    },
+    "marketplace_search_index": {
+        "requirement": 15, "available": True,
+        "how": "findAllListingsActive with keywords, taxonomy_id and sort_on=score gives the "
+               "API index's ranked results and its result count -- a directional proxy for "
+               "search placement and listing density, never the rendered search page",
     },
     "rendered_page_presentation": {
         "requirement": 208, "available": False,

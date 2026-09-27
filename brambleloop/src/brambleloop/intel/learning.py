@@ -252,7 +252,12 @@ FEEDABLE: tuple[str, ...] = (
 NOT_FEEDABLE: dict[str, str] = {
     "techniques": ("a title naming a stitch says a product exists, not that the technique "
                    "is new or reviving. That needs a source about the craft"),
-    "search_behaviour": "nothing has observed this platform's ranking",
+    # Corrected 2026-09-27. Not answerable from a catalogue, still: a shop's shelf says
+    # nothing about ranking. It is fed by `ingest_search_behaviour` from the SERP
+    # laboratory's snapshots over time, labelled as a proxy of the API index.
+    "search_behaviour": ("a catalogue says nothing about ranking; this domain is fed by "
+                         "ingest_search_behaviour from SERP snapshots of the API search "
+                         "index, a proxy, once two snapshots of a query exist"),
     "marketplace_policy": ("ops.policy_watch owns this domain; a second writer would let "
                            "two freshness clocks disagree about one policy"),
     # Corrected 2026-09-20. This said no review had been read, which was true when it was
@@ -388,3 +393,61 @@ def ingest_complaints(db, *, themes: dict, today: date | None = None,
                    "low_rated_share": themes.get("low_rated_share")})
     return {"recorded": ["customer_pain"], "citation": citation,
             "themes": sorted(recurring)}
+
+
+SERP_SOURCE = "serp_laboratory"
+
+
+def ingest_search_behaviour(db, *, today: date | None = None, top: int = 24) -> dict:
+    """Record how the API search index moved, as a `search_behaviour` proxy observation.
+
+    Read from `SerpSnapshot` changes over time: listings entering and leaving the top of the
+    API index's `sort_on=score` order and how far the rest moved. Every row says what it is
+    -- a proxy of the API index, not the rendered etsy.com ranking -- with its source, the
+    capture dates it compares, and the domain's freshness window. Idempotent per day. A query
+    captured once has not moved yet, and is reported as not comparable rather than stable.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import LearningObservation
+    from . import serp
+
+    today = today or date.today()
+    queries = serp.queries_captured(db)
+    compared = [c for c in (serp.changes(db, q, top=top) for q in queries)
+                if c["comparable"]]
+    if not compared:
+        return {"recorded": [], "queries": len(queries),
+                "reason": ("no query has two SERP snapshots, so nothing about how the "
+                           "search index moves has been observed; the domain stays "
+                           "unobserved rather than recording 'stable'")}
+
+    citation = f"{SERP_SOURCE}@{today.isoformat()}"
+    with db.session() as s:
+        seen = {(r.domain, r.citation) for r in s.scalars(select(LearningObservation))}
+    if ("search_behaviour", citation) in seen:
+        return {"recorded": [], "reason": "already recorded for this reading",
+                "citation": citation}
+
+    entrants = sum(len(c["entrants"]) for c in compared)
+    mean_move = round(sum(c["mean_abs_movement"] for c in compared) / len(compared), 2)
+    window = DOMAIN_BY_KEY["search_behaviour"].fresh_for_days
+    oldest = min(c["from"] for c in compared)
+    newest = max(c["to"] for c in compared)
+    record(db, domain="search_behaviour", source=SERP_SOURCE, citation=citation,
+           summary=(f"proxy, API search index: across {len(compared)} queries {entrants} "
+                    f"listing(s) entered the top {top} and the rest moved "
+                    f"{mean_move} places on average between snapshots"),
+           observed_on=today,
+           detail={"proxy": True, "basis": serp.BASIS,
+                   "what_this_is": ("the API index's sort_on=score order, not the rendered "
+                                    "etsy.com search page; rank is directional"),
+                   "source": SERP_SOURCE, "compared_from": oldest, "compared_to": newest,
+                   "fresh_for_days": window,
+                   "per_query": [{k: c[k] for k in ("query", "entrants", "exits", "from",
+                                                     "to", "mean_abs_movement",
+                                                     "count_from", "count_to")}
+                                 for c in compared]})
+    return {"recorded": ["search_behaviour"], "citation": citation,
+            "queries_compared": len(compared), "entrants": entrants,
+            "mean_abs_movement": mean_move, "proxy": True, "fresh_for_days": window}

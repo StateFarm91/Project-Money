@@ -559,6 +559,23 @@ def _materialise(db, frame: dict) -> str:
     return str(path) if path.is_file() else ""
 
 
+def forbidden_reference_hashes() -> frozenset[str] | None:
+    """Every sha256 the asset manifest says must never be a reference, or None.
+
+    Certification C-24: the manifest's `superseded_body` frames are the pre-revision pack the
+    owner replaced and `owner_concept` is a concept image, not an approved reference. Neither
+    may be handed back as a reference, whoever names them. None means the manifest could not
+    be read, so nothing can be told apart and callers must fail closed.
+    """
+    from . import brief, identity
+
+    try:
+        return frozenset(str(e["sha256"]).lower() for e in brief.asset_manifest()
+                         if e.get("role") in (brief.SUPERSEDED_BODY, brief.OWNER_CONCEPT))
+    except identity.IdentityRefused:
+        return None
+
+
 def expected_reference_hashes(package: dict | None, pack=None) -> dict:
     """The sha256 each reference frame must hash to, keyed by frame name.
 
@@ -572,10 +589,12 @@ def expected_reference_hashes(package: dict | None, pack=None) -> dict:
     """
     from . import brief, identity
 
+    forbidden = forbidden_reference_hashes()
     recorded = dict(((pack.fields if pack is not None else {}) or {})
                     .get("reference_hashes") or {})
     if any(identity._is_sha256(v) for v in recorded.values()):
-        return {k: str(v).lower() for k, v in recorded.items() if identity._is_sha256(v)}
+        return {k: str(v).lower() for k, v in recorded.items()
+                if identity._is_sha256(v) and str(v).lower() not in (forbidden or ())}
 
     out: dict[str, str] = {}
     try:
@@ -585,7 +604,11 @@ def expected_reference_hashes(package: dict | None, pack=None) -> dict:
     for frame in (package or {}).get("reference_frames") or []:
         name = frame.get("frame")
         sha = str(((frame.get("image") or {}).get("sha256")) or "").lower()
-        if name in (BODY_FRAME, FULL_LENGTH_FRAME) and identity._is_sha256(sha):
+        # A package names its own frames, so its hashes are trusted only when the manifest
+        # can be read and does not mark them superseded or concept (C-24). An unreadable
+        # manifest trusts no package-supplied hash at all.
+        if (name in (BODY_FRAME, FULL_LENGTH_FRAME) and identity._is_sha256(sha)
+                and forbidden is not None and sha not in forbidden):
             out[name] = sha
     return out
 
@@ -596,7 +619,15 @@ def _verified(path: str, want: str) -> str:
 
     if not path or not want:
         return ""
-    return path if brief.sha256_of(path) == str(want).lower() else ""
+    got = brief.sha256_of(path)
+    if got != str(want).lower():
+        return ""
+    # Backstop for C-24: bytes the manifest marks superseded or concept are never a
+    # reference, and an unreadable manifest cannot vouch for anything.
+    forbidden = forbidden_reference_hashes()
+    if forbidden is None or got in forbidden:
+        return ""
+    return path
 
 
 def reference_paths(db, *, package: dict | None = None) -> dict:

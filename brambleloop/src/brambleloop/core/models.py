@@ -307,6 +307,83 @@ class Incident(Base):
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class ListingOutcome(Base):
+    """One listing's measured performance over one period, with where the numbers came from.
+
+    The outcome table #82 and #89 read. Nothing writes it until a listing is live and a Stats
+    export (or the API) says what happened, and that is deliberate: a style or concept
+    verdict computed from an empty table is the one number this company must never print.
+    `hero_style` is tagged when the row is written, from the listing's own frame record, so
+    the style a period is credited to is the style that was actually shown during it.
+    """
+
+    __tablename__ = "listing_outcomes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    period_start: Mapped[str] = mapped_column(String(10), index=True)
+    period_end: Mapped[str] = mapped_column(String(10), index=True)
+    impressions: Mapped[int] = mapped_column(Integer, default=0)
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    favourites: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    first_frame_views: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    first_frame_engagements: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    orders: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hero_style: Mapped[str] = mapped_column(String(120), default="", index=True)
+    styles: Mapped[list] = mapped_column(JSON, default=list)
+    test_key: Mapped[str] = mapped_column(String(80), default="", index=True)
+    source: Mapped[str] = mapped_column(String(200))
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("product_slug", "period_start", "period_end",
+                                       name="uq_listing_outcome_period"),)
+
+
+class BrandKnowledge(Base):
+    """A creative pattern promoted to brand knowledge on measured evidence (#82).
+
+    Knowledge, never law: a row here may state a preference among honest choices and may not
+    change what a product is, what policy allows, or who the brand is. The promotion function
+    refuses those before a row can exist, so this table only ever holds preferences.
+    """
+
+    __tablename__ = "brand_knowledge"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    key: Mapped[str] = mapped_column(String(160), index=True)
+    statement: Mapped[str] = mapped_column(Text)
+    rule: Mapped[dict] = mapped_column(JSON, default=dict)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    __table_args__ = (UniqueConstraint("kind", "key", name="uq_brand_knowledge_key"),)
+
+
+class SeasonHarvest(Base):
+    """What one occurrence of one seasonal event taught, written after it passed (#298).
+
+    One row per (event, occurrence). A refused harvest is stored too, with its reason, so
+    "nothing was learned from Halloween" is distinguishable from "nobody looked".
+    """
+
+    __tablename__ = "season_harvests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    event: Mapped[str] = mapped_column(String(80), index=True)
+    occurrence: Mapped[str] = mapped_column(String(10), index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+    timing: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("event", "occurrence", name="uq_season_harvest"),)
+
+
 class OrderVersion(Base):
     """Which released version one order bought, written at sale time (#42).
 
@@ -1552,3 +1629,49 @@ class CohortMembership(Base):
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (UniqueConstraint("customer_id", "axis", name="uq_cohort_axis"),)
+
+
+class SerpSnapshot(Base):
+    """One ranked read of the API's marketplace search for one query (#15, #2, #98).
+
+    `basis` is always `api_index_score_sort`: the ranking is Etsy's `findAllListingsActive`
+    ordered by `sort_on=score`, and `total_count` is that index's result count. Neither is
+    the rendered etsy.com search page, and rank is treated as directional evidence only.
+    """
+
+    __tablename__ = "serp_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    query: Mapped[str] = mapped_column(String(200), index=True)
+    taxonomy_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                  index=True)
+    # [{rank, listing_id, price, currency, has_sale, image_count, favourites}, ...]
+    rank_list: Mapped[list] = mapped_column(JSON, default=list)
+    total_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    basis: Mapped[str] = mapped_column(String(40), default="api_index_score_sort")
+    # Thumbnail observations for the top-N, when a vision run was budgeted and allowed.
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class InsightsSnapshot(Base):
+    """One Marketplace Insights reading, recorded by the owner from Shop Manager (#236, #37).
+
+    Marketplace Insights has no API; these rows are what a person read on the rendered
+    Shop Manager page and typed in. `basis` says so on every row, and nothing merges them
+    into anything that reads as measured by this company.
+    """
+
+    __tablename__ = "insights_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    keyword: Mapped[str] = mapped_column(String(200), index=True)
+    search_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    listing_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    related_terms: Mapped[list] = mapped_column(JSON, default=list)
+    trend_direction: Mapped[str] = mapped_column(String(20), default="")
+    geography: Mapped[str] = mapped_column(String(40), default="")
+    observed_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    recorded_by: Mapped[str] = mapped_column(String(80), default="")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    basis: Mapped[str] = mapped_column(String(40), default="owner_recorded_shop_manager")
