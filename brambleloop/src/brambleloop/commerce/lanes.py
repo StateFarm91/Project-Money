@@ -553,20 +553,18 @@ def state() -> dict:
     }
 
 
-def _sizes_of(cir_json: dict) -> int:
-    """Finished sizes a certified release carries, read from its stored CIR.
+def _sizes_of(cir_json: dict, catalogue: dict[str, dict] | None = None) -> int:
+    """Finished sizes a certified release is one of, read from the stored CIRs (C-80).
 
-    A graded release records its sizes (`sizes` / `graded_sizes`, a list, or `grading` with a
-    `sizes` list); an ungraded one is one size, which is what it is -- not a default that
-    happens to be one."""
-    for key in ("sizes", "graded_sizes"):
-        v = cir_json.get(key)
-        if isinstance(v, (list, tuple)) and v:
-            return len(v)
-    grading = cir_json.get("grading")
-    if isinstance(grading, dict) and isinstance(grading.get("sizes"), (list, tuple)):
-        return max(1, len(grading["sizes"]))
-    return 1
+    `cir.graded.size_run` counts the certified releases in the same design's size run -- the
+    graded siblings sharing its `provenance.concept_key`, or the size-variant titles of one
+    design -- so the number is measured from the catalogue, never a default. An unreadable
+    CIR is UNMEASURED there; here it is not routed (see `route_certified`), so it is never
+    reached with a made-up count."""
+    from ..cir.graded import size_run
+
+    run = size_run(cir_json, catalogue or {})
+    return int(run["sizes"]) if run["sizes"] is not None else 1
 
 
 def route_certified(db, *, today=None) -> dict:
@@ -581,6 +579,7 @@ def route_certified(db, *, today=None) -> dict:
     """
     from sqlalchemy import select
 
+    from ..cir.graded import size_run
     from ..cir.model import CIR
     from ..core.models import PatternVersion, Product
     from ..creative.blind_review import pod_for
@@ -642,7 +641,7 @@ def route_certified(db, *, today=None) -> dict:
             slug=slug, pod=pod_for(slug, title), make_lane=make_lane_for_hours(seed.maker_hours),
             risk_class=cir.risk_class, components=len(cir.components),
             colours=max(1, len(cir.colors)), new_techniques=new_by_slug.get(slug, 0),
-            sizes=_sizes_of(latest_json.get(slug) or {}),
+            sizes=_sizes_of(latest_json.get(slug) or {}, latest_json),
             pattern_count=max(1, family_members.get(seed.family or "", 0)),
             closed_form=cir.makes_a_closed_form,
             # Every product in this chain is certified for a listing: gate.certify always
@@ -665,6 +664,8 @@ def route_certified(db, *, today=None) -> dict:
         cards.append({**base, **card, "routed": card["lane"] is not None,
                       "profile": {"pod": profile.pod, "make_lane": profile.make_lane,
                                   "sizes": profile.sizes,
+                                  "sizes_basis": size_run(latest_json.get(slug) or {},
+                                                          latest_json)["basis"],
                                   "pattern_count": profile.pattern_count,
                                   "risk_class": profile.risk_class,
                                   "components": profile.components,

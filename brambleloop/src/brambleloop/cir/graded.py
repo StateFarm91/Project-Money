@@ -393,3 +393,57 @@ def parse_size_table(text: str) -> list[dict]:
             measures[key] = {"body_cm": float(body), "finished_cm": float(finished)}
         out.append({"size": m.group(1), "measurements": measures})
     return out
+
+
+# ---- size depth of a certified release (C-80, #5 and #169) --------------------------------
+
+GRADED_PRIMITIVE = "cir.graded"
+_SIZE_TITLE = re.compile(r"^(?P<root>.+?)\s*\((?:size\s+)?(?P<size>[^()]+)\)\s*$", re.I)
+
+
+def _design_of(cir_json: dict) -> tuple[str, str] | None:
+    """(kind, key) naming the design this stored CIR is one size of, or None if unreadable.
+
+    A graded build records its design in `provenance.concept_key` with `cir.graded` among the
+    primitives used. A stored CIR without provenance is one size of a design when its title
+    carries the size-variant suffix the builders write (`"... (size M)"`, `"... (Crib)"`);
+    otherwise the design is the release itself.
+    """
+    if not isinstance(cir_json, dict) or not cir_json.get("slug"):
+        return None
+    prov = cir_json.get("provenance")
+    if isinstance(prov, dict):
+        prims = {str(p) for p in (prov.get("primitives_used") or ())}
+        if GRADED_PRIMITIVE in prims and prov.get("concept_key"):
+            return ("graded", str(prov["concept_key"]))
+    m = _SIZE_TITLE.match(str(cir_json.get("title") or ""))
+    if m:
+        return ("titled_size", m.group("root").strip().lower())
+    return ("single", str(cir_json["slug"]))
+
+
+def size_run(cir_json: dict, catalogue: list[dict] | dict[str, dict] | None = None) -> dict:
+    """How many finished sizes a certified release is one of, read from what is stored.
+
+    Never a default. The count is the number of certified releases in the same design's
+    size run -- the CIRs sharing its graded `concept_key` (or, for a builder without
+    provenance, the same size-variant title root) -- and a design with no other certified
+    size in the catalogue is a run of one, which is a measurement of the catalogue, not a
+    constant. A CIR that cannot be read (no slug) is UNMEASURED and says so.
+    """
+    design = _design_of(cir_json)
+    if design is None:
+        return {"sizes": None, "status": "UNMEASURED", "basis": "unreadable",
+                "why": "the stored CIR carries no slug, so its size run cannot be read"}
+    rows = list(catalogue.values()) if isinstance(catalogue, dict) else list(catalogue or [])
+    run = {str(cir_json["slug"])}
+    if design[0] != "single":
+        for other in rows:
+            if _design_of(other) == design and other.get("slug"):
+                run.add(str(other["slug"]))
+    basis = {"graded": "graded run (provenance cir.graded, shared concept_key)",
+             "titled_size": "size-variant titles of one design",
+             "single": "a single release; no grading primitive recorded and no other "
+                       "certified size of this design"}[design[0]]
+    return {"sizes": len(run), "status": "MEASURED", "basis": basis, "design": design[1],
+            "run": sorted(run)}

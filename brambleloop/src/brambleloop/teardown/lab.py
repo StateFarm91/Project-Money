@@ -210,8 +210,16 @@ def measured_self_scores(db, slug: str) -> dict:
         problems = s.scalar(select(AuditLog).where(
             AuditLog.action == "assets.deliverable_problems",
             AuditLog.artifact == f"{slug}@{pv.version}").limit(1)) is not None
+        # C-80 (Codex P05): this release's artefacts only -- a key is `slug@version...`, so a
+        # superseded version's passed FAQ or blocked frame does not score this one.
         prov = [(r.artefact_class, r.validation_status) for r in s.scalars(
-            select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug))]
+            select(ArtefactProvenance).where(
+                ArtefactProvenance.product_slug == slug,
+                ArtefactProvenance.artefact_key.like(f"{slug}@{pv.version}%")))]
+        catalogue = [row for row in s.scalars(select(PatternVersion.cir_json).where(
+            PatternVersion.certified.is_(True))) if isinstance(row, dict)]
+        version = pv.version
+        cir_json = dict(pv.cir_json or {})
     stages = set(cert.get("stages_run") or [])
     out: dict[str, dict] = {}
 
@@ -244,9 +252,17 @@ def measured_self_scores(db, slug: str) -> dict:
             "the FAQ diverges from the PDF or listing")
         put("beginner_support", 4 if good else 2, "the FAQ states stitches, yardage and "
             "difficulty for this release")
-    sizes = len((pv.cir_json or {}).get("sizes") or [])
-    put("customization", 4 if sizes > 1 else 3,
-        f"{sizes} graded sizes" if sizes > 1 else "one size, as the listing states")
+    # C-80: the size run is read from what the CIRs carry (a graded run's shared concept key,
+    # or size-variant titles) and counted over the certified catalogue; unreadable stays
+    # unscored rather than neutral.
+    from ..cir.graded import size_run
+
+    run = size_run(cir_json, catalogue)
+    if run["sizes"] is not None:
+        put("customization", 4 if run["sizes"] > 1 else 3,
+            (f"{run['sizes']} certified sizes of one design ({run['basis']})"
+             if run["sizes"] > 1 else
+             f"one certified size ({run['basis']}), as the listing states"))
     put("confidence", 5 if cert.get("physical_test_passed") else
         (3 if cert.get("granted") else 1),
         "a physical sample passed" if cert.get("physical_test_passed") else
@@ -386,9 +402,19 @@ def _evidenced_beyond_certificate(db, slug: str) -> list[str]:
 
     from ..core.models import ArtefactProvenance
 
+    from ..core.models import PatternVersion, Product
+
     with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
+                      .order_by(PatternVersion.id.desc())) if product is not None else None
+        if pv is None:
+            return []
+        # C-80 (Codex P05): this version's artefacts, not every version the slug ever had.
         classes = {(r.artefact_class, r.validation_status) for r in s.scalars(
-            select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug))}
+            select(ArtefactProvenance).where(
+                ArtefactProvenance.product_slug == slug,
+                ArtefactProvenance.artefact_key.like(f"{slug}@{pv.version}%")))}
     out = []
     if any(c == "support_knowledge" and v in ("passed",) for c, v in classes):
         # a version-keyed FAQ built from this release, consistent with PDF and listing
