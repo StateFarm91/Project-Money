@@ -106,6 +106,26 @@ _APPROPRIATED: tuple[str, ...] = (
 )
 
 
+
+def _stitches_worked(cir: CIR) -> set[str]:
+    """Every stitch code any row of any piece of the design works, repeats included."""
+    from ..cir.model import Repeat
+
+    out: set[str] = set()
+
+    def walk(ops) -> None:
+        for op in ops or ():
+            inner = getattr(op, "ops", None)
+            if isinstance(op, Repeat) or inner is not None:
+                walk(inner)
+            elif getattr(op, "stitch", None):
+                out.add(op.stitch)
+
+    for comp in cir.components:
+        for row in comp.rows:
+            walk(row.ops)
+    return out
+
 def check_asset(
     asset: Asset, cir: CIR, twin: TwinModel, *, findings: list[Finding] | None = None
 ) -> list[Finding]:
@@ -148,7 +168,11 @@ def check_asset(
             break
 
     # --- depicted content must exist in the pattern ---
-    real_stitches = twin.stitch_types_used
+    # Every stitch worked anywhere in the design, not only in the piece the twin describes.
+    # A garment's twin is its first piece (the yoke); its sleeves decrease. Reading one
+    # piece refused a true hero of a multi-piece design as depicting a stitch "the pattern
+    # never works" (found 2026-09-27 when an autonomously designed raglan reached release).
+    real_stitches = set(twin.stitch_types_used) | _stitches_worked(cir)
     for st in asset.depicts_stitches:
         if st not in real_stitches:
             out.append(Finding(

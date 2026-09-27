@@ -97,15 +97,22 @@ def test_a_form_with_no_finished_size_is_refused_rather_than_guessed():
     """
     raised = None
     try:
-        P.author(_concept("fitted_garment", "top_down_yoke"))
+        P.author(_concept("toy", "amigurumi_shaping"))
     except P.PrototypeRefused as e:
         raised = e
     assert raised is not None
     assert "no finished size on file" in str(raised)
-    assert "size chart" in str(raised)
+    assert "shaped rounds" in str(raised)
+
+    # A garment was the example here until Build 2 graded it (cir/graded.py, sourced body
+    # tables) and gave concepts a route to the templates (creative/garment_design.py). It
+    # now leaves the backlog by being authored, not by being deleted from the list.
+    assert "fitted_garment" not in P.NO_GEOMETRY_YET
+    garment = P.author(_concept("fitted_garment", "top_down_yoke"))
+    assert garment.authored == "brambleloop" and len(garment.components) > 1
 
     # Named rather than absent: a missing key and an unsized form are different things.
-    assert "fitted_garment" in P.NO_GEOMETRY_YET
+    assert "toy" in P.NO_GEOMETRY_YET
     for form, why in P.NO_GEOMETRY_YET.items():
         assert form not in P.FORM_GEOMETRY, form
         assert why.strip(), form
@@ -131,10 +138,11 @@ def test_the_stage_cuts_what_cannot_be_built_and_carries_what_can():
         _concept("rectangle_throw", "flat_rows"),
         _concept("hat", "in_the_round"),
         _concept("fitted_garment", "top_down_yoke"),
+        _concept("toy", "amigurumi_shaping"),
     ])
     kept = {c.key for c in out["survivors"]}
-    assert kept == {"k-rectangle_throw", "k-hat"}, kept
-    assert out["killed"] == {"k-fitted_garment": "unverifiable"}
+    assert kept == {"k-rectangle_throw", "k-hat", "k-fitted_garment"}, (kept, out["detail"])
+    assert out["killed"] == {"k-toy": "unverifiable"}
     # Every survivor carries what the twin measured, so the listing's claims have a source.
     for key in kept:
         assert out["detail"][key]["measured_cm"], out["detail"][key]

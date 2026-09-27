@@ -101,9 +101,6 @@ FORM_GEOMETRY: dict[str, Geometry] = {
 # because an absent key and a form nobody has sized look identical to a caller and mean
 # completely different things -- one is a bug, the other is the engineering backlog.
 NO_GEOMETRY_YET: dict[str, str] = {
-    "fitted_garment": ("a graded garment is a size chart, not a finished size: the armhole "
-                       "division exists but the bust/length grading that decides where it "
-                       "goes does not"),
     "draped_garment": ("a shawl's finished size depends on its shaping, and the shaping is "
                        "the design rather than a dimension"),
     "toy": "a sculptural piece is a sequence of shaped rounds, not a rectangle with a size",
@@ -169,6 +166,20 @@ def author(concept: Concept, *, version: str = "0.1.0",
     forgives.
     """
     from .prospecting import ENGINE_ROUTE
+
+    if concept.form == "fitted_garment":
+        # A garment is a size chart, so it is authored as a graded design and checked at its
+        # middle sourced size here; every size is built by `garment_design.design_for(...)
+        # .build_all()` and each goes through the same chain (Build 2 closeout).
+        from . import garment_design
+
+        try:
+            design = garment_design.design_for(concept)
+            cir = design.build(garment_design.base_size(design))
+        except (garment_design.GarmentDesignRefused, ValueError) as exc:
+            raise PrototypeRefused(str(exc)) from exc
+        cir.version = version
+        return cir
 
     geometry = geometry_for(concept.form)
     gauge = gauge_for(yarn_weight)
@@ -260,6 +271,34 @@ def prototype(concepts: list) -> dict:
             continue
 
         twin = build_twin(cir, result)
+        if concept.form == "fitted_garment":
+            # A garment has a size table, not one finished size, so its size truth is the
+            # graded design's own: finished chest rises strictly with size and every other
+            # finished measure never falls, from sourced body data plus stated ease.
+            from . import garment_design
+
+            design = garment_design.design_for(concept)
+            try:
+                design.check_monotonic()
+            except ValueError as exc:
+                killed[concept.key] = "unverifiable"
+                detail[concept.key] = {"why": f"the graded sizes do not grow: {exc}"}
+                if hasattr(candidate, "killed_by"):
+                    candidate.killed_by = "unverifiable"
+                    candidate.detail = str(exc)[:400]
+                continue
+            detail[concept.key] = {
+                "construction": cir.construction,
+                "stitch_total": twin.stitch_total,
+                "graded_sizes": list(design.sourced_sizes()),
+                "checked_at_size": garment_design.base_size(design),
+                "measured_cm": [round(twin.width_cm, 1), round(twin.height_cm, 1)],
+                "declared_cm": "graded: finished measurements per size from the body table "
+                               "plus the design's stated ease",
+                "yarn_metres": dict(twin.yarn_metres_by_color),
+            }
+            survivors.append(candidate)
+            continue
         geometry = FORM_GEOMETRY[concept.form]
         # The width a maker measures: circumference for a closed form, flat width otherwise.
         measured_width = (twin.circumference_cm if geometry.closed and twin.circumference_cm

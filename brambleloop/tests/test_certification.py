@@ -123,8 +123,10 @@ def test_the_listing_claims_nothing_the_concept_does_not_say():
 
 
 def test_a_concept_that_cannot_be_authored_never_reaches_the_chain():
-    out = C.release(_priced(_db()), [_concept(form="fitted_garment",
-                                              construction="top_down_yoke", key="c")])
+    # `toy` still has no finished size on file. This test used `fitted_garment` until the
+    # garment designer (creative/garment_design.py) gave garments a graded route.
+    out = C.release(_priced(_db()), [_concept(form="toy",
+                                              construction="amigurumi_shaping", key="c")])
     assert out["killed"] == {"c": "unverifiable"}
     assert "no finished size on file" in out["detail"]["c"]["refused"]
     assert out["survivors"] == []
