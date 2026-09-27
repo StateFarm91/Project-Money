@@ -207,7 +207,7 @@ def ensure_incumbent(db) -> dict:
         why_changed=("incumbent job-priority policy recorded from swarm.orchestrate "
                      "DEFAULT_PRIORITY_POLICY: it runs because it was first, before any replay "
                      "had compared it with anything"),
-        tests_run=("tests/test_swarm.py", "tests/test_cert_improve_wave.py"),
+        tests_declared=("tests/test_swarm.py", "tests/test_cert_improve_wave.py"),
         affected_departments=("runtime",), incumbent=True)
     return {"config_id": out["id"], "version": out["version"],
             "params": dict(DEFAULT_PRIORITY_POLICY), "registered": True}
@@ -264,7 +264,7 @@ def register_challengers(db, incumbent: dict) -> list[dict]:
             db, kind=kind, key=key, payload=payload,
             why_changed=(f"challenger to v{incumbent['version']}: {why}, to test on the "
                          f"historical job replay whether it meets more deadlines"),
-            tests_run=("improve.replay",), affected_departments=("runtime",),
+            tests_declared=("improve.replay",), affected_departments=("runtime",),
             incumbent=False)
         with db.session() as s:
             s.add(AuditLog(actor=AUTHOR, action="improve.replay.challenger",

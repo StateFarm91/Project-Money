@@ -104,10 +104,17 @@ def digest_of(payload: str) -> str:
 
 
 def register(db, *, kind: str, key: str, payload: str, why_changed: str,
-             tests_run: tuple[str, ...] = (), cost_per_call_cad: float = 0.0,
+             tests_declared: tuple[str, ...] = (), cost_per_call_cad: float = 0.0,
              affected_departments: tuple[str, ...] = (),
-             incumbent: bool = False) -> dict:
-    """Record a configuration version with the reason it exists (#96)."""
+             incumbent: bool = False, tests_run: tuple = ()) -> dict:
+    """Record a configuration version with the reason it exists (#96).
+
+    `tests_declared` is the coverage the registering code names -- the test files that
+    exercise this configuration. It is a claim about what could be run, and it is stored as
+    that. `tests_run` is *never* populated here: a run is something that happened, recorded
+    by `record_test_run` with its run id and the digest it ran against, and registering a
+    version does not run anything (C-82). A caller passing test names as runs is refused.
+    """
     from sqlalchemy import select
 
     from ..core.models import ConfigVersion
@@ -123,6 +130,11 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
         raise LeagueRefused(
             f"{key}: name the departments this touches, or a regression here is discovered "
             f"by whichever one notices first")
+    if tests_run:
+        raise LeagueRefused(
+            f"{key}: `tests_run` is observed evidence and registration observes nothing. Name "
+            f"the coverage as `tests_declared`; a run is recorded by `record_test_run` when "
+            f"it has actually happened, with its run id and source digest (C-82)")
 
     digest = digest_of(payload)
     with db.session() as s:
@@ -139,8 +151,8 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
                 p.incumbent = False
         row = ConfigVersion(
             kind=kind, key=key, version=version, digest=digest,
-            why_changed=why_changed.strip(), tests_run=list(tests_run),
-            cost_per_call_cad=float(cost_per_call_cad),
+            why_changed=why_changed.strip(), tests_declared=[str(t) for t in tests_declared],
+            tests_run=[], cost_per_call_cad=float(cost_per_call_cad),
             affected_departments=list(affected_departments), incumbent=incumbent,
             # The payload itself, so a configuration the runtime reads (a scoring policy's
             # parameters) can be read back from the registry that versions it (#96).
@@ -149,6 +161,42 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
         s.flush()
         return {"id": row.id, "version": version, "unchanged": False,
                 "incumbent": incumbent}
+
+
+def record_test_run(db, config_id: int, *, test: str, run_id: str, source_sha256: str,
+                    passed: bool, recorded_by: str, detail: dict | None = None) -> dict:
+    """Attach an *observed* test run to the configuration version it ran against (C-82).
+
+    The record names the run (`run_id`: the runner's reference for that execution) and the
+    digest of what it ran against, which has to be this version's own digest -- a run of some
+    other payload proves nothing about this one. A failed run is recorded too, and says so.
+    Idempotent on (test, run_id). Nothing else writes `tests_run`.
+    """
+    from ..core.models import ConfigVersion
+
+    who = governance.normalise_actor(recorded_by)
+    if not (test or "").strip() or not (run_id or "").strip() or not who:
+        raise LeagueRefused("a test run names the test, the run and who recorded it")
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        if row is None:
+            raise LeagueRefused(f"no configuration version {config_id}")
+        if (source_sha256 or "").strip() != (row.digest or ""):
+            raise LeagueRefused(
+                f"run {run_id!r} ran against source {str(source_sha256)[:12]!r}, not version "
+                f"{config_id}'s digest {str(row.digest)[:12]!r}; a run of something else is "
+                f"not evidence about this version")
+        runs = list(row.tests_run or [])
+        if any(r.get("test") == test.strip() and r.get("run_id") == run_id.strip()
+               for r in runs if isinstance(r, dict)):
+            return {"config_id": config_id, "recorded": False, "run_id": run_id.strip(),
+                    "why": "this run is already on the row"}
+        record = {"test": test.strip(), "run_id": run_id.strip(),
+                  "source_sha256": row.digest, "passed": bool(passed), "by": who,
+                  "at": datetime.now(timezone.utc).isoformat(), **(detail or {})}
+        row.tests_run = runs + [record]
+        return {"config_id": config_id, "recorded": True, "run_id": run_id.strip(),
+                "passed": bool(passed), "runs": len(runs) + 1}
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +512,7 @@ def standings(db, *, kind: str = "", key: str = "") -> dict:
             query = query.where(ConfigVersion.key == key)
         rows = [{"id": r.id, "kind": r.kind, "key": r.key, "version": r.version,
                  "incumbent": r.incumbent, "why_changed": r.why_changed,
+                 "tests_declared": list(r.tests_declared or []),
                  "tests_run": list(r.tests_run or []),
                  "cost_per_call_cad": r.cost_per_call_cad,
                  "affected_departments": list(r.affected_departments or []),

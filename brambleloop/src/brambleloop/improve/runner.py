@@ -496,16 +496,22 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
             if regression is None:
                 regression = regression_test(directory=regression_dir)
             adversarial = adversarial_test(db, iid)
-            cells.record_test(db, iid, kind=tiers.REGRESSION_TEST,
-                              ref=(f"gates.regression.run@{now.isoformat()}:"
-                                   f"{regression['checked']} fixture(s)"),
+            regression_ref = (f"gates.regression.run@{now.isoformat()}:"
+                              f"{regression['checked']} fixture(s)")
+            adversarial_ref = f"{ACTION}.adversarial@{now.isoformat()}:improvement:{iid}"
+            cells.record_test(db, iid, kind=tiers.REGRESSION_TEST, ref=regression_ref,
                               passed=regression["passed"], recorded_by=RUNNER)
-            cells.record_test(db, iid, kind=tiers.ADVERSARIAL_TEST,
-                              ref=f"{ACTION}.adversarial@{now.isoformat()}:improvement:{iid}",
+            cells.record_test(db, iid, kind=tiers.ADVERSARIAL_TEST, ref=adversarial_ref,
                               passed=adversarial["passed"], recorded_by=RUNNER)
+            # C-82: these two runs actually happened, against a named configuration version
+            # when the proposal carries one. They are the only way `tests_run` is written.
+            observed = _record_config_test_runs(db, ev, runs=(
+                ("gates.regression.run", regression_ref, regression["passed"]),
+                (f"{ACTION}.adversarial", adversarial_ref, adversarial["passed"])))
             tested.append({"improvement": iid, "regression": regression["passed"],
                            "adversarial": adversarial["passed"],
-                           "why": [regression["why"], adversarial["why"]]})
+                           "why": [regression["why"], adversarial["why"]],
+                           "config_runs_recorded": observed})
             recorded = {tiers.REGRESSION_TEST: {"passed": regression["passed"]},
                         tiers.ADVERSARIAL_TEST: {"passed": adversarial["passed"]}}
 
@@ -550,6 +556,36 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
             "note": (f"{len(sandboxed)} sandboxed, {len(tested)} tested, {len(approved)} "
                      f"approved by {JUDGE}, {len(promoted)} promoted, {len(carded)} routed to "
                      f"the owner, {len(waiting)} waiting for a trial that can evaluate them")}
+
+
+def _record_config_test_runs(db, evidence: dict, *, runs: tuple) -> int:
+    """Attach the runner's observed test runs to the configuration version under test.
+
+    Only when the proposal names one (`change.config_id`), and only against that version's
+    own digest -- `league.record_test_run` refuses anything else. Declared coverage stays in
+    `tests_declared`; this is the observed half (C-82).
+    """
+    from ..core.models import ConfigVersion
+    from . import league
+
+    config_id = int(((evidence.get("change") or {}).get("config_id")) or 0)
+    if not config_id:
+        return 0
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        digest = row.digest if row is not None else ""
+    if not digest:
+        return 0
+    recorded = 0
+    for test, run_id, passed in runs:
+        try:
+            out = league.record_test_run(db, config_id, test=test, run_id=run_id,
+                                         source_sha256=digest, passed=passed,
+                                         recorded_by=RUNNER)
+        except league.LeagueRefused:
+            continue
+        recorded += 1 if out.get("recorded") else 0
+    return recorded
 
 
 def execute_promoted(db) -> list[dict]:

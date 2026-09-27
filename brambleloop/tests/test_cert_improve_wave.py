@@ -541,8 +541,58 @@ def test_prompts_tools_and_policies_are_versioned_from_the_running_code():
     keys = {r.key for r in rows}
     assert "tool:cir_compiler" in keys and "policy:spend_ceilings" in keys
     tool = next(r for r in rows if r.key == "tool:cir_compiler")
-    assert tool.why_changed and tool.tests_run and tool.affected_departments
+    # C-82: registration names the coverage that exercises the tool (`tests_declared`) and
+    # never synthesises an executed run -- `tests_run` is empty until one is observed.
+    assert tool.why_changed and tool.tests_declared and tool.affected_departments
+    assert tool.tests_run == [], tool.tests_run
     assert json.loads(tool.detail["payload"])["source_sha256"]
+
+
+def test_tests_run_holds_only_observed_runs_bound_to_the_versions_digest():
+    """C-82 (Codex M04): declared coverage is not execution provenance."""
+    from brambleloop.core.models import ConfigVersion
+    from brambleloop.improve import league
+
+    db = _db()
+    iid, challenger, replaced = _promote_replay_challenger(db)
+    with db.session() as s:
+        ch = s.get(ConfigVersion, challenger)
+        inc = s.get(ConfigVersion, replaced)
+        runs, declared, digest = list(ch.tests_run), list(ch.tests_declared), ch.digest
+        inc_runs, inc_declared = list(inc.tests_run), list(inc.tests_declared)
+    # Registration declared coverage for both; the incumbent was never put through a run.
+    assert declared == ["improve.replay"] and "tests/test_swarm.py" in inc_declared
+    assert inc_runs == [], inc_runs
+    # The sandbox's regression and adversarial runs happened against the challenger and were
+    # observed: each carries the run id and the digest of the version it ran against.
+    assert {r["test"] for r in runs} == {"gates.regression.run", "improve.sandbox.adversarial"}
+    assert all(r["run_id"] and r["source_sha256"] == digest and r["by"] == "sandbox_runner"
+               and "at" in r and isinstance(r["passed"], bool) for r in runs), runs
+    _state, ev, _b, _r = _improvement(db, iid)
+    assert {r["run_id"] for r in runs} == {t["ref"] for t in ev["tests"].values()}
+    # Nothing can register a run, and a run of some other source is refused.
+    try:
+        league.register(db, kind="scoring", key="policy:job_priority", payload="{}",
+                        why_changed="a payload registered with a synthesised run record",
+                        affected_departments=("runtime",), tests_run=("tests/test_swarm.py",))
+    except league.LeagueRefused as e:
+        assert "tests_declared" in str(e)
+    else:
+        raise AssertionError("register accepted tests_run")
+    try:
+        league.record_test_run(db, challenger, test="x", run_id="r1", source_sha256="0" * 64,
+                               passed=True, recorded_by="sandbox_runner")
+    except league.LeagueRefused as e:
+        assert "not evidence about this version" in str(e)
+    else:
+        raise AssertionError("a run of another source was attached")
+    # Idempotent on (test, run_id); the standings report both facts separately.
+    again = league.record_test_run(db, challenger, test=runs[0]["test"],
+                                   run_id=runs[0]["run_id"], source_sha256=digest,
+                                   passed=True, recorded_by="sandbox_runner")
+    assert again["recorded"] is False
+    standing = next(r for r in league.standings(db)["all"] if r["id"] == challenger)
+    assert standing["tests_declared"] == declared and len(standing["tests_run"]) == 2
 
 
 # ---------------------------------------------------------------------------
