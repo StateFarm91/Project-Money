@@ -172,6 +172,8 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
         } for o in observations],
         "pods": [{"key": p.key, "name": p.name, "rubric": list(p.rubric)} for p in pods.PODS],
         "gap_queue": coverage.summary(db, benchmark_key),
+        # #318's remaining fields, each computed from the rows the mission writes.
+        **mission_status(db, benchmark_key=benchmark_key, observations=observations),
         # #224, on the dashboard rather than in a footnote: the mission cannot look busy
         # while the capability that would make it real does not exist.
         "honest_statement": (
@@ -181,4 +183,103 @@ def mission_report(db, *, benchmark_key: str = benchmarks.MJS_KEY,
             "is filled in from search snippets, screenshots or fixtures."
             if not capability else
             "Observation capability is configured; coverage above is measured, not assumed."),
+    }
+
+
+def mission_status(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+                   observations: list | None = None) -> dict:
+    """#318: the command-centre fields beyond coverage, from rows. Unmeasured says so."""
+    from collections import Counter
+
+    from sqlalchemy import desc, func, select
+
+    from ..core.models import (AuditLog, BenchmarkObservation, Incident, Listing,
+                               MjsMissionEvent, Order)
+    from ..creative.intake import intake_rows
+
+    with db.session() as s:
+        if observations is None:
+            observations = list(s.scalars(
+                select(BenchmarkObservation)
+                .where(BenchmarkObservation.benchmark_key == benchmark_key)
+                .order_by(desc(BenchmarkObservation.id)).limit(20)))
+        scans = [o for o in observations if o.kind == "official_api_read"]
+        changes = Counter()
+        for o in scans[:1]:
+            for c in (o.detail or {}).get("changes") or []:
+                changes[str(c.get("what") or "other")] += 1
+        events = list(s.scalars(select(MjsMissionEvent).where(
+            MjsMissionEvent.benchmark_key == benchmark_key)
+            .order_by(desc(MjsMissionEvent.id)).limit(200)))
+        assignments = Counter(e.pod for e in events)
+        adaptations, deadlines = [], []
+        for e in events:
+            target = (e.seasonal or {}).get("target") or {}
+            if not (e.entered and target):
+                continue
+            winner = intake_rows(db, mjs_event_id=e.id, limit=50)
+            win = winner[0] if winner else None
+            adaptations.append({
+                "event_id": e.id, "arena": e.arena, "pod": e.pod,
+                "event": target.get("event"),
+                "lenses": sorted((((e.seasonal or {}).get("seasonalise") or {})
+                                  .get("lenses") or {}).keys())
+                if isinstance(((e.seasonal or {}).get("seasonalise") or {}).get("lenses"),
+                              dict) else [],
+                "winner": win[1] if win else None,
+                "winner_decision": win[2].get("decision") if win else None,
+                "pipeline_stopped_at": ((e.pipeline or {}).get("stopped") or {}).get("stage"),
+            })
+            deadlines.append({"event_id": e.id, "arena": e.arena, "event": target.get("event"),
+                              "preferred_launch": target.get("preferred_launch"),
+                              "latest_effective_launch": target.get("latest_effective_launch"),
+                              "status": ((e.sentinel or {}).get("status")
+                                         or target.get("status"))})
+        winners = sorted({a["winner"] for a in adaptations if a["winner"]})
+        comparisons = {}
+        for action in ("creative.blinded", "creative.grid_tournament",
+                       "creative.benchmark_challenge"):
+            row = s.scalar(select(AuditLog).where(AuditLog.action == action)
+                           .order_by(desc(AuditLog.id)).limit(1))
+            if row is not None:
+                d = dict(row.detail or {})
+                comparisons[action] = {"at": row.at.isoformat() if row.at else None,
+                                       "verdict": d.get("verdict"),
+                                       "pods": {k: (v or {}).get("verdict")
+                                                for k, v in (d.get("pods") or {}).items()}}
+        published = list(s.scalars(select(Listing).where(Listing.state == "published")))
+        orders = [(o.product_slug, float(o.revenue_cad or 0.0))
+                  for o in s.scalars(select(Order).where(Order.refunded == False))]  # noqa: E712
+        incidents = [{"id": i.id, "severity": i.severity, "signature": i.signature,
+                      "summary": (i.summary or "")[:200]}
+                     for i in s.scalars(select(Incident).where(
+                         Incident.resolved == False,  # noqa: E712
+                         (Incident.signature.like("mjs.%")
+                          | Incident.signature.like("benchmark.%"))))]
+        last_scan = scans[0].at.isoformat() if scans else None
+        n_orders = s.scalar(select(func.count()).select_from(Order)) or 0
+    mission_orders = [o for o in orders if o[0] in winners]
+    return {
+        "last_successful_scan": last_scan,
+        "listings_changed_new": {"last_scan": dict(changes),
+                                 "events_processed": len(events)},
+        "pod_assignments": dict(assignments.most_common()),
+        "top_uncovered_opportunities": [
+            {k: g[k] for k in ("arena", "pod", "score", "components")}
+            for g in coverage.queue(db, benchmark_key, states=(coverage.UNCOVERED,),
+                                    limit=10)],
+        "upcoming_seasonal_adaptations": adaptations[:20],
+        "launch_deadlines": sorted(deadlines, key=lambda d: d.get("latest_effective_launch")
+                                   or "9999")[:20],
+        "comparison_results": comparisons or {
+            "state": "UNMEASURED: no blinded comparison or search-grid tournament has run"},
+        "products_launched": {"published_listings": len(published),
+                              "mission_responses": winners,
+                              "mission_responses_published": sorted(
+                                  {p.product_slug for p in published} & set(winners))},
+        "conversion_revenue": ({"orders": len(orders), "revenue_cad": round(
+            sum(r for _s, r in orders), 2), "mission_orders": len(mission_orders),
+            "mission_revenue_cad": round(sum(r for _s, r in mission_orders), 2)}
+            if n_orders else {"state": "UNMEASURED: no order has been recorded"}),
+        "mission_incidents": incidents,
     }

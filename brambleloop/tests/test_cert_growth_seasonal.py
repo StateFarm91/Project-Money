@@ -573,8 +573,18 @@ def test_evergreen_concepts_are_transformed_and_only_a_promised_brief_derives():
     got = remerchandising.transformations(db, event="Christmas", briefs=[brief])
     assert got["evaluated"] == 3 and got["routed"] == 3
     assert all("PRESENTATION_ONLY" in p["problems"][0] for p in got["presentation"])
-    assert all(h["problems"] for h in got["held"]), "an engineered variant with no promise"
-    assert [d["key"] for d in got["derived"]] == ["cottage-wall-hanging-yule"], got["refused"]
+    # C-61 strengthened this test. It used to assert that only the supplied brief derived a
+    # child and every other parent was *held* for want of a brief nobody generated -- which
+    # the audit of 9434c53 found meant the engineering half of #279 could never run. Now a
+    # brief is generated from every parent by a stated rule; the supplied brief still takes
+    # precedence for its own parent, and nothing is held.
+    assert got["held"] == [] and got["briefs_generated"] == 2, got["held"]
+    assert {d["key"] for d in got["derived"]} == {
+        "cottage-wall-hanging-yule", "pet-snuggle-mat-christmas",
+        "mosaic-placemat-pair-christmas"}, got["refused"]
+    generated = [d for d in got["derived"] if d["key"] != "cottage-wall-hanging-yule"]
+    assert all(d["brief_source"].startswith("generated") for d in generated)
+    assert all(d["concept"]["provenance"].startswith("transformed:") for d in got["derived"])
     # No grammar, no transformation.
     assert remerchandising.transformations(db, event="Valentine's")["season"] is None
 
@@ -595,16 +605,22 @@ def test_collection_handler_records_the_architecture_assessment():
 
 
 def test_remerchandising_handler_runs_the_transformation_engine():
-    """#279 through `seasonal.remerchandising`, weekly, with no brief: nothing derived."""
+    """#279 through `seasonal.remerchandising`, weekly, with no brief supplied: a brief is
+    generated from every certified evergreen parent and its child is derived and recorded
+    (C-61 strengthened this from "nothing derived")."""
     db = _db()
     for slug in ("pet-snuggle-mat", "cottage-wall-hanging"):
         _certify(db, slug)
     out = _run(db, "seasonal.remerchandising", agent="listing")
-    assert out["transformations"]["evaluated"] == 2 and out["derived"] == []
+    assert out["transformations"]["evaluated"] == 2
+    assert sorted(out["derived"]) == ["cottage-wall-hanging-christmas",
+                                      "pet-snuggle-mat-christmas"], out["derived"]
     with db.session() as s:
         audit = s.scalar(select(AuditLog).where(
             AuditLog.action == "seasonal.transformations"))
         assert audit is not None and audit.detail["routed"] == 2
+        assert audit.detail["briefs_generated"] == 2
+        assert {c["pod"] for c in audit.detail["derived_concepts"]} == {"home_decor"}
 
 
 

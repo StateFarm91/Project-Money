@@ -746,6 +746,8 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
     that a confident wrong answer fails loudly.
     """
     from .concept import CONSTRUCTIONS, FEELINGS, OCCASIONS, RECIPIENTS, ConceptRefused
+    from .invention import InventionRefused
+    from .preengineering import promise_for
 
     occasion = occasion_for(slot.arena.event)
     buildable = sorted(FORM_CONSTRUCTIONS.get(slot.form) or CONSTRUCTIONS)
@@ -793,6 +795,14 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
                 notes=str(row.get("wow") or "").strip()[:300])
         except ConceptRefused as e:
             refused.append(f"{key}: {e}"[:220])
+            continue
+        # #109: the emotional promise has to be executed in the object. A premise that
+        # delivers its feeling only as listing copy is refused here, at generation, like any
+        # other structural failure -- not left for a later stage to notice.
+        try:
+            promise_for(concept)
+        except InventionRefused as e:
+            refused.append(f"{key}: no emotional promise in the object: {e}"[:220])
             continue
         out.append(Candidate(concept=concept, slot=slot))
     return out, refused
@@ -1177,9 +1187,21 @@ SCREEN_TO_FUNNEL: dict[str, str] = {
 }
 
 
+def _fate(run, key: str) -> str:
+    """Where one entrant's run ended: `killed at <stage>: <cause>` or `carried to <stage>`."""
+    carried = None
+    for r in run.rounds:
+        if key in r.killed:
+            return f"killed at {r.stage}: {r.killed[key]}"
+        if key in r.survived:
+            carried = r.stage
+    return f"carried to {carried}" if carried else "entered"
+
+
 def tournament(db, *, gateway, target: int = 80, today: date | None = None,
                catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
-               agent: str = "creative_director", exclude_forms: tuple[str, ...] = ()) -> dict:
+               agent: str = "creative_director", exclude_forms: tuple[str, ...] = (),
+               seeded: list[Concept] | None = None) -> dict:
     """A real staged tournament: a wide cheap field, cut by the gates that already exist.
 
     Only the two stages this system can honestly run today. `ideation` is the structural
@@ -1190,12 +1212,25 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     The three stages after it are not simulated. `proposition` needs a margin and an unmet
     angle, `prototype` needs a compile and a twin, `release` needs the gates; running them
     with placeholder verdicts would produce a five-stage funnel that had cut nothing twice.
+
+    `seeded` concepts (#279: the seasonal transformations of certified catalogue products
+    derived on cadence) enter the field as entrants beside the generated ones. They face
+    every stage the generated field faces -- a transformation too close to its parent dies
+    at research as sameness, which is the honest verdict on a recolour -- and nothing about
+    being seeded carries a concept further.
     """
     from .funnel import Tournament, advance
 
     drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
                   only=only, agent=agent, exclude_forms=tuple(exclude_forms))
     candidates = drawn["candidates"]
+    seeded_keys = []
+    for concept in seeded or []:
+        if concept.form in exclude_forms or any(c.concept.key == concept.key
+                                                for c in candidates):
+            continue
+        candidates.append(Candidate(concept=concept, slot=None))
+        seeded_keys.append(concept.key)
     if not candidates:
         raise ProspectingRefused(
             "the field is empty, so there is nothing to run a tournament on. "
@@ -1218,9 +1253,26 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
             # rather than a skipped stage.
             examined=len(entrants))
 
+    # #112: the research jury judges the window at the arena's real distance to its event,
+    # so a make the buyer can no longer finish dies here as `shopping_window`.
+    days_to_event = None
+    if only is not None:
+        match = [a for a in arenas(db, today=today) if (a.event, a.pod) == tuple(only)]
+        days_to_event = match[0].days_away if match else None
     screened = screen(candidates, catalogue=catalogue,
                       benchmark=benchmark_comparables(db),
-                      days_to_event=None)
+                      days_to_event=days_to_event)
+    # ... and shifts late-window capacity toward the makes a buyer can still finish: the
+    # survivors are graded against the window and ideation's selection prefers the ones
+    # that continue over the ones that need a hurry.
+    window = None
+    if days_to_event is not None and screened["survivor_objects"]:
+        from ..seasonal.uncertainty import sample_count
+        from .family import shift_capacity
+
+        window = shift_capacity([c.concept for c in screened["survivor_objects"]],
+                                days_to_event=days_to_event, samples=sample_count(db),
+                                today=today)
     survivors = [c.concept.key for c in screened["survivor_objects"]]
     killed = {}
     for candidate in candidates:
@@ -1324,6 +1376,18 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
 
     return {
         "arena": f"{only[0]}/{only[1]}" if only else "",
+        "days_to_event": days_to_event,
+        "window": window,
+        # #279: the seeded transformations and what the funnel did with each of them --
+        # the stage and cause that killed it, or the last stage that carried it.
+        "seeded": {k: _fate(run, k) for k in seeded_keys},
+        # #3: the funnel as it ran, with each stage's survivors by key, so `may_engineer`
+        # can be asked of this exact run later -- by `creative.intake` before it queues a
+        # CIR, and by `cir.draft` before it drafts one. The object itself is never stored.
+        "funnel_objects": run,
+        "funnel_rounds": [{"stage": r.stage, "survived": list(r.survived),
+                           "killed": dict(r.killed), "examined": r.examined,
+                           "entered": r.entered} for r in run.rounds],
         "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
         "prototype": {k: v for k, v in built.items() if k != "survivors"},
         "release": {k: v for k, v in shipped.items() if k != "survivors"},

@@ -235,12 +235,22 @@ def compounding_report(db) -> dict:
     from ..core.models import AuditLog
 
     with db.session() as s:
-        rows = [a.detail or {} for a in s.scalars(select(AuditLog).where(
-            AuditLog.action == "design.provenance"))]
+        raw = [(a.artifact or "", a.detail or {}) for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "design.provenance").order_by(AuditLog.id))]
+
+    # #101 counts *designs*, not runs. An `ideation:<kind>:<arena>` row is the brief a run was
+    # assembled with, recorded once per distinct lesson set; it is not a design and would
+    # count the same weekly run many times. A design is counted once, at its latest record.
+    briefs = [d for artifact, d in raw if artifact.startswith("ideation:")]
+    latest: dict[str, dict] = {}
+    for artifact, d in raw:
+        if not artifact.startswith("ideation:"):
+            latest[artifact] = d
+    rows = list(latest.values())
 
     if not rows:
         return {"measurable": False,
-                "designs": 0,
+                "designs": 0, "briefs_recorded": len(briefs),
                 "reason": ("no design has recorded what it drew on, so whether the company "
                            "is compounding or restarting cannot be told apart"),
                 "note": ""}
@@ -249,6 +259,7 @@ def compounding_report(db) -> dict:
     return {
         "measurable": True,
         "designs": len(rows),
+        "briefs_recorded": len(briefs),
         "designs_using_accumulated_knowledge": len(used),
         "share": round(len(used) / len(rows), 3),
         "mean_lessons_per_design": round(

@@ -344,3 +344,105 @@ def arena_language(db, *, pod: str, benchmark_key: str = "",
                  "dropped: 'pattern' and 'pdf' describe nothing and are most of what a "
                  "shopper types, so they belong in a search strategy and not in a brief."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #293 at launch: the listing's search strategy is built from observed buyer language
+#
+# `listing.seo` used to build its query set from templates alone. This maps the product to the
+# six facets from its own facts (its category or winning concept, its season, its techniques,
+# the difficulty its PDF prints), asks `strategy` which of the resulting phrases buyers were
+# actually seen using, and hands back the observed ones as queries and tags. Demand is the
+# share of observed listing titles carrying the phrase; competition is the captured search
+# density where one exists and UNMEASURED otherwise -- in which case the phrase is tagged on
+# the strength of being observed, and says so.
+
+CATEGORY_USE: dict[str, str] = {
+    "baby": "baby", "pet": "pet", "ornament": "tree", "coaster": "kitchen",
+    "placemat": "kitchen", "runner": "home decor", "pillow": "home decor",
+    "wall_decor": "home decor", "basket": "home decor", "blanket": "home decor",
+    "mosaic_blanket": "home decor", "graphghan": "home decor",
+    "seasonal_decor": "home decor", "flower": "home decor", "scarf": "women",
+}
+CATEGORY_OBJECT: dict[str, str] = {
+    "mosaic_blanket": "blanket", "graphghan": "blanket", "seasonal_decor": "decor",
+    "wall_decor": "wall hanging", "baby": "baby blanket", "pet": "pet bed",
+}
+
+
+def _serp_density(db, phrase: str) -> int | None:
+    from sqlalchemy import desc, select
+
+    from ..core.models import SerpSnapshot
+
+    with db.session() as s:
+        row = s.scalar(select(SerpSnapshot).where(SerpSnapshot.query == phrase)
+                       .order_by(desc(SerpSnapshot.id)).limit(1))
+        return row.total_count if row is not None else None
+
+
+def listing_language(db, *, slug: str, category: str, season: str | None,
+                     difficulty: str, techniques: list[str] | None = None,
+                     max_tags: int = 4) -> dict:
+    """Observed buyer phrases for one product about to be listed (#293)."""
+    import math
+
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from .search import TAG_MAX_CHARS, Query
+
+    brief = None
+    try:
+        from ..creative.intake import intake_rows
+
+        rows = intake_rows(db, slug=slug, limit=1)
+        brief = ((rows[0][2].get("brief") or {}).get("buyer_language") if rows else None)
+    except Exception:  # noqa: BLE001 - a product with no intake maps from its own facts
+        brief = None
+    if brief and brief.get("mapped"):
+        facets = dict(brief["facets"])
+        source = "the winning concept's facet map"
+    else:
+        facets = {
+            "object": CATEGORY_OBJECT.get(category, category.replace("_", " ")),
+            "technique": " ".join(t for t in (techniques or []) if t not in ("texture",)),
+            "recipient_or_use": CATEGORY_USE.get(category, ""),
+            "season_event": (season or "").split(" (")[0].replace("'s", "").lower(),
+            "skill_feature": "beginner" if difficulty == "beginner" else "",
+        }
+        source = "the product's category, season, techniques and printed difficulty"
+    try:
+        mapped = map_product(**{k: v for k, v in facets.items() if v})
+    except IntentRefused as exc:
+        return {"mapped": False, "source": source, "facets": facets, "why": str(exc)[:300],
+                "queries": [], "tags": []}
+    got = strategy(db, facet_map=mapped)
+    with db.session() as s:
+        titles = [(r.title or "").lower() for r in s.scalars(select(BenchmarkListing))]
+    queries, tags, rows_out = [], [], []
+    for row in got["observed"]:
+        phrase = row["phrase"]
+        words = phrase.split()
+        share = (sum(1 for t in titles if all(w in t for w in words)) / len(titles)
+                 if titles else 0.0)
+        density = _serp_density(db, phrase)
+        competition = (round(min(1.0, math.log10(max(1, density)) / 5.0), 3)
+                       if density is not None else None)
+        if competition is not None:
+            # Only a phrase whose competition was measured enters the scored query model; an
+            # unmeasured one is tagged on the evidence that buyers use it, never given a
+            # competition figure nobody observed.
+            queries.append(Query(phrase, round(min(1.0, share), 4), competition, "product"))
+        fitted = phrase if len(phrase) <= TAG_MAX_CHARS else " ".join(
+            w for i, w in enumerate(words) if len(" ".join(words[:i + 1])) <= TAG_MAX_CHARS)
+        if fitted and len(fitted.split()) >= 2 and fitted not in tags and len(tags) < max_tags:
+            tags.append(fitted)
+        rows_out.append({"phrase": phrase, "pattern": row["pattern"],
+                         "observed_title_share": round(share, 4),
+                         "serp_density": density,
+                         "competition": competition if competition is not None
+                         else "UNMEASURED"})
+    return {"mapped": True, "source": source, "facets": mapped, "observed": rows_out,
+            "assumed": [r["phrase"] for r in got["assumed"]], "queries": queries,
+            "tags": tags, "observed_share": got["observed_share"], "note": got["note"]}

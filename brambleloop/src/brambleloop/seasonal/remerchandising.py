@@ -426,14 +426,104 @@ PRESENTATION_LAYERS: tuple[str, ...] = ("palette", "styling", "gift_context",
 OBJECT_LAYERS: tuple[str, ...] = ("motif_vocabulary", "trim")
 
 
+TRANSFORMATIONS_ACTION = "seasonal.transformations"
+
+# #279: how many of the season's fresh motifs one transformation works in, and the noun a
+# buyer uses for each parent form (for the derived premise).
+TRANSFORM_MOTIFS = 2
+_FORM_NOUN: dict[str, str] = {
+    "flat_panel": "panel", "rectangle_throw": "throw", "coaster": "coaster", "runner": "runner",
+    "wall_hanging": "wall hanging", "garland": "garland", "ornament": "ornament",
+    "pillow": "pillow", "basket": "basket", "fitted_garment": "cardigan",
+    "draped_garment": "shawl", "hat": "hat", "scarf": "scarf", "bag": "bag", "pouch": "pouch",
+}
+
+
+def transformation_brief(parent, season: str, fresh: list[str], index: int) -> dict:
+    """The object-changing brief for one parent, derived by a stated rule from the parent.
+
+    The audit of 9434c53 found that `derive` needed a brief no enqueuer supplied and no code
+    generated, so the engineering half of #279 could never run. This is that brief, and no
+    field of it is guessed:
+
+    - **motifs**: TRANSFORM_MOTIFS motifs from the season's grammar that the category has
+      not worn out (`fresh`), rotated by the parent's position so two parents in the same
+      season are not sent the same pair;
+    - **feeling**: the parent's own -- a seasonal version keeps the promise buyers already
+      bought;
+    - **execution**: which part of the parent delivers that feeling, read from its premise
+      (`preengineering.execution_of`, #109's rule);
+    - **how / premise / title**: the motifs worked where the parent's motif was, finished
+      with an edging of the first -- the `motif_vocabulary` and `trim` layers in words;
+    - **palette, recipient, function**: the parent's. A palette is a presentation layer and
+      changing it here would smuggle a recolour in as engineering.
+    """
+    from ..creative.preengineering import execution_of
+
+    if not fresh:
+        raise ValueError(f"{season} has no fresh motif left: every motif in its grammar is "
+                         f"one the whole category uses")
+    start = (index * TRANSFORM_MOTIFS) % len(fresh)
+    motifs = tuple(fresh[(start + i) % len(fresh)] for i in range(min(TRANSFORM_MOTIFS,
+                                                                         len(fresh))))
+    words = [m.replace("_", " ") for m in motifs]
+    noun = _FORM_NOUN.get(parent.form, parent.form.replace("_", " "))
+    joined = " and ".join(words)
+    return {
+        "parent": parent.key, "key": f"{parent.key}-{season}",
+        "title": f"{season.replace('_', ' ').title()} {parent.title}",
+        "layers": list(OBJECT_LAYERS), "motifs": list(motifs),
+        "feeling": parent.feeling, "execution": execution_of(parent),
+        "how": (f"{joined} figures are worked into the {noun}'s fabric where the "
+                f"{parent.motif} was, so the season is in the stitches"),
+        "premise": (f"a {noun} whose {joined} motifs are worked where the {parent.motif} "
+                    f"was, finished with a {words[0]} edging"),
+        "palette_story": parent.palette_story, "recipient": parent.recipient,
+        "function": parent.function,
+        "derivation": "generated from the parent by remerchandising.transformation_brief",
+    }
+
+
+def derived_children(db, *, event: str, pod: str, limit: int = 12) -> list:
+    """The children the last transformation run derived for this event, in this pod (#279).
+
+    Read by `creative.tournament` so a derived child enters the staged funnel as an entrant
+    beside the generated field: it is judged there like any other concept (#3), and only a
+    child the funnel carries to prototype reaches engineering.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..creative.concept import Concept, ConceptRefused
+
+    with db.session() as s:
+        rows = [dict(r.detail or {}) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == TRANSFORMATIONS_ACTION)
+            .order_by(desc(AuditLog.id)).limit(20))]
+    latest = next((r for r in rows if r.get("event") == event), None)
+    if not latest:
+        return []
+    out = []
+    for raw in latest.get("derived_concepts") or []:
+        if raw.get("pod") != pod:
+            continue
+        try:
+            out.append(Concept(**{k: v for k, v in raw.items()
+                                  if k in Concept.__dataclass_fields__}))
+        except (ConceptRefused, TypeError):
+            continue
+    return out[:limit]
+
+
 def transformations(db, *, event: str, briefs: list[dict] | None = None) -> dict:
-    """Evaluate, route and (only from a brief carrying a promise) derive transformations.
+    """Evaluate, route and derive this occasion's transformations of the proven base.
 
     Parents are the certified catalogue concepts for no particular occasion -- the proven
     evergreen base. Each is surveyed with `evaluate`, its presentation-only transformation is
     routed to re-merchandising with `transform`, and its object-changing transformation is
-    evaluated and held until a promise exists. A brief supplies that promise; `derive` then
-    mints the child concept, which faces the jury like any other.
+    derived from a brief: one supplied in the job inputs, or otherwise the brief
+    `transformation_brief` generates from the parent itself (#279). `derive` mints the child
+    concept, which faces the funnel and the jury like any other (#3): nothing here engineers.
     """
     from sqlalchemy import select
 
@@ -461,21 +551,29 @@ def transformations(db, *, event: str, briefs: list[dict] | None = None) -> dict
     fresh = sorted(set(MOTIF_GRAMMAR[season]) - set(SATURATED.get(season, frozenset())))
 
     surveys, routed, held, refused = [], [], [], []
-    for parent in parents:
+    generated: list[dict] = []
+    for index, parent in enumerate(parents):
         survey = evaluate(parent, occasions=(season,))
         surveys.append({"parent": parent.key,
                         "layers": [r["layer"] for r in survey["seasons"][0]["ladder"]]})
         presentation = transform(parent, occasion=season, layers=PRESENTATION_LAYERS)
         routed.append({"parent": parent.key, **presentation.to_dict()})
-        engineered = transform(parent, occasion=season, layers=OBJECT_LAYERS,
-                               motifs=tuple(fresh[:2]))
-        held.append({"parent": parent.key, "problems": engineered.problems,
-                     "why": "held: an object-changing transformation needs an emotional "
-                            "promise, and none is invented here"})
+        # The object-changing brief is generated from the parent (#279); a brief supplied in
+        # the job inputs for the same parent takes precedence and is used instead.
+        if not any(b.get("parent") == parent.key for b in briefs or []):
+            try:
+                generated.append(transformation_brief(parent, season, fresh, index))
+            except ValueError as exc:
+                held.append({"parent": parent.key, "why": f"held: {exc}"[:300]})
 
     by_key = {p.key: p for p in parents}
+    # The child is for the event's buying occasion (`thanksgiving`), not the grammar's season
+    # (`fall`): the season names the motifs and the occasion names the buyer's calendar.
+    from ..creative.prospecting import EVENT_OCCASION
+
+    occasion = EVENT_OCCASION.get(event) or season
     derived = []
-    for brief in briefs or []:
+    for brief in list(briefs or []) + generated:
         parent = by_key.get(brief.get("parent", ""))
         if parent is None:
             refused.append(f"brief for {brief.get('parent')!r}: not a certified evergreen "
@@ -489,13 +587,17 @@ def transformations(db, *, event: str, briefs: list[dict] | None = None) -> dict
                           execution=brief.get("execution", ""), how=brief.get("how", ""))
             child = derive(parent, t, key=brief["key"], title=brief["title"],
                            premise=brief["premise"], palette_story=brief["palette_story"],
-                           recipient=brief["recipient"], function=brief["function"])
+                           recipient=brief["recipient"], function=brief["function"],
+                           occasion=occasion)
         except (TransformRefused, KeyError, ValueError) as exc:
             refused.append(f"brief for {parent.key}: {exc}")
             continue
         derived.append({"key": child.key, "title": child.title, "occasion": child.occasion,
                         "motif": child.motif, "provenance": child.provenance,
-                        "make_lane": child.make_lane})
+                        "make_lane": child.make_lane, "pod": child.pod,
+                        "brief_source": brief.get("derivation", "job inputs"),
+                        "concept": child.to_dict()})
     return {"event": event, "season": season, "evaluated": len(parents),
             "routed": len(routed), "surveys": surveys, "presentation": routed,
-            "held": held, "derived": derived, "refused": refused}
+            "held": held, "derived": derived, "briefs_generated": len(generated),
+            "refused": refused}

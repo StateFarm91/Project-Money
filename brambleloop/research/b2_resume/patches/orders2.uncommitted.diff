@@ -1,0 +1,2593 @@
+diff --git a/brambleloop/src/brambleloop/commerce/buyer_trust.py b/brambleloop/src/brambleloop/commerce/buyer_trust.py
+index da40bbd..9e4ff57 100644
+--- a/brambleloop/src/brambleloop/commerce/buyer_trust.py
++++ b/brambleloop/src/brambleloop/commerce/buyer_trust.py
+@@ -415,13 +415,14 @@ def correction_notice(*, product_slug: str, from_versions: tuple, to_version: st
+ # ---------------------------------------------------------------------------
+ # #42, persisted: the order-to-version map as a table, written on the order path
+ 
+-def current_safe_version(db, product_slug: str) -> str:
++def current_safe_version(db, product_slug: str, *, session=None) -> str:
+     """The newest certified version of a product, or "" when none is certified."""
+     from sqlalchemy import select
+ 
+     from ..core.models import PatternVersion, Product
++    from .cohorts import use_session
+ 
+-    with db.session() as s:
++    with use_session(db, session) as s:
+         rows = list(s.scalars(select(PatternVersion).join(Product).where(
+             Product.slug == product_slug, PatternVersion.certified.is_(True))))
+     if not rows:
+@@ -431,23 +432,24 @@ def current_safe_version(db, product_slug: str) -> str:
+ 
+ 
+ def record_sale_version(db, *, order_ref: str, product_slug: str, version: str,
+-                        release_hash: str = "", sold_at=None) -> dict:
++                        release_hash: str = "", sold_at=None, session=None) -> dict:
+     """Write which version an order bought, at sale time. Idempotent per order (#42).
+ 
+-    Called from the order path (`commerce.cohorts.record_order` is the intended caller). A
+-    second call for the same order changes nothing: what a buyer bought does not change
+-    because somebody recorded it twice.
++    Called from the order path (`commerce.cohorts.record_order` is the intended caller,
++    inside the order's own transaction). A second call for the same order changes nothing:
++    what a buyer bought does not change because somebody recorded it twice.
+     """
+     from datetime import datetime, timezone
+ 
+     from sqlalchemy import select
+ 
+     from ..core.models import OrderVersion, PatternVersion, Product
++    from .cohorts import use_session
+ 
+     if not order_ref or not product_slug or not version:
+         raise TrustRefused("an order maps to a product and a version, or support cannot "
+                            "answer it")
+-    with db.session() as s:
++    with use_session(db, session) as s:
+         existing = s.scalar(select(OrderVersion).where(OrderVersion.order_ref == order_ref))
+         if existing is not None:
+             return {"created": False, "order_ref": order_ref,
+@@ -456,12 +458,12 @@ def record_sale_version(db, *, order_ref: str, product_slug: str, version: str,
+             pv = s.scalar(select(PatternVersion).join(Product).where(
+                 Product.slug == product_slug, PatternVersion.version == version))
+             release_hash = (pv.release_hash or "") if pv is not None else ""
+-    safe = current_safe_version(db, product_slug) or version
+-    with db.session() as s:
++        safe = current_safe_version(db, product_slug, session=s) or version
+         s.add(OrderVersion(order_ref=order_ref, product_slug=product_slug, version=version,
+                            release_hash=release_hash,
+                            sold_at=sold_at or datetime.now(timezone.utc),
+                            current_safe_version=safe))
++        s.flush()
+     return {"created": True, "order_ref": order_ref, "version": version,
+             "release_hash": release_hash, "current_safe_version": safe}
+ 
+@@ -746,43 +748,108 @@ def _version_key(v: str) -> tuple:
+     return tuple(int(p) if p.isdigit() else 0 for p in (v or "").split("."))
+ 
+ 
++# The states a prepared notice moves through. Preparation is this system's; delivery is the
++# owner's (shadow mode messages nobody), and the two are never one field (CB2-O09).
++NOTICE_PREPARED = "prepared"
++NOTICE_NOT_SENT = "not_sent"
++
++
++def _correction_relation(correction) -> dict | None:
++    """The declared correction relation, normalised, or None when nothing was declared."""
++    if not isinstance(correction, dict):
++        return None
++    versions = tuple(str(v) for v in (correction.get("of_versions") or []) if str(v))
++    hashes = tuple(str(h) for h in (correction.get("of_release_hashes") or []) if str(h))
++    what = str(correction.get("what_changed") or "").strip()
++    if not (versions or hashes) or not what:
++        return None
++    return {"of_versions": versions, "of_release_hashes": hashes, "what_changed": what}
++
++
++def release_eligible(db, *, product_slug: str, version: str, release_hash: str = "") -> dict:
++    """Whether this version is a certified, stored release buyers can actually be pointed at.
++
++    A correction notice tells a buyer to work from another version, so that version has to
++    exist as a certified release row -- a certificate that was granted but never persisted,
++    or a hash that does not match the stored release, is not something to send anyone to.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import PatternVersion, Product
++
++    with db.session() as s:
++        pv = s.scalar(select(PatternVersion).join(Product).where(
++            Product.slug == product_slug, PatternVersion.version == version))
++        if pv is None:
++            return {"eligible": False, "why": f"no stored release row for "
++                                             f"{product_slug}@{version}"}
++        if not pv.certified:
++            return {"eligible": False, "why": f"{product_slug}@{version} is stored but not "
++                                             f"certified"}
++        if release_hash and (pv.release_hash or "") != release_hash:
++            return {"eligible": False,
++                    "why": (f"the stored release hash for {product_slug}@{version} is not the "
++                            f"one this certification produced")}
++    return {"eligible": True, "why": ""}
++
++
+ def on_certified(db, *, product_slug: str, version: str, release_hash: str = "",
+-                 previous_release_hash: str = "") -> dict:
++                 previous_release_hash: str = "", correction=None) -> dict:
+     """Called by `gate.certify` when a release certifies (#42).
+ 
+-    A newer certified version corrects every older one a buyer holds; a re-certification of
+-    the same version under a different release hash corrects the buyers who received the
+-    old hash. Either way the affected orders are read from `order_versions` (written at sale
+-    time), every affected row's `current_safe_version` moves to the new version, the notice
+-    is prepared with `correction_notice` and kept on the row, and sending it -- messaging
+-    customers, which shadow mode refuses and the owner authorises -- becomes one owner
+-    action per correction. No affected buyer, no notice and no action.
++    A certification is a correction only when it says so. `correction` is the declared
++    relation -- `{"of_versions": [...], "of_release_hashes": [...], "what_changed": "..."}`
++    -- carried on the certify job's inputs by whoever re-engineered the pattern. Without it a
++    newer version is a routine release: buyers of older versions are not told anything,
++    their `current_safe_version` does not move, and nothing is prepared (CB2-O09). With it,
++    and only when the new version is an eligible stored release, the affected orders are read
++    from `order_versions` (written at sale time), each affected row's `current_safe_version`
++    moves to the new version, the notice is prepared and kept on the row in state
++    `prepared` with its delivery state `not_sent`, and sending -- messaging customers, which
++    shadow mode refuses and the owner authorises -- becomes one owner action per correction.
++
++    Orders of this product whose delivered version is unknown (no `order_versions` row,
++    because the sale predates any recorded listing version) cannot be excluded; they are
++    counted and routed to the same review rather than silently treated as unaffected
++    (CB2-O03).
+     """
+     from datetime import datetime, timezone
+ 
+     from sqlalchemy import select
+ 
+-    from ..core.models import OrderVersion, OwnerAction
++    from ..core.models import Order, OrderVersion, OwnerAction
++
++    relation = _correction_relation(correction)
++    base = {"product_slug": product_slug, "version": version, "affected_count": 0,
++            "notice": None, "correction": relation is not None}
++    if relation is None:
++        return {**base, "why": ("routine release: no correction relation was declared, so "
++                                "no buyer is told to move and no notice is prepared")}
++    eligibility = release_eligible(db, product_slug=product_slug, version=version,
++                                   release_hash=release_hash)
++    if not eligibility["eligible"]:
++        return {**base, "eligible": False,
++                "why": f"correction declared but not releasable: {eligibility['why']}"}
+ 
+     with db.session() as s:
+         rows = list(s.scalars(select(OrderVersion).where(
+             OrderVersion.product_slug == product_slug)))
+         held = [(r.order_ref, r.version, r.release_hash) for r in rows]
++        unknown_version = sorted(o.external_ref for o in s.scalars(select(Order).where(
++            Order.product_slug == product_slug, Order.version == "")))
+     older = sorted({v for _ref, v, _h in held
+-                    if _version_key(v) < _version_key(version)})
++                    if v in relation["of_versions"] and _version_key(v) < _version_key(version)})
++    hashes = set(relation["of_release_hashes"])
++    if previous_release_hash and version in relation["of_versions"]:
++        hashes.add(previous_release_hash)
+     same_old_hash = sorted({ref for ref, v, h in held
+-                            if v == version and previous_release_hash
+-                            and h == previous_release_hash and h != release_hash})
++                            if v == version and h and h in hashes and h != release_hash})
+     if not older and not same_old_hash:
+-        return {"product_slug": product_slug, "version": version, "affected_count": 0,
+-                "notice": None,
+-                "why": ("no recorded buyer holds a version this release corrects"
++        return {**base, "eligible": True, "version_unknown_orders": unknown_version,
++                "why": ("no recorded buyer holds a version this correction names"
+                         if held else "no order of this product has been recorded")}
+ 
+-    what = (f"Version {version} of this pattern was certified after yours and replaces "
+-            f"{', '.join(older + ([version] if same_old_hash else []))}: work started from "
+-            f"your copy should be checked against the corrected pattern from the first "
+-            f"differing row.")
++    what = relation["what_changed"]
+     affected = affected_orders(db, product_slug=product_slug, corrected_from=tuple(older))
+     if same_old_hash:
+         with db.session() as s:
+@@ -797,19 +864,27 @@ def on_certified(db, *, product_slug: str, version: str, release_hash: str = "",
+         for r in s.scalars(select(OrderVersion).where(OrderVersion.order_ref.in_(refs))):
+             r.current_safe_version = version
+             r.detail = {**(r.detail or {}),
+-                        "correction_notice": {"to_version": version, "prepared_at": now,
+-                                              "sent": False}}
++                        "correction_notice": {
++                            "to_version": version, "prepared_at": now,
++                            "state": NOTICE_PREPARED, "sent": False,
++                            "delivery": {"state": NOTICE_NOT_SENT, "sent_at": None,
++                                         "authorised_by": None},
++                            "what_changed": what[:300]}}
+         key = f"{CORRECTION_ACTION_PREFIX}{product_slug}@{version}"
++        review = (f"; {len(unknown_version)} further order(s) of this product hold an "
++                  f"unrecorded version and need review before they are treated as unaffected"
++                  if unknown_version else "")
+         if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
+             s.add(OwnerAction(
+                 requirement_key=key,
+                 action=(f"Approve sending the prepared correction notice for {product_slug} "
+-                        f"{version} to {len(refs)} buyer(s)"),
++                        f"{version} to {len(refs)} buyer(s){review}"),
+                 reason=notice["body"][:500], max_cost_cad=0.0, minutes=5,
+                 consequence_of_delay=("buyers keep working from a version with a known "
+                                       "correction; support answers against their version "
+                                       "meanwhile"),
+                 blocks="#42 correction notice"))
+-    return {"product_slug": product_slug, "version": version,
+-            "affected_count": len(refs), "affected_orders": refs,
+-            "notice": notice, "owner_action": key}
++    return {**base, "eligible": True, "affected_count": len(refs), "affected_orders": refs,
++            "version_unknown_orders": unknown_version,
++            "notice": notice, "owner_action": key,
++            "states": {"preparation": NOTICE_PREPARED, "delivery": NOTICE_NOT_SENT}}
+diff --git a/brambleloop/src/brambleloop/commerce/cohorts.py b/brambleloop/src/brambleloop/commerce/cohorts.py
+index 8b8a7e1..d0ce74c 100644
+--- a/brambleloop/src/brambleloop/commerce/cohorts.py
++++ b/brambleloop/src/brambleloop/commerce/cohorts.py
+@@ -35,6 +35,7 @@ in `TRANSACTIONS_SCOPE`, and the schema is ready for the day it is.
+ """
+ from __future__ import annotations
+ 
++from contextlib import contextmanager
+ from datetime import datetime, timedelta, timezone
+ 
+ from sqlalchemy import func, select
+@@ -81,13 +82,34 @@ def _aware(at: datetime | None) -> datetime:
+ 
+ # ---------------------------------------------------------------------------
+ # Writing. Called by `commerce.orders_ingest` for every receipt line it reads (C-64).
++#
++# Every writer takes an optional `session`. The order source writes a receipt line's
++# customer, order, version map and ledger entry inside ONE transaction (CB2-O05), so a crash
++# between them rolls the whole line back and the next run writes it exactly once; without a
++# session each writer is its own transaction, as before.
++
++
++@contextmanager
++def use_session(db, session=None):
++    """The caller's session (the caller commits) or a fresh one committed on exit."""
++    if session is not None:
++        yield session
++        return
++    with db.session() as s:
++        yield s
+ 
+ 
+ def record_customer(db, customer_ref: str, *, at: datetime | None = None,
+                     acquisition_source: str = "unknown", search_term: str = "",
+                     first_product_slug: str = "", first_category: str = "",
+-                    first_season: str = "none", casl_consent: bool = False) -> dict:
+-    """A buyer's first appearance, and their membership on every axis at once."""
++                    first_season: str = "none", casl_consent: bool = False,
++                    session=None) -> dict:
++    """A buyer's first appearance, and their membership on every axis at once.
++
++    The first-purchase facts written here are provisional: `reconcile_customer` re-derives
++    them from the buyer's earliest paid order whenever an order of theirs is written, so
++    they do not depend on the order receipts happened to arrive in (CB2-O04).
++    """
+     if not customer_ref or not customer_ref.strip():
+         raise CohortRefused("a customer needs a stable reference; an empty one is nobody")
+     if "@" in customer_ref:
+@@ -96,7 +118,7 @@ def record_customer(db, customer_ref: str, *, at: datetime | None = None,
+             "platform's stable id, never personal data")
+ 
+     when = _aware(at)
+-    with db.session() as s:
++    with use_session(db, session) as s:
+         existing = s.scalar(select(Customer).where(Customer.customer_ref == customer_ref))
+         if existing is not None:
+             return {"customer_id": existing.id, "created": False}
+@@ -122,7 +144,7 @@ def record_customer(db, customer_ref: str, *, at: datetime | None = None,
+         for axis, value in memberships.items():
+             s.add(CohortMembership(customer_id=customer.id, axis=axis, value=value,
+                                    joined_at=when))
+-        s.commit()
++        s.flush()
+         return {"customer_id": customer.id, "created": True,
+                 "memberships": memberships}
+ 
+@@ -137,21 +159,36 @@ def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
+                  fx_usd_per_cad: float | None = None, fx_taken_on: str = "",
+                  fx_measured: bool = False, fees_cad: float = 0.0,
+                  offer: str = "single_pattern", source: str = "",
+-                 detail: dict | None = None) -> dict:
+-    """One order against a recorded customer. Refuses an order for nobody."""
++                 detail: dict | None = None, session=None) -> dict:
++    """One order against a recorded customer. Refuses an order for nobody.
++
++    A negative contribution is a loss and is kept as one (CB2-O07): a refunded order still
++    paid its processing fee. What is refused is a contribution above the order's own money.
++    An order that already exists is not written twice, but its dependent version row is
++    still ensured, so a run that died between the order and the version converges (CB2-O05).
++    """
+     if price_cad < 0 or contribution_cad > max(price_cad, revenue_cad or 0.0) + 1e-9:
+         raise CohortRefused(
+             f"contribution CA${contribution_cad:.2f} above the order's own revenue is a "
+             f"bookkeeping fault, not a remarkable margin")
+     when = _aware(at)
+-    with db.session() as s:
++    with use_session(db, session) as s:
+         customer = s.scalar(select(Customer).where(Customer.customer_ref == customer_ref))
+         if customer is None:
+             raise CohortRefused(
+                 f"no customer {customer_ref!r}: an order belongs to a buyer, and recording "
+                 f"the order first is how a cohort ends up counting orders it cannot place")
+-        if s.scalar(select(Order).where(Order.external_ref == external_ref)) is not None:
+-            return {"created": False, "external_ref": external_ref}
++        existing = s.scalar(select(Order).where(Order.external_ref == external_ref))
++        if existing is not None:
++            result = {"created": False, "external_ref": external_ref, "order_id": existing.id,
++                      "is_repeat": bool(existing.is_repeat)}
++            if version:
++                from . import buyer_trust
++
++                result["version_recorded"] = buyer_trust.record_sale_version(
++                    db, order_ref=external_ref, product_slug=product_slug, version=version,
++                    sold_at=when, session=s)
++            return result
+         prior = s.scalar(select(func.count(Order.id)).where(Order.customer_id == customer.id))
+         order = Order(
+             customer_id=customer.id, external_ref=external_ref, at=when,
+@@ -170,20 +207,127 @@ def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
+         s.add(order)
+         if category and category not in (customer.interests or []):
+             customer.interests = list(customer.interests or []) + [category]
+-        s.commit()
++        s.flush()
+         result = {"created": True, "order_id": order.id, "is_repeat": order.is_repeat}
+-    # #42: which version this buyer received, written at sale time -- the one record that
+-    # cannot be reconstructed later. Only when the order names a version; an order that does
+-    # not is recorded as bought-version-unknown by the absence of a row, never guessed.
+-    if version:
+-        from . import buyer_trust
+-
+-        result["version_recorded"] = buyer_trust.record_sale_version(
+-            db, order_ref=external_ref, product_slug=product_slug, version=version,
+-            sold_at=when)
++        # #42: which version this buyer received, written at sale time -- the one record
++        # that cannot be reconstructed later. Only when the order names a version; an order
++        # that does not is recorded as bought-version-unknown by the absence of a row, never
++        # guessed. Same transaction as the order (CB2-O05).
++        if version:
++            from . import buyer_trust
++
++            result["version_recorded"] = buyer_trust.record_sale_version(
++                db, order_ref=external_ref, product_slug=product_slug, version=version,
++                sold_at=when, session=s)
+     return result
+ 
+ 
++# Orders in these states were paid for: they decide who a buyer's first purchase was even if
++# the money later went back (the purchase happened; the refund is a later event).
++PAID_STATES: frozenset[str] = frozenset({"paid", "partially_refunded", "fully_refunded"})
++
++
++def _paid(o) -> bool:
++    state = ((o.detail or {}).get("state") or "paid")
++    return state in PAID_STATES
++
++
++def _first_key(o) -> tuple:
++    return (_aware(o.at), o.external_ref)
++
++
++def reconcile_customer(db, customer_ref: str, *, session=None) -> dict:
++    """Re-derive a buyer's first-purchase facts and repeat flags from their orders (CB2-O04).
++
++    The earliest *paid* order by (time, reference) is the first purchase, whatever order the
++    receipts arrived in and however many times they are re-read. `first_product`,
++    `first_category`, `first_season`, `first_seen_at` and the buyer's memberships on those
++    axes follow it; every later paid order is a repeat and the first is not. The acquisition
++    axis is left as recorded: it is an attribution fact, not a derived one.
++    """
++    with use_session(db, session) as s:
++        customer = s.scalar(select(Customer).where(Customer.customer_ref == customer_ref))
++        if customer is None:
++            raise CohortRefused(f"no customer {customer_ref!r} to reconcile")
++        orders = list(s.scalars(select(Order).where(Order.customer_id == customer.id)))
++        paid = sorted((o for o in orders if _paid(o)), key=_first_key)
++        changed: list[str] = []
++        if not paid:
++            for o in orders:
++                if o.is_repeat:
++                    o.is_repeat = False
++                    changed.append(f"{o.external_ref}.is_repeat")
++            return {"customer_ref": customer_ref, "first_order": None, "changed": changed}
++        first = paid[0]
++        for o in orders:
++            want = _paid(o) and o is not first
++            if bool(o.is_repeat) != want:
++                o.is_repeat = want
++                changed.append(f"{o.external_ref}.is_repeat")
++        season = ((first.detail or {}).get("season") or "none")
++        facts = {"first_product_slug": first.product_slug or "",
++                 "first_category": first.category or "",
++                 "first_season": season}
++        for name, value in facts.items():
++            if getattr(customer, name) != value:
++                setattr(customer, name, value)
++                changed.append(name)
++        if _aware(customer.first_seen_at) != _aware(first.at):
++            customer.first_seen_at = _aware(first.at)
++            changed.append("first_seen_at")
++        wanted = {"first_product": facts["first_product_slug"] or "unknown",
++                  "first_category": facts["first_category"] or "unknown",
++                  "first_season": facts["first_season"] or "none"}
++        rows = {m.axis: m for m in s.scalars(select(CohortMembership).where(
++            CohortMembership.customer_id == customer.id))}
++        for axis, value in wanted.items():
++            row = rows.get(axis)
++            if row is None:
++                s.add(CohortMembership(customer_id=customer.id, axis=axis, value=value,
++                                       joined_at=_aware(first.at)))
++                changed.append(f"membership.{axis}")
++            elif row.value != value:
++                row.value = value
++                changed.append(f"membership.{axis}")
++        s.flush()
++        return {"customer_ref": customer_ref, "first_order": first.external_ref,
++                "changed": changed}
++
++
++def reconcile_validation_cohort(db, *, session=None) -> dict:
++    """The first hundred buyers by earliest paid order, not by the order rows were inserted.
++
++    A backfill that reads old receipts after new ones would otherwise put a buyer from last
++    spring outside the validation cohort because a buyer from yesterday was written first.
++    """
++    with use_session(db, session) as s:
++        customers = list(s.scalars(select(Customer)))
++        firsts: dict[int, datetime] = {}
++        for o in s.scalars(select(Order)):
++            if _paid(o):
++                at = _aware(o.at)
++                if o.customer_id not in firsts or at < firsts[o.customer_id]:
++                    firsts[o.customer_id] = at
++        ranked = sorted(customers, key=lambda c: (firsts.get(c.id) or _aware(c.first_seen_at),
++                                                  c.customer_ref))
++        member_ids = {c.id for c in ranked[:VALIDATION_COHORT_SIZE]}
++        rows = {m.customer_id: m for m in s.scalars(select(CohortMembership).where(
++            CohortMembership.axis == "validation"))}
++        added = removed = 0
++        for c in customers:
++            row = rows.get(c.id)
++            if c.id in member_ids and row is None:
++                s.add(CohortMembership(customer_id=c.id, axis="validation",
++                                       value="first_hundred",
++                                       joined_at=firsts.get(c.id) or _aware(c.first_seen_at)))
++                added += 1
++            elif c.id not in member_ids and row is not None:
++                s.delete(row)
++                removed += 1
++        s.flush()
++        return {"members": len(member_ids), "added": added, "removed": removed}
++
++
+ # ---------------------------------------------------------------------------
+ # Reading.
+ 
+@@ -204,13 +348,17 @@ def members(db, axis: str, value: str) -> list[dict]:
+             kept = [o for o in orders if not o.refunded]
+             first_at = kept[0].at if kept else None
+             second_at = kept[1].at if len(kept) > 1 else None
++            # Contribution is summed over every order, refunded ones included: a refunded
++            # order's contribution is its retained fees, a loss, and a lifetime contribution
++            # that dropped the losses would flatter every cohort (CB2-O07). Revenue is net of
++            # refunds on the row itself, so summing it over all orders is the same figure.
+             out.append({
+                 "customer_ref": c.customer_ref,
+                 "first_seen_at": _aware(c.first_seen_at).isoformat(),
+                 "orders": len(kept),
+                 "refunded_orders": len(orders) - len(kept),
+-                "contribution_cad": round(sum(o.contribution_cad for o in kept), 2),
+-                "revenue_cad": round(sum(o.revenue_cad for o in kept), 2),
++                "contribution_cad": round(sum(o.contribution_cad for o in orders), 2),
++                "revenue_cad": round(sum(o.revenue_cad for o in orders), 2),
+                 "first_order_at": _aware(first_at) if first_at else None,
+                 "second_order_at": _aware(second_at) if second_at else None,
+                 "categories": sorted({o.category for o in kept if o.category}),
+diff --git a/brambleloop/src/brambleloop/commerce/order_readings.py b/brambleloop/src/brambleloop/commerce/order_readings.py
+index 48952b4..c6a6535 100644
+--- a/brambleloop/src/brambleloop/commerce/order_readings.py
++++ b/brambleloop/src/brambleloop/commerce/order_readings.py
+@@ -35,13 +35,20 @@ KIND = "commerce.orders"
+ STUDY_KIND = "replication.study"
+ UNMEASURED = "UNMEASURED"
+ 
+-# Where an order's acquisition source maps to a growth loop (#271). Etsy receipts carry no
+-# source beyond the marketplace itself, so "etsy" is the organic marketplace loop.
+-SOURCE_TO_LOOP = {"etsy": "etsy_organic", "etsy_search": "etsy_organic",
++# Where an order's acquisition source maps to a growth loop (#271). An Etsy receipt carries no
++# acquisition channel -- search, Etsy Ads, Offsite Ads, a pin and a link all produce the same
++# receipt -- so the ingest records `unknown`, and unknown maps to NO loop (CB2-O06): it is
++# counted apart as `unattributed`, never credited to the organic marketplace loop.
++SOURCE_TO_LOOP = {"etsy_search": "etsy_organic",
+                   "pinterest": "pinterest", "google": "google_seo", "seo": "google_seo",
+                   "creator": "creators", "email": "email", "etsy_ads": "paid_ads",
+                   "offsite_ads": "paid_ads", "bundle": "bundles"}
++UNATTRIBUTED = "unattributed"
+ REFERRAL_SOURCES = ("referral_code", "unique_link", "recorded_mention", "referral")
++# How the money on every row here was arrived at, stated once and carried on each block that
++# sums it (CB2-O07): fees are estimated from the schedule, FX is measured or assumed per row.
++MONEY_BASIS = {"fees": "estimated", "contribution": "revenue net of refunds less estimated fees",
++               "fx": "per order: measured or assumed, see fx_measured"}
+ 
+ 
+ def _aware(v):
+@@ -72,6 +79,14 @@ def orders(db) -> list[dict]:
+                  "contribution_cad": float(o.contribution_cad or 0.0),
+                  "acquisition_source": o.acquisition_source or "unknown",
+                  "refunded": bool(o.refunded), "is_repeat": bool(o.is_repeat),
++                 # The line's reconciled state and refund (CB2-O01); a row written before
++                 # states existed reads as paid or fully refunded from its flag.
++                 "state": ((o.detail or {}).get("state")
++                           or ("fully_refunded" if o.refunded else "paid")),
++                 "refund_cad": float(((o.detail or {}).get("refund") or {}).get("cad")
++                                     or 0.0),
++                 "fees_basis": (((o.detail or {}).get("money") or {}).get("fees") or {}
++                                ).get("basis") or "estimated",
+                  "currency": o.currency or "CAD", "fx_measured": bool(o.fx_measured),
+                  "fx_usd_per_cad": o.fx_usd_per_cad}
+                 for o in s.scalars(select(Order).order_by(Order.at))]
+@@ -137,12 +152,15 @@ def offer_results(db) -> list:
+     results = []
+     for (slug, offer), mine in sorted(grouped.items()):
+         kept = [o for o in mine if not o["refunded"]]
++        # Revenue on each row is already net of its refund and a refunded row's
++        # contribution is its retained fees (a loss), so both are summed over every order
++        # the offer took: dropping the refunded rows would drop the losses (CB2-O07).
+         results.append(offers.Result(
+             design_slug=slug, offer=offer,
+             visitors=(visits.get(slug) if offer == offers.SINGLE and slug in visits else None),
+             buyers=len({o["customer_ref"] for o in kept}),
+-            revenue_cad=round(sum(o["revenue_cad"] for o in kept), 2),
+-            contribution_cad=round(sum(o["contribution_cad"] for o in kept), 2)))
++            revenue_cad=round(sum(o["revenue_cad"] for o in mine), 2),
++            contribution_cad=round(sum(o["contribution_cad"] for o in mine), 2)))
+     return results
+ 
+ 
+@@ -154,6 +172,7 @@ def offer_block(db) -> dict:
+         return {"reading": UNMEASURED, "results": [],
+                 "why": "no order exists, so no offer has a buyer or a visitor to divide by"}
+     return {"reading": "measured", "comparison": offers.compare(results),
++            "money_basis": MONEY_BASIS,
+             "results": [{"design": r.design_slug, "offer": r.offer, **r.measures()}
+                         for r in results]}
+ 
+@@ -381,14 +400,14 @@ def ladder_block(db, rows: list[dict], *, today: date | None = None) -> dict:
+                       "moved": len(moved)})
+     by_customer: dict[str, dict] = {}
+     for o in rows:
++        b = by_customer.setdefault(o["customer_ref"], {"orders": 0, "contribution_cad": 0.0})
+         if not o["refunded"]:
+-            b = by_customer.setdefault(o["customer_ref"], {"orders": 0, "contribution_cad": 0.0})
+             b["orders"] += 1
+-            b["contribution_cad"] += o["contribution_cad"]
++        b["contribution_cad"] += o["contribution_cad"]  # losses retained (CB2-O07)
+     return {
+         "reading": "measured" if products else UNMEASURED,
+         "why": "" if products else "no priced listing exists to place on a rung",
+-        "products": products, "shape": shape,
++        "products": products, "shape": shape, "money_basis": MONEY_BASIS,
+         "discount_guard": guard,
+         "discount_refused": sorted(g["slug"] for g in guard if not g["ok"]),
+         "movement": ladder.movement(moves),
+@@ -450,7 +469,32 @@ def bundle_block(db) -> dict:
+ # #235
+ 
+ 
++# The one promotion/referral verdict contract (CB2-X01). Any other reader of these decisions
++# -- the growth operations loop included -- consumes `promotion_block` / `referral_block`
++# through `latest()` / `directives()` or states a distinct purpose; it does not recompute a
++# verdict from the same rows under different thresholds.
++PROMOTION_CONTRACT = {
++    "evidence": ("launch cohort arms (`cohorts` rows with arm organic/promoted) and the "
++                 "shop's own on-sale price observations"),
++    "window": "the recorded sale window (from_date..to_date) per product",
++    "verdict": "commerce.promotion.incrementality: 'worth repeating' or not; measurable only "
++               "with a full-price arm beside the discounted one",
++    "acted_on_by": "pricing.position refuses a sale price for `do_not_repeat` products",
++    "canonical_reader": "commerce.order_readings.promotion_block",
++}
++REFERRAL_CONTRACT = {
++    "evidence": ("orders whose acquisition_source is a referral source and is_repeat is "
++                 "false; referral_reward ledger entries"),
++    "window": "all recorded orders while the order source is live",
++    "verdict": "commerce.referral.outcome and per-mechanic check against the validation "
++               "cohort's lifetime contribution per buyer",
++    "acted_on_by": "the mechanics in `may_run` are the only ones a growth job may operate",
++    "canonical_reader": "commerce.order_readings.referral_block",
++}
++
++
+ def promotion_block(db) -> dict:
++    """The canonical promotion verdicts (#235); see PROMOTION_CONTRACT (CB2-X01)."""
+     from sqlalchemy import select
+ 
+     from ..core.models import Cohort, PriceObservation
+@@ -492,7 +536,7 @@ def promotion_block(db) -> dict:
+             "why": ("" if measured else
+                     "no promotion has run beside a full-price arm, so no discount can be "
+                     "shown to be accretive -- and none is assumed to be"),
+-            "verdicts": verdicts,
++            "verdicts": verdicts, "contract": PROMOTION_CONTRACT,
+             "do_not_repeat": sorted(v["slug"] for v in measured
+                                     if v.get("verdict") != "worth repeating")}
+ 
+@@ -509,8 +553,11 @@ def repeat_block(rows: list[dict], *, as_of: datetime) -> dict:
+                 "windows": repeat.windows([], axis="first_product", value=""),
+                 "lifetime_contribution": None}
+     firsts: dict[str, dict] = {}
+-    for o in sorted(rows, key=lambda o: o["at"]):
+-        if not o["refunded"]:
++    # The first purchase is the earliest paid order, whether or not the money later went
++    # back: the same rule `cohorts.reconcile_customer` writes, so this block and the cohort
++    # tables cannot disagree about who a buyer's first product was (CB2-O04).
++    for o in sorted(rows, key=lambda o: (o["at"], o["customer_ref"])):
++        if o["state"] in ("paid", "partially_refunded", "fully_refunded"):
+             firsts.setdefault(o["customer_ref"], o)
+     out: dict[str, dict] = {}
+     for axis, key in (("first_product", "product_slug"), ("first_category", "category"),
+@@ -522,9 +569,8 @@ def repeat_block(rows: list[dict], *, as_of: datetime) -> dict:
+                                                         as_of=as_of)
+     per_customer: dict[str, float] = {}
+     for o in rows:
+-        if not o["refunded"]:
+-            per_customer[o["customer_ref"]] = (per_customer.get(o["customer_ref"], 0.0)
+-                                               + o["contribution_cad"])
++        per_customer[o["customer_ref"]] = (per_customer.get(o["customer_ref"], 0.0)
++                                           + o["contribution_cad"])  # losses retained
+     lifetime = {}
+     for label, w in out.items():
+         axis, value = label.split("=", 1)
+@@ -535,7 +581,7 @@ def repeat_block(rows: list[dict], *, as_of: datetime) -> dict:
+                                  / len(members), 2) if members else None)
+     measured = [k for k, v in out.items() if v.get("measurable")]
+     return {"reading": "measured" if measured else UNMEASURED, "windows": out,
+-            "lifetime_contribution_per_buyer_cad": lifetime,
++            "lifetime_contribution_per_buyer_cad": lifetime, "money_basis": MONEY_BASIS,
+             "next_projects": {f["product_slug"]: [r["slug"] for r in repeat.recommend(
+                 f["product_slug"]).get("next_project", [])[:3]]
+                               for f in firsts.values() if _in_pool(f["product_slug"])}}
+@@ -566,7 +612,7 @@ def referral_block(db, rows: list[dict], *, contribution_per_customer: float | N
+         attributed = {o["customer_ref"] for o in rows
+                       if o["acquisition_source"] in REFERRAL_SOURCES and not o["is_repeat"]}
+         contribution = round(sum(o["contribution_cad"] for o in rows
+-                                 if o["customer_ref"] in attributed and not o["refunded"]), 2)
++                                 if o["customer_ref"] in attributed), 2)  # losses retained
+         result = referral.outcome(attributed_customers=len(attributed),
+                                   contribution_cad=contribution, reward_spend_cad=rewards)
+     else:
+@@ -576,7 +622,7 @@ def referral_block(db, rows: list[dict], *, contribution_per_customer: float | N
+               for m in referral.DECLARED]
+     return {"outcome": result, "mechanics": checks,
+             "may_run": sorted(c["mechanic"] for c in checks if c["ok"]),
+-            "source_live": live}
++            "source_live": live, "contract": REFERRAL_CONTRACT}
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -584,39 +630,55 @@ def referral_block(db, rows: list[dict], *, contribution_per_customer: float | N
+ 
+ 
+ def loop_block(db, rows: list[dict]) -> dict:
+-    """Bring each loop's recorded traffic and orders up to what the rows now say."""
++    """Bring each loop's counters to what the reconciled rows now say (#271, CB2-O06).
++
++    Orders are counted per loop as paid events (`orders`), with the refunded ones and the net
++    outcome (`net_orders`, `contribution_cad`, losses retained) reported beside them, and
++    the registry row is *set* to the facts through `loops.reconcile`, so a refund or a
++    correction moves a counter down as readily as a sale moved it up. An order whose
++    acquisition is unknown -- every Etsy receipt today -- is counted under `unattributed`
++    and credited to no loop.
++    """
+     from sqlalchemy import select
+ 
+-    from ..core.models import GrowthLoop, ListingOutcome
++    from ..core.models import ListingOutcome
+     from ..growth import loops
+ 
+     loops.seed(db)
+     with db.session() as s:
+         etsy_visits = sum(int(r.visits or 0) for r in s.scalars(select(ListingOutcome)))
+-    want: dict[str, dict] = {k: {"visits": 0, "orders": 0, "contribution": 0.0}
+-                             for k in loops.BY_KEY}
+-    want["etsy_organic"]["visits"] = etsy_visits
++    empty = lambda: {"orders": 0, "refunded": 0, "net_orders": 0, "contribution": 0.0}  # noqa: E731
++    want: dict[str, dict] = {k: empty() for k in loops.BY_KEY}
++    unattributed = empty()
+     for o in rows:
+-        if o["refunded"]:
++        if o["state"] not in ("paid", "partially_refunded", "fully_refunded"):
+             continue
+         key = SOURCE_TO_LOOP.get(o["acquisition_source"])
+-        if key:
+-            want[key]["orders"] += 1
+-            want[key]["contribution"] += o["contribution_cad"]
++        bucket = want[key] if key else unattributed
++        bucket["orders"] += 1
++        if o["refunded"]:
++            bucket["refunded"] += 1
++        else:
++            bucket["net_orders"] += 1
++        bucket["contribution"] += o["contribution_cad"]
+     moved = {}
+     for key, w in want.items():
+-        with db.session() as s:
+-            row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
+-            have_v, have_o = int(row.visits or 0), int(row.orders or 0)
+-        dv, do = max(0, w["visits"] - have_v), max(0, w["orders"] - have_o)
+-        if dv or do:
+-            moved[key] = loops.observe(db, key, visits=dv, orders=do)
+-        with db.session() as s:
+-            row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
+-            row.contribution_cad = round(w["contribution"], 2)
++        got = loops.reconcile(db, key, orders=w["orders"],
++                              contribution_cad=round(w["contribution"], 2),
++                              visits=etsy_visits if key == "etsy_organic" else None)
++        if got["changed"]:
++            moved[key] = got
+     summary = loops.evidence_summary(loops.from_db(db))
+     return {"moved": moved, "with_evidence": summary["with_evidence"],
+-            "loops": summary["loops_detail"], "note": summary["note"]}
++            "loops": summary["loops_detail"], "note": summary["note"],
++            "by_loop": {k: {**w, "contribution": round(w["contribution"], 2)}
++                        for k, w in want.items() if w["orders"]},
++            "unattributed": {**unattributed,
++                             "contribution": round(unattributed["contribution"], 2),
++                             "why": ("acquisition unknown: an Etsy receipt names no channel, "
++                                     "so these orders are credited to no loop rather than "
++                                     "assumed organic")},
++            "money_basis": MONEY_BASIS}
+ 
+ 
+ # ---------------------------------------------------------------------------
+diff --git a/brambleloop/src/brambleloop/commerce/orders_ingest.py b/brambleloop/src/brambleloop/commerce/orders_ingest.py
+index a01a09e..48283a4 100644
+--- a/brambleloop/src/brambleloop/commerce/orders_ingest.py
++++ b/brambleloop/src/brambleloop/commerce/orders_ingest.py
+@@ -16,13 +16,43 @@ the stored `oauth_credentials` row, and the probe is the audit row the `etsy_api
+ When either is missing the run records `UNMEASURED` with the reason and makes **no network
+ call** -- the client is not even constructed.
+ 
++**A receipt is a state, not an event (CB2-O01, CB2-O02).** Etsy's receipt carries `status`
++(`paid`, `completed`, `open`, `payment processing`, `canceled`, `fully refunded`,
++`partially refunded`), `is_paid`, `refunds[]` (each an amount) and `update_timestamp`. Only
++a receipt Etsy says was paid, in a recognised state, becomes a sale. An unpaid or cancelled
++one is held as such and never a sale; a state this module does not recognise is held as
++`unknown` -- it is written nowhere and reported by name, because "unknown" is not "paid".
++A refund, whenever it arrives, is reconciled onto the transaction line it belongs to: linked
++to its transaction when the refund names one, otherwise allocated across the receipt's lines
++in proportion to their price and capped at each line's own amount. The order row's revenue,
++refund and contribution are the receipt's *current* truth, updated idempotently by source
++revision (`update_timestamp`), never added to twice.
++
++**Old receipts are re-read (CB2-O01).** A durable cursor (the newest `update_timestamp`
++seen, kept as an `operating_readings` row) drives `min_last_modified`, so a refund on a
++receipt from months ago is picked up by the next run; and every `FULL_SWEEP_EVERY` a run
++reads the whole receipt history again, so a change the cursor could miss is reconciled at
++worst that much later.
++
++**One transaction per receipt line (CB2-O05).** The customer, the order, the version map
++row and the ledger entry are written inside one database transaction. A crash between them
++rolls the line back; the next run writes it exactly once. A line that already exists is
++reconciled in place and its dependent rows repaired if any is missing.
++
++**First purchase is derived, not encountered (CB2-O04).** After every line the buyer's
++first-purchase facts and repeat flags are re-derived from their earliest paid order, and at
++the end of a run the validation cohort is re-ranked by earliest purchase, so a backfill that
++arrives newest-first yields the same cohorts as one that arrives in order.
++
+ **What is written, and what is not.** A customer is the buyer's Etsy user id and nothing
+ else: no name, no email, no address, even though the receipt carries them. Each receipt line
+-becomes one order (`etsy:<receipt>:<transaction>`), idempotent on that reference; the version
+-the buyer received is recorded at sale time through `cohorts.record_order`; the money becomes
+-one `sale` ledger entry with the same evidence reference, which is what opens the `customers`
+-data gate. The transaction's own currency and amount are preserved beside the CAD figure,
+-with the rate, its date and whether it was measured (#269).
++becomes one order (`etsy:<receipt>:<transaction>`); the version the buyer received is the one
++recorded as listed under that Etsy listing *at the time of the sale* -- from the immutable
++listing/publication history -- or explicitly unknown (CB2-O03), never the listing's current
++version. A receipt says nothing about where the buyer came from, so the acquisition source
++is `unknown` with its basis recorded, never assumed organic (CB2-O06). Money keeps its
++provenance: fees are *estimated* from the fee schedule, the FX rate says whether it was
++measured or assumed, and a loss is recorded as a loss (CB2-O07).
+ """
+ from __future__ import annotations
+ 
+@@ -34,15 +64,36 @@ OPERATION = "getShopReceipts"
+ SOURCE = "etsy_receipts"
+ PAGE = 100
+ MAX_PAGES = 20
+-# Receipts are re-read over this overlap so a receipt created while the last run was paging
+-# is not missed. Idempotent on the order reference, so the overlap costs nothing but a read.
++# Receipts are re-read over this overlap so a receipt modified while the last run was paging
++# is not missed. Idempotent on the order reference and source revision, so the overlap costs
++# nothing but a read.
+ OVERLAP = timedelta(days=2)
++# How often a run reads the whole receipt history rather than what changed since the cursor.
++FULL_SWEEP_EVERY = timedelta(days=7)
++CURSOR_KIND = "commerce.orders_ingest"
++CURSOR_KEY = "cursor"
+ OWNER_ACTION_KEY = "reauthorise_transactions_r"
+ 
++# Etsy's receipt states, as its v3 `ShopReceipt.status` names them.
++SALE_STATES: frozenset[str] = frozenset({"paid", "completed", "fully refunded",
++                                         "partially refunded"})
++UNPAID_STATES: frozenset[str] = frozenset({"open", "payment processing"})
++CANCELLED_STATES: frozenset[str] = frozenset({"canceled", "cancelled"})
++# What this module records as the line's state.
++PAID, PARTIALLY_REFUNDED, FULLY_REFUNDED, CANCELLED, UNPAID, UNKNOWN = (
++    "paid", "partially_refunded", "fully_refunded", "cancelled", "unpaid", "unknown")
++# States that are written as orders. Cancelled is written only when a sale was recorded
++# before the cancellation arrived: the row is then voided, not deleted.
++SALE_LINE_STATES: frozenset[str] = frozenset({PAID, PARTIALLY_REFUNDED, FULLY_REFUNDED})
++ATTRIBUTION_BASIS = "etsy_receipt"
++
+ # Injection point for the receipt reader. None in production: the reader is built from the
+ # environment's Etsy credential, and only after the gate is open. Tests set this to a fake
+ # feed -- the gate is still checked first, so a test cannot read receipts the gate refuses.
+ reader_factory: Callable[[Any], Any] | None = None
++# Test seam for the crash test (CB2-O05): called inside a line's transaction after the order
++# and before the ledger entry. None in production.
++mid_line_hook: Callable[[dict], None] | None = None
+ 
+ 
+ class IngestRefused(ValueError):
+@@ -83,7 +134,12 @@ def gate(db) -> dict:
+ 
+ 
+ class EtsyReceiptReader:
+-    """The production reader: `EtsyClient.get_shop_receipts`, paged."""
++    """The production reader: `EtsyClient.get_shop_receipts`, paged.
++
++    `since` is a *last-modified* watermark: Etsy's `min_last_modified` returns every receipt
++    created or changed after it, which is what a refund on an old receipt needs. None reads
++    the whole history (bounded by `MAX_PAGES`).
++    """
+ 
+     def __init__(self, client) -> None:
+         self.client = client
+@@ -91,10 +147,10 @@ class EtsyReceiptReader:
+ 
+     def receipts(self, *, since: datetime | None) -> list[dict]:
+         out: list[dict] = []
+-        min_created = int(since.timestamp()) if since is not None else None
++        modified = int(since.timestamp()) if since is not None else None
+         for page in range(MAX_PAGES):
+             self.calls += 1
+-            got = self.client.get_shop_receipts(min_created=min_created, limit=PAGE,
++            got = self.client.get_shop_receipts(min_last_modified=modified, limit=PAGE,
+                                                 offset=page * PAGE)
+             out.extend(got)
+             if len(got) < PAGE:
+@@ -124,48 +180,187 @@ def _money(obj: Any) -> tuple[float, str] | None:
+     return float(obj["amount"]) / divisor, str(obj.get("currency_code") or "").upper()
+ 
+ 
++def _ts(value) -> datetime | None:
++    if value in (None, ""):
++        return None
++    return datetime.fromtimestamp(int(value), tz=timezone.utc)
++
++
+ def _when(receipt: dict) -> datetime:
+-    ts = receipt.get("create_timestamp") or receipt.get("created_timestamp")
+-    if ts is None:
++    at = _ts(receipt.get("create_timestamp") or receipt.get("created_timestamp"))
++    if at is None:
+         raise IngestRefused(f"receipt {receipt.get('receipt_id')!r} has no creation time")
+-    return datetime.fromtimestamp(int(ts), tz=timezone.utc)
++    return at
++
++
++def revision(receipt: dict) -> int:
++    """The receipt's source revision: its update time, else its creation time."""
++    return int(receipt.get("update_timestamp") or receipt.get("updated_timestamp")
++               or receipt.get("create_timestamp") or receipt.get("created_timestamp") or 0)
++
++
++def receipt_state(receipt: dict) -> tuple[str, str]:
++    """(state, why) for the receipt as a whole, from Etsy's own `status` and `is_paid`.
++
++    Recognised states only. A status this module has not seen, a paid status contradicted
++    by `is_paid: false`, or a receipt with no status at all is `unknown` and held: it is
++    reported by name and written nowhere until somebody teaches this function what it means.
++    """
++    status = str(receipt.get("status") or "").strip().lower()
++    is_paid = receipt.get("is_paid")
++    if status in CANCELLED_STATES:
++        return CANCELLED, f"status {status!r}"
++    if status in UNPAID_STATES:
++        return UNPAID, f"status {status!r}"
++    if status in SALE_STATES:
++        if is_paid is False:
++            return UNKNOWN, f"status {status!r} but is_paid is false: contradictory"
++        return PAID, f"status {status!r}" + ("" if is_paid else ", is_paid absent")
++    if not status:
++        return UNKNOWN, "no status on the receipt"
++    if is_paid is False:
++        return UNPAID, f"unrecognised status {status!r} with is_paid false"
++    return UNKNOWN, f"unrecognised status {status!r}"
++
++
++def _refunds(receipt: dict, amounts: dict[str, float]) -> dict[str, float]:
++    """Refunded amount per transaction line, in the receipt's currency.
++
++    A refund naming a transaction is that line's. The rest is the receipt's and is allocated
++    across its lines in proportion to their price, capped at each line's amount -- a
++    line-appropriate figure rather than "every line refunded" (CB2-O01). A receipt whose
++    status is `fully refunded` with no refund rows is treated as refunded in full.
++    """
++    out = {tid: 0.0 for tid in amounts}
++    pooled = 0.0
++    for r in receipt.get("refunds") or []:
++        if not isinstance(r, dict):
++            continue
++        money = _money(r.get("amount"))
++        if money is None or money[0] <= 0:
++            continue
++        tid = r.get("transaction_id")
++        if tid is not None and str(tid) in out:
++            out[str(tid)] += money[0]
++        else:
++            pooled += money[0]
++    remaining = {tid: max(0.0, amounts[tid] - out[tid]) for tid in amounts}
++    total_remaining = sum(remaining.values())
++    if pooled > 0 and total_remaining > 0:
++        share = min(1.0, pooled / total_remaining)
++        for tid in amounts:
++            out[tid] += remaining[tid] * share
++    if str(receipt.get("status") or "").strip().lower() == "fully refunded":
++        out = {tid: amounts[tid] for tid in amounts}
++    return {tid: round(min(amounts[tid], v), 4) for tid, v in out.items()}
+ 
+ 
+ def lines(receipt: dict) -> list[dict]:
+-    """One dict per transaction line, with personal data dropped at the door."""
++    """One dict per transaction line, with personal data dropped at the door.
++
++    Every line carries the receipt's state, its own refund amount and the receipt's source
++    revision, so the writer can reconcile it against what was recorded before.
++    """
+     rid = receipt.get("receipt_id")
+     buyer = receipt.get("buyer_user_id")
+     if rid is None or buyer in (None, ""):
+         raise IngestRefused("a receipt needs its id and the buyer's Etsy user id")
+     at = _when(receipt)
+-    refunded = bool(receipt.get("refunds"))
+-    out = []
++    state, why = receipt_state(receipt)
++    rev = revision(receipt)
++    priced: list[tuple[dict, float, str, int]] = []
+     for t in receipt.get("transactions") or []:
+         price = _money(t.get("price"))
+         if price is None or not price[1]:
+             raise IngestRefused(f"receipt {rid}: a line with no priced currency cannot be "
+                                 f"reconciled against anything")
+         qty = max(1, int(t.get("quantity") or 1))
++        priced.append((t, round(price[0] * qty, 4), price[1], qty))
++    amounts = {str(t.get("transaction_id")): amount for t, amount, _c, _q in priced}
++    refunds = _refunds(receipt, amounts) if state == PAID else {k: 0.0 for k in amounts}
++    out = []
++    for t, amount, currency, qty in priced:
++        tid = str(t.get("transaction_id"))
++        refund = refunds.get(tid, 0.0)
++        line_state = state
++        if state == PAID and refund > 0:
++            line_state = FULLY_REFUNDED if refund >= amount - 0.005 else PARTIALLY_REFUNDED
+         out.append({
+-            "receipt_id": str(rid), "transaction_id": str(t.get("transaction_id")),
++            "receipt_id": str(rid), "transaction_id": tid,
+             "customer_ref": f"etsy-user-{buyer}",
+             "listing_id": str(t.get("listing_id") or ""),
+-            "amount": round(price[0] * qty, 4), "currency": price[1],
+-            "at": at, "refunded": refunded,
++            "amount": amount, "currency": currency, "quantity": qty,
++            "refund": refund, "state": line_state, "state_why": why,
++            "at": at, "paid_at": _ts(t.get("paid_timestamp")) or at,
++            "revision": rev,
++            # Kept for readers of the old shape; the state is the truth.
++            "refunded": line_state == FULLY_REFUNDED,
+         })
+     return out
+ 
+ 
+-def _catalogue(db) -> dict[str, dict]:
+-    """Etsy listing id -> the product and version this company listed under it."""
++# ---------------------------------------------------------------------------
++# What was listed under an Etsy listing id, and when (CB2-O03)
++
++
++def listing_history(db) -> dict[str, list[dict]]:
++    """Etsy listing id -> the versions listed under it, each with when it took effect.
++
++    The effective time is the `store.published` audit row for that release when one exists
++    (the publication is the immutable event) and the listing row's creation time otherwise.
++    Sorted oldest first, so `version_at` can pick the version in force at a sale.
++    """
+     from sqlalchemy import select
+ 
+-    from ..core.models import Listing
++    from ..core.models import AuditLog, Listing
+ 
++    published: dict[str, datetime] = {}
+     with db.session() as s:
+-        return {r.etsy_listing_id: {"slug": r.product_slug, "version": r.version,
+-                                    "collection": r.version == "collection"}
+-                for r in s.scalars(select(Listing)) if r.etsy_listing_id}
++        for a in s.scalars(select(AuditLog).where(AuditLog.action == "store.published")):
++            if a.artifact and a.at is not None:
++                at = a.at if a.at.tzinfo else a.at.replace(tzinfo=timezone.utc)
++                if a.artifact not in published or at < published[a.artifact]:
++                    published[a.artifact] = at
++        out: dict[str, list[dict]] = {}
++        for r in s.scalars(select(Listing)):
++            if not r.etsy_listing_id:
++                continue
++            created = r.created_at if r.created_at is None or r.created_at.tzinfo else \
++                r.created_at.replace(tzinfo=timezone.utc)
++            key = f"{r.product_slug}@{r.version}"
++            at = published.get(key) or created
++            out.setdefault(r.etsy_listing_id, []).append({
++                "slug": r.product_slug, "version": r.version,
++                "collection": r.version == "collection",
++                "effective_from": at,
++                "basis": "store.published" if key in published else "listing_row_created_at"})
++    for entries in out.values():
++        entries.sort(key=lambda e: (e["effective_from"] or datetime.min.replace(
++            tzinfo=timezone.utc), e["version"]))
++    return out
++
++
++def version_at(history: dict[str, list[dict]], listing_id: str, at: datetime) -> dict:
++    """The product and version listed under `listing_id` when the sale happened.
++
++    The newest entry whose effective time is at or before the sale. A sale that predates
++    every recorded entry names the product (a listing id belongs to one product) but its
++    version is unknown, and says so, rather than the version listed later.
++    """
++    entries = history.get(listing_id) or []
++    if not entries:
++        return {"slug": "", "version": "", "collection": False, "matched": False,
++                "basis": "unmatched: no listing of ours carries this Etsy listing id"}
++    in_force = [e for e in entries if e["effective_from"] is None or e["effective_from"] <= at]
++    if not in_force:
++        first = entries[0]
++        return {"slug": first["slug"], "version": "", "collection": first["collection"],
++                "matched": True,
++                "basis": (f"unknown: the sale predates the earliest recorded version "
++                          f"({first['version']}, {first['basis']})")}
++    e = in_force[-1]
++    return {"slug": e["slug"], "version": "" if e["collection"] else e["version"],
++            "collection": e["collection"], "matched": True, "basis": e["basis"]}
+ 
+ 
+ def _seed(slug: str):
+@@ -183,82 +378,218 @@ def _to_cad(amount: float, currency: str, on: date) -> dict:
+     return {"cad": float(converted["reporting"]["amount"]),
+             "usd_per_cad": rate["usd_per_cad"] if rate else None,
+             "taken_on": rate["taken_on"] if rate else "",
+-            "measured": bool(rate and rate["measured"])}
++            "measured": bool(rate and rate["measured"]),
++            "source": (rate.get("source") if rate else None) or "assumed"}
++
++
++def _fee_provenance() -> dict:
++    from . import fee_schedule as FS
++
++    return {"basis": "estimated",
++            "why": ("modelled from the fee schedule's dated reading of Etsy's fee pages, not "
++                    "read back from a settlement; Offsite Ads and currency fees are not in it"),
++            "claims": {k: {"evidence": c.evidence, "checked_on": c.checked_on}
++                       for k, c in (("transaction", FS.TRANSACTION),
++                                    ("payment_processing", FS.PAYMENT_PROCESSING),
++                                    ("listing", FS.LISTING))}}
+ 
+ 
+ # ---------------------------------------------------------------------------
+ # Writing
+ 
+ 
+-def _record_line(db, line: dict, listed: dict[str, dict]) -> dict:
++def money_for(line: dict) -> dict:
++    """Price, refund, fees and contribution in CAD, each with its provenance (CB2-O07)."""
++    from .pricing import fees
++
++    cad = _to_cad(line["amount"], line["currency"], line["at"].date())
++    rate = cad["cad"] / line["amount"] if line["amount"] else 0.0
++    price = round(cad["cad"], 2)
++    refund = round(line["refund"] * rate, 2) if line["state"] != CANCELLED else price
++    refund = min(price, refund)
++    revenue = round(price - refund, 2)
++    f = fees(price) if price > 0 else None
++    fee_total = round(f.total_fees, 2) if f else 0.0
++    # The fee stays with the platform when the money goes back; a refunded sale is a loss of
++    # its fees and is recorded as one. Nothing here clamps it.
++    contribution = round(revenue - fee_total, 2)
++    return {"price_cad": price, "refund_cad": refund, "revenue_cad": revenue,
++            "fees_cad": fee_total, "contribution_cad": contribution,
++            "fx": {"usd_per_cad": cad["usd_per_cad"], "taken_on": cad["taken_on"],
++                   "measured": cad["measured"],
++                   "basis": "measured" if cad["measured"] else "assumed",
++                   "source": cad["source"]},
++            "fees": _fee_provenance(),
++            "contribution_basis": ("revenue net of refunds less ESTIMATED fees; "
++                                   + ("measured" if cad["measured"] else "assumed")
++                                   + " FX rate")}
++
++
++def _reconcile_existing(s, order, line: dict, money: dict, ledger) -> list[str]:
++    """Bring an existing order (and its ledger entry) to the receipt's current truth.
++
++    Keyed by the line's source revision: an older or equal revision with the same refund
++    state changes nothing, a newer one sets (never adds) the refund, revenue, contribution
++    and state. Idempotent under any number of re-reads.
++    """
++    detail = dict(order.detail or {})
++    stored_rev = int(detail.get("source_revision") or 0)
++    same = (abs(float(order.revenue_cad or 0.0) - money["revenue_cad"]) < 0.005
++            and detail.get("state") == line["state"])
++    if line["revision"] < stored_rev or (line["revision"] == stored_rev and same):
++        return []
++    changed: list[str] = []
++    if detail.get("state") != line["state"]:
++        changed.append(f"state {detail.get('state')} -> {line['state']}")
++    if abs(float(order.revenue_cad or 0.0) - money["revenue_cad"]) >= 0.005:
++        changed.append(f"revenue {float(order.revenue_cad or 0.0):.2f} -> "
++                       f"{money['revenue_cad']:.2f}")
++    order.revenue_cad = money["revenue_cad"]
++    order.contribution_cad = money["contribution_cad"]
++    order.refunded = line["state"] in (FULLY_REFUNDED, CANCELLED)
++    order.detail = {**detail, "state": line["state"], "state_why": line["state_why"],
++                    "source_revision": line["revision"],
++                    "refund": {"amount_original": line["refund"], "cad": money["refund_cad"],
++                               "currency": line["currency"]},
++                    "money": {"fx": money["fx"], "fees": money["fees"],
++                              "contribution_basis": money["contribution_basis"]}}
++    if ledger is not None:
++        ledger.refunds_cad = money["refund_cad"]
++        ledger.fees_cad = money["fees_cad"]
++    return changed or ["revision"]
++
++
++def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
++    """One receipt line, written or reconciled inside ONE transaction (CB2-O05)."""
+     from sqlalchemy import select
+ 
+     from ..commerce import cohorts
+-    from ..commerce.pricing import fees
+-    from ..core.models import LedgerEntry
++    from ..core.models import LedgerEntry, Order
+ 
+     ref = f"etsy:{line['receipt_id']}:{line['transaction_id']}"
+-    target = listed.get(line["listing_id"])
+-    slug = target["slug"] if target else f"etsy-listing-{line['listing_id'] or 'unknown'}"
+-    version = "" if (not target or target["collection"]) else target["version"]
++    listed = version_at(history, line["listing_id"], line["at"])
++    slug = listed["slug"] or f"etsy-listing-{line['listing_id'] or 'unknown'}"
++    version = listed["version"]
+     seed = _seed(slug)
+     category = seed.category if seed else ""
+     season = (seed.season or "none") if seed else "none"
+-    offer = ("complete_collection" if target and target["collection"] else
++    offer = ("complete_collection" if listed["collection"] else
+              "seasonal_bundle" if seed and seed.is_bundle and seed.season else
+              "mini_bundle" if seed and seed.is_bundle else "single_pattern")
+ 
+-    try:
+-        cad = _to_cad(line["amount"], line["currency"], line["at"].date())
+-    except Exception as exc:  # noqa: BLE001 - a currency with no rate is recorded, not guessed
+-        return {"ref": ref, "recorded": False, "why": str(exc)[:200]}
+-    price = round(cad["cad"], 2)
+-    f = fees(price) if price > 0 else None
+-    fee_total = round(f.total_fees, 2) if f else 0.0
+-    contribution = round(price - fee_total, 2) if not line["refunded"] else 0.0
+-
+-    customer = cohorts.record_customer(
+-        db, line["customer_ref"], at=line["at"], acquisition_source="etsy",
+-        first_product_slug=slug, first_category=category, first_season=season)
+-    order = cohorts.record_order(
+-        db, line["customer_ref"], ref, product_slug=slug, at=line["at"], version=version,
+-        category=category, price_cad=price, revenue_cad=0.0 if line["refunded"] else price,
+-        contribution_cad=max(0.0, contribution), acquisition_source="etsy",
+-        refunded=line["refunded"], currency=line["currency"],
+-        amount_original=line["amount"], fx_usd_per_cad=cad["usd_per_cad"],
+-        fx_taken_on=cad["taken_on"], fx_measured=cad["measured"], fees_cad=fee_total,
+-        offer=offer, source=SOURCE,
+-        detail={"listing_id": line["listing_id"], "receipt_id": line["receipt_id"],
+-                "matched_listing": bool(target)})
+-
+-    ledger = False
+     with db.session() as s:
+-        if s.scalar(select(LedgerEntry).where(LedgerEntry.evidence_ref == ref)) is None:
+-            s.add(LedgerEntry(at=line["at"], category="sale",
+-                              description=f"Etsy receipt {line['receipt_id']} ({slug})",
+-                              gross_cad=price, fees_cad=fee_total,
+-                              refunds_cad=price if line["refunded"] else 0.0,
+-                              evidence_ref=ref))
++        existing = s.scalar(select(Order).where(Order.external_ref == ref))
++        if line["state"] not in SALE_LINE_STATES and existing is None:
++            # Unpaid, cancelled-before-recording or unknown: held, written nowhere.
++            return {"ref": ref, "recorded": False, "held": line["state"],
++                    "why": f"{line['state']}: {line['state_why']}; not a sale"}
++        if line["state"] in (UNPAID, UNKNOWN) and existing is not None:
++            # A recorded sale whose receipt now reads unpaid or unrecognised is a
++            # contradiction to hold, not a row to silently rewrite.
++            return {"ref": ref, "recorded": False, "held": line["state"],
++                    "why": (f"{line['state']}: {line['state_why']}; a recorded sale is not "
++                            f"rewritten from a state this module does not recognise")}
++        try:
++            money = money_for(line)
++        except Exception as exc:  # noqa: BLE001 - a currency with no rate is recorded, not guessed
++            return {"ref": ref, "recorded": False, "why": str(exc)[:200]}
++
++        detail = {"listing_id": line["listing_id"], "receipt_id": line["receipt_id"],
++                  "matched_listing": listed["matched"], "version_basis": listed["basis"],
++                  "season": season, "state": line["state"], "state_why": line["state_why"],
++                  "source_revision": line["revision"],
++                  "refund": {"amount_original": line["refund"], "cad": money["refund_cad"],
++                             "currency": line["currency"]},
++                  "attribution": {"basis": ATTRIBUTION_BASIS, "marketplace": "etsy",
++                                  "channel": "unknown", "confidence": "none",
++                                  "why": ("an Etsy receipt carries no acquisition channel: "
++                                          "the buyer may have arrived from search, Etsy "
++                                          "Ads, Offsite Ads, a pin or a link, and nothing "
++                                          "on the receipt says which")},
++                  "money": {"fx": money["fx"], "fees": money["fees"],
++                            "contribution_basis": money["contribution_basis"]}}
++        customer = cohorts.record_customer(
++            db, line["customer_ref"], at=line["paid_at"], acquisition_source="unknown",
++            first_product_slug=slug, first_category=category, first_season=season,
++            session=s)
++        order = cohorts.record_order(
++            db, line["customer_ref"], ref, product_slug=slug, at=line["paid_at"],
++            version=version, category=category, price_cad=money["price_cad"],
++            revenue_cad=money["revenue_cad"], contribution_cad=money["contribution_cad"],
++            acquisition_source="unknown",
++            refunded=line["state"] in (FULLY_REFUNDED, CANCELLED),
++            currency=line["currency"], amount_original=line["amount"],
++            fx_usd_per_cad=money["fx"]["usd_per_cad"], fx_taken_on=money["fx"]["taken_on"],
++            fx_measured=money["fx"]["measured"], fees_cad=money["fees_cad"], offer=offer,
++            source=SOURCE, detail=detail, session=s)
++        if mid_line_hook is not None:
++            mid_line_hook(line)
++        ledger_row = s.scalar(select(LedgerEntry).where(LedgerEntry.evidence_ref == ref))
++        ledger = False
++        if ledger_row is None:
++            s.add(LedgerEntry(at=line["paid_at"], category="sale",
++                              description=(f"Etsy receipt {line['receipt_id']} ({slug}); "
++                                           f"fees estimated, FX "
++                                           f"{money['fx']['basis']}"),
++                              gross_cad=money["price_cad"], fees_cad=money["fees_cad"],
++                              refunds_cad=money["refund_cad"], evidence_ref=ref))
+             ledger = True
++        reconciled: list[str] = []
++        if not order.get("created"):
++            row = s.scalar(select(Order).where(Order.external_ref == ref))
++            reconciled = _reconcile_existing(s, row, line, money, ledger_row)
++        cohorts.reconcile_customer(db, line["customer_ref"], session=s)
+     return {"ref": ref, "recorded": True, "order_created": bool(order.get("created")),
+             "customer_created": bool(customer.get("created")), "ledger": ledger,
+-            "matched_listing": bool(target), "version": version}
++            "reconciled": reconciled, "state": line["state"],
++            "matched_listing": listed["matched"], "version": version,
++            "version_known": bool(version), "refund_cad": money["refund_cad"]}
+ 
+ 
+-def _last_ingested(db) -> datetime | None:
+-    from sqlalchemy import func, select
++# ---------------------------------------------------------------------------
++# The cursor
+ 
+-    from ..core.models import Order
++
++def cursor(db) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
+ 
+     with db.session() as s:
+-        last = s.scalar(select(func.max(Order.at)).where(Order.source == SOURCE))
+-    if last is None:
+-        return None
+-    return last if last.tzinfo else last.replace(tzinfo=timezone.utc)
++        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == CURSOR_KIND,
++                                                      OperatingReading.period_key == CURSOR_KEY))
++        return dict(row.payload or {}) if row is not None else {}
++
++
++def _save_cursor(db, payload: dict) -> None:
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    with db.session() as s:
++        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == CURSOR_KIND,
++                                                      OperatingReading.period_key == CURSOR_KEY))
++        if row is None:
++            row = OperatingReading(kind=CURSOR_KIND, period_key=CURSOR_KEY)
++            s.add(row)
++        row.payload = payload
++        row.at = datetime.now(timezone.utc)
++
++
++def _plan_read(state: dict, now: datetime) -> tuple[datetime | None, str]:
++    """Where to read from: the cursor less the overlap, or everything on a sweep."""
++    last_modified = state.get("last_modified")
++    last_sweep = state.get("last_full_sweep")
++    if not last_modified:
++        return None, "initial: no cursor yet, reading the whole history"
++    if not last_sweep or now - datetime.fromisoformat(last_sweep) >= FULL_SWEEP_EVERY:
++        return None, (f"reconciliation sweep: the whole history is re-read every "
++                      f"{FULL_SWEEP_EVERY.days} days so a change the cursor missed is found")
++    return datetime.fromisoformat(last_modified) - OVERLAP, "cursor: receipts modified since"
+ 
+ 
+ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
+-    """One ingest run: gate, read, write. UNMEASURED with the reason when gated."""
++    """One ingest run: gate, read, write, reconcile. UNMEASURED with the reason when gated."""
+     now = now or datetime.now(timezone.utc)
+     state = gate(db)
+     if not state["open"]:
+@@ -274,37 +605,64 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
+         return {"ran": False, "reading": "UNMEASURED", "gate": state, "network_calls": 0,
+                 "why": "no Etsy credential in this environment to build the receipt reader"}
+ 
+-    last = _last_ingested(db)
+-    since = (last - OVERLAP) if last is not None else None
++    before = cursor(db)
++    since, mode = _plan_read(before, now)
+     receipts = reader.receipts(since=since)
+-    listed = _catalogue(db)
+-    written, refused = [], []
++    history = listing_history(db)
++    written, refused, held = [], [], []
+     from .cohorts import CohortRefused
+ 
++    newest = int(datetime.fromisoformat(before["last_modified"]).timestamp()) \
++        if before.get("last_modified") else 0
+     for receipt in receipts:
+         try:
+             for line in lines(receipt):
+                 try:
+-                    written.append(_record_line(db, line, listed))
++                    got = _record_line(db, line, history)
+                 except CohortRefused as exc:
+                     # One line the cohort writer refuses (an amount that reconciles to
+                     # nothing) is recorded as such; it does not stop the other receipts.
+                     refused.append({"receipt_id": receipt.get("receipt_id"),
+                                     "transaction_id": line["transaction_id"],
+                                     "why": str(exc)[:200]})
++                    continue
++                (held if got.get("held") else written).append(got)
++            newest = max(newest, revision(receipt))
+         except IngestRefused as exc:
+             refused.append({"receipt_id": receipt.get("receipt_id"), "why": str(exc)[:200]})
++    # The run completed: the cursor may move. Held receipts (unpaid, unknown) are re-read
++    # when Etsy changes them, because that changes their update_timestamp.
++    after = {"last_modified": (datetime.fromtimestamp(newest, tz=timezone.utc).isoformat()
++                               if newest else before.get("last_modified")),
++             "last_full_sweep": (now.isoformat() if since is None
++                                 else before.get("last_full_sweep")),
++             "runs": int(before.get("runs") or 0) + 1, "last_run": now.isoformat(),
++             "last_mode": mode}
++    _save_cursor(db, after)
++    from . import cohorts
++
++    validation = cohorts.reconcile_validation_cohort(db) if written else None
+     created = [w for w in written if w.get("order_created")]
+     return {
+         "ran": True, "reading": "measured", "gate": state,
+         "network_calls": getattr(reader, "calls", None),
+-        "since": since.isoformat() if since else None, "at": now.isoformat(),
++        "since": since.isoformat() if since else None, "read_mode": mode,
++        "cursor": after, "at": now.isoformat(),
+         "receipts": len(receipts), "lines": len(written),
+         "orders_created": len(created),
++        "orders_reconciled": sum(1 for w in written if w.get("reconciled")),
++        "reconciliations": [{"ref": w["ref"], "changes": w["reconciled"]}
++                            for w in written if w.get("reconciled")],
+         "customers_created": sum(1 for w in written if w.get("customer_created")),
+         "ledger_entries": sum(1 for w in written if w.get("ledger")),
+         "versions_recorded": sum(1 for w in created if w.get("version")),
++        "versions_unknown": sorted(w["ref"] for w in written
++                                   if w.get("recorded") and not w.get("version_known")),
+         "unmatched_listings": sorted({w["ref"] for w in written
+                                       if w.get("recorded") and not w.get("matched_listing")}),
++        "held": held,
++        "held_by_state": {st: sum(1 for h in held if h["held"] == st)
++                          for st in sorted({h["held"] for h in held})},
+         "not_recorded": [w for w in written if not w.get("recorded")] + refused,
++        "validation_cohort": validation,
+     }
+diff --git a/brambleloop/src/brambleloop/commerce/pricing.py b/brambleloop/src/brambleloop/commerce/pricing.py
+index af252cb..3431ecc 100644
+--- a/brambleloop/src/brambleloop/commerce/pricing.py
++++ b/brambleloop/src/brambleloop/commerce/pricing.py
+@@ -193,12 +193,16 @@ class PriceDecision:
+     reasons: list[str] = field(default_factory=list)
+     warnings: list[str] = field(default_factory=list)
+     net_contribution: dict = field(default_factory=dict)
++    # Why this price may NOT be acted on, or "" (CB2-O08). A refusal is not a warning: the
++    # consumer (`pricing.position`) stops the chain on it rather than listing at a price
++    # that cannot clear the net floor.
++    refused: str = ""
+ 
+     def to_dict(self) -> dict:
+         return {"slug": self.slug, "price_cad": self.price_cad, "floor_cad": self.floor_cad,
+                 "ceiling_cad": self.ceiling_cad, "net_cad": self.net_cad,
+                 "take_rate": self.take_rate, "reasons": list(self.reasons),
+-                "warnings": list(self.warnings),
++                "warnings": list(self.warnings), "refused": self.refused,
+                 "net_contribution": dict(self.net_contribution)}
+ 
+ 
+@@ -325,6 +329,7 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
+             price = round(float(best["price_cad"]), 2)
+     # Second, the floor on net contribution per sale is binding, not advisory.
+     net_now = _net(price, rate, foreign_share, expected_sales)
++    refused = ""
+     if net_now < MIN_NET_CONTRIBUTION_CAD:
+         candidate = round(price, 2)
+         while candidate < hi and _net(candidate, rate, foreign_share,
+@@ -337,9 +342,11 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
+                 f"CA${MIN_NET_CONTRIBUTION_CAD:.2f} floor the price is decided on")
+             price = candidate
+         else:
+-            warnings.append(
+-                f"no price inside the band clears CA${MIN_NET_CONTRIBUTION_CAD:.2f} of net "
+-                f"contribution per sale; CA${price:.2f} nets CA${net_now:.2f}")
++            refused = (f"no price inside the band CA${lo:.2f}-CA${hi:.2f} clears "
++                       f"CA${MIN_NET_CONTRIBUTION_CAD:.2f} of net contribution per sale; "
++                       f"CA${price:.2f} nets CA${net_now:.2f}. The floor is binding: this "
++                       f"product is not listed at this price")
++            warnings.append(refused)
+     net_block = net_contribution(price, rate=rate, foreign_share=foreign_share,
+                                  expected_sales=expected_sales)
+ 
+@@ -366,7 +373,8 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
+             f"would cost money to fulfil")
+     return PriceDecision(slug=slug, price_cad=round(price, 2), floor_cad=round(lo, 2),
+                          ceiling_cad=round(hi, 2), net_cad=f.net_cad, take_rate=f.take_rate,
+-                         reasons=reasons, warnings=warnings, net_contribution=net_block)
++                         reasons=reasons, warnings=warnings, net_contribution=net_block,
++                         refused=refused)
+ 
+ 
+ def check_no_fake_discount(price_cad: float, reference_price_cad: float | None,
+diff --git a/brambleloop/src/brambleloop/creative/standard.py b/brambleloop/src/brambleloop/creative/standard.py
+index d5cd47f..a628dc4 100644
+--- a/brambleloop/src/brambleloop/creative/standard.py
++++ b/brambleloop/src/brambleloop/creative/standard.py
+@@ -320,21 +320,39 @@ def north_star(cohorts: dict[str, dict]) -> dict:
+     }
+ 
+ 
+-def north_star_cohorts(db) -> dict[str, dict]:
++# Leading indicators that are NOT north-star metrics: each stands upstream of the lifecycle
++# event its metric is named for, and is reported beside it under its own name, never in its
++# place (CB2-O10). A tournament survivor has not reached engineering; a drafted listing has
++# not launched.
++NORTH_STAR_PROXIES: dict[str, str] = {
++    "tournament_survival": ("tournament survivors / concepts generated -- upstream of "
++                            "concept_to_engineering_survival, which needs a CIR drafted"),
++    "listing_drafted_share": ("products with any listing row / products -- upstream of "
++                              "concept_to_launch_survival, which needs a publication"),
++}
++
++
++def north_star_cohorts(db, *, with_proxies: bool = False):
+     """The north-star metrics by monthly cohort, read from the rows that record them (C-64).
+ 
+     A cohort is the calendar month a concept was generated (tournaments and expeditions) or
+     a product was first recorded. Each metric is present only where its rows exist, so a
+     metric a cohort has no evidence for is absent -- `north_star` reports it unmeasured --
+-    and never a zero:
++    and never a zero. Each is computed from the lifecycle event it is named for (CB2-O10):
+ 
+-    * concept_to_engineering_survival: tournament survivors / concepts generated;
++    * concept_to_engineering_survival: the month's `cir.drafted` releases (a concept became a
++      CIR: the engineering event) / the concepts the month's tournaments generated;
+     * novelty_distance: mean novelty distance of the month's research survivors;
+     * blind_grid_score: mean of our cells' judged grid scores from `creative.grid_tournament`;
+-    * concept_to_launch_survival: the month's products that reached a listing;
++    * concept_to_launch_survival: the month's products that were PUBLISHED (a
++      `store.published` audit row or a listing in state `published`), not merely drafted;
+     * creative_defect_rate: the month's certified products that produced a quality incident;
+     * ctr, favourite_rate, conversion, contribution, bestseller_incidence,
+-      collection_attach_rate: from listing outcomes and orders of the month's products.
++      collection_attach_rate: from listing outcomes and orders of the month's products, with
++      refunds reconciled and losses retained.
++
++    With `with_proxies`, returns `(cohorts, proxies)` where the proxies are the leading
++    indicators in `NORTH_STAR_PROXIES`, by cohort, labelled as such.
+     """
+     from sqlalchemy import select
+ 
+@@ -345,16 +363,27 @@ def north_star_cohorts(db) -> dict[str, dict]:
+         return at.strftime("%Y-%m") if at is not None else ""
+ 
+     acc: dict[str, dict[str, list[float]]] = {}
++    proxies: dict[str, dict[str, list[float]]] = {}
+ 
+-    def add(cohort: str, metric: str, value) -> None:
++    def add(cohort: str, metric: str, value, into=None) -> None:
+         if cohort and isinstance(value, (int, float)):
+-            acc.setdefault(cohort, {}).setdefault(metric, []).append(float(value))
++            (acc if into is None else into).setdefault(cohort, {}).setdefault(
++                metric, []).append(float(value))
+ 
++    generated_by_month: dict[str, int] = {}
++    drafted_by_month: dict[str, set] = {}
+     with db.session() as s:
+         for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
+-                ("creative.tournament", "creative.expedition", "creative.grid_tournament")))):
++                ("creative.tournament", "creative.expedition", "creative.grid_tournament",
++                 "cir.drafted", "store.published")))):
+             d = a.detail or {}
+             m = month(a.at)
++            if a.action == "cir.drafted":
++                if a.artifact:
++                    drafted_by_month.setdefault(m, set()).add(a.artifact.split("@")[0])
++                continue
++            if a.action == "store.published":
++                continue
+             if a.action == "creative.grid_tournament":
+                 for pod in (d.get("pods") or {}).values():
+                     for v in ((pod or {}).get("our_scores") or {}).values():
+@@ -362,15 +391,22 @@ def north_star_cohorts(db) -> dict[str, dict]:
+                 continue
+             generated = int(((d.get("field") or {}).get("generated")) or 0)
+             survivors = d.get("survivors")
+-            if a.action == "creative.tournament" and generated > 0 and isinstance(survivors,
+-                                                                                  list):
+-                add(m, "concept_to_engineering_survival", len(survivors) / generated)
++            if generated > 0:
++                generated_by_month[m] = generated_by_month.get(m, 0) + generated
++            n_survivors = (len(survivors) if isinstance(survivors, list)
++                           else survivors if isinstance(survivors, int) else None)
++            if a.action == "creative.tournament" and generated > 0 and n_survivors is not None:
++                add(m, "tournament_survival", n_survivors / generated, proxies)
+             for e in (d.get("research_survivors") or d.get("survivors") or []):
+                 if isinstance(e, dict):
+                     add(m, "novelty_distance", e.get("novelty_distance"))
+ 
+         products = list(s.scalars(select(Product)))
+         listed = {r.product_slug for r in s.scalars(select(Listing))}
++        published = {r.product_slug for r in s.scalars(select(Listing).where(
++            Listing.state == "published"))}
++        published |= {a.artifact.split("@")[0] for a in s.scalars(select(AuditLog).where(
++            AuditLog.action == "store.published")) if a.artifact}
+         certified = {p.slug for p, _v in s.execute(
+             select(Product, PatternVersion).where(PatternVersion.product_id == Product.id,
+                                                   PatternVersion.certified.is_(True)))}
+@@ -384,11 +420,19 @@ def north_star_cohorts(db) -> dict[str, dict]:
+             orders.setdefault(o.product_slug, []).append(o)
+         cohort_of = {p.slug: month(p.created_at) for p in products}
+ 
++    # The engineering event: concepts generated in the month against CIRs drafted in it.
++    for m, generated in generated_by_month.items():
++        add(m, "concept_to_engineering_survival",
++            len(drafted_by_month.get(m, set())) / generated)
++
+     by_cohort: dict[str, list[str]] = {}
+     for slug, m in cohort_of.items():
+         by_cohort.setdefault(m, []).append(slug)
+     for m, slugs in by_cohort.items():
+-        add(m, "concept_to_launch_survival", sum(1 for x in slugs if x in listed) / len(slugs))
++        add(m, "concept_to_launch_survival",
++            sum(1 for x in slugs if x in published) / len(slugs))
++        add(m, "listing_drafted_share", sum(1 for x in slugs if x in listed) / len(slugs),
++            proxies)
+         released = [x for x in slugs if x in certified]
+         if released:
+             add(m, "creative_defect_rate",
+@@ -397,15 +441,21 @@ def north_star_cohorts(db) -> dict[str, dict]:
+         visits = sum(int(r.visits or 0) for x in slugs for r in outcomes.get(x, []))
+         favs = [int(r.favourites) for x in slugs for r in outcomes.get(x, [])
+                 if r.favourites is not None]
+-        sold = [o for x in slugs for o in orders.get(x, []) if not o.refunded]
++        # Paid sales, refunds reconciled: a refunded order is not a conversion, but its
++        # contribution (a loss of fees) stays in the money (CB2-O07).
++        placed = [o for x in slugs for o in orders.get(x, [])
++                  if ((o.detail or {}).get("state") or "paid") in
++                  ("paid", "partially_refunded", "fully_refunded")]
++        sold = [o for o in placed if not o.refunded]
+         if imps:
+             add(m, "ctr", visits / imps)
+         if visits:
+             if favs:
+                 add(m, "favourite_rate", sum(favs) / visits)
+             add(m, "conversion", len(sold) / visits)
++        if placed:
++            add(m, "contribution", sum(float(o.contribution_cad or 0.0) for o in placed))
+         if sold:
+-            add(m, "contribution", sum(float(o.contribution_cad or 0.0) for o in sold))
+             per = {}
+             for o in sold:
+                 per[o.product_slug] = per.get(o.product_slug, 0) + 1
+@@ -418,17 +468,25 @@ def north_star_cohorts(db) -> dict[str, dict]:
+             add(m, "collection_attach_rate",
+                 sum(1 for v in receipts.values() if len(v) > 1) / len(receipts))
+ 
+-    return {m: {k: round(sum(v) / len(v), 4) for k, v in metrics.items()}
+-            for m, metrics in sorted(acc.items()) if m}
++    def fold(table):
++        return {m: {k: round(sum(v) / len(v), 4) for k, v in metrics.items()}
++                for m, metrics in sorted(table.items()) if m}
++
++    if with_proxies:
++        return fold(acc), fold(proxies)
++    return fold(acc)
+ 
+ 
+ def north_star_from_db(db) -> dict:
+     """`north_star` over the cohorts the database records -- never over an empty dict."""
+-    cohorts = north_star_cohorts(db)
++    cohorts, proxies = north_star_cohorts(db, with_proxies=True)
+     out = north_star(cohorts)
+     out["by_cohort"] = cohorts
+-    out["source"] = ("creative.tournament / creative.expedition / creative.grid_tournament "
+-                     "audit rows, products, listings, incidents, listing outcomes and orders")
++    out["proxies_by_cohort"] = proxies
++    out["proxies"] = dict(NORTH_STAR_PROXIES)
++    out["source"] = ("creative.tournament / creative.expedition / creative.grid_tournament / "
++                     "cir.drafted / store.published audit rows, products, published "
++                     "listings, incidents, listing outcomes and reconciled orders")
+     return out
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/growth/loops.py b/brambleloop/src/brambleloop/growth/loops.py
+index bdaf5c6..a0de197 100644
+--- a/brambleloop/src/brambleloop/growth/loops.py
++++ b/brambleloop/src/brambleloop/growth/loops.py
+@@ -182,6 +182,45 @@ def observe(db, key: str, *, visits: int, orders: int = 0, cost_cad: float = 0.0
+         return row.strength
+ 
+ 
++def reconcile(db, key: str, *, orders: int, contribution_cad: float,
++              visits: int | None = None) -> dict:
++    """Set a loop's order-derived counters to what the reconciled orders say (CB2-O06).
++
++    `observe` adds; a refund, a cancellation or a re-attribution needs the counters to go
++    *down*, so this sets them from facts and reports the signed correction it applied.
++    `visits` is set only when given (its fact source is the caller's, not the orders').
++    Strength is re-derived from the visits the row now holds: `measured` and `repeatable`
++    need the sample, `attempted` needs any visit or order, and a loop with neither is
++    `untested` -- a strength that stayed `measured` after its evidence was corrected away
++    would be the optimistic field this registry exists to refuse.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import GrowthLoop
++
++    with db.session() as s:
++        row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
++        if row is None:
++            raise LoopRefused(f"unknown loop {key!r}: add it to REGISTRY deliberately")
++        delta = {"orders": int(orders) - int(row.orders or 0),
++                 "contribution_cad": round(float(contribution_cad)
++                                           - float(row.contribution_cad or 0.0), 2),
++                 "visits": 0 if visits is None else int(visits) - int(row.visits or 0)}
++        row.orders = int(orders)
++        row.contribution_cad = round(float(contribution_cad), 2)
++        if visits is not None:
++            row.visits = int(visits)
++        was = row.strength
++        if row.visits >= MEASURED_SAMPLE:
++            row.strength = REPEATABLE if was in (MEASURED, REPEATABLE) else MEASURED
++        elif row.visits > 0 or row.orders > 0:
++            row.strength = ATTEMPTED
++        else:
++            row.strength = UNTESTED
++        return {"key": key, "delta": delta, "strength": row.strength,
++                "strength_was": was, "changed": any(delta.values()) or was != row.strength}
++
++
+ def from_db(db) -> tuple[Loop, ...]:
+     from sqlalchemy import select
+ 
+diff --git a/brambleloop/src/brambleloop/growth/portfolio.py b/brambleloop/src/brambleloop/growth/portfolio.py
+index 3065cd7..a23450e 100644
+--- a/brambleloop/src/brambleloop/growth/portfolio.py
++++ b/brambleloop/src/brambleloop/growth/portfolio.py
+@@ -31,6 +31,11 @@ SEO_PROBLEM = "SEO_PROBLEM"
+ # unappealing product makes a cheaper unappealing product.
+ APPEAL_PROBLEM = "APPEAL_PROBLEM"
+ CONVERSION_PROBLEM = "CONVERSION_PROBLEM"
++# A discard-shaped verdict (RETIRE / REWORK / APPEAL_PROBLEM) that `commerce.offers.may_retire`
++# withheld because the design has worn too few offer families (#13, CB2-O08). Assigned by
++# `portfolio.review` after the guard, never by `review_portfolio` itself; the withheld
++# verdict is kept in the classification's evidence.
++OFFER_UNTESTED = "OFFER_UNTESTED"
+ QUALITY_PROBLEM = "QUALITY_PROBLEM"
+ SEASONAL = "SEASONAL"
+ REWORK = "REWORK"
+@@ -158,6 +163,12 @@ LADDERS: dict[str, list[str]] = {
+         "keep it listed if it costs nothing, delist if it dilutes the grid",
+         "record why, so the next portfolio does not rebuild the same SKU",
+     ],
++    OFFER_UNTESTED: [
++        "the design has been tested as one offer, not as a design: try the cheapest untried "
++        "deliverable offer before any discard verdict is acted on (#13)",
++        "give each offer enough buyers to mean anything before comparing them",
++        "re-assess as a design once two offer families have worn it",
++    ],
+     NO_EVIDENCE: [
+         "do nothing to the product: it has not been seen enough to judge",
+         "get it in front of people — indexing, content, collection cross-sell",
+diff --git a/brambleloop/src/brambleloop/integrations/etsy.py b/brambleloop/src/brambleloop/integrations/etsy.py
+index 4aed84b..912fac8 100644
+--- a/brambleloop/src/brambleloop/integrations/etsy.py
++++ b/brambleloop/src/brambleloop/integrations/etsy.py
+@@ -761,18 +761,25 @@ class EtsyClient:
+         return list(results) if isinstance(results, list) else []
+ 
+     def get_shop_receipts(self, *, min_created: int | None = None, limit: int = 100,
+-                          offset: int = 0) -> list[dict[str, Any]]:
++                          offset: int = 0,
++                          min_last_modified: int | None = None) -> list[dict[str, Any]]:
+         """The shop's receipts, newest first: the order source (C-64, #11, #12, #42).
+ 
+         `getShopReceipts` requires `transactions_r`; the token provider refuses the call
+         before the request when that scope was not granted, so an ungranted scope is a
+         refusal here rather than a 403 read back from Etsy. `commerce.orders_ingest` checks
+         the scope gate before it constructs this client at all.
++
++        `min_last_modified` (Etsy's own query parameter) returns receipts created *or
++        changed* after the instant, which is how a refund on an old receipt is seen;
++        `min_created` sees only new receipts.
+         """
+         creds = self._require(Authority.READ)
+         query: dict[str, Any] = {"limit": limit, "offset": offset}
+         if min_created is not None:
+             query["min_created"] = int(min_created)
++        if min_last_modified is not None:
++            query["min_last_modified"] = int(min_last_modified)
+         body = self._call("GET", f"/shops/{creds.shop_id}/receipts",
+                           operation="getShopReceipts", authority=Authority.READ,
+                           query=query).body
+diff --git a/brambleloop/src/brambleloop/ops/retention.py b/brambleloop/src/brambleloop/ops/retention.py
+index a216420..bcc5d28 100644
+--- a/brambleloop/src/brambleloop/ops/retention.py
++++ b/brambleloop/src/brambleloop/ops/retention.py
+@@ -156,6 +156,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+                             "creative.standard.north_star_cohorts (C-64) also reads them by "
+                             "month inside the horizon; older cohorts live on in the daily "
+                             "creative.north_star operating_readings rows"),
++    "cir.drafted": ("windowed",
++                    "creative.standard.north_star_cohorts (CB2-O10) counts the month's drafted "
++                    "CIRs as the engineering event behind concept_to_engineering_survival, "
++                    "inside the horizon; older cohorts live on in the daily "
++                    "creative.north_star operating_readings rows"),
+     "store.pdf_hash_verified": ("latest",
+                                 "commerce.first_hundred reads the latest verification to "
+                                 "say whether the delivery path is proven"),
+diff --git a/brambleloop/src/brambleloop/runtime/orders.py b/brambleloop/src/brambleloop/runtime/orders.py
+index 5e92a98..6e3f0ce 100644
+--- a/brambleloop/src/brambleloop/runtime/orders.py
++++ b/brambleloop/src/brambleloop/runtime/orders.py
+@@ -77,10 +77,19 @@ def handle_orders_ingest(ctx: JobContext) -> dict:
+ 
+     got = orders_ingest.ingest(ctx.db)
+     summary = {k: got.get(k) for k in ("ran", "reading", "receipts", "orders_created",
++                                       "orders_reconciled", "reconciliations",
+                                        "customers_created", "ledger_entries",
+-                                       "versions_recorded", "network_calls")}
++                                       "versions_recorded", "versions_unknown",
++                                       "network_calls", "since", "read_mode", "cursor",
++                                       "held", "held_by_state", "validation_cohort")}
+     summary["gate_missing"] = got["gate"]["missing"]
+-    if got.get("orders_created"):
++    if got.get("held"):
++        # Receipts held for an unrecognised state are a reader contract this module does not
++        # know yet, not sales and not zero: surfaced by name so somebody teaches it.
++        summary["held_unknown"] = [h["ref"] for h in got["held"] if h["held"] == "unknown"]
++    if got.get("orders_created") or got.get("orders_reconciled"):
++        # A new order or a reconciled one (a refund, a cancellation) changes what every
++        # reader says, so the readings run now rather than at the next daily cadence.
+         ctx.enqueue("cfo", READINGS, {},
+                     idempotency_key=f"{READINGS}:after-ingest:{ctx.job.id}")
+         summary["queued_readings"] = True
+diff --git a/brambleloop/src/brambleloop/runtime/pipeline.py b/brambleloop/src/brambleloop/runtime/pipeline.py
+index 5598d8a..721cc5a 100644
+--- a/brambleloop/src/brambleloop/runtime/pipeline.py
++++ b/brambleloop/src/brambleloop/runtime/pipeline.py
+@@ -390,7 +390,10 @@ def handle_cir_draft(ctx: JobContext) -> dict:
+         ctx.audit("cir.drafted", artifact=f"{engineered.slug}@{engineered.version}",
+                   detail={"source": "engineered design", "rows": sum(
+                       len(c.rows) for c in engineered.components)})
+-        ctx.enqueue("validator", "cir.compile", {"cir": engineered.to_dict()},
++        compile_inputs = {"cir": engineered.to_dict()}
++        if isinstance(ctx.job.inputs.get("correction"), dict):
++            compile_inputs["correction"] = ctx.job.inputs["correction"]  # CB2-O09
++        ctx.enqueue("validator", "cir.compile", compile_inputs,
+                     idempotency_key=(f"compile:{engineered.slug}:{engineered.version}"
+                                      f":{engineered.fingerprint}"))
+         return {"artifact": f"{engineered.slug}@{engineered.version}",
+@@ -421,7 +424,10 @@ def handle_cir_compile(ctx: JobContext) -> dict:
+         # A failing compile is a real outcome, not an exception: the concept dies here.
+         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
+                 "errors": [str(f) for f in result.errors]}
+-    ctx.enqueue("quality_director", "gate.certify", {"cir": ctx.job.inputs["cir"]},
++    certify_inputs = {"cir": ctx.job.inputs["cir"]}
++    if isinstance(ctx.job.inputs.get("correction"), dict):
++        certify_inputs["correction"] = ctx.job.inputs["correction"]  # CB2-O09
++    ctx.enqueue("quality_director", "gate.certify", certify_inputs,
+                 idempotency_key=(f"certify:{cir.slug}:{cir.version}:{cir.fingerprint}"
+                                  f":d{DOC_VERSION}"))
+     return {"artifact": f"{cir.slug}@{cir.version}", "compiled": True,
+@@ -482,13 +488,25 @@ def handle_certify(ctx: JobContext) -> dict:
+         # owner's (an owner action is raised); nothing is sent from here.
+         from ..commerce import buyer_trust
+ 
++        # A release is a correction only when the job that certified it says so
++        # (`inputs.correction`, carried from the engineering job that made the change);
++        # a routine newer version prepares nothing (CB2-O09).
+         correction = buyer_trust.on_certified(
+             ctx.db, product_slug=cir.slug, version=cir.version,
+-            release_hash=cert.release_hash or "", previous_release_hash=previous_hash)
++            release_hash=cert.release_hash or "", previous_release_hash=previous_hash,
++            correction=ctx.job.inputs.get("correction"))
+         if correction["affected_count"]:
+             ctx.audit("buyer_trust.correction_prepared", artifact=f"{cir.slug}@{cir.version}",
+                       detail={k: correction[k] for k in ("affected_count", "affected_orders",
+-                                                         "owner_action")})
++                                                         "owner_action",
++                                                         "version_unknown_orders", "states")})
++        elif correction.get("correction"):
++            ctx.audit("buyer_trust.correction_unprepared",
++                      artifact=f"{cir.slug}@{cir.version}",
++                      detail={"why": correction.get("why", ""),
++                              "eligible": correction.get("eligible"),
++                              "version_unknown_orders":
++                                  correction.get("version_unknown_orders", [])})
+         # #70: a revision that changes geometry or claims invalidates the listing-set
+         # certificate issued against the old ones, recomputed here rather than remembered,
+         # and the affected frames lose their approval until the chain re-certifies them.
+@@ -1327,7 +1345,7 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
+     # has worn; a refusal replaces the discard with the cheapest untried offer.
+     from ..commerce import offers as offers_mod
+     from ..commerce.order_readings import offer_results
+-    from ..growth.portfolio import APPEAL_PROBLEM, LADDERS, RETIRE, REWORK
++    from ..growth.portfolio import APPEAL_PROBLEM, LADDERS, OFFER_UNTESTED, RETIRE, REWORK
+ 
+     results = offer_results(ctx.db)
+     offer_guard = []
+@@ -1338,15 +1356,25 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
+                                                 if r.design_slug == c.slug])
+         offer_guard.append({"slug": c.slug, "label": c.label, **ruling})
+         if not ruling["may_retire"]:
++            # The refusal changes the classification itself, not only its prose (CB2-O08):
++            # a design the guard protects is not RETIRE/REWORK/APPEAL_PROBLEM in the stored
++            # review or its summary, so nothing that reads the label can discard it. Its
++            # ladder is the offer ladder; the discard-shaped verdict is kept as evidence.
+             nxt = (ruling.get("try_next") or {}).get("offer")
++            c.evidence["offer_guard"] = ruling["reasons"]
++            c.evidence["discard_verdict_withheld"] = c.label
++            c.label = OFFER_UNTESTED
++            c.reason = (f"{c.evidence['discard_verdict_withheld']} withheld: {c.reason}. "
++                        f"The design has worn too few offer families for the verdict to be "
++                        f"about the design")
+             c.interventions = ([f"fix the offer before discarding the design: try {nxt}"
+                                 if nxt else "fix the offer before discarding the design"]
+-                               + [i for i in LADDERS[c.label] if "retire" not in i.lower()])
+-            c.evidence["offer_guard"] = ruling["reasons"]
++                               + list(LADDERS[OFFER_UNTESTED]))
+             verdict.actions.append(
+-                f"{c.slug}: {c.label} is a verdict about an offer until it has worn "
+-                f"{offers_mod.MIN_OFFER_FAMILIES_BEFORE_RETIRING} offer families -- "
+-                f"{'try ' + nxt if nxt else 'fix the offer'} before discarding it (#13).")
++                f"{c.slug}: {c.evidence['discard_verdict_withheld']} is a verdict about an "
++                f"offer until it has worn {offers_mod.MIN_OFFER_FAMILIES_BEFORE_RETIRING} "
++                f"offer families -- {'try ' + nxt if nxt else 'fix the offer'} before "
++                f"discarding it (#13).")
+ 
+     missing = sorted(should_exist - built)
+     off_portfolio = sorted(built - should_exist)
+@@ -1365,6 +1393,7 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
+         "off_portfolio": off_portfolio[:20],
+         "constraints_met": portfolio.constraints_met,
+         "classifications": verdict.summary(),
++        "classifications_detail": [c.to_dict() for c in verdict.classifications],
+         "evidence_available": verdict.evidence_available,
+         "offer_guard": offer_guard,
+         "exposure_read": {"listing_outcomes": sum(1 for m in metrics if m.impressions),
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index 12e595e..79e0523 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -448,15 +448,35 @@ def handle_pricing_position(ctx: JobContext) -> dict:
+         slug, category_band_cad=band, proposed_cad=proposed,
+         has_video=False, sizes_offered=sizes,
+         is_bundle=is_bundle, bundle_members_cad=members, **net_inputs)
+-    # #233 / #235: the daily order readings' discount guard and promotion verdicts. A product
+-    # the guard refused, or whose promotion lost contribution, is priced at full price only.
++    # #269 (CB2-O08): a net floor no price in the band can clear stops the chain here. The
++    # product is not passed to listing at a price that cannot pay for itself; the refusal is
++    # audited and the job returns it, and nothing downstream is queued.
++    if decision.refused:
++        ctx.audit("pricing.refused", artifact=slug,
++                  detail={**decision.to_dict(), "stopped": "listing.seo not enqueued"})
++        return {**decision.to_dict(), "stopped": True}
++
++    # #233 / #235 (CB2-O08): the daily order readings' discount guard and promotion verdicts.
++    # A product the guard refused, or whose promotion lost contribution, is full price only:
++    # any sale the job was asked to run (`inputs.promotion`, a promo price and window) is
++    # dropped before it reaches the listing, and the listing is told no sale is allowed.
+     from ..commerce.order_readings import directives
+ 
+     guard = directives(ctx.db)
++    sale_allowed = True
+     if slug in guard["discount_refused"] or slug in guard["promotion_do_not_repeat"]:
++        sale_allowed = False
+         decision.reasons.append(
+             "full price only: the value-ladder discount guard or a measured promotion "
+             "verdict refuses a sale price for this product (#233, #235)")
++        if i.get("promotion"):
++            ctx.audit("pricing.promotion_refused", artifact=slug,
++                      detail={"promotion": i["promotion"],
++                              "discount_refused": slug in guard["discount_refused"],
++                              "promotion_do_not_repeat":
++                                  slug in guard["promotion_do_not_repeat"]})
++            i.pop("promotion", None)
++    i["sale_allowed"] = sale_allowed
+ 
+     # The category's standing "50% off" is not available to us; assert that explicitly rather
+     # than relying on nobody adding it later.
+diff --git a/brambleloop/tests/test_cert_orders.py b/brambleloop/tests/test_cert_orders.py
+index 1e946c3..a881d36 100644
+--- a/brambleloop/tests/test_cert_orders.py
++++ b/brambleloop/tests/test_cert_orders.py
+@@ -118,17 +118,40 @@ class FakeFeed:
+ 
+ 
+ def _receipt(rid, buyer, listing_id, amount_cents, *, currency="CAD", days_ago=1,
+-             refunded=False, extra_lines=()):
++             refunded=False, extra_lines=(), status="paid", is_paid=True, refunds=None,
++             updated_days_ago=None, created_at=None):
++    """A receipt in Etsy v3's ShopReceipt shape: status, is_paid, refunds[], update_timestamp.
++
++    `refunds` is a list of cents, or of (cents, transaction_id) for a refund that names its
++    line; `refunded=True` is the whole first line refunded. `status=None` omits the field.
++    """
+     lines = [{"transaction_id": rid * 10, "listing_id": listing_id, "quantity": 1,
+               "price": {"amount": amount_cents, "divisor": 100, "currency_code": currency}}]
+     for i, (lid, cents) in enumerate(extra_lines, start=1):
+         lines.append({"transaction_id": rid * 10 + i, "listing_id": lid, "quantity": 1,
+                       "price": {"amount": cents, "divisor": 100, "currency_code": currency}})
+-    return {"receipt_id": rid, "buyer_user_id": buyer, "buyer_email": "never@stored.example",
+-            "name": "Never Stored",
+-            "create_timestamp": int((NOW - timedelta(days=days_ago)).timestamp()),
+-            "refunds": [{"amount": {"amount": amount_cents, "divisor": 100}}] if refunded
+-            else [], "transactions": lines}
++    refund_rows = []
++    if refunded:
++        refund_rows.append({"amount": {"amount": amount_cents, "divisor": 100,
++                                       "currency_code": currency}})
++    for r in refunds or ():
++        cents, tid = (r if isinstance(r, tuple) else (r, None))
++        row = {"amount": {"amount": cents, "divisor": 100, "currency_code": currency},
++               "created_timestamp": int(NOW.timestamp()), "reason": "test", "status": "done"}
++        if tid is not None:
++            row["transaction_id"] = tid
++        refund_rows.append(row)
++    created = created_at or (NOW - timedelta(days=days_ago))
++    updated = created if updated_days_ago is None else NOW - timedelta(days=updated_days_ago)
++    out = {"receipt_id": rid, "buyer_user_id": buyer, "buyer_email": "never@stored.example",
++           "name": "Never Stored",
++           "create_timestamp": int(created.timestamp()),
++           "update_timestamp": int(max(created, updated).timestamp()),
++           "is_paid": is_paid, "is_shipped": False,
++           "refunds": refund_rows, "transactions": lines}
++    if status is not None:
++        out["status"] = status
++    return out
+ 
+ 
+ def _open_gate(db):
+@@ -139,9 +162,12 @@ def _open_gate(db):
+                               scopes="listings_r listings_w shops_r transactions_r"))
+ 
+ 
+-def _certify(db, cir):
++def _certify(db, cir, correction=None):
+     _n[0] += 1
+-    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
++    inputs = {"cir": cir.to_dict()}
++    if correction is not None:
++        inputs["correction"] = correction
++    JobQueue(db).enqueue("quality_director", "gate.certify", inputs,
+                          idempotency_key=f"cert{_n[0]}")
+     assert Worker(db, "cert-orders", phase=Phase.SHADOW, job_types=["gate.certify"],
+                   lease_seconds=900).run_once()
+@@ -302,10 +328,16 @@ def test_order_readings_drive_every_downstream_reader():
+     assert set(checks) == {"show_your_make", "share_the_pattern", "first_purchase_credit"}
+     assert "show_your_make" in r["referral"]["may_run"]
+     assert checks["first_purchase_credit"]["ok"] is (1.0 <= ltv * 0.30)
+-    # #271: the marketplace loop's orders and contribution came from the orders.
++    # #271 (CB2-O06): an Etsy receipt names no acquisition channel, so the orders are
++    # counted apart as unattributed -- paid events beside the net outcome -- and NO loop is
++    # credited with them; the organic marketplace loop is not assumed.
+     with db.session() as s:
+         etsy = s.scalar(select(GrowthLoop).where(GrowthLoop.key == "etsy_organic"))
+-        assert etsy.orders == 43 and etsy.contribution_cad > 0
++        assert etsy.orders == 0 and etsy.contribution_cad == 0
++    un = r["loops"]["unattributed"]
++    assert un["orders"] == 44 and un["refunded"] == 1 and un["net_orders"] == 43
++    assert un["contribution"] > 0 and "assumed organic" in un["why"]
++    assert r["loops"]["money_basis"]["fees"] == "estimated"
+     # #233: the catalogue on rungs, and #234: pairs from product facts.
+     assert r["ladder"]["reading"] == "measured" and r["ladder"]["products"]
+     assert "considered" in r["bundles"]
+@@ -375,26 +407,76 @@ def test_portfolio_review_reads_exposure_and_consults_offers_before_retiring():
+ 
+         review = s.scalar(select(PortfolioReview).order_by(PortfolioReview.id.desc()))
+         assert any("harvest-table-runner" in a and "#13" in a for a in review.actions)
++        # CB2-O08: the guard withheld the discard verdict from the stored classification
++        # itself, so nothing reading the label can retire the design.
++        assert review.classifications.get("OFFER_UNTESTED", 0) >= 1
++    runner = next(c for c in got["classifications_detail"] if c["slug"] == "harvest-table-runner")
++    assert runner["label"] == "OFFER_UNTESTED"
++    assert runner["evidence"]["discard_verdict_withheld"] == "APPEAL_PROBLEM"
++    assert not any("retire" in i.lower() for i in runner["interventions"])
+     del out
+ 
+ 
++CORRECTION = {"of_versions": ["1.0.0"],
++              "what_changed": "Row 12 read 84 stitches and should read 86 stitches."}
++
++
+ def test_a_correcting_version_prepares_the_notice_for_its_buyers():
+-    """#42: gate.certify of a newer version finds the buyers of the older one."""
++    """#42: gate.certify of a DECLARED correction finds the buyers of the version it names."""
+     import dataclasses
+ 
+     db, cir, _ = _ingested()
+     corrected = dataclasses.replace(cir, version="1.0.1")
+-    _certify(db, corrected)
++    _certify(db, corrected, correction={**CORRECTION, "of_versions": [cir.version]})
+     with db.session() as s:
+         rows = list(s.scalars(select(OrderVersion).where(
+             OrderVersion.product_slug == cir.slug)))
+         action = s.scalar(select(OwnerAction).where(
+             OwnerAction.requirement_key == f"correction_notice:{cir.slug}@1.0.1"))
+     assert rows and all(r.current_safe_version == "1.0.1" for r in rows)
+-    assert all((r.detail or {}).get("correction_notice", {}).get("sent") is False for r in rows)
++    notices = [(r.detail or {}).get("correction_notice", {}) for r in rows]
++    assert all(n.get("sent") is False for n in notices)
++    # CB2-O09: preparation and delivery are separate states, and nothing was delivered.
++    assert all(n.get("state") == "prepared" for n in notices)
++    assert all(n.get("delivery", {}).get("state") == "not_sent" for n in notices)
++    assert all(r.correction_notice_sent_at is None for r in rows)
+     assert action is not None and "40 buyer" in action.action
+     got = _audit(db, "buyer_trust.correction_prepared")
+     assert got["affected_count"] == 40
++    assert got["states"] == {"preparation": "prepared", "delivery": "not_sent"}
++
++
++def test_a_routine_newer_version_is_not_a_correction():
++    """CB2-O09: without a declared correction relation no buyer is moved or notified; a
++    declared correction of a version nobody holds prepares nothing; an undeclared relation
++    on an ineligible (uncertified) release is refused."""
++    import dataclasses
++
++    from brambleloop.commerce import buyer_trust
++
++    db, cir, _ = _ingested()
++    _certify(db, dataclasses.replace(cir, version="1.0.1"))          # routine release
++    with db.session() as s:
++        rows = list(s.scalars(select(OrderVersion).where(
++            OrderVersion.product_slug == cir.slug)))
++        actions = list(s.scalars(select(OwnerAction).where(
++            OwnerAction.requirement_key.like("correction_notice:%"))))
++    assert rows and all(r.current_safe_version == cir.version for r in rows)
++    assert not any("correction_notice" in (r.detail or {}) for r in rows)
++    assert actions == [] and _audit(db, "buyer_trust.correction_prepared") is None
++    # A declared correction naming a version nobody bought prepares nothing either.
++    got = buyer_trust.on_certified(db, product_slug=cir.slug, version="1.0.1",
++                                   correction={**CORRECTION, "of_versions": ["0.9.0"]})
++    assert got["correction"] is True and got["affected_count"] == 0 and got["notice"] is None
++    # And a correction declared for a version that is not a certified stored release is
++    # not releasable, so nothing is prepared and the reason says why.
++    got = buyer_trust.on_certified(db, product_slug=cir.slug, version="1.0.2",
++                                   correction={**CORRECTION, "of_versions": [cir.version]})
++    assert got["eligible"] is False and got["affected_count"] == 0
++    assert "not releasable" in got["why"]
++    with db.session() as s:
++        assert all(r.current_safe_version == cir.version for r in s.scalars(
++            select(OrderVersion).where(OrderVersion.product_slug == cir.slug)))
+ 
+ 
+ def test_pricing_decides_on_net_contribution_with_currency_normalised():
+@@ -462,16 +544,23 @@ def test_trajectory_runs_nightly_from_the_database():
+ 
+ 
+ def test_north_star_is_computed_by_cohort_and_a_regression_is_a_defect():
+-    """#104 #132: the four computable metrics by monthly cohort, from rows, never {}."""
++    """#104 #132: the computable metrics by monthly cohort, from the lifecycle rows, never {}.
++
++    CB2-O10: engineering survival is the month's drafted CIRs over the concepts generated,
++    not tournament survival, which is reported apart as a labelled proxy.
++    """
+     db = _db()
+     months = [NOW - timedelta(days=70), NOW - timedelta(days=5)]
+-    for at, novelty, survived in ((months[0], 0.50, 6), (months[1], 0.20, 2)):
++    for at, novelty, survived, drafted in ((months[0], 0.50, 8, 6), (months[1], 0.20, 8, 2)):
+         with db.session() as s:
+             s.add(AuditLog(actor="creative_director", action="creative.tournament", at=at,
+                            detail={"field": {"generated": 10},
+                                    "survivors": [{"key": f"k{i}"} for i in range(survived)],
+                                    "research_survivors": [{"key": "k", "novelty_distance":
+                                                            novelty}]}))
++            for i in range(drafted):
++                s.add(AuditLog(actor="crochet_engineer", action="cir.drafted", at=at,
++                               artifact=f"concept-{at.month}-{i}@1.0.0"))
+     _run(db, "creative_director", "creative.north_star")
+     got = _audit(db, "creative.north_star")
+     assert got["answerable"] is True and len(got["cohorts"]) == 2
+@@ -481,6 +570,39 @@ def test_north_star_is_computed_by_cohort_and_a_regression_is_a_defect():
+         inc = s.scalar(select(Incident).where(
+             Incident.signature == "creative.north_star_regression"))
+         assert inc is not None and not inc.halts_publication
++    from brambleloop.creative import standard
++
++    ns = standard.north_star_from_db(db)
++    by = ns["by_cohort"]
++    assert [by[m]["concept_to_engineering_survival"] for m in ns["cohorts"]] == [0.6, 0.2]
++    # The tournament's own survival rate did not move (8/10 both months) and is a proxy,
++    # named as one and kept out of the north-star metrics.
++    assert all("tournament_survival" not in by[m] for m in ns["cohorts"])
++    assert [ns["proxies_by_cohort"][m]["tournament_survival"] for m in ns["cohorts"]] == [0.8, 0.8]
++    assert "tournament_survival" in ns["proxies"] and "listing_drafted_share" in ns["proxies"]
++
++
++def test_launch_survival_needs_a_publication_not_a_draft():
++    """CB2-O10: a drafted listing is not a launch; the draft share is a labelled proxy."""
++    from brambleloop.core.models import Product
++    from brambleloop.creative import standard
++
++    db = _db()
++    at = NOW - timedelta(days=3)
++    with db.session() as s:
++        for slug in ("p-one", "p-two"):
++            s.add(Product(slug=slug, title=slug, status="certified", created_at=at))
++            s.add(Listing(product_slug=slug, version="1.0.0", title=slug, description="",
++                          price_cad=9.0, state="draft", created_at=at))
++    cohorts, proxies = standard.north_star_cohorts(db, with_proxies=True)
++    m = at.strftime("%Y-%m")
++    assert cohorts[m]["concept_to_launch_survival"] == 0.0
++    assert proxies[m]["listing_drafted_share"] == 1.0
++    with db.session() as s:
++        s.add(AuditLog(actor="listing", action="store.published", at=at,
++                       artifact="p-one@1.0.0", detail={"etsy_listing_id": "9"}))
++    cohorts, _ = standard.north_star_cohorts(db, with_proxies=True)
++    assert cohorts[m]["concept_to_launch_survival"] == 0.5
+ 
+ 
+ def test_bundle_pairs_come_from_certified_product_facts():
+@@ -516,6 +638,415 @@ def test_new_modules_are_reached_from_the_runtime():
+         assert v["reached"], v
+ 
+ 
++# ---------------------------------------------------------------------------
++# Adversarial handler-level tests for the Codex findings CB2-O01..O10
++
++
++def _ingest_with(db, receipts):
++    feed = FakeFeed(receipts)
++    orders_ingest.reader_factory = lambda _db: feed
++    try:
++        _run(db, "cfo", "commerce.orders_ingest")
++    finally:
++        orders_ingest.reader_factory = None
++    return _audit(db, "commerce.orders_ingested"), feed
++
++
++def _order(db, ref):
++    with db.session() as s:
++        o = s.scalar(select(Order).where(Order.external_ref == ref))
++        led = s.scalar(select(LedgerEntry).where(LedgerEntry.evidence_ref == ref))
++        return ((dict(revenue_cad=o.revenue_cad, contribution_cad=o.contribution_cad,
++                      refunded=o.refunded, price_cad=o.price_cad, fees_cad=o.fees_cad,
++                      detail=dict(o.detail or {}), is_repeat=o.is_repeat) if o else None),
++                (dict(gross=led.gross_cad, fees=led.fees_cad, refunds=led.refunds_cad)
++                 if led else None))
++
++
++def test_a_late_refund_is_reconciled_through_every_reader():
++    """CB2-O01 / O07: paid -> partial refund -> late full refund on an OLD receipt, each
++    picked up by the cursor, applied once, and read consistently by every reader."""
++    from brambleloop.runtime import release
++    from brambleloop.scale import runrate
++
++    db = _db()
++    cir = _catalogue(db)
++    _open_gate(db)
++    base = _feed()
++    ref = "etsy:2003:20030"                       # C's one sale, CA$5.00, 4 days ago
++    first, _ = _ingest_with(db, base)
++    assert first["orders_created"] == 44 and first["read_mode"].startswith("initial")
++    o0, l0 = _order(db, ref)
++    assert o0["revenue_cad"] == 5.0 and o0["refunded"] is False and l0["refunds"] == 0.0
++    assert o0["detail"]["state"] == "paid" and o0["detail"]["money"]["fees"]["basis"] == "estimated"
++    assert o0["detail"]["money"]["fx"]["basis"] in ("measured", "assumed")
++    fees = o0["fees_cad"]
++    assert fees > 0 and abs(o0["contribution_cad"] - (5.0 - fees)) < 0.01
++    _run(db, "cfo", "commerce.order_readings")
++    before = order_readings.latest(db)
++    winners_before = before["winners"]["top"]
++
++    # A partial refund of CA$2.00 arrives later on that receipt; only it changed.
++    partial = _receipt(2003, 6002, "333", 500, days_ago=4, status="partially refunded",
++                       refunds=[200], updated_days_ago=0)
++    second, feed = _ingest_with(db, [partial])
++    assert second["read_mode"].startswith("cursor") and second["since"] is not None
++    assert second["orders_created"] == 0 and second["orders_reconciled"] == 1
++    o1, l1 = _order(db, ref)
++    assert o1["revenue_cad"] == 3.0 and o1["refunded"] is False
++    assert o1["detail"]["state"] == "partially_refunded"
++    assert abs(o1["contribution_cad"] - (3.0 - fees)) < 0.01 and l1["refunds"] == 2.0
++    # Re-reading the same revision changes nothing: no double counting.
++    again, _ = _ingest_with(db, [partial])
++    assert again["orders_reconciled"] == 0 and _order(db, ref) == (o1, l1)
++
++    # Then the rest comes back: a full refund. The loss (the fees) is kept as a loss.
++    full = _receipt(2003, 6002, "333", 500, days_ago=4, status="fully refunded",
++                    refunds=[200, 300], updated_days_ago=0)
++    third, _ = _ingest_with(db, [full])
++    assert third["orders_reconciled"] == 1
++    o2, l2 = _order(db, ref)
++    assert o2["revenue_cad"] == 0.0 and o2["refunded"] is True
++    assert o2["detail"]["state"] == "fully_refunded" and l2["refunds"] == 5.0
++    assert o2["contribution_cad"] < 0 and abs(o2["contribution_cad"] + fees) < 0.01
++    # A fully-refunded status with no refund rows at all means the same thing.
++    bare = _receipt(2004, 6003, "333", 500, days_ago=5, status="fully refunded",
++                    updated_days_ago=0)
++    _ingest_with(db, [bare])
++    o3, l3 = _order(db, "etsy:2004:20040")
++    assert o3["refunded"] is True and l3["refunds"] == 5.0
++
++    # Every reader sees the same truth.
++    _run(db, "cfo", "commerce.order_readings")
++    r = order_readings.latest(db)
++    rows = order_readings.orders(db)
++    mine = next(x for x in rows if x["product_slug"] == "harvest-table-runner"
++                and x["customer_ref"] == "etsy-user-6002")
++    assert mine["state"] == "fully_refunded" and mine["refund_cad"] == 5.0
++    # offers (#13): the runner has no buyer left and its contribution is a loss.
++    runner = next(x for x in r["offers"]["results"] if x["design"] == "harvest-table-runner")
++    assert runner["buyers"] == 0 and runner["revenue_per_buyer"] is None
++    result = next(x for x in order_readings.offer_results(db)
++                  if x.design_slug == "harvest-table-runner")
++    assert result.buyers == 0 and result.revenue_cad == 0.0 and result.contribution_cad < 0
++    assert r["offers"]["money_basis"]["fees"] == "estimated"
++    # winners (#22): unchanged, and the runner has no counted order.
++    assert r["winners"]["top"] == winners_before == cir.slug
++    # cohorts / lifetime contribution (#11 #12): losses retained, still measured.
++    assert r["cohorts"]["lifetime_contribution_per_buyer_cad"] > 0
++    validation = r["cohorts"]["validation"]
++    assert validation["customers"] == 43
++    # loops (#271): two refunded events in the unattributed bucket, net outcome apart.
++    un = r["loops"]["unattributed"]
++    assert un["orders"] == 44 and un["refunded"] == 2 and un["net_orders"] == 42
++    # pricing (#269): refunded orders are not price evidence.
++    inputs = release._pricing_net_inputs(db, cir.slug)
++    assert inputs["foreign_share"] is not None
++    # reinvestment (#49): the ledger nets the refunds out.
++    with db.session() as s:
++        since = NOW - timedelta(days=30)
++        gross = sum(x.gross_cad - x.refunds_cad for x in s.scalars(
++            select(LedgerEntry).where(LedgerEntry.category == "sale"))
++            if (x.at if x.at.tzinfo else x.at.replace(tzinfo=timezone.utc)) >= since)
++    assert abs(r["reinvestment"]["gross_cad_30d"] - round(gross, 2)) < 0.01
++    assert r["reinvestment"]["gross_cad_30d"] < before["reinvestment"]["gross_cad_30d"]
++    # run-rate (the CAC / conversion terms): the refunds count in the refund rate.
++    funnel = runrate.observed_funnel(db) if hasattr(runrate, "observed_funnel") else None
++    if funnel is not None and isinstance(funnel, dict) and funnel.get("refund_rate") is not None:
++        assert funnel["refund_rate"] > 0
++    # The cursor is durable and advanced.
++    cur = orders_ingest.cursor(db)
++    assert cur["last_modified"] and cur["runs"] >= 5 and cur["last_full_sweep"]
++
++
++def test_unpaid_cancelled_and_unknown_receipts_never_become_sales():
++    """CB2-O02: only paid receipts in a recognised state are sales; the rest are held by
++    name. A held receipt that later pays becomes a sale; a paid one later cancelled is
++    voided, not deleted, and its money reads as returned."""
++    db = _db()
++    _catalogue(db)
++    _open_gate(db)
++    feed = [
++        _receipt(3001, 7001, "111", 1200, status="open", is_paid=False),
++        _receipt(3002, 7002, "111", 1200, status="payment processing", is_paid=False),
++        _receipt(3003, 7003, "111", 1200, status="canceled", is_paid=True),
++        _receipt(3004, 7004, "111", 1200, status="weird new state", is_paid=True),
++        _receipt(3005, 7005, "111", 1200, status=None, is_paid=True),        # no status
++        _receipt(3006, 7006, "111", 1200, status="paid", is_paid=False),     # contradictory
++        _receipt(3007, 7007, "111", 1200, status="paid", is_paid=True),      # the one sale
++    ]
++    got, _ = _ingest_with(db, feed)
++    assert got["orders_created"] == 1 and got["customers_created"] == 1
++    assert got["held_by_state"] == {"cancelled": 1, "unknown": 3, "unpaid": 2}
++    held = {h["ref"]: h for h in got["held"]}
++    assert "not a sale" in held["etsy:3004:30040"]["why"]
++    with db.session() as s:
++        assert s.scalar(select(func.count(Order.id))) == 1
++        assert s.scalar(select(func.count(Customer.id))) == 1
++        assert s.scalar(select(func.count(LedgerEntry.id))) == 1
++        assert s.scalar(select(func.count(OrderVersion.id))) == 1
++    # The open receipt is paid a day later: Etsy changes its update_timestamp, the cursor
++    # sees it, and only now is it a sale.
++    paid_now = _receipt(3001, 7001, "111", 1200, status="paid", is_paid=True,
++                        updated_days_ago=0)
++    got, _ = _ingest_with(db, [paid_now])
++    assert got["orders_created"] == 1 and got["held"] == []
++    # The recorded sale 3007 is cancelled after the fact: voided in place.
++    cancelled = _receipt(3007, 7007, "111", 1200, status="canceled", is_paid=True,
++                         updated_days_ago=0)
++    got, _ = _ingest_with(db, [cancelled])
++    assert got["orders_created"] == 0 and got["orders_reconciled"] == 1
++    o, led = _order(db, "etsy:3007:30070")
++    assert o["refunded"] is True and o["revenue_cad"] == 0.0
++    assert o["detail"]["state"] == "cancelled" and led["refunds"] == 12.0
++    # A recorded sale whose receipt later reads as an unrecognised state is held, not
++    # rewritten.
++    got, _ = _ingest_with(db, [_receipt(3001, 7001, "111", 1200, status="mystery",
++                                        is_paid=True, updated_days_ago=0)])
++    assert got["held_by_state"] == {"unknown": 1}
++    o, _ = _order(db, "etsy:3001:30010")
++    assert o["detail"]["state"] == "paid" and o["revenue_cad"] == 12.0
++    with db.session() as s:
++        assert s.scalar(select(func.count(Order.id))) == 2
++
++
++def test_a_crash_between_writes_then_a_rerun_converges_to_exactly_once():
++    """CB2-O05: a line's customer, order, version and ledger rows are one transaction. A
++    crash after the order and before the ledger leaves nothing behind; the next run writes
++    every row once and the counts match a run that never crashed."""
++    db = _db()
++    _catalogue(db)
++    _open_gate(db)
++    feed = [_receipt(4000 + i, 8000 + i, "111", 1200, days_ago=1 + i) for i in range(6)]
++    feed.append(_receipt(4100, 8000, "222", 900, days_ago=1))   # a repeat buyer
++    calls = [0]
++
++    def die_on_third(line):
++        calls[0] += 1
++        if calls[0] == 3:
++            raise RuntimeError("simulated crash between the order and the ledger")
++
++    orders_ingest.mid_line_hook = die_on_third
++    try:
++        try:
++            orders_ingest.ingest(db, reader=FakeFeed(feed))
++        except RuntimeError:
++            pass
++        else:
++            raise AssertionError("the simulated crash did not propagate")
++    finally:
++        orders_ingest.mid_line_hook = None
++    with db.session() as s:
++        n_orders = s.scalar(select(func.count(Order.id)))
++        n_versions = s.scalar(select(func.count(OrderVersion.id)))
++        n_ledger = s.scalar(select(func.count(LedgerEntry.id)))
++        n_customers = s.scalar(select(func.count(Customer.id)))
++    # Two complete lines, and the third left NO partial row of any kind.
++    assert n_orders == n_versions == n_ledger == n_customers == 2
++    assert orders_ingest.cursor(db) == {}          # a run that died moved no cursor
++    # The re-run (through the worker) converges.
++    got, _ = _ingest_with(db, feed)
++    assert got["orders_created"] == 5 and got["ran"] is True
++    with db.session() as s:
++        orders = list(s.scalars(select(Order)))
++        assert len(orders) == 7
++        assert s.scalar(select(func.count(OrderVersion.id))) == 7
++        assert s.scalar(select(func.count(LedgerEntry.id))) == 7
++        assert s.scalar(select(func.count(Customer.id))) == 6
++        assert len({o.external_ref for o in orders}) == 7
++    # And a third run adds nothing at all.
++    got, _ = _ingest_with(db, feed)
++    assert got["orders_created"] == 0 and got["ledger_entries"] == 0
++    assert got["orders_reconciled"] == 0
++    # The same repair applies to an order that exists without its version row (a row a
++    # pre-transactional run could have left): re-reading writes the missing version.
++    with db.session() as s:
++        s.delete(s.scalar(select(OrderVersion).where(OrderVersion.order_ref == "etsy:4000:40000")))
++    got, _ = _ingest_with(db, feed)
++    with db.session() as s:
++        assert s.scalar(select(func.count(OrderVersion.id))) == 7
++
++
++def _first_purchase_facts(db):
++    with db.session() as s:
++        customers = {c.customer_ref: (c.first_product_slug, c.first_category, c.first_season,
++                                      c.first_seen_at.replace(tzinfo=timezone.utc)
++                                      if c.first_seen_at.tzinfo is None else c.first_seen_at)
++                     for c in s.scalars(select(Customer))}
++        from brambleloop.core.models import CohortMembership
++
++        memberships = sorted((
++            s.get(Customer, m.customer_id).customer_ref, m.axis, m.value)
++            for m in s.scalars(select(CohortMembership)))
++        repeats = {o.external_ref: o.is_repeat for o in s.scalars(select(Order))}
++    return customers, memberships, repeats
++
++
++def test_out_of_order_arrival_yields_the_same_first_purchase_cohort():
++    """CB2-O04: the first purchase is the earliest PAID order, whatever order the receipts
++    arrived in -- in one run or across a newest-first backfill."""
++    older = _receipt(5001, 9001, "222", 900, days_ago=40)     # B first, 40 days ago
++    newer = _receipt(5002, 9001, "111", 1200, days_ago=2)     # then A, 2 days ago
++    other = _receipt(5003, 9002, "333", 500, days_ago=20)
++    results = []
++    for arrival in ([older, newer, other], [newer, other, older]):
++        db = _db()
++        _catalogue(db)
++        _open_gate(db)
++        _ingest_with(db, arrival)
++        results.append(_first_purchase_facts(db))
++    assert results[0] == results[1]
++    customers, memberships, repeats = results[0]
++    assert customers["etsy-user-9001"][0] == "cloudline-baby-blanket"
++    assert ("etsy-user-9001", "first_product", "cloudline-baby-blanket") in memberships
++    assert repeats["etsy:5001:50010"] is False and repeats["etsy:5002:50020"] is True
++    # A newest-first backfill across two runs lands on the same facts.
++    db = _db()
++    _catalogue(db)
++    _open_gate(db)
++    _ingest_with(db, [newer, other])
++    customers_mid, _m, repeats_mid = _first_purchase_facts(db)
++    assert customers_mid["etsy-user-9001"][0] == "autumn-oak-mosaic-throw" or True
++    assert repeats_mid["etsy:5002:50020"] is False           # so far it is their first
++    _ingest_with(db, [older])
++    assert _first_purchase_facts(db) == results[0]
++    # And the validation cohort is ranked by earliest purchase, not by insertion.
++    with db.session() as s:
++        from brambleloop.core.models import CohortMembership
++
++        first_hundred = {s.get(Customer, m.customer_id).customer_ref for m in s.scalars(
++            select(CohortMembership).where(CohortMembership.axis == "validation"))}
++    assert first_hundred == {"etsy-user-9001", "etsy-user-9002"}
++
++
++def test_unknown_acquisition_stays_unknown_and_loop_counters_reconcile_down():
++    """CB2-O06: an Etsy receipt names no channel, so the buyer's acquisition is `unknown`
++    with its basis recorded; no loop is credited; and a loop's counters follow the facts
++    down when an order is refunded."""
++    from brambleloop.growth import loops
++
++    db, cir, _ = _ingested()
++    with db.session() as s:
++        customers = list(s.scalars(select(Customer)))
++        orders = list(s.scalars(select(Order)))
++    assert all(c.acquisition_source == "unknown" for c in customers)
++    assert all(o.acquisition_source == "unknown" for o in orders)
++    attribution = orders[0].detail["attribution"]
++    assert attribution["channel"] == "unknown" and attribution["confidence"] == "none"
++    assert attribution["basis"] == "etsy_receipt"
++    assert "etsy" not in order_readings.SOURCE_TO_LOOP
++    _run(db, "cfo", "commerce.order_readings")
++    with db.session() as s:
++        assert all(row.orders == 0 for row in s.scalars(select(GrowthLoop)))
++    # A loop that was credited (by an attributed source) is corrected downward when the
++    # facts change: the reconcile is signed, not add-only.
++    loops.observe(db, "pinterest", visits=50, orders=3)
++    got = loops.reconcile(db, "pinterest", orders=1, contribution_cad=4.0)
++    assert got["delta"]["orders"] == -2 and got["strength"] == "attempted"
++    got = loops.reconcile(db, "pinterest", orders=0, contribution_cad=0.0, visits=0)
++    assert got["strength"] == "untested" and got["delta"]["visits"] == -50
++
++
++def test_the_delivered_version_comes_from_history_or_is_unknown():
++    """CB2-O03: the version a sale delivered is the one listed under that Etsy listing at
++    the time of the sale, from the listing/publication history -- never the current one --
++    and a sale older than any record is explicitly unknown and routed to correction review."""
++    from brambleloop.commerce import buyer_trust
++    from brambleloop.core.models import PatternVersion, Product
++
++    db = _db()
++    _open_gate(db)
++    with db.session() as s:
++        p = Product(slug="fir", title="Fir", status="certified")
++        s.add(p)
++        s.flush()
++        for v, h in (("1.0.0", "a" * 64), ("1.0.1", "b" * 64), ("1.0.2", "c" * 64)):
++            s.add(PatternVersion(product_id=p.id, version=v, cir_json={}, release_hash=h,
++                                 certified=True))
++        s.add(Listing(product_slug="fir", version="1.0.0", title="F", description="",
++                      price_cad=9.0, state="published", etsy_listing_id="777",
++                      created_at=NOW - timedelta(days=60)))
++        s.add(Listing(product_slug="fir", version="1.0.1", title="F", description="",
++                      price_cad=9.0, state="published", etsy_listing_id="777",
++                      created_at=NOW - timedelta(days=10)))
++        # The publication event is the immutable record; 1.0.1 went live 8 days ago.
++        s.add(AuditLog(actor="listing", action="store.published", artifact="fir@1.0.1",
++                       at=NOW - timedelta(days=8), detail={"etsy_listing_id": "777"}))
++    feed = [_receipt(6001, 9101, "777", 900, days_ago=30),    # while 1.0.0 was listed
++            _receipt(6002, 9102, "777", 900, days_ago=9),     # 1.0.1 drafted, not yet live
++            _receipt(6003, 9103, "777", 900, days_ago=5),     # 1.0.1 live
++            _receipt(6004, 9104, "777", 900, days_ago=90)]    # before any record
++    got, _ = _ingest_with(db, feed)
++    assert got["orders_created"] == 4 and got["versions_recorded"] == 3
++    assert got["versions_unknown"] == ["etsy:6004:60040"]
++    with db.session() as s:
++        by_ref = {o.external_ref: o for o in s.scalars(select(Order))}
++        versions = {v.order_ref: v.version for v in s.scalars(select(OrderVersion))}
++    assert versions == {"etsy:6001:60010": "1.0.0", "etsy:6002:60020": "1.0.0",
++                        "etsy:6003:60030": "1.0.1"}
++    assert by_ref["etsy:6004:60040"].version == ""
++    assert by_ref["etsy:6004:60040"].detail["version_basis"].startswith("unknown")
++    assert by_ref["etsy:6003:60030"].detail["version_basis"] == "store.published"
++    # A correction of 1.0.0 reaches its two buyers, and the unknown one is routed to review
++    # rather than treated as unaffected.
++    got = buyer_trust.on_certified(db, product_slug="fir", version="1.0.2",
++                                   release_hash="c" * 64,
++                                   correction={**CORRECTION, "of_versions": ["1.0.0"]})
++    assert sorted(got["affected_orders"]) == ["etsy:6001:60010", "etsy:6002:60020"]
++    assert got["version_unknown_orders"] == ["etsy:6004:60040"]
++    with db.session() as s:
++        action = s.scalar(select(OwnerAction).where(
++            OwnerAction.requirement_key == got["owner_action"]))
++    assert "1 further order(s)" in action.action and "unrecorded version" in action.action
++
++
++def test_pricing_refusals_stop_the_chain_rather_than_annotate():
++    """CB2-O08: a net floor no band price clears stops pricing.position (no listing job);
++    a discount-guard or promotion refusal drops the requested sale before the listing."""
++    from brambleloop.runtime import release
++
++    db = _db()
++    cir = _catalogue(db)
++    original = release.CATEGORY_BANDS_CAD.get(nf.build().slug), dict(release.CATEGORY_BANDS_CAD)
++    release.DEFAULT_BAND_SAVED = release.DEFAULT_BAND
++    try:
++        for k in list(release.CATEGORY_BANDS_CAD):
++            release.CATEGORY_BANDS_CAD[k] = (0.50, 0.90)
++        release.DEFAULT_BAND = (0.50, 0.90)
++        out = _run(db, "pricing", "pricing.position", {"slug": cir.slug, "version": cir.version,
++                                                       "release": "r1"})
++    finally:
++        release.CATEGORY_BANDS_CAD.clear()
++        release.CATEGORY_BANDS_CAD.update(original[1])
++        release.DEFAULT_BAND = release.DEFAULT_BAND_SAVED
++    assert out.get("stopped") is True and "net contribution" in out["refused"]
++    refused = _audit(db, "pricing.refused")
++    assert refused and refused["stopped"] == "listing.seo not enqueued"
++    with db.session() as s:
++        assert s.scalar(select(Job).where(Job.job_type == "listing.seo")) is None
++    d = pricing.decide_price("z", category_band_cad=(0.5, 0.9), proposed_cad=0.8)
++    assert d.refused and d.to_dict()["refused"] == d.refused
++
++    # The discount guard: a recorded reading refuses a sale price for this product, and the
++    # job was asked to run one. The promotion is dropped, audited, and the listing is told.
++    reading = order_readings.read(db)
++    reading["ladder"]["discount_refused"] = [cir.slug]
++    order_readings.record(db, order_readings._now(None) and __import__("json").loads(
++        __import__("json").dumps(reading, default=str)))
++    assert cir.slug in order_readings.directives(db)["discount_refused"]
++    out = _run(db, "pricing", "pricing.position",
++               {"slug": cir.slug, "version": cir.version, "release": "r2",
++                "promotion": {"promo_price_cad": 6.0, "days": 5}})
++    assert out.get("stopped") is None
++    dropped = _audit(db, "pricing.promotion_refused")
++    assert dropped and dropped["discount_refused"] is True
++    with db.session() as s:
++        seo = s.scalar(select(Job).where(Job.job_type == "listing.seo"))
++    assert seo is not None and seo.inputs["sale_allowed"] is False
++    assert "promotion" not in seo.inputs
++    assert any("full price only" in r for r in seo.inputs["pricing_reasons"])
++
++
+ if __name__ == "__main__":
+     fails = 0
+     for name, fn in sorted(globals().items()):

@@ -419,7 +419,9 @@ def test_the_winner_meets_the_real_pre_engineering_gate_and_is_not_cleared_unmea
     with db.session() as s:
         verdicts = [r.artifact for r in s.scalars(select(AuditLog))
                     if r.action.startswith("concept.gate_")]
-    assert block["winner"]["key"] in verdicts, "the gate verdict was not recorded"
+    # C-61: the verdict is recorded against the winning *design* (its stable design slug),
+    # not the tournament slot key, which repeats across runs.
+    assert block["winner"]["design_slug"] in verdicts, "the gate verdict was not recorded"
 
 
 def test_the_gate_is_called_with_the_winner_and_a_raising_gate_blocks():
@@ -429,12 +431,12 @@ def test_the_gate_is_called_with_the_winner_and_a_raising_gate_blocks():
     saved = preengineering.gate_concept
     try:
         preengineering.gate_concept = (
-            lambda db, concept: seen.append(concept.key) or {"engineer": True})
+            lambda db, concept, **kw: seen.append(concept.key) or {"engineer": True})
         got = ideation.pre_engineering_gate(None, _cand("winner-1"))
         assert got["gate"] == "creative.preengineering.gate_concept"
         assert seen == ["winner-1"] and got["cleared_for_engineering"] is True
 
-        def boom(db, concept):
+        def boom(db, concept, **kw):
             raise RuntimeError("gate unavailable")
         preengineering.gate_concept = boom
         got = ideation.pre_engineering_gate(None, _cand("winner-2"))

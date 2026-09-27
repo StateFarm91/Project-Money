@@ -311,9 +311,11 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
 def _open_gaps(db, benchmark_key: str) -> list[str]:
     """One gap per pod the benchmark sells into and Brambleloop does not.
 
-    Scored only on components the scan can actually observe. Make time, contribution and
-    creative potential are left absent rather than guessed, so the queue's own
-    `evidence_weight` says how much of each score is real.
+    Scored on every component the database can answer: apparent demand and portfolio fit
+    from the scan, seasonal timing from the calendar and lead-time engine, search opportunity
+    from captured search-result density, and make time from the arena's make hours (#314).
+    Expected contribution and creative potential have no evidence yet and stay absent rather
+    than guessed, so the queue's own `evidence_weight` says how much of each score is real.
     """
     from sqlalchemy import select
 
@@ -346,15 +348,77 @@ def _open_gaps(db, benchmark_key: str) -> list[str]:
         demand = min(1.0, (sum(favourites) / 2000.0)) if favourites else 0.0
         components = {"apparent_demand": round(demand, 3),
                       "portfolio_fit": min(1.0, len(listings) / 10.0)}
+        extra, basis = gap_components(db, pod_key, listings)
+        components.update(extra)
         coverage.upsert(db, benchmark_key=benchmark_key, arena=pod.name, pod=pod_key,
                         components=components,
                         evidence={"benchmark_listings": len(listings),
                                   "total_favourites": sum(favourites),
-                                  "note": "scored only on what the scan observed; make time, "
-                                          "contribution and creative potential are absent "
-                                          "rather than guessed"})
+                                  "basis": basis,
+                                  "note": "expected contribution and creative potential are "
+                                          "absent rather than guessed"})
         opened.append(pod.name)
     return opened
+
+
+# #314's computable components. The status each lead-time plan reads as, scored: a window a
+# maker can still comfortably hit is worth most, a missed one nothing.
+TIMING_SCORE: dict[str, float] = {"on_track": 1.0, "past_preferred": 0.6, "at_risk": 0.3,
+                                  "missed": 0.0}
+# Search results at which a department's shelf counts as fully crowded (log scale).
+SERP_CROWDED_AT = 100_000
+# A make this long scores zero on make time: nobody finishes it for a near occasion.
+MAKE_HOURS_CEILING = 90.0
+
+
+def gap_components(db, pod_key: str, listings: list) -> tuple[dict, dict]:
+    """Seasonal timing, search opportunity and make time for one pod, from rows (#314)."""
+    import math
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import SerpSnapshot
+    from ..radar.market import SEASONAL_EVENTS
+    from ..seasonal.calendar import DEFAULT_DEPARTMENTS, EVENT_DEPARTMENTS
+    from ..seasonal.leadtime import compile_launch, next_occurrence
+    from .mission_runtime import ARENA_MAKE_HOURS, arena_for
+
+    out: dict[str, float] = {}
+    basis: dict[str, str] = {}
+    arenas: dict[str, int] = {}
+    for row in listings:
+        a = arena_for(row.title or "", pod_key)
+        if a:
+            arenas[a] = arenas.get(a, 0) + 1
+    hours = [ARENA_MAKE_HOURS[a] for a in arenas if a in ARENA_MAKE_HOURS]
+    if hours:
+        mid = sorted(hours)[len(hours) // 2]
+        out["make_time"] = round(max(0.0, 1.0 - mid / MAKE_HOURS_CEILING), 3)
+        basis["make_time"] = f"median arena make time {mid} h (assumed, radar.market)"
+        today = datetime.now(timezone.utc).date()
+        events = [e for e in SEASONAL_EVENTS
+                  if pod_key in EVENT_DEPARTMENTS.get(e.name, DEFAULT_DEPARTMENTS)]
+        if events:
+            soonest = min(events, key=lambda e: next_occurrence(e.event_date, today))
+            plan = compile_launch(soonest.name, next_occurrence(soonest.event_date, today),
+                                  make_hours=mid)
+            status = plan.status(today)
+            out["seasonal_timing"] = TIMING_SCORE.get(status, 0.0)
+            basis["seasonal_timing"] = (f"{soonest.name}: {status}, latest effective launch "
+                                        f"{plan.latest_effective_launch.isoformat()}")
+    spec = pods.BY_KEY.get(pod_key)
+    words = {w.lower() for w in (spec.keywords if spec is not None else ()) if w} | set(arenas)
+    with db.session() as s:
+        snaps = [(r.query.lower(), r.total_count) for r in s.scalars(
+            select(SerpSnapshot).order_by(desc(SerpSnapshot.id)).limit(500))]
+    counts = [n for q, n in snaps if n is not None and any(w in q for w in words)]
+    if counts:
+        density = max(counts)
+        out["search_opportunity"] = round(max(0.0, 1.0 - math.log10(max(1, density))
+                                              / math.log10(SERP_CROWDED_AT)), 3)
+        basis["search_opportunity"] = (f"{density} results on the most crowded captured "
+                                       f"query naming this department")
+    return out, basis
 
 
 # ---------------------------------------------------------------------------

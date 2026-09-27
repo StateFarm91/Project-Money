@@ -607,9 +607,18 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # most common way a new listing is invisible.
     techniques = ["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]
     queries = search_mod.build_query_set(category, motifs, season, techniques)
+    # #293: the phrases buyers were observed using for this product's facets join the query
+    # set, and the ones that fit a tag are spent first -- the search strategy starts from
+    # what buyers already type, and stays accurate because the facets are the product's own.
+    from ..commerce import intent as intent_mod
+
+    buyer = intent_mod.listing_language(ctx.db, slug=slug, category=category, season=season,
+                                        difficulty=_difficulty(twin, cir),
+                                        techniques=techniques)
+    queries = queries + list(buyer["queries"])
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
-    tags = search_mod.choose_tags(queries)
+    tags = search_mod.choose_tags(queries, must_include=buyer["tags"])
     # #240: a slot spent on a phrase another listing of ours already spends one on is our
     # own listings ranked against each other. Re-chosen from the remaining queries, never
     # fewer slots, and the swap is recorded with the catalogue reading below.
@@ -709,6 +718,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
               detail={"title_len": len(copy.title), "tags": len(copy.tags),
                       "search_share": coverage.share, "gaps": coverage.gaps[:5],
                       "blocking": blocking[:5],
+                      "buyer_language": {k: v for k, v in buyer.items() if k != "queries"},
                       "disclosures_owed": (classification.disclosures
                                            if classification else None),
                       "rights_screen": rights_reading})
@@ -2535,11 +2545,17 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
     """
     from ..intel import mission_runtime
 
+    # #316: Brambleloop's own responses -- launches, sales, failures, complaints -- are
+    # outcomes on the pods' interpretations, recorded before capability is computed from them.
+    responses = mission_runtime.response_outcomes(ctx.db)
+    ctx.audit("mjs.response_outcomes", detail=responses)
     result = mission_runtime.pod_capability(ctx.db)
     ctx.audit("mjs.pod_capability", detail=result)
     return {"pods": len(result["pods"]), "records": result["records"],
             "judgements": result["judgements"],
-            "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
+            "measured": sorted(p for p, r in result["pods"].items() if r["measured"]),
+            "responses": {k: responses[k] for k in ("interpretations", "responses_launched",
+                                                     "state")}}
 
 
 @handlers.register("mjs.seasonal_sentinel")
@@ -2564,8 +2580,10 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
             with ctx.db.session() as s:
                 ev = s.get(MjsMissionEvent, event_id)
                 arena, pod, ref, key = ev.arena, ev.pod, ev.listing_ref, ev.benchmark_key
+                target = ((ev.seasonal or {}).get("target") or {}).get("event", "")
             inputs = breakthrough.release_brief(ctx.db, arena=arena, pod=pod, listing_ref=ref)
-            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel"})
+            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel",
+                           "seasonal_target": target})
             job = ctx.enqueue("creative_director", "creative.tournament", inputs,
                               priority=priority_for("mjs.seasonal_sentinel"),
                               idempotency_key=f"mjs.at_risk:{key}:{event_id}:{today}")
@@ -2573,10 +2591,20 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
                 with ctx.db.session() as s:
                     s.get(MjsMissionEvent, event_id).tournament_job_id = job.id
                 queued.append(job.id)
-    ctx.audit("mjs.seasonal_sentinel", detail={**result, "queued": queued})
+    # #309: every entered event's response is walked forward from what the later stages
+    # recorded, and winners that waited on a vision judgement are re-presented (C-61).
+    from ..creative import intake as winner_intake
+
+    regated = winner_intake.regate_held(ctx, today=today)
+    pipeline = mission_runtime.advance_pipeline(ctx.db, today=today)
+    ctx.audit("mjs.seasonal_sentinel", detail={**result, "queued": queued,
+                                               "pipeline": pipeline["events"][:50],
+                                               "regated": regated})
     return {"opportunities": result["opportunities"], "counts": result["counts"],
             "incidents_opened": result["incidents_opened"], "queued": queued,
-            "reallocated": sum(len(r["reallocated"]) for r in result["rows"])}
+            "reallocated": sum(len(r["reallocated"]) for r in result["rows"]),
+            "pipeline": [{k: e[k] for k in ("event_id", "stopped_at", "winner")}
+                         for e in pipeline["events"]], "regated": regated}
 
 
 # Thumbnail judgements per run. Small on purpose: market_radar's CA$4.00 daily ceiling also
@@ -3455,9 +3483,16 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway.model_gateway import ModelGateway
 
+    # C-61: winners that waited on a vision judgement are re-presented first, so a judgement
+    # recorded since the last run reaches engineering without waiting for a new winner.
+    from ..creative import intake as winner_intake
+
+    regated = winner_intake.regate_held(ctx)
+
     found = prospecting.arenas(ctx.db)
     if not found:
-        return {"ran": False, "reason": "no benchmark listing has been observed yet"}
+        return {"ran": False, "reason": "no benchmark listing has been observed yet",
+                "regated": regated}
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
     arena = prospecting.choose(found, cycle=week)
@@ -3470,7 +3505,13 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     breakthrough = inputs if inputs.get("lane") == BREAKTHROUGH_LANE else None
     if breakthrough:
         match = [a for a in found if a.pod == breakthrough.get("pod")]
-        if match:
+        # The mission names the seasonal event its response is for (#309: demand and season
+        # fit). When that event is one of the pod's proven arenas it is the arena; the wheel
+        # only chooses when the mission named none it can still reach.
+        targeted = [a for a in match if a.event == breakthrough.get("seasonal_target")]
+        if targeted:
+            arena = targeted[0]
+        elif match:
             # The same chooser as the wheel, over the release's pod only, so an arena whose
             # event can no longer be made in time is not picked just because it matched.
             arena = prospecting.choose(match, cycle=week) or arena
@@ -3490,12 +3531,17 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
         ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
                      job_id=ctx.job.id), plan)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
+    # #279: the seasonal transformations `seasonal.remerchandising` derived for this event
+    # enter the field as entrants, and the funnel judges them beside the generated concepts.
+    from ..seasonal import remerchandising as _rm
+
+    seeded = _rm.derived_children(ctx.db, event=arena.event, pod=arena.pod)
 
     try:
         result = prospecting.tournament(
             ctx.db, gateway=gateway, catalogue=catalogue,
             only=(arena.event, arena.pod),
-            exclude_forms=tuple(plan["saturation"]["excluded_forms"]))
+            exclude_forms=tuple(plan["saturation"]["excluded_forms"]), seeded=seeded)
     except prospecting.ProspectingRefused as e:
         ctx.audit("creative.tournament_blocked",
                   detail={"arena": arena.to_dict(), "reason": str(e)[:400],
@@ -3505,13 +3551,21 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                 "reason": str(e)[:200]}
 
     selection = ideation.select(plan, candidates=result.get("candidate_objects") or [],
-                                survivors=result.get("survivor_objects") or [])
-    # The single call into the pre-engineering gate: nothing reaches engineering from here
-    # without it, and while the gate does not exist the winner is recorded as held.
-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
-                                         source="creative.tournament")
+                                survivors=result.get("survivor_objects") or [],
+                                window=result.get("window"))
+    # C-61: the winner is taken into engineering intake -- a brief generated from it and its
+    # evidence, the funnel asked whether it was carried to prototype (#3), the
+    # pre-engineering gate run with that brief, and `cir.draft` queued only for a winner
+    # that clears both. Nothing reaches engineering from here any other way.
+    gate, took = _winner_intake(ctx, selection, plan, gateway=gateway, arena=arena,
+                                source="creative.tournament",
+                                funnel_rounds=result.get("funnel_rounds") or [],
+                                mjs_event_id=inputs.get("mjs_event_id"))
     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
                                          gate=gate)
+    result["intake"] = took
+    result["regated"] = regated
+    result["mjs_event_id"] = inputs.get("mjs_event_id")
 
     with ctx.db.session() as s:
         from ..core.models import AuditLog
@@ -3519,6 +3573,15 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                        artifact=f"{arena.event}/{arena.pod}",
                        detail={k: v for k, v in result.items()
                                if not k.endswith("_objects")}))
+
+    # #309: the MJs response this tournament answers moves along its pipeline now, rather
+    # than at the next daily sentinel.
+    pipeline_moves = None
+    if inputs.get("mjs_event_id"):
+        from ..intel import mission_runtime
+
+        pipeline_moves = mission_runtime.advance_pipeline(
+            ctx.db, event_ids=[int(inputs["mjs_event_id"])])
 
     generated = result["field"]["generated"]
     attempted = generated > 0 or result["cost_cad"] > 0
@@ -3534,6 +3597,8 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
             "winner": result["ideation"]["winner"],
             "role": plan["role"]["role"],
             "cleared_for_engineering": gate["cleared_for_engineering"],
+            "intake": took, "days_to_event": result.get("days_to_event"),
+            "pipeline": pipeline_moves, "seeded": result.get("seeded") or {},
             **({} if attempted else
                {"reason": "every batch came back malformed; nothing was generated or spent"})}
 
@@ -3578,6 +3643,9 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
                                               cycle=week)
     if plan is None:
         return moved_from
+    from ..creative import intake as winner_intake
+
+    winner_intake.regate_held(ctx)
     # #117: the expedition's arena loses its saturated, angle-less forms before slots exist.
     arena = ideation.restrict(arena, plan["saturation"]["excluded_forms"])
 
@@ -3601,10 +3669,13 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     # survivors are objects here, so the field diversity is measured over what it proposed
     # and survived, and says so through `entrants`.
     selection = ideation.select(plan, candidates=survivors, survivors=survivors)
-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
-                                         source="creative.expedition")
+    # An expedition is discovery, not the staged funnel: its winner gets the same generated
+    # brief and gate, and `may_engineer` refuses it engineering (#3) -- recorded, not skipped.
+    gate, took = _winner_intake(ctx, selection, plan, gateway=gateway, arena=arena,
+                                source="creative.expedition", funnel_rounds=None)
     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
                                          gate=gate)
+    result["intake"] = took
 
     prospecting.store(ctx.db, result)
 
@@ -3618,11 +3689,33 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
             "proposed": result["proposed"], "survivors": len(result["survivors"]),
             "forms": result["forms_discovered"], "cost_cad": result["cost_cad"],
             "answered_the_arena": result["answered_the_arena"],
-            "winner": result["ideation"]["winner"],
+            "winner": result["ideation"]["winner"], "intake": took,
             "role": plan["role"]["role"],
             "cleared_for_engineering": gate["cleared_for_engineering"],
             **({} if attempted else
                {"reason": "every field came back malformed; nothing was proposed or spent"})}
+
+
+def _winner_intake(ctx: JobContext, selection: dict, plan: dict, *, gateway, arena,
+                   source: str, funnel_rounds, mjs_event_id=None) -> tuple[dict, dict | None]:
+    """The winner through `creative.intake`, as the gate block `ideation.record` stores."""
+    from ..creative import intake as winner_intake
+
+    winner = selection.get("winner_object")
+    if winner is None:
+        return ({"gate": "not_called", "reason": "no winner",
+                 "cleared_for_engineering": False}, None)
+    took = winner_intake.intake(
+        ctx, candidate=winner, plan=plan, source=source, arena=arena,
+        funnel_rounds=funnel_rounds, mjs_event_id=mjs_event_id,
+        culture_id=gateway.culture_origin(winner.concept.title))
+    call = took.pop("gate_call")
+    if selection.get("winner"):
+        selection["winner"]["design_slug"] = took["slug"]
+    gate = {**call, "cleared_for_engineering": took["decision"] == winner_intake.ENGINEERING,
+            "gate_cleared": bool(call.get("cleared_for_engineering")),
+            "funnel_carried": took["funnel"], "intake_decision": took["decision"]}
+    return gate, took
 
 
 def _ideation_arena(ctx: JobContext, found: list, arena, *, kind: str, cycle: int):
@@ -3974,23 +4067,36 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
 
     # #279: every proven evergreen concept is evaluated for this occasion's transformations,
     # automatically. Presentation layers route here (re-merchandising); object-changing ones
-    # need an emotional promise before they are engineering, and a brief supplied in the job
-    # inputs is the only way one is derived -- the engine does not invent a promise.
+    # are derived from a brief generated from the parent (C-61) -- the promise is the
+    # parent's own, executed where the parent's premise says it is -- and the derived child
+    # enters the next `creative.tournament` for this event as an entrant, where the staged
+    # funnel judges it (#3). Nothing is engineered from here.
     from ..seasonal import remerchandising as _rm
 
-    transforms = _rm.transformations(ctx.db, event=event,
+    # Transformations are engineering, so they are aimed at the soonest proven occasion a
+    # tournament can still reach -- an occasion a fortnight away has no form that can be
+    # made in time, and children derived for it could never enter a field. The review's own
+    # occasion (presentation moves, which cost a photograph) stays the soonest.
+    reachable = [a for a in found if prospecting.slots(a)["slots"]]
+    transform_event = (min(reachable, key=lambda a: a.days_away).event if reachable
+                       else event)
+    transforms = _rm.transformations(ctx.db, event=transform_event,
                                      briefs=list(ctx.job.inputs.get("briefs") or []))
-    ctx.audit("seasonal.transformations", detail={
-        "event": event, "season": transforms["season"],
+    ctx.audit(_rm.TRANSFORMATIONS_ACTION, detail={
+        "event": transform_event, "season": transforms["season"],
         "evaluated": transforms["evaluated"], "routed": transforms["routed"],
         "derived": [d["key"] for d in transforms["derived"]],
+        "derived_concepts": [d["concept"] for d in transforms["derived"]],
+        "briefs_generated": transforms.get("briefs_generated", 0),
+        "held": transforms.get("held", [])[:10],
         "refused": transforms["refused"][:10]})
     return {"event": event, "pod": pod or None,
             "candidates": len(report["candidates"]),
             "ready_moves": report["ready_moves"],
             "available": list(report["capabilities"]["available"]),
             "catalogue_growth": report["catalogue_growth"],
-            "transformations": {k: transforms[k] for k in ("season", "evaluated", "routed")},
+            "transformations": {**{k: transforms[k] for k in ("season", "evaluated", "routed")},
+                                "event": transform_event},
             "derived": [d["key"] for d in transforms["derived"]]}
 
 
