@@ -1041,6 +1041,25 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     # the bundle as a whole and not only its parts.
     _record_release_bundle(ctx, slug, i["version"])
 
+    # #163 / #169 (C-69): the teardown QA again, now that the product's artefacts exist -- the
+    # advantages its support knowledge evidences are compared with the purchased benchmarks
+    # and its delight mechanisms are measured from its files. A parity-only product is
+    # withheld here exactly as at certification: no content, no publication.
+    from ..teardown import lab as teardown_lab
+    from .pipeline import _mark_withheld
+
+    seed_ = _seed_for(slug)
+    qa_ = teardown_lab.product_qa(ctx.db, slug,
+                                  product_class=(seed_.category if seed_ else ""))
+    if qa_.get("blocks_release"):
+        reason = "teardown QA (#163): " + str(qa_["unique_value"].get("reason", ""))[:300]
+        _mark_withheld(ctx, _load_cir(ctx, slug, i["version"]), reason)
+        ctx.audit("gate.release_withheld", artifact=f"{slug}@{i['version']}",
+                  detail={"reason": reason, "stage": "launch.plan"})
+        out = plan.to_dict()
+        out.update({"withheld": reason, "window_decision": decision})
+        return out
+
     publish_inputs = {"slug": slug, "version": i["version"]}
     for carried in ("as_of", "positioning"):
         if i.get(carried):

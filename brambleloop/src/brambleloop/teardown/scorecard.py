@@ -232,23 +232,34 @@ def check_unique_value(product_class: str, advantages: list[str]) -> dict:
             "advantages": {a: ADVANTAGES[a] for a in advantages}}
 
 
+# #169 names seven mechanisms -- clarity, bonus utility, navigation, polish, support,
+# customization and confidence. Clarity, polish and support are teardown dimensions
+# (instruction and chart clarity, beginner support, premium presentation, delivery, support
+# experience); bonus utility, navigation, customization and confidence are not among the
+# twelve and are scored as mechanisms in their own right (C-69: they were omitted).
+DELIGHT_DRIVERS: tuple[str, ...] = (
+    "instruction_clarity", "chart_quality", "beginner_support", "premium_presentation",
+    "delivery_packaging", "support_experience",
+    "bonus_utility", "navigation", "customization", "confidence")
+
+
 def delight_question(scores: dict[str, float]) -> dict:
     """#169: 'after paying, does this feel better than expected?'
 
     Answered from the dimensions that actually produce that feeling rather than from the mean,
     because a product can be average everywhere and delightful nowhere.
     """
-    drivers = ("instruction_clarity", "chart_quality", "beginner_support",
-               "premium_presentation", "delivery_packaging", "support_experience")
-    present = {d: scores[d] for d in drivers if d in scores}
+    present = {d: scores[d] for d in DELIGHT_DRIVERS if d in scores}
     if not present:
         return {"answerable": False,
                 "reason": "none of the dimensions that create post-purchase delight have "
-                          "been scored"}
+                          "been scored",
+                "unscored": list(DELIGHT_DRIVERS)}
     weakest = min(present, key=present.get)
     return {
         "answerable": True,
         "drivers": present,
+        "unscored": [d for d in DELIGHT_DRIVERS if d not in present],
         "weakest": weakest,
         "better_than_expected": all(v >= 4 for v in present.values()),
         "note": (f"{weakest} at {present[weakest]} is what a buyer would notice first"
