@@ -58,3 +58,13 @@ that candidate and repaired in an explicit follow-up commit.
 ## Fresh full suite on the frozen candidate
 
 Clean detached checkout of `63f2493` (tree `dbb99ff`), `run_tests.sh` with the project venv, started 2026-09-27T01:44:36Z, ended 02:49:05Z (3,869 s wall clock under heavy concurrent load; about 20 minutes unloaded). Result: **TOTAL PASSING 4,615; suites failing 0** across 237 suites, exit 0. The candidate's own suite is green, so every defect above (C-1..C-48) is a defect the suite did not test for -- which is the point of this certification.
+
+## Defects found by the wiring / commerce / dashboard certification tests (tests/test_cert_wiring.py, test_cert_commerce.py, test_cert_dashboard.py)
+
+| # | Severity | Area | Defect against 63f2493 | Repair |
+|---|---|---|---|---|
+| C-49 | Critical | commerce chain | past shadow, every `store.publish` dies `NameError: _load_cir` (and `build_twin` is never imported in `runtime/pipeline.py`): no non-shadow publish can ever run, and the NameError is retried as transient | pending |
+| C-50 | Medium | commerce chain | `assets.build` renders with `calibration_from_db` but `store.publish` re-renders with no calibration: once one passing PhysicalTest exists, every publish is refused `PDF_HASH_DRIFT` (US and UK) | pending |
+| C-51 | Low-Med | orchestration | a `PermanentError` (e.g. PDF hash drift) leaves the job FAILED 1/3 and it is retried; the worker does not treat it as terminal | pending |
+| C-52 | High | provenance / orchestration | a retried job's provenance backstop counts artefacts since its FIRST attempt (`claim` keeps `coalesce(started_at, now)`), so `collection.assemble` is killed DEAD for 113 certificates other products' `gate.certify` jobs wrote in between | pending |
+| C-53 | Low | culture | no job reads `culture.radar.memory()` (only GET /api/culture) -- part of #144, already reopened | pending |
