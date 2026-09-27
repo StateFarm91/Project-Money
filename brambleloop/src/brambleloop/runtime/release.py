@@ -4782,7 +4782,7 @@ def handle_blind_review(ctx: JobContext) -> dict:
     from ..products.builder import for_slug
     from ..publish import listing_asset
     from ..visual import parity
-    from ..visual.gallery import escalation_plan
+    from ..visual.gallery import escalation_plan, gates_now
 
     today = date.today().isoformat()
     returned = []
@@ -4791,7 +4791,8 @@ def handle_blind_review(ctx: JobContext) -> dict:
             continue
         slug = row["slug"]
         cir = for_slug(slug)
-        plan = escalation_plan([parity.COMPETITIVE], deterministic_available=cir is not None)
+        plan = escalation_plan([parity.COMPETITIVE], deterministic_available=cir is not None,
+                               gate_open=gates_now(ctx.db))
         job_type = ("assets.model_photography"
                     if cir is not None and listing_asset.needs_the_model(cir)
                     else "assets.owned_photography")

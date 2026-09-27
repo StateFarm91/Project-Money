@@ -199,8 +199,33 @@ RUNG_GATES: dict[str, str] = {
 }
 
 
+# How an eligible gated rung is executed once its gate has opened (C-69, #81).
+RUNG_EXECUTES_VIA: dict[str, str] = {
+    "regenerate_constrained": "the product's photography job, re-run with the failure as a "
+                              "constrained brief (it budget-checks and gates itself)",
+    "change_composition": "the product's photography job with a changed composition",
+    "change_tool": "the product's photography job on another permitted provider",
+    "acquire_physical_proof": "the recorded physical test is used as the proof frame's "
+                              "evidence",
+}
+
+
+def gates_now(db, keys=("image_generation", "physical_proof")) -> dict[str, bool]:
+    """The live state of the gates the ladder's rungs wait on, read from the database."""
+    from ..build2 import executor
+
+    out: dict[str, bool] = {}
+    for key in keys:
+        gate = executor.GATE_BY_KEY.get(key)
+        try:
+            out[key] = bool(gate.open(db)) if gate is not None else False
+        except Exception:  # noqa: BLE001 - an unreadable gate is closed, and says so upstream
+            out[key] = False
+    return out
+
+
 def escalation_plan(failed: list[str], *, deterministic_available: bool,
-                    start_attempt: int = 0) -> dict:
+                    start_attempt: int = 0, gate_open: dict[str, bool] | None = None) -> dict:
     """Walk a parity failure through the #81 ladder as a recorded plan.
 
     Nothing here renders, spends or asks anybody. Each rung from `start_attempt` is read off
@@ -217,20 +242,29 @@ def escalation_plan(failed: list[str], *, deterministic_available: bool,
         gate = RUNG_GATES.get(action, "")
         if action == "hold_listing":
             status = "outcome" if taken is None else "not_needed"
+        elif gate and (gate_open or {}).get(gate) and taken is None:
+            # C-69 (#81): the gate is read live; a rung whose gate has opened is attempted
+            # in ladder order rather than skipped as gated forever.
+            status = "taken"
+        elif gate and (gate_open or {}).get(gate):
+            status = "eligible"
         elif gate:
             status = "gated"
         elif action == "deterministic_representation":
-            status = "taken" if deterministic_available and taken is None else "unavailable"
+            status = ("taken" if deterministic_available and taken is None else
+                      "not_needed" if deterministic_available else "unavailable")
         else:  # pragma: no cover - every rung is classified above
             status = "unclassified"
         entry = {"attempt": attempt, "action": action, "why": step["why"], "status": status}
         if gate:
             entry["gated_on"] = gate
+            entry["gate_open"] = bool((gate_open or {}).get(gate))
             entry["executed"] = False
         if status == "taken":
             taken = action
-            entry["executes_via"] = ("assets.build renders the chart and twin from the "
-                                     "certified CIR: deterministic and free")
+            entry["executes_via"] = RUNG_EXECUTES_VIA.get(
+                action, "assets.build renders the chart and twin from the certified CIR: "
+                        "deterministic and free")
         rungs.append(entry)
         if step["exhausted"] or action == "hold_listing":
             break
@@ -240,6 +274,7 @@ def escalation_plan(failed: list[str], *, deterministic_available: bool,
         "rungs": rungs,
         "taken": taken,
         "gated": [r["action"] for r in rungs if r["status"] == "gated"],
+        "gates_read_live": gate_open is not None,
         "outcome": ("replace the failing frame with a deterministic representation"
                     if taken else "hold the listing"),
         "still_blocks_release": True,

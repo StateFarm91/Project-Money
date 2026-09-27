@@ -1449,10 +1449,13 @@ def _listing_parity(ctx: JobContext) -> dict:
     # chart and twin from -- which is what `assets.build` does, free and truthful.
     deterministic = _certified_release(ctx.db, slug, version)
     try:
+        from ..visual.gallery import gates_now
+
         verdict = parity.assess(frames, benchmark_quality=_benchmark_quality(ctx.db, slug),
                                 deterministic_available=(
                                     deterministic is not None
-                                    or parity._deterministic_available(frames)))
+                                    or parity._deterministic_available(frames)),
+                                gate_open=gates_now(ctx.db))
     except parity.ParityRefused as exc:
         # A partial set cannot satisfy #75, and the refusal is the gate working. Reported
         # as blocking rather than raised, so the publish attempt records why.
@@ -1466,6 +1469,30 @@ def _listing_parity(ctx: JobContext) -> dict:
     # (generation, physical proof) are never started from here, and release stays blocked
     # until parity passes on the new frames.
     escalation = verdict.get("escalation") or {}
+    if escalation.get("taken") in ("regenerate_constrained", "change_composition",
+                                   "change_tool"):
+        # C-69 (#81): the image gate is open, so the first rung is attempted: the product's
+        # own photography job, carrying the failure as its brief. That job budget-checks,
+        # reserves and gates itself; nothing here spends.
+        import hashlib
+
+        from ..products.builder import for_slug
+
+        cir_ = for_slug(slug)
+        job_type = ("assets.model_photography"
+                    if cir_ is not None and listing_asset.needs_the_model(cir_)
+                    else "assets.owned_photography")
+        state = hashlib.sha256(repr(sorted(verdict.get("failed") or [])).encode()
+                               ).hexdigest()[:12]
+        job = ctx.enqueue("publishing", job_type,
+                          {"slug": slug, "reason": f"parity_escalation:{escalation['taken']}",
+                           "failed": verdict.get("failed")},
+                          idempotency_key=f"parity-rung:{slug}:{escalation['taken']}:{state}")
+        escalation["enqueued"] = {"job_type": job_type, "job_id": getattr(job, "id", None),
+                                  "already_queued": job is None}
+        ctx.audit("creative.escalation_taken", artifact=f"{slug}@{version}",
+                  detail={"failed": verdict.get("failed"), "rung": escalation["taken"],
+                          **escalation["enqueued"]})
     if escalation.get("taken") == "deterministic_representation" and deterministic:
         import hashlib
 
