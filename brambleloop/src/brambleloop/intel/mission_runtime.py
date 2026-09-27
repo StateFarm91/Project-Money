@@ -1333,3 +1333,277 @@ def seasonal_sentinel(db, *, today: date | None = None) -> dict:
             "incidents_resolved": life["resolved"],
             "needs_tournament": [r["event_id"] for r in rows_out
                                  if any(x.get("queue") for x in r["reallocated"])]}
+
+
+# ---------------------------------------------------------------------------
+# #309 after the tournament: the rest of the pipeline, walked from the rows each stage writes
+#
+# `process_listing` walks the first five stages when a listing arrives and stops at the
+# seasonal tournament, because that tournament has not run yet. Everything after it --
+# make-time, launch dates, CIR engineering, certification, assets, the benchmark challenge,
+# SEO, launch and measurement -- happens in other handlers on other days. This re-walks the
+# whole sequence for every entered event from what those handlers recorded, so the event's
+# pipeline says where its Brambleloop response actually is, and stops at the first stage
+# whose gate has not passed, with the evidence either way. No stage is ever marked done by
+# this function; each is read from the row the stage itself writes.
+
+# Days a launched response is given before "no sale" counts as an outcome (#316).
+LAUNCH_VERDICT_DAYS = 60
+
+
+def _winner_for(db, event_id: int) -> dict | None:
+    from ..creative.intake import intake_rows
+
+    rows = intake_rows(db, mjs_event_id=event_id)
+    if not rows:
+        return None
+    row_id, slug, detail = rows[0]
+    return {"slug": slug, "row": row_id, **detail}
+
+
+def _stage_evidence(db, winner: dict | None, ev, *, tournament_done: bool) -> list:
+    """(stage, passed, evidence) for every stage from the seasonal tournament onward."""
+    from sqlalchemy import func, select
+
+    from ..core.models import (AuditLog, Listing, ListingAsset, Order, PatternVersion,
+                               Product)
+
+    seasonalised = ((ev.seasonal or {}).get("seasonalise") or {})
+    out = []
+    got = bool(seasonalised.get("complete")) and winner is not None
+    out.append(("seasonal_tournament", got,
+                f"winner {winner['slug']} (intake row {winner['row']}, "
+                f"{winner.get('decision')})" if winner else
+                ("the tournament ran and produced no winner" if tournament_done else
+                 "no seasonal tournament has produced a winner for this event yet")))
+    if winner is None:
+        return out
+    slug = winner["slug"]
+    make = (winner.get("brief") or {}).get("make_time") or {}
+    out.append(("make_time_estimate", bool(make.get("by_skill")),
+                f"{make.get('make_hours')} h nominal; planned for "
+                f"{make.get('planned_for_skill')} makers"))
+    plan = make.get("plan") or {}
+    out.append(("launch_dates", bool(plan.get("preferred_launch")
+                                     and plan.get("latest_effective_launch")),
+                f"preferred {plan.get('preferred_launch')}, latest "
+                f"{plan.get('latest_effective_launch')} ({plan.get('status')})"
+                if plan else make.get("why_no_plan", "no launch plan")))
+    with db.session() as s:
+        drafted = s.scalar(select(AuditLog.id).where(
+            AuditLog.action == "cir.drafted", AuditLog.artifact.like(f"{slug}@%")).limit(1))
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        certified = (product is not None and s.scalar(select(PatternVersion.id).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.certified == True).limit(1)) is not None)  # noqa: E712
+        assets = s.scalar(select(func.count()).select_from(ListingAsset).where(
+            ListingAsset.product_slug == slug)) or 0
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug)
+                           .order_by(Listing.id.desc()).limit(1))
+        listing_state = listing.state if listing is not None else None
+        orders = s.scalar(select(func.count()).select_from(Order).where(
+            Order.product_slug == slug, Order.refunded == False)) or 0  # noqa: E712
+    out.append(("cir_engineering", drafted is not None,
+                f"cir.drafted row {drafted}" if drafted else
+                f"no CIR drafted: the winner intake decided {winner.get('decision')!r}"))
+    out.append(("certification", certified,
+                "a certified pattern version exists" if certified else
+                "no certified pattern version"))
+    out.append(("premium_assets", assets > 0,
+                f"{assets} Brambleloop-owned listing asset(s)" if assets else
+                "no Brambleloop-owned listing asset has been filed"))
+    challenge = _challenge_for(db, slug) if assets else {"passed": False,
+                                                         "why": "no assets to challenge"}
+    out.append(("benchmark_challenge", challenge["passed"], challenge["why"]))
+    out.append(("seo_content", listing is not None,
+                f"listing drafted ({listing_state})" if listing is not None else
+                "no listing drafted"))
+    out.append(("launch", listing_state == "published",
+                "published" if listing_state == "published" else
+                "not published: launch is owner-gated and refused in shadow mode"))
+    out.append(("measurement", orders > 0,
+                f"{orders} order(s) attributed" if orders else
+                "UNMEASURED: no order has been recorded for this product"))
+    return out
+
+
+def _challenge_for(db, slug: str) -> dict:
+    from ..teardown.pipeline import ChallengeRefused, challenge
+
+    try:
+        got = challenge(db, product_slug=slug, category="", our_scores={})
+    except (ChallengeRefused, Exception) as exc:  # noqa: BLE001 - unrunnable is unpassed
+        return {"passed": False, "why": f"unrunnable: {exc}"[:300]}
+    return {"passed": not got.get("blocks_release", True),
+            "why": str(got.get("verdict") or got.get("reason") or "")[:300]}
+
+
+def advance_pipeline(db, *, event_ids: list[int] | None = None,
+                     today: date | None = None) -> dict:
+    """Re-walk #309 for entered events, from the rows every later stage writes."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus, MjsMissionEvent
+    from ..creative.intake import advance_gap
+
+    today = today or datetime.now(timezone.utc).date()
+    with db.session() as s:
+        q = select(MjsMissionEvent).where(MjsMissionEvent.tournament_job_id.is_not(None))
+        if event_ids:
+            q = select(MjsMissionEvent).where(MjsMissionEvent.id.in_(event_ids))
+        ids = [e.id for e in s.scalars(q)]
+    moved = []
+    for event_id in ids:
+        with db.session() as s:
+            ev = s.get(MjsMissionEvent, event_id)
+            job = s.get(Job, ev.tournament_job_id) if ev.tournament_job_id else None
+            tournament_done = job is not None and job.status == JobStatus.DONE
+            s.expunge(ev)
+        winner = _winner_for(db, event_id)
+        run = response.PipelineRun(signal=(ev.pipeline or {}).get("signal")
+                                   or f"{ev.benchmark_key}/{ev.listing_ref}")
+        early = [
+            ("observation", ev.observation_id is not None, f"observation {ev.observation_id}"),
+            ("pod_routing", ev.pod != pods.UNCLASSIFIED, ev.pod),
+            ("market_decomposition",
+             bool(((ev.steps or {}).get("decomposition") or {}).get("mechanisms")),
+             "recorded mechanisms"),
+            ("demand_and_season_fit",
+             bool(ev.proven) and bool((ev.seasonal or {}).get("target")),
+             f"target {((ev.seasonal or {}).get('target') or {}).get('event', 'none')}"),
+        ]
+        stopped = None
+        for stage, passed, evidence in early + _stage_evidence(
+                db, winner, ev, tournament_done=tournament_done):
+            res = run.advance(stage, gate_passed=passed, evidence=str(evidence))
+            if not res["advanced"]:
+                stopped = {**res, "evidence": str(evidence)}
+                break
+        state = {**run.to_dict(), "stopped": stopped, "as_of": today.isoformat(),
+                 "winner": (winner or {}).get("slug")}
+        coverage_move = None
+        if winner is not None and ev.pod:
+            done = set(run.completed)
+            to = ("launched" if "launch" in done else "certified" if "certification" in done
+                  else "engineering" if "cir_engineering" in done else None)
+            if to:
+                coverage_move = advance_gap(db, ev.pod, to, product_slug=winner["slug"],
+                                            reason=f"the MJs response {winner['slug']} "
+                                                   f"reached {to} (#309)")
+        with db.session() as s:
+            row = s.get(MjsMissionEvent, event_id)
+            row.pipeline = state
+        moved.append({"event_id": event_id, "stopped_at": (stopped or {}).get("stage"),
+                      "completed": list(run.completed), "winner": state["winner"],
+                      "coverage": coverage_move})
+    return {"events": moved, "as_of": today.isoformat()}
+
+
+# ---------------------------------------------------------------------------
+# #316: Brambleloop's own responses are outcomes for the pods' memory
+
+
+def response_outcomes(db, *, today: date | None = None) -> dict:
+    """Record what happened to every Brambleloop response a pod holds an interpretation of.
+
+    Outcomes only, from rows: an order is `launch_sold`; a response published for
+    LAUNCH_VERDICT_DAYS with no order is `launch_failed`; an escalated support case on the
+    product is `customer_complaint`. With nothing launched every interpretation stays at no
+    standing and the report says UNMEASURED -- nothing is inferred from a design passing a
+    gate. A contradicted interpretation raises a challenger about commercial execution, which
+    wins on outcomes or not at all.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import Listing, Order, PodLesson, SupportCase
+    from ..creative.intake import RESPONSE_PREFIX
+
+    today = today or datetime.now(timezone.utc).date()
+    with db.session() as s:
+        lessons = [(r.id, r.pod, r.subject, r.origin, dict(r.detail or {}),
+                    [e.get("evidence_ref") for e in list(r.supported_by or [])
+                     + list(r.contradicted_by or [])])
+                   for r in s.scalars(select(PodLesson).where(
+                       PodLesson.subject.like(f"{RESPONSE_PREFIX}%")))]
+    recorded, launched = [], 0
+    for lesson_id, pod, subject, origin, detail, seen in lessons:
+        if origin == "challenger":
+            continue
+        for slug in detail.get("slugs") or []:
+            with db.session() as s:
+                orders = s.scalar(select(func.count()).select_from(Order).where(
+                    Order.product_slug == slug, Order.refunded == False)) or 0  # noqa: E712
+                listing = s.scalar(select(Listing).where(
+                    Listing.product_slug == slug, Listing.state == "published")
+                    .order_by(Listing.id).limit(1))
+                published_at = listing.created_at if listing is not None else None
+                complaints = [c.id for c in s.scalars(select(SupportCase).where(
+                    SupportCase.product_slug == slug,
+                    SupportCase.escalated == True))]  # noqa: E712
+            if listing is not None:
+                launched += 1
+            events = []
+            if orders:
+                events.append(("launch_sold", f"orders:{slug}"))
+            elif published_at is not None:
+                at = published_at if published_at.tzinfo else published_at.replace(
+                    tzinfo=timezone.utc)
+                days = (datetime.now(timezone.utc) - at).days
+                if days >= LAUNCH_VERDICT_DAYS:
+                    events.append(("launch_failed", f"listing:{slug}:no_sale"))
+            events += [("customer_complaint", f"support_case:{c}") for c in complaints]
+            for kind, ref in events:
+                if ref in seen:
+                    continue
+                recorded.append(memory.outcome(db, lesson_id, kind, evidence_ref=ref))
+                seen.append(ref)
+    challengers = []
+    for pod in sorted({p for _i, p, *_rest in lessons}):
+        challengers += _response_challengers(db, pod=pod)
+    return {"interpretations": len([x for x in lessons if x[3] != "challenger"]),
+            "responses_launched": launched, "outcomes_recorded": recorded,
+            "challengers": challengers,
+            "state": ("UNMEASURED: no Brambleloop response has launched, so no pod "
+                      "interpretation of a response has an outcome yet" if not launched
+                      else f"{len(recorded)} outcome(s) recorded this run")}
+
+
+def _response_challengers(db, *, pod: str) -> list[dict]:
+    """A contradicted response interpretation gets a commercial-execution challenger."""
+    from sqlalchemy import select
+
+    from ..core.models import PodLesson
+    from ..creative.intake import RESPONSE_PREFIX
+
+    with db.session() as s:
+        rows = [(r.id, r.subject, r.origin, r.active, len(r.supported_by or []),
+                 len(r.contradicted_by or []), list(r.supported_by or []),
+                 list(r.contradicted_by or []), dict(r.detail or {}))
+                for r in s.scalars(select(PodLesson).where(
+                    PodLesson.pod == pod, PodLesson.subject.like(f"{RESPONSE_PREFIX}%")))]
+    by_subject: dict[str, list] = {}
+    for r in rows:
+        by_subject.setdefault(r[1], []).append(r)
+    raised = []
+    for subject, group in by_subject.items():
+        if any(r[2] == "challenger" for r in group):
+            continue
+        incumbent = next((r for r in group if r[3]), group[0])
+        lid, _s, _o, _a, sup, con, _sup_rows, _con_rows, detail = incumbent
+        if con - sup < CHALLENGE_MARGIN:
+            continue
+        cid = memory.challenge(
+            db, lid, mechanism="seasonal_timing",
+            statement=(f"Brambleloop responses to {detail.get('event', 'this event')} demand "
+                       f"in the {pod} department sell only as faster makes launched well "
+                       f"before the preferred launch date"))
+        _set_detail(db, cid, polarity="absent", kind="brambleloop_response",
+                    slugs=detail.get("slugs") or [], event=detail.get("event"))
+        # Nothing is inherited: the incumbent's failures are not the challenger's successes
+        # under another outcome's name. It stands on its own record from here, and it
+        # replaces the incumbent only because the incumbent's outcomes went net negative.
+        resolved = memory.resolve(db, pod=pod, subject=subject)
+        raised.append({"subject": subject, "incumbent": lid, "challenger": cid,
+                       "resolved_to": resolved.get("active_lesson_id"),
+                       "changed": resolved.get("changed")})
+    return raised

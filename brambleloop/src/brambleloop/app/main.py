@@ -4740,6 +4740,25 @@ def dashboard() -> str:
              f"{backlog['pending_images']} (CA${backlog['estimated_cad_total']:.2f})"),
             ("scan cadence", f"every {cadence.interval_hours}h"),
             ("coverage gaps", str(report["gap_queue"]["total"])),
+            ("last successful scan", str(report["last_successful_scan"] or "never")),
+            ("changed / new (last scan)",
+             ", ".join(f"{k}: {v}" for k, v in
+                       report["listings_changed_new"]["last_scan"].items()) or "none"),
+            ("pod assignments", ", ".join(f"{k}: {v}" for k, v in
+                                          report["pod_assignments"].items()) or "none"),
+            ("top uncovered", "; ".join(f"{g['arena']} ({g['score']:.2f})" for g in
+                                        report["top_uncovered_opportunities"][:5]) or "none"),
+            ("seasonal adaptations", "; ".join(
+                f"{a['arena']} for {a['event']}: {a['winner'] or 'no winner yet'}"
+                f" (stopped at {a['pipeline_stopped_at'] or '-'})"
+                for a in report["upcoming_seasonal_adaptations"][:5]) or "none"),
+            ("launch deadlines", "; ".join(
+                f"{d['arena']} / {d['event']}: latest {d['latest_effective_launch']}"
+                for d in report["launch_deadlines"][:5]) or "none"),
+            ("comparison results", str(report["comparison_results"])[:300]),
+            ("products launched", str(report["products_launched"]["published_listings"])),
+            ("conversion / revenue", str(report["conversion_revenue"])[:200]),
+            ("mission incidents", str(len(report["mission_incidents"]))),
         ], [["Mission", "State"]], "")
 
     def _seasonal() -> str:

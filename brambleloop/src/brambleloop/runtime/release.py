@@ -464,9 +464,18 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # most common way a new listing is invisible.
     techniques = ["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]
     queries = search_mod.build_query_set(category, motifs, season, techniques)
+    # #293: the phrases buyers were observed using for this product's facets join the query
+    # set, and the ones that fit a tag are spent first -- the search strategy starts from
+    # what buyers already type, and stays accurate because the facets are the product's own.
+    from ..commerce import intent as intent_mod
+
+    buyer = intent_mod.listing_language(ctx.db, slug=slug, category=category, season=season,
+                                        difficulty=_difficulty(twin, cir),
+                                        techniques=techniques)
+    queries = queries + list(buyer["queries"])
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
-    tags = search_mod.choose_tags(queries)
+    tags = search_mod.choose_tags(queries, must_include=buyer["tags"])
     # #240: a slot spent on a phrase another listing of ours already spends one on is our
     # own listings ranked against each other. Re-chosen from the remaining queries, never
     # fewer slots, and the swap is recorded with the catalogue reading below.
@@ -562,6 +571,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
               detail={"title_len": len(copy.title), "tags": len(copy.tags),
                       "search_share": coverage.share, "gaps": coverage.gaps[:5],
                       "blocking": blocking[:5],
+                      "buyer_language": {k: v for k, v in buyer.items() if k != "queries"},
                       "disclosures_owed": (classification.disclosures
                                            if classification else None),
                       "rights_screen": rights_reading})
@@ -2019,11 +2029,17 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
     """
     from ..intel import mission_runtime
 
+    # #316: Brambleloop's own responses -- launches, sales, failures, complaints -- are
+    # outcomes on the pods' interpretations, recorded before capability is computed from them.
+    responses = mission_runtime.response_outcomes(ctx.db)
+    ctx.audit("mjs.response_outcomes", detail=responses)
     result = mission_runtime.pod_capability(ctx.db)
     ctx.audit("mjs.pod_capability", detail=result)
     return {"pods": len(result["pods"]), "records": result["records"],
             "judgements": result["judgements"],
-            "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
+            "measured": sorted(p for p, r in result["pods"].items() if r["measured"]),
+            "responses": {k: responses[k] for k in ("interpretations", "responses_launched",
+                                                     "state")}}
 
 
 @handlers.register("mjs.seasonal_sentinel")
@@ -2048,8 +2064,10 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
             with ctx.db.session() as s:
                 ev = s.get(MjsMissionEvent, event_id)
                 arena, pod, ref, key = ev.arena, ev.pod, ev.listing_ref, ev.benchmark_key
+                target = ((ev.seasonal or {}).get("target") or {}).get("event", "")
             inputs = breakthrough.release_brief(ctx.db, arena=arena, pod=pod, listing_ref=ref)
-            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel"})
+            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel",
+                           "seasonal_target": target})
             job = ctx.enqueue("creative_director", "creative.tournament", inputs,
                               priority=priority_for("mjs.seasonal_sentinel"),
                               idempotency_key=f"mjs.at_risk:{key}:{event_id}:{today}")
@@ -2057,10 +2075,20 @@ def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
                 with ctx.db.session() as s:
                     s.get(MjsMissionEvent, event_id).tournament_job_id = job.id
                 queued.append(job.id)
-    ctx.audit("mjs.seasonal_sentinel", detail={**result, "queued": queued})
+    # #309: every entered event's response is walked forward from what the later stages
+    # recorded, and winners that waited on a vision judgement are re-presented (C-61).
+    from ..creative import intake as winner_intake
+
+    regated = winner_intake.regate_held(ctx, today=today)
+    pipeline = mission_runtime.advance_pipeline(ctx.db, today=today)
+    ctx.audit("mjs.seasonal_sentinel", detail={**result, "queued": queued,
+                                               "pipeline": pipeline["events"][:50],
+                                               "regated": regated})
     return {"opportunities": result["opportunities"], "counts": result["counts"],
             "incidents_opened": result["incidents_opened"], "queued": queued,
-            "reallocated": sum(len(r["reallocated"]) for r in result["rows"])}
+            "reallocated": sum(len(r["reallocated"]) for r in result["rows"]),
+            "pipeline": [{k: e[k] for k in ("event_id", "stopped_at", "winner")}
+                         for e in pipeline["events"]], "regated": regated}
 
 
 # Thumbnail judgements per run. Small on purpose: market_radar's CA$4.00 daily ceiling also

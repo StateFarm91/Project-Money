@@ -631,13 +631,21 @@ def window_decision(db, *, slug: str, version: str, today: date | None = None,
     from ..seasonal.harvest import adjusted_assumptions
 
     event_base = adjusted_assumptions(db, event.name, base)
-    estimate = lt.estimate_for(cir, compile_cir(cir), base)
+    compiled = compile_cir(cir)
+    estimate = lt.estimate_for(cir, compiled, base)
     when = lt.next_occurrence(event.event_date, today)
-    plan = lt.compile_launch(event.name, when, make_hours=estimate.to_dict()["hours"],
-                             assumptions=event_base)
+    # #283: planned for the maker the pattern's printed difficulty is bought by, not a
+    # default intermediate; the whole skill distribution rides beside the decision.
+    skill, printed = lt.maker_skill_for(cir, compiled)
+    hours = estimate.to_dict()["hours"]
+    plan = lt.compile_launch(event.name, when, make_hours=hours, assumptions=event_base,
+                             skill=skill)
     action, why = plan.recommendation(today)
     pivoted = action == lt.PIVOT_EVERGREEN and positioning == "evergreen"
     return {"slug": slug, "occasion": occasion, "event_date": when.isoformat(),
+            "skill": skill, "difficulty": printed,
+            "make_time_by_skill": lt.skill_distribution(event.name, when, make_hours=hours,
+                                                        today=today, assumptions=event_base),
             "status": plan.status(today), "action": action, "why": why,
             "latest_effective_launch": plan.latest_effective_launch.isoformat(),
             "positioning": positioning or "seasonal",
