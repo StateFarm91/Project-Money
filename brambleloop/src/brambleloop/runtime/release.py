@@ -322,7 +322,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # what the frame's role claims. It runs when the vision gate is open; otherwise every
     # frame is recorded UNREVIEWED, which the publish path reads as not passed. A frame the
     # review blocks stops the chain here.
-    review = _review_frames(ctx, slug, version, frames, frame_paths)
+    review = _review_frames(ctx, slug, version, frames, frame_paths,
+                            shas={f["position"]: f["sha256"] for f in stored_frames})
     blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
@@ -854,15 +855,22 @@ def select_incident(Incident, signature: str):
 
 FRAME_REVIEW_ACTION = "assets.frame_review"
 # What each frame's role claims, in the closed vocabulary `visual.inspect.compare` checks.
+# Every role `listing_assets.build_frames` emits has an entry (C-80 defect 6): a frame with
+# no claim would be compared against nothing and pass by having nothing to fail, so a role
+# missing here is recorded UNCLAIMED and blocks, never reviewed vacuously.
 ROLE_CLAIMS: dict[str, dict] = {
     "hero": {"shows_finished_object": True},
+    "whats_included": {"shows_text": True},
     "size": {"shows_size_reference": True},
-    "chart": {"shows_chart_preview": True},
+    "materials": {"shows_text": True},
     "pattern_preview": {"shows_text": True},
+    "chart": {"shows_chart_preview": True},
+    "collection": {"shows_text": True},
 }
 
 
-def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict) -> dict:
+def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict,
+                   shas: dict[int, str] | None = None) -> dict:
     from ..visual import inspect as inspection_mod
     from ..visual.gallery import gates_now
 
@@ -870,7 +878,15 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
     verdicts: dict[int, dict] = {}
     blocking: list[str] = []
     for frame in frames:
-        claim = ROLE_CLAIMS.get(frame.role, {})
+        claim = ROLE_CLAIMS.get(frame.role)
+        if claim is None:
+            verdicts[frame.position] = {"role": frame.role, "verdict": "unclaimed",
+                                        "why": f"no claim is registered for role "
+                                               f"{frame.role!r}; a frame compared against "
+                                               f"nothing is not reviewed (#61)"}
+            blocking.append(f"FRAME_REVIEW_UNCLAIMED: frame {frame.position} ({frame.role}) "
+                            f"has no registered claim to be reviewed against")
+            continue
         if not vision_open:
             verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
                                         "why": "image_vision gate closed: no model has "
@@ -883,13 +899,12 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
             verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
                                         "why": f"{type(exc).__name__}: {exc}"[:200]}
             continue
-        # A deterministic render has no realism to judge; the semantic comparison and the
-        # marks are the review. Unmade realism on a render is not a failure of the frame.
-        if verdict["verdict"] == "unjudged" and got.get("described"):
-            verdict = {"verdict": "clear", "why": "described and compared; realism not "
-                                                  "applicable to a deterministic render"}
+        # C-80 defect 6 (Codex P06): an unjudged verdict stays unjudged. Unmade checks are
+        # not passed checks, whatever kind of frame they were not made on; the publish path
+        # reads anything other than `clear` as not independently reviewed.
         verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
                                     "why": verdict.get("why"),
+                                    "unmade": verdict.get("unmade"),
                                     "semantic": (got.get("semantic") or {}).get("problems")}
         if verdict["verdict"] == "blocked":
             blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
@@ -898,13 +913,23 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
     ctx.audit(FRAME_REVIEW_ACTION, artifact=f"{slug}@{version}",
               detail={"vision_open": vision_open,
                       "frames": {str(k): v for k, v in verdicts.items()},
+                      # the bytes this review was of (C-80 defect 7): the publish path
+                      # accepts the review only for these exact stored frames
+                      "frame_shas": {str(k): v for k, v in (shas or {}).items()},
                       "unreviewed": sorted(k for k, v in verdicts.items()
                                            if v["verdict"] == "unreviewed")})
     return {"verdicts": verdicts, "blocking": blocking, "vision_open": vision_open}
 
 
 def frame_review_state(db, slug: str, version: str) -> dict:
-    """The latest independent review of this release's frames, for the publish path."""
+    """The latest independent review of this release's frames, for the publish path.
+
+    Reviewed only when the review judged a non-empty set of frames, every one is `clear`,
+    and the review was of exactly the frame bytes now stored for the release (the sha set
+    recorded with the review equals the stored frames' sha set). A review of an empty map,
+    of different bytes, or with any frame unreviewed / unjudged / blocked is not a review
+    of this release (C-80 defect 7, Codex P06).
+    """
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog
@@ -913,12 +938,27 @@ def frame_review_state(db, slug: str, version: str) -> dict:
         row = s.scalar(select(AuditLog).where(AuditLog.action == FRAME_REVIEW_ACTION,
                                               AuditLog.artifact == f"{slug}@{version}")
                        .order_by(desc(AuditLog.id)).limit(1))
-    if row is None:
+        detail = dict(row.detail or {}) if row is not None else None
+    if detail is None:
         return {"reviewed": False, "why": "no independent frame review is on record (#61)"}
-    frames = (row.detail or {}).get("frames") or {}
-    bad = {k: v["verdict"] for k, v in frames.items() if v.get("verdict") != "clear"}
-    return {"reviewed": not bad, "not_clear": bad,
-            "why": ("every frame was independently reviewed and communicates its claim"
+    frames = detail.get("frames") or {}
+    bad = {k: v.get("verdict") for k, v in frames.items() if v.get("verdict") != "clear"}
+    if not frames:
+        return {"reviewed": False, "not_clear": {}, "bound_to_stored_frames": False,
+                "why": "the frame review on record judged no frames (#61): an empty review "
+                       "is not a review"}
+    reviewed_shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
+    stored = {str(f["position"]): f["sha256"] for f in _stored_frames(db, slug, version)}
+    bound = bool(reviewed_shas) and bool(stored) and reviewed_shas == stored
+    if not bound:
+        why = ("the frame review on record is not bound to the frames now stored for this "
+               "release (#61): " + ("it recorded no frame hashes" if not reviewed_shas else
+                                    "no frames are stored" if not stored else
+                                    "the stored frame bytes differ from the ones reviewed"))
+        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": False,
+                "why": why}
+    return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
+            "why": ("every stored frame was independently reviewed and communicates its claim"
                     if not bad else f"frames not independently cleared (#61): {bad}")}
 
 
