@@ -416,63 +416,71 @@ def retirement_candidates(db, *, now: datetime | None = None) -> dict:
 
 
 RETIREMENT_CARD_PREFIX = "improve.retirement:"
+# One card for the whole review. The owner's standing instruction is to batch owner actions,
+# and a weekly review recommending five idle cells is one decision about how the company is
+# organised, not five interruptions.
+RETIREMENT_CARD_KEY = f"{RETIREMENT_CARD_PREFIX}weekly_review"
 
 
 def route_retirements(db, review: dict) -> dict:
-    """Put each merge or retire recommendation in front of the owner, once (#192).
+    """Put the review's merge and retire recommendations in front of the owner (#192).
 
     The weekly review computed recommendations and nothing acted on them. Acting on one
     automatically is the wrong remedy: a cell is a department, and disabling the agent behind
     it would turn every cadence it runs into a dead letter while the knowledge it built sits
-    unread. So each recommendation becomes one card in the single owner queue carrying the
-    reason and the lessons to preserve first, restated rather than duplicated while it
-    stands, and closed when the next review no longer recommends it. Nothing is disabled,
-    merged or retired here.
+    unread. So the recommendations become one batched card in the single owner queue, each
+    line carrying its reason and the lessons to preserve first. The card is restated while
+    the recommendations change and closed when a review recommends nothing. Nothing is
+    disabled, merged or retired here.
     """
     from sqlalchemy import select
 
     from ..core.models import OwnerAction
 
-    wanted: dict[str, dict] = {}
+    lines = []
     for move, rows in (("retire", review.get("retire") or []),
                        ("merge", review.get("merge") or [])):
         for r in rows:
-            key = f"{RETIREMENT_CARD_PREFIX}{move}:{r['cell']}"
             preserve = list(r.get("preserve") or [])
             target = f" into {r['into']}" if move == "merge" and r.get("into") else ""
-            wanted[key] = {
-                "action": (f"Decide whether to {move} the {r['cell']} improvement cell{target}. "
-                           f"The weekly review recommends it: {r['reason']}. Before either, "
-                           f"preserve {len(preserve)} lesson(s) it recorded"
-                           + (f" (lesson ids {preserve[:10]})" if preserve else "")
-                           + ". Nothing has been disabled; declining keeps the cell running"),
-                "reason": (f"#192: redundant or consistently idle cells are merged or retired, "
-                           f"and retiring one is a change to how the company is organised, "
-                           f"which is the owner's decision rather than the loop's"),
-                "max_cost_cad": 0.0, "minutes": 10,
-                "consequence_of_delay": ("the cell keeps its standing cost and its cadences "
-                                         "keep running; nothing breaks while this waits"),
-                "blocks": f"cell:{r['cell']}"}
-    queued, restated, closed = [], [], []
+            lines.append({"move": move, "cell": r["cell"], "into": r.get("into"),
+                          "text": (f"{move} {r['cell']}{target}: {r['reason']}; preserve "
+                                   f"{len(preserve)} lesson(s)"
+                                   + (f" {preserve[:10]}" if preserve else "") + " first")})
+    fields = None
+    if lines:
+        fields = {
+            "action": ("Decide the weekly review's cell recommendations, each separately: "
+                       + " | ".join(l["text"] for l in lines)
+                       + ". Nothing has been disabled; declining keeps a cell running"),
+            "reason": ("#192: redundant or consistently idle cells are merged or retired, "
+                       "and doing either changes how the company is organised, which is the "
+                       "owner's decision rather than the loop's"),
+            "max_cost_cad": 0.0, "minutes": 5 * len(lines),
+            "consequence_of_delay": ("the cells keep their standing cost and their cadences "
+                                     "keep running; nothing breaks while this waits"),
+            "blocks": ",".join(f"cell:{l['cell']}" for l in lines)}
+    state = "none"
     with db.session() as s:
-        open_rows = {a.requirement_key: a for a in s.scalars(select(OwnerAction).where(
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == RETIREMENT_CARD_KEY,
             OwnerAction.done == False))  # noqa: E712
-            if (a.requirement_key or "").startswith(RETIREMENT_CARD_PREFIX)}
-        for key, fields in wanted.items():
-            row = open_rows.get(key)
-            if row is None:
-                s.add(OwnerAction(requirement_key=key, **fields))
-                queued.append(key)
-            elif any(getattr(row, k) != v for k, v in fields.items()):
-                for k, v in fields.items():
-                    setattr(row, k, v)
-                restated.append(key)
-        for key, row in open_rows.items():
-            if key not in wanted:
+        if fields is None:
+            if row is not None:
                 row.done = True
-                closed.append(key)
-    return {"queued": queued, "restated": restated, "closed": closed,
-            "open": sorted(wanted), "disabled": [],
+                state = "closed"
+        elif row is None:
+            s.add(OwnerAction(requirement_key=RETIREMENT_CARD_KEY, **fields))
+            state = "queued"
+        elif any(getattr(row, k) != v for k, v in fields.items()):
+            for k, v in fields.items():
+                setattr(row, k, v)
+            state = "restated"
+        else:
+            state = "already_open"
+    return {"card": RETIREMENT_CARD_KEY, "state": state,
+            "recommendations": [{k: l[k] for k in ("move", "cell", "into")} for l in lines],
+            "disabled": [],
             "note": ("recommendations are routed to the owner and never enacted here: "
                      "disabling an agent would dead-letter its scheduled work")}
 

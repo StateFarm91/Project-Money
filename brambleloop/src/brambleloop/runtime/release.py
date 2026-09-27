@@ -894,6 +894,21 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         out.update({"held": True, "window_decision": decision})
         return out
 
+    # #66: the listing set as a shopper meets it, rendered in its four contexts and the
+    # renders stored, here -- the QA stage -- so store.publish can verify them without
+    # writing storage ahead of its Shadow Mode refusal.
+    from ..publish.release_gates import listing_set as _listing_set_qa
+
+    try:
+        qa = _listing_set_qa(ctx.db, slug=slug, version=i["version"], issue=False,
+                             store_root=i.get("artifact_dir"), store_renders=True)
+        ctx.audit("listing.mobile_qa", artifact=f"{slug}@{i['version']}",
+                  detail={"mobile": qa.get("mobile"), "blocks_release": qa["blocks_release"],
+                          "reasons": qa["reasons"][:5]})
+    except Exception as e:  # noqa: BLE001 - QA that crashed is unrendered, and publish says so
+        ctx.audit("listing.mobile_qa", artifact=f"{slug}@{i['version']}",
+                  detail={"error": f"{type(e).__name__}: {str(e)[:300]}"})
+
     publish_inputs = {"slug": slug, "version": i["version"]}
     for carried in ("as_of", "positioning"):
         if i.get(carried):

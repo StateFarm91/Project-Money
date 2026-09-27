@@ -377,7 +377,8 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
         elif not mob.get("complete"):
             gates.append(el.GateResult(
                 el.COMMERCIAL_QA, el.NOT_RUN,
-                f"mobile contexts not rendered: {mob.get('missing_bytes') or mob.get('why')}"))
+                f"mobile contexts not rendered: "
+                f"{mob.get('missing_bytes') or mob.get('not_rendered') or mob.get('why')}"))
         else:
             why = []
             if c.asset_id in colliding:
