@@ -455,6 +455,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("benchmark_refresh", "market_radar", "intel.benchmark_refresh", 7 * 24 * 60 * 60),
     # C-60 (#64): physical-proof upgrades measured daily; UNMEASURED until listings are live.
     ("physical_upgrade_impact", "quality_director", "physical.upgrade_impact", 24 * 60 * 60),
+    # C-60 (#201): the canonical identity checked as a series across batches, daily.
+    ("identity_drift", "quality_director", "visual.identity_drift", 24 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the
     # customer_pain domain without this company having customers. It keeps counts per theme
     # and no review text, reviewer or quotation.

@@ -143,6 +143,8 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["gate.quality", "gate.certify", "physical.record",
                             # C-60 (#64): physical photo intake and its impact reading.
                             "physical.photo", "physical.upgrade_impact",
+                            # C-60 (#201): identity drift as a series.
+                            "visual.identity_drift",
                             # #5 / #43: fast/flagship lane routing and tester plan.
                             "gate.lanes"],
          authority=Authority.GREEN,

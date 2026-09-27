@@ -1556,6 +1556,25 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
     return out
 
 
+@handlers.register("visual.identity_drift")
+def handle_identity_drift(ctx: JobContext) -> dict:
+    """#201: the canonical model's identity checked across batches and over time, daily.
+
+    Per-dimension drift share per render batch from the recorded identity verdicts; a
+    dimension rising across batches opens a publication-halting incident. UNMEASURED with
+    fewer than three batches. GREEN: reads audit rows, writes a reading and incidents.
+    """
+    from ..visual import drift_series
+
+    out = drift_series.run(ctx.db, today=_mjs_today(ctx))
+    ctx.audit("visual.identity_drift", detail={k: out[k] for k in (
+        "batches", "frames", "gradual_drift", "measurable", "incidents_opened",
+        "incidents_resolved")})
+    return {"batches": out["batches"], "measurable": out["measurable"],
+            "gradual_drift": [g["dimension"] for g in out["gradual_drift"]],
+            "incidents_opened": out["incidents_opened"]}
+
+
 @handlers.register("physical.upgrade_impact")
 def handle_physical_upgrade_impact(ctx: JobContext) -> dict:
     """#64: CTR and conversion before/after each physical-proof upgrade, daily.

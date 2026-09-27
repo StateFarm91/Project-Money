@@ -440,6 +440,7 @@ JOB_BANDS: dict[str, str] = {
     "assets.physical_upgrade": "proven_winner",
     "physical.photo": "truth_defect",
     "physical.upgrade_impact": "exploration",
+    "visual.identity_drift": "truth_defect",
     "assets.render": "proven_winner",
     "assets.owned_photography": "proven_winner",
     "assets.model_photography": "proven_winner",
