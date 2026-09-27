@@ -1,5 +1,8 @@
 # BUILD_STATE
 
+> **2026-09-27 — BUILD 2 CERTIFICATION IN PROGRESS (not certified).** The final independent function-level audit of 9434c53 refuted certification (55 invalid, 96 weak rows; all reopened, defects C-60..C-72), and its fresh full suite was red (C-73, fixed in b90e7e1). Honest state: 116 COMPLETE+PROVEN, 151 effectively OPEN, the rest gated. A six-cluster repair wave is in flight; its unintegrated work is preserved as patches. **Resume from `research/b2_resume/RESUME_MANIFEST.md`.**
+
+
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
 

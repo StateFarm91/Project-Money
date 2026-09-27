@@ -1,0 +1,34 @@
+diff --git a/brambleloop/src/brambleloop/swarm/orchestrate.py b/brambleloop/src/brambleloop/swarm/orchestrate.py
+index d104286..9c045fc 100644
+--- a/brambleloop/src/brambleloop/swarm/orchestrate.py
++++ b/brambleloop/src/brambleloop/swarm/orchestrate.py
+@@ -326,7 +326,8 @@ def thrash_sweep(db, *, now: datetime | None = None,
+             incidents.append(signature)
+ 
+         progress = _progress(s, since=since)
+-        backoffs = _free_poll_backoff(s, progress, now=now)
++        backoffs = _free_poll_backoff(s, progress, now=now,
++                                      skip={e["job_type"] for e in tripped.values()})
+     return {"observed": observed, "window_hours": window_hours,
+             "tripped": len(tripped), "incidents": incidents, "cancelled": cancelled,
+             "limit": THRASH_LIMIT,
+@@ -414,7 +415,8 @@ def _progress(session, *, since: datetime) -> dict:
+     return out
+ 
+ 
+-def _free_poll_backoff(session, progress: dict, *, now: datetime) -> dict:
++def _free_poll_backoff(session, progress: dict, *, now: datetime,
++                       skip: set[str] | frozenset = frozenset()) -> dict:
+     """Unchanged polling backs off exponentially; progress lifts the backoff (#34)."""
+     from sqlalchemy import select
+ 
+@@ -424,7 +426,8 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime) -> dict:
+     period_of = {jt: period for _n, _a, jt, period in CADENCES}
+     applied, lifted = [], []
+     for jt, row in sorted(progress.items()):
+-        if jt in LIVENESS_JOB_TYPES or jt not in period_of or not row["cadence"]:
++        if jt in LIVENESS_JOB_TYPES or jt in skip or jt not in period_of \
++                or not row["cadence"]:
+             continue
+         signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
+         open_row = session.scalar(select(Incident).where(Incident.signature == signature,

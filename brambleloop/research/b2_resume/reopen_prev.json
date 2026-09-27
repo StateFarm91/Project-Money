@@ -1,0 +1,606 @@
+{
+ "2": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "3": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "5": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "7": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "11": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "12": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "13": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "15": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "17": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "18": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "19": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "22": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "24": {
+  "status": "partial",
+  "parked_on": "live_listings"
+ },
+ "26": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "27": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "29": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "30": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "31": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "34": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "38": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "39": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "40": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "42": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "44": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "47": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "49": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "50": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "53": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "54": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "59": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "61": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "64": {
+  "status": "partial",
+  "parked_on": "physical_proof"
+ },
+ "81": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "86": {
+  "status": "covered",
+  "parked_on": ""
+ },
+ "88": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "90": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "92": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "93": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "95": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "96": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "97": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "99": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "100": {
+  "status": "covered",
+  "parked_on": ""
+ },
+ "101": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "104": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "109": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "110": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "112": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "114": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "115": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "116": {
+  "status": "partial",
+  "parked_on": ""
+ },
+ "125": {
+  "status": "partial",
+  "parked_on": "model_provider"
+ },
+ "126": {
+  "status": "partial",
+  "parked_on": "model_provider"
+ },
+ "128": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "129": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "131": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "132": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "139": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "147": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "153": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "154": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "155": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "156": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "157": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "158": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "159": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "160": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "161": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "163": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "164": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "165": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "169": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "171": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "172": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "174": {
+  "status": "covered",
+  "parked_on": ""
+ },
+ "175": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "176": {
+  "status": "covered",
+  "parked_on": ""
+ },
+ "179": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "180": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "187": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "188": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "190": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "193": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "194": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "201": {
+  "status": "covered",
+  "parked_on": ""
+ },
+ "203": {
+  "status": "partial",
+  "parked_on": "image_generation"
+ },
+ "208": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "210": {
+  "status": "partial",
+  "parked_on": null
+ },
+ "211": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "215": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "219": {
+  "status": "partial",
+  "parked_on": "benchmark_purchases"
+ },
+ "220": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "226": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "227": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "228": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "231": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "233": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "234": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "235": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "237": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "238": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "239": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "242": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "243": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "244": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "245": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "246": {
+  "status": "partial",
+  "parked_on": "owned_surfaces"
+ },
+ "247": {
+  "status": "partial",
+  "parked_on": "owned_surfaces"
+ },
+ "248": {
+  "status": "partial",
+  "parked_on": "owned_surfaces"
+ },
+ "249": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "250": {
+  "status": "partial",
+  "parked_on": "tester_roster"
+ },
+ "251": {
+  "status": "partial",
+  "parked_on": "owned_surfaces"
+ },
+ "252": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "253": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "255": {
+  "status": "partial",
+  "parked_on": "owned_surfaces"
+ },
+ "256": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "257": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "258": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "259": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "260": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "261": {
+  "status": "partial",
+  "parked_on": "live_listings"
+ },
+ "262": {
+  "status": "partial",
+  "parked_on": "live_listings"
+ },
+ "264": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "267": {
+  "status": "partial",
+  "parked_on": "live_listings"
+ },
+ "268": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "269": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "271": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "273": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "275": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "276": {
+  "status": "data_gated",
+  "parked_on": null
+ },
+ "277": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "278": {
+  "status": "partial",
+  "parked_on": null
+ },
+ "279": {
+  "status": "partial",
+  "parked_on": "model_provider"
+ },
+ "281": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "282": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "283": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "287": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "289": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "290": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "291": {
+  "status": "partial",
+  "parked_on": "customers"
+ },
+ "293": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "294": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "295": {
+  "status": "owner_gated",
+  "parked_on": null
+ },
+ "299": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "300": {
+  "status": "partial",
+  "parked_on": "image_generation"
+ },
+ "304": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "308": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "309": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "314": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "316": {
+  "status": "covered",
+  "parked_on": null
+ },
+ "318": {
+  "status": "covered",
+  "parked_on": null
+ }
+}

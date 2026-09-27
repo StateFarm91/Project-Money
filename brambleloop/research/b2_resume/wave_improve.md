@@ -1,0 +1,32 @@
+- #53 [invalid, was COMPLETE+PROVEN] velocity.stop_list/review have zero callers. improve.weekly produces only agent-cell retire/merge, with no STOP list for experiments, cadences, polishing, queries or infra
+- #90 [weak, was COMPLETE+PROVEN] The department can never promote anything (see #92 deadlock), so 'promotes only evidence-backed upgrades' is unreachable.
+- #92 [invalid, was COMPLETE+PROVEN] runner.TRIALS holds only counterfactual_rollback, which needs a prior PROMOTED Improvement in the cell. cells.test_result's only caller is runner.py:231 and Improvement rows are only created PROPOSED (cells.py:168). So PROMOTED is unreachable: a deadlock, and every proposal waits forever.
+- #93 [weak, was COMPLETE+PROVEN] Has no Improvement row to act on (#92). Only league config rollback is live, and that has no runs (#95).
+- #95 [invalid, was COMPLETE+PROVEN] league.record_run (the only writer of improve.league.run rows) has no runtime caller, so compare/promote/rollback never have data and no challenger is ever run.
+- #96 [weak, was COMPLETE+PROVEN] Only model-routing tiers and the image-provider incumbent are versioned (bootstrap.py). Prompts, tools and decision policies are not.
+- #97 [weak, was COMPLETE+PROVEN] bus.acted_on has no runtime caller. Only product_creativity consumes lessons (brief_lessons); radar, engineering, listings and support never read their inbox.
+- #99 [weak, was COMPLETE+PROVEN] roi.prioritise() has no caller, so nothing prioritises by expected impact. No stagnation rule is applied to the Improvement Department itself.
+- #100 [weak, was COMPLETE+PROVEN] execute_approved can never find an APPROVED row (#92), so 'executes approved low-risk improvements' never happens.
+- #129 [weak, was COMPLETE+PROVEN] standard.meets_standard has no caller. No taste judge exists, and nothing rewards hit quality over volume.
+- #147 [weak, was COMPLETE+PROVEN] Findings go only into one learning domain. Market Radar, SEO, Content and Seasonal Planning never consume them, and the post-launch weight update is unbuilt.
+- #153 [weak, was COMPLETE+PROVEN] audits.publishing_requirements is only displayed at GET /api/teardown. Promoted findings become Improvement proposals that can never be tested (#92). Nothing converts winning mechanisms into an enforced publishing requirement.
+- #154 [weak, was COMPLETE+PROVEN] The 'beat the best benchmark' requirement is not enforced on our charts or PDF anywhere.
+- #155 [weak, was COMPLETE+PROVEN] Traps are not consumed by Pattern Help or PDF generation (no reference outside teardown/).
+- #156 [weak, was COMPLETE+PROVEN] The best-experience standard is not wired into any Premium Product Standard gate.
+- #157 [weak, was COMPLETE+PROVEN] Nothing translates findings into Brambleloop video requirements.
+- #158 [weak, was COMPLETE+PROVEN] Observations do not reach explanation or validation code.
+- #159 [weak, was COMPLETE+PROVEN] The delivery bundle design does not read the packaging audit.
+- #160 [weak, was COMPLETE+PROVEN] Inconsistencies are not converted into any customer-experience change; the improvement path is stalled (#92).
+- #161 [weak, was COMPLETE+PROVEN] The body says 'Preserve raw notes and confidence'. Neither TeardownFinding (core/models.py:1114) nor scorecard.Finding/audits.record has a confidence field; confidence is never captured.
+- #164 [weak, was COMPLETE+PROVEN] The sandbox, regression, compare and promote steps are never reached. improve/runner.py TRIALS has only counterfactual_rollback, and trial_for() returns None for teardown proposals, so they sit forever in the waiting list of improve.sandbox.
+- #174 [weak, was COMPLETE+PROVEN] Agents have no declared inputs or outputs. The quality metric is one generic job_success_rate for every agent (agents/registry.py QUALITY_DEFAULTS), not a per-function quality measure.
+- #176 [weak, was COMPLETE+PROVEN] orchestrate.work_items reads only Job, Incident and Improvement. Opportunities (CoverageGap), benchmarks, listings, experiments, customer issues (SupportCase), OwnerActions and TeardownFindings have no ownership check.
+- #179 [invalid, was COMPLETE+PROVEN] handle_role_work (release.py:3257) counts rows and hard-codes roles.Activity(proposals_made=0, proposals_kept=0, realised_uplift=0.0). The meta-agents improve nothing and 'verified uplift' is a literal zero. experiment_designer reads nothing (read=found=0).
+- #180 [invalid, was COMPLETE+PROVEN] league.record_run has zero non-test callers, so no incumbent or challenger run is ever produced. There is no replay of historical tasks or holdouts; every challenger waits forever. Only the tests call record_run.
+- #187 [weak, was COMPLETE+PROVEN] Priority is a static band per job type (swarm/orchestrate.py JOB_BANDS). It has no expected-business-value or deadline input: an imminent seasonal window and a distant one get the same band, and all listing work is 'proven_winner' whether proven or not.
+- #190 [weak, was COMPLETE+PROVEN] No branches, simulations or shadow deployments. Only counterfactual_rollback proposals can ever be tested, and the league never has runs (#180), so the pipeline can process almost nothing.
+- #193 [weak, was COMPLETE+PROVEN] The CHALLENGERS stage only counts ConfigVersion rows. 'Run challenger evaluations' never happens, because no runs exist (#180).
+- #194 [weak, was COMPLETE+PROVEN] Findings are hard-coded 0 for conversion, ads, support and cost (release.py handle_weekly_evolution). Only RETIRE and MERGE changes are generated; there is never an ADD of specialist agents and never a metric revision.
+- #220 [weak, was COMPLETE+PROVEN] No code outside mission_runtime.apply_bar reads CompetitiveStandard: no QA, gate, API or Improvement Department. No Brambleloop standard is actually re-evaluated.
+- #228 [weak, was COMPLETE+PROVEN] OwnerVeto is read only by veto_state. A veto blocks nothing: no publish, certify or asset gate consults it, so 'the owner retains veto over flagship creative quality' is not enforced.
+- #231 [weak, was COMPLETE+PROVEN] 'High concentration triggers diversification' is not true: the alarm lands only in the report, and mix.next_role (used by ideation) does not read concentration.

@@ -1,0 +1,17 @@
+- #11 [invalid, was DATA-GATED] cohorts.record_order has zero callers and no receipt/order ingest exists anywhere (getShopReceipts is never called). The machinery cannot read orders when they arrive. The ingest can be built now; only the transactions_r grant is the owner's
+- #12 [invalid, was DATA-GATED] same as #11: nothing writes Order/Customer rows
+- #13 [invalid, was DATA-GATED] offers.may_retire has zero callers. The portfolio.review retirement actions never consult it, and no cadence reads offer data
+- #22 [invalid, was DATA-GATED] no cadence detects winners or reallocates capacity, and nothing reads orders. The C-59 standard (the machinery runs daily on the DB) is not met
+- #42 [invalid, was DATA-GATED] record_order/record_sale_version have no caller and no order ingest exists. correction_notice/affected_by have zero callers, and gate.certify does not trigger them when a correcting version certifies. That can be built now
+- #47 [invalid, was COMPLETE+PROVEN] pipeline.handle_portfolio_review builds SkuMetrics with only support_cases and open_p1_incidents. Impressions, clicks, favourites and orders are never read, so the ladder can only ever say NO_EVIDENCE (called with empty inputs)
+- #49 [invalid, was COMPLETE+PROVEN] envelope()/recommend() have zero callers. Reserves are never computed from the ledger and no CFO recommendation is produced
+- #104 [weak, was DATA-GATED] Measurement against historical cohorts is standard.north_star, which is only ever called as north_star({}) (main.py:1235).
+- #132 [invalid, was DATA-GATED] Falsely parked. north_star is only called with an empty dict (main.py:1235), so even the metrics computable today (engineering survival, novelty, grid score, defect rate) are never computed by cohort.
+- #233 [invalid, was DATA-GATED] The built half is unreached: ladder.shape/check_discount/movement/lifetime_value have zero runtime callers. The rung assignment over the real catalogue and the discount guard need no customers.
+- #234 [invalid, was DATA-GATED] bundles.candidates/check have zero runtime callers, so combination identification (product facts only, no customers needed) never runs or feeds collection.assemble. That half is falsely parked.
+- #235 [invalid, was DATA-GATED] The gate is plausible, but promotion.incrementality has zero callers. When orders arrive, nothing will run it.
+- #252 [weak, was DATA-GATED] repeat.windows (the 30/60/90/180-day arithmetic) has zero callers; nothing computes it when orders arrive; no lifetime-contribution metric wired
+- #256 [invalid, was DATA-GATED] inputs are hard-coded None and never read from Customer/Order, so it stays UNMEASURED forever; referral.check (mechanic gate) is never called
+- #269 [invalid, was COMPLETE+PROVEN] Order has no transaction currency/rate/date columns; pricing.position (decide_price) clamps to the band and only warns on net, so pricing is not decided on net contribution
+- #271 [invalid, was COMPLETE+PROVEN] growth/loops.observe (the only writer of visits/orders/cost/strength) has zero callers, so strength can never rise at runtime; there are no per-loop contribution/confidence fields
+- #26 [invalid, was DATA-GATED] there is no nightly cadence. nightly() ignores db and hardcodes an empty Observed() (the C-48 defect again), and the route passes db=None

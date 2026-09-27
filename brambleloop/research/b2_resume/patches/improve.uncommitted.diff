@@ -1,0 +1,48 @@
+diff --git a/brambleloop/tests/test_cert_wiring.py b/brambleloop/tests/test_cert_wiring.py
+index ced7fae..b9589da 100644
+--- a/brambleloop/tests/test_cert_wiring.py
++++ b/brambleloop/tests/test_cert_wiring.py
+@@ -240,11 +240,28 @@ def test_follow_on_work_is_enqueued_at_its_band_too():
+     """#187 says customer incidents and truth defects go first. A band applied only at the
+     scheduler leaves every handler-enqueued job (gate.certify, finance.challenge, the whole
+     release chain) at the queue default, below housekeeping."""
++    from brambleloop.runtime.release import COLLECTION_WAIT_PRIORITY
++
+     db = drained()["db"]
+-    wrong = sorted({(j.job_type, j.priority, orchestrate.priority_for(j.job_type))
+-                    for j in _jobs(db)
+-                    if j.priority != orchestrate.priority_for(j.job_type)})
++
++    def band(j) -> int:
++        # The band the job belongs in *as enqueued*: the type's band, except that listing
++        # work for a product with no attributed revenue is an unproven opportunity rather
++        # than a proven winner (#187, C-63). Deadline and value may move it up inside the
++        # band by at most MAX_WITHIN_BAND, never across one.
++        return orchestrate.priority_decision(j.job_type, j.inputs or None, db=db)["band"]
++
++    wrong = sorted({(j.job_type, j.priority, band(j)) for j in _jobs(db)
++                    if not (band(j) - orchestrate.MAX_WITHIN_BAND <= j.priority <= band(j))
++                    and not (j.job_type == "collection.assemble"
++                             and j.priority == COLLECTION_WAIT_PRIORITY)})
+     assert not wrong, f"job type, enqueued priority, its band: {wrong}"
++    # And the demotion is real: no product in the drained chain has earned anything, so its
++    # listing work sits in the new-opportunity band, not the proven-winner band.
++    listing_work = [j for j in _jobs(db) if j.job_type in ("listing.seo", "listing.draft")
++                    and (j.inputs or {}).get("slug")]
++    assert listing_work and all(
++        j.priority > orchestrate.BAND_BY_KIND["proven_winner"] for j in listing_work)
+ 
+ 
+ def test_swarm_handlers_reach_their_runtime_functions():
+@@ -301,7 +318,10 @@ def test_listing_draft_actually_runs_the_disclosure_check():
+     with st["db"].session() as s:
+         recorded = {r.artifact for r in s.scalars(select(AuditLog).where(
+             AuditLog.action.in_(("listing.disclosure_checked", "listing.disclosure_finding"))))}
+-    assert len(recorded) >= len(seos), (recorded, [j.inputs.get("slug") for j in seos])
++    # One reading per distinct listing: a slug whose chain ran listing.seo twice (a rebuild)
++    # is one artefact checked twice, not two.
++    distinct = {f"{j.inputs.get('slug')}@{j.inputs.get('version')}" for j in seos}
++    assert distinct <= recorded, (recorded, sorted(distinct - recorded))
+ 
+ 
+ def test_growth_experiments_calls_launch_pack_for_every_drafted_listing():

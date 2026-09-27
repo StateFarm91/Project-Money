@@ -1,0 +1,2875 @@
+From 0f50457f2e0f3019714f44bd59d8375dd5d7b1f6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 12:43:28 +0000
+Subject: [PATCH 1/2] C-64 WIP: order ingest behind transactions_r gate, order
+ readings, trajectory and north star from DB
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/agents/registry.py        |   9 +-
+ brambleloop/src/brambleloop/app/main.py       |   9 +-
+ .../src/brambleloop/commerce/buyer_trust.py   |  79 ++
+ .../src/brambleloop/commerce/cohorts.py       |  14 +-
+ .../brambleloop/commerce/order_readings.py    | 688 ++++++++++++++++++
+ .../src/brambleloop/commerce/orders_ingest.py | 298 ++++++++
+ .../src/brambleloop/commerce/pricing.py       |  87 ++-
+ .../src/brambleloop/commerce/referral.py      |  13 +
+ brambleloop/src/brambleloop/core/models.py    |  17 +
+ .../src/brambleloop/creative/ideation.py      |  30 +
+ .../src/brambleloop/creative/standard.py      | 121 ++-
+ brambleloop/src/brambleloop/growth/loops.py   |  22 +-
+ .../src/brambleloop/integrations/etsy.py      |  19 +
+ .../brambleloop/runtime/commerce_readings.py  |  19 +-
+ brambleloop/src/brambleloop/runtime/orders.py | 187 +++++
+ .../src/brambleloop/runtime/pipeline.py       |  99 ++-
+ .../src/brambleloop/runtime/release.py        |  61 +-
+ brambleloop/src/brambleloop/runtime/worker.py |   7 +
+ .../src/brambleloop/scale/trajectory.py       | 119 ++-
+ .../src/brambleloop/swarm/orchestrate.py      |   4 +
+ 20 files changed, 1866 insertions(+), 36 deletions(-)
+ create mode 100644 brambleloop/src/brambleloop/commerce/order_readings.py
+ create mode 100644 brambleloop/src/brambleloop/commerce/orders_ingest.py
+ create mode 100644 brambleloop/src/brambleloop/runtime/orders.py
+
+diff --git a/brambleloop/src/brambleloop/agents/registry.py b/brambleloop/src/brambleloop/agents/registry.py
+index 35021d9..035cf35 100644
+--- a/brambleloop/src/brambleloop/agents/registry.py
++++ b/brambleloop/src/brambleloop/agents/registry.py
+@@ -42,7 +42,8 @@ class BudgetExceeded(Exception):
+ # listed here, so widening authority is a visible, reviewable change.
+ DEFAULT_AGENTS: list[dict] = [
+     dict(name="orchestrator", description="CEO/Orchestrator: sets priorities, schedules work",
+-         allowed_job_types=["plan.cycle", "portfolio.review", "ops.heartbeat",
++         allowed_job_types=["scale.trajectory",  # C-64 / #26: nightly scenario analysis
++                            "plan.cycle", "portfolio.review", "ops.heartbeat",
+                             "ops.queue_check", "plan.strategy", "launch.readiness",
+                             "ops.continuity", "seasonal.sentinel",
+                             "improve.retrospective", "ops.policy_watch", "build.tick",
+@@ -94,7 +95,8 @@ DEFAULT_AGENTS: list[dict] = [
+     # consume a day's whole model allowance is a measurement nobody can afford to repeat.
+     dict(name="creative_director",
+          description="Blinded creative benchmarking and product discovery (#94, #104, #3)",
+-         allowed_job_types=["creative.blinded", "creative.expedition",
++         allowed_job_types=["creative.north_star",  # C-64 / #104 #132
++                            "creative.blinded", "creative.expedition",
+                             "creative.blind_review", "creative.grid_tournament",
+                             "creative.tournament",
+                             # #82 / #89: read-only learners over recorded outcomes.
+@@ -203,6 +205,9 @@ DEFAULT_AGENTS: list[dict] = [
+                             "finance.governor",
+                             # C-59: daily readings of the gated commerce machinery (read-only).
+                             "commerce.readings",
++                            # C-64: the order ingest (behind the transactions_r gate) and
++                            # everything that reads orders.
++                            "commerce.orders_ingest", "commerce.order_readings",
+                             # The four-fifths escalation as a job rather than a page view:
+                             # `spend_policy.escalation` was computed only when somebody
+                             # fetched /api/spend-report, so a month that reached 80% with
+diff --git a/brambleloop/src/brambleloop/app/main.py b/brambleloop/src/brambleloop/app/main.py
+index 8eabfb4..efc1091 100644
+--- a/brambleloop/src/brambleloop/app/main.py
++++ b/brambleloop/src/brambleloop/app/main.py
+@@ -1232,7 +1232,7 @@ def api_invention() -> dict:
+         "unmet_angles": discovery.ANGLE_KINDS,
+         "complaint_kinds": discovery.COMPLAINT_KINDS,
+         "transferable_mechanisms": discovery.TRANSFERABLE,
+-        "north_star": standard.north_star({}),
++        "north_star": standard.north_star_from_db(db),
+     }
+ 
+ 
+@@ -3379,7 +3379,12 @@ def api_trajectory() -> dict:
+     from ..scale import trajectory
+ 
+     out = trajectory.state()
+-    out["tonight"] = trajectory.nightly(None)
++    # C-64: computed from the database -- observed terms from the rows, assumed terms with
++    # their basis -- and the last recorded nightly run beside it.
++    out["tonight"] = trajectory.nightly(db)
++    from ..runtime.orders import TRAJECTORY_KIND, _previous
++
++    out["last_nightly"] = _previous(db, TRAJECTORY_KIND, "9999-12-31")
+     return out
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/commerce/buyer_trust.py b/brambleloop/src/brambleloop/commerce/buyer_trust.py
+index 1b381f2..da40bbd 100644
+--- a/brambleloop/src/brambleloop/commerce/buyer_trust.py
++++ b/brambleloop/src/brambleloop/commerce/buyer_trust.py
+@@ -734,3 +734,82 @@ def gallery_proof_on_file(db, *, slug: str) -> dict:
+     return {"on_file": True, "has_physical_proof_reading": physical,
+             "images": sum(len(r.get("images") or []) for r in rows[:1]),
+             "note": rows[0].get("proof", {}).get("note")}
++
++
++# ---------------------------------------------------------------------------
++# #42 in the runtime: a correcting version certifies, and its buyers are found (C-64)
++
++CORRECTION_ACTION_PREFIX = "correction_notice:"
++
++
++def _version_key(v: str) -> tuple:
++    return tuple(int(p) if p.isdigit() else 0 for p in (v or "").split("."))
++
++
++def on_certified(db, *, product_slug: str, version: str, release_hash: str = "",
++                 previous_release_hash: str = "") -> dict:
++    """Called by `gate.certify` when a release certifies (#42).
++
++    A newer certified version corrects every older one a buyer holds; a re-certification of
++    the same version under a different release hash corrects the buyers who received the
++    old hash. Either way the affected orders are read from `order_versions` (written at sale
++    time), every affected row's `current_safe_version` moves to the new version, the notice
++    is prepared with `correction_notice` and kept on the row, and sending it -- messaging
++    customers, which shadow mode refuses and the owner authorises -- becomes one owner
++    action per correction. No affected buyer, no notice and no action.
++    """
++    from datetime import datetime, timezone
++
++    from sqlalchemy import select
++
++    from ..core.models import OrderVersion, OwnerAction
++
++    with db.session() as s:
++        rows = list(s.scalars(select(OrderVersion).where(
++            OrderVersion.product_slug == product_slug)))
++        held = [(r.order_ref, r.version, r.release_hash) for r in rows]
++    older = sorted({v for _ref, v, _h in held
++                    if _version_key(v) < _version_key(version)})
++    same_old_hash = sorted({ref for ref, v, h in held
++                            if v == version and previous_release_hash
++                            and h == previous_release_hash and h != release_hash})
++    if not older and not same_old_hash:
++        return {"product_slug": product_slug, "version": version, "affected_count": 0,
++                "notice": None,
++                "why": ("no recorded buyer holds a version this release corrects"
++                        if held else "no order of this product has been recorded")}
++
++    what = (f"Version {version} of this pattern was certified after yours and replaces "
++            f"{', '.join(older + ([version] if same_old_hash else []))}: work started from "
++            f"your copy should be checked against the corrected pattern from the first "
++            f"differing row.")
++    affected = affected_orders(db, product_slug=product_slug, corrected_from=tuple(older))
++    if same_old_hash:
++        with db.session() as s:
++            affected += [_row(r) for r in s.scalars(select(OrderVersion).where(
++                OrderVersion.order_ref.in_(same_old_hash)))]
++    notice = correction_notice(product_slug=product_slug,
++                               from_versions=tuple(older or [version]),
++                               to_version=version, what_changed=what, affected=affected)
++    refs = [r["order_ref"] for r in affected]
++    now = datetime.now(timezone.utc).isoformat()
++    with db.session() as s:
++        for r in s.scalars(select(OrderVersion).where(OrderVersion.order_ref.in_(refs))):
++            r.current_safe_version = version
++            r.detail = {**(r.detail or {}),
++                        "correction_notice": {"to_version": version, "prepared_at": now,
++                                              "sent": False}}
++        key = f"{CORRECTION_ACTION_PREFIX}{product_slug}@{version}"
++        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
++            s.add(OwnerAction(
++                requirement_key=key,
++                action=(f"Approve sending the prepared correction notice for {product_slug} "
++                        f"{version} to {len(refs)} buyer(s)"),
++                reason=notice["body"][:500], max_cost_cad=0.0, minutes=5,
++                consequence_of_delay=("buyers keep working from a version with a known "
++                                      "correction; support answers against their version "
++                                      "meanwhile"),
++                blocks="#42 correction notice"))
++    return {"product_slug": product_slug, "version": version,
++            "affected_count": len(refs), "affected_orders": refs,
++            "notice": notice, "owner_action": key}
+diff --git a/brambleloop/src/brambleloop/commerce/cohorts.py b/brambleloop/src/brambleloop/commerce/cohorts.py
+index 5b596de..8b8a7e1 100644
+--- a/brambleloop/src/brambleloop/commerce/cohorts.py
++++ b/brambleloop/src/brambleloop/commerce/cohorts.py
+@@ -80,7 +80,7 @@ def _aware(at: datetime | None) -> datetime:
+ 
+ 
+ # ---------------------------------------------------------------------------
+-# Writing. Nothing calls these today; they exist so the first real order has somewhere to go.
++# Writing. Called by `commerce.orders_ingest` for every receipt line it reads (C-64).
+ 
+ 
+ def record_customer(db, customer_ref: str, *, at: datetime | None = None,
+@@ -132,7 +132,12 @@ def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
+                  price_cad: float = 0.0, revenue_cad: float | None = None,
+                  contribution_cad: float = 0.0, acquisition_source: str = "unknown",
+                  search_term: str = "", offsite_ad_attributed: bool = False,
+-                 cross_sell_of: str = "", refunded: bool = False) -> dict:
++                 cross_sell_of: str = "", refunded: bool = False,
++                 currency: str = "CAD", amount_original: float | None = None,
++                 fx_usd_per_cad: float | None = None, fx_taken_on: str = "",
++                 fx_measured: bool = False, fees_cad: float = 0.0,
++                 offer: str = "single_pattern", source: str = "",
++                 detail: dict | None = None) -> dict:
+     """One order against a recorded customer. Refuses an order for nobody."""
+     if price_cad < 0 or contribution_cad > max(price_cad, revenue_cad or 0.0) + 1e-9:
+         raise CohortRefused(
+@@ -156,6 +161,11 @@ def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
+             contribution_cad=contribution_cad, acquisition_source=acquisition_source,
+             search_term=search_term, offsite_ad_attributed=offsite_ad_attributed,
+             is_repeat=bool(prior), cross_sell_of=cross_sell_of, refunded=refunded,
++            currency=(currency or "CAD").upper(),
++            amount_original=price_cad if amount_original is None else amount_original,
++            fx_usd_per_cad=fx_usd_per_cad, fx_taken_on=fx_taken_on, fx_measured=fx_measured,
++            fees_cad=fees_cad, offer=offer or "single_pattern", source=source,
++            detail=dict(detail or {}),
+         )
+         s.add(order)
+         if category and category not in (customer.interests or []):
+diff --git a/brambleloop/src/brambleloop/commerce/order_readings.py b/brambleloop/src/brambleloop/commerce/order_readings.py
+new file mode 100644
+index 0000000..504f8b7
+--- /dev/null
++++ b/brambleloop/src/brambleloop/commerce/order_readings.py
+@@ -0,0 +1,688 @@
++"""Everything that reads orders, read from the orders (C-64).
++
++Run daily by `commerce.order_readings` and immediately after any ingest that created an
++order. Each block reads `customers`, `orders`, the ledger, `listing_outcomes`, `cohorts` and
++`price_observations` as they stand, and returns either a measurement or UNMEASURED with the
++reason. Nothing here estimates a missing quantity: a CA$0 company produces a reading that
++says, block by block, what has never been observed.
++
++What each block *does* with its reading, so that it is not an audit row nobody reads:
++
++* #11/#12 cohorts: the validation cohort's lifetime contribution per buyer is the reward
++  ceiling the referral check reads (#256) -- a reward is a cost per acquired customer.
++* #13 offers: `offer_results` is what `portfolio.review` passes to `offers.may_retire`
++  before any retirement action is issued.
++* #22 winners: a credible winner opens a bounded replication study (an
++  `operating_readings` row with an end date) that ideation reads into its briefs.
++* #49 reinvestment: a non-zero envelope recommendation becomes an owner action -- the CFO
++  recommends, the owner decides.
++* #233 ladder: empty rungs and too-big steps go to ideation as a brief constraint; the
++  discount guard's refusals are read by `pricing.position`.
++* #234 bundles: candidate pairs from product facts; `collection.assemble` runs the same
++  check on its members.
++* #235 promotions: incrementality verdicts; a promotion judged not worth repeating is read
++  by `pricing.position`.
++* #252 repeat windows and lifetime contribution per first-purchase cohort.
++* #256 referral outcome and mechanic checks from attributed customers.
++* #271 growth loops: traffic and orders observed per loop from the rows that record them,
++  which moves each loop's derived strength.
++"""
++from __future__ import annotations
++
++from datetime import date, datetime, timedelta, timezone
++
++KIND = "commerce.orders"
++STUDY_KIND = "replication.study"
++UNMEASURED = "UNMEASURED"
++
++# Where an order's acquisition source maps to a growth loop (#271). Etsy receipts carry no
++# source beyond the marketplace itself, so "etsy" is the organic marketplace loop.
++SOURCE_TO_LOOP = {"etsy": "etsy_organic", "etsy_search": "etsy_organic",
++                  "pinterest": "pinterest", "google": "google_seo", "seo": "google_seo",
++                  "creator": "creators", "email": "email", "etsy_ads": "paid_ads",
++                  "offsite_ads": "paid_ads", "bundle": "bundles"}
++REFERRAL_SOURCES = ("referral_code", "unique_link", "recorded_mention", "referral")
++
++
++def _aware(v):
++    if v is None:
++        return None
++    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
++
++
++def _now(today: date | None) -> datetime:
++    if today is None:
++        return datetime.now(timezone.utc)
++    return datetime(today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
++
++
++def orders(db) -> list[dict]:
++    """Every order with its buyer's reference, as plain rows."""
++    from sqlalchemy import select
++
++    from ..core.models import Customer, Order
++
++    with db.session() as s:
++        refs = {c.id: c.customer_ref for c in s.scalars(select(Customer))}
++        return [{"customer_ref": refs.get(o.customer_id, ""), "at": _aware(o.at),
++                 "product_slug": o.product_slug, "category": o.category,
++                 "season": (o.detail or {}).get("season") or _season(o.product_slug),
++                 "offer": o.offer or "single_pattern",
++                 "revenue_cad": float(o.revenue_cad or 0.0),
++                 "contribution_cad": float(o.contribution_cad or 0.0),
++                 "acquisition_source": o.acquisition_source or "unknown",
++                 "refunded": bool(o.refunded), "is_repeat": bool(o.is_repeat),
++                 "currency": o.currency or "CAD", "fx_measured": bool(o.fx_measured),
++                 "fx_usd_per_cad": o.fx_usd_per_cad}
++                for o in s.scalars(select(Order).order_by(Order.at))]
++
++
++def _season(slug: str) -> str:
++    from ..radar.opportunity import POOL
++
++    seed = next((c for c in POOL if c.slug == slug), None)
++    return (seed.season or "none") if seed else "none"
++
++
++# ---------------------------------------------------------------------------
++# #11 / #12
++
++
++def cohort_block(db, *, as_of: datetime) -> dict:
++    from . import cohorts
++
++    st = cohorts.state(db)
++    out = {"customers": st["customers"], "orders": st["orders"],
++           "validation_cohort": st["validation_cohort"], "source": st["source"]}
++    if not st["customers"]:
++        out["reading"] = UNMEASURED
++        out["why"] = st["note"]
++        out["lifetime_contribution_per_buyer_cad"] = None
++        return out
++    out["cohorts"] = {f"{c['axis']}={c['value']}":
++                      cohorts.metrics(db, c["axis"], c["value"], as_of=as_of)
++                      for c in st["cohorts"]}
++    validation = cohorts.metrics(db, "validation", "first_hundred", as_of=as_of)
++    out["validation"] = validation
++    ltv = validation["lifetime_contribution"]
++    out["lifetime_contribution_per_buyer_cad"] = ltv.get("value")
++    out["reading"] = "measured" if st["readable_cohorts"] else UNMEASURED
++    return out
++
++
++# ---------------------------------------------------------------------------
++# #13
++
++
++def offer_results(db) -> list:
++    """One `offers.Result` per (design, offer) that has sold, from the orders.
++
++    Visitors are the product's recorded listing visits for its single-pattern offer and
++    None (unmeasured) for any other shape, because no listing records visits per offer.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import ListingOutcome
++    from . import offers
++
++    rows = orders(db)
++    with db.session() as s:
++        visits: dict[str, int] = {}
++        for r in s.scalars(select(ListingOutcome)):
++            visits[r.product_slug] = visits.get(r.product_slug, 0) + int(r.visits or 0)
++    grouped: dict[tuple[str, str], list[dict]] = {}
++    for o in rows:
++        if o["offer"] in offers.BY_KEY:
++            grouped.setdefault((o["product_slug"], o["offer"]), []).append(o)
++    results = []
++    for (slug, offer), mine in sorted(grouped.items()):
++        kept = [o for o in mine if not o["refunded"]]
++        results.append(offers.Result(
++            design_slug=slug, offer=offer,
++            visitors=(visits.get(slug) if offer == offers.SINGLE and slug in visits else None),
++            buyers=len({o["customer_ref"] for o in kept}),
++            revenue_cad=round(sum(o["revenue_cad"] for o in kept), 2),
++            contribution_cad=round(sum(o["contribution_cad"] for o in kept), 2)))
++    return results
++
++
++def offer_block(db) -> dict:
++    from . import offers
++
++    results = offer_results(db)
++    if not results:
++        return {"reading": UNMEASURED, "results": [],
++                "why": "no order exists, so no offer has a buyer or a visitor to divide by"}
++    return {"reading": "measured", "comparison": offers.compare(results),
++            "results": [{"design": r.design_slug, "offer": r.offer, **r.measures()}
++                        for r in results]}
++
++
++# ---------------------------------------------------------------------------
++# #22
++
++
++def _skus(db, rows: list[dict], *, now: datetime) -> list:
++    from sqlalchemy import select
++
++    from ..core.models import Listing
++    from ..radar.opportunity import POOL
++    from .replication import Sku
++
++    with db.session() as s:
++        first_listed: dict[str, datetime] = {}
++        for r in s.scalars(select(Listing)):
++            at = _aware(r.created_at)
++            if at and (r.product_slug not in first_listed or at < first_listed[r.product_slug]):
++                first_listed[r.product_slug] = at
++    counts: dict[str, int] = {}
++    first_sale: dict[str, datetime] = {}
++    for o in rows:
++        if o["refunded"]:
++            continue
++        counts[o["product_slug"]] = counts.get(o["product_slug"], 0) + 1
++        first_sale.setdefault(o["product_slug"], o["at"])
++    slugs = sorted(set(counts) | set(first_listed))
++    seeds = {c.slug: c for c in POOL}
++    out = []
++    for slug in slugs:
++        since = first_listed.get(slug) or first_sale.get(slug) or now
++        seed = seeds.get(slug)
++        traits = {}
++        if seed is not None:
++            traits = {"category": seed.category, "season": seed.season or "evergreen",
++                      "price": ("entry" if seed.price_cad <= 6 else
++                                "premium" if seed.price_cad <= 14 else "collection"),
++                      "bundle": "bundle" if seed.is_bundle else "single"}
++        out.append(Sku(slug=slug, orders=counts.get(slug, 0),
++                       weeks_live=max(0, (now - since).days // 7), traits=traits))
++    return out
++
++
++def winner_block(db, rows: list[dict], *, now: datetime) -> dict:
++    from . import replication
++
++    catalogue = _skus(db, rows, now=now)
++    selling = [s for s in catalogue if s.orders > 0]
++    if not selling:
++        return {"reading": UNMEASURED, "winner": None, "study": None,
++                "why": "no product has an order, so nothing can be a winner and no capacity "
++                       "moves"}
++    top = max(selling, key=lambda s: (s.orders, s.slug))
++    verdict = replication.is_winner(top, catalogue)
++    out = {"reading": "measured", "top": top.slug, "verdict": verdict, "study": None}
++    if verdict["credible"]:
++        study = replication.study(top, catalogue,
++                                  capacity_share=replication.MAX_CAPACITY_SHARE,
++                                  starts=now.date() - timedelta(days=1))
++        out["study"] = open_study(db, study)
++    return out
++
++
++def open_study(db, study: dict) -> dict:
++    """Persist a replication study unless one for this winner is still running."""
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    key = study["winner"][:20]
++    with db.session() as s:
++        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == STUDY_KIND,
++                                                      OperatingReading.period_key == key))
++        if row is not None and (row.payload or {}).get("ends", "") >= study["starts"]:
++            return {**dict(row.payload), "opened": False}
++        if row is None:
++            row = OperatingReading(kind=STUDY_KIND, period_key=key)
++            s.add(row)
++        row.payload = study
++    return {**study, "opened": True}
++
++
++def active_study(db, *, today: date | None = None) -> dict | None:
++    """The replication study whose window contains today, if any. Read by ideation."""
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    day = (today or date.today()).isoformat()
++    with db.session() as s:
++        for row in s.scalars(select(OperatingReading).where(
++                OperatingReading.kind == STUDY_KIND).order_by(OperatingReading.at.desc())):
++            p = row.payload or {}
++            if p.get("starts", "9999") <= day <= p.get("ends", ""):
++                return dict(p)
++    return None
++
++
++# ---------------------------------------------------------------------------
++# #49
++
++
++def reinvestment_block(db, *, now: datetime) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import LedgerEntry, OwnerAction
++    from ..finance import reinvestment
++
++    since = now - timedelta(days=30)
++    with db.session() as s:
++        gross = sum(float(x.gross_cad or 0.0) - float(x.refunds_cad or 0.0)
++                    for x in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
++                    if _aware(x.at) and _aware(x.at) >= since)
++    rec = reinvestment.recommend(
++        db, gross_cad=round(gross, 2),
++        purpose="reinvestment envelope from the trailing 30 days of recorded sales")
++    out = {"gross_cad_30d": round(gross, 2), "recommendation": rec,
++           "owner_action": None}
++    if rec["recommended_cad"] > 0:
++        key = f"reinvestment:{now.date().strftime('%Y-%m')}"
++        fields = dict(
++            action=(f"Decide whether to reinvest up to CA${rec['recommended_cad']:.2f} "
++                    f"(the CFO's confidence-scaled envelope after tax, operating and cash "
++                    f"reserves)"),
++            reason=rec["envelope"]["note"],
++            max_cost_cad=float(rec["recommended_cad"]), minutes=5,
++            consequence_of_delay="the envelope stays in reserve; nothing is spent",
++            blocks="#49 reinvestment")
++        with db.session() as s:
++            row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key,
++                                                     OwnerAction.done.is_(False)))
++            if row is None:
++                s.add(OwnerAction(requirement_key=key, **fields))
++            else:
++                for k, v in fields.items():
++                    setattr(row, k, v)
++        out["owner_action"] = key
++    return out
++
++
++# ---------------------------------------------------------------------------
++# #233
++
++
++def _tier(slug: str, version: str, price: float, members: int = 0) -> str:
++    from . import ladder
++
++    if version == "collection":
++        return ladder.FLAGSHIP if members >= 4 or price >= 25 else ladder.MINI
++    return ladder.ENTRY if price <= ladder.BY_KEY[ladder.ENTRY].typical_cad[1] else ladder.PREMIUM
++
++
++def ladder_block(db, rows: list[dict]) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import Listing, PriceObservation
++    from ..radar.opportunity import POOL
++    from . import cohorts, ladder
++
++    with db.session() as s:
++        listed = [(r.product_slug, r.version, float(r.price_cad or 0.0))
++                  for r in s.scalars(select(Listing)) if r.state != "withdrawn"]
++        observations = list(s.scalars(select(PriceObservation).order_by(PriceObservation.id)))
++        obs = [(o.product_slug, bool(o.on_sale), float(o.price_cad or 0.0),
++                float(o.regular_price_cad or 0.0), o.from_date or "", o.to_date or "")
++               for o in observations]
++    families: dict[str, int] = {}
++    for c in POOL:
++        if c.family and not c.is_bundle:
++            families[c.family] = families.get(c.family, 0) + 1
++    fam_of = {c.slug: c.family for c in POOL}
++    products = [{"slug": slug, "price_cad": price,
++                 "tier": _tier(slug, version, price, families.get(fam_of.get(slug) or "", 0))}
++                for slug, version, price in listed if price > 0]
++    shape = ladder.shape(products) if products else None
++
++    # The discount guard over this shop's own recorded price history.
++    guard = []
++    tiers = {p["slug"]: p["tier"] for p in products}
++    by_slug: dict[str, list] = {}
++    for o in obs:
++        by_slug.setdefault(o[0], []).append(o)
++    today = date.today()
++    for slug, points in by_slug.items():
++        sale = [p for p in points if p[1]]
++        if not sale:
++            continue
++        first = min((p[4] for p in points if p[4]), default=today.isoformat())
++        days_live = max(1, (today - date.fromisoformat(first)).days)
++        days = 0
++        for p in sale:
++            start = date.fromisoformat(p[4]) if p[4] else today
++            end = date.fromisoformat(p[5]) if p[5] else today
++            days += max(1, (min(end, today) - start).days)
++        latest = sale[-1]
++        full = latest[3] or max((p[2] for p in points if not p[1]), default=latest[2])
++        if full <= 0:
++            continue
++        guard.append(ladder.check_discount(tiers.get(slug, ladder.PREMIUM),
++                                           full_price_cad=full, promo_price_cad=latest[2],
++                                           days_discounted=days, days_live=days_live)
++                     | {"slug": slug})
++
++    # Movement between rungs, from buyers' first and later purchases.
++    first_tier: dict[str, str] = {}
++    later: dict[str, set] = {}
++    for o in rows:
++        if o["refunded"]:
++            continue
++        t = tiers.get(o["product_slug"])
++        if t is None:
++            continue
++        if o["customer_ref"] not in first_tier:
++            first_tier[o["customer_ref"]] = t
++        else:
++            later.setdefault(o["customer_ref"], set()).add(t)
++    moves = []
++    order = list(ladder.TIERS)
++    for lower, upper in zip(order[1:-2], order[2:-1]):
++        buyers = [c for c, t in first_tier.items() if t == lower]
++        moved = [c for c in buyers if upper in later.get(c, set())]
++        moves.append({"from_tier": lower, "to_tier": upper, "buyers": len(buyers),
++                      "moved": len(moved)})
++    by_customer: dict[str, dict] = {}
++    for o in rows:
++        if not o["refunded"]:
++            b = by_customer.setdefault(o["customer_ref"], {"orders": 0, "contribution_cad": 0.0})
++            b["orders"] += 1
++            b["contribution_cad"] += o["contribution_cad"]
++    return {
++        "reading": "measured" if products else UNMEASURED,
++        "why": "" if products else "no priced listing exists to place on a rung",
++        "products": products, "shape": shape,
++        "discount_guard": guard,
++        "discount_refused": sorted(g["slug"] for g in guard if not g["ok"]),
++        "movement": ladder.movement(moves),
++        "lifetime_value": ladder.lifetime_value(list(by_customer.values()),
++                                                min_buyers=cohorts.MIN_COHORT_N),
++    }
++
++
++# ---------------------------------------------------------------------------
++# #234
++
++
++def bundle_items(db) -> list:
++    """The certified catalogue as bundle `Item`s, from product facts only."""
++    from sqlalchemy import select
++
++    from ..core.models import Listing, PatternVersion, Product
++    from ..creative.audit import concept_from_design
++    from ..products.builder import CATALOGUE
++    from ..radar.opportunity import POOL
++    from .bundles import Item
++
++    seeds = {c.slug: c for c in POOL}
++    with db.session() as s:
++        certified = {p.slug for p, _v in s.execute(
++            select(Product, PatternVersion).where(PatternVersion.product_id == Product.id,
++                                                  PatternVersion.certified.is_(True)))}
++        prices = {r.product_slug: float(r.price_cad or 0.0) for r in s.scalars(select(Listing))
++                  if r.version != "collection"}
++    items = []
++    for slug in sorted(certified):
++        design = CATALOGUE.get(slug)
++        seed = seeds.get(slug)
++        if design is None or (seed is not None and seed.is_bundle):
++            continue
++        concept = concept_from_design(design)
++        price = prices.get(slug) or (seed.price_cad if seed else 0.0)
++        items.append(Item(slug=slug, pod=concept.pod, form=concept.form, price_cad=price,
++                          occasion=(seed.season or "") if seed else concept.occasion,
++                          weight=design.yarn_weight,
++                          collection=(seed.family or "") if seed else "",
++                          recipient=concept.recipient))
++    return items
++
++
++def bundle_block(db) -> dict:
++    from . import bundles
++
++    items = bundle_items(db)
++    found = bundles.candidates(items)
++    return {"reading": "measured" if items else UNMEASURED,
++            "why": "" if items else "no certified product to combine",
++            "considered": found["considered"], "candidates": found["candidates"],
++            "note": found["note"],
++            "attribution": bundles.attribution_from_db(db)}
++
++
++# ---------------------------------------------------------------------------
++# #235
++
++
++def promotion_block(db) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import Cohort, PriceObservation
++    from . import promotion
++    from .elasticity import ARMS, Arm, ORGANIC, PROMOTED
++
++    with db.session() as s:
++        arms: dict[str, dict[str, Arm]] = {}
++        for r in s.scalars(select(Cohort).order_by(Cohort.id)):
++            if r.arm in ARMS:
++                arms.setdefault(r.product_slug, {})[r.arm] = Arm(
++                    key=r.key, product_slug=r.product_slug, arm=r.arm,
++                    visits=int(r.visits or 0), orders=int(r.orders or 0),
++                    revenue_cad=float(r.revenue_cad or 0.0),
++                    spend_cad=float(r.spend_cad or 0.0))
++        sales = {}
++        for o in s.scalars(select(PriceObservation).where(PriceObservation.on_sale.is_(True))
++                           .order_by(PriceObservation.id)):
++            sales[o.product_slug] = (float(o.price_cad or 0.0),
++                                     float(o.regular_price_cad or 0.0),
++                                     o.from_date or "", o.to_date or "")
++    verdicts = []
++    for slug, (promo, full, start, end) in sorted(sales.items()):
++        pair = arms.get(slug, {})
++        try:
++            p = promotion.Promotion(slug, full, promo, date.fromisoformat(start),
++                                    date.fromisoformat(end or start), "recorded sale window")
++        except (ValueError, TypeError):
++            continue
++        if ORGANIC not in pair or PROMOTED not in pair:
++            verdicts.append({"slug": slug, "measurable": False,
++                             "why": "no full-price arm beside the discounted one"})
++            continue
++        got = promotion.incrementality(p, full_price_arm=pair[ORGANIC],
++                                       discounted_arm=pair[PROMOTED])
++        verdicts.append({"slug": slug, **got})
++    measured = [v for v in verdicts if v.get("measurable")]
++    return {"reading": "measured" if measured else UNMEASURED,
++            "why": ("" if measured else
++                    "no promotion has run beside a full-price arm, so no discount can be "
++                    "shown to be accretive -- and none is assumed to be"),
++            "verdicts": verdicts,
++            "do_not_repeat": sorted(v["slug"] for v in measured
++                                    if v.get("verdict") != "worth repeating")}
++
++
++# ---------------------------------------------------------------------------
++# #252
++
++
++def repeat_block(rows: list[dict], *, as_of: datetime) -> dict:
++    from . import repeat
++
++    if not rows:
++        return {"reading": UNMEASURED,
++                "windows": repeat.windows([], axis="first_product", value=""),
++                "lifetime_contribution": None}
++    firsts: dict[str, dict] = {}
++    for o in sorted(rows, key=lambda o: o["at"]):
++        if not o["refunded"]:
++            firsts.setdefault(o["customer_ref"], o)
++    out: dict[str, dict] = {}
++    for axis, key in (("first_product", "product_slug"), ("first_category", "category"),
++                      ("first_season", "season")):
++        for value in sorted({f.get(key) or ("none" if axis == "first_season" else "")
++                             for f in firsts.values()}):
++            if value:
++                out[f"{axis}={value}"] = repeat.windows(rows, axis=axis, value=value,
++                                                        as_of=as_of)
++    per_customer: dict[str, float] = {}
++    for o in rows:
++        if not o["refunded"]:
++            per_customer[o["customer_ref"]] = (per_customer.get(o["customer_ref"], 0.0)
++                                               + o["contribution_cad"])
++    lifetime = {}
++    for label, w in out.items():
++        axis, value = label.split("=", 1)
++        members = [c for c, f in firsts.items()
++                   if (f.get({"first_product": "product_slug", "first_category": "category",
++                              "first_season": "season"}[axis]) or "none") == value]
++        lifetime[label] = (round(sum(per_customer.get(c, 0.0) for c in members)
++                                 / len(members), 2) if members else None)
++    measured = [k for k, v in out.items() if v.get("measurable")]
++    return {"reading": "measured" if measured else UNMEASURED, "windows": out,
++            "lifetime_contribution_per_buyer_cad": lifetime,
++            "next_projects": {f["product_slug"]: [r["slug"] for r in repeat.recommend(
++                f["product_slug"]).get("next_project", [])[:3]]
++                              for f in firsts.values() if _in_pool(f["product_slug"])}}
++
++
++def _in_pool(slug: str) -> bool:
++    from ..radar.opportunity import POOL
++
++    return any(c.slug == slug for c in POOL)
++
++
++# ---------------------------------------------------------------------------
++# #256
++
++
++def referral_block(db, rows: list[dict], *, contribution_per_customer: float | None) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import LedgerEntry
++    from ..scale.runrate import orders_source_live
++    from . import referral
++
++    live = orders_source_live(db)["live"]
++    with db.session() as s:
++        rewards = sum(float(x.expense_cad or 0.0) for x in s.scalars(
++            select(LedgerEntry).where(LedgerEntry.category == "referral_reward")))
++    if live:
++        attributed = {o["customer_ref"] for o in rows
++                      if o["acquisition_source"] in REFERRAL_SOURCES and not o["is_repeat"]}
++        contribution = round(sum(o["contribution_cad"] for o in rows
++                                 if o["customer_ref"] in attributed and not o["refunded"]), 2)
++        result = referral.outcome(attributed_customers=len(attributed),
++                                  contribution_cad=contribution, reward_spend_cad=rewards)
++    else:
++        result = referral.outcome(attributed_customers=None, contribution_cad=None,
++                                  reward_spend_cad=rewards)
++    checks = [referral.check(m, contribution_per_customer_cad=contribution_per_customer)
++              for m in referral.DECLARED]
++    return {"outcome": result, "mechanics": checks,
++            "may_run": sorted(c["mechanic"] for c in checks if c["ok"]),
++            "source_live": live}
++
++
++# ---------------------------------------------------------------------------
++# #271
++
++
++def loop_block(db, rows: list[dict]) -> dict:
++    """Bring each loop's recorded traffic and orders up to what the rows now say."""
++    from sqlalchemy import select
++
++    from ..core.models import GrowthLoop, ListingOutcome
++    from ..growth import loops
++
++    loops.seed(db)
++    with db.session() as s:
++        etsy_visits = sum(int(r.visits or 0) for r in s.scalars(select(ListingOutcome)))
++    want: dict[str, dict] = {k: {"visits": 0, "orders": 0, "contribution": 0.0}
++                             for k in loops.BY_KEY}
++    want["etsy_organic"]["visits"] = etsy_visits
++    for o in rows:
++        if o["refunded"]:
++            continue
++        key = SOURCE_TO_LOOP.get(o["acquisition_source"])
++        if key:
++            want[key]["orders"] += 1
++            want[key]["contribution"] += o["contribution_cad"]
++    moved = {}
++    for key, w in want.items():
++        with db.session() as s:
++            row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
++            have_v, have_o = int(row.visits or 0), int(row.orders or 0)
++        dv, do = max(0, w["visits"] - have_v), max(0, w["orders"] - have_o)
++        if dv or do:
++            moved[key] = loops.observe(db, key, visits=dv, orders=do)
++        with db.session() as s:
++            row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
++            row.contribution_cad = round(w["contribution"], 2)
++    summary = loops.evidence_summary(loops.from_db(db))
++    return {"moved": moved, "with_evidence": summary["with_evidence"],
++            "loops": summary["loops_detail"], "note": summary["note"]}
++
++
++# ---------------------------------------------------------------------------
++
++
++def read(db, *, today: date | None = None) -> dict:
++    from .orders_ingest import gate
++
++    now = _now(today)
++    rows = orders(db)
++    cohort = cohort_block(db, as_of=now)
++    return {
++        "as_of": (today or date.today()).isoformat(),
++        "order_source": gate(db),
++        "orders": len(rows),
++        "cohorts": cohort,
++        "offers": offer_block(db),
++        "winners": winner_block(db, rows, now=now),
++        "reinvestment": reinvestment_block(db, now=now),
++        "ladder": ladder_block(db, rows),
++        "bundles": bundle_block(db),
++        "promotions": promotion_block(db),
++        "repeat": repeat_block(rows, as_of=now),
++        "referral": referral_block(db, rows, contribution_per_customer=cohort.get(
++            "lifetime_contribution_per_buyer_cad")),
++        "loops": loop_block(db, rows),
++    }
++
++
++def record(db, payload: dict) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    with db.session() as s:
++        row = s.scalar(select(OperatingReading).where(
++            OperatingReading.kind == KIND, OperatingReading.period_key == payload["as_of"]))
++        if row is None:
++            row = OperatingReading(kind=KIND, period_key=payload["as_of"])
++            s.add(row)
++        row.payload = payload
++        row.at = datetime.now(timezone.utc)
++        s.flush()
++        return {"id": row.id}
++
++
++def latest(db) -> dict | None:
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    with db.session() as s:
++        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND)
++                       .order_by(OperatingReading.at.desc()).limit(1))
++        return dict(row.payload or {}) if row is not None else None
++
++
++def directives(db, *, today: date | None = None) -> dict:
++    """What the latest reading asks later jobs to do: ideation and pricing read this."""
++    got = latest(db) or {}
++    shape = ((got.get("ladder") or {}).get("shape") or {})
++    return {
++        "replication": active_study(db, today=today),
++        "ladder_gaps": list(shape.get("empty_rungs") or []),
++        "ladder_steps_too_big": [s for s in (shape.get("steps") or []) if s.get("too_big")],
++        "discount_refused": list((got.get("ladder") or {}).get("discount_refused") or []),
++        "promotion_do_not_repeat": list((got.get("promotions") or {}).get("do_not_repeat")
++                                        or []),
++    }
+diff --git a/brambleloop/src/brambleloop/commerce/orders_ingest.py b/brambleloop/src/brambleloop/commerce/orders_ingest.py
+new file mode 100644
+index 0000000..73640f9
+--- /dev/null
++++ b/brambleloop/src/brambleloop/commerce/orders_ingest.py
+@@ -0,0 +1,298 @@
++"""The order source: Etsy shop receipts into `customers`, `orders`, `order_versions` and the
++ledger (C-64; #11, #12, #42, #269).
++
++Certification defect C-64: every row that reads orders -- cohorts, lifetime value, the
++version map, offer engineering, winner detection, repeat windows, referral, the growth-loop
++registry, reinvestment -- was parked on "needs customers" while nothing in the running
++system could ever write an order. `cohorts.record_order` had no caller and `getShopReceipts`
++was never called, so the day a buyer arrived would have been a day like any other. This
++module is the pipe, run on a cadence by `commerce.orders_ingest`.
++
++**The gate is real and is checked before anything else.** Reading receipts needs the
++`transactions_r` OAuth scope (Etsy's `getShopReceipts` security block), which only the owner
++can grant by re-authorising the app in a browser, and a working Etsy credential (a recorded
++successful `etsy.probe`). Both are read from rows: the scopes Etsy actually granted are on
++the stored `oauth_credentials` row, and the probe is the audit row the `etsy_api` gate reads.
++When either is missing the run records `UNMEASURED` with the reason and makes **no network
++call** -- the client is not even constructed.
++
++**What is written, and what is not.** A customer is the buyer's Etsy user id and nothing
++else: no name, no email, no address, even though the receipt carries them. Each receipt line
++becomes one order (`etsy:<receipt>:<transaction>`), idempotent on that reference; the version
++the buyer received is recorded at sale time through `cohorts.record_order`; the money becomes
++one `sale` ledger entry with the same evidence reference, which is what opens the `customers`
++data gate. The transaction's own currency and amount are preserved beside the CAD figure,
++with the rate, its date and whether it was measured (#269).
++"""
++from __future__ import annotations
++
++from datetime import date, datetime, timedelta, timezone
++from typing import Any, Callable
++
++SCOPE = "transactions_r"
++OPERATION = "getShopReceipts"
++SOURCE = "etsy_receipts"
++PAGE = 100
++MAX_PAGES = 20
++# Receipts are re-read over this overlap so a receipt created while the last run was paging
++# is not missed. Idempotent on the order reference, so the overlap costs nothing but a read.
++OVERLAP = timedelta(days=2)
++OWNER_ACTION_KEY = "reauthorise_transactions_r"
++
++# Injection point for the receipt reader. None in production: the reader is built from the
++# environment's Etsy credential, and only after the gate is open. Tests set this to a fake
++# feed -- the gate is still checked first, so a test cannot read receipts the gate refuses.
++reader_factory: Callable[[Any], Any] | None = None
++
++
++class IngestRefused(ValueError):
++    """A receipt this module cannot place: no buyer, no line, no currency."""
++
++
++# ---------------------------------------------------------------------------
++# The gate
++
++
++def granted_scopes(db) -> tuple[str, ...]:
++    """The scopes Etsy said it granted, from the stored credential row (never the token)."""
++    from ..core.models import OAuthCredential
++
++    with db.session() as s:
++        row = s.get(OAuthCredential, "etsy")
++        return tuple((row.scopes or "").split()) if row is not None else ()
++
++
++def gate(db) -> dict:
++    """Whether receipts may be read now, and exactly what is missing if not."""
++    from ..intel import etsy_public
++
++    missing: list[str] = []
++    if not etsy_public.usable(db):
++        missing.append("etsy_api: no recorded successful etsy.probe, so no working Etsy "
++                       "credential has been demonstrated")
++    if SCOPE not in granted_scopes(db):
++        missing.append(f"{SCOPE}: the stored Etsy grant does not include it. Only the owner "
++                       f"can add it, by re-authorising the app in a browser "
++                       f"(owner action {OWNER_ACTION_KEY!r})")
++    return {"open": not missing, "missing": missing, "scope": SCOPE,
++            "operation": OPERATION}
++
++
++# ---------------------------------------------------------------------------
++# Reading
++
++
++class EtsyReceiptReader:
++    """The production reader: `EtsyClient.get_shop_receipts`, paged."""
++
++    def __init__(self, client) -> None:
++        self.client = client
++
++    def receipts(self, *, since: datetime | None) -> list[dict]:
++        out: list[dict] = []
++        min_created = int(since.timestamp()) if since is not None else None
++        for page in range(MAX_PAGES):
++            got = self.client.get_shop_receipts(min_created=min_created, limit=PAGE,
++                                                offset=page * PAGE)
++            out.extend(got)
++            if len(got) < PAGE:
++                break
++        return out
++
++
++def _production_reader(db):
++    from ..integrations.etsy import Credentials, EtsyClient
++    from ..integrations.http import UrllibTransport
++
++    transport = UrllibTransport()
++    creds = Credentials.from_env(transport=transport, db=db)
++    if creds is None:
++        return None
++    return EtsyReceiptReader(EtsyClient(transport, credentials=creds))
++
++
++# ---------------------------------------------------------------------------
++# Normalising one receipt
++
++
++def _money(obj: Any) -> tuple[float, str] | None:
++    if not isinstance(obj, dict) or "amount" not in obj:
++        return None
++    divisor = float(obj.get("divisor") or 1) or 1.0
++    return float(obj["amount"]) / divisor, str(obj.get("currency_code") or "").upper()
++
++
++def _when(receipt: dict) -> datetime:
++    ts = receipt.get("create_timestamp") or receipt.get("created_timestamp")
++    if ts is None:
++        raise IngestRefused(f"receipt {receipt.get('receipt_id')!r} has no creation time")
++    return datetime.fromtimestamp(int(ts), tz=timezone.utc)
++
++
++def lines(receipt: dict) -> list[dict]:
++    """One dict per transaction line, with personal data dropped at the door."""
++    rid = receipt.get("receipt_id")
++    buyer = receipt.get("buyer_user_id")
++    if rid is None or buyer in (None, ""):
++        raise IngestRefused("a receipt needs its id and the buyer's Etsy user id")
++    at = _when(receipt)
++    refunded = bool(receipt.get("refunds"))
++    out = []
++    for t in receipt.get("transactions") or []:
++        price = _money(t.get("price"))
++        if price is None or not price[1]:
++            raise IngestRefused(f"receipt {rid}: a line with no priced currency cannot be "
++                                f"reconciled against anything")
++        qty = max(1, int(t.get("quantity") or 1))
++        out.append({
++            "receipt_id": str(rid), "transaction_id": str(t.get("transaction_id")),
++            "customer_ref": f"etsy-user-{buyer}",
++            "listing_id": str(t.get("listing_id") or ""),
++            "amount": round(price[0] * qty, 4), "currency": price[1],
++            "at": at, "refunded": refunded,
++        })
++    return out
++
++
++def _catalogue(db) -> dict[str, dict]:
++    """Etsy listing id -> the product and version this company listed under it."""
++    from sqlalchemy import select
++
++    from ..core.models import Listing
++
++    with db.session() as s:
++        return {r.etsy_listing_id: {"slug": r.product_slug, "version": r.version,
++                                    "collection": r.version == "collection"}
++                for r in s.scalars(select(Listing)) if r.etsy_listing_id}
++
++
++def _seed(slug: str):
++    from ..radar.opportunity import POOL
++
++    return next((c for c in POOL if c.slug == slug), None)
++
++
++def _to_cad(amount: float, currency: str, on: date) -> dict:
++    """The CAD figure with its provenance, or a refusal for a currency with no rate."""
++    from ..finance import currency as fx
++
++    converted = fx.to_reporting(fx.Money(amount, currency), fx.assumed_rate(on))
++    rate = converted["rate"]
++    return {"cad": float(converted["reporting"]["amount"]),
++            "usd_per_cad": rate["usd_per_cad"] if rate else None,
++            "taken_on": rate["taken_on"] if rate else "",
++            "measured": bool(rate and rate["measured"])}
++
++
++# ---------------------------------------------------------------------------
++# Writing
++
++
++def _record_line(db, line: dict, listed: dict[str, dict]) -> dict:
++    from sqlalchemy import select
++
++    from ..commerce import cohorts
++    from ..commerce.pricing import fees
++    from ..core.models import LedgerEntry
++
++    ref = f"etsy:{line['receipt_id']}:{line['transaction_id']}"
++    target = listed.get(line["listing_id"])
++    slug = target["slug"] if target else f"etsy-listing-{line['listing_id'] or 'unknown'}"
++    version = "" if (not target or target["collection"]) else target["version"]
++    seed = _seed(slug)
++    category = seed.category if seed else ""
++    season = (seed.season or "none") if seed else "none"
++    offer = ("complete_collection" if target and target["collection"] else
++             "seasonal_bundle" if seed and seed.is_bundle and seed.season else
++             "mini_bundle" if seed and seed.is_bundle else "single_pattern")
++
++    try:
++        cad = _to_cad(line["amount"], line["currency"], line["at"].date())
++    except Exception as exc:  # noqa: BLE001 - a currency with no rate is recorded, not guessed
++        return {"ref": ref, "recorded": False, "why": str(exc)[:200]}
++    price = round(cad["cad"], 2)
++    f = fees(price) if price > 0 else None
++    fee_total = round(f.total_fees, 2) if f else 0.0
++    contribution = round(price - fee_total, 2) if not line["refunded"] else 0.0
++
++    customer = cohorts.record_customer(
++        db, line["customer_ref"], at=line["at"], acquisition_source="etsy",
++        first_product_slug=slug, first_category=category, first_season=season)
++    order = cohorts.record_order(
++        db, line["customer_ref"], ref, product_slug=slug, at=line["at"], version=version,
++        category=category, price_cad=price, revenue_cad=0.0 if line["refunded"] else price,
++        contribution_cad=max(0.0, contribution), acquisition_source="etsy",
++        refunded=line["refunded"], currency=line["currency"],
++        amount_original=line["amount"], fx_usd_per_cad=cad["usd_per_cad"],
++        fx_taken_on=cad["taken_on"], fx_measured=cad["measured"], fees_cad=fee_total,
++        offer=offer, source=SOURCE,
++        detail={"listing_id": line["listing_id"], "receipt_id": line["receipt_id"],
++                "matched_listing": bool(target)})
++
++    ledger = False
++    with db.session() as s:
++        if s.scalar(select(LedgerEntry).where(LedgerEntry.evidence_ref == ref)) is None:
++            s.add(LedgerEntry(at=line["at"], category="sale",
++                              description=f"Etsy receipt {line['receipt_id']} ({slug})",
++                              gross_cad=price, fees_cad=fee_total,
++                              refunds_cad=price if line["refunded"] else 0.0,
++                              evidence_ref=ref))
++            ledger = True
++    return {"ref": ref, "recorded": True, "order_created": bool(order.get("created")),
++            "customer_created": bool(customer.get("created")), "ledger": ledger,
++            "matched_listing": bool(target), "version": version}
++
++
++def _last_ingested(db) -> datetime | None:
++    from sqlalchemy import func, select
++
++    from ..core.models import Order
++
++    with db.session() as s:
++        last = s.scalar(select(func.max(Order.at)).where(Order.source == SOURCE))
++    if last is None:
++        return None
++    return last if last.tzinfo else last.replace(tzinfo=timezone.utc)
++
++
++def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
++    """One ingest run: gate, read, write. UNMEASURED with the reason when gated."""
++    now = now or datetime.now(timezone.utc)
++    state = gate(db)
++    if not state["open"]:
++        return {"ran": False, "reading": "UNMEASURED", "gate": state,
++                "network_calls": 0,
++                "why": ("receipts cannot be read: " + "; ".join(state["missing"])
++                        + ". No order is invented and no count is reported as zero: the "
++                          "order source is not connected, which is different from no "
++                          "orders")}
++    if reader is None:
++        reader = reader_factory(db) if reader_factory is not None else _production_reader(db)
++    if reader is None:
++        return {"ran": False, "reading": "UNMEASURED", "gate": state, "network_calls": 0,
++                "why": "no Etsy credential in this environment to build the receipt reader"}
++
++    last = _last_ingested(db)
++    since = (last - OVERLAP) if last is not None else None
++    receipts = reader.receipts(since=since)
++    listed = _catalogue(db)
++    written, refused = [], []
++    for receipt in receipts:
++        try:
++            for line in lines(receipt):
++                written.append(_record_line(db, line, listed))
++        except IngestRefused as exc:
++            refused.append({"receipt_id": receipt.get("receipt_id"), "why": str(exc)[:200]})
++    created = [w for w in written if w.get("order_created")]
++    return {
++        "ran": True, "reading": "measured", "gate": state,
++        "since": since.isoformat() if since else None, "at": now.isoformat(),
++        "receipts": len(receipts), "lines": len(written),
++        "orders_created": len(created),
++        "customers_created": sum(1 for w in written if w.get("customer_created")),
++        "ledger_entries": sum(1 for w in written if w.get("ledger")),
++        "versions_recorded": sum(1 for w in created if w.get("version")),
++        "unmatched_listings": sorted({w["ref"] for w in written
++                                      if w.get("recorded") and not w.get("matched_listing")}),
++        "not_recorded": [w for w in written if not w.get("recorded")] + refused,
++    }
+diff --git a/brambleloop/src/brambleloop/commerce/pricing.py b/brambleloop/src/brambleloop/commerce/pricing.py
+index a75d433..af252cb 100644
+--- a/brambleloop/src/brambleloop/commerce/pricing.py
++++ b/brambleloop/src/brambleloop/commerce/pricing.py
+@@ -192,12 +192,53 @@ class PriceDecision:
+     take_rate: float
+     reasons: list[str] = field(default_factory=list)
+     warnings: list[str] = field(default_factory=list)
++    net_contribution: dict = field(default_factory=dict)
+ 
+     def to_dict(self) -> dict:
+         return {"slug": self.slug, "price_cad": self.price_cad, "floor_cad": self.floor_cad,
+                 "ceiling_cad": self.ceiling_cad, "net_cad": self.net_cad,
+                 "take_rate": self.take_rate, "reasons": list(self.reasons),
+-                "warnings": list(self.warnings)}
++                "warnings": list(self.warnings),
++                "net_contribution": dict(self.net_contribution)}
++
++
++# #269: the price is decided on net contribution, not on the sticker. A price whose net
++# contribution per sale -- after every modelled fee class including currency conversion at
++# the share of orders actually paid in another currency -- is below this is raised inside the
++# band until it clears, and refused as a warning when the band cannot.
++MIN_NET_CONTRIBUTION_CAD = 1.00
++# A measured price point needs this many visits before its contribution per visitor can
++# choose between prices; below it the point is a few people.
++MIN_POINT_VISITS = 100
++
++
++def net_contribution(price_cad: float, *, rate=None, foreign_share: float | None = None,
++                     expected_sales: float = 10.0) -> dict:
++    """Net contribution per sale in CAD, via `finance.currency.contribution` (#269).
++
++    Currency conversion is charged on orders paid in a currency other than the shop's; its
++    share is measured from ingested orders when there are any, and assumed to be every order
++    (the conservative reading, labelled as such) when there are none.
++    """
++    from ..finance import currency
++
++    share = 1.0 if foreign_share is None else max(0.0, min(1.0, float(foreign_share)))
++    schedule = currency.FeeSchedule(currency_conversion=round(
++        FS.CURRENCY_CONVERSION.rate * share, 6))
++    got = currency.contribution(currency.Money(round(price_cad, 2), currency.REPORTING_CURRENCY),
++                                rate=rate, schedule=schedule,
++                                expected_sales_per_listing_period=expected_sales)
++    got["foreign_share"] = {"value": share,
++                            "basis": ("measured from ingested orders" if foreign_share
++                                      is not None else
++                                      "assumed: every order paid in another currency, "
++                                      "because no order has been ingested")}
++    return got
++
++
++def _net(price: float, rate, foreign_share, expected_sales) -> float:
++    return float(net_contribution(price, rate=rate, foreign_share=foreign_share,
++                                  expected_sales=expected_sales)["net_contribution"]["amount"])
+ 
+ 
+ class DeceptivePricing(ValueError):
+@@ -208,7 +249,9 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
+                  proposed_cad: float, has_video: bool = False,
+                  sizes_offered: int = 1, is_bundle: bool = False,
+                  bundle_members_cad: list[float] | None = None,
+-                 expected_sales: float = 10.0) -> PriceDecision:
++                 expected_sales: float = 10.0, rate=None,
++                 foreign_share: float | None = None,
++                 price_points: list[dict] | None = None) -> PriceDecision:
+     """Land on a defensible price inside the observed band, with the reasoning recorded.
+ 
+     Deliberately conservative about premiums. The category's top sellers charge CA$8.50-14 for
+@@ -262,6 +305,44 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
+             f"for the same patterns bought separately -- a real saving against prices we "
+             f"actually charge, not a struck-through reference price")
+ 
++    # #269: decided on net contribution. First, where this product's own price history has
++    # measured contribution per visitor at more than one price inside the band, the price
++    # with the best contribution per visitor wins -- revenue per visitor would pick the
++    # higher sticker whenever conversion drops less than the price rises, which is not the
++    # same thing once fees are counted.
++    measured = [p for p in (price_points or [])
++                if int(p.get("visits") or 0) >= MIN_POINT_VISITS
++                and lo <= float(p.get("price_cad") or 0.0) <= hi]
++    if len({round(float(p["price_cad"]), 2) for p in measured}) >= 2 and not is_bundle:
++        best = max(measured, key=lambda p: float(p.get("contribution_cad") or 0.0)
++                   / int(p["visits"]))
++        if round(float(best["price_cad"]), 2) != round(price, 2):
++            reasons.append(
++                f"CA${float(best['price_cad']):.2f} earned the most contribution per visitor "
++                f"of {len(measured)} measured price points "
++                f"(CA${float(best.get('contribution_cad') or 0.0) / int(best['visits']):.4f} "
++                f"a visitor), so it replaces the proposed CA${price:.2f}")
++            price = round(float(best["price_cad"]), 2)
++    # Second, the floor on net contribution per sale is binding, not advisory.
++    net_now = _net(price, rate, foreign_share, expected_sales)
++    if net_now < MIN_NET_CONTRIBUTION_CAD:
++        candidate = round(price, 2)
++        while candidate < hi and _net(candidate, rate, foreign_share,
++                                      expected_sales) < MIN_NET_CONTRIBUTION_CAD:
++            candidate = round(candidate + 0.01, 2)
++        if _net(candidate, rate, foreign_share, expected_sales) >= MIN_NET_CONTRIBUTION_CAD:
++            reasons.append(
++                f"raised from CA${price:.2f} to CA${candidate:.2f}: at CA${price:.2f} the net "
++                f"contribution per sale was CA${net_now:.2f}, below the "
++                f"CA${MIN_NET_CONTRIBUTION_CAD:.2f} floor the price is decided on")
++            price = candidate
++        else:
++            warnings.append(
++                f"no price inside the band clears CA${MIN_NET_CONTRIBUTION_CAD:.2f} of net "
++                f"contribution per sale; CA${price:.2f} nets CA${net_now:.2f}")
++    net_block = net_contribution(price, rate=rate, foreign_share=foreign_share,
++                                 expected_sales=expected_sales)
++
+     f = fees(price, expected_sales)
+     if f.net_cad < 1.0:
+         warnings.append(f"net CA${f.net_cad:.2f} per sale after fees: this SKU earns its "
+@@ -285,7 +366,7 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
+             f"would cost money to fulfil")
+     return PriceDecision(slug=slug, price_cad=round(price, 2), floor_cad=round(lo, 2),
+                          ceiling_cad=round(hi, 2), net_cad=f.net_cad, take_rate=f.take_rate,
+-                         reasons=reasons, warnings=warnings)
++                         reasons=reasons, warnings=warnings, net_contribution=net_block)
+ 
+ 
+ def check_no_fake_discount(price_cad: float, reference_price_cad: float | None,
+diff --git a/brambleloop/src/brambleloop/commerce/referral.py b/brambleloop/src/brambleloop/commerce/referral.py
+index e326cd4..a2309f9 100644
+--- a/brambleloop/src/brambleloop/commerce/referral.py
++++ b/brambleloop/src/brambleloop/commerce/referral.py
+@@ -72,6 +72,19 @@ class Mechanic:
+                 f"A reward is for an action, never for an opinion")
+ 
+ 
++# The mechanics this company would run, declared so the daily reading checks each one against
++# the contribution the orders actually show (#256). None runs until its check passes, and the
++# check cannot pass without a measured contribution per customer.
++DECLARED: tuple[Mechanic, ...] = (
++    Mechanic("show_your_make", "shows_finished_project", "recorded_mention", 0.0,
++             copy="Show us what you made with this pattern, however it turned out."),
++    Mechanic("share_the_pattern", "shares_a_link", "unique_link", 0.0,
++             copy="Know somebody who would enjoy this? Here is a link to pass on."),
++    Mechanic("first_purchase_credit", "brings_a_first_purchase", "referral_code", 1.0,
++             copy="A friend's first purchase with your code earns you CA$1 credit."),
++)
++
++
+ def check(mechanic: Mechanic, *, contribution_per_customer_cad: float | None = None) -> dict:
+     """Whether this mechanic may run, and which of the three rules it breaks if not."""
+     reasons: list[str] = []
+diff --git a/brambleloop/src/brambleloop/core/models.py b/brambleloop/src/brambleloop/core/models.py
+index 375ad37..cfa3dca 100644
+--- a/brambleloop/src/brambleloop/core/models.py
++++ b/brambleloop/src/brambleloop/core/models.py
+@@ -1204,6 +1204,8 @@ class GrowthLoop(Base):
+     latency_days: Mapped[int] = mapped_column(Integer, default=0)
+     scalable: Mapped[bool] = mapped_column(Boolean, default=True)
+     note: Mapped[str] = mapped_column(Text, default="")
++    # #271: what the loop's orders left after fees, read from the orders it brought.
++    contribution_cad: Mapped[float] = mapped_column(Float, default=0.0)
+     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+ 
+ 
+@@ -1848,6 +1850,21 @@ class Order(Base):
+     support_case_id: Mapped[int | None] = mapped_column(ForeignKey("support_cases.id"),
+                                                         nullable=True)
+     reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
++    # #269: the transaction as it happened, preserved beside its CAD normalisation. The
++    # currency and amount are the receipt's own; the rate carries the date it was taken and
++    # whether it was measured (a settlement) or assumed, because a converted figure whose
++    # rate is invisible is indistinguishable from a measured one.
++    currency: Mapped[str] = mapped_column(String(3), default="CAD")
++    amount_original: Mapped[float] = mapped_column(Float, default=0.0)
++    fx_usd_per_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
++    fx_taken_on: Mapped[str] = mapped_column(String(10), default="")
++    fx_measured: Mapped[bool] = mapped_column(Boolean, default=False)
++    fees_cad: Mapped[float] = mapped_column(Float, default=0.0)
++    # #13: which offer shape this order bought (commerce.offers keys).
++    offer: Mapped[str] = mapped_column(String(40), default="single_pattern", index=True)
++    # Where the row came from ("etsy_receipts"), so an ingested order is never confused with
++    # a hand-entered one.
++    source: Mapped[str] = mapped_column(String(40), default="", index=True)
+     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/creative/ideation.py b/brambleloop/src/brambleloop/creative/ideation.py
+index e0fe2cf..833127e 100644
+--- a/brambleloop/src/brambleloop/creative/ideation.py
++++ b/brambleloop/src/brambleloop/creative/ideation.py
+@@ -335,6 +335,16 @@ def transfer(db, *, event: str, theme: dict, cycle: int) -> dict:
+                                "not a learned transfer")}
+ 
+ 
++def commerce_directives(db, *, today: date | None = None) -> dict:
++    """What the daily order readings ask ideation to do (#22, #233): read, never computed here."""
++    try:
++        from ..commerce.order_readings import directives
++
++        return directives(db, today=today)
++    except Exception as exc:  # noqa: BLE001 - a missing reading must not stop ideation
++        return {"replication": None, "ladder_gaps": [], "error": str(exc)[:200]}
++
++
+ def role(db) -> dict:
+     """#232: the portfolio role this run's winner is created for."""
+     from ..growth import mix
+@@ -432,6 +442,7 @@ def plan(db, *, kind: str, event: str, pod: str, forms, cycle: int,
+         "role": role(db),
+         "floor": floor,
+         "culture": culture(db, forms),
++        "commerce": commerce_directives(db, today=today),
+     }
+     out["briefs"] = _rotation(out)
+     return out
+@@ -495,6 +506,25 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
+         if qs:
+             q = qs[index % len(qs)]
+             lines.append(f"- divergent question ({q.get('axis')}): {q.get('question')}")
++    cd = p.get("commerce") or {}
++    study = cd.get("replication")
++    # #22: a credible winner's study takes its capacity share of the field -- one call in
++    # every round(1/share) -- as adjacent experiments that hold a candidate cause and change
++    # the rest. Never a palette clone.
++    if study and study.get("capacity_share"):
++        every = max(1, round(1 / float(study["capacity_share"])))
++        if index % every == 0:
++            held = [e["dimension"] for e in (study.get("explanations") or [])[:1]]
++            lines.append(
++                f"- replication study of {study['winner']} (until {study['ends']}): an "
++                f"adjacent experiment that holds {held or 'one of its dimensions'} and changes "
++                f"the rest -- never the same product in another palette")
++    # #233: a rung of the value ladder with nothing on it is a place a buyer arrives and
++    # finds nothing.
++    if cd.get("ladder_gaps"):
++        gap = cd["ladder_gaps"][index % len(cd["ladder_gaps"])]
++        lines.append(f"- value ladder: the {gap.replace('_', ' ')} rung is empty; a concept "
++                     f"that could fill it is wanted")
+     for lesson in p["lessons"]["in_prompt"]:
+         lines.append(f"- learned: {lesson['statement']}")
+     prims = p["lessons"]["reference"]["primitives"]
+diff --git a/brambleloop/src/brambleloop/creative/standard.py b/brambleloop/src/brambleloop/creative/standard.py
+index 194f5e1..d5cd47f 100644
+--- a/brambleloop/src/brambleloop/creative/standard.py
++++ b/brambleloop/src/brambleloop/creative/standard.py
+@@ -261,6 +261,10 @@ NORTH_STAR: dict[str, tuple[bool, str]] = {
+ }
+ 
+ 
++# A defect rate that rises is a regression, not an improvement.
++LOWER_IS_BETTER: frozenset[str] = frozenset({"creative_defect_rate"})
++
++
+ def north_star(cohorts: dict[str, dict]) -> dict:
+     """Is creativity actually getting better, by cohort? (#132)
+ 
+@@ -286,10 +290,11 @@ def north_star(cohorts: dict[str, dict]) -> dict:
+                 movement[metric] = {"direction": "unmeasured",
+                                     "why": "not present in both cohorts"}
+                 continue
++            better = (after < before) if metric in LOWER_IS_BETTER else (after > before)
++            worse = (after > before) if metric in LOWER_IS_BETTER else (after < before)
+             movement[metric] = {
+                 "before": before, "after": after,
+-                "direction": ("improved" if after > before
+-                              else "regressed" if after < before else "flat"),
++                "direction": ("improved" if better else "regressed" if worse else "flat"),
+             }
+ 
+     improving = [m for m, v in movement.items() if v.get("direction") == "improved"]
+@@ -315,6 +320,118 @@ def north_star(cohorts: dict[str, dict]) -> dict:
+     }
+ 
+ 
++def north_star_cohorts(db) -> dict[str, dict]:
++    """The north-star metrics by monthly cohort, read from the rows that record them (C-64).
++
++    A cohort is the calendar month a concept was generated (tournaments and expeditions) or
++    a product was first recorded. Each metric is present only where its rows exist, so a
++    metric a cohort has no evidence for is absent -- `north_star` reports it unmeasured --
++    and never a zero:
++
++    * concept_to_engineering_survival: tournament survivors / concepts generated;
++    * novelty_distance: mean novelty distance of the month's research survivors;
++    * blind_grid_score: mean of our cells' judged grid scores from `creative.grid_tournament`;
++    * concept_to_launch_survival: the month's products that reached a listing;
++    * creative_defect_rate: the month's certified products that produced a quality incident;
++    * ctr, favourite_rate, conversion, contribution, bestseller_incidence,
++      collection_attach_rate: from listing outcomes and orders of the month's products.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import (AuditLog, Incident, Listing, ListingOutcome, Order,
++                               PatternVersion, Product)
++
++    def month(at) -> str:
++        return at.strftime("%Y-%m") if at is not None else ""
++
++    acc: dict[str, dict[str, list[float]]] = {}
++
++    def add(cohort: str, metric: str, value) -> None:
++        if cohort and isinstance(value, (int, float)):
++            acc.setdefault(cohort, {}).setdefault(metric, []).append(float(value))
++
++    with db.session() as s:
++        for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
++                ("creative.tournament", "creative.expedition", "creative.grid_tournament")))):
++            d = a.detail or {}
++            m = month(a.at)
++            if a.action == "creative.grid_tournament":
++                for pod in (d.get("pods") or {}).values():
++                    for v in ((pod or {}).get("our_scores") or {}).values():
++                        add(m, "blind_grid_score", v)
++                continue
++            generated = int(((d.get("field") or {}).get("generated")) or 0)
++            survivors = d.get("survivors")
++            if a.action == "creative.tournament" and generated > 0 and isinstance(survivors,
++                                                                                  list):
++                add(m, "concept_to_engineering_survival", len(survivors) / generated)
++            for e in (d.get("research_survivors") or d.get("survivors") or []):
++                if isinstance(e, dict):
++                    add(m, "novelty_distance", e.get("novelty_distance"))
++
++        products = list(s.scalars(select(Product)))
++        listed = {r.product_slug for r in s.scalars(select(Listing))}
++        certified = {p.slug for p, _v in s.execute(
++            select(Product, PatternVersion).where(PatternVersion.product_id == Product.id,
++                                                  PatternVersion.certified.is_(True)))}
++        defective = {i.product_slug for i in s.scalars(select(Incident))
++                     if i.product_slug and i.severity in ("P0", "P1")}
++        outcomes: dict[str, list] = {}
++        for r in s.scalars(select(ListingOutcome)):
++            outcomes.setdefault(r.product_slug, []).append(r)
++        orders: dict[str, list] = {}
++        for o in s.scalars(select(Order)):
++            orders.setdefault(o.product_slug, []).append(o)
++        cohort_of = {p.slug: month(p.created_at) for p in products}
++
++    by_cohort: dict[str, list[str]] = {}
++    for slug, m in cohort_of.items():
++        by_cohort.setdefault(m, []).append(slug)
++    for m, slugs in by_cohort.items():
++        add(m, "concept_to_launch_survival", sum(1 for x in slugs if x in listed) / len(slugs))
++        released = [x for x in slugs if x in certified]
++        if released:
++            add(m, "creative_defect_rate",
++                sum(1 for x in released if x in defective) / len(released))
++        imps = sum(int(r.impressions or 0) for x in slugs for r in outcomes.get(x, []))
++        visits = sum(int(r.visits or 0) for x in slugs for r in outcomes.get(x, []))
++        favs = [int(r.favourites) for x in slugs for r in outcomes.get(x, [])
++                if r.favourites is not None]
++        sold = [o for x in slugs for o in orders.get(x, []) if not o.refunded]
++        if imps:
++            add(m, "ctr", visits / imps)
++        if visits:
++            if favs:
++                add(m, "favourite_rate", sum(favs) / visits)
++            add(m, "conversion", len(sold) / visits)
++        if sold:
++            add(m, "contribution", sum(float(o.contribution_cad or 0.0) for o in sold))
++            per = {}
++            for o in sold:
++                per[o.product_slug] = per.get(o.product_slug, 0) + 1
++            add(m, "bestseller_incidence",
++                sum(1 for n in per.values() if n >= 30) / len(slugs))
++            receipts: dict[str, set] = {}
++            for o in sold:
++                rid = (o.detail or {}).get("receipt_id") or o.external_ref
++                receipts.setdefault(rid, set()).add(o.product_slug)
++            add(m, "collection_attach_rate",
++                sum(1 for v in receipts.values() if len(v) > 1) / len(receipts))
++
++    return {m: {k: round(sum(v) / len(v), 4) for k, v in metrics.items()}
++            for m, metrics in sorted(acc.items()) if m}
++
++
++def north_star_from_db(db) -> dict:
++    """`north_star` over the cohorts the database records -- never over an empty dict."""
++    cohorts = north_star_cohorts(db)
++    out = north_star(cohorts)
++    out["by_cohort"] = cohorts
++    out["source"] = ("creative.tournament / creative.expedition / creative.grid_tournament "
++                     "audit rows, products, listings, incidents, listing outcomes and orders")
++    return out
++
++
+ # ---------------------------------------------------------------------------
+ # #104's two remaining clauses
+ #
+diff --git a/brambleloop/src/brambleloop/growth/loops.py b/brambleloop/src/brambleloop/growth/loops.py
+index 718f59a..bdaf5c6 100644
+--- a/brambleloop/src/brambleloop/growth/loops.py
++++ b/brambleloop/src/brambleloop/growth/loops.py
+@@ -53,6 +53,7 @@ class Loop:
+     latency_days: int = 0
+     scalable: bool = True
+     note: str = ""
++    contribution_cad: float = 0.0
+ 
+     def __post_init__(self) -> None:
+         if self.strength not in STRENGTHS:
+@@ -75,11 +76,29 @@ class Loop:
+     def conversion(self) -> float | None:
+         return round(self.orders / self.visits, 4) if self.visits else None
+ 
++    @property
++    def confidence(self) -> float:
++        """How far this loop's evidence goes, derived from its strength and sample (#271).
++
++        Not a probability that the loop works: the share of the evidence bar it has cleared.
++        Untested is 0; attempted is its share of the measured sample, capped below the
++        measured rung; measured and repeatable are 0.6 and 1.0 by construction.
++        """
++        if self.strength == REPEATABLE:
++            return 1.0
++        if self.strength == MEASURED:
++            return 0.6
++        if self.strength == ATTEMPTED:
++            return round(min(0.5, 0.5 * self.visits / MEASURED_SAMPLE), 3)
++        return 0.0
++
+     def to_dict(self) -> dict:
+         return {"key": self.key, "name": self.name, "strength": self.strength,
+                 "visits": self.visits, "orders": self.orders,
+                 "cost_per_visit_cad": self.cost_per_visit_cad,
+                 "conversion": self.conversion, "latency_days": self.latency_days,
++                "contribution_cad": round(self.contribution_cad, 2),
++                "confidence": self.confidence,
+                 "scalable": self.scalable, "counts_as_evidence": self.counts_as_evidence,
+                 "note": self.note}
+ 
+@@ -174,7 +193,8 @@ def from_db(db) -> tuple[Loop, ...]:
+         return REGISTRY
+     return tuple(Loop(key=r.key, name=r.name, strength=r.strength, visits=r.visits,
+                       orders=r.orders, cost_cad=r.cost_cad, latency_days=r.latency_days,
+-                      scalable=r.scalable, note=r.note) for r in rows)
++                      scalable=r.scalable, note=r.note,
++                      contribution_cad=float(r.contribution_cad or 0.0)) for r in rows)
+ 
+ 
+ def evidence_summary(loops: tuple[Loop, ...] = REGISTRY) -> dict:
+diff --git a/brambleloop/src/brambleloop/integrations/etsy.py b/brambleloop/src/brambleloop/integrations/etsy.py
+index 844d16e..4aed84b 100644
+--- a/brambleloop/src/brambleloop/integrations/etsy.py
++++ b/brambleloop/src/brambleloop/integrations/etsy.py
+@@ -760,6 +760,25 @@ class EtsyClient:
+         results = body.get("results")
+         return list(results) if isinstance(results, list) else []
+ 
++    def get_shop_receipts(self, *, min_created: int | None = None, limit: int = 100,
++                          offset: int = 0) -> list[dict[str, Any]]:
++        """The shop's receipts, newest first: the order source (C-64, #11, #12, #42).
++
++        `getShopReceipts` requires `transactions_r`; the token provider refuses the call
++        before the request when that scope was not granted, so an ungranted scope is a
++        refusal here rather than a 403 read back from Etsy. `commerce.orders_ingest` checks
++        the scope gate before it constructs this client at all.
++        """
++        creds = self._require(Authority.READ)
++        query: dict[str, Any] = {"limit": limit, "offset": offset}
++        if min_created is not None:
++            query["min_created"] = int(min_created)
++        body = self._call("GET", f"/shops/{creds.shop_id}/receipts",
++                          operation="getShopReceipts", authority=Authority.READ,
++                          query=query).body
++        results = body.get("results")
++        return list(results) if isinstance(results, list) else []
++
+     def get_taxonomy_node(self, taxonomy_id: int = TAXONOMY_PATTERNS) -> dict[str, Any]:
+         """Find one seller taxonomy node in Etsy's tree, or return {} if it is not there.
+ 
+diff --git a/brambleloop/src/brambleloop/runtime/commerce_readings.py b/brambleloop/src/brambleloop/runtime/commerce_readings.py
+index b94e364..4521583 100644
+--- a/brambleloop/src/brambleloop/runtime/commerce_readings.py
++++ b/brambleloop/src/brambleloop/runtime/commerce_readings.py
+@@ -23,7 +23,7 @@ ACTION = "commerce.readings"
+ def read(db, *, today: date | None = None) -> dict:
+     from sqlalchemy import select
+ 
+-    from ..commerce import club, kill_table, referral, reviews
++    from ..commerce import club, kill_table, reviews
+     from ..core.models import PatternVersion, Product, SupportCase
+     from ..intel import insights_budget
+     from ..products import personalisation
+@@ -67,9 +67,20 @@ def read(db, *, today: date | None = None) -> dict:
+     # #253: the club lane. Only the cadence question is answerable without buyers.
+     out["club"] = {"research_plan": club.research_plan(), "may_launch": club.may_launch({})}
+ 
+-    # #256: referral outcome, measured only from attributed customers and contribution.
+-    out["referral"] = referral.outcome(attributed_customers=None, contribution_cad=None,
+-                                       reward_spend_cad=0.0)
++    # #256 (C-64): referral outcome from the customers and orders the ingest wrote, and every
++    # declared mechanic checked against the measured contribution per customer. UNMEASURED
++    # only while the order source has never produced a row -- never hard-coded.
++    from datetime import datetime, timezone
++
++    from ..commerce import order_readings
++
++    rows = order_readings.orders(db)
++    cohort = order_readings.cohort_block(
++        db, as_of=datetime(today.year, today.month, today.day, tzinfo=timezone.utc))
++    block = order_readings.referral_block(
++        db, rows, contribution_per_customer=cohort.get("lifetime_contribution_per_buyer_cad"))
++    out["referral"] = {**block["outcome"], "mechanics": block["mechanics"],
++                       "may_run": block["may_run"], "source_live": block["source_live"]}
+ 
+     # #254: the personalisation catalogue per certified product -- what could be offered,
+     # split by what it costs to honour. Nothing is offered until something is listed.
+diff --git a/brambleloop/src/brambleloop/runtime/orders.py b/brambleloop/src/brambleloop/runtime/orders.py
+new file mode 100644
+index 0000000..5e92a98
+--- /dev/null
++++ b/brambleloop/src/brambleloop/runtime/orders.py
+@@ -0,0 +1,187 @@
++"""The order source and everything that reads orders, as jobs (certification defect C-64).
++
++Four handlers, each on a cadence in `worker.CADENCES`:
++
++* `commerce.orders_ingest` (six-hourly): Etsy receipts into customers, orders, the version
++  map and the ledger -- behind the real `transactions_r` gate, making no network call when
++  it is closed. When it creates an order it queues the order readings at once.
++* `commerce.order_readings` (daily, and after any ingest that created an order): cohorts,
++  offers, winners, reinvestment, ladder, bundles, promotions, repeat windows, referral and
++  growth loops, read from the rows and recorded; their directives are read by
++  `portfolio.review`, `pricing.position`, `collection.assemble` and ideation.
++* `scale.trajectory` (nightly, #26): the scenario analysis over the terms the database can
++  answer; a changed primary constraint queues the capacity review.
++* `creative.north_star` (daily, #104, #132): the north-star metrics by cohort from the rows;
++  a cohort-on-cohort regression opens a P2 business defect and resolves it when it stops.
++
++GREEN: reads rows (and, only behind its gate, Etsy's receipts), writes rows, spends nothing,
++messages nobody.
++"""
++from __future__ import annotations
++
++import json
++from datetime import date, datetime, timezone
++
++from .worker import JobContext, handlers
++
++INGEST = "commerce.orders_ingest"
++READINGS = "commerce.order_readings"
++TRAJECTORY = "scale.trajectory"
++NORTH_STAR = "creative.north_star"
++TRAJECTORY_KIND = "scale.trajectory"
++NORTH_STAR_KIND = "creative.north_star"
++NORTH_STAR_SIGNATURE = "creative.north_star_regression"
++
++
++def _jsonable(obj):
++    return json.loads(json.dumps(obj, default=str))
++
++
++def _today(ctx: JobContext) -> date:
++    as_of = (ctx.job.inputs or {}).get("as_of")
++    return date.fromisoformat(as_of) if as_of else date.today()
++
++
++def _store(db, kind: str, period: str, payload: dict) -> int:
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    with db.session() as s:
++        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == kind,
++                                                      OperatingReading.period_key == period))
++        if row is None:
++            row = OperatingReading(kind=kind, period_key=period)
++            s.add(row)
++        row.payload = _jsonable(payload)
++        row.at = datetime.now(timezone.utc)
++        s.flush()
++        return row.id
++
++
++def _previous(db, kind: str, before: str) -> dict | None:
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    with db.session() as s:
++        row = s.scalar(select(OperatingReading).where(
++            OperatingReading.kind == kind, OperatingReading.period_key < before)
++            .order_by(OperatingReading.period_key.desc()).limit(1))
++        return dict(row.payload or {}) if row is not None else None
++
++
++@handlers.register(INGEST)
++def handle_orders_ingest(ctx: JobContext) -> dict:
++    from ..commerce import orders_ingest
++
++    got = orders_ingest.ingest(ctx.db)
++    summary = {k: got.get(k) for k in ("ran", "reading", "receipts", "orders_created",
++                                       "customers_created", "ledger_entries",
++                                       "versions_recorded", "network_calls")}
++    summary["gate_missing"] = got["gate"]["missing"]
++    if got.get("orders_created"):
++        ctx.enqueue("cfo", READINGS, {},
++                    idempotency_key=f"{READINGS}:after-ingest:{ctx.job.id}")
++        summary["queued_readings"] = True
++    ctx.audit("commerce.orders_ingested", detail=_jsonable({**summary,
++                                                            "why": got.get("why", ""),
++                                                            "not_recorded":
++                                                                got.get("not_recorded", [])}))
++    return summary
++
++
++@handlers.register(READINGS)
++def handle_order_readings(ctx: JobContext) -> dict:
++    from ..commerce import order_readings
++
++    today = _today(ctx)
++    reading = order_readings.read(ctx.db, today=today)
++    stored = order_readings.record(ctx.db, _jsonable(reading))
++    summary = {
++        "reading_id": stored["id"], "orders": reading["orders"],
++        "order_source_open": reading["order_source"]["open"],
++        "cohorts": reading["cohorts"]["reading"],
++        "offers": reading["offers"]["reading"],
++        "winner": reading["winners"].get("top"),
++        "study_opened": bool((reading["winners"].get("study") or {}).get("opened")),
++        "reinvestment_owner_action": reading["reinvestment"]["owner_action"],
++        "ladder_gaps": ((reading["ladder"].get("shape") or {}).get("empty_rungs") or []),
++        "bundle_candidates": len(reading["bundles"]["candidates"]),
++        "promotions": reading["promotions"]["reading"],
++        "repeat": reading["repeat"]["reading"],
++        "referral_measurable": reading["referral"]["outcome"].get("measurable"),
++        "loops_with_evidence": reading["loops"]["with_evidence"],
++    }
++    ctx.audit("commerce.order_readings", detail=_jsonable(summary))
++    return summary
++
++
++@handlers.register(TRAJECTORY)
++def handle_trajectory(ctx: JobContext) -> dict:
++    from ..scale import trajectory
++
++    today = _today(ctx)
++    tonight = trajectory.nightly(ctx.db, on=today)
++    rid = _store(ctx.db, TRAJECTORY_KIND, today.isoformat(), tonight)
++    last = _previous(ctx.db, TRAJECTORY_KIND, today.isoformat())
++
++    def _named(r):
++        pc = (r or {}).get("primary_constraint") or {}
++        return pc.get("constraint") if pc.get("identifiable") else "UNMEASURED"
++
++    now_c, was_c = _named(tonight), (_named(last) if last else None)
++    changed = last is not None and now_c != was_c
++    if changed:
++        # A different binding term is a different plan: the capacity review re-solves now
++        # rather than at the end of the week.
++        ctx.enqueue("orchestrator", "ops.capacity", {"as_of": today.isoformat()},
++                    idempotency_key=f"ops.capacity:trajectory:{today.isoformat()}")
++    summary = {"reading_id": rid, "kind": tonight.get("kind"),
++               "observed_share": tonight.get("observed_share"),
++               "observed_terms": tonight.get("observed_terms", []),
++               "probability": tonight.get("probability"),
++               "primary_constraint": now_c, "previous_constraint": was_c,
++               "constraint_changed": changed, "hostage_to": tonight.get("hostage_to"),
++               "measure_next": tonight.get("measure_next")}
++    ctx.audit("scale.trajectory", detail=_jsonable(summary))
++    return summary
++
++
++@handlers.register(NORTH_STAR)
++def handle_north_star(ctx: JobContext) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import Incident
++    from ..creative import standard
++
++    today = _today(ctx)
++    ns = standard.north_star_from_db(ctx.db)
++    rid = _store(ctx.db, NORTH_STAR_KIND, today.isoformat(), ns)
++    regressing, improving = ns["regressing"], ns["improving"]
++    defect = ns["answerable"] and len(regressing) >= 2 and len(regressing) > len(improving)
++    incident = None
++    with ctx.db.session() as s:
++        open_row = s.scalar(select(Incident).where(Incident.signature == NORTH_STAR_SIGNATURE,
++                                                   Incident.resolved.is_(False)))
++        if defect:
++            detail = {"regressing": regressing, "improving": improving,
++                      "cohorts": ns["cohorts"][-2:]}
++            if open_row is None:
++                s.add(Incident(severity="P2", signature=NORTH_STAR_SIGNATURE,
++                               summary=(f"Creative north star regressing between "
++                                        f"{ns['cohorts'][0]} and {ns['cohorts'][-1]}: "
++                                        f"{', '.join(regressing)}"),
++                               halts_publication=False, detail=detail))
++                incident = "opened"
++            else:
++                open_row.report_count += 1
++                open_row.detail = detail
++                incident = "updated"
++        elif open_row is not None and ns["answerable"]:
++            open_row.resolved = True
++            incident = "resolved"
++    summary = {"reading_id": rid, "cohorts": ns["cohorts"], "answerable": ns["answerable"],
++               "improving": improving, "regressing": regressing, "incident": incident}
++    ctx.audit("creative.north_star", detail=_jsonable(summary))
++    return summary
+diff --git a/brambleloop/src/brambleloop/runtime/pipeline.py b/brambleloop/src/brambleloop/runtime/pipeline.py
+index e8e27e4..d156dad 100644
+--- a/brambleloop/src/brambleloop/runtime/pipeline.py
++++ b/brambleloop/src/brambleloop/runtime/pipeline.py
+@@ -460,7 +460,20 @@ def handle_certify(ctx: JobContext) -> dict:
+               detail={"granted": cert.granted, "reasons": cert.blocking_reasons[:5]})
+ 
+     if cert.granted:
++        previous_hash = _stored_release_hash(ctx, cir)
+         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
++        # #42 (C-64): a correcting release finds the buyers who hold what it corrects, from
++        # the version map written at sale time, and prepares their notice. Sending it is the
++        # owner's (an owner action is raised); nothing is sent from here.
++        from ..commerce import buyer_trust
++
++        correction = buyer_trust.on_certified(
++            ctx.db, product_slug=cir.slug, version=cir.version,
++            release_hash=cert.release_hash or "", previous_release_hash=previous_hash)
++        if correction["affected_count"]:
++            ctx.audit("buyer_trust.correction_prepared", artifact=f"{cir.slug}@{cir.version}",
++                      detail={k: correction[k] for k in ("affected_count", "affected_orders",
++                                                         "owner_action")})
+         # #70: a revision that changes geometry or claims invalidates the listing-set
+         # certificate issued against the old ones, recomputed here rather than remembered,
+         # and the affected frames lose their approval until the chain re-certifies them.
+@@ -554,6 +567,16 @@ def _flatten_stitches(ops) -> list:
+     return out
+ 
+ 
++def _stored_release_hash(ctx: JobContext, cir: CIR) -> str:
++    """The release hash already stored for this product and version, or ""."""
++    from sqlalchemy import select
++
++    with ctx.db.session() as s:
++        row = s.scalar(select(PatternVersion).join(Product).where(
++            Product.slug == cir.slug, PatternVersion.version == cir.version))
++        return (row.release_hash or "") if row is not None else ""
++
++
+ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash: str) -> None:
+     from sqlalchemy import select
+ 
+@@ -1157,14 +1180,76 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
+             if inc.product_slug and inc.severity in ("P0", "P1"):
+                 p1[inc.product_slug] = p1.get(inc.product_slug, 0) + 1
+ 
+-    # Impressions, clicks and orders are all zero and stay zero until something is published.
+-    # They are read from the ledger rather than assumed, so that the day they are non-zero
+-    # this code needs no change.
++    # #47 (C-64): impressions, clicks (visits), favourites and orders are read from the rows
++    # that record them -- listing outcomes and ingested orders -- so the ladder diagnoses the
++    # stage that is failing the day there is exposure, and says NO_EVIDENCE only while there
++    # is none. Days live are counted from the product's published listing.
++    from datetime import datetime, timezone
++
++    from ..core.models import Listing, ListingOutcome, Order
++
++    with ctx.db.session() as s:
++        exposure: dict[str, dict] = {}
++        for r in s.scalars(select(ListingOutcome)):
++            e = exposure.setdefault(r.product_slug, {"impressions": 0, "clicks": 0,
++                                                     "favourites": 0})
++            e["impressions"] += int(r.impressions or 0)
++            e["clicks"] += int(r.visits or 0)
++            e["favourites"] += int(r.favourites or 0)
++        sold: dict[str, dict] = {}
++        for o in s.scalars(select(Order)):
++            x = sold.setdefault(o.product_slug, {"orders": 0, "revenue": 0.0, "refunds": 0})
++            if o.refunded:
++                x["refunds"] += 1
++            else:
++                x["orders"] += 1
++                x["revenue"] += float(o.revenue_cad or 0.0)
++        live_since: dict[str, datetime] = {}
++        for r in s.scalars(select(Listing).where(Listing.state == "published")):
++            at = r.created_at if r.created_at.tzinfo else r.created_at.replace(
++                tzinfo=timezone.utc)
++            if r.product_slug not in live_since or at < live_since[r.product_slug]:
++                live_since[r.product_slug] = at
++    now = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+     metrics = [SkuMetrics(slug=p.slug, support_cases=cases.get(p.slug, 0),
+-                          open_p1_incidents=p1.get(p.slug, 0))
++                          open_p1_incidents=p1.get(p.slug, 0),
++                          impressions=exposure.get(p.slug, {}).get("impressions", 0),
++                          clicks=exposure.get(p.slug, {}).get("clicks", 0),
++                          favourites=exposure.get(p.slug, {}).get("favourites", 0),
++                          orders=sold.get(p.slug, {}).get("orders", 0),
++                          revenue_cad=round(sold.get(p.slug, {}).get("revenue", 0.0), 2),
++                          refunds=sold.get(p.slug, {}).get("refunds", 0),
++                          days_live=(max(0, (now - live_since[p.slug]).days)
++                                     if p.slug in live_since else 0))
+                for p in products]
+     verdict = review_portfolio(metrics, today=today)
+ 
++    # #13 (C-64): a design is never retired or reworked on one offer's evidence. Every
++    # discard-shaped verdict consults `offers.may_retire` over the offers the orders show it
++    # has worn; a refusal replaces the discard with the cheapest untried offer.
++    from ..commerce import offers as offers_mod
++    from ..commerce.order_readings import offer_results
++    from ..growth.portfolio import APPEAL_PROBLEM, LADDERS, RETIRE, REWORK
++
++    results = offer_results(ctx.db)
++    offer_guard = []
++    for c in verdict.classifications:
++        if c.label not in (RETIRE, REWORK, APPEAL_PROBLEM):
++            continue
++        ruling = offers_mod.may_retire(c.slug, [r for r in results
++                                                if r.design_slug == c.slug])
++        offer_guard.append({"slug": c.slug, "label": c.label, **ruling})
++        if not ruling["may_retire"]:
++            nxt = (ruling.get("try_next") or {}).get("offer")
++            c.interventions = ([f"fix the offer before discarding the design: try {nxt}"
++                                if nxt else "fix the offer before discarding the design"]
++                               + [i for i in LADDERS[c.label] if "retire" not in i.lower()])
++            c.evidence["offer_guard"] = ruling["reasons"]
++            verdict.actions.append(
++                f"{c.slug}: {c.label} is a verdict about an offer until it has worn "
++                f"{offers_mod.MIN_OFFER_FAMILIES_BEFORE_RETIRING} offer families -- "
++                f"{'try ' + nxt if nxt else 'fix the offer'} before discarding it (#13).")
++
+     missing = sorted(should_exist - built)
+     off_portfolio = sorted(built - should_exist)
+ 
+@@ -1183,6 +1268,9 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
+         "constraints_met": portfolio.constraints_met,
+         "classifications": verdict.summary(),
+         "evidence_available": verdict.evidence_available,
++        "offer_guard": offer_guard,
++        "exposure_read": {"listing_outcomes": sum(1 for m in metrics if m.impressions),
++                          "selling": sum(1 for m in metrics if m.orders)},
+     })
+     for slug in missing:
+         ctx.enqueue("market_radar", "radar.score",
+@@ -1194,7 +1282,7 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
+             "constraints_met": portfolio.constraints_met,
+             "classifications": verdict.summary(),
+             "evidence_available": verdict.evidence_available,
+-            "actions": verdict.actions}
++            "actions": verdict.actions, "offer_guard": offer_guard}
+ 
+ 
+ @handlers.register("finance.reconcile")
+@@ -1350,6 +1438,7 @@ def handle_plan_strategy(ctx: JobContext) -> dict:
+ # job-context helpers from this module's neighbours, and a top-of-file import would be a cycle.
+ from . import release  # noqa: E402,F401
+ from . import commerce_readings  # noqa: E402,F401  (C-59: gated machinery, run daily)
++from . import orders  # noqa: E402,F401  (C-64: order ingest and everything that reads orders)
+ 
+ 
+ def _listing_parity(ctx: JobContext) -> dict:
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index af83411..c5d83e3 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -382,6 +382,34 @@ def handle_assets_build(ctx: JobContext) -> dict:
+     return payload
+ 
+ 
++def _pricing_net_inputs(db, slug: str) -> dict:
++    """What `decide_price` needs to decide on net contribution, read from rows (#269)."""
++    from sqlalchemy import select
++
++    from ..core.models import Order, PriceObservation
++    from ..finance import currency
++
++    with db.session() as s:
++        orders = list(s.scalars(select(Order).where(Order.refunded.is_(False))))
++        points = [{"price_cad": float(p.price_cad or 0.0), "visits": int(p.visits or 0),
++                   "contribution_cad": float(p.contribution_cad or 0.0)}
++                  for p in s.scalars(select(PriceObservation).where(
++                      PriceObservation.product_slug == slug, PriceObservation.on_sale.is_(False)))]
++    foreign = None
++    rate = None
++    if orders:
++        foreign = sum(1 for o in orders if (o.currency or "CAD") != "CAD") / len(orders)
++        measured = [o for o in orders if o.fx_measured and o.fx_usd_per_cad]
++        if measured:
++            last = max(measured, key=lambda o: o.fx_taken_on or "")
++            from datetime import date as _d
++
++            rate = currency.Rate(float(last.fx_usd_per_cad),
++                                 _d.fromisoformat(last.fx_taken_on) if last.fx_taken_on
++                                 else _d.today(), measured=True, source="settlement")
++    return {"foreign_share": foreign, "rate": rate, "price_points": points}
++
++
+ @handlers.register("pricing.position")
+ def handle_pricing_position(ctx: JobContext) -> dict:
+     i = dict(ctx.job.inputs)
+@@ -400,10 +428,23 @@ def handle_pricing_position(ctx: JobContext) -> dict:
+         # caller who might pass anything.
+         members = [m.price_cad for m in POOL
+                    if m.family == seed.family and not m.is_bundle]
++    # #269 (C-64): the decision reads net contribution from what the orders show -- the share
++    # paid in another currency and the rate recorded with them -- and this product's measured
++    # price points, rather than deciding on the sticker.
++    net_inputs = _pricing_net_inputs(ctx.db, slug)
+     decision = pricing_mod.decide_price(
+         slug, category_band_cad=band, proposed_cad=proposed,
+         has_video=False, sizes_offered=sizes,
+-        is_bundle=is_bundle, bundle_members_cad=members)
++        is_bundle=is_bundle, bundle_members_cad=members, **net_inputs)
++    # #233 / #235: the daily order readings' discount guard and promotion verdicts. A product
++    # the guard refused, or whose promotion lost contribution, is priced at full price only.
++    from ..commerce.order_readings import directives
++
++    guard = directives(ctx.db)
++    if slug in guard["discount_refused"] or slug in guard["promotion_do_not_repeat"]:
++        decision.reasons.append(
++            "full price only: the value-ladder discount guard or a measured promotion "
++            "verdict refuses a sale price for this product (#233, #235)")
+ 
+     # The category's standing "50% off" is not available to us; assert that explicitly rather
+     # than relying on nobody adding it later.
+@@ -1299,6 +1340,24 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
+     architecture = _collection_architecture(slug, seed, [m.slug for m in members])
+     ctx.audit("collection.assessed", artifact=slug, detail=architecture)
+ 
++    # #234 (C-64): the bundle engine's own test on the members' product facts. A set whose
++    # pairs do not share enough affinities, or that spans too many pods, is a shelf with a
++    # discount rather than a bundle, and is not assembled into a listing.
++    from ..commerce import bundles as bundles_mod
++    from ..commerce.order_readings import bundle_items
++
++    wanted = {m.slug for m in members}
++    items = [i for i in bundle_items(ctx.db) if i.slug in wanted]
++    bundle_check = (bundles_mod.check(items, price_cad=verdict.price_cad)
++                    if len(items) >= 2 else None)
++    if bundle_check is not None:
++        ctx.audit("collection.bundle_check", artifact=slug, detail=bundle_check)
++        incoherent = [r for r in bundle_check["reasons"]
++                      if "holds every pair together" in r or "departments" in r]
++        if incoherent:
++            return {"slug": slug, "assembled": False, "bundle_check": bundle_check,
++                    "why": incoherent[0][:300]}
++
+     titles = [m.title for m in members]
+     collection_name = (seed.family or slug).replace("-", " ").title()
+     name_problems = bible.check_collection_name(collection_name)
+diff --git a/brambleloop/src/brambleloop/runtime/worker.py b/brambleloop/src/brambleloop/runtime/worker.py
+index ce0b3d4..0369344 100644
+--- a/brambleloop/src/brambleloop/runtime/worker.py
++++ b/brambleloop/src/brambleloop/runtime/worker.py
+@@ -352,6 +352,13 @@ CADENCES: list[tuple[str, str, str, int]] = [
+     # C-59 (#23 #236 #253 #254 #256 #257): the machinery of the gated commerce rows runs daily
+     # on what the database holds, so the day the data arrives is the day it is read.
+     ("commerce_readings", "cfo", "commerce.readings", 24 * 60 * 60),
++    # C-64: the order source (six-hourly, behind the transactions_r gate; no network call
++    # while it is closed), everything that reads orders (daily, and after any ingest that
++    # wrote one), the nightly trajectory (#26) and the creative north star by cohort (#132).
++    ("orders_ingest", "cfo", "commerce.orders_ingest", 6 * 60 * 60),
++    ("order_readings", "cfo", "commerce.order_readings", 24 * 60 * 60),
++    ("trajectory_nightly", "orchestrator", "scale.trajectory", 24 * 60 * 60),
++    ("creative_north_star", "creative_director", "creative.north_star", 24 * 60 * 60),
+     # #265 / #266 experiments concluded daily; #34 the thrash sweep hourly; the seasonal
+     # engine daily (#33 #38 #131 #267 #286 #287 #289 #290 #291).
+     ("growth_conclude", "experiment_steward", "growth.conclude", 24 * 60 * 60),
+diff --git a/brambleloop/src/brambleloop/scale/trajectory.py b/brambleloop/src/brambleloop/scale/trajectory.py
+index b4cbe07..5c96322 100644
+--- a/brambleloop/src/brambleloop/scale/trajectory.py
++++ b/brambleloop/src/brambleloop/scale/trajectory.py
+@@ -224,25 +224,116 @@ def sensitivity(inputs: dict[str, Value], *, months: int = 12) -> list[dict]:
+     return rows
+ 
+ 
+-def nightly(db, *, on: date | None = None, target_cad: float = 3000.0) -> dict:
+-    """The nightly run against what this company has actually observed.
++# What each term is assumed to be when it has not been observed, and on what basis. Wide on
++# purpose: an assumption stated narrowly is a forecast pretending not to be one.
++ASSUMED: dict[str, tuple[float, float, float, str]] = {
++    "qualified_traffic": (1500.0, 200.0, 8000.0,
++                          "assumed: impressions per month for a new shop's catalogue"),
++    "ctr": (0.020, 0.005, 0.040, "assumed: growth.portfolio.BENCH_CTR, category-typical"),
++    "conversion": (0.025, 0.005, 0.050,
++                   "assumed: growth.portfolio.BENCH_CONVERSION, category-typical"),
++    "aov_cad": (9.0, 5.0, 20.0, "assumed: the catalogue's own price band"),
++    "repeat_rate": (0.10, 0.0, 0.35, "assumed: growth.loops repeat ceiling 0.35"),
++    "organic_growth": (0.05, 0.0, 0.20, "assumed: month-on-month impression growth"),
++    "paid_cac_cad": (8.0, 3.0, 20.0,
++                     "assumed: paid traffic is not authorised, so no CAC has been paid"),
++    "winner_rate": (0.05, 0.0, 0.20, "assumed: share of listings that become winners"),
++}
++
++
++def observed_terms(db, *, on: date | None = None) -> dict:
++    """Every term this database can actually answer, as `Value`s sourced `observed` (C-64).
++
++    Read from `scale.runrate.observe` (listing outcomes, orders, the ledger, published
++    listings) and from the release and listing tables for velocity and retirement. A term
++    with no source is absent here -- it is never zero-for-unknown.
++    """
++    from datetime import datetime, timedelta, timezone
++
++    from sqlalchemy import select
+ 
+-    Today it observes nothing, and the honest output is a refusal that names the primary
+-    constraint anyway -- which is the half of this requirement that can be answered without
+-    data, because "nobody is arriving" does not need a simulation.
++    from ..core.models import Listing, PatternVersion
++    from .runrate import observe
++
++    on = on or date.today()
++    got = observe(db, today=on)
++    o = got["observed"]
++    out: dict[str, Value] = {}
++
++    def put(term: str, value) -> None:
++        if value is not None:
++            v = float(value)
++            out[term] = Value(v, v, v, OBSERVED)
++
++    put("listing_count", o.listings)
++    put("qualified_traffic", o.impressions)
++    put("ctr", o.ctr)
++    put("conversion", o.conversion)
++    put("aov_cad", o.aov_cad)
++    if o.orders and o.repeat_orders is not None:
++        put("repeat_rate", o.repeat_orders / o.orders)
++    since = datetime(on.year, on.month, on.day, tzinfo=timezone.utc) - timedelta(days=30)
++    with db.session() as s:
++        released = [v for v in s.scalars(select(PatternVersion).where(
++            PatternVersion.certified.is_(True)))
++                    if (v.created_at if v.created_at.tzinfo else
++                        v.created_at.replace(tzinfo=timezone.utc)) >= since]
++        listings = list(s.scalars(select(Listing)))
++    put("product_velocity", len(released))
++    if listings:
++        put("retirement_rate", sum(1 for r in listings if r.state == "withdrawn")
++            / len(listings))
++    return {"terms": out, "observe": got}
++
++
++def nightly(db, *, on: date | None = None, target_cad: float = 3000.0) -> dict:
++    """The nightly run against what this company has actually observed (#26, C-64).
++
++    With a database, every term the rows can answer is `observed` and every other is an
++    assumption with its basis, and the scenario analysis runs: below the observed-share floor
++    it is an assumption space with no probability and a sensitivity ranking that names which
++    assumption the answer is hostage to; above it, a forecast inside its provenance. The
++    primary constraint is `runrate.constraint` over the observed funnel, never an empty one.
++    Without a database there is nothing observed and the run refuses, naming the constraint.
+     """
+-    observed = Observed()
+-    binding = constraint(observed, target_cad=target_cad)
++    on = on or date.today()
++    if db is None:
++        binding = constraint(Observed(), target_cad=target_cad)
++        return {
++            "on": on.isoformat(),
++            "ran": False,
++            "why": ("no database was read, so no term of the model has been observed. A "
++                    "nightly probability computed from that is a nightly restatement of "
++                    "whatever was typed in"),
++            "observed_share": 0.0,
++            "floor": MIN_OBSERVED_SHARE,
++            "primary_constraint": binding,
++            "terms_needed": sorted(TERMS),
++        }
++    got = observed_terms(db, on=on)
++    inputs = dict(got["terms"])
++    for term, (point, low, high, basis) in ASSUMED.items():
++        inputs.setdefault(term, Value(point, low, high, basis))
++    inputs.setdefault("listing_count", Value(0.0, 0.0, 0.0, OBSERVED))
++    inputs.setdefault("product_velocity", Value(0.0, 0.0, 0.0, OBSERVED))
++    inputs.setdefault("retirement_rate", Value(0.0, 0.0, 0.25,
++                                                "assumed: no listing exists to retire"))
++    observed = got["observe"]
++    binding = constraint(observed["observed"], target_cad=target_cad,
++                         refund_rate=observed["refund_rate"],
++                         support_rate=observed["support_rate"])
++    result = run(inputs, target_cad=target_cad, on=on)
++    top = result["sensitivity"][0] if result["sensitivity"] else None
+     return {
+-        "on": (on or date.today()).isoformat(),
+-        "ran": False,
+-        "why": ("no term of the model has been observed: no listing has an impression, no "
+-                "visitor has arrived and nothing has been bought. A nightly probability "
+-                "computed from that is a nightly restatement of whatever was typed in"),
+-        "observed_share": 0.0,
++        **result,
++        "ran": True,
++        "observed_terms": sorted(k for k, v in inputs.items() if v.observed),
++        "unmeasured_funnel": observed["unmeasured"],
+         "floor": MIN_OBSERVED_SHARE,
+         "primary_constraint": binding,
+-        "terms_needed": sorted(TERMS),
++        "hostage_to": (top["term"] if top else None),
++        "measure_next": next((r["term"] for r in result["sensitivity"]
++                              if not r["observed"]), None),
+     }
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/swarm/orchestrate.py b/brambleloop/src/brambleloop/swarm/orchestrate.py
+index abeb4c7..69983d0 100644
+--- a/brambleloop/src/brambleloop/swarm/orchestrate.py
++++ b/brambleloop/src/brambleloop/swarm/orchestrate.py
+@@ -494,6 +494,10 @@ JOB_BANDS: dict[str, str] = {
+     "creative.style_learning": "exploration",
+     "creative.white_space": "exploration",
+     "commerce.readings": "exploration",
++    "commerce.orders_ingest": "exploration",
++    "commerce.order_readings": "exploration",
++    "scale.trajectory": "exploration",
++    "creative.north_star": "exploration",
+     "creative.four_season": "exploration",
+     "creative.outcome_learning": "exploration",
+     "seasonal.harvest": "exploration",
+-- 
+2.43.0
+
+
+From 8837c2fb864c8f4c4e03ea924f7841d1ca53ff7a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 12:48:51 +0000
+Subject: [PATCH 2/2] C-64: handler-level certification tests for the order
+ ingest and its readers
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/tests/test_cert_orders.py | 525 ++++++++++++++++++++++++++
+ 1 file changed, 525 insertions(+)
+ create mode 100644 brambleloop/tests/test_cert_orders.py
+
+diff --git a/brambleloop/tests/test_cert_orders.py b/brambleloop/tests/test_cert_orders.py
+new file mode 100644
+index 0000000..1b76e33
+--- /dev/null
++++ b/brambleloop/tests/test_cert_orders.py
+@@ -0,0 +1,525 @@
++"""Certification C-64: the order source, and everything that reads orders, in the runtime.
++
++Every row that reads orders (#11 #12 #13 #22 #26 #42 #47 #49 #104 #132 #233 #234 #235 #252
++#256 #269 #271) was parked or claimed while nothing in the running system could write an
++order: `getShopReceipts` was never called and `cohorts.record_order` had no caller. These
++tests drive the real handlers through the worker on a temp database:
++
++* with the `transactions_r` gate closed (today), the ingest records UNMEASURED and makes no
++  network call -- the injected reader raises if touched, and sockets are refused;
++* with the gate's rows present and a FAKE receipt feed injected (never Etsy), the ingest
++  writes customers, orders, the version map and the ledger, and every downstream reader
++  acts on them: cohorts, offers into portfolio retirement, winner studies into ideation,
++  reinvestment owner actions, the ladder and bundles, promotion verdicts into pricing,
++  repeat windows, referral, growth loops, net-contribution pricing, the nightly trajectory
++  and the creative north star by cohort.
++
++Run: cd brambleloop && $PY tests/test_cert_orders.py
++"""
++from __future__ import annotations
++
++import os
++import socket
++import sys
++import tempfile
++from datetime import date, datetime, timedelta, timezone
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / "src"))
++sys.path.insert(0, str(ROOT))
++
++_TMP = tempfile.mkdtemp(prefix="cert_orders_")
++os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
++for _k in list(os.environ):
++    if _k.startswith(("ANTHROPIC_API", "ETSY", "OPENAI")):
++        os.environ.pop(_k)
++
++
++def _no_network(*_a, **_k):
++    raise OSError("network refused by the certification harness")
++
++
++socket.socket.connect = _no_network  # type: ignore[assignment]
++socket.create_connection = _no_network  # type: ignore[assignment]
++
++from sqlalchemy import func, select  # noqa: E402
++
++from brambleloop.agents.registry import Registry  # noqa: E402
++from brambleloop.build2 import executor, reachability  # noqa: E402
++from brambleloop.commerce import order_readings, orders_ingest, pricing  # noqa: E402
++from brambleloop.core.db import Database  # noqa: E402
++from brambleloop.core.models import (AuditLog, Cohort, Customer, GrowthLoop, Incident,  # noqa: E402
++                                     Job, JobStatus, LedgerEntry, Listing, ListingOutcome,
++                                     OAuthCredential, OperatingReading, Order, OrderVersion,
++                                     OwnerAction, Phase, PriceObservation)
++from brambleloop.products import nordic_forest as nf  # noqa: E402
++from brambleloop.queue.durable import JobQueue  # noqa: E402
++from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers every handler
++from brambleloop.runtime.worker import CADENCES, Worker  # noqa: E402
++from brambleloop.swarm.orchestrate import JOB_BANDS  # noqa: E402
++
++NEW_JOBS = {"commerce.orders_ingest": "cfo", "commerce.order_readings": "cfo",
++            "scale.trajectory": "orchestrator", "creative.north_star": "creative_director"}
++NOW = datetime.now(timezone.utc)
++_n = [0]
++
++
++def _db():
++    _n[0] += 1
++    db = Database(f"sqlite:///{_TMP}/orders{_n[0]}.sqlite")
++    db.create_all()
++    Registry(db).seed_defaults()
++    return db
++
++
++def _run(db, agent, job_type, inputs=None):
++    _n[0] += 1
++    job = JobQueue(db).enqueue(agent, job_type, inputs or {},
++                               idempotency_key=f"t{_n[0]}:{job_type}")
++    worker = Worker(db, "cert-orders", phase=Phase.SHADOW, job_types=[job_type],
++                    lease_seconds=900)
++    for _ in range(10):          # earlier queued jobs of the same type run first
++        if not worker.run_once():
++            break
++    with db.session() as s:
++        done = s.get(Job, job.id)
++        assert done.status == JobStatus.DONE, (job_type, done.last_error)
++        return dict(done.outputs or {}) if hasattr(done, "outputs") else {}
++
++
++def _audit(db, action):
++    with db.session() as s:
++        row = s.scalar(select(AuditLog).where(AuditLog.action == action)
++                       .order_by(AuditLog.id.desc()).limit(1))
++        return dict(row.detail or {}) if row else None
++
++
++class Refusing:
++    """A receipt reader that must never be reached."""
++
++    calls = 0
++
++    def receipts(self, *, since):
++        Refusing.calls += 1
++        raise AssertionError("the receipt reader was called with the gate closed")
++
++
++class FakeFeed:
++    """A fake receipt feed in Etsy's documented ShopReceipt shape. Never Etsy."""
++
++    def __init__(self, receipts):
++        self.receipts_list = receipts
++        self.calls = 0
++
++    def receipts(self, *, since):
++        self.calls += 1
++        return list(self.receipts_list)
++
++
++def _receipt(rid, buyer, listing_id, amount_cents, *, currency="CAD", days_ago=1,
++             refunded=False, extra_lines=()):
++    lines = [{"transaction_id": rid * 10, "listing_id": listing_id, "quantity": 1,
++              "price": {"amount": amount_cents, "divisor": 100, "currency_code": currency}}]
++    for i, (lid, cents) in enumerate(extra_lines, start=1):
++        lines.append({"transaction_id": rid * 10 + i, "listing_id": lid, "quantity": 1,
++                      "price": {"amount": cents, "divisor": 100, "currency_code": currency}})
++    return {"receipt_id": rid, "buyer_user_id": buyer, "buyer_email": "never@stored.example",
++            "name": "Never Stored",
++            "create_timestamp": int((NOW - timedelta(days=days_ago)).timestamp()),
++            "refunds": [{"amount": {"amount": amount_cents, "divisor": 100}}] if refunded
++            else [], "transactions": lines}
++
++
++def _open_gate(db):
++    with db.session() as s:
++        s.add(AuditLog(actor="market_radar", action="etsy.probe", detail={"ok": True}))
++        s.add(OAuthCredential(provider="etsy", refresh_token_sealed="sealed",
++                              token_fingerprint="abcd1234",
++                              scopes="listings_r listings_w shops_r transactions_r"))
++
++
++def _certify(db, cir):
++    _n[0] += 1
++    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
++                         idempotency_key=f"cert{_n[0]}")
++    assert Worker(db, "cert-orders", phase=Phase.SHADOW, job_types=["gate.certify"],
++                  lease_seconds=900).run_once()
++
++
++def _catalogue(db):
++    """Three products: a certified throw (A) and two listed products (B, C)."""
++    cir = nf.build()
++    _certify(db, cir)
++    old = NOW - timedelta(weeks=8)
++    with db.session() as s:
++        s.add(Listing(product_slug=cir.slug, version=cir.version, title="A", description="",
++                      price_cad=12.0, state="published", etsy_listing_id="111", created_at=old))
++        s.add(Listing(product_slug="cloudline-baby-blanket", version="1.0.0", title="B",
++                      description="", price_cad=9.0, state="published",
++                      etsy_listing_id="222", created_at=old))
++        s.add(Listing(product_slug="harvest-table-runner", version="1.0.0", title="C",
++                      description="", price_cad=5.0, state="published",
++                      etsy_listing_id="333", created_at=old))
++    return cir
++
++
++def _feed(slug_a_listing="111"):
++    receipts = []
++    # 40 buyers of A across eight weeks -- a credible winner (#22).
++    for i in range(40):
++        receipts.append(_receipt(1000 + i, 5000 + i, slug_a_listing, 1200,
++                                 days_ago=1 + (i % 50)))
++    # B twice, C once; one of B's buyers is a repeat buyer of A (#252), one pays in USD (#269).
++    receipts.append(_receipt(2001, 5000, "222", 900, days_ago=2))
++    receipts.append(_receipt(2002, 6001, "222", 700, currency="USD", days_ago=3))
++    receipts.append(_receipt(2003, 6002, "333", 500, days_ago=4, refunded=False))
++    receipts.append(_receipt(2004, 6003, "333", 500, days_ago=5, refunded=True))
++    return receipts
++
++
++# ---------------------------------------------------------------------------
++
++
++def test_new_jobs_are_scheduled_permitted_and_banded():
++    registry = Registry(_db())
++    for job_type, agent in NEW_JOBS.items():
++        assert any(c[2] == job_type and c[1] == agent for c in CADENCES), job_type
++        registry.authorize(agent, job_type)
++        assert job_type in JOB_BANDS, job_type
++
++
++def test_gate_closed_records_unmeasured_and_never_touches_the_reader():
++    db = _db()
++    orders_ingest.reader_factory = lambda _db: Refusing()
++    try:
++        _run(db, "cfo", "commerce.orders_ingest")
++    finally:
++        orders_ingest.reader_factory = None
++    got = _audit(db, "commerce.orders_ingested")
++    assert got["ran"] is False and got["reading"] == "UNMEASURED"
++    assert got["network_calls"] == 0 and Refusing.calls == 0
++    assert any("transactions_r" in m for m in got["gate_missing"])
++    with db.session() as s:
++        assert s.scalar(select(func.count(Order.id))) == 0
++    # And every reader of orders still runs on cadence and says UNMEASURED honestly.
++    _run(db, "cfo", "commerce.order_readings")
++    r = order_readings.latest(db)
++    assert r["cohorts"]["reading"] == "UNMEASURED"
++    assert r["offers"]["reading"] == "UNMEASURED"
++    assert r["winners"]["reading"] == "UNMEASURED"
++    assert r["repeat"]["reading"] == "UNMEASURED"
++    assert r["referral"]["outcome"]["measurable"] is False
++    assert r["reinvestment"]["owner_action"] is None
++
++
++def _ingested():
++    db = _db()
++    cir = _catalogue(db)
++    _open_gate(db)
++    feed = FakeFeed(_feed())
++    orders_ingest.reader_factory = lambda _db: feed
++    try:
++        _run(db, "cfo", "commerce.orders_ingest")
++        again = FakeFeed(_feed())
++        orders_ingest.reader_factory = lambda _db: again
++        _run(db, "cfo", "commerce.orders_ingest")      # idempotent re-read
++    finally:
++        orders_ingest.reader_factory = None
++    return db, cir, feed
++
++
++def test_gate_open_ingest_writes_customers_orders_versions_and_ledger():
++    """#11 #12 #42: receipts become customers, orders, the version map and sale entries."""
++    db, cir, feed = _ingested()
++    assert feed.calls == 1
++    with db.session() as s:
++        customers = list(s.scalars(select(Customer)))
++        orders = list(s.scalars(select(Order)))
++        versions = list(s.scalars(select(OrderVersion)))
++        ledger = list(s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale")))
++        queued = list(s.scalars(select(Job).where(Job.job_type == "commerce.order_readings")))
++    assert len(customers) == 43 and all("@" not in c.customer_ref for c in customers)
++    assert not any("Never Stored" in str(c.detail) for c in customers)
++    assert len(orders) == 44 and len(ledger) == 44          # the second run added nothing
++    assert all(o.source == "etsy_receipts" for o in orders)
++    assert {v.version for v in versions} == {cir.version}   # recorded at sale time
++    assert sum(1 for v in versions if v.product_slug == cir.slug) == 40
++    assert len(versions) == 44
++    usd = next(o for o in orders if o.currency == "USD")
++    assert usd.amount_original == 7.0 and usd.fx_usd_per_cad and usd.fx_taken_on
++    assert usd.fx_measured is False and abs(usd.price_cad - 7.0 / usd.fx_usd_per_cad) < 0.01
++    assert any(o.is_repeat for o in orders)
++    assert queued, "an ingest that created orders queues the order readings"
++    # The ledger rows carry their evidence, which is what opens the customers data gate.
++    assert executor._has_customers(db, {})
++
++
++def test_order_readings_drive_every_downstream_reader():
++    db, cir, _ = _ingested()
++    _run(db, "cfo", "commerce.order_readings")
++    r = order_readings.latest(db)
++    # #11/#12: cohorts from the rows, below-floor metrics UNMEASURED rather than invented.
++    assert r["cohorts"]["customers"] == 43
++    assert r["cohorts"]["validation"]["customers"] == 43
++    # 43 buyers clear the floor of 30 and one bought again, so lifetime contribution per
++    # buyer is measured -- and it is the reward ceiling the referral check reads (#256).
++    ltv = r["cohorts"]["lifetime_contribution_per_buyer_cad"]
++    assert ltv is not None and ltv > 0
++    # #13: offer results per design from the orders.
++    assert any(x["design"] == cir.slug and x["buyers"] == 40 for x in r["offers"]["results"])
++    # #22: a credible winner opens a bounded study, and ideation reads it into its briefs.
++    assert r["winners"]["top"] == cir.slug and r["winners"]["verdict"]["credible"]
++    study = order_readings.directives(db)["replication"]
++    assert study and study["winner"] == cir.slug and study["capacity_share"] <= 0.35
++    from brambleloop.creative import ideation
++
++    plan = ideation.plan(db, kind="tournament", event="Christmas", pod="home_decor",
++                         forms=["rectangle_throw"], cycle=0)
++    assert plan["commerce"]["replication"]["winner"] == cir.slug
++    briefs = [ideation.constraints_text(plan, i)[0] for i in range(6)]
++    # The study's capacity share of the calls carry the adjacent-experiment constraint, and
++    # (#233) the empty ladder rungs reach the briefs too.
++    assert 0 < sum("replication study of" in b for b in briefs) < len(briefs)
++    assert any("value ladder:" in b for b in briefs)
++    # #252: repeat windows per first-purchase cohort and lifetime contribution per buyer.
++    assert f"first_product={cir.slug}" in r["repeat"]["windows"]
++    assert r["repeat"]["lifetime_contribution_per_buyer_cad"][f"first_product={cir.slug}"] > 0
++    # #256: the referral outcome is measured from the rows (nobody was referred) and every
++    # declared mechanic is checked against the measured contribution per buyer: the free
++    # mechanics may run, and a credit is refused if it exceeds 30% of that contribution.
++    assert r["referral"]["outcome"]["measurable"] is True
++    assert r["referral"]["outcome"]["attributed_customers"] == 0
++    checks = {c["mechanic"]: c for c in r["referral"]["mechanics"]}
++    assert set(checks) == {"show_your_make", "share_the_pattern", "first_purchase_credit"}
++    assert "show_your_make" in r["referral"]["may_run"]
++    assert checks["first_purchase_credit"]["ok"] is (1.0 <= ltv * 0.30)
++    # #271: the marketplace loop's orders and contribution came from the orders.
++    with db.session() as s:
++        etsy = s.scalar(select(GrowthLoop).where(GrowthLoop.key == "etsy_organic"))
++        assert etsy.orders == 43 and etsy.contribution_cad > 0
++    # #233: the catalogue on rungs, and #234: pairs from product facts.
++    assert r["ladder"]["reading"] == "measured" and r["ladder"]["products"]
++    assert "considered" in r["bundles"]
++    # #49: reserves from the ledger's 30 days.
++    with db.session() as s:
++        since = NOW - timedelta(days=30)
++        gross = sum(x.gross_cad - x.refunds_cad for x in s.scalars(
++            select(LedgerEntry).where(LedgerEntry.category == "sale"))
++            if (x.at if x.at.tzinfo else x.at.replace(tzinfo=timezone.utc)) >= since)
++    assert abs(r["reinvestment"]["gross_cad_30d"] - round(gross, 2)) < 0.01
++    assert r["reinvestment"]["recommendation"]["owner_approval_required"] is True
++
++
++def test_reinvestment_raises_an_owner_action_when_the_envelope_is_non_zero():
++    """#49: reserves from the ledger; a non-zero recommendation is an owner action."""
++    from brambleloop.scale import confidence
++
++    db = _db()
++    with db.session() as s:
++        s.add(LedgerEntry(category="sale", gross_cad=5000.0, evidence_ref="etsy:9:90",
++                          at=NOW - timedelta(days=2)))
++    # Today the modelled confidence is 0.0, so the envelope is spare and nothing is
++    # recommended -- the honest reading.
++    _run(db, "cfo", "commerce.order_readings")
++    first = order_readings.latest(db)["reinvestment"]
++    assert first["recommendation"]["envelope"]["envelope_cad"] > 0
++    assert first["recommendation"]["recommended_cad"] == 0 and first["owner_action"] is None
++    # When the confidence ladder reads above zero, the same job raises the owner action.
++    original = confidence.probability
++    confidence.probability = lambda _db, **_k: {"probability": 0.5}
++    try:
++        _run(db, "cfo", "commerce.order_readings")
++    finally:
++        confidence.probability = original
++    got = order_readings.latest(db)["reinvestment"]
++    with db.session() as s:
++        action = s.scalar(select(OwnerAction).where(
++            OwnerAction.requirement_key == got["owner_action"]))
++    assert got["recommendation"]["recommended_cad"] > 0
++    assert action is not None and action.max_cost_cad == got["recommendation"]["recommended_cad"]
++
++
++def test_portfolio_review_reads_exposure_and_consults_offers_before_retiring():
++    """#47 and #13 in the running review."""
++    db, cir, _ = _ingested()
++    period = (date.today() - timedelta(days=7)).isoformat()
++    with db.session() as s:
++        from brambleloop.core.models import Product
++
++        s.add(Product(slug="harvest-table-runner", title="C", status="certified"))
++        s.add(ListingOutcome(product_slug="harvest-table-runner", period_start=period,
++                             period_end=date.today().isoformat(), impressions=2000,
++                             visits=80, favourites=1, orders=0, source="test"))
++    # The runner's single order was refunded above; make its exposure the only evidence.
++    with db.session() as s:
++        for o in s.scalars(select(Order).where(Order.product_slug == "harvest-table-runner")):
++            o.refunded = True
++    out = _run(db, "orchestrator", "portfolio.review")
++    got = _audit(db, "portfolio.reviewed")
++    guard = {g["slug"]: g for g in got["offer_guard"]}
++    assert "harvest-table-runner" in guard
++    assert guard["harvest-table-runner"]["label"] == "APPEAL_PROBLEM"
++    assert guard["harvest-table-runner"]["may_retire"] is False
++    assert got["exposure_read"]["listing_outcomes"] >= 1
++    with db.session() as s:
++        from brambleloop.core.models import PortfolioReview
++
++        review = s.scalar(select(PortfolioReview).order_by(PortfolioReview.id.desc()))
++        assert any("harvest-table-runner" in a and "#13" in a for a in review.actions)
++    del out
++
++
++def test_a_correcting_version_prepares_the_notice_for_its_buyers():
++    """#42: gate.certify of a newer version finds the buyers of the older one."""
++    import dataclasses
++
++    db, cir, _ = _ingested()
++    corrected = dataclasses.replace(cir, version="1.0.1")
++    _certify(db, corrected)
++    with db.session() as s:
++        rows = list(s.scalars(select(OrderVersion).where(
++            OrderVersion.product_slug == cir.slug)))
++        action = s.scalar(select(OwnerAction).where(
++            OwnerAction.requirement_key == f"correction_notice:{cir.slug}@1.0.1"))
++    assert rows and all(r.current_safe_version == "1.0.1" for r in rows)
++    assert all((r.detail or {}).get("correction_notice", {}).get("sent") is False for r in rows)
++    assert action is not None and "40 buyer" in action.action
++    got = _audit(db, "buyer_trust.correction_prepared")
++    assert got["affected_count"] == 40
++
++
++def test_pricing_decides_on_net_contribution_with_currency_normalised():
++    """#269: measured price points and the net floor decide; the handler reads the orders."""
++    points = [{"price_cad": 8.0, "visits": 400, "contribution_cad": 60.0},
++              {"price_cad": 11.0, "visits": 400, "contribution_cad": 40.0}]
++    d = pricing.decide_price("x", category_band_cad=(6.0, 14.0), proposed_cad=11.0,
++                             price_points=points, foreign_share=0.5)
++    assert d.price_cad == 8.0 and any("contribution per visitor" in r for r in d.reasons)
++    assert d.net_contribution["foreign_share"]["value"] == 0.5
++    assert d.net_contribution["fees"]["currency_conversion"] > 0
++    low = pricing.decide_price("y", category_band_cad=(0.5, 14.0), proposed_cad=0.5)
++    assert low.net_contribution["net_contribution"]["amount"] >= pricing.MIN_NET_CONTRIBUTION_CAD
++    db, cir, _ = _ingested()
++    from brambleloop.runtime import release
++
++    inputs = release._pricing_net_inputs(db, cir.slug)
++    assert inputs["foreign_share"] is not None and 0 < inputs["foreign_share"] < 1
++
++
++def test_promotion_verdicts_reach_pricing():
++    """#235: a promotion measured against a full-price arm; a loser is not repeated."""
++    db = _db()
++    today = date.today()
++    with db.session() as s:
++        s.add(Cohort(key="o1", product_slug="p", arm="organic", visits=1000, orders=30,
++                     revenue_cad=360.0))
++        s.add(Cohort(key="p1", product_slug="p", arm="promoted", visits=1000, orders=31,
++                     revenue_cad=260.0))
++        s.add(PriceObservation(product_slug="p", price_cad=8.4, on_sale=True,
++                               regular_price_cad=12.0,
++                               from_date=(today - timedelta(days=10)).isoformat(),
++                               to_date=today.isoformat()))
++    got = order_readings.promotion_block(db)
++    assert got["reading"] == "measured"
++    assert "p" in got["do_not_repeat"]
++
++
++def test_trajectory_runs_nightly_from_the_database():
++    """#26: observed terms from the rows; a changed binding constraint re-plans capacity."""
++    db = _db()
++    _run(db, "orchestrator", "scale.trajectory",
++         {"as_of": (date.today() - timedelta(days=1)).isoformat()})
++    first = _audit(db, "scale.trajectory")
++    assert first["kind"] == "assumption_space" and first["probability"] is None
++    assert "listing_count" in first["observed_terms"]
++    # Exposure and orders arrive; the funnel becomes identifiable and the constraint changes.
++    db2, cir, _ = _ingested()
++    _run(db2, "orchestrator", "scale.trajectory",
++         {"as_of": (date.today() - timedelta(days=1)).isoformat()})
++    with db2.session() as s:
++        s.add(ListingOutcome(product_slug=cir.slug, period_start=date.today().isoformat(),
++                             period_end=date.today().isoformat(), impressions=20000,
++                             visits=900, favourites=40, orders=40, source="test"))
++    _run(db2, "orchestrator", "scale.trajectory", {"as_of": date.today().isoformat()})
++    got = _audit(db2, "scale.trajectory")
++    assert {"ctr", "conversion", "aov_cad", "qualified_traffic"} <= set(got["observed_terms"])
++    assert got["constraint_changed"] and got["previous_constraint"] == "UNMEASURED"
++    with db2.session() as s:
++        assert s.scalar(select(Job).where(Job.job_type == "ops.capacity")) is not None
++    with db2.session() as s:
++        stored = s.scalar(select(func.count(OperatingReading.id)).where(
++            OperatingReading.kind == "scale.trajectory"))
++    assert stored == 2
++
++
++def test_north_star_is_computed_by_cohort_and_a_regression_is_a_defect():
++    """#104 #132: the four computable metrics by monthly cohort, from rows, never {}."""
++    db = _db()
++    months = [NOW - timedelta(days=70), NOW - timedelta(days=5)]
++    for at, novelty, survived in ((months[0], 0.50, 6), (months[1], 0.20, 2)):
++        with db.session() as s:
++            s.add(AuditLog(actor="creative_director", action="creative.tournament", at=at,
++                           detail={"field": {"generated": 10},
++                                   "survivors": [{"key": f"k{i}"} for i in range(survived)],
++                                   "research_survivors": [{"key": "k", "novelty_distance":
++                                                           novelty}]}))
++    _run(db, "creative_director", "creative.north_star")
++    got = _audit(db, "creative.north_star")
++    assert got["answerable"] is True and len(got["cohorts"]) == 2
++    assert set(got["regressing"]) >= {"novelty_distance", "concept_to_engineering_survival"}
++    assert got["incident"] == "opened"
++    with db.session() as s:
++        inc = s.scalar(select(Incident).where(
++            Incident.signature == "creative.north_star_regression"))
++        assert inc is not None and not inc.halts_publication
++
++
++def test_bundle_pairs_come_from_certified_product_facts():
++    """#234: combination identification needs no customers; it runs on the catalogue."""
++    from brambleloop.products.builder import for_slug
++
++    db = _db()
++    for slug in ("autumn-oak-mosaic-throw", "harvest-table-runner", "cloudline-baby-blanket"):
++        _certify(db, for_slug(slug))
++    _run(db, "cfo", "commerce.order_readings")
++    got = order_readings.latest(db)["bundles"]
++    assert got["reading"] == "measured" and got["considered"] == 3
++    pairs = [sorted(c["slugs"]) for c in got["candidates"]]
++    assert ["autumn-oak-mosaic-throw", "harvest-table-runner"] in pairs
++    assert not any("cloudline-baby-blanket" in p and "harvest-table-runner" in p
++                   for p in pairs)
++
++
++def test_the_route_reads_the_database_not_an_empty_dict():
++    src = (ROOT / "src/brambleloop/app/main.py").read_text()
++    assert "north_star({})" not in src and "trajectory.nightly(None)" not in src
++
++
++def test_new_modules_are_reached_from_the_runtime():
++    reachability.reachable.cache_clear()
++    reachability._references.cache_clear()
++    for rel in ("commerce/orders_ingest.py", "commerce/order_readings.py",
++                "commerce/offers.py", "commerce/replication.py", "finance/reinvestment.py",
++                "commerce/ladder.py", "commerce/bundles.py", "commerce/promotion.py",
++                "commerce/repeat.py", "commerce/referral.py", "growth/loops.py",
++                "scale/trajectory.py", "commerce/cohorts.py", "runtime/orders.py"):
++        v = reachability.reached(rel)
++        assert v["reached"], v
++
++
++if __name__ == "__main__":
++    fails = 0
++    for name, fn in sorted(globals().items()):
++        if name.startswith("test_"):
++            try:
++                fn()
++                print("OK  ", name)
++            except Exception as e:  # noqa: BLE001
++                import traceback
++
++                traceback.print_exc()
++                fails += 1
++                print("FAIL", name, repr(e))
++    print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
++    sys.exit(1 if fails else 0)
+-- 
+2.43.0
+
