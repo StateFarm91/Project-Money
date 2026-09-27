@@ -313,6 +313,89 @@ def record_reading(db, listing_ref: str, reading: dict, *, benchmark_key: str = 
     return got.observation_id
 
 
+DECOMPOSITION_KIND = "creative.reference_decomposition"
+READS_PER_RUN = 6
+
+
+def run(db, *, provider=None, env: dict | None = None, today=None,
+        reads: int = READS_PER_RUN) -> dict:
+    """The runtime half of #116 and #278: read, record, decompose, store.
+
+    Gated on `image_vision` exactly as the gallery drain is -- no vision probe, no read, and
+    the refusal is returned rather than a reading guessed. Otherwise: listings whose gallery
+    has judged observations and no construction reading get one (`read_listing` on the first
+    gallery image, `record_reading`), and every department with enough evidence has its
+    decomposition *stored* -- an `OperatingReading` per pod -- which is what ideation reads,
+    so the decomposition is a record rather than something recomputed at read time.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing, OperatingReading
+    from ..gateway import anthropic as gw
+    from ..intel import benchmarks, vision
+
+    today = today or datetime.now(timezone.utc).date()
+    if provider is None and not gw.vision_usable(db):
+        return {"ran": False, "reason": ("image_vision is closed: no vision probe has "
+                                         "succeeded, so no competitor image is read and no "
+                                         "decomposition is guessed")}
+    key = benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = [(r.listing_ref, r.pod, list((r.detail or {}).get("image_urls") or []))
+                for r in s.scalars(select(BenchmarkListing).where(
+                    BenchmarkListing.benchmark_key == key,
+                    BenchmarkListing.audit_state != "withdrawn"))]
+    read, failed = [], []
+    for ref, _pod, urls in rows:
+        if len(read) >= reads:
+            break
+        if not urls or not vision.observations_for(db, ref, benchmark_key=key):
+            continue
+        if _stored_readings(db, ref, key):
+            continue
+        try:
+            reading = read_listing(urls[0], db=db, provider=provider)
+            record_reading(db, ref, reading, benchmark_key=key, image_key=urls[0][-64:],
+                           env=env)
+            read.append(ref)
+        except Exception as exc:  # noqa: BLE001 - one unreadable image is skipped, not faked
+            failed.append({"listing_ref": ref, "why": f"{type(exc).__name__}: {exc}"[:200]})
+    stored = []
+    for pod in sorted({p for _r, p, _u in rows if p}):
+        b = brief(db, pod, benchmark_key=key)
+        if not b.get("usable"):
+            continue
+        payload = {"as_of": today.isoformat(), "pod": pod,
+                   "primitives": b["primitives"], "absent": b["absent"],
+                   "listings_with_evidence": b["listings_with_evidence"]}
+        with db.session() as s:
+            row = s.scalar(select(OperatingReading).where(
+                OperatingReading.kind == DECOMPOSITION_KIND,
+                OperatingReading.period_key == pod[:20]))
+            if row is None:
+                s.add(OperatingReading(kind=DECOMPOSITION_KIND, period_key=pod[:20],
+                                       payload=payload))
+            else:
+                row.payload = payload
+        stored.append(pod)
+    return {"ran": True, "read": read, "failed": failed, "decompositions_stored": stored}
+
+
+def stored_decomposition(db, pod: str) -> dict | None:
+    """The newest stored decomposition for a department, or None (#116)."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == DECOMPOSITION_KIND,
+            OperatingReading.period_key == pod[:20]))
+        return dict(row.payload or {}) if row is not None else None
+
+
 def state() -> dict:
     """What may be learned from a competitor's photograph, and what may never be."""
     return {

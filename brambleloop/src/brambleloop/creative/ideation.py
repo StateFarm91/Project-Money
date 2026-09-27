@@ -116,10 +116,17 @@ def lessons(db, *, kind: str, event: str, pod: str) -> dict:
 
     memory = brief_lessons(db, artifact=f"ideation:{kind}:{event}/{pod}")
     ref = {"usable": False, "reason": "not read"}
-    try:
-        ref = reference.brief(db, pod)
-    except Exception as e:  # noqa: BLE001 - a missing reference is reported, not fatal
-        ref = {"usable": False, "reason": f"{type(e).__name__}: {e}"[:200]}
+    # #116: the stored decomposition first -- the record the reference cadence wrote -- and
+    # the live computation only where none is stored yet.
+    stored = reference.stored_decomposition(db, pod)
+    if stored and stored.get("primitives"):
+        ref = {"usable": True, "primitives": stored["primitives"],
+               "reason": f"stored decomposition of {stored.get('as_of')}"}
+    else:
+        try:
+            ref = reference.brief(db, pod)
+        except Exception as e:  # noqa: BLE001 - a missing reference is reported, not fatal
+            ref = {"usable": False, "reason": f"{type(e).__name__}: {e}"[:200]}
     return {
         "lesson_ids": list(memory["lesson_ids"]),
         "lessons_available": len(memory["lessons"]),

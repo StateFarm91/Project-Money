@@ -1556,6 +1556,24 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
     return out
 
 
+@handlers.register("creative.reference_reading")
+def handle_reference_reading(ctx: JobContext) -> dict:
+    """#116 / #278: construction readings recorded and department decompositions stored.
+
+    Daily. Refused, with the reason, while image_vision is closed; otherwise reads a bounded
+    batch of judged listings' first images inside the creative_director ceiling, records each
+    reading, and stores each department's decomposition for ideation to read.
+    """
+    import os
+
+    from ..creative import reference
+
+    out = reference.run(ctx.db, env=dict(os.environ), today=_mjs_today(ctx))
+    ctx.audit("creative.reference_reading" if out["ran"] else
+              "creative.reference_reading_blocked", detail=out)
+    return out
+
+
 @handlers.register("visual.identity_drift")
 def handle_identity_drift(ctx: JobContext) -> dict:
     """#201: the canonical model's identity checked across batches and over time, daily.
