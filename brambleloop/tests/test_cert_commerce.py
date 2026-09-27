@@ -325,6 +325,17 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     parity = Spy(pipeline, "_listing_parity",
                  replacement=lambda ctx: {"verdict": "pass", "blocks_release": False,
                                           "why": "forced by cert harness", "dimensions": {}})
+    # The gates added after parity (the #126 search grid and the release-chain gates) are
+    # forced the same way parity is: each is proven to block in its own certification file
+    # (test_cert_publish_gates), and what this file tests is the path behind them -- the
+    # PDF hash check and the upload. Forcing only parity would make these tests measure
+    # whether a grid tournament has been judged, which nothing here is about.
+    from brambleloop.creative import preengineering
+    grid = Spy(preengineering, "release_grid_verdict",
+               replacement=lambda db, slug: {"cleared": True, "why": "forced by cert harness"})
+    gates = Spy(pipeline, "_release_gates",
+                replacement=lambda ctx: {"blocks_release": False, "reasons": [],
+                                         "forced": "cert harness"})
     render = Spy(pdf_mod, "build_pattern_pdf", replacement=render_patch) if render_patch else None
     # Earlier publish attempts in this file failed into retry backoff; once their backoff
     # elapses the worker would claim one of them instead of this job. Park them.
@@ -344,6 +355,8 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     finally:
         etsy.EtsyClient, etsy.Credentials.from_env = orig_client, orig_creds
         parity.restore()
+        grid.restore()
+        gates.restore()
         if render:
             render.restore()
         for name in injected:
