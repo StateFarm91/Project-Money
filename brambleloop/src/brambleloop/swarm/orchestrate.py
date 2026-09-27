@@ -726,6 +726,33 @@ def allocate(db, *, now: datetime | None = None,
     for _id, agent, _t, _st in open_jobs:
         depth[agent] = depth.get(agent, 0) + 1
 
+    # C-68 (#175): the allocation reads category, season, opportunity value and bottleneck,
+    # not only queue depth and budget. Category is the agent's #30 function; season is open
+    # work in the seasonal-deadline (or more urgent) bands, which is deadline pressure for
+    # `fan_out`; opportunity value is open work in the proven-winner band or better; the
+    # bottleneck is the function the latest capacity reading tilted toward.
+    from .capacity import function_of, latest_mix
+
+    mix = latest_mix(db, now=now)
+    bottleneck = None
+    with db.session() as s:
+        from sqlalchemy import desc, select as _select
+
+        from ..core.models import AuditLog as _Audit
+
+        cap = s.scalar(_select(_Audit).where(_Audit.action == "ops.capacity")
+                       .order_by(desc(_Audit.id)).limit(1))
+        if cap is not None:
+            bottleneck = (cap.detail or {}).get("tilted_toward")
+    pressure: dict[str, bool] = {}
+    valuable: dict[str, int] = {}
+    for _id, agent_name, jt, _st in open_jobs:
+        band = band_for(jt)["band"]
+        if band <= BAND_BY_KIND["seasonal_deadline"]:
+            pressure[agent_name] = True
+        if band <= BAND_BY_KIND["proven_winner"]:
+            valuable[agent_name] = valuable.get(agent_name, 0) + 1
+
     lanes: dict[str, dict] = {}
     for agent in Registry(db).all():
         if not agent.enabled:
@@ -735,14 +762,28 @@ def allocate(db, *, now: datetime | None = None,
                               period_seconds=period_seconds,
                               unit_cost_cad=LANE_UNIT_COST_CAD, now=now)
         fo = fan_out(open_work=pending, budget_remaining_cad=fits["cad_available_now"],
-                     cost_per_specialist_cad=LANE_UNIT_COST_CAD)
+                     cost_per_specialist_cad=LANE_UNIT_COST_CAD,
+                     deadline_pressure=pressure.get(agent.name, False))
+        function = function_of(agent.name)
+        granted = fo["granted"]
+        affordable = fo["affordable"]
+        boosts = []
+        if pending and bottleneck and function == bottleneck:
+            granted, boosts = granted + 1, boosts + [f"bottleneck function {bottleneck}"]
+        if pending and valuable.get(agent.name):
+            granted, boosts = granted + 1, boosts + [
+                f"{valuable[agent.name]} open job(s) at proven-winner value or above"]
+        granted = min(granted, affordable) if pending else fo["granted"]
         lanes[agent.name] = {
-            "open_work": pending, "wanted": fo["wanted"], "granted": fo["granted"],
+            "open_work": pending, "wanted": fo["wanted"], "granted": granted,
             "bounded_by": fo["bounded_by"], "binding_ceiling": fits["binding_ceiling"],
             "cad_available_now": fits["cad_available_now"],
-            "batch": min(pending, fo["granted"] * WORK_PER_SPECIALIST) if pending else 0,
-            "active": fo["granted"] > 0,
+            "batch": min(pending, granted * WORK_PER_SPECIALIST) if pending else 0,
+            "active": granted > 0,
             "green": agent.authority == Authority.GREEN,
+            "function": function, "target_share": mix["mix"].get(function),
+            "deadline_pressure": pressure.get(agent.name, False),
+            "value_open": valuable.get(agent.name, 0), "boosts": boosts,
         }
         # #302: the benchmark mission's lane holds a reserved floor generic research cannot
         # draw below. Sized for the reserve plus the generic draw and bounded only by what
@@ -775,6 +816,7 @@ def allocate(db, *, now: datetime | None = None,
         "backlog_batch": backlog_batch, "backlog_lanes": backlog_lanes,
         "mjs_reserve": (lanes.get(mission_capacity.MISSION_AGENT) or {}).get("mjs_reserve"),
         "spend_increase_cad": 0.0,
+        "mix": mix, "bottleneck": bottleneck,
         "note": ("Allocation reads existing ceilings and never raises one. An inactive lane "
                  "is one whose ceiling has no room for another run; the standing backlog "
                  "does not feed it (#175)."),
@@ -786,6 +828,13 @@ def allocate(db, *, now: datetime | None = None,
         s.add(row)
         s.flush()
         record["allocation_id"] = row.id
+    # #175: what the runner activates from this allocation, recorded beside it.
+    from .capacity import worker_target
+
+    record["workers"] = worker_target(db, now=now)
+    with db.session() as s:
+        row = s.get(SwarmAllocation, record["allocation_id"])
+        row.detail = {**dict(row.detail or {}), "workers": record["workers"]}
     return record
 
 
@@ -890,6 +939,14 @@ def lane_concurrency(db, agent: str, *, now: datetime | None = None) -> dict:
         limit = MIN_SPECIALISTS
         why += (". The governor found added workers only duplicated work "
                 f"({advice.get('why')}), so the lane runs one job at a time")
+    elif advice and advice.get("advice") == "scale_up":
+        # #188: parallelism is scaled *up* when it materially improved throughput, bounded
+        # by the worker pool that exists -- a limit above the pool would be a number only.
+        from .capacity import worker_threads
+
+        limit = min(max(limit, MIN_SPECIALISTS) + 1, max(worker_threads(), limit))
+        why += (". The governor found added workers raised throughput "
+                f"({advice.get('why')}), so the lane may run one more at once")
     return {"known": True, "limit": limit, "granted": granted,
             "allocation_id": alloc["allocation_id"],
             "parallelism": (advice or {}).get("advice"), "why": why}
@@ -954,7 +1011,14 @@ def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
     now = now or datetime.now(timezone.utc)
     decision = claim_decision(db, job.agent, job_type=job.job_type, job_id=job.id, now=now)
     if decision["may_claim"]:
-        return False
+        # C-68 (#5, #30): the function mix and the production-lane split, at the same claim.
+        from .capacity import share_decision
+
+        share = share_decision(db, job, now=now, exempt=LANE_EXEMPT_PREFIXES)
+        if not share["hold"]:
+            return False
+        decision = {**decision, "may_claim": False, "why": share["why"],
+                    "hold_kind": share.get("kind"), "share": share}
     values = {"status": JobStatus.PENDING, "leased_by": None, "lease_expires_at": None,
               "attempts": Job.attempts - 1,
               "run_after": now + timedelta(seconds=LANE_HOLD_SECONDS)}
@@ -970,6 +1034,8 @@ def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
         s.add(AuditLog(actor="swarm_steward", action=LANE_HELD_ACTION,
                        artifact=job.job_type, job_id=job.id,
                        detail={"agent": job.agent, "worker": worker,
+                               "hold_kind": decision.get("hold_kind") or "agent_lane",
+                               "share": decision.get("share"),
                                "running": decision.get("running"),
                                "limit": decision.get("limit"),
                                "allocation_id": (decision.get("lane") or {}).get(

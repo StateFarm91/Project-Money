@@ -553,6 +553,22 @@ def state() -> dict:
     }
 
 
+def _sizes_of(cir_json: dict) -> int:
+    """Finished sizes a certified release carries, read from its stored CIR.
+
+    A graded release records its sizes (`sizes` / `graded_sizes`, a list, or `grading` with a
+    `sizes` list); an ungraded one is one size, which is what it is -- not a default that
+    happens to be one."""
+    for key in ("sizes", "graded_sizes"):
+        v = cir_json.get(key)
+        if isinstance(v, (list, tuple)) and v:
+            return len(v)
+    grading = cir_json.get("grading")
+    if isinstance(grading, dict) and isinstance(grading.get("sizes"), (list, tuple)):
+        return max(1, len(grading["sizes"]))
+    return 1
+
+
 def route_certified(db, *, today=None) -> dict:
     """Route every certified release to its queue and check it kept every gate (#5).
 
@@ -582,10 +598,20 @@ def route_certified(db, *, today=None) -> dict:
                     .order_by(PatternVersion.id))]
 
     seeds = {seed.slug: seed for seed in POOL}
+    certified_slugs = {slug for slug, *_rest in rows}
+    # C-68 (#5): a collection is its family's certified members, counted from the database,
+    # not `pattern_count=1`: a family of three certified patterns is the flagship collection
+    # path, and a family still waiting on members is not one yet.
+    family_members: dict[str, int] = {}
+    for seed in POOL:
+        if seed.family and not seed.is_bundle and seed.slug in certified_slugs:
+            family_members[seed.family] = family_members.get(seed.family, 0) + 1
     latest: dict[str, tuple] = {}
     seen_stitches: set[str] = set()
     new_by_slug: dict[str, int] = {}
+    latest_json: dict[str, dict] = {}
     for slug, title, version, cir_json, cert in rows:
+        latest_json[slug] = cir_json if isinstance(cir_json, dict) else {}
         try:
             cir = CIR.from_dict(cir_json)
         except Exception:  # noqa: BLE001 - an unreadable stored CIR is reported, not routed
@@ -616,7 +642,9 @@ def route_certified(db, *, today=None) -> dict:
             slug=slug, pod=pod_for(slug, title), make_lane=make_lane_for_hours(seed.maker_hours),
             risk_class=cir.risk_class, components=len(cir.components),
             colours=max(1, len(cir.colors)), new_techniques=new_by_slug.get(slug, 0),
-            sizes=1, pattern_count=1, closed_form=cir.makes_a_closed_form,
+            sizes=_sizes_of(latest_json.get(slug) or {}),
+            pattern_count=max(1, family_members.get(seed.family or "", 0)),
+            closed_form=cir.makes_a_closed_form,
             # Every product in this chain is certified for a listing: gate.certify always
             # checks the listing draft and the hero asset, so both gates are owed.
             has_listing=True)
@@ -636,6 +664,8 @@ def route_certified(db, *, today=None) -> dict:
             release = {"ok": False, "why": str(exc)}
         cards.append({**base, **card, "routed": card["lane"] is not None,
                       "profile": {"pod": profile.pod, "make_lane": profile.make_lane,
+                                  "sizes": profile.sizes,
+                                  "pattern_count": profile.pattern_count,
                                   "risk_class": profile.risk_class,
                                   "components": profile.components,
                                   "colours": profile.colours,

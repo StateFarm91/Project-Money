@@ -78,7 +78,28 @@ DETAIL_KEY_FOR: dict[str, str] = {"product": "product", "department": "departmen
 # column and no `detail["experiment"]` writer -- so the dimension reports that it has no
 # writer rather than reporting 100% unattributed, which reads like sloppiness about money
 # that was in fact never tagged because nothing can tag it.
-NO_WRITER: frozenset[str] = frozenset({"experiment"})
+#
+# Certification C-68 (#188): the experiment dimension now has a reader of real data rather
+# than a label saying it has none. A cost row's experiment is, in order: `detail["experiment"]`
+# where a writer put one; else the spending job's own `inputs["experiment"]` (a job enqueued
+# for a registered experiment carries it); else, for work in the swarm's `exploration` band --
+# "learning with no committed value", which is what an experiment is -- the job type that ran
+# it. Spend on committed work stays unattributed on this dimension, and says so.
+NO_WRITER: frozenset[str] = frozenset()
+
+
+def _experiment_of(job) -> str:
+    """The experiment a spending job belongs to, from its inputs or its band."""
+    if job is None:
+        return ""
+    inputs = job.inputs if isinstance(job.inputs, dict) else {}
+    tagged = str(inputs.get("experiment") or inputs.get("experiment_id") or "").strip()
+    if tagged:
+        return tagged
+    from ..swarm.orchestrate import band_for
+
+    return (f"exploration:{job.job_type}"
+            if band_for(job.job_type)["kind"] == "exploration" else "")
 
 # Days of history before a spike means anything. Two weeks is the smallest window in which a
 # weekday effect and a weekend both appear.
@@ -110,7 +131,9 @@ def _rows(db, *, days: int, now: datetime | None = None):
     job_types = {}
     ids = [e.job_id for e in entries if e.job_id]
     if ids:
-        job_types = {j.id: j.job_type for j in db.scalars(select(Job).where(Job.id.in_(ids)))}
+        jobs = list(db.scalars(select(Job).where(Job.id.in_(ids))))
+        job_types = {j.id: j.job_type for j in jobs}
+        job_types.update({("experiment", j.id): _experiment_of(j) for j in jobs})
     return entries, job_types
 
 
@@ -136,6 +159,8 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
             key = str(getattr(entry, column, "") or "").strip() if column else ""
             if not key:
                 key = str(detail.get(DETAIL_KEY_FOR.get(dimension, dimension)) or "").strip()
+            if not key and dimension == "experiment":
+                key = job_types.get(("experiment", entry.job_id or -1), "")
         amount = float(entry.amount_cad or 0.0)
         if key:
             buckets[key] = buckets.get(key, 0.0) + amount
@@ -152,6 +177,9 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
     read_from = ("the job that spent it" if dimension == "task"
                  else f"CostEntry.{COLUMN_FOR[dimension]}, falling back to detail"
                  if dimension in COLUMN_FOR
+                 else ("detail['experiment'], else the spending job's inputs['experiment'], "
+                       "else its exploration-band job type")
+                 if dimension == "experiment"
                  else f"detail[{DETAIL_KEY_FOR.get(dimension, dimension)!r}]")
     out = {
         "dimension": dimension,

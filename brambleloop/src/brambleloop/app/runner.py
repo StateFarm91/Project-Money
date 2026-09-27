@@ -59,6 +59,9 @@ class RunnerState:
     scheduler_last_tick: datetime | None = None
     scheduler_last_enqueued: list[str] = field(default_factory=list)
     last_error: str = ""
+    worker_pool: int = 1
+    worker_target: int = 1
+    worker_target_why: str = ""
 
     def to_dict(self) -> dict:
         def iso(d: datetime | None) -> str | None:
@@ -79,6 +82,9 @@ class RunnerState:
             "scheduler_last_tick": iso(self.scheduler_last_tick),
             "scheduler_last_enqueued": list(self.scheduler_last_enqueued),
             "last_error": self.last_error,
+            "worker_pool": self.worker_pool,
+            "worker_target": self.worker_target,
+            "worker_target_why": self.worker_target_why,
             # Measured here because this is the process that owns the disk. A health sweep
             # reading its own filesystem measures whichever machine is answering the
             # request, which in a split deployment is not the container doing the work.
@@ -133,21 +139,58 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event) -> None:
+# C-68 (#175): how often a pool worker re-reads whether it is one of the active workers.
+_TARGET_REFRESH_SECONDS = float(os.environ.get("BRAMBLELOOP_WORKER_TARGET_REFRESH", "30"))
+
+
+class _Target:
+    """The number of pool workers the latest allocation activates, re-read periodically."""
+
+    def __init__(self, db: Database, pool: int):
+        self.db, self.pool = db, pool
+        self.value, self.read_at, self.why = 1, 0.0, "not yet read"
+        self._lock = threading.Lock()
+
+    def get(self) -> int:
+        with self._lock:
+            if time.monotonic() - self.read_at >= _TARGET_REFRESH_SECONDS:
+                self.read_at = time.monotonic()
+                try:
+                    from ..swarm.capacity import worker_target
+
+                    t = worker_target(self.db, pool=self.pool)
+                    self.value, self.why = int(t["target"]), t["why"]
+                except Exception as exc:  # noqa: BLE001 - never stop the pool over a read
+                    self.value, self.why = 1, f"target unreadable: {type(exc).__name__}"
+                STATE.worker_target = self.value
+                STATE.worker_target_why = self.why
+            return self.value
+
+
+def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
+                 index: int = 0, target: "_Target | None" = None) -> None:
     """Claim and run jobs until told to stop.
 
     Wrapped in its own restart loop. An unhandled exception escaping the worker must not
     silently leave the container serving HTTP with nothing processing the queue -- that is the
     failure mode where the dashboard looks healthy and the company has quietly stopped.
+
+    One of a pool (C-68, #175): worker `index` claims only while it is among the active
+    workers the latest allocation justifies (`swarm.capacity.worker_target`). Worker 0 is
+    always active, so a quiet period runs one worker and nothing ever runs none.
     """
-    STATE.worker_name = name
-    STATE.worker_started_at = _now()
+    if index == 0:
+        STATE.worker_name = name
+        STATE.worker_started_at = _now()
     if _START_DELAY > 0 and stop.wait(_START_DELAY):
         return
     while not stop.is_set():
         try:
             worker = Worker(db, name, phase=phase)
             while not stop.is_set():
+                if index > 0 and target is not None and index >= target.get():
+                    stop.wait(_IDLE_SLEEP * 5)      # dormant: the allocation does not need it
+                    continue
                 did_work = worker.run_once()
                 STATE.worker_last_tick = _now()
                 if not did_work:
@@ -187,13 +230,19 @@ def start(db: Database) -> RunnerState:
     phase = Phase(os.environ.get("BRAMBLELOOP_PHASE", "shadow"))
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"web-{os.getpid()}"
     STATE.enabled = True
-    for target, args in ((_worker_loop, (db, name, phase, _stop)),
-                         (_scheduler_loop, (db, _stop))):
+    from ..swarm.capacity import worker_threads
+
+    pool = worker_threads()
+    STATE.worker_pool = pool
+    shared = _Target(db, pool)
+    loops = [(_worker_loop, (db, name if i == 0 else f"{name}-w{i}", phase, _stop, i, shared))
+             for i in range(pool)]
+    for i, (target, args) in enumerate(loops + [(_scheduler_loop, (db, _stop))]):
         t = threading.Thread(target=target, args=args, daemon=True,
-                             name=f"brambleloop-{target.__name__}")
+                             name=f"brambleloop-{target.__name__}-{i}")
         t.start()
         _threads.append(t)
-    log.info("embedded runner started: worker=%s phase=%s", name, phase.value)
+    log.info("embedded runner started: worker=%s pool=%d phase=%s", name, pool, phase.value)
     return STATE
 
 

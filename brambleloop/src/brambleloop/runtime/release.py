@@ -4588,6 +4588,8 @@ def handle_lane_routing(ctx: JobContext) -> dict:
             if rows:
                 withdrawn.append(artifact)
 
+    lane_capacity = _lane_capacity(ctx, lanes)
+
     seeds = {seed.slug: seed for seed in POOL}
     demand_rows = []
     for card in routed["products"]:
@@ -4631,7 +4633,60 @@ def handle_lane_routing(ctx: JobContext) -> dict:
             "testing_demands": len(tester_plan["forecast"]["demands"]),
             "testing_late": len(tester_plan["forecast"]["late"]),
             "testers_assigned": len(tester_plan["assignments"]),
-            "testers_unassigned": len(tester_plan["unassigned"])}
+            "testers_unassigned": len(tester_plan["unassigned"]),
+            "lane_capacity": lane_capacity}
+
+
+# How far a starved production lane's queued engineering work is moved up, and the most it
+# may be moved above its own band in total: enough to be claimed first within its band's
+# neighbourhood, never enough to outrank a customer or a truth defect.
+LANE_STARVED_BOOST = 5
+
+
+def _lane_capacity(ctx: JobContext, lanes) -> dict:
+    """#5's two floors on making capacity, measured and acted on (C-68).
+
+    The split the claim enforces is `lanes.allocate` over the engineering workers the #30 mix
+    gives product/QA, recorded as `lanes.capacity` for `swarm.capacity.share_decision` to
+    read. The split actually run -- engineering job-seconds per lane over seven days -- is
+    checked against both floors with `lanes.check_mix`; a lane below its floor has its queued
+    engineering work moved up (bounded), so the next claims go to it. With nothing run yet
+    the measured split is UNMEASURED and nothing is moved.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+    from ..swarm import capacity as cap
+    from ..swarm.orchestrate import priority_for
+
+    budgets = cap.function_budgets(cap.latest_mix(ctx.db)["mix"], cap.worker_threads())
+    plan = lanes.allocate(float(budgets.get(cap.PRODUCT_QA, 1)))
+    split = cap.measured_lane_split(ctx.db)
+    verdict, starved, boosted = None, [], []
+    if split["shares"]:
+        measured = {lane: split["shares"].get(lane, 0.0) for lane in lanes.LANES}
+        verdict = lanes.check_mix(measured)
+        floors = {lanes.FAST: lanes.FAST_FLOOR, lanes.FLAGSHIP: lanes.FLAGSHIP_FLOOR}
+        starved = sorted(l for l in lanes.LANES if measured[l] < floors[l])
+    if starved:
+        with ctx.db.session() as s:
+            for job in s.scalars(select(Job).where(
+                    Job.status.in_((JobStatus.PENDING, JobStatus.FAILED)),
+                    Job.job_type.in_(sorted(cap.ENGINEERING_JOB_TYPES)))):
+                slug = str((job.inputs or {}).get("slug") or "")
+                if cap.product_lane(ctx.db, slug) not in starved:
+                    continue
+                floor = max(0, priority_for(job.job_type) - LANE_STARVED_BOOST)
+                if job.priority > floor:
+                    job.priority = max(floor, job.priority - LANE_STARVED_BOOST)
+                    boosted.append(job.id)
+    detail = {"shares": plan["shares"], "units": plan["units"],
+              "engineering_workers": budgets.get(cap.PRODUCT_QA, 1),
+              "measured": split, "mix_check": verdict,
+              "measured_status": "measured" if split["shares"] else "UNMEASURED",
+              "starved": starved, "boosted_jobs": boosted}
+    ctx.audit(cap.LANE_CAPACITY_ACTION, detail=detail)
+    return detail
 
 
 @handlers.register("intel.acceptance")
