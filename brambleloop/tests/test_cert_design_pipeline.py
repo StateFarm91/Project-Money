@@ -688,6 +688,121 @@ def test_launch_path_uses_observed_buyer_language_and_the_patterns_own_skill_293
                for w in seasonal)
 
 
+# ---- #279 / #282: seasonal transformations of the catalogue, derived and judged ----------
+
+
+def test_seasonal_transformations_are_derived_on_cadence_and_judged_by_the_funnel_279_282():
+    """#279: `seasonal.remerchandising` generates the object-changing brief from every
+    certified evergreen parent and derives its child; the next `creative.tournament` for
+    that event seeds the children into its field, and the funnel records what it did with
+    each -- here, at today's novelty floor, a motif-and-trim transformation of its own parent
+    dies at research as sameness, which is the honest verdict and is recorded by name."""
+    from test_cert_growth_seasonal import _certify
+
+    db = _db()
+    _stockings(db, pod="home_decor")
+    for slug in ("cottage-wall-hanging", "pet-snuggle-mat"):
+        _certify(db, slug)
+    out, _ = _handler(db, "seasonal.remerchandising", {}, agent="listing")
+    # Transformations are aimed at the soonest proven occasion a tournament can still reach.
+    event, season = out["transformations"]["event"], out["transformations"]["season"]
+    assert season and sorted(out["derived"]) == [
+        f"cottage-wall-hanging-{season}", f"pet-snuggle-mat-{season}"], out
+    from brambleloop.creative.prospecting import EVENT_OCCASION
+    from brambleloop.seasonal import remerchandising
+
+    children = remerchandising.derived_children(db, event=event, pod="home_decor")
+    assert sorted(c.key for c in children) == sorted(out["derived"])
+    assert all(c.provenance.startswith("transformed:")
+               and c.occasion == EVENT_OCCASION[event] for c in children)
+    assert remerchandising.derived_children(db, event=event, pod="garments") == []
+
+    # The tournament for that event (targeted the way the MJs sentinel targets one).
+    result, _asked = _handler(db, "creative.tournament", {
+        "lane": "breakthrough", "pod": "home_decor", "seasonal_target": event})
+    assert result["arena"] == f"{event}/home_decor", result
+    assert set(result["seeded"]) == set(out["derived"]), result["seeded"]
+    t = _rows(db, "creative.tournament")[-1][2]
+    research = next(r for r in t["funnel_rounds"] if r["stage"] == "research")
+    for key, fate in result["seeded"].items():
+        assert fate != "entered", (key, fate)
+        assert key in research["killed"] or key in research["survived"], (key, research)
+        if key in research["killed"]:
+            assert fate == f"killed at research: {research['killed'][key]}"
+    # A child the funnel did not carry to prototype is not engineerable: the winner intake
+    # rule (#3) and `cir.draft`'s funnel check apply to it exactly as to a generated concept.
+    assert not any(j.inputs.get("slug", "").endswith(f"-{season}")
+                   for j in _jobs(db, "cir.draft"))
+
+
+def test_a_held_winner_is_judged_the_day_its_board_and_a_vision_model_exist_88_277():
+    """The winner waits on `image_vision`. With no board and no vision model the cadence
+    names both; with a board filed for the design and a vision probe that succeeded, the
+    same cadence asks the judge, records `concept.judged` with the judge's name, and the
+    winner is re-presented and queued for engineering in that run."""
+    from brambleloop.gateway import anthropic as gw
+    from brambleloop.gateway import routing
+    from brambleloop.gateway.model_gateway import ModelResponse
+    from brambleloop.publish import owned_photography
+
+    db = _db()
+    _stockings(db)
+    _r, row = _tournament(db)
+    slug = row["concept"]["key"]
+    out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
+    held = [h for h in out["regated"]["held"] if h["slug"] == slug]
+    assert held and len(held[0]["waiting_on"]) == 2, out["regated"]
+    assert out["regated"]["vision_usable"] is False
+
+    board = "https://example.invalid/fixture-board.png"
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action=owned_photography.ACTION, detail={
+            "made": True, "slug": slug, "method_version": owned_photography.METHOD_VERSION,
+            "image_ref": board}))
+    out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
+    held = [h for h in out["regated"]["held"] if h["slug"] == slug]
+    assert held and held[0]["waiting_on"] == ["vision_model (no vision probe has succeeded)"]
+    assert not _rows(db, intake.JUDGED_ACTION)
+
+    judge_model = routing.route(intake.JUDGE_TASK)[1].model
+    calls: list = []
+
+    class FixtureJudge:
+        """A vision judge fixture: stands in for the model_provider, never a real call."""
+        model = judge_model
+        cost_per_1k_input_cad = 0.0
+        cost_per_1k_output_cad = 0.0
+
+        def see(self, system, prompt, urls, *, max_tokens):
+            calls.append(list(urls))
+            return ModelResponse(text='{"thumbnail_reads_small": true, "craft_impression": 4.4}',
+                                 provider="fixture", model=judge_model, input_tokens=10,
+                                 output_tokens=5, latency_ms=1.0)
+
+    with db.session() as s:
+        s.add(AuditLog(actor="ops", action=gw.VISION_PROBE_ACTION, detail={"ok": True}))
+    saved = gw.provider_for
+    gw.provider_for = lambda task, **kw: FixtureJudge()
+    try:
+        out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
+    finally:
+        gw.provider_for = saved
+    assert calls == [[board]], calls
+    judged = _rows(db, intake.JUDGED_ACTION)
+    assert judged and judged[-1][1] == slug and judged[-1][2]["judge"] == judge_model
+    assert {"slug": slug, "decision": "engineering"} in out["regated"]["presented"], out
+    assert not [h for h in out["regated"]["held"] if h["slug"] == slug]
+    drafts = _jobs(db, "cir.draft")
+    assert len(drafts) == 1 and drafts[0].inputs["slug"] == slug
+    # A judge that does not answer as a judgement is refused, never recorded.
+    try:
+        intake.parse_judgement('{"thumbnail_reads_small": "yes", "craft_impression": 9}')
+    except intake.JudgeRefused:
+        pass
+    else:
+        raise AssertionError("a non-boolean grid verdict was accepted as a judgement")
+
+
 if __name__ == "__main__":
     failed = 0
     passed = 0

@@ -1187,9 +1187,21 @@ SCREEN_TO_FUNNEL: dict[str, str] = {
 }
 
 
+def _fate(run, key: str) -> str:
+    """Where one entrant's run ended: `killed at <stage>: <cause>` or `carried to <stage>`."""
+    carried = None
+    for r in run.rounds:
+        if key in r.killed:
+            return f"killed at {r.stage}: {r.killed[key]}"
+        if key in r.survived:
+            carried = r.stage
+    return f"carried to {carried}" if carried else "entered"
+
+
 def tournament(db, *, gateway, target: int = 80, today: date | None = None,
                catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
-               agent: str = "creative_director", exclude_forms: tuple[str, ...] = ()) -> dict:
+               agent: str = "creative_director", exclude_forms: tuple[str, ...] = (),
+               seeded: list[Concept] | None = None) -> dict:
     """A real staged tournament: a wide cheap field, cut by the gates that already exist.
 
     Only the two stages this system can honestly run today. `ideation` is the structural
@@ -1200,12 +1212,25 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     The three stages after it are not simulated. `proposition` needs a margin and an unmet
     angle, `prototype` needs a compile and a twin, `release` needs the gates; running them
     with placeholder verdicts would produce a five-stage funnel that had cut nothing twice.
+
+    `seeded` concepts (#279: the seasonal transformations of certified catalogue products
+    derived on cadence) enter the field as entrants beside the generated ones. They face
+    every stage the generated field faces -- a transformation too close to its parent dies
+    at research as sameness, which is the honest verdict on a recolour -- and nothing about
+    being seeded carries a concept further.
     """
     from .funnel import Tournament, advance
 
     drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
                   only=only, agent=agent, exclude_forms=tuple(exclude_forms))
     candidates = drawn["candidates"]
+    seeded_keys = []
+    for concept in seeded or []:
+        if concept.form in exclude_forms or any(c.concept.key == concept.key
+                                                for c in candidates):
+            continue
+        candidates.append(Candidate(concept=concept, slot=None))
+        seeded_keys.append(concept.key)
     if not candidates:
         raise ProspectingRefused(
             "the field is empty, so there is nothing to run a tournament on. "
@@ -1353,6 +1378,9 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
         "arena": f"{only[0]}/{only[1]}" if only else "",
         "days_to_event": days_to_event,
         "window": window,
+        # #279: the seeded transformations and what the funnel did with each of them --
+        # the stage and cause that killed it, or the last stage that carried it.
+        "seeded": {k: _fate(run, k) for k in seeded_keys},
         # #3: the funnel as it ran, with each stage's survivors by key, so `may_engineer`
         # can be asked of this exact run later -- by `creative.intake` before it queues a
         # CIR, and by `cir.draft` before it drafts one. The object itself is never stored.

@@ -202,6 +202,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "cir.drafted": ("lifetime_total",
                     "intel.mission_runtime reads whether a response's CIR was ever drafted "
                     "to walk #309's pipeline"),
+    "seasonal.transformations": ("latest",
+                                 "creative.tournament seeds the last run's derived seasonal "
+                                 "transformations of the catalogue into its field (#279)"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(

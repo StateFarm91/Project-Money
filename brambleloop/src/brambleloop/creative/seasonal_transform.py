@@ -187,7 +187,7 @@ def transform(parent: Concept, *, occasion: str, layers: tuple[str, ...],
 
 def derive(parent: Concept, transformation: Transformation, *, key: str,
            title: str, premise: str, palette_story: str, recipient: str,
-           function: str) -> Concept:
+           function: str, occasion: str = "") -> Concept:
     """Build the child concept an engineered transformation produces.
 
     Only an engineering route may derive a concept. A presentation-only transformation has
@@ -198,6 +198,11 @@ def derive(parent: Concept, transformation: Transformation, *, key: str,
     The child is a concept like any other, so it faces the creative jury on its own. That is
     the point: the engine's job is to produce something that survives the gate, not to be
     trusted instead of it.
+
+    `occasion` is the buying occasion the child is for (a `Concept.OCCASIONS` word such as
+    `thanksgiving`); the transformation's own occasion is a motif-grammar season (`fall`),
+    which is the right word for the motifs and the wrong one for the concept. Left empty,
+    the season is used, which is correct only where the two coincide (christmas, halloween).
     """
     if transformation.route != ENGINEER:
         raise TransformRefused(
@@ -215,7 +220,7 @@ def derive(parent: Concept, transformation: Transformation, *, key: str,
     return Concept(
         key=key, title=title, premise=premise, pod=parent.pod, form=parent.form,
         construction=parent.construction, motif=motif, palette_story=palette_story,
-        recipient=recipient, occasion=transformation.occasion, feeling=feeling,
+        recipient=recipient, occasion=occasion or transformation.occasion, feeling=feeling,
         function=function, make_lane=parent.make_lane,
         provenance=f"transformed:{parent.key}")
 

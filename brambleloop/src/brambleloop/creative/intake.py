@@ -598,8 +598,12 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     concept: Concept = candidate.concept
     original_key = concept.key
     slug = design_slug(concept)
+    # A seasonal transformation of a catalogue product (#279) keeps its parent in its
+    # provenance, so the design records what it was transformed from as well as the run.
+    lineage = (f" <- {concept.provenance}" if str(concept.provenance or "")
+               .startswith("transformed:") else "")
     designed = replace(concept, key=slug,
-                       provenance=f"{source}:{original_key}"[:120])
+                       provenance=f"{source}:{original_key}{lineage}"[:120])
     judged = judgement_for(db, slug)
     if judged:
         designed = replace(designed, **{k: judged[k] for k in ("thumbnail_reads_small",
@@ -695,25 +699,152 @@ def verify_funnel(db, slug: str) -> dict:
     return {**got, "intake_row": _id}
 
 
-def regate_held(ctx, *, today: date | None = None) -> dict:
+# ---------------------------------------------------------------------------
+# The judgement a held winner waits on, produced the day its two inputs exist
+#
+# A winner waits on `image_vision`: whether its board reads at mobile-grid size (#88) and how
+# its craftsmanship reads (#83's taste question). Both are judgements about a picture, so
+# both need a picture of the concept -- a board `listing_asset` files for the design, which
+# is Product-Only Visual V1 image generation (external) -- and a vision model that has been
+# probed as actually working (`gateway.anthropic.vision_usable`, model_provider). Neither is
+# invented here: with no board or no working vision model the winner stays WAITING and this
+# says which of the two it waits on. The day both exist, the cadence that calls
+# `regate_held` asks the judge, records `concept.judged` with the judge's name, and the
+# winner is re-presented in the same run.
+
+JUDGE_TASK = "gallery_observation"   # the vision tier the search-grid tournament also uses
+JUDGE_MAX_TOKENS = 200
+JUDGE_SYSTEM = ("You are judging one crochet concept board for a premium pattern shop. Answer "
+                "only about how this board reads as an image. Never describe or compare any "
+                "other seller's product.")
+JUDGE_PROMPT = (
+    "With the seller name, reviews, badges and price removed, would this product idea itself "
+    "still create curiosity or desire at mobile-grid thumbnail size? Then rate the apparent "
+    "craftsmanship of the object shown from 1.0 (crude) to 5.0 (premium). Answer with exactly "
+    "one JSON object and nothing else: "
+    '{"thumbnail_reads_small": true or false, "craft_impression": number}')
+
+
+class JudgeRefused(ValueError):
+    """A vision answer that is not a judgement."""
+
+
+def board_for(db, slug: str) -> str:
+    """The concept board on file for this design, or "" when none has been rendered.
+
+    Read from the record `listing_asset` files when a render is made, so a board produced by
+    the owned-photography path is found by the design's slug and nothing else has to know
+    where images live.
+    """
+    from ..publish import listing_asset
+
+    for frame in listing_asset.frames_for(db, slug=slug):
+        ref = str(frame.get("image_ref") or frame.get("image") or "").strip()
+        if ref:
+            return ref
+    return ""
+
+
+def parse_judgement(text: str) -> dict:
+    """The judge's answer as the two fields `Concept` reserves for a model with eyes."""
+    import json
+
+    body = (text or "").strip()
+    if body.startswith("```"):
+        body = body.split("\n", 1)[-1].rsplit("```", 1)[0]
+    try:
+        parsed = json.loads(body)
+    except ValueError as exc:
+        raise JudgeRefused(f"the judge did not answer with JSON: {body[:100]!r}") from exc
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("thumbnail_reads_small"), bool):
+        raise JudgeRefused("the judge did not say whether the board reads at grid size")
+    craft = parsed.get("craft_impression")
+    if isinstance(craft, bool) or not isinstance(craft, (int, float)) or not 1.0 <= craft <= 5.0:
+        raise JudgeRefused(f"craft_impression {craft!r} is not a rating from 1.0 to 5.0")
+    return {"thumbnail_reads_small": parsed["thumbnail_reads_small"],
+            "craft_impression": round(float(craft), 2)}
+
+
+def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
+    """Ask the vision judge about one held winner's board, and record what it said.
+
+    Budgeted like every other vision call (reserved before, released with the bill after),
+    and refused rather than faked when the model does not answer as a judgement.
+    """
+    from ..core.resilience import PermanentError, TransientError
+    from ..finance import spend_report
+    from ..gateway import anthropic as gw
+
+    provider = provider or gw.provider_for(JUDGE_TASK)
+    held = None
+    try:
+        reservation = gw.check_budget(
+            ctx.db, model=provider.model,
+            input_tokens=len(JUDGE_PROMPT) // 4 + gw.IMAGE_TOKENS_ESTIMATE,
+            max_tokens=JUDGE_MAX_TOKENS, agent=ctx.job.agent, purpose=JUDGE_TASK,
+            job_id=ctx.job.id)
+        held = reservation["reservation_id"]
+        response = provider.see(JUDGE_SYSTEM, JUDGE_PROMPT, [board],
+                                max_tokens=JUDGE_MAX_TOKENS)
+    except gw.BudgetExceeded as exc:
+        gw.release_reservation(ctx.db, held)
+        return {"judged": False, "why": f"budget: {exc}"[:200], "stopped": True}
+    except (PermanentError, TransientError) as exc:
+        gw.release_reservation(ctx.db, held)
+        return {"judged": False, "why": str(exc)[:200]}
+    cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                 + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+    gw.release_reservation(ctx.db, held, actual_cad=cost)
+    if cost > 0:
+        spend_report.record(ctx.db, agent=ctx.job.agent, amount_cad=cost, purpose=JUDGE_TASK,
+                            provider="anthropic", model=provider.model,
+                            department="creative", product_slug=slug, job_id=ctx.job.id,
+                            tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+                            detail={"what": "concept board judgement", "price_basis": "assumed"})
+    try:
+        verdict = parse_judgement(response.text)
+    except JudgeRefused as exc:
+        return {"judged": False, "why": str(exc)[:200], "cost_cad": cost}
+    ctx.audit(JUDGED_ACTION, artifact=slug,
+              detail={**verdict, "judge": provider.model, "board": board[-120:],
+                      "cost_cad": cost, "source": "creative.regate"})
+    return {"judged": True, **verdict, "judge": provider.model, "cost_cad": cost}
+
+
+def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
     """Re-present winners that waited on a judgement, now that one may exist.
 
     Only a winner the funnel carried and the gate left *waiting* is eligible: a refusal is a
-    refusal, and a winner the funnel did not carry is not re-opened by a judgement.
+    refusal, and a winner the funnel did not carry is not re-opened by a judgement. A held
+    winner with no judgement is judged here first when its board exists and a vision model
+    is usable; otherwise `held` says exactly which input it still waits on.
     """
+    from ..gateway import anthropic as gw
     from . import ideation
 
     latest: dict[str, dict] = {}
     for row_id, slug, detail in intake_rows(ctx.db):
         latest.setdefault(slug, {"id": row_id, **detail})
-    presented, queued = [], []
+    presented, queued, held = [], [], []
+    vision_ok = gw.vision_usable(ctx.db)
+    stopped = False
     for slug, detail in list(latest.items()):
         if len(presented) >= REGATE_LIMIT:
             break
         if detail.get("decision") != WAITING:
             continue
+        board = board_for(ctx.db, slug)
         judged = judgement_for(ctx.db, slug)
+        if not judged and board and vision_ok and not stopped:
+            asked = judge_held(ctx, slug=slug, board=board, provider=provider)
+            stopped = bool(asked.get("stopped"))
+            judged = judgement_for(ctx.db, slug) if asked.get("judged") else None
         if not judged:
+            held.append({"slug": slug, "waiting_on": (
+                (["board_image (Product-Only Visual V1 image generation)"] if not board
+                 else []) + (["vision_model (no vision probe has succeeded)"]
+                             if not vision_ok else [])
+                or ["a vision judgement of the board on file"])})
             continue
         known = detail.get("judgement") or {}
         if all(known.get(k) == judged.get(k) for k in ("thumbnail_reads_small",
@@ -725,6 +856,9 @@ def regate_held(ctx, *, today: date | None = None) -> dict:
                                                             "craft_impression")
                                       if k in judged})
         brief = {k: (detail.get("brief") or {}).get(k) for k in GATE_BRIEF_FIELDS}
+        if board:
+            # #126: with a board on file the gate can request the search-grid tournament.
+            brief["board_image"] = board
         gate = ideation.pre_engineering_gate(ctx.db, SimpleNamespace(concept=concept),
                                              ctx=ctx, source="creative.regate", brief=brief)
         verdict = gate.get("verdict") or {}
@@ -743,7 +877,8 @@ def regate_held(ctx, *, today: date | None = None) -> dict:
             advance_gap(ctx.db, concept.pod, "engineering", product_slug=slug,
                         reason=f"{slug} cleared the pre-engineering gate on re-presentation")
             queued.append({"slug": slug, "job": getattr(job, "id", None)})
-    return {"presented": presented, "queued": queued}
+    return {"presented": presented, "queued": queued, "held": held[:REGATE_LIMIT],
+            "vision_usable": vision_ok}
 
 
 # ---------------------------------------------------------------------------

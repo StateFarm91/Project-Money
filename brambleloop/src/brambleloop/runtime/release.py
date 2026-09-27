@@ -2791,12 +2791,17 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
         ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
                      job_id=ctx.job.id), plan)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
+    # #279: the seasonal transformations `seasonal.remerchandising` derived for this event
+    # enter the field as entrants, and the funnel judges them beside the generated concepts.
+    from ..seasonal import remerchandising as _rm
+
+    seeded = _rm.derived_children(ctx.db, event=arena.event, pod=arena.pod)
 
     try:
         result = prospecting.tournament(
             ctx.db, gateway=gateway, catalogue=catalogue,
             only=(arena.event, arena.pod),
-            exclude_forms=tuple(plan["saturation"]["excluded_forms"]))
+            exclude_forms=tuple(plan["saturation"]["excluded_forms"]), seeded=seeded)
     except prospecting.ProspectingRefused as e:
         ctx.audit("creative.tournament_blocked",
                   detail={"arena": arena.to_dict(), "reason": str(e)[:400],
@@ -2853,7 +2858,7 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
             "role": plan["role"]["role"],
             "cleared_for_engineering": gate["cleared_for_engineering"],
             "intake": took, "days_to_event": result.get("days_to_event"),
-            "pipeline": pipeline_moves,
+            "pipeline": pipeline_moves, "seeded": result.get("seeded") or {},
             **({} if attempted else
                {"reason": "every batch came back malformed; nothing was generated or spent"})}
 
@@ -3322,23 +3327,36 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
 
     # #279: every proven evergreen concept is evaluated for this occasion's transformations,
     # automatically. Presentation layers route here (re-merchandising); object-changing ones
-    # need an emotional promise before they are engineering, and a brief supplied in the job
-    # inputs is the only way one is derived -- the engine does not invent a promise.
+    # are derived from a brief generated from the parent (C-61) -- the promise is the
+    # parent's own, executed where the parent's premise says it is -- and the derived child
+    # enters the next `creative.tournament` for this event as an entrant, where the staged
+    # funnel judges it (#3). Nothing is engineered from here.
     from ..seasonal import remerchandising as _rm
 
-    transforms = _rm.transformations(ctx.db, event=event,
+    # Transformations are engineering, so they are aimed at the soonest proven occasion a
+    # tournament can still reach -- an occasion a fortnight away has no form that can be
+    # made in time, and children derived for it could never enter a field. The review's own
+    # occasion (presentation moves, which cost a photograph) stays the soonest.
+    reachable = [a for a in found if prospecting.slots(a)["slots"]]
+    transform_event = (min(reachable, key=lambda a: a.days_away).event if reachable
+                       else event)
+    transforms = _rm.transformations(ctx.db, event=transform_event,
                                      briefs=list(ctx.job.inputs.get("briefs") or []))
-    ctx.audit("seasonal.transformations", detail={
-        "event": event, "season": transforms["season"],
+    ctx.audit(_rm.TRANSFORMATIONS_ACTION, detail={
+        "event": transform_event, "season": transforms["season"],
         "evaluated": transforms["evaluated"], "routed": transforms["routed"],
         "derived": [d["key"] for d in transforms["derived"]],
+        "derived_concepts": [d["concept"] for d in transforms["derived"]],
+        "briefs_generated": transforms.get("briefs_generated", 0),
+        "held": transforms.get("held", [])[:10],
         "refused": transforms["refused"][:10]})
     return {"event": event, "pod": pod or None,
             "candidates": len(report["candidates"]),
             "ready_moves": report["ready_moves"],
             "available": list(report["capabilities"]["available"]),
             "catalogue_growth": report["catalogue_growth"],
-            "transformations": {k: transforms[k] for k in ("season", "evaluated", "routed")},
+            "transformations": {**{k: transforms[k] for k in ("season", "evaluated", "routed")},
+                                "event": transform_event},
             "derived": [d["key"] for d in transforms["derived"]]}
 
 
