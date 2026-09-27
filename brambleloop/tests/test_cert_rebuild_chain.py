@@ -136,19 +136,86 @@ def test_launch_readiness_measures_the_launch_package_from_what_the_chain_produc
     for key in ("digital_disclosure", "support_knowledge", "faq", "pricing_promotion_plan",
                 "launch_calendar"):
         assert by[key].ready is True, (key, by[key].evidence)
-    # nothing recorded a baseline reading or proved a restore: honestly not ready
-    assert by["analytics_baseline"].ready is False
+    # C-80 defect 10 (Codex P12): the search baseline is the coverage the listing stage
+    # recorded at drafting (the chain wrote it), and traffic is honestly UNMEASURED -- no
+    # weekly operating reading or seo_score stands in for either
+    ab = by["analytics_baseline"]
+    assert ab.ready is True and ab.evidence["releases_without_search_baseline"] == [], ab.evidence
+    assert ab.evidence["traffic_baseline"].startswith("UNMEASURED"), ab.evidence
+    # the rollback plan is a rehearsed withdrawal round trip, not a database restore proof
     assert by["rollback_plan"].ready is False
-    assert "continuity restore unproven" in str(by["rollback_plan"].evidence) or \
-        by["rollback_plan"].evidence["last_restore_proof"] is None
+    assert by["rollback_plan"].evidence["unrehearsed"], by["rollback_plan"].evidence
     with db.session() as s:
         s.add(OperatingReading(kind="growth.weekly", period_key="2026-W39", payload={}))
         s.add(AuditLog(actor="orchestrator", action="continuity.verified", detail={}))
     by = {r.key: r for r in assess(db, phase="shadow").requirements}
-    assert by["analytics_baseline"].ready is True, by["analytics_baseline"].evidence
-    assert by["rollback_plan"].ready is True, by["rollback_plan"].evidence
-    job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-1")
+    assert by["rollback_plan"].ready is False, "a restore proof is not a rehearsed withdrawal"
+
+    # the daily assessment rehearses first: while the rehearsal fails, the package is not
+    # ready and the requests that open live Etsy are withheld from the owner queue (#54)
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.launch import rollback
+
+    real = rollback.rehearse
+
+    def failing(db_, *, slug, version, store=None, job_id=None):
+        out = real(db_, slug=slug, version=version, store=store, job_id=job_id)
+        with db.session() as s:
+            row = [r for r in s.scalars(select(AuditLog).where(
+                AuditLog.action == rollback.ACTION).order_by(AuditLog.id))][-1]
+            row.detail = {**dict(row.detail), "ok": False,
+                          "steps": [{**st, "ok": False} if st["step"] == "deliverables_restorable"
+                                    else st for st in row.detail["steps"]]}
+        return {**out, "ok": False}
+
+    rollback.rehearse = failing
+    try:
+        job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-1")
+    finally:
+        rollback.rehearse = real
     assert job.status == JobStatus.DONE, job.last_error
+    assessed = _audits(db, "launch.assessed")[-1][1]
+    assert "rollback_plan" in assessed["launch_package_blocked"], assessed
+    assert set(assessed["owner_requests_withheld_until_package_ready"]) >= {"etsy_shop", "phase"}
+    with db.session() as s:
+        queued = {a.requirement_key for a in s.scalars(select(OwnerAction))}
+    assert not ({"etsy_shop", "payout", "listing_fees", "phase"} & queued), queued
+    by = {r.key: r for r in assess(db, phase="shadow").requirements}
+    assert by["rollback_plan"].ready is False and by["rollback_plan"].evidence["rehearsal_failed"]
+
+    # the real rehearsal passes on this chain (certificate retained, listing on record, every
+    # PDF and frame on disk, state round trip). The chain holds one listing, so the package's
+    # catalogue-depth item still withholds the asks; with the depth met, the asks go out.
+    job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-1b")
+    assert job.status == JobStatus.DONE, job.last_error
+    assessed = _audits(db, "launch.assessed")[-1][1]
+    assert assessed["launch_package_blocked"] == ["catalogue_depth"], assessed
+    assert "etsy_shop" in assessed["owner_requests_withheld_until_package_ready"]
+    from brambleloop.launch import readiness as readiness_mod
+
+    depth = readiness_mod.MIN_LISTINGS_TO_OPEN
+    readiness_mod.MIN_LISTINGS_TO_OPEN = 1
+    try:
+        job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-2")
+    finally:
+        readiness_mod.MIN_LISTINGS_TO_OPEN = depth
+    assert job.status == JobStatus.DONE, job.last_error
+    rehearsed = _audits(db, rollback.ACTION, f"{st['slug']}@")[-1][1]
+    assert rehearsed["ok"] is True and rehearsed["dry_run"] is True, rehearsed
+    assert [x["step"] for x in rehearsed["steps"]] == [
+        "certificate_retained", "listing_on_record", "deliverables_restorable",
+        "state_round_trip"]
+    assert rehearsed["steps"][3]["transitions"][1] == "withdrawn"
+    by = {r.key: r for r in assess(db, phase="shadow").requirements}
+    assert by["rollback_plan"].ready is True, by["rollback_plan"].evidence
+    assessed = _audits(db, "launch.assessed")[-1][1]
+    assert assessed["launch_package_blocked"] == [], assessed
+    assert assessed["owner_requests_withheld_until_package_ready"] == []
+    with db.session() as s:
+        queued = {a.requirement_key for a in s.scalars(select(OwnerAction))}
+        listing = s.scalar(select(Listing).where(Listing.product_slug == st["slug"]))
+        assert listing.state != "withdrawn", "the rehearsal was a dry run"
+    assert "etsy_shop" in queued and "phase" in queued, queued
 
 
 def test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured():
@@ -165,8 +232,54 @@ def test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured()
     assert "canonical_model" in inv["planned"] and "measured_yardage" in inv["planned"]
     rec = inv["recognisable_without_model"]
     assert st["slug"] in rec["recognisable"], rec
+    # C-80 defect 15 (Codex P16): the count is labelled a proxy, and the real measurement --
+    # blind identification of the hero frame -- is recorded UNMEASURED behind image_vision
+    per = rec["per_listing"][st["slug"]]
+    assert per["basis"].startswith("recognisability_proxy") and per["recognisable_by_proxy"]
+    assert per["measured"]["status"] == "UNMEASURED"
+    assert per["measured"]["gated_on"] == "image_vision"
+    assert st["slug"] in rec["by_proxy_only"] and rec["measured"] == []
     by = {r.key: r for r in assess(st["db"], phase="shadow").requirements}
     assert by["brand_moat"].ready is True, by["brand_moat"].evidence
+    assert by["brand_moat"].evidence["recognisability_measurement_gated_on"] == "image_vision"
+    assert st["slug"] in by["brand_moat"].evidence["recognisability_by_proxy_only"]
+
+    # with the gate open the measurement runs on the stored hero frame and decides
+    from brambleloop.build2 import executor
+    from brambleloop.visual import inspect as inspection
+
+    gate = executor.GATE_BY_KEY["image_vision"]
+    originals = (gate.check, inspection.inspect_image)
+
+    def judge(colours):
+        def fake(ref, *, db=None, provider=None, claim=None):
+            description = {"object_shown": "a blanket", "chart_or_diagram": False,
+                           "finished_or_in_progress": "finished", "object_count": "1",
+                           "clarity": "clear", "text_present": False, "human_present": False,
+                           "dominant_colours": colours, "third_party_marks": "none"}
+            return {"described": True, "description": description, "realism": {},
+                    "realism_unjudged": [], "semantic": inspection.compare(description, claim or {})}
+        return fake
+
+    gate.check = lambda db, env: True
+    try:
+        inspection.inspect_image = judge("deep pine green, cream and a little gold")
+        measured = moat.measure_recognisability(st["db"], st["slug"])
+        assert measured["status"] == "MEASURED" and measured["recognisable"] is True, measured
+        assert set(measured["brand_colours_named"]) >= {"pine", "cream"}
+        rec = moat.inventory(st["db"])["recognisable_without_model"]
+        assert st["slug"] in rec["measured"] and rec["by_proxy_only"] == []
+        assert rec["per_listing"][st["slug"]]["basis"].startswith("measured")
+
+        inspection.inspect_image = judge("neon pink and electric blue")
+        rec = moat.inventory(st["db"])["recognisable_without_model"]
+        assert st["slug"] in rec["not_recognisable"], rec
+        assert rec["per_listing"][st["slug"]]["recognisable_by_proxy"] is True, \
+            "the proxy would have passed it; the measurement decides"
+        by = {r.key: r for r in assess(st["db"], phase="shadow").requirements}
+        assert by["brand_moat"].ready is False
+    finally:
+        gate.check, inspection.inspect_image = originals
 
 
 def test_a_divergent_listing_is_refused_and_halts_publication():

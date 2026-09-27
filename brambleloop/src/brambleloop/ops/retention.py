@@ -208,6 +208,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "creative.escalation_result": ("lifetime_total",
                                    "visual.gallery.escalation_progress reads every rung "
                                    "result for a release to place the next attempt"),
+    # C-80 (#54): the launch gate reads each release's search baseline at drafting and the
+    # latest rollback rehearsal (aged 3 days) per listed release.
+    "listing.query_portfolio": ("lifetime_total",
+                                "launch.readiness reads whether every listed release has a "
+                                "search-coverage baseline recorded at drafting"),
+    "launch.rollback_rehearsed": ("latest", "launch.readiness reads the latest rehearsal per "
+                                            "release, aged out after 3 days"),
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),

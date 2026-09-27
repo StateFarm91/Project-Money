@@ -2763,6 +2763,20 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         providers = []
 
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
+
+    # C-80 defect 10 (#54): the rollback plan is rehearsed, per listed release, before it is
+    # assessed -- a dry withdrawal round trip that checks the retained certificate, the
+    # listing's state and that every deliverable a restore would re-serve is on disk.
+    from ..core.models import Listing
+    from ..launch import rollback as rollback_mod
+
+    with ctx.db.session() as s:
+        releases = sorted({(l.product_slug, l.version) for l in s.scalars(
+            select(Listing).where(Listing.state != "withdrawn"))})
+    rehearsed = {f"{slug}@{v}": rollback_mod.rehearse(ctx.db, slug=slug, version=v,
+                                                      store=store, job_id=ctx.job.id)["ok"]
+                 for slug, v in releases}
+
     readiness = assess(ctx.db, phase=ctx.phase.value, providers=providers,
                        storage_durable=store.durable)
 
@@ -2779,8 +2793,19 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     # queues means the owner reads whichever they remember. These are capability requests
     # (#223), not launch requirements, so they are queued but do not move `readiness.ready`.
     from ..launch import access
+    from ..launch.readiness import LAUNCH_PACKAGE_KEYS, OPENS_LIVE_ETSY_KEYS
 
     requests = list(readiness.owner_requests()) + access.owner_requests()
+
+    # #54 (C-80 defect 10): "before asking the owner to open/connect live Etsy operations,
+    # require ..." -- so while any item of that package is still ours to build, the requests
+    # that open live Etsy are withheld from the queue, and the audit says which items held
+    # them. The package items themselves stay in `ours_to_do`.
+    package_blocked = sorted(r.key for r in readiness.buildable if r.key in LAUNCH_PACKAGE_KEYS)
+    withheld: list[str] = []
+    if package_blocked:
+        withheld = sorted(r.key for r in requests if r.key in OPENS_LIVE_ETSY_KEYS)
+        requests = [r for r in requests if r.key not in OPENS_LIVE_ETSY_KEYS]
 
     queued: list[str] = []
     restated: list[str] = []
@@ -2857,6 +2882,10 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
             for key, row in open_actions.items():
                 if key in wanted or key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
                     continue
+                if key in withheld:
+                    # withheld is not done: the request is not being made yet, and marking
+                    # its earlier row done would read as the owner having completed it
+                    continue
                 # The improvement pipeline's cards are decisions it raised and closes itself;
                 # this assessment never asked for them, so it is not the one to close them.
                 if key.startswith(OWNER_CARD_PREFIXES):
@@ -2866,6 +2895,9 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
 
     ctx.audit("launch.assessed", detail={
         "ready": ready,
+        "rollback_rehearsed": rehearsed,
+        "launch_package_blocked": package_blocked,
+        "owner_requests_withheld_until_package_ready": withheld,
         "ready_before_off_device_proof": bool(readiness.ready),
         "off_device_proof": {k: off_device.get(k) for k in (
             "key", "blocking", "status", "unmet", "window_hours", "evidence", "why")},

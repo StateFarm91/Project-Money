@@ -265,6 +265,65 @@ def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_th
     assert out["lane_capacity"]["units"]
 
 
+def test_size_depth_is_read_from_the_certified_size_run_not_a_constant():
+    """C-80 defects 1 and 2: a graded garment's size depth is the number of certified sizes of
+    its design (shared provenance concept_key, cir.graded), read by gate.lanes from the
+    catalogue; a lone release is a run of one, and the basis is recorded with the profile."""
+    from tests.test_cert_preengineering import _certify, _ctx
+
+    from brambleloop.cir.graded import size_run
+    from brambleloop.cir.model import CIR
+    from brambleloop.core.models import PatternVersion, Product
+    from brambleloop.products import garments
+
+    db = _db()
+    _certify(db, "nordic-forest-mosaic-throw")
+    design = garments.pebble_cardigan()
+    sizes = design.sourced_sizes()
+    first = CIR.from_dict({**design.build(sizes[0]).to_dict(), "slug": "cropped-cardigan"})
+    assert first.provenance is not None and "cir.graded" in first.provenance.primitives_used
+
+    def certified(cir):
+        with db.session() as s:
+            product = Product(slug=cir.slug, title=cir.title, status="certified",
+                              risk_class=cir.risk_class)
+            s.add(product)
+            s.flush()
+            s.add(PatternVersion(product_id=product.id, version=cir.version,
+                                 cir_json=cir.to_dict(), release_hash="h" * 12, certified=True,
+                                 certificate={"granted": True,
+                                              "stages_run": ["compile", "reverse"]}))
+
+    certified(first)
+    out = handlers.get("gate.lanes")(_ctx(db, "quality_director", "gate.lanes",
+                                          {"as_of": "2026-09-17"}))
+    routed = {c["slug"]: c for c in out["routing"]["products"]} if "routing" in out else None
+    with db.session() as s:
+        routed = {r.artifact.split("@")[0]: r.detail for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == cap.LANE_ROUTED_ACTION))}
+    assert routed["cropped-cardigan"]["profile"]["sizes"] == 1
+    assert routed["cropped-cardigan"]["profile"]["sizes_basis"].startswith("graded run")
+    assert routed["nordic-forest-mosaic-throw"]["profile"]["sizes"] == 1
+    assert routed["nordic-forest-mosaic-throw"]["profile"]["sizes_basis"].startswith(
+        "a single release")
+
+    # a second certified size of the same design: the run is two, read from the catalogue
+    certified(design.build(sizes[1]))
+    handlers.get("gate.lanes")(_ctx(db, "quality_director", "gate.lanes",
+                                    {"as_of": "2026-09-17"}))
+    with db.session() as s:
+        latest = {}
+        for r in s.scalars(select(AuditLog).where(AuditLog.action == cap.LANE_ROUTED_ACTION)
+                           .order_by(AuditLog.id)):
+            latest[r.artifact.split("@")[0]] = r.detail
+        catalogue = [pv.cir_json for pv in s.scalars(select(PatternVersion))]
+    assert latest["cropped-cardigan"]["profile"]["sizes"] == 2, latest["cropped-cardigan"]
+    run = size_run(first.to_dict(), catalogue)
+    assert run["status"] == "MEASURED" and sorted(run["run"]) == sorted(
+        ["cropped-cardigan", design.build(sizes[1]).slug])
+    assert size_run({"title": "x"}, catalogue)["status"] == "UNMEASURED"
+
+
 def test_a_starved_lane_has_its_queued_engineering_moved_up():
     db = _db()
     _route(db, "fast-a", "fast")

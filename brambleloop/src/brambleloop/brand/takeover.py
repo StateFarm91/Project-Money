@@ -252,7 +252,7 @@ def execute(db, plans: list[dict], *, today: date | None = None) -> dict:
                 state = (row.payload or {}).get("state") if row is not None else None
                 if starts <= today < ends and state != APPLIED:
                     change = changes.get(surface["surface"], "")
-                    problems = _applied_problems(surface["surface"], change)
+                    problems = _applied_problems(surface["surface"], change, db=db)
                     if problems:
                         refused.append({"event": event, "surface": surface["surface"],
                                         "problems": problems})
@@ -280,18 +280,39 @@ def execute(db, plans: list[dict], *, today: date | None = None) -> dict:
             "active": active(db, today=today)}
 
 
-def _applied_problems(surface: str, change: str) -> list[str]:
-    """The storefront's own checks, run on the storefront as the takeover would leave it."""
+def _applied_problems(surface: str, change: str, db=None) -> list[str]:
+    """The storefront's own checks, run on the storefront as the takeover would leave it.
+
+    C-80 defect 18: every surface the storefront renders is checked as rendered -- the banner
+    as the announcement, shop_content as seasonal copy on About, featured_collection as the
+    pinned collection, which with a database must name a collection or a product that exists;
+    a takeover that would pin nothing real is refused, not applied.
+    """
     from . import storefront
 
     store = storefront.build_storefront()
     if surface == "banner":
         store.announcement = change
     elif surface == "shop_content":
+        store.seasonal_copy = change
         store.about = f"{store.about}\n\n{change}"
+    elif surface == "featured_collection":
+        store.featured_collection = change
     problems = storefront.check_storefront(store)
     if not change.strip():
         problems.append(f"TAKEOVER_SURFACE_EMPTY: {surface}")
+    if surface == "featured_collection" and db is not None and change.strip():
+        from sqlalchemy import select
+
+        from ..core.models import Collection, Product
+
+        with db.session() as s:
+            titles = {c.title for c in s.scalars(select(Collection))}
+            slugs = {p.slug for p in s.scalars(select(Product))}
+        named = {part.strip() for part in change.split(",") if part.strip()}
+        if change.strip() not in titles and not (named & slugs):
+            problems.append(f"TAKEOVER_FEATURED_COLLECTION_NAMES_NOTHING: {change[:80]!r} is "
+                            f"neither a collection title nor a product this shop has")
     return problems
 
 

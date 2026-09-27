@@ -134,8 +134,102 @@ EVIDENCE_FOR: dict[str, str] = {
     "measured_yardage": "a completed physical test that passed",
 }
 # A product-first listing is recognisable without the model when it carries at least this
-# many built non-model signatures of its own.
+# many built non-model signatures of its own. This is a PROXY (C-80 defect 15, Codex P16): a
+# count of built artefact classes, not a judgement that the frame reads as this brand. The
+# real measurement, `measure_recognisability`, is a blind description of the product-first
+# hero frame compared with the brand bible, and it runs only while the image_vision gate is
+# open; until then it is recorded UNMEASURED beside the proxy, never as a pass.
 RECOGNISABLE_MIN = 3
+RECOGNISABILITY_PROXY = "recognisability_proxy: count of built non-model signatures"
+RECOGNISABILITY_GATE = "image_vision"
+MEASURED_ACTION = "brand.recognisability_measured"
+# How many brand-bible palette colours a blind description of the hero must name.
+BRAND_COLOURS_MIN = 2
+# Plain-language names a describer would use for the bible's palette entries.
+PALETTE_WORDS: dict[str, tuple[str, ...]] = {
+    "pine": ("pine", "forest green", "deep green", "dark green", "evergreen"),
+    "cream": ("cream", "ivory", "off-white", "linen", "oatmeal"),
+    "ink": ("ink", "navy", "midnight", "dark blue"),
+    "gold": ("gold", "mustard", "ochre", "amber"),
+    "wine": ("wine", "burgundy", "maroon", "claret"),
+}
+
+
+def measure_recognisability(db, slug: str, version: str | None = None) -> dict:
+    """The requirement's own test, measured: does a product-first frame read as this brand?
+
+    Gated on image_vision. When the gate is open, the release's stored hero frame is described
+    blind by the vision judge (`visual.inspect.inspect_image`, which never sees the caption or
+    the brand) and deterministic code compares the description with the brand bible: at least
+    BRAND_COLOURS_MIN palette colours named, no person in the frame (product-first), and no
+    third-party mark. When the gate is closed, or the frame bytes are not on disk, the answer is
+    UNMEASURED with the gate named -- the proxy stands beside it, labelled as a proxy.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from sqlalchemy import desc, select
+
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+    from ..core.models import ListingAsset
+
+    with db.session() as s:
+        q = select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                       ListingAsset.role == "hero")
+        if version:
+            q = q.where(ListingAsset.version == version)
+        hero = s.scalar(q.order_by(desc(ListingAsset.id)).limit(1))
+        sha = hero.sha256 if hero is not None else None
+        hero_version = hero.version if hero is not None else None
+    if not sha:
+        return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
+                "why": "no product-first hero frame is stored for this listing"}
+    try:
+        from ..build2 import executor
+
+        vision_open = bool(executor.GATE_BY_KEY[RECOGNISABILITY_GATE].open(db))
+    except Exception:  # noqa: BLE001 - an unreadable gate is closed
+        vision_open = False
+    if not vision_open:
+        return {"status": "UNMEASURED", "gated_on": RECOGNISABILITY_GATE, "recognisable": None,
+                "frame_sha256": sha, "version": hero_version,
+                "why": "the image_vision gate is closed: no model has been proven to look at "
+                       "a picture, so the blind identification cannot run yet"}
+    try:
+        data = ArtifactStore().get(sha, db=db)
+    except ArtifactMissing as exc:
+        return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
+                "frame_sha256": sha, "version": hero_version, "why": str(exc)[:200]}
+    from ..visual import inspect as inspection_mod
+
+    with tempfile.TemporaryDirectory(prefix="moat-hero-") as work:
+        path = Path(work) / "hero.png"
+        path.write_bytes(data)
+        try:
+            got = inspection_mod.inspect_image(str(path), db=db,
+                                               claim={"shows_finished_object": True})
+        except Exception as exc:  # noqa: BLE001 - a judge that failed measured nothing
+            return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
+                    "frame_sha256": sha, "version": hero_version,
+                    "why": f"{type(exc).__name__}: {exc}"[:200]}
+    description = dict(got.get("description") or {})
+    colours = str(description.get("dominant_colours") or "").lower()
+    named = sorted(k for k, words in PALETTE_WORDS.items() if any(w in colours for w in words))
+    marks = inspection_mod.marks_found(description)
+    product_first = description.get("human_present") is False
+    recognisable = (len(named) >= BRAND_COLOURS_MIN and product_first and not marks
+                    and bool(got.get("described")))
+    return {"status": "MEASURED", "gated_on": None, "recognisable": recognisable,
+            "frame_sha256": sha, "version": hero_version,
+            "brand_colours_named": named, "product_first": product_first,
+            "third_party_marks": marks, "described": bool(got.get("described")),
+            "method": ("blind description of the stored hero frame (the judge never sees the "
+                       "brand or the caption) compared with the brand bible's palette; a "
+                       "person in the frame or a third-party mark fails it"),
+            "why": (f"{len(named)} brand colour(s) named, product-first, no marks"
+                    if recognisable else
+                    f"{len(named)} brand colour(s) named (need {BRAND_COLOURS_MIN}), "
+                    f"product_first={product_first}, marks={marks}")}
 
 
 def evidence(db) -> dict:
@@ -197,8 +291,17 @@ def evidence(db) -> dict:
             ("deterministic_validation", validated(slug)),
             ("version_aware_support", passed("support_knowledge", slug)),
             ("photography_language", slug in photos)) if ok]
-        per_listing[slug] = {"signatures": shown,
-                             "recognisable_without_model": len(shown) >= RECOGNISABLE_MIN}
+        measured = measure_recognisability(db, slug)
+        proxy = len(shown) >= RECOGNISABLE_MIN
+        per_listing[slug] = {
+            "signatures": shown,
+            # the field the launch gate reads: the measurement when it exists, else the proxy
+            "recognisable_without_model": (measured["recognisable"]
+                                           if measured["status"] == "MEASURED" else proxy),
+            "basis": ("measured: blind identification of the hero frame"
+                      if measured["status"] == "MEASURED" else RECOGNISABILITY_PROXY),
+            "recognisable_by_proxy": proxy,
+            "measured": measured}
     return {"exists": exists, "per_listing": per_listing}
 
 
@@ -230,7 +333,15 @@ def inventory(db=None) -> dict:
                                                if v["recognisable_without_model"]),
                         "not_recognisable": sorted(k for k, v in rows.items()
                                                    if not v["recognisable_without_model"]),
-                        "min_signatures": RECOGNISABLE_MIN, "per_listing": rows}
+                        "min_signatures": RECOGNISABLE_MIN, "per_listing": rows,
+                        # C-80 defect 15: which listings are judged by the proxy only, and
+                        # what gate the real measurement waits on
+                        "by_proxy_only": sorted(k for k, v in rows.items()
+                                                if v["measured"]["status"] != "MEASURED"),
+                        "measured": sorted(k for k, v in rows.items()
+                                           if v["measured"]["status"] == "MEASURED"),
+                        "proxy": RECOGNISABILITY_PROXY,
+                        "measurement_gated_on": RECOGNISABILITY_GATE}
     return {
         "measured_from_evidence": measured is not None,
         "evidence_rules": EVIDENCE_FOR,
