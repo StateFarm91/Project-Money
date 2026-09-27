@@ -1427,6 +1427,20 @@ def _stage_evidence(db, winner: dict | None, ev, *, tournament_done: bool) -> li
     return out
 
 
+def _tournament_ran_for(db, event_id: int) -> bool:
+    """Whether any creative.tournament run answered this event (its row names the event)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == "creative.tournament")
+                             .order_by(desc(AuditLog.id)).limit(50)):
+            if (row.detail or {}).get("mjs_event_id") == event_id:
+                return True
+    return False
+
+
 def _challenge_for(db, slug: str) -> dict:
     from ..teardown.pipeline import ChallengeRefused, challenge
 
@@ -1460,6 +1474,8 @@ def advance_pipeline(db, *, event_ids: list[int] | None = None,
             tournament_done = job is not None and job.status == JobStatus.DONE
             s.expunge(ev)
         winner = _winner_for(db, event_id)
+        if not tournament_done:
+            tournament_done = _tournament_ran_for(db, event_id)
         run = response.PipelineRun(signal=(ev.pipeline or {}).get("signal")
                                    or f"{ev.benchmark_key}/{ev.listing_ref}")
         early = [

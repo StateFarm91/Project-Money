@@ -190,6 +190,18 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),
+    # C-61: the original-design pipeline.
+    "creative.winner_intake": ("lifetime_total",
+                               "cir.draft verifies a design's funnel run from its winner "
+                               "intake, and regate re-presents held winners from it; a pruned "
+                               "intake makes a held winner unengineerable"),
+    "concept.judged": ("lifetime_total",
+                       "creative.intake reads the vision judgement recorded per design; a "
+                       "pruned judgement silently returns a design to unjudged"),
+    "radar.skill_gap": ("latest", "creative.ideation reads the latest measured wave gap"),
+    "cir.drafted": ("lifetime_total",
+                    "intel.mission_runtime reads whether a response's CIR was ever drafted "
+                    "to walk #309's pipeline"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(

@@ -2820,6 +2820,7 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                                          gate=gate)
     result["intake"] = took
     result["regated"] = regated
+    result["mjs_event_id"] = inputs.get("mjs_event_id")
 
     with ctx.db.session() as s:
         from ..core.models import AuditLog
