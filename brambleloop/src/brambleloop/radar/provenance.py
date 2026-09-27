@@ -334,6 +334,89 @@ def stamp_all(db, *, today: date | None = None, half_lives: dict[str, str] | Non
             stamped += 1
             refused += int(got["refused"])
             by_population[population] = by_population.get(population, 0) + 1
+        # C-69 (#38): the API search-index captures are search data too. The index is the
+        # marketplace's worldwide listing index (`api_index_score_sort`), so the population is
+        # GLOBAL, discounted as evidence about Canada; the window is the capture day.
+        from ..core.models import SerpSnapshot
+
+        for snap in s.scalars(select(SerpSnapshot).order_by(SerpSnapshot.id.desc())
+                              .limit(limit)):
+            end = snap.captured_at.date().isoformat() if snap.captured_at else ""
+            got = _stamp_row(s, table="serp_snapshots", row_id=snap.id, topic=snap.query,
+                             source=f"etsy_api:{snap.basis}", population="GLOBAL",
+                             window_from=end, window_to=end, shape=SEASONAL,
+                             value=(float(snap.total_count)
+                                    if snap.total_count is not None else None),
+                             today=today)
+            stamped += 1
+            refused += int(got["refused"])
+            by_population["GLOBAL"] = by_population.get("GLOBAL", 0) + 1
     return {"stamped": stamped, "refused": refused, "by_population": by_population,
             "note": ("every trend row carries its source, window, population and freshness; "
                      "rows whose population is unknown are stamped refused, not discounted")}
+
+
+# ---------------------------------------------------------------------------
+# #38 in the scorer (C-69): opportunity scores discount stale or mismatched evidence.
+
+# Evidence at zero usable weight still leaves the concept's own priors half their force:
+# the pool's scores are not trend data, and stale trend data makes them less sure, not void.
+EVIDENCE_FLOOR = 0.5
+
+
+def _terms_for(seed) -> list[str]:
+    words = {w for w in (seed.slug or "").replace("-", " ").split() if len(w) > 3}
+    for extra in (seed.category, seed.season):
+        if extra:
+            words.update(w for w in str(extra).lower().replace("_", " ").split() if len(w) > 3)
+    return sorted(words)
+
+
+def evidence_for(db, seed, *, today: date | None = None) -> dict:
+    """The stamped trend evidence about this concept, and the discount it earns.
+
+    Reads `trend_provenance` (the daily stamps): every row whose topic names one of the
+    concept's terms. The discount is the mean usable weight -- population relevance times
+    freshness -- mapped onto [EVIDENCE_FLOOR, 1]. No matching row is UNMEASURED and leaves the
+    score alone; refused rows (no population) are evidence about nobody and are not counted.
+    Each row is also put through `check_presentable_as_current`, so what the scorer may say
+    is current Canadian demand is decided here, not in a sentence written later.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import TrendProvenance
+
+    today = today or date.today()
+    terms = _terms_for(seed)
+    rows = []
+    with db.session() as s:
+        for r in s.scalars(select(TrendProvenance)):
+            topic = (r.topic or "").lower()
+            if not any(t in topic for t in terms):
+                continue
+            rows.append((r.source_table, r.row_id, r.topic, r.source, r.population,
+                         r.window_from, r.window_to, r.shape, r.weight, r.refused_reason,
+                         r.raw_value))
+    usable = [r for r in rows if r[8] is not None and not r[9]]
+    if not usable:
+        return {"measured": False, "terms": terms, "rows": len(rows), "discount": 1.0,
+                "why": "no stamped trend evidence names this concept; UNMEASURED, score "
+                       "left on the concept's own priors"}
+    mean_weight = sum(r[8] for r in usable) / len(usable)
+    presentable, not_presentable = [], []
+    for r in usable:
+        try:
+            datum = TrendDatum(topic=r[2] or "unnamed", value=float(r[10] or 0.0),
+                               source=r[3] or "unknown", population=r[4],
+                               window_from=r[5], window_to=r[6], shape=r[7] or SEASONAL)
+            check_presentable_as_current(datum, claim="current Canadian demand", today=today)
+            presentable.append(f"{r[0]}:{r[1]}")
+        except ProvenanceRefused as exc:
+            not_presentable.append({"row": f"{r[0]}:{r[1]}", "why": str(exc)[:160]})
+    discount = round(EVIDENCE_FLOOR + (1 - EVIDENCE_FLOOR) * mean_weight, 4)
+    return {"measured": True, "terms": terms, "rows": len(usable),
+            "mean_weight": round(mean_weight, 4), "discount": discount,
+            "presentable_as_current_canadian": presentable[:10],
+            "not_presentable": not_presentable[:10],
+            "why": (f"{len(usable)} stamped row(s), mean usable weight {mean_weight:.2f}; "
+                    f"the opportunity score is multiplied by {discount}")}

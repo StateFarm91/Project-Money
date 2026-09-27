@@ -240,7 +240,16 @@ def handle_radar_score(ctx: JobContext) -> dict:
 
     today = _scan_date(ctx)
     rescored = score_concept(seed, today)
-    promote = rescored.score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+    # #38 (C-69): the score is discounted by the stamped trend evidence about this concept --
+    # stale or foreign-population evidence lowers it, and the discounted score is the one
+    # that decides promotion.
+    from ..radar import provenance as trend_provenance
+
+    evidence = trend_provenance.evidence_for(ctx.db, seed, today=today)
+    evidence_score = round(rescored.score * evidence["discount"], 4)
+    ctx.audit("radar.evidence_discount", artifact=seed.slug,
+              detail={"raw_score": rescored.score, "score": evidence_score, **evidence})
+    promote = evidence_score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
 
     # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
     # score says a slot is worth filling; it says nothing about whether *this idea* deserves
@@ -265,7 +274,8 @@ def handle_radar_score(ctx: JobContext) -> dict:
             promote = gate["engineer"]
 
     ctx.audit("radar.scored", artifact=seed.slug, detail={
-        "score": rescored.score, "components": rescored.components,
+        "score": evidence_score, "raw_score": rescored.score,
+        "evidence_discount": evidence["discount"], "components": rescored.components,
         "promoted": promote,
         "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
     })
@@ -276,7 +286,10 @@ def handle_radar_score(ctx: JobContext) -> dict:
             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
         ctx.enqueue("crochet_engineer", "cir.draft", payload,
                     idempotency_key=f"draft:{seed.slug}")
-    return {"slug": seed.slug, "score": rescored.score, "promoted": promote,
+    return {"slug": seed.slug, "score": evidence_score, "raw_score": rescored.score,
+            "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
+                                                      "mean_weight", "why")},
+            "promoted": promote,
             "components": rescored.components,
             "gate": (None if gate is None else
                      {k: gate[k] for k in ("decision", "failed", "unmeasured", "reasons",
@@ -286,7 +299,9 @@ def handle_radar_score(ctx: JobContext) -> dict:
                 "Class C requires physical testing that does not exist yet"
                 if seed.risk_class == "C" else
                 gate["consequence"] if gate is not None else
-                f"score {rescored.score} below promotion threshold {PROMOTION_THRESHOLD}")}
+                f"score {evidence_score} below promotion threshold {PROMOTION_THRESHOLD}"
+                + (f" after the evidence discount ({evidence['why']})"
+                   if evidence.get("measured") else ""))}
 
 
 # Concepts whose pattern is engineered rather than templated. The generic builder below makes
