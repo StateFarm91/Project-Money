@@ -1072,7 +1072,7 @@ IDEATION_BATCH = 12
 
 def field(db, *, gateway, target: int = 80, today: date | None = None,
           catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
-          agent: str = "creative_director") -> dict:
+          agent: str = "creative_director", exclude_forms: tuple[str, ...] = ()) -> dict:
     """A wide, cheap field drawn from every reachable proven arena.
 
     Across arenas rather than within one, because the tournament is choosing what this
@@ -1100,7 +1100,9 @@ def field(db, *, gateway, target: int = 80, today: date | None = None,
     reachable: list[Slot] = []
     for arena in found:
         plan = slots(arena, catalogue=catalogue, today=today)
-        reachable.extend(plan["slot_objects"])
+        # #117: a form the saturation detector excluded (crowded, no named unmet angle) is
+        # not drawn from, however many listings prove it sells.
+        reachable.extend(s for s in plan["slot_objects"] if s.form not in exclude_forms)
     if not reachable:
         raise ProspectingRefused(
             "no proven arena has a form that can still be made in time, so a tournament "
@@ -1177,7 +1179,7 @@ SCREEN_TO_FUNNEL: dict[str, str] = {
 
 def tournament(db, *, gateway, target: int = 80, today: date | None = None,
                catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
-               agent: str = "creative_director") -> dict:
+               agent: str = "creative_director", exclude_forms: tuple[str, ...] = ()) -> dict:
     """A real staged tournament: a wide cheap field, cut by the gates that already exist.
 
     Only the two stages this system can honestly run today. `ideation` is the structural
@@ -1192,7 +1194,7 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
     from .funnel import Tournament, advance
 
     drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
-                  only=only, agent=agent)
+                  only=only, agent=agent, exclude_forms=tuple(exclude_forms))
     candidates = drawn["candidates"]
     if not candidates:
         raise ProspectingRefused(
@@ -1329,6 +1331,9 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
         "rounds": [r.to_dict() for r in run.rounds],
         "survivors": [c.to_dict() for c in final],
         "survivor_objects": final,
+        # The whole field as objects, for the per-axis diversity measurement (#119). Like
+        # `survivor_objects`, never stored: the handler drops every `*_objects` key.
+        "candidate_objects": candidates,
         "research_survivors": [c.to_dict() for c in screened["survivor_objects"]],
         "research_kill_rate": research.kill_rate,
         "causes": screened["causes"],

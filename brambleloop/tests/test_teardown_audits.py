@@ -418,9 +418,10 @@ def test_the_funnel_counts_measured_improvements_rather_than_filed_findings():
         db, cell="customer_experience",
         hypothesis="a first-page bundle map should reduce support cases per order",
         expected_effect="fewer support cases per order", rollback_ref="git:teardown-3b",
-        touches=("copy",))
+        touches=("copy",), proposed_by="customer_experience")
     assert cells.test_result(db, tested, 0.20) == cells.TESTING
-    assert cells.promote(db, tested) == cells.PROMOTED
+    cells.approve(db, tested, approved_by="evaluator", why="beat the baseline")
+    assert cells.promote(db, tested, promoted_by="evaluator") == cells.PROMOTED
 
     # That promotion belongs to a cell, not to this finding, so the teardown funnel still
     # reports zero: crediting an unrelated win to a finding is how a funnel flatters itself.

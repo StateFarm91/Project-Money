@@ -97,5 +97,135 @@ first_piece = {op.stitch for row in multi.components[0].rows
                                                   if getattr(o, "stitch", None)])) else set()
 check("asset truth counts stitches worked in every piece, not only the first",
       worked >= first_piece and len(multi.components) > 1 and "dec" in worked, sorted(worked))
+# 6. the concept shapes the garment (certification audit C-8): every mapping is a named table,
+#    different ideas are different garments, and the same idea is the same garment.
+import itertools  # noqa: E402
+from brambleloop.creative.concept import FEELINGS, OCCASIONS  # noqa: E402
+from brambleloop.products import garments as G  # noqa: E402
+
+
+def idea(key, construction="top_down_yoke", recipient="self", lane="LONG", *, premise,
+         motif, feeling, occasion, palette):
+    return Concept(key=key, title=key.title(), premise=premise, pod="garments",
+                   form="fitted_garment", construction=construction, motif=motif,
+                   palette_story=palette, recipient=recipient, occasion=occasion,
+                   feeling=feeling, function="a layer", make_lane=lane, provenance="test")
+
+
+def counts(cir):
+    r = compile_cir(cir)
+    return tuple((c.foundation,) + tuple(x.produced for x in r.rows if x.component == c.name)
+                 for c in cir.components)
+
+
+check("every feeling and occasion has a rule in every table",
+      set(GD.EASE_BY_FEELING) == set(FEELINGS) == set(GD.TEXTURE_BY_FEELING)
+      == set(GD.COLOUR_PLAN_BY_FEELING) and set(GD.NECKLINE_BY_OCCASION) == set(OCCASIONS))
+check("every texture a concept can choose is one the templates work",
+      {t for t, _ in GD.TEXTURE_WORDS} | set(GD.TEXTURE_BY_FEELING.values()) <= set(G.TEXTURES))
+
+lantern = idea("lantern", premise="a yoke of glowing window panes that reads as a lit street",
+               motif="lantern windows", feeling="festive", occasion="christmas",
+               palette="ember and soot")
+ch = GD.choices_for(lantern)
+check("the palette story becomes a stated colour plan",
+      ch.colours == (("ember", GD.COLOUR_HEX["ember"]), ("soot", GD.COLOUR_HEX["soot"]))
+      and ch.colour_plan == "stripes" and ch.band_cm == 3.5, ch.to_dict())
+check("motif, feeling, premise and occasion each decide something",
+      (ch.texture, ch.ease, ch.length, ch.neckline) == ("ridged", "relaxed", "standard",
+                                                         "close"), ch.to_dict())
+m = GD.design_for(lantern).build("M")
+check("the colour plan is carried in the CIR palette and rows",
+      m.colors == dict(ch.colours) and {r.color for c in m.components for r in c.rows}
+      == {"ember", "soot"} and {x.color_id for x in m.materials} == {"ember", "soot"})
+check("the same concept is the same garment",
+      GD.design_for(lantern).build("L").fingerprint == GD.design_for(lantern).build("L")
+      .fingerprint and GD.choices_for(lantern) == ch)
+
+for word, want in (("a cropped", ("length", "cropped")), ("a longline", ("length", "longline")),
+                   ("an oversized", ("ease", "oversized")), ("a slouchy", ("ease", "slouchy")),
+                   ("a fitted", ("ease", "fitted"))):
+    c = idea("w", premise=f"{word} layer of glowing window panes that reads as a lit street",
+             motif="lantern windows", feeling="festive", occasion="christmas",
+             palette="ember and soot")
+    check(f"premise word {word!r} -> {want}", getattr(GD.choices_for(c), want[0]) == want[1])
+
+base = GD.design_for(idea("b", premise="a layer of glowing window panes that reads as a street",
+                          motif="lantern windows", feeling="festive", occasion="everyday",
+                          palette="ember"))
+crop = GD.design_for(idea("c", premise="a cropped layer of window panes that reads as a street",
+                          motif="lantern windows", feeling="festive", occasion="everyday",
+                          palette="ember"))
+lb, lc = (G.built_measures(d.build("M"))["length"] for d in (base, crop))
+check("cropped is a stated ratio of the back length", abs(lc / lb - GD.LENGTH_RATIOS["cropped"])
+      < 0.05, (lb, lc))
+
+# Distinct-variant evidence: one field changed at a time from a base idea gives a distinct CIR.
+fields = {
+    "palette": dict(palette="moss and slate and cream"),
+    "motif": dict(motif="tidepool ripples"),
+    "feeling": dict(feeling="serene"),
+    "premise": dict(premise="a longline layer of window panes that reads as a lit street"),
+    "occasion": dict(occasion="summer_travel"),
+}
+kw = dict(premise="a layer of glowing window panes that reads as a lit street",
+          motif="lantern windows", feeling="festive", occasion="christmas",
+          palette="ember and soot")
+prints = {"base": GD.design_for(idea("v", **kw)).build("M").fingerprint}
+for name, change in fields.items():
+    prints[name] = GD.design_for(idea("v", **{**kw, **change})).build("M").fingerprint
+check("changing any one concept field changes the CIR", len(set(prints.values())) == len(prints),
+      prints)
+
+# A spread: every feeling x three occasions x two palettes x three motifs, raglan adult, M.
+# Before the repair every one of these was the same garment (the old design space was at
+# most 16 variants in all, from construction, recipient, lane and "fitted").
+spread = set()
+combos = list(itertools.product(FEELINGS, ("christmas", "everyday", "summer_travel"),
+                                ("ember and soot", "sea glass"),
+                                ("field", "bark ridges", "tidepool ripples")))
+for feeling, occasion, palette, motif in combos:
+    spread.add(GD.design_for(idea("s", premise="a layer that reads as a lit street at dusk",
+                                  motif=motif, feeling=feeling, occasion=occasion,
+                                  palette=palette)).build("M").fingerprint)
+print(f"     distinct CIRs from {len(combos)} concepts: {len(spread)}")
+check("concepts spread over far more than the old 16 variants", len(spread) >= 100,
+      len(spread))
+
+# Every size of a varied set still certifies end to end.
+varied = [
+    idea("v1", "top_down_yoke", "child", "QUICK", premise="a cropped slouchy yoke of ripples "
+         "that reads as a tide pool", motif="tidepool ripples", feeling="whimsical",
+         occasion="summer_travel", palette="sea glass, sand and teal"),
+    idea("v2", "side_to_side", "self", "LONG", premise="a longline oversized layer of bark "
+         "ridges that reads as a forest floor", motif="bark ridges", feeling="rugged",
+         occasion="winter_nesting", palette="moss and slate"),
+    idea("v3", "flat_rows", "teen", "SHORT", premise="a boxy layer with stripes that reads as "
+         "a deckchair", motif="deckchair stripe", feeling="playful", occasion="valentines",
+         palette="cranberry and cream"),
+    idea("v4", "top_down_yoke", "grandparent", "MEDIUM", premise="a longline layer of still "
+         "stone that reads as a harbour wall", motif="stone", feeling="heirloom",
+         occasion="wedding", palette="granite and ivory and ink"),
+]
+bad = []
+for c in varied:
+    d = GD.design_for(c)
+    d.check_monotonic()
+    for size, one in d.build_all().items():
+        r = compile_cir(one)
+        if not r.ok:
+            bad.append((c.key, size, "compile")); continue
+        for term in ("US", "UK"):
+            if compare(one, write_pattern(one, r, term), term):
+                bad.append((c.key, size, term))
+        cert = certify(one)
+        if not cert.granted:
+            bad.append((c.key, size, cert.blocking_reasons[:1]))
+check("varied concepts: every size compiles, reverses US/UK, is monotonic and certifies",
+      not bad, bad[:3])
+check("varied concepts differ from each other and from the fixtures at every size",
+      len({counts(GD.design_for(c).build(GD.base_size(GD.design_for(c)))) for c in varied})
+      == len(varied))
+
 print(f"\n  {PASSED} passing, {FAILED} failing")
 sys.exit(1 if FAILED else 0)

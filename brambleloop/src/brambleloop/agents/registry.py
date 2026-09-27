@@ -74,7 +74,7 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
                             "intel.acceptance",
-                            "mjs.scan", "mjs.reviews", "etsy.probe",
+                            "mjs.scan", "mjs.reviews", "etsy.probe", "intel.serp_capture",
                             # A free keyless sanctioned read, and the gallery backlog that
                             # was waiting on a call nobody had written rather than on a
                             # capability anybody had to buy (B-478, B-483).

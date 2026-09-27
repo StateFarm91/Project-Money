@@ -62,6 +62,11 @@ def _aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+def query_for(keyword: str) -> str:
+    """The buyer-shaped search for a pod keyword: "crochet <keyword> pattern"."""
+    return f"crochet {keyword}" if "pattern" in keyword else f"crochet {keyword} pattern"
+
+
 def target_queries() -> list[dict]:
     """The queries the laboratory watches, derived from the market map's pod vocabulary.
 
@@ -75,12 +80,16 @@ def target_queries() -> list[dict]:
     out: list[dict] = []
     seen: set[str] = set()
     for pod in pods.PODS:
-        for keyword in pod.keywords[:QUERIES_PER_POD]:
-            query = f"crochet {keyword} pattern"
-            if query in seen:
+        taken = 0
+        for keyword in pod.keywords:
+            # "guidebook" and "guide book" are one query to a search index.
+            squashed = keyword.replace(" ", "")
+            if taken >= QUERIES_PER_POD or squashed in seen:
                 continue
-            seen.add(query)
-            out.append({"query": query, "pod": pod.key, "keyword": keyword})
+            seen.add(squashed)
+            taken += 1
+            out.append({"query": query_for(keyword), "pod": pod.key,
+                        "keyword": keyword})
     return out
 
 

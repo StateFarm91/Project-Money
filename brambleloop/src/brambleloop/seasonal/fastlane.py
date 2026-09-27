@@ -65,14 +65,21 @@ class Candidate:
     components: int
     colours: int
     new_techniques: int
-    evidence_confidence: float
+    # None is UNMEASURED: no scored evidence exists for the trend. It is refused, never read
+    # as a confidence of zero or of anything else.
+    evidence_confidence: float | None
 
 
 def admit(candidate: Candidate) -> dict:
     """Decide whether this belongs in the fast lane, and say exactly why when it does not."""
     reasons: list[str] = []
 
-    if candidate.evidence_confidence < CONFIDENT_ABOVE:
+    if candidate.evidence_confidence is None:
+        reasons.append(
+            "evidence confidence is UNMEASURED: no scored evidence stands behind this trend, "
+            "and a fast lane fed by an unmeasured signal is a fast way to make something "
+            "nobody wanted")
+    elif candidate.evidence_confidence < CONFIDENT_ABOVE:
         reasons.append(
             f"evidence confidence {candidate.evidence_confidence:.2f} is below "
             f"{CONFIDENT_ABOVE:.2f}. A fast lane fed by a weak signal is a fast way to make "
@@ -178,3 +185,44 @@ def state() -> dict:
                  "by construction -- one component, few colours, a risk class the compiler "
                  "verifies completely -- and that is the only honest way to go fast (#291)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #290 at runtime: every observed trend gets a half-life, and the half-life caps its lane.
+
+# A culture domain's prior half-life. A prior, labelled as one on every classification: the
+# observed recurrence below overrides it, because a trend seen again a year later is a
+# recurring season whatever domain it started in.
+DOMAIN_HALF_LIFE: dict[str, str] = {
+    "meme": "flash",
+    "internet_moment": "flash",
+    "viral_aesthetic": "flash",
+    "film": "short_seasonal",
+    "television": "short_seasonal",
+    "music": "short_seasonal",
+    "celebrity_aesthetic": "short_seasonal",
+    "sports_culture": "short_seasonal",
+    "seasonal_tradition": "recurring_seasonal",
+    "nostalgia_era": "multi_season_fashion",
+}
+
+
+def classify_half_life(*, domain: str, recurring: bool = False,
+                       season: str | None = None, evergreen: bool = False) -> dict:
+    """The half-life class of one trend or product, with its basis and its lane ceiling."""
+    if recurring:
+        half_life, basis = "recurring_seasonal", "observed_recurrence"
+    elif evergreen:
+        half_life, basis = "evergreen", "evergreen_product"
+    elif season:
+        half_life, basis = "recurring_seasonal", f"calendar_event:{season}"
+    elif domain in DOMAIN_HALF_LIFE:
+        half_life, basis = DOMAIN_HALF_LIFE[domain], f"domain_prior:{domain}"
+    else:
+        raise FastLaneRefused(
+            f"{domain!r} has no half-life prior and no observed recurrence. An unclassified "
+            f"trend gets whatever effort somebody felt like spending, so it is refused")
+    return {"half_life": half_life, "basis": basis,
+            "lane_ceiling": HALF_LIVES[half_life],
+            "note": ("estimated from the domain's prior until the trend is seen again"
+                     if basis.startswith("domain_prior") else "")}

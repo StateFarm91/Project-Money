@@ -130,9 +130,16 @@ def _series(db, signal_key: str) -> list[dict]:
                  "listings": r.competitor_listings} for r in rows]
 
 
-def momentum(db, signal_key: str) -> dict:
-    """Direction and distance from peak, from the readings rather than from a feeling."""
+def momentum(db, signal_key: str, *, channel: str | None = None) -> dict:
+    """Direction and distance from peak, from the readings rather than from a feeling.
+
+    `channel` restricts the series to one source. The reference feed and the marketplace
+    series are on different scales, and a peak taken across both compares a pageview ratio
+    with a weekly listing share -- so the exit check passes the channel it is judging.
+    """
     series = _series(db, signal_key)
+    if channel:
+        series = [p for p in series if p["channel"] == channel]
     if len(series) < 2:
         return {"measurable": False, "observations": len(series),
                 "reason": ("one reading is a level, not a momentum. Direction needs two "
@@ -210,7 +217,7 @@ def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
 
 
 def exit_check(db, signal_key: str, *, days_to_event: int | None = None,
-               conversion: float | None = None) -> dict:
+               conversion: float | None = None, channel: str | None = None) -> dict:
     """Should capacity move to the next wave? Any one condition is sufficient.
 
     Conversion is passed rather than assumed, and `None` means unmeasured rather than bad:
@@ -218,7 +225,7 @@ def exit_check(db, signal_key: str, *, days_to_event: int | None = None,
     every trend on day one.
     """
     reasons: list[dict] = []
-    m = momentum(db, signal_key)
+    m = momentum(db, signal_key, channel=channel)
 
     if m["measurable"] and m["from_peak"] <= DECLINE_THRESHOLD:
         reasons.append({"condition": "declining_interest", "from_peak": m["from_peak"],

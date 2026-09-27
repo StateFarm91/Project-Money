@@ -656,13 +656,13 @@ def remediation(db, readings: list[Reading]) -> dict:
     # and every one of them is a publication refused by shadow mode -- the system working.
     # Reporting those as a repair backlog would put a permanent false number on the console,
     # and a number that is always there is a number nobody reads.
-    # `deliberate_refusal`, not `JobQueue.REFUSAL_MARKERS`. They answer different questions
-    # and this is the first one: *is this dead letter a defect somebody has to explain?*
-    # The markers answer the second -- *may this be re-driven?* -- and the two differ on a
-    # real row. A job that stood aside for the build that can run it is not a defect (the
-    # refusal worked) and IS re-drivable (the right build should take it). Reading the
-    # re-drive rule as the defect rule put that row on this console as a repair backlog and
-    # on `/api/verify` as nothing to explain, at the same moment, on 2026-09-24.
+    # `deliberate_refusal` is read from `durable.classify_dead_letter`, the one classifier
+    # `requeue_dead` also uses (C-14). There are still two questions -- *is this a defect
+    # somebody has to explain?* here, *may it be re-driven?* there -- because they differ on
+    # one real row: a job that stood aside for the build that can run it is not a defect
+    # and IS re-drivable. But both answers now come from one function, so a capability
+    # refusal on any job type can no longer be "never re-drive" to one reader and a defect
+    # to this one, which is what the two separate marker lists produced.
     from ..queue.durable import deliberate_refusal
 
     dead = list(db.scalars(select(Job).where(Job.status == JobStatus.DEAD)))

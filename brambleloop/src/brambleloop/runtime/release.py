@@ -261,6 +261,13 @@ def handle_assets_build(ctx: JobContext) -> dict:
     from ..cir.writer import write_pattern
 
     siblings = _collection_siblings(slug)
+    # #63: the creative brief is derived from the engineering evidence *before* the
+    # conversion creative exists, so it constrains the frames rather than captioning them.
+    from ..publish import brief as brief_mod
+
+    creative_brief = brief_mod.brief_for_release(
+        cir, twin, evidence_ref=f"chart:{chart.sha256}",
+        deliverables=tuple(f"pdf:{t}" for t in sorted(pdfs)) + ("chart", "legend"))
     frames = build_frames(cir, twin, pattern_text=write_pattern(cir, result),
                           difficulty=_difficulty(twin, cir), pages=doc.pages,
                           siblings=siblings)
@@ -284,6 +291,20 @@ def handle_assets_build(ctx: JobContext) -> dict:
     blocking = (structural + [str(f) for f in truth if f.is_error] + hero.problems
                 + list(identity_gate["blocking"]))
 
+    # #63: CIR -> twin -> evidence -> brief -> creative -> independent asset truth -> gates,
+    # walked in order. Creative that shows a motif, size or texture the truth does not
+    # contain is refused here, and the product goes back to the brief.
+    flow = brief_mod.walk(creative_brief, brief_mod.produced_by_frames(frames),
+                          produced_by="publishing:listing_assets",
+                          compared_by="gates.asset_truth", gates_ok=not blocking)
+    if not flow["creative"]["ok"]:
+        blocking.append("CREATIVE_INVENTED: the listing frames depict what the truth does "
+                        f"not contain: {flow['creative']['invented']}"[:400])
+    ctx.audit(brief_mod.FLOW_ACTION, artifact=f"{slug}@{version}",
+              detail={k: flow[k] for k in ("steps", "reached", "blocked_at", "restart",
+                                           "export_ready", "creative", "independence")}
+              | {"brief": flow["brief"]})
+
     stored_frames = []
     for frame in frames:
         art = store.put(f"{slug}/{version}/frame-{frame.position}.png", frame.png(),
@@ -291,6 +312,34 @@ def handle_assets_build(ctx: JobContext) -> dict:
         stored_frames.append({"position": frame.position, "role": frame.role,
                               "asset_class": frame.asset_class.value,
                               "sha256": art.sha256})
+
+    # #36: every listing image is stored with its provenance -- kind, physical or
+    # simulated, AI-assisted or not, the pattern version it depicts and its colourway.
+    from ..commerce import buyer_trust
+
+    try:
+        provenance_row = buyer_trust.record_gallery(
+            ctx.db, slug=slug, version=version, job_id=ctx.job.id,
+            records=buyer_trust.records_for_frames(
+                stored_frames, slug=slug, version=version,
+                colourway=", ".join(sorted(c for c in twin.colors_used if c))))
+    except buyer_trust.TrustRefused as exc:
+        provenance_row = None
+        blocking.append(f"IMAGE_PROVENANCE_REFUSED: {exc}"[:400])
+
+    # #68: every visual defect found here becomes a regression fixture (or, in a class that
+    # already has one, a recorded fixture bug), and this product's fixtures are replayed.
+    from ..publish import defects as defects_mod
+
+    replayed = defects_mod.replay(ctx.db, blocking, slug=slug)
+    captured = None
+    if blocking:
+        captured = defects_mod.capture(
+            ctx.db, blocking, slug=slug, version=version, job_id=ctx.job.id,
+            reproduces_with=(f"assets.build {slug}@{version} release "
+                             f"{ctx.job.inputs.get('release', '') or '-'} chain "
+                             f"{CHAIN_VERSION}; hero sha256 "
+                             f"{stored_frames[0]['sha256'] if stored_frames else '-'}"))
     _persist_frames(ctx, slug, version, frames, stored_frames, blocking)
 
     ctx.audit("assets.listing_images_built" if not blocking else "assets.listing_images_blocked",
@@ -298,7 +347,15 @@ def handle_assets_build(ctx: JobContext) -> dict:
               detail={"frames": len(frames), "blocking": blocking[:5],
                       "identity_gate": {k: identity_gate[k]
                                         for k in ("checked", "verdict") if k in identity_gate},
-                      "hero_thumbnail": hero.to_dict()})
+                      "hero_thumbnail": hero.to_dict(),
+                      "evidence_flow": {"blocked_at": flow["blocked_at"],
+                                        "export_ready": flow["export_ready"]},
+                      "image_provenance": (provenance_row or {}).get("audit_id"),
+                      "defect_fixtures": ({"first": captured["first"],
+                                           "recurrences": captured["recurrences"]}
+                                          if captured else None),
+                      "fixture_replay": {"fixtures": replayed["fixtures"],
+                                         "failed": replayed["failed"][:5]}})
     if blocking:
         # A listing whose imagery misrepresents the pattern does not proceed to pricing. The
         # chain stops here rather than producing a price for something that cannot ship.
@@ -352,7 +409,17 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     # than relying on nobody adding it later.
     pricing_mod.check_no_fake_discount(decision.price_cad, None, ever_charged=False)
 
-    ctx.audit("pricing.positioned", artifact=slug, detail=decision.to_dict())
+    # #46: every price this handler sets opens a point in the elasticity memory, with its
+    # season, traffic source and sale state as columns. An unchanged price is not re-recorded,
+    # so a rebuild cannot manufacture a flat history.
+    from ..commerce import elasticity
+
+    price_point = elasticity.record_price_set(
+        ctx.db, product_slug=slug, category=category, price_cad=decision.price_cad,
+        season=(seed.season or "evergreen") if seed else "unassigned")
+
+    ctx.audit("pricing.positioned", artifact=slug,
+              detail={**decision.to_dict(), "price_point": price_point})
     i.update({"price_cad": decision.price_cad, "net_cad": decision.net_cad,
               "pricing_reasons": decision.reasons, "pricing_warnings": decision.warnings,
               "category": category})
@@ -395,6 +462,10 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
     tags = search_mod.choose_tags(queries)
+    # #240: a slot spent on a phrase another listing of ours already spends one on is our
+    # own listings ranked against each other. Re-chosen from the remaining queries, never
+    # fewer slots, and the swap is recorded with the catalogue reading below.
+    tags, portfolio_reading = _diversify_tags(ctx.db, slug, queries, tags)
 
     # A children's product's listing carries the statements a buyer needs before they pay.
     #
@@ -429,28 +500,200 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         category=category, difficulty=_difficulty(twin, cir),
         colors=sorted(c for c in twin.colors_used if c), season=season)
 
+    # #35: classify this release under the Creativity Standards before its listing exists,
+    # generate the disclosures it owes into the copy, and let the Policy Gate check the copy
+    # against that classification. A generated image in a role that claims something about
+    # the finished object is refused; labelling it does not convert it.
+    from ..gates import platform_policy
+    from ..publish import listing_asset
+
+    release_frames = list(i.get("frames") or _stored_frames(ctx.db, slug, version))
+    generated = [f for f in listing_asset.frames_for(ctx.db, slug=slug)
+                 if f.get("made") and f.get("generated", True)]
+    try:
+        classification = platform_policy.classify_release(release_frames, generated)
+        class_problems = [f"POLICY_CLASSIFICATION: {p}" for p in classification.problems]
+    except platform_policy.PolicyRefused as exc:
+        classification = None
+        class_problems = [f"POLICY_CLASSIFICATION: {exc}"]
+    if classification is not None and classification.disclosures:
+        copy.description = (copy.description.rstrip() + "\n\n"
+                            + platform_policy.disclosure_block(classification))
+    try:
+        new_class = platform_policy.check_new_class(
+            ctx.db, product_class=classification.product_class if classification
+            else platform_policy.AI_ASSISTED_DESIGN,
+            asset_roles=tuple(sorted({a.role for a in platform_policy.release_assets(
+                release_frames, generated)})) if classification else ())
+        new_class = {"enabled": True, "policy": new_class.get("policy")}
+    except platform_policy.PolicyRefused as exc:
+        # Recorded, not raised: drafting a listing is not enabling a class for sale. The
+        # stamp rides with the listing so publication can see the reading was not current.
+        new_class = {"enabled": False, "why": str(exc)[:400]}
+    ctx.audit(platform_policy.CLASSIFIED_ACTION, artifact=f"{slug}@{version}", detail={
+        "classification": classification.to_dict() if classification else None,
+        "problems": class_problems, "assets": len(release_frames) + len(generated),
+        "generated_assets": len(generated), "class_enablement": new_class})
+
+    coverage = search_mod.score_coverage(queries, title=copy.title, tags=copy.tags,
+                                         description=copy.description)
+
+    # #139: famous dialogue, lyrics, slogans and catchphrases the culture radar declared
+    # are screened out of customer-facing copy unless a recorded basis puts them in the
+    # direct lane.
+    rights_problems, rights_reading = _quote_screen(
+        ctx.db, " \n".join([copy.title, copy.description, " ".join(copy.tags)]))
+
     structural = (seo_mod.check_listing_limits(copy)
                   + search_mod.check_attributes(attributes))
     policy = check_listing(ListingDraft(title=copy.title, description=copy.description,
-                                        tags=copy.tags, price_cad=copy.price_cad))
-    blocking = structural + [str(f) for f in policy if f.is_error]
+                                        tags=copy.tags, price_cad=copy.price_cad),
+                           classification=classification)
+    blocking = (structural + [str(f) for f in policy if f.is_error] + class_problems
+                + rights_problems)
 
     ctx.audit("listing.seo_drafted" if not blocking else "listing.seo_blocked",
               artifact=f"{slug}@{version}",
               detail={"title_len": len(copy.title), "tags": len(copy.tags),
                       "search_share": coverage.share, "gaps": coverage.gaps[:5],
-                      "blocking": blocking[:5]})
+                      "blocking": blocking[:5],
+                      "disclosures_owed": (classification.disclosures
+                                           if classification else None),
+                      "rights_screen": rights_reading})
     if blocking:
         return {"slug": slug, "version": version, "ok": False, "blocking": blocking}
 
     i.update({"listing": copy.to_dict(), "attributes": attributes,
-              "search_coverage": coverage.to_dict()})
+              "search_coverage": coverage.to_dict(),
+              "classification": classification.to_dict() if classification else None})
     _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""))
+
+    # #41 / C-47: the disclosure check reads the stored Listing row, so it runs here, after
+    # the row exists -- run before it (as listing.draft did) it could only ever say
+    # UNMEASURED. A missing owed disclosure is a finding on the draft and publication
+    # re-checks it.
+    from ..commerce.buyer_trust import listing_disclosure_finding
+
+    disclosure = listing_disclosure_finding(ctx.db, slug=slug, version=version)
+    ctx.audit("listing.disclosure_finding" if disclosure.get("finding")
+              else "listing.disclosure_checked", artifact=f"{slug}@{version}",
+              detail=disclosure)
+    # #240: the catalogue reading, with this listing in it.
+    from ..commerce import portfolio as portfolio_mod
+
+    catalogue = portfolio_mod.diversification(ctx.db)
+    ctx.audit("listing.query_portfolio", artifact=f"{slug}@{version}", detail={
+        **portfolio_reading,
+        "stuffing": portfolio_mod.stuffing(copy.title, copy.tags),
+        "catalogue": {k: catalogue.get(k) for k in ("measurable", "listings",
+                                                    "concentrated_on", "competing_pairs",
+                                                    "stuffing", "required_facets_missing")}})
     ctx.enqueue("growth", "launch.plan", i,
                 idempotency_key=chain_key("launch", slug, version, i.get("release", ""),
                                           i.get("rebuild", "")))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
-            "attributes": attributes, "search_coverage": coverage.to_dict()}
+            "attributes": attributes, "search_coverage": coverage.to_dict(),
+            "disclosures": disclosure, "query_portfolio": portfolio_reading}
+
+
+def _stored_frames(db, slug: str, version: str) -> list[dict]:
+    """The listing frames `assets.build` filed for this release, when the job carries none."""
+    from sqlalchemy import select
+
+    with db.session() as s:
+        return [{"position": r.position, "role": r.role, "asset_class": r.asset_class,
+                 "sha256": r.sha256}
+                for r in s.scalars(select(ListingAsset).where(
+                    ListingAsset.product_slug == slug, ListingAsset.version == version)
+                    .order_by(ListingAsset.position))]
+
+
+def _diversify_tags(db, slug: str, queries, tags: list[str]) -> tuple[list[str], dict]:
+    """#240 applied: spend fewer slots on phrases other listings of ours already spend on.
+
+    Re-chooses from the queries no other listing's tags already use, then tops up from the
+    original choice so the listing never loses a slot. Kept only when it shares fewer
+    phrases than the original; otherwise the original stands and the reading says so.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        others = {t.lower() for r in s.scalars(select(Listing).where(
+            Listing.product_slug != slug)) for t in (r.tags or [])}
+    shared_before = sorted(t for t in tags if t.lower() in others)
+    reading = {"other_listing_tags": len(others), "shared_before": shared_before}
+    if not others or not shared_before:
+        return tags, {**reading, "shared_after": shared_before, "changed": False,
+                      "why": ("no other listing's tags to diverge from" if not others
+                              else "no tag is shared with another listing")}
+    fresh = [q for q in queries if q.phrase.lower() not in others]
+    diversified = search_mod.choose_tags(fresh)
+    diversified = [t for t in diversified if t.lower() not in others]
+    for t in tags:
+        if len(diversified) >= len(tags):
+            break
+        if t not in diversified:
+            diversified.append(t)
+    shared_after = sorted(t for t in diversified if t.lower() in others)
+    if len(shared_after) < len(shared_before) and len(diversified) >= len(tags):
+        return diversified, {**reading, "shared_after": shared_after, "changed": True,
+                             "why": (f"{len(shared_before) - len(shared_after)} slot(s) moved "
+                                     f"off phrases another listing already competes for")}
+    return tags, {**reading, "shared_after": shared_before, "changed": False,
+                  "why": "no reachable alternative phrase; the original tags stand"}
+
+
+def _quote_screen(db, text: str) -> tuple[list[str], dict]:
+    """#139: screen customer-facing copy against every protected token the radar declared.
+
+    Routed by `culture.rights.route` with the basis recorded on the signal, and checked by
+    `rights.check_direct_use` -- a protected phrase reaching copy through the original lane
+    is refused. With no declared tokens the screen ran and found nothing to look for, which
+    is reported as such rather than as clearance.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CultureSignal
+    from ..culture import rights
+
+    with db.session() as s:
+        signals = [(r.key, list(r.protected_tokens or []), r.basis)
+                   for r in s.scalars(select(CultureSignal))]
+    problems: list[str] = []
+    screened, quote_classes = 0, {rights.DIALOGUE, rights.LYRIC, rights.SLOGAN}
+    quotes = 0
+    for key, raw_tokens, raw_basis in signals:
+        tokens = []
+        for t in raw_tokens:
+            try:
+                tokens.append(rights.ProtectedToken(text=str(t.get("text") or ""),
+                                                    asset_class=str(t.get("asset_class") or ""),
+                                                    source=str(t.get("source") or "")))
+            except rights.RightsRefused as exc:
+                problems.append(f"RIGHTS_UNREADABLE_TOKEN: signal {key}: {exc}"[:300])
+        if not tokens:
+            continue
+        screened += len(tokens)
+        quotes += sum(1 for t in tokens if t.asset_class in quote_classes)
+        basis = None
+        if raw_basis:
+            try:
+                basis = rights.Basis(**{k: raw_basis[k] for k in (
+                    "kind", "evidence", "recorded_by", "recorded_on", "scope")
+                    if k in raw_basis})
+            except TypeError:
+                basis = None
+        routing = rights.route(tokens, basis=basis)
+        try:
+            rights.check_direct_use(routing, product_or_copy=text)
+        except rights.RightsRefused as exc:
+            problems.append(f"RIGHTS_DIRECT_USE: signal {key}: {exc}"[:400])
+    return problems, {"signals": len(signals), "tokens_screened": screened,
+                      "quote_catchphrase_tokens": quotes, "refused": len(problems),
+                      "note": ("no protected token has been declared by the radar, so the "
+                               "screen had nothing to look for" if not screened else "")}
 
 
 # ---- swarm stewardship and experiment registration -------------------------------------
@@ -894,6 +1137,12 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     prices = [m.price_cad for m in members]
     verdict = pricing_mod_intel.price_bundle(prices)
 
+    # #289: the collection architecture's own test, on the members' concepts. A collection
+    # must share a palette and story, differ structurally and span more than one price
+    # point; the assessment is recorded with the listing rather than trusted to the name.
+    architecture = _collection_architecture(slug, seed, [m.slug for m in members])
+    ctx.audit("collection.assessed", artifact=slug, detail=architecture)
+
     titles = [m.title for m in members]
     collection_name = (seed.family or slug).replace("-", " ").title()
     name_problems = bible.check_collection_name(collection_name)
@@ -971,7 +1220,39 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
         "published": False})
     return {"slug": slug, "members": [m[0] for m in certified],
             "price_cad": verdict.price_cad, "saving_cad": verdict.saving_cad,
-            "saving_pct": verdict.saving_pct, "name_problems": name_problems}
+            "saving_pct": verdict.saving_pct, "name_problems": name_problems,
+            "architecture": {k: architecture[k] for k in ("coherent", "problems",
+                                                          "price_points", "members",
+                                                          "without_concept")}}
+
+
+def _collection_architecture(slug: str, seed, member_slugs: list[str]) -> dict:
+    """`seasonal.collections.assemble` and `assess` over a bundle's certified members (#289).
+
+    Members are read as concepts from the catalogue's own design records; a member with no
+    design record is named rather than guessed into the vocabulary.
+    """
+    from collections import Counter
+
+    from ..creative.audit import catalogue_concepts
+    from ..seasonal import collections as coll
+    from ..seasonal.daily import CONCEPT_OCCASION
+
+    concepts = {c.key: c for c in catalogue_concepts()}
+    found = [concepts[m] for m in member_slugs if m in concepts]
+    missing = [m for m in member_slugs if m not in concepts]
+    occasion = CONCEPT_OCCASION.get(seed.season if seed else "", "everyday")
+    story = (Counter(c.palette_story for c in found).most_common(1)[0][0]
+             if found else "")
+    built = coll.assemble(occasion, key=slug, palette_story=story,
+                          visual_language=(seed.family if seed and seed.family else slug),
+                          candidates=found)
+    whole = coll.assess(coll.Collection(key=slug, event=occasion, palette_story=story,
+                                        visual_language=built["visual_language"],
+                                        members=found))
+    return {**whole, "assembled": {k: built[k] for k in ("members", "rejected",
+                                                         "ineligible", "coherent")},
+            "without_concept": missing}
 
 
 @handlers.register("physical.record")
@@ -1493,7 +1774,12 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
     outcome = scan_or_explain(ctx.db)
     if not outcome["ran"]:
         ctx.audit("mjs.scan_blocked", detail=outcome)
-        return {"ran": False, "reason": outcome["reason"][:200]}
+        # A scan that did not run this time does not un-store what earlier scans observed:
+        # any new or changed listing still waiting for the mission pipeline is carried
+        # through it now. Nothing here reads Etsy.
+        mission = _run_mjs_mission(ctx)
+        return {"ran": False, "reason": outcome["reason"][:200],
+                "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")}}
 
     # Every scan re-routes the whole stored catalogue through the current pod vocabulary.
     # The scan itself only routes what it read, and it deliberately skips anything whose
@@ -1515,12 +1801,110 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
 
     report = outcome["report"]
     ctx.audit("mjs.scanned", detail=report)
+    # #214/#309: every new or changed listing the scan just stored becomes a market event and
+    # is carried through the mission pipeline (director routing, decomposition, panel gates,
+    # lessons, memory, coverage, arena response, breakthrough tournament).
+    mission = _run_mjs_mission(ctx)
     return {"ran": True,
             "listings_known": report["catalogue_coverage"]["listings_known"],
             "new": len(report["changes"]),
             "reclassified": routing["moved"],
             "learning_domains": len(learned.get("recorded") or []),
-            "inspected": report["catalogue_coverage"]["listings_inspected"]}
+            "inspected": report["catalogue_coverage"]["listings_inspected"],
+            "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")}}
+
+
+def _mjs_today(ctx: JobContext):
+    """The date the mission reasons about: the job's `as_of` when a replay names one."""
+    from datetime import datetime, timezone
+
+    as_of = (ctx.job.inputs or {}).get("as_of")
+    return date.fromisoformat(as_of) if as_of else datetime.now(timezone.utc).date()
+
+
+def _run_mjs_mission(ctx: JobContext) -> dict:
+    """The eight-step MJs pipeline over stored observations (intel.mission_runtime)."""
+    from ..intel import mission_runtime
+
+    result = mission_runtime.process(ctx.db, enqueue=ctx.enqueue, today=_mjs_today(ctx))
+    result["tournaments"] = sorted({e["tournament_job_id"] for e in result["events"]
+                                    if e.get("tournament_job_id")})
+    if result["pending"] or result["processed"]:
+        ctx.audit("mjs.mission_events", detail={
+            "pending": result["pending"], "processed": result["processed"],
+            "deferred": result["deferred"], "events": result["events"][:50],
+            "cross_category": result["cross_category"],
+            "tournaments": result["tournaments"]})
+    return result
+
+
+@handlers.register("intel.benchmark_health")
+def handle_intel_benchmark_health(ctx: JobContext) -> dict:
+    """#206: resolve the benchmark URL and record its health, never re-pointing to a stranger.
+
+    Without a proven fetch capability every benchmark reads `unverified`. `wrong_shop` or
+    `unreachable` opens a P3 incident; a healthy or moved result resolves it.
+    GREEN: at most one sanctioned rendered-page read per benchmark; nothing is published.
+    """
+    from ..intel import mission_runtime
+
+    result = mission_runtime.benchmark_health(ctx.db)
+    ctx.audit("mjs.benchmark_health", detail=result)
+    return {"checked": result["checked"], "capability": result["capability"],
+            "states": [r["state"] for r in result["results"]],
+            "incidents_opened": result["incidents_opened"]}
+
+
+@handlers.register("intel.pod_learning")
+def handle_intel_pod_learning(ctx: JobContext) -> dict:
+    """#226: every pod's discernment and creativity, computed from rows and stored.
+
+    GREEN: reads pod lessons, mission events, coverage and vetoes; writes readings.
+    """
+    from ..intel import mission_runtime
+
+    result = mission_runtime.pod_capability(ctx.db)
+    ctx.audit("mjs.pod_capability", detail=result)
+    return {"pods": len(result["pods"]), "records": result["records"],
+            "judgements": result["judgements"],
+            "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
+
+
+@handlers.register("mjs.seasonal_sentinel")
+def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
+    """#311: days to preferred and latest launch for every MJs-derived opportunity.
+
+    At risk: a correlated P2 and the opportunity's work moved to the seasonal band (queued
+    there if none exists). Missed: deferred to the next viable event, never an incident.
+    GREEN: reads rows, re-prioritises internal jobs, queues internal work.
+    """
+    from ..intel import mission_runtime
+    from ..swarm.orchestrate import priority_for
+
+    today = _mjs_today(ctx)
+    result = mission_runtime.seasonal_sentinel(ctx.db, today=today)
+    queued = []
+    if result["needs_tournament"]:
+        from ..core.models import MjsMissionEvent
+        from ..creative import breakthrough
+
+        for event_id in result["needs_tournament"]:
+            with ctx.db.session() as s:
+                ev = s.get(MjsMissionEvent, event_id)
+                arena, pod, ref, key = ev.arena, ev.pod, ev.listing_ref, ev.benchmark_key
+            inputs = breakthrough.release_brief(ctx.db, arena=arena, pod=pod, listing_ref=ref)
+            inputs.update({"mjs_event_id": event_id, "reallocated_by": "mjs.seasonal_sentinel"})
+            job = ctx.enqueue("creative_director", "creative.tournament", inputs,
+                              priority=priority_for("mjs.seasonal_sentinel"),
+                              idempotency_key=f"mjs.at_risk:{key}:{event_id}:{today}")
+            if job is not None:
+                with ctx.db.session() as s:
+                    s.get(MjsMissionEvent, event_id).tournament_job_id = job.id
+                queued.append(job.id)
+    ctx.audit("mjs.seasonal_sentinel", detail={**result, "queued": queued})
+    return {"opportunities": result["opportunities"], "counts": result["counts"],
+            "incidents_opened": result["incidents_opened"], "queued": queued,
+            "reallocated": sum(len(r["reallocated"]) for r in result["rows"])}
 
 
 # Thumbnail judgements per run. Small on purpose: market_radar's CA$4.00 daily ceiling also
@@ -2147,7 +2531,7 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     stored exactly like one that survives ten.
     """
     from ..core.models import utcnow
-    from ..creative import prospecting
+    from ..creative import ideation, prospecting
     from ..creative.audit import catalogue_concepts
     from ..gateway import routing
     from ..gateway.anthropic import AnthropicProvider
@@ -2160,27 +2544,46 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
     arena = prospecting.choose(found, cycle=week)
 
+    # Every ideation input is read before anything is generated (#85, #101, #105, #117-#122,
+    # #124, #142, #232), and the arena moves if saturation leaves it nothing to enter.
+    arena, plan, moved_from = _ideation_arena(ctx, found, arena, kind="tournament",
+                                              cycle=week)
+    if plan is None:
+        return moved_from
+
     _task, tier = routing.route(prospecting.IDEATION_TASK)
-    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
-                           job_id=ctx.job.id)
+    gateway = ideation.BriefingGateway(
+        ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
+                     job_id=ctx.job.id), plan)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
 
     try:
         result = prospecting.tournament(
             ctx.db, gateway=gateway, catalogue=catalogue,
-            only=(arena.event, arena.pod))
+            only=(arena.event, arena.pod),
+            exclude_forms=tuple(plan["saturation"]["excluded_forms"]))
     except prospecting.ProspectingRefused as e:
         ctx.audit("creative.tournament_blocked",
-                  detail={"arena": arena.to_dict(), "reason": str(e)[:400]})
+                  detail={"arena": arena.to_dict(), "reason": str(e)[:400],
+                          "ideation": ideation.record(plan, gateway=gateway, selection=None,
+                                                      gate=None)})
         return {"ran": False, "arena": f"{arena.event}/{arena.pod}",
                 "reason": str(e)[:200]}
+
+    selection = ideation.select(plan, candidates=result.get("candidate_objects") or [],
+                                survivors=result.get("survivor_objects") or [])
+    # The single call into the pre-engineering gate: nothing reaches engineering from here
+    # without it, and while the gate does not exist the winner is recorded as held.
+    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"])
+    result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
+                                         gate=gate)
 
     with ctx.db.session() as s:
         from ..core.models import AuditLog
         s.add(AuditLog(actor="creative_director", action=TOURNAMENT_ACTION,
                        artifact=f"{arena.event}/{arena.pod}",
                        detail={k: v for k, v in result.items()
-                               if k not in ("survivor_objects",)}))
+                               if not k.endswith("_objects")}))
 
     generated = result["field"]["generated"]
     attempted = generated > 0 or result["cost_cad"] > 0
@@ -2193,6 +2596,9 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
             "stages_not_run": result["stages_not_run"],
             "proposition_refused": result["proposition_refused"],
             "research_survivors": len(result["research_survivors"]),
+            "winner": result["ideation"]["winner"],
+            "role": plan["role"]["role"],
+            "cleared_for_engineering": gate["cleared_for_engineering"],
             **({} if attempted else
                {"reason": "every batch came back malformed; nothing was generated or spent"})}
 
@@ -2212,7 +2618,7 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     system's creative reach, and only keeping the successful runs would leave a record that
     flatters it.
     """
-    from ..creative import prospecting
+    from ..creative import ideation, prospecting
     from ..creative.audit import catalogue_concepts
     from ..gateway import routing
     from ..gateway.anthropic import AnthropicProvider
@@ -2233,17 +2639,36 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
     arena = prospecting.choose(found, cycle=week)
 
+    arena, plan, moved_from = _ideation_arena(ctx, found, arena, kind="expedition",
+                                              cycle=week)
+    if plan is None:
+        return moved_from
+    # #117: the expedition's arena loses its saturated, angle-less forms before slots exist.
+    arena = ideation.restrict(arena, plan["saturation"]["excluded_forms"])
+
     _task, tier = routing.route(prospecting.GENERATION_TASK)
-    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
-                           job_id=ctx.job.id)
+    gateway = ideation.BriefingGateway(
+        ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
+                     job_id=ctx.job.id), plan)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
 
     try:
         result = prospecting.expedition(ctx.db, arena, gateway=gateway, catalogue=catalogue)
     except prospecting.ProspectingRefused as e:
         ctx.audit("creative.expedition_blocked",
-                  detail={"arena": arena.to_dict(), "reason": str(e)[:400]})
+                  detail={"arena": arena.to_dict(), "reason": str(e)[:400],
+                          "ideation": ideation.record(plan, gateway=gateway, selection=None,
+                                                      gate=None)})
         return {"ran": False, "arena": f"{arena.event}/{arena.pod}", "reason": str(e)[:200]}
+
+    survivors = result.get("survivor_objects") or []
+    # The expedition's field is its survivors plus everything the gauntlet killed; only the
+    # survivors are objects here, so the field diversity is measured over what it proposed
+    # and survived, and says so through `entrants`.
+    selection = ideation.select(plan, candidates=survivors, survivors=survivors)
+    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"])
+    result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
+                                         gate=gate)
 
     prospecting.store(ctx.db, result)
 
@@ -2257,8 +2682,123 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
             "proposed": result["proposed"], "survivors": len(result["survivors"]),
             "forms": result["forms_discovered"], "cost_cad": result["cost_cad"],
             "answered_the_arena": result["answered_the_arena"],
+            "winner": result["ideation"]["winner"],
+            "role": plan["role"]["role"],
+            "cleared_for_engineering": gate["cleared_for_engineering"],
             **({} if attempted else
                {"reason": "every field came back malformed; nothing was proposed or spent"})}
+
+
+def _ideation_arena(ctx: JobContext, found: list, arena, *, kind: str, cycle: int):
+    """The ideation plan for this cycle's arena, moving arena if saturation empties it (#117).
+
+    Returns `(arena, plan, moved_from)`. When every form of the chosen arena is crowded with
+    no named unmet angle, the next arena with open ground is taken instead -- "move to a less
+    saturated creative territory" -- and `moved_from` names what was left. When no arena has
+    open ground the run is blocked, audited with the saturation evidence, and `plan` is None
+    with the handler's return value in the third slot.
+    """
+    from ..core.models import utcnow
+    from ..creative import ideation
+
+    today = utcnow().date()
+    ordered = [arena] + [a for a in found if a is not arena]
+    left: list[dict] = []
+    for candidate in ordered:
+        plan = ideation.plan(ctx.db, kind=kind, event=candidate.event, pod=candidate.pod,
+                             forms=list(candidate.forms), cycle=cycle, today=today)
+        excluded = set(plan["saturation"]["excluded_forms"])
+        if not candidate.forms or set(candidate.forms) - excluded:
+            # Carried in the plan so the run's audit row -- including a blocked one --
+            # names the saturated territory it left.
+            plan["moved_from"] = left or None
+            return candidate, plan, (left or None)
+        left.append({"arena": f"{candidate.event}/{candidate.pod}",
+                     "excluded_forms": sorted(excluded),
+                     "why": "every form is crowded and no unmet angle was mined (#117)"})
+    ctx.audit(f"creative.{kind}_blocked",
+              detail={"reason": "every proven arena is saturated with no unmet angle",
+                      "saturated": left})
+    return arena, None, {"ran": False, "arena": f"{arena.event}/{arena.pod}",
+                         "reason": ("every proven arena is saturated and the white-space "
+                                    "agent has mined no unmet angle to enter one on (#117)"),
+                         "saturated": left}
+
+
+@handlers.register("creative.white_space")
+def handle_white_space(ctx: JobContext) -> dict:
+    """The white-space discovery agent (#118): what buyers want that results do not satisfy.
+
+    Weekly. Mines recorded complaints -- the benchmark shop's classified review themes and
+    this shop's own support questions -- into ranked hypotheses with `discovery.white_space`,
+    and writes them as the row the ideation handlers read: the strongest hypothesis goes into
+    every brief, and its angle is the only thing that lets a crowded form be entered (#117).
+    With nothing recorded it says so and proposes nothing, because proposing from the
+    category is how a white-space agent rediscovers the commodity.
+
+    GREEN: reads stored evidence, writes one row. No model, no spend, no contact.
+    """
+    from ..core.models import AuditLog
+    from ..creative import discovery, ideation
+
+    complaints = ideation.mine_complaints(ctx.db)
+    mined = discovery.white_space(complaints)
+    sources = sorted({c.source.split(":")[0] for c in complaints})
+    detail = {"minable": mined["minable"], "complaints": len(complaints),
+              "sources": sources,
+              "hypotheses": mined.get("hypotheses", []),
+              "strongest": mined.get("strongest"),
+              "reason": mined.get("reason", ""),
+              "angles": {h["complaint_kind"]: discovery.COMPLAINT_ANGLE.get(h["complaint_kind"])
+                         for h in mined.get("hypotheses", [])}}
+    with ctx.db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=ideation.WHITE_SPACE_ACTION,
+                       artifact="white_space", detail=detail))
+    return {"ran": True, "minable": mined["minable"], "complaints": len(complaints),
+            "hypotheses": len(mined.get("hypotheses", [])),
+            "strongest": mined.get("strongest"),
+            **({} if mined["minable"] else {"reason": mined["reason"][:200]})}
+
+
+@handlers.register("creative.four_season")
+def handle_four_season(ctx: JobContext) -> dict:
+    """The four-season programme (#121) and the non-holiday occasion rotation (#122).
+
+    Weekly. Assigns this week's program for the current season -- garden/floral, cottage,
+    harvest/woodland, cozy winter neutral, home refresh, outdoor entertaining, seasonal
+    wardrobe -- and one evergreen occasion, and writes them as the row the ideation handlers
+    brief against. It also measures how much of the catalogue answers no named holiday, so
+    "revenue collapses between holidays" is a number rather than a feeling.
+
+    GREEN: reads the catalogue, writes one row. No model, no spend, no contact.
+    """
+    from ..core.models import AuditLog, utcnow
+    from ..creative import ideation, universe
+    from ..creative.audit import catalogue_concepts
+    from ..creative.prospecting import EVENT_OCCASION
+
+    today = utcnow().date()
+    week = int(utcnow().timestamp() // (7 * 24 * 3600))
+    assigned = ideation.programme_for(today, cycle=week)
+    occasion = ideation.occasions(cycle=week, limit=1)[0]
+    holidays = set(EVENT_OCCASION.values())
+    concepts = catalogue_concepts()
+    independent = [c.key for c in concepts if c.occasion not in holidays]
+    detail = {"season": assigned["season"], "program": assigned["program"],
+              "meaning": assigned["meaning"], "next_season": assigned["next_season"],
+              "next_program": assigned["next_program"],
+              "occasion": occasion["key"], "occasion_meaning": occasion["meaning"],
+              "programs_this_season": list(universe.FOUR_SEASON_PROGRAMS[assigned["season"]]),
+              "catalogue": len(concepts),
+              "holiday_independent": len(independent),
+              "holiday_independent_share": (round(len(independent) / len(concepts), 3)
+                                            if concepts else None)}
+    with ctx.db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=ideation.PROGRAMME_ACTION,
+                       artifact=f'{assigned["season"]}/{assigned["program"]}', detail=detail))
+    return {"ran": True, "season": assigned["season"], "program": assigned["program"],
+            "occasion": occasion["key"],
+            "holiday_independent_share": detail["holiday_independent_share"]}
 
 
 @handlers.register("assets.model_photography")
@@ -2285,17 +2825,25 @@ def handle_model_photography(ctx: JobContext) -> dict:
     from ..products.builder import for_slug
     from ..publish import listing_asset, model_photography
 
+    # #203: the shot plan is decided before anything is rendered, and recorded whether or
+    # not rendering is possible today -- it is what the sequence renders from, and a plan
+    # nobody can see is a plan nobody can check a gallery against.
+    slug = ctx.job.inputs.get("slug") or _model_bearing_slug(ctx.db)
+    cir = for_slug(slug) if slug else None
+    planned = model_photography.planned_shots(cir) if cir is not None else None
+    if planned is not None:
+        ctx.audit(model_photography.PLAN_ACTION, artifact=f"{slug}@{cir.version}",
+                  detail=planned)
+
     if not images.usable(ctx.db):
         return {"ran": False, "reason": ("image generation has not been demonstrated in "
                                          "this environment, so there is nothing to render "
-                                         "with")}
+                                         "with"), "shot_plan": planned}
 
-    slug = ctx.job.inputs.get("slug") or _model_bearing_slug(ctx.db)
     if not slug:
         return {"ran": False, "reason": ("no certified product needs the model, so there "
                                          "is nothing for this job to photograph")}
 
-    cir = for_slug(slug)
     if cir is None:
         return {"ran": False, "reason": f"no CIR for {slug!r}"}
 
@@ -2311,9 +2859,21 @@ def handle_model_photography(ctx: JobContext) -> dict:
 
     with tempfile.TemporaryDirectory(prefix="model-frame-") as work_dir:
         record = listing_asset.make(ctx.db, cir, build_twin(cir, result),
-                                    work_dir=work_dir, record=False)
+                                    work_dir=work_dir, record=False,
+                                    **({"shot_plan": planned}
+                                       if listing_asset.needs_the_model(cir) else {}))
 
     ctx.audit(model_photography.ACTION, detail=record)
+    # #36: a generated frame is stored with its provenance -- simulated, AI-assisted, the
+    # version it depicts -- the moment it exists.
+    if record.get("made"):
+        from ..commerce import buyer_trust
+
+        buyer_trust.record_gallery(
+            ctx.db, slug=slug, version=cir.version, job_id=ctx.job.id,
+            source=model_photography.ACTION,
+            records=buyer_trust.records_for_generated(
+                list(record.get("frames") or [record]), slug=slug, version=cir.version))
     return {"ran": True, "made": record.get("made"), "slug": slug,
             "waiting_on": record.get("waiting_on"),
             "floors": record.get("floors"),
@@ -2387,7 +2947,11 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     gateway = None
     if AnthropicProvider.key():
         _task, tier = routing.route("concept_generation")
-        gateway = ModelGateway([AnthropicProvider(model=tier.model)])
+        # Certification C-31: with the registry every call is checked against the monthly,
+        # provider and agent ceilings, reserved before it leaves and billed to this job.
+        # Without it the gateway did none of the three.
+        gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
+                               job_id=ctx.job.id)
     if gateway is None:
         return {"ran": False, "reason": ("no model provider credential, so the cycle "
                                          "cannot generate concepts and would stop four "
@@ -2471,11 +3035,27 @@ def handle_remerchandising_review(ctx: JobContext) -> dict:
 
     report = remerchandising.review(ctx.db, event=event, pod=pod)
     ctx.audit("seasonal.remerchandising", detail=report)
+
+    # #279: every proven evergreen concept is evaluated for this occasion's transformations,
+    # automatically. Presentation layers route here (re-merchandising); object-changing ones
+    # need an emotional promise before they are engineering, and a brief supplied in the job
+    # inputs is the only way one is derived -- the engine does not invent a promise.
+    from ..seasonal import remerchandising as _rm
+
+    transforms = _rm.transformations(ctx.db, event=event,
+                                     briefs=list(ctx.job.inputs.get("briefs") or []))
+    ctx.audit("seasonal.transformations", detail={
+        "event": event, "season": transforms["season"],
+        "evaluated": transforms["evaluated"], "routed": transforms["routed"],
+        "derived": [d["key"] for d in transforms["derived"]],
+        "refused": transforms["refused"][:10]})
     return {"event": event, "pod": pod or None,
             "candidates": len(report["candidates"]),
             "ready_moves": report["ready_moves"],
             "available": list(report["capabilities"]["available"]),
-            "catalogue_growth": report["catalogue_growth"]}
+            "catalogue_growth": report["catalogue_growth"],
+            "transformations": {k: transforms[k] for k in ("season", "evaluated", "routed")},
+            "derived": [d["key"] for d in transforms["derived"]]}
 
 
 @handlers.register("improve.role_work")
@@ -2863,6 +3443,62 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
+@handlers.register("creative.style_learning")
+def handle_style_learning(ctx: JobContext) -> dict:
+    """Daily: creative performance by asset style, and promotion of measured winners (#82).
+
+    Tags every listing frame from its record (no model call), aggregates recorded listing
+    outcomes by style above stated minimums, and records a hero preference only for a style
+    that beat the pooled alternative on a measured sample. Nothing live today, so the honest
+    result is UNMEASURED with its reason.
+
+    GREEN: reads listing assets and outcomes; writes brand_knowledge preferences only.
+    """
+    from ..creative import style_learning
+
+    out = style_learning.learn(ctx.db)
+    ctx.audit("creative.style_learning", detail={
+        "status": out["status"], "why": out["why"], "promoted": out["promoted"],
+        "refused": len(out["refused"]), "styles_tagged": out["styles_tagged"]})
+    return {"ran": True, **out}
+
+
+@handlers.register("creative.outcome_learning")
+def handle_outcome_learning(ctx: JobContext) -> dict:
+    """Daily: concept attributes joined to outcomes, and the novelty-is-not-success check (#89).
+
+    GREEN: reads concepts, listing outcomes, orders and support cases; writes an audit record.
+    """
+    from ..creative import outcome_learning
+
+    out = outcome_learning.learn(ctx.db)
+    summary = {"status": out["status"], "why": out["why"], "concepts": out["concepts"],
+               "concepts_with_outcomes": out["concepts_with_outcomes"],
+               "novelty": {k: out["novelty"].get(k) for k in (
+                   "status", "high_novelty_outperforms", "novelty_is_rewarded", "why")}}
+    ctx.audit("creative.outcome_learning", detail=summary)
+    return {"ran": True, **summary}
+
+
+@handlers.register("seasonal.harvest")
+def handle_season_harvest(ctx: JobContext) -> dict:
+    """Daily: harvest every seasonal event's most recent *passed* occurrence (#298).
+
+    An occurrence already harvested as measured is skipped; one refused for want of orders is
+    re-read, because late orders and exports arrive. Never touches an event that has not
+    passed.
+
+    GREEN: reads orders, assets, support and market signals; writes season_harvests.
+    """
+    from ..seasonal import harvest
+
+    out = harvest.harvest_due(ctx.db)
+    ctx.audit("seasonal.harvest", detail={"measured": out["measured"],
+                                          "ran": len(out["ran"]),
+                                          "skipped": len(out["skipped"])})
+    return {"ran": True, **out}
+
+
 @handlers.register("ops.health")
 def handle_health_sweep(ctx: JobContext) -> dict:
     """The continuous health sweep, and the repairs this system can actually perform (#185).
@@ -3068,20 +3704,29 @@ def handle_capacity_review(ctx: JobContext) -> dict:
 
     GREEN: it reads the regression corpus, certified releases and open incidents, writes an
     audit row, and changes nothing. It spends nothing -- no model call is made.
+
+    Certification repair (C-48, #24, #25, #28, #45, #48, #229, #264, #270, #272): the funnel
+    is now read from the database -- listing outcomes, orders, the ledger, published
+    listings, support cases and cohorts -- instead of an empty `Observed()`. Every quantity
+    with no source is UNMEASURED in the reading, never zero. The week's scale rule, CA$5K
+    binding constraint, solver reallocation, per-visitor ranking, bundle attribution,
+    holdouts, stress-tested confidence and scale-readiness verdict are written to
+    `operating_readings` (kind `growth.weekly`), and a tilt toward more traffic is refused
+    when no product passes the readiness gate.
     """
     from ..commerce import lanes
-    from ..scale import allocation, runrate
+    from ..growth import weekly
 
     with ctx.db.session() as session:
         qa = lanes.qa_stable(lanes.observe(session))
 
-    # The bottleneck, where it can be identified at all. It cannot today: the funnel's terms
-    # need traffic and orders. `constraint()` says so itself rather than being asked to
-    # guess, and the allocation stays on the untilted mix.
-    observed = runrate.Observed()
-    binding = runrate.constraint(observed)
+    as_of = ctx.job.inputs.get("as_of")
+    from datetime import date as _date
 
-    plan = allocation.allocate(qa=qa, constraint=binding if binding["identifiable"] else None)
+    today = _date.fromisoformat(as_of) if as_of else _date.today()
+    reading = weekly.solve(ctx.db, today=today, qa=qa)
+    plan = reading["allocation"]
+    stored = weekly.record(ctx.db, reading)
     detail = {
         "mix": plan["mix"],
         "phase": plan["phase"],
@@ -3089,9 +3734,109 @@ def handle_capacity_review(ctx: JobContext) -> dict:
         "constraint": plan.get("constraint"),
         "two_queues_open": qa["stable"],
         "qa_reasons": qa["reasons"],
+        "period": reading["period"],
+        "reading_id": stored["id"],
+        "observed": reading["observed"],
+        "unmeasured": reading["unmeasured"],
+        "scale_rule": reading["scale_rule"],
+        "binding_constraint_5k": reading["binding_constraint_5k"].get("binding")
+        or "UNMEASURED",
+        "growth_constraint": reading["growth_constraint"].get("primary_constraint")
+        or "UNMEASURED",
+        "reallocation": reading["reallocation"],
+        "scale_ready": reading["scale_readiness"]["ready"],
+        "scale_tilt_refused": reading["scale_tilt_refused"],
+        "winners_declarable": reading["bundle_attribution"]["winners_declarable"],
+        "confidence": reading["confidence"]["probability"],
+        "resilience": reading["confidence"]["resilience_rung"]["evidence"].get("stress_test"),
     }
     ctx.audit("ops.capacity", detail=detail)
     return detail
+
+
+@handlers.register("growth.conclude")
+def handle_growth_conclude(ctx: JobContext) -> dict:
+    """Feed results into pre-registered experiments and conclude what they allow (#265, #266).
+
+    Daily. Per registered or running experiment: the expected value is re-estimated from
+    measured contribution (None -- UNMEASURED -- while nothing has sold, and an experiment
+    whose cost exceeds a measured value is killed), the metric is read from the rows that
+    record it, and a reading goes through `record_persisted`, which concludes only at the
+    pre-registered sample. A claim without its control present in the data is written as an
+    association. With no data it concludes nothing, and says so per experiment. Also
+    reports the quick/long balance.
+
+    GREEN: reads outcomes, orders and cohorts; writes experiment rows and an audit row.
+    """
+    from ..growth.experiments import conclude_all
+
+    out = conclude_all(ctx.db)
+    ctx.audit("growth.concluded", detail={
+        "examined": out["examined"], "concluded": out["concluded"],
+        "killed": out["killed"], "no_data": out["no_data"],
+        "balance": {k: out["balance"][k] for k in ("quick", "long", "long_runnable",
+                                                   "balanced", "note")}})
+    return {k: out[k] for k in ("examined", "concluded", "killed", "no_data", "balance",
+                                "note")}
+
+
+@handlers.register("ops.thrash")
+def handle_thrash_sweep(ctx: JobContext) -> dict:
+    """Break loops that repeat an identical call and result (#34).
+
+    Hourly. `swarm.orchestrate.ThrashDetector` reads the last 72 hours of dead jobs and paid
+    jobs; three identical (call, result) observations open or restate a P2 incident and
+    cancel that call's queued retries, so a loop stops spending instead of being reported
+    while it continues.
+    """
+    from ..swarm.orchestrate import thrash_sweep
+
+    out = thrash_sweep(ctx.db)
+    ctx.audit("ops.thrash", detail=out)
+    return out
+
+
+@handlers.register("seasonal.engine")
+def handle_seasonal_engine(ctx: JobContext) -> dict:
+    """The 365-day seasonal engine, daily (#33, #38, #131, #267, #286, #287, #289, #290,
+    #291).
+
+    Computes the rolling 30-365 day calendar, scores every occasion whose factors are all
+    observed (none today: the reading lists what is UNMEASURED and the compression seed
+    stays labelled as a seed), runs breakout mode where velocities exist, persists strike
+    teams with what they own, plans storefront takeovers, rolls capacity forward, assembles
+    collections from the catalogue's concepts, stamps a half-life on every culture signal,
+    admits or refuses near-season products to the fast lane and checks admitted releases
+    against the full gate list, and stamps provenance on every trend row. The reading is
+    written to `operating_readings` (kind `seasonal.daily`).
+
+    GREEN: computes, persists plans and stamps. Publishes nothing and spends nothing.
+    """
+    from ..seasonal import daily
+
+    as_of = ctx.job.inputs.get("as_of")
+    from datetime import date as _date
+
+    reading = daily.run(ctx.db, today=_date.fromisoformat(as_of) if as_of else None)
+    stored = daily.record(ctx.db, reading)
+    summary = {
+        "period": reading["period"], "reading_id": stored["id"],
+        "horizons": {h["days"]: len(h["events"])
+                     for h in reading["rolling_calendar"]["horizons"]},
+        "scored_events": len(reading["engine"]["scored"]),
+        "unscored_events": len(reading["engine"]["unscored"]),
+        "priority_basis": reading["engine"]["priority_shares"]["basis"],
+        "breakouts": reading["engine"]["breakout"].get("breakouts", []),
+        "teams_active": reading["teams"]["persisted"]["active"],
+        "teams_disbanded": reading["teams"]["persisted"]["disbanded"],
+        "takeovers_planned": len(reading["takeovers"]["planned"]),
+        "collections_coherent": reading["collections"]["coherent"],
+        "half_lives": len(reading["half_lives"]["classified"]),
+        "fast_lane_admitted": reading["fast_lane"]["admitted"],
+        "trend_rows_stamped": reading["provenance"]["stamped"],
+    }
+    ctx.audit("seasonal.engine", detail=summary)
+    return summary
 
 
 @handlers.register("mjs.reviews")
@@ -3214,6 +3959,19 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     # Delivering the findings, not just listing where they could go (#147).
     routed = radar.route_findings(ctx.db)
 
+    # The signals just stored, run through the culture engine (#134-#138, #141, #143-#146):
+    # translate, score, route through clearance, era-combine, check the exit and persist the
+    # translations as creative-development candidates -- then the white-space tournament for
+    # strong signals, the rapid cell for actionable dated ones, collection architecture,
+    # owned-IP proposals and launch outcomes. Nothing here reaches engineering.
+    from ..culture import engine as culture_engine
+
+    developed = culture_engine.run(
+        ctx.db, [r for r in result["readings"] if not classify.sensitive(r["article"])],
+        placed=placed)
+    ctx.audit(culture_engine.ACTION_SWEEP, detail={
+        k: v for k, v in developed.items() if k != "processed"})
+
     ctx.audit("culture.sweep", detail={
         "routed": routed["recorded"], "routed_skipped": routed["skipped"][:5],
         "source": result["source"], "recorded": result["recorded"],
@@ -3221,13 +3979,18 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
         "discovered": len(discovered), "placed": len(placed),
         "sensitive_dropped": len(filed.get("sensitive") or []),
         "discovery_error": discovery_error,
-        "demand_points": demand_recorded})
+        "demand_points": demand_recorded,
+        "translated": developed["translated"], "candidates": developed["candidates"]})
     return {"ran": True, "recorded": result["recorded"],
             "attempted": result["attempted"],
             "failures": len(result["failures"]),
             "discovered": len(discovered), "placed": len(placed),
             "demand_points": demand_recorded, "routed": routed["recorded"],
-            "channel": result["channel"], "measures": result["measures"]}
+            "channel": result["channel"], "measures": result["measures"],
+            "culture": {k: v for k, v in developed.items()
+                        if k not in ("processed", "tournaments", "rapid")},
+            "tournaments": len(developed["tournaments"]),
+            "rapid_responses": len(developed["rapid"])}
 
 
 # The cadence this handler runs on, by name. The *period* is read from
@@ -3347,10 +4110,47 @@ def handle_blind_review(ctx: JobContext) -> dict:
     from ..creative import blind_review
 
     result = blind_review.run(ctx.db, job_id=ctx.job.id)
+
+    # #218: a product the MJs challenge finds materially inferior goes back to creative
+    # development rather than waiting at the parity gate. The ladder is walked for the
+    # failed competitive dimension and the product's photography job -- the department
+    # that makes its listing creative -- is re-queued with the finding; that job gates
+    # itself on image generation, so a closed capability refuses there honestly rather
+    # than being bypassed here. Once per product per day.
+    from ..products.builder import for_slug
+    from ..publish import listing_asset
+    from ..visual import parity
+    from ..visual.gallery import escalation_plan
+
+    today = date.today().isoformat()
+    returned = []
+    for row in result["reviews"]:
+        if not row.get("returns_to_development"):
+            continue
+        slug = row["slug"]
+        cir = for_slug(slug)
+        plan = escalation_plan([parity.COMPETITIVE], deterministic_available=cir is not None)
+        job_type = ("assets.model_photography"
+                    if cir is not None and listing_asset.needs_the_model(cir)
+                    else "assets.owned_photography")
+        job = ctx.enqueue("publishing", job_type,
+                          {"slug": slug, "reason": "blind_review_inferior",
+                           "review_audit_id": row.get("audit_id"),
+                           "why": str(row.get("why") or "")[:300]},
+                          idempotency_key=f"return-to-development:{slug}:{today}")
+        entry = {"slug": slug, "job_type": job_type, "job_id": getattr(job, "id", None),
+                 "already_queued": job is None, "ladder": [r["action"] + ":" + r["status"]
+                                                           for r in plan["rungs"]]}
+        ctx.audit("creative.returned_to_development", artifact=slug,
+                  detail={**entry, "why": row.get("why"), "review_audit_id": row.get("audit_id")})
+        returned.append(entry)
+
     ctx.audit("creative.blind_review_run", detail={
         "reviewed": result["reviewed"], "counts": result["counts"],
-        "method_version": result["method_version"]})
-    return {"ran": True, **{k: result[k] for k in ("reviewed", "counts", "method_version")}}
+        "method_version": result["method_version"],
+        "returned_to_development": [r["slug"] for r in returned]})
+    return {"ran": True, **{k: result[k] for k in ("reviewed", "counts", "method_version")},
+            "returned_to_development": returned}
 
 
 @handlers.register("creative.grid_tournament")
@@ -3371,12 +4171,15 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
 
     provider = gw.provider_for("gallery_observation")
     by_pod: dict[str, list[dict]] = {}
+    pod_of: dict[str, str] = {}
     for slug, title in blind_review.catalogue_slugs():
+        pod_of[slug] = blind_review.pod_for(slug, title)
         frames = listing_asset.frames_for(ctx.db, slug=slug)
         hero = [dict(f, slug=slug) for f in frames if (f.get("role") or "hero") == "hero"][:1]
         if hero:
-            by_pod.setdefault(blind_review.pod_for(slug, title), []).extend(hero)
+            by_pod.setdefault(pod_of[slug], []).extend(hero)
     results = {}
+    stopped = False
     for pod, ours in sorted(by_pod.items()):
         try:
             out = blinded.grid_tournament(ctx.db, ours, pod=pod, provider=provider,
@@ -3387,9 +4190,146 @@ def handle_grid_tournament(ctx: JobContext) -> dict:
         except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
             results[pod] = {"verdict": "refused", "why": str(exc)[:300]}
         if (results[pod].get("panel") or {}).get("stopped_by"):
+            stopped = True
             break
-    ctx.audit("creative.grid_tournament", detail={"pods": results})
-    return {"ran": True, "pods": {k: v["verdict"] for k, v in results.items()}}
+
+    # #126's engineering half: concept boards the pre-engineering gate sent here, each gridded
+    # on its own beside its category's benchmark set, so the verdict the gate reads is about
+    # that concept and nothing else of ours. Recorded under `concepts` by concept key.
+    concepts: dict[str, dict] = {}
+    for board in (ctx.job.inputs.get("concepts") or []):
+        key = str(board.get("key") or "")
+        if not key:
+            continue
+        if stopped:
+            concepts[key] = {"verdict": "refused", "why": "the run stopped on the budget "
+                             "ceiling before this concept was gridded"}
+            continue
+        ours = [{"slug": key, "image_ref": str(board.get("board_image") or "")}]
+        try:
+            out = blinded.grid_tournament(ctx.db, ours, pod=str(board.get("pod") or ""),
+                                          provider=provider, seed=ctx.job.id or 0,
+                                          job_id=ctx.job.id)
+            concepts[key] = {k: out[k] for k in ("verdict", "why", "our_scores",
+                                                  "below_threshold", "unjudged",
+                                                  "benchmark_cells")}
+            if (out.get("panel") or {}).get("stopped_by"):
+                stopped = True
+        except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
+            concepts[key] = {"verdict": "refused", "why": str(exc)[:300]}
+
+    # #126's release half, per product: the verdict of the grid its pod was judged in. A
+    # product whose pod was never gridded carries no verdict, which release reads as not
+    # cleared -- never as cleared by default.
+    products = {slug: {"pod": pod, "verdict": (results.get(pod) or {}).get("verdict"),
+                       "why": (results.get(pod) or {}).get("why", "no render of ours in "
+                                                                  "this pod was gridded")}
+                for slug, pod in pod_of.items()}
+    ctx.audit("creative.grid_tournament", detail={"pods": results, "concepts": concepts,
+                                                   "products": products})
+    return {"ran": True, "pods": {k: v["verdict"] for k, v in results.items()},
+            "concepts": {k: v["verdict"] for k, v in concepts.items()}}
+
+
+@handlers.register("gate.lanes")
+def handle_lane_routing(ctx: JobContext) -> dict:
+    """#5 and #43 over the certified catalogue, plus #126's release-side grid reading.
+
+    For every certified release: route it to the Fast or Flagship queue from its own measured
+    profile (`lanes.assign`, which keeps one queue until core QA is demonstrably stable),
+    check that it ran every gate it was owed (`lanes.check_release`, from the stages its
+    certificate records -- absent is not passing), and read whether the blind search grid
+    cleared its pod. A release that skipped or failed an owed gate has its listing withdrawn
+    and the refusal audited, exactly as a refused certificate does.
+
+    Then #43: every Class B/C product whose sample has not passed becomes testing demand,
+    needed by the day its buying window opens (evergreen: now), forecast from the calendar,
+    checked against recorded tester capacity by specialty, and assigned to the least-loaded
+    qualified tester -- or reported unassigned, which today is the `tester_roster` gate.
+
+    GREEN: reads certificates, listings and physical-test rows; writes audit rows and at
+    most a listing withdrawal. Spends nothing, calls no model, publishes nothing.
+    """
+    from sqlalchemy import select
+
+    from ..commerce import lanes
+    from ..core.models import Listing
+    from ..creative import preengineering
+    from ..quality import testers
+
+    raw = ctx.job.inputs.get("as_of")
+    today = date.fromisoformat(raw) if raw else date.today()
+    routed = lanes.route_certified(ctx.db, today=today)
+
+    withdrawn: list[str] = []
+    for card in routed["products"]:
+        artifact = f"{card['slug']}@{card['version']}"
+        grid = preengineering.release_grid_verdict(ctx.db, card["slug"])
+        card["grid"] = {k: grid.get(k) for k in ("cleared", "verdict", "why")}
+        ctx.audit("gate.lane_routed", artifact=artifact, detail={
+            "lane": card.get("lane"), "routed": card.get("routed"),
+            "two_queues_open": routed["two_queues_open"],
+            "why": card.get("why") or card.get("note"),
+            "fast_refusals": card.get("fast_refusals"),
+            "flagship_refusals": card.get("flagship_refusals"),
+            "paced_by": card.get("paced_by"), "profile": card.get("profile"),
+            "release": card.get("release"), "search_grid": card["grid"]})
+        release = card.get("release")
+        if release is not None and not release.get("ok"):
+            with ctx.db.session() as s:
+                rows = list(s.scalars(select(Listing).where(
+                    Listing.product_slug == card["slug"], Listing.state != "withdrawn")))
+                for listing in rows:
+                    listing.state = "withdrawn"
+            ctx.audit("gate.lane_release_refused", artifact=artifact,
+                      detail={"why": release.get("why"), "listings_withdrawn": len(rows)})
+            if rows:
+                withdrawn.append(artifact)
+
+    seeds = {seed.slug: seed for seed in POOL}
+    demand_rows = []
+    for card in routed["products"]:
+        profile, seed = card.get("profile"), seeds.get(card["slug"])
+        if not profile or seed is None:
+            continue
+        event = _event(seed.season) if seed.season else None
+        if event is None:
+            needed_by = today
+        else:
+            if event.event_date < today:
+                # This year's occasion has passed; the demand is for next year's.
+                import dataclasses
+
+                event = dataclasses.replace(event, event_date=event.event_date.replace(
+                    year=event.event_date.year + 1))
+            needed_by = shopping_window(event)[0]
+        demand_rows.append({"slug": card["slug"], "risk_class": profile["risk_class"],
+                            "specialty": profile["pod"],
+                            "make_hours": sum(seed.maker_hours) / 2.0,
+                            "needed_by": needed_by})
+    tester_plan = testers.plan(ctx.db, demand_rows, today=today)
+    ctx.audit("quality.tester_plan", detail={
+        "as_of": today.isoformat(),
+        "demands": tester_plan["forecast"]["demands"],
+        "late": [r["product_slug"] for r in tester_plan["forecast"]["late"]],
+        "tester_days_required": tester_plan["forecast"]["tester_days_required"],
+        "capacity": {k: tester_plan["capacity"][k] for k in (
+            "reliable_testers", "unproven_testers", "by_specialty",
+            "single_points_of_failure", "uncovered_specialties", "schedulable")},
+        "assignments": tester_plan["assignments"], "unassigned": tester_plan["unassigned"],
+        "note": tester_plan["note"]})
+
+    return {"products": len(routed["products"]),
+            "two_queues_open": routed["two_queues_open"],
+            "lanes": {c["slug"]: c.get("lane") for c in routed["products"]},
+            "balance": routed["balance"]["counts"],
+            "release_refused": routed["release_refused"], "withdrawn": withdrawn,
+            "grid_uncleared": sorted(c["slug"] for c in routed["products"]
+                                     if not c["grid"]["cleared"]),
+            "testing_demands": len(tester_plan["forecast"]["demands"]),
+            "testing_late": len(tester_plan["forecast"]["late"]),
+            "testers_assigned": len(tester_plan["assignments"]),
+            "testers_unassigned": len(tester_plan["unassigned"])}
 
 
 @handlers.register("intel.acceptance")

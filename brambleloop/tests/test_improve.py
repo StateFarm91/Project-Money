@@ -157,9 +157,10 @@ def test_the_baseline_is_taken_before_the_change_or_there_is_no_baseline():
         db, cell="quality",
         hypothesis="adding a frame-level contrast check should reduce defects further",
         expected_effect="fewer post-release defects", rollback_ref="git:bbb",
-        touches=("weights",))
+        touches=("weights",), proposed_by="quality_director")
     assert cells.test_result(db, second, 1.0) == cells.TESTING
-    assert cells.promote(db, second) == cells.PROMOTED
+    cells.approve(db, second, approved_by="evaluator", why="beat the recorded baseline")
+    assert cells.promote(db, second, promoted_by="evaluator") == cells.PROMOTED
 
 
 def test_a_result_that_is_not_better_cannot_be_promoted():
@@ -210,12 +211,15 @@ def test_a_degrading_promotion_reverts_itself_rather_than_waiting_for_agreement(
         db, cell="runtime",
         hypothesis="a longer lease should reduce dead letters from slow jobs",
         expected_effect="fewer dead letters", rollback_ref="git:eee",
-        touches=("cadence",))
+        touches=("cadence",), proposed_by="runtime")
     cells.test_result(db, improvement, 2.0)
+    cells.approve(db, improvement, approved_by="evaluator", why="beat the recorded baseline")
     # A lease length is a cadence, which #178 grades as tooling: routing and timing changes
-    # alter cost and reliability together, so the tier asks for a regression test the row
-    # cannot be asked about and the caller has to carry.
-    cells.promote(db, improvement, evidence=(tiers.REGRESSION_TEST,))
+    # alter cost and reliability together, so the tier asks for a regression test. The test
+    # run is recorded on the row; naming the kind at promotion is not a result (C-21).
+    cells.record_test(db, improvement, kind=tiers.REGRESSION_TEST, ref="tests/test_queue.py",
+                      passed=True, recorded_by="evaluator")
+    cells.promote(db, improvement, evidence=(tiers.REGRESSION_TEST,), promoted_by="evaluator")
 
     held = cells.monitor(db, improvement, 2.05)
     assert held["action"] == "held"
@@ -442,6 +446,138 @@ def test_the_retrospective_carries_the_plateau():
 
     db = _cap_db()
     assert "creative_plateau" in cells.retrospective(db)
+
+
+# ---- certification repairs C-17..C-22 (candidate 63f2493) ------------------------------------
+
+
+def _refuses(fn) -> bool:
+    try:
+        fn()
+    except (cells.ImprovementRefused, governance.GovernanceRefused, tiers.TierRefused):
+        return True
+    return False
+
+
+def _gate_change(db, cell="creative_assets", proposer="asset_truth"):
+    cells.record_capability(db, cell, 0.5, sample=5)
+    iid = cells.propose(db, cell=cell,
+                        hypothesis=("replace the certified chart source used by the fabric "
+                                    "renderer with the photo derived stitch map"),
+                        expected_effect="fewer blocked assets", rollback_ref="render:v1",
+                        touches=("Product_Truth",), proposed_by=proposer)
+    assert cells.test_result(db, iid, 0.3) == cells.TESTING
+    return iid
+
+
+def test_c17_promote_itself_requires_a_recorded_independent_approval():
+    db = _db()
+    cells.record_capability(db, "seo_search", 1.0)
+    iid = cells.propose(db, cell="seo_search",
+                        hypothesis="ranking phrases by cluster first should answer more searches",
+                        expected_effect="more clusters", rollback_ref="w:1",
+                        touches=("weights",), proposed_by="listing")
+    cells.test_result(db, iid, 2.0)
+    assert _refuses(lambda: cells.promote(db, iid, promoted_by="evaluator"))
+    cells.approve(db, iid, approved_by="evaluator", why="beat the baseline")
+    assert cells.promote(db, iid, promoted_by="evaluator") == cells.PROMOTED
+
+
+def test_c18_c19_identities_are_normalised_and_attribution_is_not_optional():
+    db = _db()
+    cells.record_capability(db, "seo_search", 1.0)
+    iid = cells.propose(db, cell="seo_search",
+                        hypothesis="ranking phrases by cluster first should answer more searches",
+                        expected_effect="more clusters", rollback_ref="w:1",
+                        touches=("weights",), proposed_by=" Listing ")
+    cells.test_result(db, iid, 2.0)
+    for who in ("listing", "LISTING", "  listing\t"):
+        assert _refuses(lambda: cells.approve(db, iid, approved_by=who)), who
+    cells.approve(db, iid, approved_by="Evaluator", why="beat the baseline")
+    assert _refuses(lambda: cells.promote(db, iid, promoted_by="LiStInG "))
+    anon = cells.propose(db, cell="seo_search",
+                         hypothesis="ranking phrases by cluster first should answer more searches",
+                         expected_effect="more clusters", rollback_ref="w:2",
+                         touches=("weights",))
+    cells.test_result(db, anon, 3.0)
+    cells.approve(db, anon, approved_by="evaluator", why="beat the baseline")
+    # No recorded proposer: no promoter can be shown not to be its author, whoever it is.
+    assert _refuses(lambda: cells.promote(db, anon, promoted_by="evaluator"))
+
+
+def test_c20_protected_constants_are_discovered_from_the_source():
+    table = governance.protected_constants()
+    assert table["REGRESSION_TOLERANCE"] == "owner_authority"
+    assert "CIR" not in table and "DC" not in table           # vocabulary, not constants
+    refused = governance.check("set REGRESSION_TOLERANCE from 0.05 to 0.25 to revert less",
+                               touches=("weights",))
+    assert refused.ok is False and "REGRESSION_TOLERANCE" in refused.reason
+
+
+def test_c20_the_lexical_net_catches_inflections_synonyms_and_distant_objects():
+    for hypothesis in (
+            "lowering the certification gate threshold should raise the first pass rate",
+            "decreasing the minimum acceptable certification score threshold helps",
+            "loosened stitch count checks would let more patterns certify",
+            "raise the tolerance on the round count check so fewer patterns are refused"):
+        assert governance.check(hypothesis, touches=("weights",)).ok is False, hypothesis
+    # And ordinary tuning of unprotected surfaces is still tuning.
+    for hypothesis in ("lower the retry ceiling to cut wasted model spend",
+                       "reduce the weight on title length so clusters rank first"):
+        assert governance.check(hypothesis, touches=("weights",)).ok is True, hypothesis
+
+
+def test_c20_a_protected_gate_is_proposed_only_by_the_department_that_runs_it():
+    assert governance.check("replace the certified chart source with the photo derived map",
+                            touches=("prompt",)).ok is False           # undeclared, plain words
+    assert governance.check("replace the certified chart source with the photo derived map",
+                            touches=("product_truth",), cell="pattern_engineering").ok is False
+    assert governance.check("replace the certified chart source with the photo derived map",
+                            touches=("product_truth",), cell="creative_assets").ok is True
+
+
+def test_c21_a_gate_change_needs_recorded_owner_approval_and_recorded_tests():
+    db = _db()
+    iid = _gate_change(db)
+    cells.approve(db, iid, approved_by="evaluator", why="beat baseline on holdout set")
+    # Caller-asserted strings are refused, including a claimed owner approval.
+    assert _refuses(lambda: cells.promote(
+        db, iid, promoted_by="evaluator",
+        evidence=(tiers.REGRESSION_TEST, tiers.ADVERSARIAL_TEST, tiers.OWNER_APPROVAL)))
+    for kind in (tiers.REGRESSION_TEST, tiers.ADVERSARIAL_TEST):
+        assert _refuses(lambda: cells.record_test(db, iid, kind=kind, ref="t", passed=True,
+                                                  recorded_by="Asset_Truth "))
+        cells.record_test(db, iid, kind=kind, ref=f"tests/{kind}.py", passed=True,
+                          recorded_by="evaluator")
+    assert _refuses(lambda: cells.promote(db, iid, promoted_by="evaluator"))   # no owner yet
+    assert _refuses(lambda: cells.record_owner_approval(db, iid, approved_by="evaluator",
+                                                        why="looks fine to me"))
+    cells.record_owner_approval(db, iid, approved_by="Owner",
+                                why="the photo map is certified against the chart first")
+    assert cells.promote(db, iid, promoted_by="evaluator") == cells.PROMOTED
+
+
+def test_c21_every_protected_gate_is_the_gate_tier_however_it_is_spelled():
+    for gate in governance.PROTECTED_GATES:
+        for spelling in (gate, gate.upper(), f" {gate} ", gate.replace("_", " ")):
+            assert tiers.classify((spelling,)).key == "gate", spelling
+
+
+def test_c22_the_director_sees_one_surface_however_it_is_spelled():
+    from brambleloop.improve import director
+
+    db = _db()
+    ids = []
+    for cell, who, touch in (("seo_search", "listing", "weights"),
+                             ("quality", "quality_director", "Weights ")):
+        cells.record_capability(db, cell, 1.0 if cell == "seo_search" else 5.0)
+        iid = cells.propose(db, cell=cell,
+                            hypothesis="reweighting the ranking inputs should move this metric",
+                            expected_effect="x", rollback_ref="w:1", touches=(touch,),
+                            proposed_by=who)
+        cells.test_result(db, iid, 2.0)
+        ids.append(iid)
+    assert any({c["a"], c["b"]} == set(ids) for c in director.conflicts(db))
 
 
 if __name__ == "__main__":

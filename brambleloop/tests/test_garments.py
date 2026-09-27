@@ -162,6 +162,133 @@ def test_the_round_trip_fixture_list_includes_the_garments():
     assert "garment-pebble-raglan-cardigan-2" in names
 
 
+# ---- certification audit repairs ----------------------------------------------------------
+
+
+def _raglan_matrix():
+    """Pebble plus the raglan template over both tables, both fabrics, relaxed and close."""
+    out = [G.pebble_cardigan()]
+    for table in (GR.WOMAN, GR.CHILD):
+        for stitch, gauge in (("sc", Gauge(16, 18, stitch_type="sc")),
+                              ("dc", Gauge(14, 8, stitch_type="dc"))):
+            for ease in ({"bust": 4, "back_length": 4, "armhole_depth": 2, "upper_arm": 3},
+                         {"bust": 32, "back_length": 12, "armhole_depth": 6,
+                          "upper_arm": 12}):
+                fam = G.StitchFamily(stitch, "plain")
+                key = f"t-{table.name[:5]}-{stitch}-{ease['bust']}".replace(" ", "")
+                out.append(GR.GradedDesign(
+                    key=key, title=key, table=table, gauge=gauge, fit=GR.FitIntent(ease),
+                    requires=G.RAGLAN_REQUIRES, measure=G.built_measures,
+                    template=lambda g, fam=fam, key=key: G.raglan_top_down(
+                        g, key=key, title=key, family=fam, material=Material("yarn"))))
+    return out
+
+
+def test_raglan_neck_fits_the_body_at_every_size():
+    """C-7: the neck edge is a stated ratio of the cross-back, the yoke grows to the chest by
+    as many increases per raglan line per row as it needs, and the neck lands inside the
+    plausibility floor at every size of every combination."""
+    worst = 0.0
+    for d in _raglan_matrix():
+        for size, cir in d.build_all().items():
+            g = d.graded_size(size)
+            geo = specification.yoke_geometry(cir)
+            ratio = geo["neck_edge"] / geo["chest"]
+            worst = max(worst, ratio)
+            assert ratio <= specification.MAX_NECK_EDGE_OF_CHEST, (d.key, size, ratio)
+            back_neck_cm = geo["back_neck"] / g.gauge.stitches_per_10cm * 10
+            assert back_neck_cm <= g.body_cm("cross_back"), (d.key, size, back_neck_cm)
+            f, sl, b, sr, f2 = geo["sections_at_neck"]
+            assert f == f2 and sl == sr >= G.MIN_SLEEVE_AT_NECK and b == 2 * f, (d.key, size)
+    print(f"     raglan neck edge / chest, worst {worst:.2f}")
+
+
+def test_raglan_increases_follow_the_standard_eight_per_unit():
+    """Each increase unit is one either side of each of the four lines (8 stitches); tall
+    rows get more than one unit per row rather than a yoke that cannot grow."""
+    d = G.pebble_cardigan()
+    for size, cir in d.build_all().items():
+        r = compile_cir(cir)
+        yoke = cir.components[0]
+        counts = [yoke.foundation] + [x.produced for x in r.rows if x.component == yoke.name]
+        first_body = next(row.index for row in yoke.rows if row.skips)
+        steps = [b - a for a, b in zip(counts, counts[1:first_body])]
+        assert all(step % 8 == 0 and step >= 0 for step in steps), (size, steps)
+        assert max(steps) >= 16, (size, steps)       # dc rows are tall: doubled increases
+
+
+def test_built_length_never_falls_between_sizes():
+    """C-10: the whole length is rounded once, so a longer requested length never builds
+    shorter; and the graded check measures what was BUILT."""
+    for d in _raglan_matrix() + [G.harbour_pullover()]:
+        d.check_monotonic()
+        lengths = [G.built_measures(c)["length"] for c in d.build_all().values()]
+        assert lengths == sorted(lengths), (d.key, lengths)
+
+
+def test_built_monotonic_check_catches_a_built_regression():
+    """A template that builds a shorter garment at a larger size is refused by the graded
+    check even though every requested figure rises."""
+    d = G.pebble_cardigan()
+    real = d.template
+
+    def shrinking(g):
+        cir = real(g)
+        if g.size == "16":
+            yoke = cir.components[0]
+            yoke.rows = yoke.rows[:-6]
+        return cir
+    bad = GR.GradedDesign(key=d.key, title=d.title, table=d.table, fit=d.fit, gauge=d.gauge,
+                          template=shrinking, requires=d.requires, measure=G.built_measures)
+    bad.check_monotonic(built=False)
+    try:
+        bad.check_monotonic()
+        raise AssertionError("a built regression passed")
+    except GR.GradingRefused as exc:
+        assert "built length" in str(exc)
+
+
+def test_the_neckband_join_is_placed_at_the_neck_row_and_the_gates_agree():
+    """C-9: the specification gate and the compiler agree the neckband's join is placed."""
+    for d in (G.harbour_pullover(), _third_design()):
+        for size, cir in d.build_all().items():
+            seam = next(s for s in cir.assembly if s.piece_a == "neckband"
+                        and s.piece_b == "body")
+            bridge = [r.index for r in cir.components[0].rows
+                      if any(getattr(o, "spans", 0) for o in r.ops)]
+            assert seam.at_round == bridge[0] and seam.spans_rounds == 1, (d.key, size)
+            codes = {f.code for f in compile_cir(cir).findings}
+            assert "ASSEMBLY_UNPLACED" not in codes, (d.key, size)
+            assert specification.reconstructive_gaps(cir) == []
+
+
+def test_a_join_onto_a_flat_pieces_single_opening_is_located_by_the_opening():
+    """The compiler agrees with the specification gate even when the seam states no row:
+    a flat piece with exactly one bridged opening says where its opening join goes. A
+    genuinely unplaced join between two pieces still warns, in words about pieces."""
+    cir = G.harbour_pullover().build("M")
+    seam = next(s for s in cir.assembly if s.edge_b == "opening")
+    seam.at_round = None
+    assert "ASSEMBLY_UNPLACED" not in {f.code for f in compile_cir(cir).findings}
+    seam.edge_b = "left"
+    warn = [f for f in compile_cir(cir).findings if f.code == "ASSEMBLY_UNPLACED"]
+    assert warn and "ears" not in str(warn[0]) and "one piece goes on the other" in str(warn[0])
+
+
+def test_textures_are_loop_patterns_the_writer_round_trips():
+    for texture in G.TEXTURES:
+        fam = G.StitchFamily("sc", texture)
+        loops = {fam.loop(i) for i in range(1, 5)}
+        assert loops <= {"both", "back", "front"}
+    assert G.StitchFamily("sc", "ridged").loop(2) == "back"      # Harbour's fabric unchanged
+    assert G.StitchFamily("sc", "ridged").loop(1) == "both"
+    try:
+        G.StitchFamily("sc", "bobbled")
+        raise AssertionError("an invented texture was accepted")
+    except G.ShapingRefused:
+        pass
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

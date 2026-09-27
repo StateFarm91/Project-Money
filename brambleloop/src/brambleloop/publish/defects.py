@@ -28,6 +28,7 @@ is the claim that the count of classes with a passing fixture never goes down.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -185,3 +186,137 @@ def state() -> dict:
             "renderer. Reporting both as the same thing loses the distinction that makes "
             "the difference between widening a fixture and adding a broken second one"),
     }
+
+
+# ---- #68 in the runtime: production findings become fixtures ------------------------
+
+FIXTURE_ACTION = "creative.defect_fixture"
+
+# The codes the release chain's own checkers emit, onto the six classes. Matched as whole
+# codes inside the problem string. Longest first so a specific code wins over its prefix.
+CODE_CLASS: tuple[tuple[str, str], ...] = (
+    ("FRAME_EDGE_CLIPPING", CLIPPING),
+    ("FRAME_CROP_LOSS", CLIPPING),
+    ("CLAIM_SIZE_LABEL_UNSUPPORTED", CONFUSING_DIMENSIONS),
+    ("CLAIM_SIZE_UNSUPPORTED", CONFUSING_DIMENSIONS),
+    ("CLAIM_SIZE_UNVERIFIABLE", CONFUSING_DIMENSIONS),
+    ("LISTING_HERO_IS_A_CONCEPT", MISLEADING_VISUALISATION),
+    ("ASSET_CONCEPT_AS_HERO", MISLEADING_VISUALISATION),
+    ("ASSET_UNDISCLOSED_CONCEPT", MISLEADING_VISUALISATION),
+    ("ASSET_MOTIF_ABSENT", MISLEADING_VISUALISATION),
+    ("ASSET_COLOR_ABSENT", MISLEADING_VISUALISATION),
+    ("ASSET_COMPONENT_ABSENT", MISLEADING_VISUALISATION),
+    ("ASSET_CLASS_MISMATCH", MISLEADING_VISUALISATION),
+    ("LISTING_HERO_IS_AN_INFOGRAPHIC", WEAK_HERO),
+    ("LISTING_HERO_FABRIC_FLAT", WEAK_HERO),
+    ("FRAME_DIES_AT_THUMBNAIL", WEAK_HERO),
+    ("FRAME_FLAT", WEAK_HERO),
+    ("THUMB_LOW_CONTRAST", WEAK_HERO),
+    ("THUMB_SUBJECT_TOO_SMALL", WEAK_HERO),
+    ("THUMB_NO_BREATHING_ROOM", WEAK_HERO),
+    ("THUMB_TEXT_ILLEGIBLE", UNREADABLE_CHART),
+    ("FRAME_TEXT_TOO_SMALL", UNREADABLE_CHART),
+    ("LISTING_CHART_COLOR_ONLY", UNREADABLE_CHART),
+    ("LISTING_NO_FONT", UNREADABLE_CHART),
+    ("LISTING_REDUNDANT_FRAME", REDUNDANT_FRAMES),
+)
+
+
+def class_of(problem: str) -> tuple[str, str] | None:
+    """(code, class) for a checker's problem string, or None when it is not a visual defect.
+
+    None is an answer: a missing frame or a wrong image count is a structural problem, not
+    one of the six looks this taxonomy names, and forcing it into one would grow the
+    taxonomy by the back door.
+    """
+    text = str(problem or "")
+    for code, defect_class in CODE_CLASS:
+        if re.search(rf"(?<![A-Z_]){code}(?![A-Z_])", text):
+            return code, defect_class
+    return None
+
+
+def fixtures(db) -> list[dict]:
+    """Every fixture captured from production, oldest first."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        return [dict(r.detail or {}, audit_id=int(r.id), at=r.at.isoformat() if r.at else "")
+                for r in s.scalars(select(AuditLog).where(AuditLog.action == FIXTURE_ACTION)
+                                   .order_by(AuditLog.id))]
+
+
+def fixtured_classes(db) -> set[str]:
+    return {f["class"] for f in fixtures(db) if f.get("kind") == FIRST}
+
+
+def capture(db, problems: list[str], *, slug: str, version: str, reproduces_with: str,
+            found_on: str = "assets.build", actor: str = "publishing",
+            job_id: int | None = None) -> dict:
+    """Turn a release's visual problems into regression fixtures, classified on the way.
+
+    One fixture per (class, code) per build. A first occurrence captures the reproduction
+    as the fixture; a recurrence in a class that already has one is recorded as a bug in the
+    existing fixture, with the action to widen it, rather than as a second fixture.
+    """
+    from ..core.models import AuditLog
+
+    already = fixtured_classes(db)
+    written, unclassified, seen = [], [], set()
+    for problem in problems:
+        hit = class_of(problem)
+        if hit is None:
+            unclassified.append(str(problem)[:200])
+            continue
+        code, defect_class = hit
+        if (defect_class, code) in seen:
+            continue
+        seen.add((defect_class, code))
+        defect = VisualDefect(defect_class=defect_class, product_slug=slug,
+                              reproduces_with=reproduces_with, found_on=found_on,
+                              note=f"{code}: {str(problem)[:300]}")
+        verdict = classify(defect, fixtured_classes=already)
+        detail = {**defect.to_dict(), "kind": verdict["kind"], "action": verdict["action"],
+                  "why": verdict["why"], "code": code, "version": version,
+                  "fixture": {"reproduces_with": reproduces_with, "code": code,
+                              "expect_absent": code}}
+        with db.session() as s:
+            row = AuditLog(actor=actor, action=FIXTURE_ACTION, artifact=f"{slug}@{version}",
+                           job_id=job_id, detail=detail)
+            s.add(row)
+            s.flush()
+            detail["audit_id"] = int(row.id)
+        if verdict["kind"] == FIRST:
+            already = already | {defect_class}
+        written.append(detail)
+    after = fixtured_classes(db)
+    return {"fixtures": written, "unclassified": unclassified,
+            "coverage": coverage(after),
+            "first": [w["class"] for w in written if w["kind"] == FIRST],
+            "recurrences": [w["class"] for w in written if w["kind"] == RECURRENCE]}
+
+
+def history(db) -> dict:
+    """`monotonic` over the fixture record: the fixtured set after each capture."""
+    points, running = [], set()
+    for f in fixtures(db):
+        if f.get("kind") == FIRST:
+            running = running | {f["class"]}
+        points.append({"at": f.get("at", ""), "fixtured": sorted(running)})
+    return monotonic(points)
+
+
+def replay(db, problems_now: list[str], *, slug: str) -> dict:
+    """Run this product's fixtures against a fresh build's problems.
+
+    A fixture fails when the code it captured is present again for the same product; that
+    is the regression it exists to catch.
+    """
+    present = {c for c, _ in (class_of(p) or ("", "") for p in problems_now) if c}
+    mine = [f for f in fixtures(db) if f.get("product_slug") == slug]
+    failed = [f for f in mine if f.get("code") in present]
+    return {"fixtures": len(mine), "failed": [{"class": f["class"], "code": f["code"],
+                                               "audit_id": f["audit_id"]} for f in failed],
+            "passed": len(mine) - len(failed)}

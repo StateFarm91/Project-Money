@@ -50,6 +50,13 @@ SCALE: dict[int, str] = {
 }
 
 
+# Audits of Brambleloop's own products are recorded under this prefix (#169's "every
+# teardown and Brambleloop QA"). They feed our own scorecard and the delight question, and
+# never the composite standard: the standard is built from what competitors do best, and a
+# standard that included our own scores would be measuring us against ourselves.
+SELF_PREFIX = "brambleloop:"
+
+
 class ScoreRefused(Exception):
     """A score outside the scale, on a dimension that does not exist, or with no action."""
 
@@ -145,7 +152,8 @@ def composite_standard(db) -> dict:
     from ..core.models import TeardownFinding
 
     with db.session() as s:
-        rows = list(s.scalars(select(TeardownFinding)))
+        rows = [r for r in s.scalars(select(TeardownFinding))
+                if not r.benchmark_ref.startswith(SELF_PREFIX)]
 
     best_score: dict[str, float] = {}
     for r in rows:

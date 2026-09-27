@@ -186,6 +186,23 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         ctx.audit("radar.portfolio_constraints_unmet", detail={"unmet": unmet,
                                                               "reasons": portfolio.reasons})
 
+    # #114: a wave is segmented by skill level, or it is one kind of work that looks busy.
+    # Measured on the wave actually selected, and a missing level is written as a creative
+    # brief -- the gap is filled by ideation, never by relabelling a product's difficulty.
+    from ..creative import preengineering
+
+    skills = preengineering.wave_skill_portfolio([c.seed for c in portfolio.selected])
+    ctx.audit("radar.skill_portfolio", detail={**skills, "as_of": today.isoformat()})
+    missing = preengineering.missing_skill_levels(skills["wave"])
+    excess = [g["level"] for g in skills["wave"]["gaps"] if "want_at_most" in g]
+    if missing or excess:
+        ctx.audit("radar.skill_gap", detail={
+            "missing": missing, "over": excess, "gaps": skills["wave"]["gaps"],
+            "brief": (f"ideate new concepts at {missing} for this wave; they enter "
+                      f"engineering only through the pre-engineering gate"
+                      if missing else "the wave leans on one level; ideate the others"),
+            "as_of": today.isoformat()})
+
     for c in portfolio.selected:
         ctx.enqueue("market_radar", "radar.score", c.to_dict(),
                     idempotency_key=f"score:{c.slug}:{today.isoformat()}")
@@ -195,6 +212,9 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         "selected": [c.slug for c in portfolio.selected],
         "constraints_met": portfolio.constraints_met,
         "swaps": portfolio.reasons,
+        "skill_portfolio": {"segmented": skills["wave"]["segmented"],
+                            "shares": skills["wave"]["shares"], "missing": missing,
+                            "over": excess},
         "as_of": today.isoformat(),
     }
 
@@ -222,20 +242,50 @@ def handle_radar_score(ctx: JobContext) -> dict:
     rescored = score_concept(seed, today)
     promote = rescored.score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
 
+    # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
+    # score says a slot is worth filling; it says nothing about whether *this idea* deserves
+    # engineering. A design the catalogue already has is a rebuild and passes as one; anything
+    # else is a new concept and must clear the whole deterministic sequence, or it is not
+    # engineered -- refused back to creative development, or left waiting, unpassed, on a
+    # judgement nobody can make yet.
+    gate = None
+    exempt = None
+    if promote:
+        from ..creative import preengineering
+
+        exempt = (preengineering.established(ctx.db, seed.slug)
+                  or ("a bundle is assembled from its members' releases, not engineered"
+                      if seed.is_bundle else None))
+        if exempt:
+            ctx.audit("concept.gate_exempt", artifact=seed.slug,
+                      detail={"reason": exempt, "source": "radar.score"})
+        else:
+            gate = preengineering.gate_concept(ctx.db, c, today=today)
+            preengineering.record(ctx, gate, source="radar.score")
+            promote = gate["engineer"]
+
     ctx.audit("radar.scored", artifact=seed.slug, detail={
         "score": rescored.score, "components": rescored.components,
         "promoted": promote,
+        "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
     })
     if promote:
         payload = rescored.to_dict()
         payload.update(concept_geometry(seed))
+        if gate is not None:
+            payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
         ctx.enqueue("crochet_engineer", "cir.draft", payload,
                     idempotency_key=f"draft:{seed.slug}")
     return {"slug": seed.slug, "score": rescored.score, "promoted": promote,
             "components": rescored.components,
+            "gate": (None if gate is None else
+                     {k: gate[k] for k in ("decision", "failed", "unmeasured", "reasons",
+                                           "waiting_on", "consequence")}),
+            "gate_exempt": exempt,
             "reason": None if promote else (
                 "Class C requires physical testing that does not exist yet"
                 if seed.risk_class == "C" else
+                gate["consequence"] if gate is not None else
                 f"score {rescored.score} below promotion threshold {PROMOTION_THRESHOLD}")}
 
 
@@ -303,6 +353,22 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     {"slug": slug, "family": seed.family},
                     idempotency_key=chain_key("collection", slug, "collection"))
         return {"artifact": slug, "drafted": False, "is_bundle": True}
+
+    # The engineering entry point holds the same gate `radar.score` applies, so a new concept
+    # cannot reach engineering by being enqueued here directly. A rebuild of an established
+    # design (chain.rebuild re-drafting a certified product) is not a new concept and passes.
+    # A payload that is neither a radar slot nor a creative concept is raw test geometry with
+    # no idea attached; it is compiled so the compiler's refusals stay reachable.
+    from ..creative import preengineering
+
+    if (not preengineering.established(ctx.db, slug)
+            and (seed is not None or isinstance(ctx.job.inputs.get("concept"), dict))):
+        gate = preengineering.gate_concept(ctx.db, dict(ctx.job.inputs))
+        if not gate["engineer"]:
+            effects = preengineering.record(ctx, gate, source="cir.draft")
+            return {"artifact": slug, "drafted": False, "gate": gate["decision"],
+                    "reasons": gate["reasons"][:5], "unmeasured": gate["unmeasured"],
+                    "consequence": gate["consequence"], "effects": effects}
 
     engineered = _engineered_cir(slug)
     if engineered is not None:
@@ -522,6 +588,9 @@ def handle_listing_draft(ctx: JobContext) -> dict:
                 {"slug": slug, "version": version, "release": release, "rebuild": token},
                 idempotency_key=chain_key("assets", slug, version, release, token))
     # #41: an owed purchase disclosure missing from the draft's copy is a finding on it.
+    # On a first release there is no stored copy yet and this reads UNMEASURED (C-47); the
+    # check that measures runs in `listing.seo` right after the Listing row is written, and
+    # again at publish. This one still catches a re-draft whose stored copy has drifted.
     from ..commerce.buyer_trust import listing_disclosure_finding
 
     disclosure = listing_disclosure_finding(ctx.db, slug=slug, version=version)
@@ -619,11 +688,21 @@ def handle_store_publish(ctx: JobContext) -> dict:
     parity_verdict = _listing_parity(ctx)
     ctx.audit("listing.parity", artifact=ctx.job.inputs.get("slug"), detail=parity_verdict)
 
+    # The release-chain publish gates (#58, #60, #65, #66, #70, #80, #172, #173, #297), on
+    # the same split as parity: computed on every attempt from evidence on file, so Shadow
+    # Mode produces the record of them working, and enforced below after the capability
+    # gates and before anything is uploaded.
+    release_gates = _release_gates(ctx)
+    ctx.audit("store.release_gates", artifact=ctx.job.inputs.get("slug"),
+              detail=release_gates)
+
     if ctx.phase is Phase.SHADOW:
         ctx.audit("store.publish_refused", artifact=ctx.job.inputs.get("slug"),
                   detail={"reason": "shadow mode: no live publication",
                           "creative_parity": parity_verdict["verdict"],
-                          "parity_would_block": parity_verdict["blocks_release"]})
+                          "parity_would_block": parity_verdict["blocks_release"],
+                          "release_gates_would_block": release_gates["blocks_release"],
+                          "release_gate_reasons": release_gates["reasons"][:5]})
         raise ShadowModeRefusal(
             "store.publish is a production capability; the system is in SHADOW mode and has "
             "no live Etsy connection. Draft retained for review."
@@ -665,6 +744,17 @@ def handle_store_publish(ctx: JobContext) -> dict:
         ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
                   detail={"reason": refusal})
         raise ShadowModeRefusal(refusal)
+
+    # The release-chain gates, enforced before anything is rendered, stored or sent. An
+    # audited, reasoned block rather than an exception: the job completes, says it did not
+    # publish and why, and the reasons are what a rebuild or re-certification has to clear.
+    if release_gates["blocks_release"]:
+        ctx.audit("store.publish_blocked", artifact=f"{slug}@{version}",
+                  detail={"reasons": release_gates["reasons"][:10],
+                          "certificate": (release_gates.get("listing_set") or {})
+                          .get("certificate")})
+        return {"slug": slug, "version": version, "published": False, "blocked": True,
+                "reasons": release_gates["reasons"]}
 
     # Enforced here: after every question about whether this system may publish at all,
     # and before anything is sent. Phase, credentials and the authority matrix are
@@ -809,6 +899,31 @@ def handle_store_publish(ctx: JobContext) -> dict:
             "file_uploaded": outcome.file_uploaded,
             "files_attached_by_terminology": {"US": outcome.file_uploaded, **extra_files},
             "problems": outcome.problems + extra_problems}
+
+
+def _release_gates(ctx: JobContext) -> dict:
+    """The publish gates for the listing this job would export, never raising.
+
+    A gate that crashed has not passed, so an error is reported as a block with its reason
+    rather than raised -- raising here would replace the Shadow Mode refusal with a stack
+    trace and publish nothing either way, but say so less clearly.
+    """
+    from datetime import date as _date
+
+    from ..publish import release_gates as gates_mod
+
+    i = ctx.job.inputs or {}
+    slug, version = i.get("slug", ""), i.get("version", "1.0.0")
+    try:
+        verdict = gates_mod.for_publish(
+            ctx.db, slug=slug, version=version,
+            today=_date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
+            positioning=i.get("positioning"), store_root=i.get("artifact_dir"))
+    except Exception as e:  # noqa: BLE001 - a crashed gate is a closed gate
+        return {"slug": slug, "version": version, "blocks_release": True,
+                "reasons": [f"release gates could not be evaluated: "
+                            f"{type(e).__name__}: {str(e)[:300]}"]}
+    return verdict
 
 
 @handlers.register("ops.heartbeat")
@@ -1180,15 +1295,116 @@ def _listing_parity(ctx: JobContext) -> dict:
     from ..visual import parity
 
     slug = ctx.job.inputs.get("slug", "")
+    version = ctx.job.inputs.get("version", "1.0.0")
     frames = listing_asset.frames_for(ctx.db, slug=slug)
+    # #81: the deterministic rung is available when a certified CIR exists to render the
+    # chart and twin from -- which is what `assets.build` does, free and truthful.
+    deterministic = _certified_release(ctx.db, slug, version)
     try:
-        verdict = parity.assess(frames, benchmark_quality=_benchmark_quality(ctx.db, slug))
+        verdict = parity.assess(frames, benchmark_quality=_benchmark_quality(ctx.db, slug),
+                                deterministic_available=(
+                                    deterministic is not None
+                                    or parity._deterministic_available(frames)))
     except parity.ParityRefused as exc:
         # A partial set cannot satisfy #75, and the refusal is the gate working. Reported
         # as blocking rather than raised, so the publish attempt records why.
         return {"verdict": parity.UNJUDGED, "blocks_release": True,
                 "why": str(exc)[:300], "dimensions": {}, "slug": slug}
-    return {**verdict, "slug": slug, "frames_judged": len(frames)}
+    verdict = {**verdict, "slug": slug, "frames_judged": len(frames)}
+
+    # #81: a ladder that is only recorded is a plan nobody executes. When the deterministic
+    # rung is taken, the render it names is enqueued -- once per failure and evidence state,
+    # so a refused publish retried on the same evidence does not queue it again. Gated rungs
+    # (generation, physical proof) are never started from here, and release stays blocked
+    # until parity passes on the new frames.
+    escalation = verdict.get("escalation") or {}
+    if escalation.get("taken") == "deterministic_representation" and deterministic:
+        import hashlib
+
+        from .release import chain_key
+
+        release = ctx.job.inputs.get("release") or (
+            deterministic if deterministic != "certified" else "")
+        state = hashlib.sha256(repr((sorted(verdict.get("failed") or []), sorted(
+            str(f.get("image_ref") or f.get("image") or "") for f in frames))).encode()
+        ).hexdigest()[:16]
+        token = f"parity-escalation:{state}"
+        job = ctx.enqueue("publishing", "assets.build",
+                          {"slug": slug, "version": version, "release": release,
+                           "rebuild": token},
+                          idempotency_key=chain_key("assets", slug, version, release, token))
+        escalation["enqueued"] = {"job_type": "assets.build", "rebuild": token,
+                                  "job_id": getattr(job, "id", None),
+                                  "already_queued": job is None}
+        ctx.audit("creative.escalation_taken", artifact=f"{slug}@{version}",
+                  detail={"failed": verdict.get("failed"), "rung": escalation["taken"],
+                          **escalation["enqueued"]})
+
+    # #41 re-checked at publish: an owed purchase disclosure missing from the stored copy
+    # blocks export, whatever parity says. UNMEASURED (no copy) is reported; publication
+    # itself refuses a listing that was never drafted.
+    from ..commerce.buyer_trust import listing_disclosure_finding
+
+    disclosure = listing_disclosure_finding(ctx.db, slug=slug, version=version)
+    verdict["disclosures"] = disclosure
+    if disclosure.get("finding"):
+        verdict["blocks_release"] = True
+        missing = [m["disclosure"] for m in disclosure.get("missing", [])] + [
+            m["disclosure"] for m in disclosure.get("misplaced", [])]
+        verdict["why"] = (f"{verdict['why']}; listing disclosures (#41) missing or "
+                          f"misplaced: {missing}")
+
+    # #35 re-checked at publish: the release must have been classified when its listing was
+    # written, with no refused asset and its class enabled against a current policy reading.
+    classified = _release_classification(ctx.db, slug, version)
+    verdict["classification"] = classified
+    if not classified.get("ok"):
+        verdict["blocks_release"] = True
+        verdict["why"] = f"{verdict['why']}; Etsy creativity/AI classification (#35): " \
+                         f"{classified.get('why')}"
+    return verdict
+
+
+def _release_classification(db, slug: str, version: str) -> dict:
+    """The newest `listing.classified` row for this release, read as a publish condition."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..gates import platform_policy
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(
+            AuditLog.action == platform_policy.CLASSIFIED_ACTION,
+            AuditLog.artifact == f"{slug}@{version}").order_by(desc(AuditLog.id)).limit(1))
+        detail = dict(row.detail or {}) if row is not None else None
+    if detail is None:
+        return {"ok": False, "reading": "UNMEASURED",
+                "why": "this release was never classified, so its disclosures are unknown"}
+    problems = list(detail.get("problems") or [])
+    enabled = (detail.get("class_enablement") or {}).get("enabled")
+    if problems:
+        return {"ok": False, "why": f"classification refused assets: {problems[:3]}",
+                "audit": detail}
+    if not enabled:
+        return {"ok": False, "why": ("the product class was not enabled against a current "
+                                     "policy reading: "
+                                     + str((detail.get("class_enablement") or {}).get("why"))[:300]),
+                "audit": {k: detail.get(k) for k in ("classification", "class_enablement")}}
+    return {"ok": True, "why": "classified, disclosures generated, class enabled",
+            "disclosures": (detail.get("classification") or {}).get("disclosures")}
+
+
+def _certified_release(db, slug: str, version: str) -> str | None:
+    """The release hash of a certified version of this product, or None."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        row = s.scalar(select(PatternVersion).join(Product, Product.id == PatternVersion.product_id)
+                       .where(Product.slug == slug, PatternVersion.version == version,
+                              PatternVersion.certified.is_(True)))
+        return (row.release_hash or "certified") if row is not None else None
 
 
 def _benchmark_quality(db, slug: str) -> dict | None:
@@ -1198,15 +1414,9 @@ def _benchmark_quality(db, slug: str) -> dict | None:
     blocks -- which is correct: #75 asks for a comparison, and a comparison nobody made is
     not a comparison that went well.
     """
-    from sqlalchemy import desc, select
+    # C-45: this product's own newest row, filtered in the query, and only while current.
+    # It read the newest ten rows of any product, so with eleven in the catalogue one was
+    # permanently unjudged, and a months-old verdict counted as today's.
+    from ..creative import blind_review
 
-    from ..core.models import AuditLog
-
-    with db.session() as s:
-        for row in s.scalars(select(AuditLog)
-                             .where(AuditLog.action == "creative.blind_review")
-                             .order_by(desc(AuditLog.id)).limit(10)):
-            detail = row.detail or {}
-            if detail.get("slug") == slug and "materially_inferior" in detail:
-                return detail
-    return None
+    return blind_review.current_review(db, slug=slug)

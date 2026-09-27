@@ -190,3 +190,59 @@ def state(db) -> dict:
         "note": ("A divergence against our own catalogue is useful and is not a market gap. "
                  "Nothing here may borrow the authority of a scan that has not happened."),
     }
+
+
+# ---------------------------------------------------------------------------
+# The benchmark-release trigger (#216)
+#
+# `diverge` used to run only when somebody asked for it. A benchmark release is the moment the
+# requirement names, so `intel.mission_runtime` calls this on every new or changed listing
+# whose decomposition justifies a tournament, and enqueues the result as a divergent
+# `creative.tournament`. What the competitor has made is read from observed rows -- the pods
+# their listings route to, mapped to the closed form vocabulary -- never assumed.
+
+# Which of the closed forms a pod's listings are evidence of. Only the unambiguous ones: a
+# home-decor listing could be a pillow or a coaster, and guessing would put a form in
+# `their_forms` that nobody observed.
+POD_FORMS: dict[str, tuple[str, ...]] = {
+    "garments": ("fitted_garment", "draped_garment"),
+    "blankets": ("rectangle_throw",),
+    "stockings": ("stocking",),
+    "ornaments": ("ornament",),
+    "bags": ("bag", "pouch", "basket"),
+    "hats": ("hat",),
+    "amigurumi": ("toy",),
+}
+
+BREAKTHROUGH_LANE = "breakthrough"
+
+
+def release_brief(db, *, arena: str, pod: str, listing_ref: str,
+                  ours: tuple[str, ...] = ()) -> dict:
+    """The divergent tournament a benchmark release triggers, as job inputs.
+
+    Every brief carries what it was diverged from, so the tournament cannot call a gap in our
+    own catalogue a gap in the market. The objective names white space rather than matching,
+    which is what #227's ceiling check reads.
+    """
+    market = observed_market(db)
+    their_forms = tuple(sorted({f for p in market["pods"] for f in POD_FORMS.get(p, ())}))
+    divergence = diverge(db, arena=arena, ours=ours, their_forms=their_forms)
+    objective = (f"search for original white space around the {arena} arena: forms, "
+                 f"recipients and occasions nobody observed is serving, beyond what the "
+                 f"benchmark currently offers")
+    for brief in divergence["briefs"]:
+        # The trigger never words a brief as a market gap unless the market was observed.
+        check_claim(brief, claim=objective)
+    return {
+        "lane": BREAKTHROUGH_LANE, "arena": arena, "pod": pod,
+        "trigger": {"kind": "benchmark_release", "listing_ref": listing_ref},
+        "objective": objective,
+        "diverged_from": divergence["diverged_from"],
+        "observed_listings": divergence["observed_listings"],
+        "their_forms": list(their_forms),
+        "briefs": [{"axis": b["axis"], "question": b["question"],
+                    "claims_market_gap": b["claims_market_gap"],
+                    "vocabulary": b["vocabulary"][:8]} for b in divergence["briefs"]],
+        "note": divergence["note"],
+    }

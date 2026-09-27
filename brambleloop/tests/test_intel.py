@@ -1183,14 +1183,21 @@ def test_thin_posting_history_falls_back_to_the_fixed_interval_and_says_why():
 
     db = _db()
     now = datetime(2026, 9, 27, 12, tzinfo=timezone.utc)
-    empty = observe.adaptive_interval(db, now=now)
+    # Posting history is held still here by `seasonal=False`; the seasonal half of #213 is
+    # asserted below and in tests/test_cert_mjs.py.
+    empty = observe.adaptive_interval(db, now=now, seasonal=False)
     assert empty["adaptive"] is False
     assert empty["interval_seconds"] == observe.FIXED_INTERVAL_SECONDS
     assert "too thin" in empty["reason"]
 
     _post_history(db, datetime(2026, 9, 25, tzinfo=timezone.utc), 12, 3)
-    thin = observe.adaptive_interval(db, now=now)
+    thin = observe.adaptive_interval(db, now=now, seasonal=False)
     assert thin["adaptive"] is False and thin["posting_events"] == 3, thin
+
+    # During a seasonal ramp thin history does not excuse the resting rate (#213).
+    ramp = observe.adaptive_interval(db, now=now, seasonal=True)
+    assert ramp["interval_seconds"] == observe.SEASONAL_CEILING_SECONDS
+    assert "seasonal" in ramp["reason"]
 
 
 def test_the_interval_adapts_to_the_shops_rhythm_inside_its_bounds():
@@ -1203,7 +1210,7 @@ def test_the_interval_adapts_to_the_shops_rhythm_inside_its_bounds():
 
     db = _db()
     _post_history(db, start, 12, 16)  # every twelve hours for a week and a half
-    twelve = observe.adaptive_interval(db, now=now)
+    twelve = observe.adaptive_interval(db, now=now, seasonal=False)
     assert twelve["adaptive"] is True and twelve["bounded_by"] == "none"
     assert twelve["interval_seconds"] == 3 * 3600, twelve
     # The baseline scan found every listing at once; it is not a posting event.
@@ -1211,14 +1218,18 @@ def test_the_interval_adapts_to_the_shops_rhythm_inside_its_bounds():
 
     busy = _db()
     _post_history(busy, start, 1, 200)
-    assert observe.adaptive_interval(busy, now=now)["interval_seconds"] == \
+    assert observe.adaptive_interval(busy, now=now, seasonal=False)["interval_seconds"] == \
         observe.ADAPTIVE_FLOOR_SECONDS
 
     quiet = _db()
     _post_history(quiet, start - __import__("datetime").timedelta(days=60), 7 * 24, 8)
-    out = observe.adaptive_interval(quiet, now=now)
+    out = observe.adaptive_interval(quiet, now=now, seasonal=False)
     assert out["interval_seconds"] == observe.ADAPTIVE_CEILING_SECONDS
     assert out["bounded_by"] == "ceiling"
+    # The same quiet shop in a seasonal ramp is scanned at the seasonal ceiling (#213).
+    ramp = observe.adaptive_interval(quiet, now=now, seasonal=True)
+    assert ramp["interval_seconds"] == observe.SEASONAL_CEILING_SECONDS
+    assert ramp["bounded_by"] == "seasonal"
 
 
 def test_the_scan_handler_defers_until_the_adaptive_interval_has_elapsed():

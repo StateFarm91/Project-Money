@@ -142,6 +142,25 @@ class IntakeResult:
                 "inferred": self.inferred, "needs_owner": list(self.needs_owner)}
 
 
+def inferred_from_files(files: list[dict]) -> dict:
+    """What filenames settle, from manifest entries (name and role) rather than a folder.
+
+    Shared by `scan()` and by anything recording an audit later, so the teardown is prefilled
+    from the same inference the intake made rather than from a second one that could drift.
+    """
+    roles = {f.get("role") for f in files}
+    return {
+        "file_count": len(files),
+        "has_chart": "chart" in roles,
+        "has_video": "video" in roles,
+        "has_print_edition": "print_edition" in roles,
+        "has_bonus": "bonus" in roles,
+        "pattern_pdfs": sum(1 for f in files if f.get("role") == "pattern_pdf"),
+        "unclassified": sorted(f.get("name", "") for f in files
+                               if f.get("role") == "unclassified"),
+    }
+
+
 def scan(folder: Path | str, *, ref: str = "", seller: str = "",
          listing_ref: str = "", paid_cad: float | None = None) -> IntakeResult:
     """Read a purchase folder's *filenames* and work out everything inferable.
@@ -168,16 +187,7 @@ def scan(folder: Path | str, *, ref: str = "", seller: str = "",
                                 role=classify_file(path.name),
                                 bytes=path.stat().st_size, sha256=digest))
 
-    roles = {f.role for f in files}
-    inferred = {
-        "file_count": len(files),
-        "has_chart": "chart" in roles,
-        "has_video": "video" in roles,
-        "has_print_edition": "print_edition" in roles,
-        "has_bonus": "bonus" in roles,
-        "pattern_pdfs": sum(1 for f in files if f.role == "pattern_pdf"),
-        "unclassified": sorted(f.name for f in files if f.role == "unclassified"),
-    }
+    inferred = inferred_from_files([f.to_dict() for f in files])
 
     needs: list[str] = []
     if not seller:

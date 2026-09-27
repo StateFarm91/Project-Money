@@ -450,6 +450,44 @@ FLOORS: tuple[str, ...] = ("face_identity", "whole_person_morphology", "product_
                            "photographic_realism", "asset_truth", "styling")
 
 
+PLAN_ACTION = "assets.shot_plan"
+
+# Planned frame jobs that are not model photographs: `assets.build` renders them from the
+# certified pattern (size card, materials card, chart, pattern preview), so the plan's
+# evidence and construction jobs are met there rather than here.
+DETERMINISTIC_JOBS: dict[str, str] = {
+    "evidence": "assets.build: size, materials, what's-included and chart frames",
+    "construction": "assets.build: the chart and pattern-preview frames",
+}
+
+
+def planned_shots(cir) -> dict:
+    """#203: the shot plan for this product's form, and which of its jobs are met where.
+
+    `visual.identity.shot_plan` decides the jobs; this sequence renders the model-bearing
+    ones it has a shot for (`SHOTS`), `assets.build` meets the deterministic ones, and any
+    planned job neither renders is reported as uncovered rather than silently dropped.
+    """
+    from ..visual.identity import shot_plan
+    from .owned_photography import form_of, needs_no_model
+
+    plan = shot_plan(product_form=form_of(cir), has_model=not needs_no_model(cir))
+    rendered = {name for name, _, _ in SHOTS}
+    jobs = [f["role"] for f in plan["frames"]]
+    # This sequence is the renderer for a gallery that carries her. A plan with no model
+    # frame (a product-first form) is photographed flat elsewhere, so nothing renders here.
+    carries_model = any(f["model"] for f in plan["frames"])
+    by_sequence = [j for j in jobs if j in rendered] if carries_model else []
+    by_build = [j for j in jobs if j not in by_sequence and j in DETERMINISTIC_JOBS]
+    uncovered = ([j for j in jobs if j not in by_sequence and j not in DETERMINISTIC_JOBS]
+                 if carries_model else [])
+    return {"slug": cir.slug, "version": cir.version, "plan": plan,
+            "render_here": by_sequence, "met_by_assets_build": by_build,
+            "uncovered": uncovered,
+            "why": (f"planned jobs {uncovered} have no renderer yet and are reported, not "
+                    f"counted as met" if uncovered else "every planned job has a renderer")}
+
+
 def sequence(db, cir, twin, **kw) -> dict:
     """The smallest complete gallery, and the only thing that decides whether it may ship.
 
@@ -472,9 +510,18 @@ def sequence(db, cir, twin, **kw) -> dict:
     from ..core import workspace
     from . import motif_fidelity
 
+    # #203: the frames rendered are the plan's model-bearing jobs, not a fixed list.
+    planned = kw.pop("shot_plan", None) or planned_shots(cir)
+    shots = [shot for shot in SHOTS if shot[0] in planned["render_here"]]
+    if not shots:
+        return {"made": False, "slug": cir.slug, "frames": [],
+                "usable_as_listing_asset": False, "shot_plan": planned,
+                "why": (f"the shot plan for form {planned['plan']['product_form']!r} asks for "
+                        f"no model frame this sequence can render")}
+
     if not kw.get("work_dir"):
         with workspace.work_dir(None, prefix="model-frame-") as work:
-            return sequence(db, cir, twin, work_dir=work, **kw)
+            return sequence(db, cir, twin, work_dir=work, shot_plan=planned, **kw)
 
     # One chart for the whole sequence. Two frames shown two renders of the same chart
     # would almost certainly agree, and "almost certainly" is not what a listing showing
@@ -484,7 +531,7 @@ def sequence(db, cir, twin, **kw) -> dict:
         chart = motif_fidelity.chart_image(cir, twin, work_dir=kw.get("work_dir") or "")
 
     frames: list[dict] = []
-    for name, _, _floors in SHOTS:
+    for name, _, _floors in shots:
         # A frame that already cleared every floor it is judged on is kept, not rolled
         # again. Generation is stochastic and the floors are independent, so re-rendering
         # the whole sequence on any failure asks all six to land in a single draw -- which
@@ -509,6 +556,7 @@ def sequence(db, cir, twin, **kw) -> dict:
             return {"made": False, "slug": cir.slug, "shot": name,
                     "waiting_on": frame.get("waiting_on"),
                     "frames": frames, "usable_as_listing_asset": False,
+                    "shot_plan": planned,
                     "why": frame.get("why", "")}
 
     floors = _combine_floors(frames)
@@ -527,6 +575,7 @@ def sequence(db, cir, twin, **kw) -> dict:
         "disclosure": DISCLOSURE,
         "conditioned_on": first.get("conditioned_on"),
         "shots": [f["shot"] for f in frames],
+        "shot_plan": planned,
         "frames": frames,
         "image": first.get("image"),
         "image_ref": first.get("image_ref"),

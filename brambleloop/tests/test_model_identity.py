@@ -135,7 +135,10 @@ def test_a_model_frame_with_no_canonical_pack_blocks():
 
 def test_a_matching_face_passes_and_a_drifted_one_blocks():
     db = _db()
-    fields = _complete_fields()
+    # Certification C-23: a model frame must also carry provenance hashes to pass, so the
+    # pack pins a face hash and the frames below name it. Drift is what this test measures.
+    fields = {**_complete_fields(), "reference_hashes": {"neutral_portrait": "a" * 64}}
+    conditioned = {"reference_hashes": {"neutral_portrait": "a" * 64}}
     # A pack carries its own portrait: without one it can neither condition a generation nor
     # be compared against one, which is the opposite of a lock.
     M.record_candidate(db, "face-a", fields=fields, image_refs=["/tmp/reference.png"])
@@ -147,12 +150,14 @@ def test_a_matching_face_passes_and_a_drifted_one_blocks():
     # scene of every finalist as drift, because two honest descriptions of one woman are
     # never identical text.
     same = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
-    ok = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}],
+    ok = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png",
+                             "conditioned_on": conditioned}],
                        observer=lambda _db, ref, cand: dict(same))
     assert ok["verdict"] == "pass", ok
 
     drifted = {**same, "hair": identity.DRIFT}
-    bad = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}],
+    bad = M.gate_frames(db, [{"role": "hero", "has_model": True, "image_ref": "/tmp/a.png",
+                              "conditioned_on": conditioned}],
                         observer=lambda _db, ref, cand: dict(drifted))
     assert bad["verdict"] == "fail"
     assert "hair" in str(bad["blocking"])
@@ -417,9 +422,16 @@ def test_the_gate_blocks_a_frame_whose_provenance_does_not_verify():
     same = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
     frame = {"role": "hero", "has_model": True, "image_ref": "/tmp/a.png"}
 
-    # No claim, no provenance check: judged on drift alone, as before.
+    # No claim is no hashes, and no hashes is unverifiable (certification C-23). This used
+    # to assert the frame passed on drift alone; the certification rule is that a
+    # model-bearing frame with no `conditioned_on` record blocks release, never passes.
     plain = M.gate_frames(db, [frame], observer=lambda _db, r, c: dict(same))
-    assert plain["verdict"] == "pass" and "provenance" not in plain["results"][0]
+    assert plain["verdict"] == "fail", plain
+    assert plain["results"][0]["provenance"] == identity.PROVENANCE_UNVERIFIABLE
+    assert "provenance unverifiable" in plain["blocking"][0]
+    # A product-only frame is still not asked at all.
+    product = M.gate_frames(db, [{"role": "detail", "has_model": False}])
+    assert product["verdict"] == "not_applicable"
 
     hashed = M.gate_frames(db, [{**frame, "conditioned_on": {
         "reference_hashes": {"neutral_portrait": "a" * 64}}}],

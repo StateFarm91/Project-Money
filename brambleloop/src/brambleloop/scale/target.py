@@ -194,6 +194,22 @@ def binding_constraint(observed: dict) -> dict:
         "aov_cad": 25.0,
         "orders_per_month": 200,
     }
+    # A key present with the value None is UNMEASURED (the runtime passes every key, None
+    # where no source exists). Ranking an unmeasured number at a share of zero would name it
+    # binding because nobody looked, which is the defect C-48 found in the weekly review.
+    unmeasured = [k for k in needed if k in observed and observed[k] is None]
+    if unmeasured:
+        return {
+            "binding": None,
+            "identifiable": False,
+            "unmeasured": unmeasured,
+            "gaps": [{"metric": k, "observed": ("UNMEASURED" if k in unmeasured
+                                                else float(observed.get(k) or 0.0)),
+                      "needed": v} for k, v in needed.items()],
+            "note": (f"{', '.join(unmeasured)} ha{'s' if len(unmeasured) == 1 else 've'} no "
+                     f"source, so the binding constraint cannot be named. Naming the "
+                     f"unmeasured one would read the absence of a reading as a shortfall."),
+        }
     gaps = []
     for key, target in needed.items():
         actual = float(observed.get(key) or 0.0)
@@ -203,6 +219,7 @@ def binding_constraint(observed: dict) -> dict:
     gaps.sort(key=lambda g: g["share_of_needed"])
     return {
         "binding": gaps[0]["metric"],
+        "identifiable": True,
         "gaps": gaps,
         "note": ("Ranked by how far each number is from what the balanced scenario needs, as "
                  "a share rather than a difference, so a traffic gap and a conversion gap "

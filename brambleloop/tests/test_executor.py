@@ -61,7 +61,8 @@ def _open_tester_roster(db) -> None:
     from brambleloop.core.models import CreatorProfile
 
     with db.session() as s:
-        s.add(CreatorProfile(ref="a-tester"))
+        # A tester who agreed: since C-38 a bare prospect on file does not open the gate.
+        s.add(CreatorProfile(ref="a-tester", delivered=1))
 
 
 def _open_physical_proof(db) -> None:
@@ -256,7 +257,10 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # Parked, ready and blocked are reported together: a queue showing only ready work looks
     # identical whether fourteen requirements are parked on a browser or none are.
     assert "rendered_pages" in q["parked_by_capability"]
-    assert len(q["parked_by_capability"]["rendered_pages"]) >= 10
+    # C-38 (2026-09-27) split what rendered_pages used to hold across the gates each
+    # requirement actually waits on; the same work must still all be reported as parked.
+    split = ("rendered_pages", "insights_access", "acceptance_ruling")
+    assert sum(len(q["parked_by_capability"].get(k, [])) for k in split) >= 10
     assert "reported together" in q["note"]
 
     # The next thing to do is named when there is one, and it is never a parked one. There
@@ -359,8 +363,10 @@ def test_a_gate_may_be_satisfied_and_carry_no_requirements():
         assert E.GATE_BY_KEY[key].requirement_ids == (), key
         assert key not in E.queue(db)["parked_by_capability"]
 
+    # Since 2026-09-27 (C-38) Marketplace Insights waits on owner-recorded readings rather
+    # than on a browser: `insights_access`, which counts InsightsSnapshot rows.
     for requirement_id in (1, 37, 236):
-        assert E.gate_for(requirement_id) == "rendered_pages", requirement_id
+        assert E.gate_for(requirement_id) == "insights_access", requirement_id
     assert reg.get(235).status == reg.DATA_GATED
 
     assert E.reconciliation(db)["balances"] is True
@@ -1134,6 +1140,162 @@ def test_the_scheduler_condition_counts_cadences_rather_than_any_audit_row():
     assert alive["have"] == 14, alive
     assert alive["met"] is True
 
+
+
+# ---- certification repairs C-16 and C-38 (2026-09-27) -----------------------------------
+
+
+def _held_state(db, rid):
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildTask
+
+    with db.session() as s:
+        t = s.scalar(select(BuildTask).where(BuildTask.requirement_id == rid))
+        return t.state, t.claimed_by
+
+
+def _refusals(db):
+    from sqlalchemy import select
+
+    from brambleloop.core.models import BuildEvent
+
+    with db.session() as s:
+        return [e.summary for e in s.scalars(select(BuildEvent).where(
+            BuildEvent.kind == "refused"))]
+
+
+def test_only_the_claimant_of_an_in_progress_task_completes_or_releases_it():
+    """C-16: completing a parked/unclaimed task, or another worker's, is refused and
+    audited."""
+    db = _synced_with_ready_work()
+    snap = E.queue(db, limit=400)
+    parked = [rid for ids in snap["parked_by_capability"].values() for rid in ids]
+    assert parked, "nothing parked; this proves nothing"
+    for call in (lambda: E.complete(db, parked[0], worker="w", evidence={"x": "y"}),
+                 lambda: E.release(db, parked[0], worker="w", why="w")):
+        try:
+            call()
+        except E.ExecutorRefused as e:
+            assert "claim it first" in str(e)
+        else:
+            raise AssertionError("a parked requirement was finished without a claim")
+    assert _held_state(db, parked[0])[0] == E.PARKED
+
+    target = E.next_ready(db)["requirement_id"]
+    try:
+        E.complete(db, target, worker="A", evidence={"x": "y"})
+    except E.ExecutorRefused:
+        pass
+    else:
+        raise AssertionError("a READY, unclaimed requirement was completed")
+    E.claim(db, target, worker="A")
+    for call in (lambda: E.complete(db, target, worker="B", evidence={"x": "y"}),
+                 lambda: E.release(db, target, worker="B", why="not mine")):
+        try:
+            call()
+        except E.ExecutorRefused as e:
+            assert "claimed by 'A'" in str(e)
+        else:
+            raise AssertionError("B finished a requirement A holds")
+    assert _held_state(db, target) == (E.IN_PROGRESS, "A")
+    assert len(_refusals(db)) == 5
+    assert E.complete(db, target, worker="A", evidence={"suite": "ok"})["state"] == E.DONE
+
+
+def test_an_honest_release_does_not_leave_the_watchdog_alarming():
+    """C-16: the watchdog counted claim *events*, so claim -> release read as a stall."""
+    db = _synced_with_ready_work()
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="A")
+    assert E.watchdog(db)["verdict"] == E.STALLED
+    E.release(db, target, worker="A", why="out of time; nothing half-done")
+    h = E.watchdog(db)
+    assert h["alarm"] is False and h["verdict"] == E.AWAITING_BUILD_SESSION, h
+
+
+def test_owned_surfaces_opens_on_a_recorded_probe_not_on_a_variable():
+    from brambleloop.core.models import AuditLog
+
+    db = _db()
+    gate = E.GATE_BY_KEY["owned_surfaces"]
+    env = {"BRAMBLELOOP_SITE_URL": "https://example.test", "PINTEREST_ACCESS_TOKEN": "t"}
+    assert gate.open(db, env) is False, "a variable alone opened owned_surfaces"
+    with db.session() as s:
+        s.add(AuditLog(actor="t", action="owned_surface.probe", detail={"ok": False}))
+    assert gate.open(db, env) is False
+    with db.session() as s:
+        s.add(AuditLog(actor="t", action="owned_surface.probe", detail={"ok": True}))
+    assert gate.open(db, {}) is True
+
+
+def test_customers_counts_evidenced_revenue_not_expenses():
+    from brambleloop.core.models import LedgerEntry
+
+    db = _db()
+    gate = E.GATE_BY_KEY["customers"]
+    with db.session() as s:
+        s.add(LedgerEntry(category="hosting", expense_cad=5.0, evidence_ref="inv-1"))
+        s.add(LedgerEntry(category="sale", gross_cad=12.0, evidence_ref=""))
+    assert gate.open(db) is False, "an expense or an unevidenced sale opened customers"
+    with db.session() as s:
+        s.add(LedgerEntry(category="sale", gross_cad=12.0, evidence_ref="etsy-receipt-1"))
+    assert gate.open(db) is True
+
+
+def test_tester_roster_counts_agreement_not_prospects():
+    from brambleloop.core.models import CreatorProfile
+
+    db = _db()
+    gate = E.GATE_BY_KEY["tester_roster"]
+    with db.session() as s:
+        s.add(CreatorProfile(ref="prospect", invited=1))
+    assert gate.open(db) is False, "a prospect opened tester_roster"
+    with db.session() as s:
+        s.add(CreatorProfile(ref="agreed", permissions=["test_pattern"]))
+    assert gate.open(db) is True
+    db = _db()
+    with db.session() as s:
+        s.add(CreatorProfile(ref="delivered", delivered=1))
+    assert gate.open(db) is True
+
+
+def test_insights_access_opens_only_on_a_recorded_reading():
+    from datetime import datetime as _dt
+
+    db = _db()
+    gate = E.GATE_BY_KEY["insights_access"]
+    assert gate.requirement_ids == (1, 37, 236)
+    assert gate.open(db) is False
+    from brambleloop.core.models import InsightsSnapshot
+
+    with db.session() as s:
+        s.add(InsightsSnapshot(keyword="crochet cardigan", search_count=1200,
+                               observed_on=_dt.now(timezone.utc)))
+    assert gate.open(db) is True
+
+
+def test_acceptance_ruling_opens_only_on_the_owners_done_decision():
+    from brambleloop.core.models import OwnerAction
+
+    db = _db()
+    gate = E.GATE_BY_KEY["acceptance_ruling"]
+    assert gate.requirement_ids == (189, 221, 222, 320)
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="decision.api_vision_equivalence",
+                          action="rule on API+vision equivalence", done=False))
+        s.add(OwnerAction(requirement_key="something.else", action="x", done=True))
+    assert gate.open(db) is False
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key="decision.api_vision_equivalence",
+                          action="ruled", done=True))
+    assert gate.open(db) is True
+
+
+def test_rendered_pages_carries_only_what_waits_on_a_browser():
+    assert E.GATE_BY_KEY["rendered_pages"].requirement_ids == (2, 15, 39)
+    assert {277, 281} <= set(E.GATE_BY_KEY["model_provider"].requirement_ids)
+    E._validate_gates()
 
 if __name__ == "__main__":
     fails = 0

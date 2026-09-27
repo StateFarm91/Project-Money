@@ -577,6 +577,26 @@ def test_a_health_incident_closes_when_its_signal_recovers_and_says_what_it_read
         assert row.detail["resolved_at"] and row.detail["last_seen"]
 
 
+
+def test_a_capability_refusal_on_any_job_type_is_a_refusal_not_a_defect():
+    """C-14: the Worker writes `capability not enabled: ...` for every job type, and
+    `requeue_dead` already refused to re-drive it. The console must agree that it is the
+    guard working rather than a backlog to explain -- one classifier, not two lists."""
+    from brambleloop.queue.durable import JobQueue, redrivable
+
+    db = _db()
+    err = "capability not enabled: shadow mode: publication is not promoted"
+    with db.session() as s:
+        s.add(Job(agent="listing", job_type="etsy.publish_listing", status=JobStatus.DEAD,
+                  inputs={}, last_error=err))
+    assert redrivable("etsy.publish_listing", err) is False
+    assert JobQueue(db).requeue_dead()["requeued"] == []
+    with db.session() as s:
+        out = H.remediation(s, H.read(s, runner_state=_alive(), now=NOW))
+    conditions = {h["condition"]: h for h in out["repaired_elsewhere"]}
+    assert conditions["deliberate_refusals"]["count"] == 1
+    assert "dead_letters" not in conditions
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

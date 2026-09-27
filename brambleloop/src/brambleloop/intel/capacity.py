@@ -85,6 +85,57 @@ def reserve_check(*, generic_wants: int, total_specialists: int) -> dict:
             "spare": available - generic_wants}
 
 
+# The lane the mission runs in, and the job types that are mission work rather than generic
+# research. Named explicitly: inferring them from a prefix would make `intel.serp_capture`
+# (a search laboratory about the whole market) mission capacity by spelling.
+MISSION_AGENT = "market_radar"
+MISSION_JOB_TYPES: frozenset[str] = frozenset((
+    "mjs.scan", "mjs.reviews", "mjs.seasonal_sentinel", "etsy.probe",
+    "intel.gallery_analysis", "intel.acceptance", "intel.benchmark_health",
+    "intel.pod_learning",
+))
+
+
+def is_mission_work(job_type: str) -> bool:
+    return job_type in MISSION_JOB_TYPES
+
+
+def reserve_lane(*, mission_open: int, generic_open: int, granted: int, affordable: int,
+                 work_per_specialist: int) -> dict:
+    """Split one lane's specialists so generic research cannot draw below the reserve (#302).
+
+    Called by `swarm.orchestrate.allocate` for the mission's lane on every allocation. The
+    lane is sized to hold the reserve *plus* what generic research wants, bounded only by
+    what the lane's spend ceiling can afford -- the ceiling is money, not headcount. When
+    money cannot cover both, `reserve_check` refuses the generic draw and generic research
+    gets what is left above the floor, which is the refusal doing its job.
+    """
+    wps = max(1, int(work_per_specialist))
+    generic_wants = -(-generic_open // wps) if generic_open > 0 else 0
+    total = max(0, min(int(affordable), max(int(granted),
+                                            MJS_RESERVED_SPECIALISTS + generic_wants)))
+    refused = ""
+    try:
+        reserve_check(generic_wants=generic_wants, total_specialists=total)
+        generic_granted = generic_wants
+    except CapacityRefused as e:
+        generic_granted = max(0, total - MJS_RESERVED_SPECIALISTS)
+        refused = str(e)
+    mission_specialists = total - generic_granted
+    return {
+        "total": total, "reserved": min(total, MJS_RESERVED_SPECIALISTS),
+        "reserve_floor": MJS_RESERVED_SPECIALISTS,
+        "mission_specialists": mission_specialists,
+        "generic_wanted": generic_wants, "generic_granted": generic_granted,
+        "mission_open": mission_open, "generic_open": generic_open,
+        "mission_batch": min(mission_open, mission_specialists * wps),
+        "generic_batch": min(generic_open, generic_granted * wps),
+        "bounded_by": "budget" if total < MJS_RESERVED_SPECIALISTS + generic_wants else "work",
+        "generic_refused": refused,
+        "would_starve": list(MISSION_WORK) if refused else [],
+    }
+
+
 def allocate(*, open_work: int, budget_remaining_cad: float, justification: str,
              cost_per_specialist_cad: float = 0.05,
              deadline_pressure: bool = False) -> Allocation:

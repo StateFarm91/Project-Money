@@ -175,6 +175,7 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),
     "seasonal.cycle_proof": ("latest", "runtime.release reads the last cycle proof"),
     "etsy.probe": ("latest", "intel.etsy_public reads the last probe"),
+    "owned_surface.probe": ("latest", "the owned_surfaces gate reads the last probe (C-38)"),
     "etsy.oauth_callback": ("latest",
                             "app.main /api/etsy/oauth/start reports the last authorization "
                             "attempt so an operator can tell a flow that was never finished "

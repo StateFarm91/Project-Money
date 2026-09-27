@@ -155,7 +155,8 @@ def test_target_queries_come_from_the_pod_vocabulary():
     assert {t["pod"] for t in targets} == {p.key for p in pods.PODS}
     for t in targets:
         assert t["keyword"] in pods.BY_KEY[t["pod"]].keywords
-        assert t["query"] == f"crochet {t['keyword']} pattern"
+        assert t["query"] == serp.query_for(t["keyword"]) and "pattern" in t["query"]
+        assert t["keyword"] in t["query"]
 
 
 # ---- change over time and the search_behaviour domain ----------------------

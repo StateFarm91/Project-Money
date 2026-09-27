@@ -13,12 +13,13 @@ Design constraints that matter because nobody is watching at 3am:
 from __future__ import annotations
 
 import random
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
 from sqlalchemy import (DateTime, Integer, case, cast, func, literal, or_, select,
                         text, update)
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from ..core.db import Database, is_postgres
@@ -42,6 +43,14 @@ AGING_CAP = 200
 # write on SQLite this connection holds the write lock, so the second attempt reads
 # authoritative state; the bound only matters under Postgres SKIP LOCKED.
 CLAIM_ATTEMPTS = 8
+
+# SQLite's busy handler is not fair: under many concurrent writers on a loaded host a waiter
+# can lose the lock race for longer than the driver's 5 s timeout and see "database is
+# locked". A queue write that fails that way rolled back completely, so it is retried as a
+# whole transaction. Without this a lost `complete` became a handler exception, the worker
+# failed the job, and the backed-off retry ran it a second time -- a duplicate execution
+# arriving through the lock instead of through the claim (C-11).
+LOCK_RETRIES = 12
 
 
 # Dead letters that are the system working rather than the system failing.
@@ -127,10 +136,32 @@ def _aware(dt: datetime | None) -> datetime | None:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _is_lock_error(exc: BaseException) -> bool:
+    text_ = str(exc).lower()
+    return "database is locked" in text_ or "database table is locked" in text_
+
+
 class JobQueue:
     def __init__(self, db: Database, lease_seconds: int = DEFAULT_LEASE_SECONDS):
         self.db = db
         self.lease_seconds = lease_seconds
+
+    def _txn(self, fn):
+        """Run `fn(session)` in one transaction, retrying the whole of it on a SQLite lock."""
+        if is_postgres(self.db.engine):
+            with self.db.session() as s:
+                return fn(s)
+        delay = 0.02
+        for attempt in range(LOCK_RETRIES):
+            try:
+                with self.db.session() as s:
+                    return fn(s)
+            except OperationalError as exc:
+                if not _is_lock_error(exc) or attempt == LOCK_RETRIES - 1:
+                    raise
+                time.sleep(delay * (1.0 + random.random()))
+                delay = min(delay * 2, 1.0)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     # ---- producing -----------------------------------------------------
     def enqueue(
@@ -211,9 +242,10 @@ class JobQueue:
         follows it is authoritative and the next attempt cannot lose the same way. Postgres
         additionally takes the candidate row FOR UPDATE SKIP LOCKED.
         """
-        now = utcnow()
         pg = is_postgres(self.db.engine)
-        with self.db.session() as s:
+
+        def _do(s: Session) -> Job | None:
+            now = utcnow()
             for _ in range(CLAIM_ATTEMPTS):
                 # Expired leases first, not only when nothing else is runnable. A job whose
                 # worker died holding the lease was otherwise recoverable only while the
@@ -247,6 +279,8 @@ class JobQueue:
                     s.expunge(job)
                     return job
             return None
+
+        return self._txn(_do)
 
     def _take(self, s: Session, job_id: int, attempts: int, worker: str, now: datetime,
               *, reclaim: bool) -> int | None:
@@ -366,7 +400,7 @@ class JobQueue:
     def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0,
                  *, worker: str | None = None, administrative: bool = False) -> bool:
         """Mark a job done. Returns False, changing nothing, when the write is fenced off."""
-        with self.db.session() as s:
+        def _do(s: Session) -> bool:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
@@ -378,7 +412,9 @@ class JobQueue:
             job.leased_by = None
             job.lease_expires_at = None
             job.cost_cad = (job.cost_cad or 0.0) + cost_cad
-        return True
+            return True
+
+        return self._txn(_do)
 
     def fail(self, job_id: int, error: str, *, retry: bool = True,
              worker: str | None = None, administrative: bool = False) -> Job | None:
@@ -388,7 +424,7 @@ class JobQueue:
         run the queue already reclaimed must not dead-letter or back off the run that
         replaced it.
         """
-        with self.db.session() as s:
+        def _do(s: Session) -> Job | None:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
@@ -413,6 +449,8 @@ class JobQueue:
             s.expunge(job)
             return job
 
+        return self._txn(_do)
+
     def heartbeat(self, job_id: int, *, worker: str | None = None) -> bool:
         """Extend a lease for a job that is legitimately still running. True when extended.
 
@@ -425,12 +463,14 @@ class JobQueue:
         cond = [Job.id == job_id, Job.status == JobStatus.RUNNING]
         if worker is not None:
             cond.append(or_(Job.leased_by.is_(None), Job.leased_by == worker))
-        with self.db.session() as s:
+        def _do(s: Session) -> bool:
             res = s.execute(
                 update(Job).where(*cond)
                 .values(lease_expires_at=utcnow() + timedelta(seconds=self.lease_seconds))
                 .execution_options(synchronize_session=False))
             return res.rowcount == 1
+
+        return self._txn(_do)
 
     # ---- inspection ----------------------------------------------------
     def counts(self) -> dict[str, int]:

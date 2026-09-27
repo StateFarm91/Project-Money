@@ -262,3 +262,38 @@ def stale_assets(assets: list[dict], *, current_release_hash: str) -> list[dict]
     """
     return [a for a in assets
             if a.get("release_hash") and a["release_hash"] != current_release_hash]
+
+
+def minimum_quality(frames: list[dict]) -> dict:
+    """#80 at export: every frame earns its place by its job and its gates, never by count.
+
+    Each frame is `{"position", "role", "job", "passed", "why"}` -- `job` the commercial job
+    it was assigned (empty when none could be), `passed` whether every quality gate that
+    applies to it ran and passed. A frame with no job is filler and a frame that failed its
+    gate is weak; both are refused for export, and the remedy for either is removing the
+    frame, never adding another one to reach a number. The gallery's length is reported and
+    never judged.
+    """
+    filler = [f for f in frames if not f.get("job")]
+    weak = [f for f in frames if f.get("job") and not f.get("passed")]
+    keep = [f for f in frames if f.get("job") and f.get("passed")]
+    problems = (
+        [{"kind": "filler", "position": f.get("position"), "role": f.get("role"),
+          "why": ("no commercial job, so the frame answers no buyer question. A gallery "
+                  "padded to a count is worse than a shorter one (#80)")} for f in filler]
+        + [{"kind": "weak", "position": f.get("position"), "role": f.get("role"),
+            "job": f.get("job"),
+            "why": (f"does not pass its quality gate for {f.get('job')}: "
+                    f"{f.get('why') or 'no reason recorded'}. Remove or remake it; "
+                    f"do not keep it to hold the count")} for f in weak])
+    return {
+        "ok": bool(frames) and not problems,
+        "frames": len(frames),
+        "keep": [f.get("position") for f in keep],
+        "remove": [f.get("position") for f in filler + weak],
+        "problems": problems if frames else [{"kind": "empty", "why": "no frames"}],
+        "count_is_not_a_criterion": True,
+        "note": ("A shorter excellent gallery is preferable to a longer one with filler; a "
+                 "frame is added only when it answers a buyer question, adds proof or "
+                 "increases desire (#80)."),
+    }

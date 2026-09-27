@@ -157,8 +157,13 @@ def _has_customers(db, env) -> bool:
 
     from ..core.models import LedgerEntry
 
+    # Revenue with evidence, not any row (C-38). An expense is a LedgerEntry too, and the
+    # first thing this company records is money going out -- counting every row opened the
+    # gate on a hosting bill. A customer is money coming in, with the order it came from.
     with db.session() as s:
-        return bool(s.scalar(select(func.count(LedgerEntry.id))))
+        return bool(s.scalar(select(func.count(LedgerEntry.id)).where(
+            LedgerEntry.gross_cad > 0, LedgerEntry.evidence_ref.is_not(None),
+            func.trim(LedgerEntry.evidence_ref) != "")))
 
 
 def _has_live_listing(db, env) -> bool:
@@ -277,8 +282,65 @@ def _tester_recruited(db, env) -> bool:
 
     from ..core.models import CreatorProfile
 
+    # Somebody who *agreed*, not anybody on file (C-38). A CreatorProfile is written for a
+    # prospect the moment they are observed, so counting rows opened this gate on a list of
+    # people nobody has spoken to. Agreement is evidenced by a delivery or a recorded
+    # permission.
     with db.session() as s:
-        return bool(s.scalar(select(CreatorProfile.id).limit(1)))
+        rows = s.execute(select(CreatorProfile.delivered, CreatorProfile.permissions)).all()
+    return any((delivered or 0) > 0 or bool(permissions) for delivered, permissions in rows)
+
+
+def _owned_surface_probed(db, env) -> bool:
+    """Whether publishing to an owned surface has actually been shown to work (C-38).
+
+    This opened on `BRAMBLELOOP_SITE_URL` or `PINTEREST_ACCESS_TOKEN` being set -- a gate
+    reading configuration instead of demonstrated capability, the discipline `etsy.probe`
+    and `model.probe` already hold. The condition is the most recent `owned_surface.probe`
+    audit row recording `ok: true`; a variable alone opens nothing.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "owned_surface.probe")
+                       .order_by(desc(AuditLog.id)).limit(1))
+        return bool(row is not None and (row.detail or {}).get("ok") is True)
+
+
+def _insights_recorded(db, env) -> bool:
+    """At least one owner-recorded Marketplace Insights reading exists.
+
+    Read lazily: the table is new, and a database or build without it has no readings.
+    """
+    try:
+        from sqlalchemy import select
+
+        from ..core.models import InsightsSnapshot
+    except ImportError:
+        return False
+    try:
+        with db.session() as s:
+            return s.scalar(select(InsightsSnapshot.id).limit(1)) is not None
+    except Exception:  # noqa: BLE001 - a missing table is "no readings", not a crash
+        return False
+
+
+ACCEPTANCE_RULING_KEY = "decision.api_vision_equivalence"
+
+
+def _acceptance_ruled(db, env) -> bool:
+    """The owner has ruled whether an API+vision traversal satisfies the browser/vision
+    wording of #189/#221/#222/#320 -- a decision, recorded as a done OwnerAction."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        return s.scalar(select(OwnerAction.id).where(
+            OwnerAction.requirement_key == ACCEPTANCE_RULING_KEY,
+            OwnerAction.done.is_(True)).limit(1)) is not None
 
 
 def _image_generation_usable(db, env) -> bool:
@@ -462,7 +524,7 @@ GATES: tuple[Gate, ...] = (
          "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
     Gate("model_provider", "a model provider that can actually serve a request",
          _model_usable,
-         (94, 104, 177, 178),
+         (94, 104, 177, 178, 277, 281),
          "a recorded model.probe succeeded -- a real call, not a variable being set"),
     # Satisfied 2026-09-19: BrambleloopStudio exists, empty, zero sales. Kept rather than
     # deleted, and carrying no requirements rather than the four it used to. Those four --
@@ -520,17 +582,37 @@ GATES: tuple[Gate, ...] = (
          "Insights, search results and policy pages have no endpoint among the nine this "
          "application is authorised for",
          _rendered_pages_usable,
-         (1, 2, 15, 37, 39, 67, 71, 76, 86, 126, 189, 218, 221, 222, 236, 277, 281, 315,
-          320),
+         # Narrowed 2026-09-27 (C-38). Marketplace Insights (1, 37, 236) waits on owner-recorded
+         # readings (`insights_access`); the browser/vision wording of 189/221/222/320 waits
+         # on the owner's ruling (`acceptance_ruling`); 277 and 281 wait on a model that can
+         # serve a request (`model_provider`); 67, 71, 76, 86, 126, 218 and 315 were closed
+         # or re-parked by their own audits and no longer wait here.
+         # 2 and 15 left too (C-40): the API search index (findAllListingsActive, api_key
+         # only) now supplies density and a labelled ranking proxy. Only the policy pages of
+         # #39 still need a rendered page.
+         (39,),
          "a recorded browser.probe fetched a real rendered page -- a configured worker URL "
          "is a string, and Etsy answers 403 to a great many of them"),
+    Gate("insights_access",
+         "owner-recorded Marketplace Insights readings exist",
+         _insights_recorded,
+         (1, 37, 236),
+         "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop "
+         "Manager, counted, because there is no sanctioned endpoint that returns it"),
+    Gate("acceptance_ruling",
+         "the owner has ruled whether an API+vision traversal satisfies the browser/vision "
+         "wording of #189/#221/#222/#320",
+         _acceptance_ruled,
+         (189, 221, 222, 320),
+         f"an OwnerAction with requirement_key {ACCEPTANCE_RULING_KEY!r} is done -- a "
+         "decision only the owner can make, recorded rather than assumed"),
     Gate("tester_roster",
          "one person who has agreed to test a Brambleloop pattern, which needs outreach to "
          "real people and therefore an exit from shadow mode",
          _tester_recruited,
          (9, 250),
-         "at least one CreatorProfile row exists -- counted, because a roster with nobody on "
-         "it is what both of these are actually waiting for"),
+         "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. "
+         "A prospect on file is not a tester"),
     Gate("image_generation",
          "an image-generation provider that conditions on reference images, because an "
          "identity lock is reference conditioning rather than a better prompt",
@@ -582,11 +664,10 @@ GATES: tuple[Gate, ...] = (
     Gate("owned_surfaces",
          "a site or a Pinterest account this company can publish to, which only the owner "
          "can create",
-         lambda db, env: _env_gate("BRAMBLELOOP_SITE_URL")(db, env)
-         or _env_gate("PINTEREST_ACCESS_TOKEN")(db, env),
+         _owned_surface_probed,
          (),
-         "a site URL or a Pinterest token is configured -- either of which only exists once "
-         "the account behind it does"),
+         "the latest owned_surface.probe audit row records ok: true -- a real publish-path "
+         "check, not a site URL or token variable being set"),
     Gate("live_listings",
          "a listing that exists on the marketplace, which shadow mode forbids by design",
          _has_live_listing,
@@ -598,8 +679,8 @@ GATES: tuple[Gate, ...] = (
          "this gate is in the same table as the ones that are",
          _has_customers,
          (),
-         "at least one LedgerEntry row exists -- a recorded money event, counted rather "
-         "than a phase flag saying the company is selling"),
+         "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with "
+         "its order, not an expense and not a phase flag saying the company is selling"),
     # Added 2026-09-20. #133, #140 and #147 sat in the ready queue while the thing they wait
     # for -- a connected cultural signal source -- does not exist, and each of their registry
     # notes already said so in prose. Prose in a note does not park anything: the queue went
@@ -1066,6 +1147,31 @@ def claim(db, requirement_id: int, *, worker: str) -> dict:
     return out
 
 
+def _not_held_by(task, worker: str, what: str) -> str | None:
+    """Why `worker` may not complete/release this task, or None when it may (C-16).
+
+    Only the claimant of an IN_PROGRESS task finishes or releases it. A PARKED, BLOCKED or
+    READY task was never claimed, so completing it skips the claim (and, for PARKED, the gate
+    the task is waiting on); a task another worker holds is that worker's to finish.
+    """
+    if task.state != IN_PROGRESS:
+        return (f"requirement {task.requirement_id} is {task.state!r}, not in progress; "
+                f"only a claimed task can be {what}d -- claim it first"
+                + (f" (it is parked on {task.parked_on!r})" if task.state == PARKED else ""))
+    if task.claimed_by != worker:
+        return (f"requirement {task.requirement_id} is claimed by {task.claimed_by!r}, not "
+                f"{worker!r}; its outcome belongs to the claimant")
+    return None
+
+
+def _refuse(db, requirement_id: int, worker: str, what: str, why: str):
+    """Audit a refused completion or release, then raise."""
+    record(db, kind="refused", requirement_id=requirement_id, actor=worker,
+           summary=f"refused {what} of {requirement_id} by {worker}: {why}"[:500],
+           detail={"attempted": what, "why": why})
+    raise ExecutorRefused(why)
+
+
 def complete(db, requirement_id: int, *, worker: str, evidence: dict) -> dict:
     """Finish a requirement, with evidence. A completion with no evidence is a checkbox."""
     from sqlalchemy import select
@@ -1079,18 +1185,23 @@ def complete(db, requirement_id: int, *, worker: str, evidence: dict) -> dict:
             "has to evidence")
 
     now = datetime.now(timezone.utc)
+    refusal = None
     with db.session() as s:
         task = s.scalar(select(BuildTask).where(
             BuildTask.requirement_id == requirement_id))
         if task is None:
             raise ExecutorRefused(f"no build task for requirement {requirement_id}")
-        task.state = DONE
-        task.completed_at = now
-        task.updated_at = now
-        task.evidence = dict(evidence)
-        task.claimed_by = None
+        refusal = _not_held_by(task, worker, "complete")
+        if refusal is None:
+            task.state = DONE
+            task.completed_at = now
+            task.updated_at = now
+            task.evidence = dict(evidence)
+            task.claimed_by = None
         title = task.title
 
+    if refusal is not None:
+        _refuse(db, requirement_id, worker, "complete", refusal)
     record(db, kind="complete", requirement_id=requirement_id, actor=worker,
            summary=f"completed {requirement_id}: {title}", detail=dict(evidence))
     return {"requirement_id": requirement_id, "state": DONE, "evidence": dict(evidence)}
@@ -1107,11 +1218,15 @@ def release(db, requirement_id: int, *, worker: str, why: str) -> dict:
             BuildTask.requirement_id == requirement_id))
         if task is None:
             raise ExecutorRefused(f"no build task for requirement {requirement_id}")
-        task.state = READY
-        task.claimed_by = None
-        task.claimed_at = None
-        task.updated_at = datetime.now(timezone.utc)
+        refusal = _not_held_by(task, worker, "release")
+        if refusal is None:
+            task.state = READY
+            task.claimed_by = None
+            task.claimed_at = None
+            task.updated_at = datetime.now(timezone.utc)
 
+    if refusal is not None:
+        _refuse(db, requirement_id, worker, "release", refusal)
     record(db, kind="release", requirement_id=requirement_id, actor=worker,
            summary=f"released {requirement_id}: {why}")
     return {"requirement_id": requirement_id, "state": READY, "why": why}
@@ -1191,20 +1306,24 @@ def watchdog(db, *, now: datetime | None = None,
                      "train everybody to ignore the channel."),
         }
 
-    if not claims and not held:
+    # A stall is a task somebody *holds* without finishing it. Claim events in the window
+    # without anything held mean the claim was honestly released (or completed and then a
+    # new one released), which is not a worker that took the task and stopped (C-16).
+    if not held:
         top = snapshot["next"] or {}
         return {
             "moving": False,
             "completions_in_window": 0,
-            "claims_in_window": 0,
+            "claims_in_window": claims,
             "window_hours": idle_alarm_hours,
             "last_completion": last.isoformat() if last else None,
             "ready_total": snapshot["ready_total"],
             "next": snapshot["next"],
             "verdict": AWAITING_BUILD_SESSION,
             "alarm": False,
-            "note": (f"{snapshot['ready_total']} requirements are ready and none has been "
-                     f"claimed in {idle_alarm_hours} hours. The deployed worker does not "
+            "note": (f"{snapshot['ready_total']} requirements are ready and none is held "
+                     f"({claims} claim(s) in {idle_alarm_hours} hours, all released or "
+                     f"finished). The deployed worker does not "
                      f"write code, so this is waiting for a build session rather than a "
                      f"broken loop. Start with #{top.get('requirement_id')}: "
                      f"{top.get('title') or ''}".rstrip(": ")),

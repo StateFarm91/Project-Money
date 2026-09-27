@@ -955,6 +955,56 @@ def api_mjs_reclassify(dry_run: bool = False,
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
 
 
+@app.post("/api/mjs/veto")
+async def api_mjs_veto(request: Request, authorization: str = Header(default="")) -> JSONResponse:
+    """Record one owner ruling on flagship creative or canonical model identity (#228).
+
+    The owner's veto, kept countable: a reason from the closed vocabulary, never free text
+    alone. Repeated reasons become improvement lessons; a veto on an MJs-derived proposal
+    (`subject_ref` = `mjs_event:<id>`) is an `owner_veto` outcome against the pod
+    interpretations that proposal was built on. An evaluator prediction, if supplied, must be
+    dated before this ruling. Authenticated with the operator credential because it writes.
+
+    Body: {subject_ref, scope, reason, note?, vetoed? (default true), predicted_veto?,
+    predicted_at? (ISO 8601)}.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from datetime import datetime as _dt
+
+    from ..intel import mission_runtime, veto
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "the body must be a JSON object"}, status_code=400)
+    predicted_at = body.get("predicted_at")
+    try:
+        predicted_at = _dt.fromisoformat(str(predicted_at)) if predicted_at else None
+    except ValueError:
+        return JSONResponse({"error": "predicted_at must be ISO 8601"}, status_code=400)
+    predicted = body.get("predicted_veto")
+    try:
+        result = mission_runtime.record_veto(
+            db, subject_ref=str(body.get("subject_ref") or ""),
+            scope=str(body.get("scope") or ""), reason=str(body.get("reason") or ""),
+            note=str(body.get("note") or ""),
+            owner_vetoed=bool(body.get("vetoed", True)),
+            predicted_veto=None if predicted is None else bool(predicted),
+            predicted_at=predicted_at)
+    except veto.VetoRefused as e:
+        return JSONResponse({"error": str(e), "scopes": sorted(veto.VETO_SCOPE),
+                             "reasons": sorted(veto.REASONS)}, status_code=400)
+    return JSONResponse(result)
+
+
 @app.get("/api/search/arena-language")
 def api_arena_language() -> dict:
     """The words a shopper in each proven arena actually sees (#293).
@@ -2250,6 +2300,38 @@ def api_improve() -> dict:
     }
 
 
+@app.get("/api/war-room")
+def api_war_room() -> dict:
+    """The CA$5K war room (#276): every field measured or absent with its reason."""
+    from ..scale import war_room
+
+    return war_room.board(db)
+
+
+@app.get("/api/creative-learning")
+def api_creative_learning() -> dict:
+    """Creative performance by style (#82) and concept outcomes (#89), UNMEASURED until live."""
+    from ..creative import outcome_learning, style_learning
+
+    learned = outcome_learning.learn(db)
+    learned.pop("rows", None)
+    return {"style": style_learning.by_style(db), "brand_knowledge": style_learning.knowledge(db),
+            "concepts": learned, "rules": style_learning.state()}
+
+
+@app.get("/api/season-harvest")
+def api_season_harvest() -> dict:
+    """The post-season harvest per event and the timing each hands to next year (#298)."""
+    from ..radar.market import SEASONAL_EVENTS
+    from ..seasonal import harvest
+
+    return {"events": {e.name: harvest.timing_adjustments(db, e.name)
+                       for e in SEASONAL_EVENTS},
+            "minimums": {"event_orders": harvest.MIN_EVENT_ORDERS,
+                         "group_orders": harvest.MIN_GROUP_ORDERS,
+                         "signal_points": harvest.MIN_SIGNAL_POINTS}}
+
+
 @app.get("/api/calendar")
 def api_calendar() -> dict:
     """The rolling 365-day calendar: every event, its phase, and how thin its coverage is."""
@@ -2260,14 +2342,27 @@ def api_calendar() -> dict:
 
 @app.get("/api/growth")
 def api_growth() -> dict:
-    """The growth architecture: portfolio shape, loop evidence and this week's constraint."""
-    from ..growth.loops import constraint, evidence_summary, from_db
-    from ..growth.mix import report
+    """The growth architecture: portfolio shape, loop evidence and this week's constraint.
 
+    The constraint is solved from the database (orders, listing outcomes, ledger), with every
+    term that has no source passed as None and reported UNMEASURED -- never as zero. The
+    weekly job's recorded reading (reallocation, readiness, confidence) is served beside it.
+    """
+    from ..growth.loops import constraint, evidence_summary, from_db, reallocation
+    from ..growth.mix import report
+    from ..growth.weekly import growth_inputs, latest
+    from ..scale.runrate import observe
+
+    got = observe(db)
+    solved = constraint(growth_inputs(got["observed"]))
     return {
         "portfolio": report(db),
         "loops": evidence_summary(from_db(db)),
-        "constraint": constraint({}),
+        "constraint": solved,
+        "reallocation": reallocation(solved),
+        "unmeasured": got["unmeasured"],
+        "weekly_reading": latest(db) or {"reading": "UNMEASURED",
+                                         "why": "the weekly growth solve has not run yet"},
     }
 
 
@@ -2612,16 +2707,21 @@ def api_seasonal_cycle() -> dict:
     than inventing a placeholder concept, because a cycle that produced nothing and reported
     itself complete is the failure this endpoint exists to make impossible.
     """
-    from ..gateway import routing
-    from ..gateway.anthropic import AnthropicProvider
-    from ..gateway.model_gateway import ModelGateway
     from ..seasonal import cycle
 
-    gateway = None
-    if AnthropicProvider.key():
-        _task, tier = routing.route("concept_generation")
-        gateway = ModelGateway([AnthropicProvider(model=tier.model)])
-    return cycle.run(db, gateway=gateway)
+    # Certification C-31: a GET must not spend. This route used to build an unbudgeted
+    # gateway (no ceiling, no reservation, no ledger row) whenever a key existed, so every
+    # sweep that walked the routes paid for a generation. It is report-only now: the cycle
+    # runs without a gateway and its generate step reads gated. The paid run is the
+    # `seasonal.cycle_proof` job, whose gateway carries the registry and the job id.
+    report = cycle.run(db, gateway=None)
+    if isinstance(report, dict):
+        report["paid_model_calls"] = {
+            "state": "refused_on_get",
+            "runs_in": "seasonal.cycle_proof",
+            "why": ("a GET that spends money spends it every time a sweep walks the routes; "
+                    "the generating step runs as a budgeted, reserved and billed job instead")}
+    return report
 
 
 @app.get("/api/preproduction")
@@ -4853,6 +4953,152 @@ async def api_teardown_intake(request: Request,
                        detail={"ref": result["ref"], "files": result["file_count"],
                                "durable": result["durable"]})
     return JSONResponse(result)
+
+
+def _teardown_ops_refusal(authorization: str) -> JSONResponse | None:
+    """The operator-token check the teardown and culture write routes share."""
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+    return None
+
+
+async def _teardown_json_body(request: Request) -> dict | JSONResponse:
+    try:
+        body = await request.json()
+    except Exception as exc:  # noqa: BLE001 - a malformed body is a 400, whatever broke
+        return JSONResponse({"error": f"expected a JSON object: {exc}"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "expected a JSON object"}, status_code=400)
+    return body
+
+
+def _teardown_refusals() -> tuple:
+    from ..teardown import audits, lab, library, pipeline, scorecard
+
+    return (audits.AuditRefused, scorecard.ScoreRefused, scorecard.ParityRefused,
+            library.ContentRefused, lab.LabRefused, pipeline.PipelineRefused)
+
+
+@app.post("/api/teardown/audit")
+async def api_teardown_audit(request: Request,
+                             authorization: str = Header(default="")) -> JSONResponse:
+    """Record one complete per-dimension audit (#152-#160). Authenticated, because it writes.
+
+    JSON: `benchmark_ref` (a purchased benchmark's manifest ref, or `brambleloop:<slug>` for
+    our own product), `audit` (the schedule key) and `answers`. What the intake manifest
+    settles is prefilled. Every notable element becomes a scorecard finding (#161), every
+    finding is promoted into the Improvement Department (#164), and the delight question is
+    asked of the benchmark (#169).
+    """
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    body = await _teardown_json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    from ..teardown import lab
+
+    try:
+        result = lab.record_audit(db, str(body.get("benchmark_ref") or ""),
+                                  str(body.get("audit") or ""),
+                                  body.get("answers") or {})
+    except _teardown_refusals() as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return JSONResponse(result)
+
+
+@app.post("/api/teardown/finding")
+async def api_teardown_finding(request: Request,
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """Record one twelve-dimension scorecard finding (#161) and promote it (#164)."""
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    body = await _teardown_json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    from ..teardown import lab
+
+    try:
+        result = lab.record_finding(
+            db, str(body.get("benchmark_ref") or ""), str(body.get("dimension") or ""),
+            body.get("score"), str(body.get("mechanism") or ""),
+            str(body.get("improvement") or ""))
+    except (TypeError, ValueError) as exc:
+        return JSONResponse({"error": f"score must be 0-5: {exc}"}, status_code=400)
+    except _teardown_refusals() as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return JSONResponse(result)
+
+
+@app.post("/api/teardown/qa")
+def api_teardown_qa(authorization: str = Header(default="")) -> JSONResponse:
+    """Brambleloop's own certified products through #163 and #169, one audit row each."""
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..teardown import lab
+
+    return JSONResponse(lab.product_qa_all(db))
+
+
+@app.post("/api/teardown/manifest")
+def api_teardown_manifest(authorization: str = Header(default="")) -> JSONResponse:
+    """Regenerate BENCHMARK_MANIFEST.md (#170) into the quarantined library and return it."""
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..teardown import lab
+
+    return JSONResponse(lab.write_manifest(db))
+
+
+@app.post("/api/culture/clearance")
+async def api_culture_clearance(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """Record a basis for direct use of a signal's protected element (#135).
+
+    JSON: `signal_key`, `kind`, `evidence`, `recorded_by`, optional `scope` and
+    `publication_year`. A basis the rights module refuses leaves the signal in the original
+    lane and says why; the opportunity is never discarded.
+    """
+    refused = _teardown_ops_refusal(authorization)
+    if refused is not None:
+        return refused
+    body = await _teardown_json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    from ..culture import engine, rights
+
+    year = body.get("publication_year")
+    try:
+        result = engine.clear(
+            db, str(body.get("signal_key") or ""), kind=str(body.get("kind") or ""),
+            evidence=str(body.get("evidence") or ""),
+            recorded_by=str(body.get("recorded_by") or ""),
+            scope=str(body.get("scope") or ""),
+            publication_year=int(year) if year not in (None, "") else None)
+    except (rights.RightsRefused, ValueError) as exc:
+        return JSONResponse({"error": str(exc), "lane": rights.ORIGINAL}, status_code=400)
+    return JSONResponse(result)
+
+
+@app.get("/api/culture/development")
+def api_culture_development() -> dict:
+    """What the culture engine has put into creative development, and what it owns (#144, #146)."""
+    from ..culture import engine
+
+    return {"candidates": engine.candidates(db),
+            "collections": engine.collection_plans(db),
+            "ip": engine.roster(db), "ip_direction": engine.ip_direction(db),
+            "stage": engine.STAGE,
+            "note": ("candidates for creative development; none of these is an engineering "
+                     "job, and the concept tournament, jury and CIR stand between each row "
+                     "and a pattern")}
 
 
 @app.get("/ops/teardown", response_class=HTMLResponse)

@@ -628,3 +628,106 @@ def support_readings(db) -> dict:
             deadlines.append({"case": case_id, "resolve_before": "UNKNOWN"})
     return {"confusion": confusion_rate(db), "case_window": window,
             "open_cases": len(open_cases), "deadlines": deadlines}
+
+
+# ---------------------------------------------------------------------------
+# #36 in the runtime: provenance stored when a listing's images are built
+
+IMAGE_PROVENANCE_ACTION = "assets.image_provenance"
+
+# Deterministic listing frames by asset class, onto the provenance vocabulary. Every one is
+# rendered from the certified pattern's data, so every one is SIMULATED and none is proof.
+_FRAME_KIND: dict[str, str] = {
+    "DIGITAL_TWIN_RENDER": "twin_render",
+    "INFOGRAPHIC": "twin_render",
+    "PATTERN_PREVIEW": "chart_render",
+}
+
+
+def records_for_frames(frames: list[dict], *, slug: str, version: str,
+                       colourway: str = "") -> list[tuple[ImageRecord, dict]]:
+    """An `ImageRecord` for each stored listing frame, through `record_image`'s checks.
+
+    `frames` are the dicts `assets.build` stores (position, role, asset_class, sha256). A
+    frame whose class is not a deterministic render is refused rather than guessed at: the
+    only frames this path makes are renders, and a photograph arriving here would need a
+    consent basis this path cannot supply.
+    """
+    out: list[tuple[ImageRecord, dict]] = []
+    for frame in frames:
+        asset_class = str(frame.get("asset_class") or "")
+        kind = "chart_render" if frame.get("role") == "chart" else _FRAME_KIND.get(asset_class)
+        if kind is None:
+            raise TrustRefused(
+                f"{slug}@{version} frame {frame.get('position')}: asset class "
+                f"{asset_class!r} is not a deterministic render, and this path records only "
+                f"renders. A photograph needs its own consent basis recorded")
+        ref = f"{slug}/{version}/frame-{frame.get('position')}.png"
+        record = record_image(ref, kind, pattern_version=version, colourway=colourway,
+                              photographer="publishing:listing_assets")
+        out.append((record, {"role": frame.get("role"), "position": frame.get("position"),
+                             "sha256": frame.get("sha256"), "ai_assisted": False,
+                             "asset_class": asset_class}))
+    return out
+
+
+def records_for_generated(frames: list[dict], *, slug: str, version: str) -> list[tuple[ImageRecord, dict]]:
+    """Provenance for model-rendered frames: simulated, AI-assisted, never proof."""
+    out: list[tuple[ImageRecord, dict]] = []
+    for i, frame in enumerate(frames, start=1):
+        ref = str(frame.get("image_ref") or frame.get("image") or f"{slug}/{version}/generated-{i}")
+        record = record_image(ref, "concept_illustration", pattern_version=version,
+                              photographer=str(frame.get("provider") or "image_generation"))
+        out.append((record, {"role": frame.get("role") or frame.get("shot"),
+                             "ai_assisted": True, "sha256": frame.get("sha256"),
+                             "disclosed_as_illustration": bool(
+                                 frame.get("disclosed_as_illustration", True))}))
+    return out
+
+
+def record_gallery(db, *, slug: str, version: str, records: list[tuple[ImageRecord, dict]],
+                   actor: str = "publishing", job_id: int | None = None,
+                   source: str = "assets.build") -> dict:
+    """Store the provenance of a listing gallery: one row, every image, and the proof reading.
+
+    Stored as an append-only audit row keyed `slug@version`, so a correction can later ask
+    which images depicted which version and whether any of them was ever proof.
+    """
+    from ..core.models import AuditLog
+
+    images = [r for r, _ in records]
+    entries = [{**r.to_dict(), **extra} for r, extra in records]
+    proof = gallery_proof(images)
+    detail = {"slug": slug, "version": version, "source": source, "images": entries,
+              "proof": proof, "ai_assisted": sum(1 for e in entries if e.get("ai_assisted"))}
+    with db.session() as s:
+        row = AuditLog(actor=actor, action=IMAGE_PROVENANCE_ACTION,
+                       artifact=f"{slug}@{version}", job_id=job_id, detail=detail)
+        s.add(row)
+        s.flush()
+        detail["audit_id"] = int(row.id)
+    return detail
+
+
+def gallery_proof_on_file(db, *, slug: str) -> dict:
+    """Whether the stored provenance for this product shows a photograph of a real object.
+
+    `has_physical_proof_reading` is None when no provenance is stored at all: nobody recorded
+    what the images are, which is different from recording that none is proof.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = [dict(r.detail or {}) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == IMAGE_PROVENANCE_ACTION,
+                                   AuditLog.artifact.like(f"{slug}@%"))
+            .order_by(desc(AuditLog.id)).limit(20))]
+    if not rows:
+        return {"on_file": False, "has_physical_proof_reading": None,
+                "why": "no image provenance is stored for this product"}
+    physical = any((r.get("proof") or {}).get("has_physical_proof") for r in rows)
+    return {"on_file": True, "has_physical_proof_reading": physical,
+            "images": sum(len(r.get("images") or []) for r in rows[:1]),
+            "note": rows[0].get("proof", {}).get("note")}

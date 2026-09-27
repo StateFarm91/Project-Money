@@ -287,3 +287,57 @@ def between_holidays(season: str) -> dict:
         "note": ("Independent of any named holiday. A shop that only sells in December is "
                  "closed for eleven months and calls it seasonality (#121, #122)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Runtime: which cells a proven arena's forms belong to, and which season it is.
+
+# The universe departments a concept form can answer (#105). An arena is observed as forms
+# (hats, stockings); the universe is written in departments (wearable, stocking). Without
+# this map an ideation run can only brief a department by guessing which one a form is.
+FORM_DEPARTMENTS: dict[str, tuple[str, ...]] = {
+    "hat": ("wearable",), "scarf": ("wearable",), "fitted_garment": ("wearable",),
+    "draped_garment": ("wearable",),
+    "stocking": ("stocking",), "ornament": ("ornament", "keepsake"),
+    "sphere": ("ornament",), "cone": ("ornament", "table_setting"),
+    "garland": ("garland",), "wreath": ("wreath", "door"),
+    "wall_hanging": ("door", "advent"),
+    "rectangle_throw": ("blanket",), "flat_panel": ("blanket", "tree_skirt"),
+    "round_disc": ("tree_skirt", "table_setting"),
+    "pillow": ("pillow",), "toy": ("amigurumi", "pet"),
+    "coaster": ("table_setting", "kitchen"), "runner": ("table_setting",),
+    "basket": ("basket", "gift_wrap"), "bag": ("bag", "gift_wrap"),
+    "pouch": ("gift_wrap", "keepsake"), "tube": ("kitchen", "pet"),
+}
+
+SEASON_BY_MONTH: dict[int, str] = {
+    12: "winter", 1: "winter", 2: "winter", 3: "spring", 4: "spring", 5: "spring",
+    6: "summer", 7: "summer", 8: "summer", 9: "fall", 10: "fall", 11: "fall",
+}
+
+SEASON_ORDER: tuple[str, ...] = ("winter", "spring", "summer", "fall")
+
+
+def season_for(month: int) -> str:
+    """The meteorological season a month is in (northern hemisphere, the shop's market)."""
+    if month not in SEASON_BY_MONTH:
+        raise UniverseRefused(f"{month!r} is not a month")
+    return SEASON_BY_MONTH[month]
+
+
+def next_season(season: str) -> str:
+    if season not in SEASON_ORDER:
+        raise UniverseRefused(f"{season!r} is not a season: {list(SEASON_ORDER)}")
+    return SEASON_ORDER[(SEASON_ORDER.index(season) + 1) % len(SEASON_ORDER)]
+
+
+def departments_for(occasion: str, forms) -> list[str]:
+    """The departments of `occasion`'s universe that these forms can answer, in order."""
+    if occasion not in UNIVERSE:
+        raise UniverseRefused(f"{occasion!r} has no universe: {sorted(UNIVERSE)}")
+    wanted: list[str] = []
+    for form in forms:
+        for department in FORM_DEPARTMENTS.get(form, ()):
+            if department in UNIVERSE[occasion] and department not in wanted:
+                wanted.append(department)
+    return wanted

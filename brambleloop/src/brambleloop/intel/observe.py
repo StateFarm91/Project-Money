@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import benchmarks, coverage, deliverable, mission, pods
+from .cadence import INTERVALS_SECONDS as _CADENCE_LADDER
 from .etsy_public import NotConfigured, PublicReader, ReadFailed
 
 # Fields that decide whether a listing has *commercially* changed. Deliberately not every
@@ -372,6 +373,11 @@ MIN_HISTORY_DAYS = 7
 SAMPLES_PER_POSTING_GAP = 4
 # A run this close to due counts as due, so window jitter cannot skip a whole period.
 DUE_TOLERANCE = 0.95
+# #213's second input: during a seasonal ramp the interval may not exceed this, whatever the
+# posting history says. The cadence ladder's release-run rung (`cadence.INTERVALS_SECONDS[1]`),
+# taken from there so the two cannot drift. A quiet shop in October is still a shop whose
+# Christmas release, when it comes, is the one the mission exists to catch.
+SEASONAL_CEILING_SECONDS = _CADENCE_LADDER[1]
 
 
 def _aware(value):
@@ -381,7 +387,8 @@ def _aware(value):
 
 
 def adaptive_interval(db, *, benchmark_key: str = benchmarks.MJS_KEY,
-                      now: datetime | None = None) -> dict:
+                      now: datetime | None = None,
+                      seasonal: bool | None = None) -> dict:
     """How often to scan, from when the benchmark shop actually posts (#313).
 
     Posting history is read from `BenchmarkObservation` rows the scan itself writes: each
@@ -409,18 +416,37 @@ def adaptive_interval(db, *, benchmark_key: str = benchmarks.MJS_KEY,
               and any(c.get("what") in ("new listing", "materially changed")
                       for c in (d.get("changes") or []))]
     last_scan = scans[-1] if scans else None
+    # #213: seasonal urgency is the second input. Read from the one seasonal calendar through
+    # `cadence.seasonal_pressure`, never a second list, so the scanner and the ladder agree on
+    # what a ramp is. Injectable so a test can hold the calendar still.
+    if seasonal is None:
+        from .cadence import seasonal_pressure
+        seasonal = seasonal_pressure(now.date())
     base = {"benchmark": benchmark_key, "scans": len(scans), "posting_events": len(events),
             "last_scan_at": last_scan.isoformat() if last_scan else None,
             "floor_seconds": ADAPTIVE_FLOOR_SECONDS,
-            "ceiling_seconds": ADAPTIVE_CEILING_SECONDS}
+            "ceiling_seconds": ADAPTIVE_CEILING_SECONDS,
+            "seasonal_pressure": bool(seasonal),
+            "seasonal_ceiling_seconds": SEASONAL_CEILING_SECONDS}
+
+    def _seasonal(out: dict) -> dict:
+        if not seasonal or out["interval_seconds"] <= SEASONAL_CEILING_SECONDS:
+            return out
+        return {**out, "interval_seconds": SEASONAL_CEILING_SECONDS,
+                "bounded_by": "seasonal",
+                "reason": (out["reason"] + f"; a commercially meaningful event is inside the "
+                           f"planning window, so the interval is held at "
+                           f"{SEASONAL_CEILING_SECONDS // 3600} hours (#213 seasonal "
+                           f"urgency)")}
 
     span_days = ((events[-1] - events[0]).total_seconds() / 86400) if len(events) > 1 else 0
     if len(events) < MIN_POSTING_EVENTS or span_days < MIN_HISTORY_DAYS:
-        return {**base, "adaptive": False, "interval_seconds": FIXED_INTERVAL_SECONDS,
-                "reason": (f"history too thin to adapt: {len(events)} posting event(s) over "
-                           f"{span_days:.1f} days, against at least {MIN_POSTING_EVENTS} "
-                           f"over {MIN_HISTORY_DAYS} days. Using the fixed "
-                           f"{FIXED_INTERVAL_SECONDS // 3600}-hour interval")}
+        return _seasonal(
+            {**base, "adaptive": False, "interval_seconds": FIXED_INTERVAL_SECONDS,
+             "reason": (f"history too thin to adapt: {len(events)} posting event(s) over "
+                        f"{span_days:.1f} days, against at least {MIN_POSTING_EVENTS} "
+                        f"over {MIN_HISTORY_DAYS} days. Using the fixed "
+                        f"{FIXED_INTERVAL_SECONDS // 3600}-hour interval")})
 
     gaps = [(b - a).total_seconds() for a, b in zip(events, events[1:])]
     mean_gap = sum(gaps) / len(gaps)
@@ -428,20 +454,24 @@ def adaptive_interval(db, *, benchmark_key: str = benchmarks.MJS_KEY,
     interval = int(min(ADAPTIVE_CEILING_SECONDS, max(ADAPTIVE_FLOOR_SECONDS, raw)))
     bound = ("floor" if raw < ADAPTIVE_FLOOR_SECONDS else
              "ceiling" if raw > ADAPTIVE_CEILING_SECONDS else "none")
-    return {**base, "adaptive": True, "interval_seconds": interval,
+    return _seasonal({**base, "adaptive": True, "interval_seconds": interval,
             "mean_posting_gap_hours": round(mean_gap / 3600, 2), "bounded_by": bound,
             "reason": (f"the shop posted {len(events)} times over {span_days:.1f} days, a "
                        f"mean of {mean_gap / 3600:.1f} hours apart; scanning "
                        f"{SAMPLES_PER_POSTING_GAP} times per gap gives "
                        f"{interval / 3600:.1f} hours"
-                       + (f" (held at the {bound})" if bound != "none" else ""))}
+                       + (f" (held at the {bound})" if bound != "none" else ""))})
 
 
 def scan_due(db, *, benchmark_key: str = benchmarks.MJS_KEY,
-             now: datetime | None = None) -> dict:
-    """Whether the adaptive interval has elapsed since the last recorded scan."""
+             now: datetime | None = None, seasonal: bool | None = None) -> dict:
+    """Whether the adaptive interval has elapsed since the last recorded scan.
+
+    Both of #213's inputs reach the decision: the shop's posting history and, through
+    `adaptive_interval`, the seasonal calendar.
+    """
     now = now or datetime.now(timezone.utc)
-    cadence = adaptive_interval(db, benchmark_key=benchmark_key, now=now)
+    cadence = adaptive_interval(db, benchmark_key=benchmark_key, now=now, seasonal=seasonal)
     last = cadence["last_scan_at"]
     if last is None:
         return {"due": True, "why": "no scan has been recorded", "cadence": cadence}

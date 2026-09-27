@@ -218,6 +218,24 @@ def constraint(observed: dict[str, float], *, target_cad: float = 5000.0) -> dic
     term is from its ceiling: the biggest gap is often the slowest to close, and a week spent
     on it buys less than a week spent somewhere cheaper.
     """
+    # A term passed as None is UNMEASURED. The weekly job passes every term and None where no
+    # source exists; ranking an unmeasured term as zero would pick "qualified visits" because
+    # nobody measured anything, and reallocate agents on that (C-48).
+    unmeasured = [t for t in TERMS if t in observed and observed[t] is None]
+    if unmeasured:
+        return {
+            "identifiable": False,
+            "current_monthly_cad": None,
+            "target_cad": target_cad,
+            "primary_constraint": None,
+            "secondary_constraints": [],
+            "unmeasured": unmeasured,
+            "ranked": [],
+            "note": (f"{', '.join(unmeasured)} ha{'s' if len(unmeasured) == 1 else 've'} no "
+                     f"source this week, so no term can be ranked by marginal contribution. "
+                     f"The first unmeasured term in the chain ({unmeasured[0]}) is what the "
+                     f"week can learn, not what it can optimise."),
+        }
     visits = float(observed.get("qualified_visits") or 0.0)
     conversion = float(observed.get("conversion_rate") or 0.0)
     aov = float(observed.get("aov_cad") or 0.0)
@@ -245,9 +263,12 @@ def constraint(observed: dict[str, float], *, target_cad: float = 5000.0) -> dic
 
     zeroed = [r["term"] for r in ranked if not observed.get(r["term"])]
     return {
+        "identifiable": True,
         "current_monthly_cad": round(current, 2),
         "target_cad": target_cad,
         "primary_constraint": ranked[0]["term"] if ranked else None,
+        # #264: one primary and a small number of secondaries, the next best uses of a week.
+        "secondary_constraints": [r["term"] for r in ranked[1:3]],
         "ranked": ranked,
         "note": (
             "Every term is zero, so the product of them is zero and no single term can move "
@@ -259,3 +280,37 @@ def constraint(observed: dict[str, float], *, target_cad: float = 5000.0) -> dic
             if zeroed else
             "Ranked by expected monthly contribution per week of effort."),
     }
+
+
+# Where a week of effort goes for each primary constraint (#264's reallocation). The owners are
+# the agents whose work moves that term; the function is `scale.allocation`'s capacity lane.
+REALLOCATION: dict[str, dict] = {
+    "qualified_visits": {"function": "distribution", "owners": ["growth", "listing"],
+                         "experiments": ("search", "pinterest_content")},
+    "conversion_rate": {"function": "product", "owners": ["publishing", "pricing"],
+                        "experiments": ("thumbnail", "price")},
+    "aov_cad": {"function": "product", "owners": ["pricing", "growth"],
+                "experiments": ("bundle",)},
+    "repeat_rate": {"function": "distribution", "owners": ["growth"],
+                    "experiments": ()},
+}
+
+
+def reallocation(solved: dict) -> dict:
+    """What the solver recommends moving, written down so the week can be checked (#264).
+
+    With no identifiable constraint the recommendation is explicitly *no move*: a
+    reallocation toward a term nobody measured is a reallocation toward whatever was going
+    to happen anyway.
+    """
+    if not solved.get("identifiable") or not solved.get("primary_constraint"):
+        return {"move": False, "toward": None, "owners": [], "experiments": [],
+                "why": ("no primary constraint is identifiable, so nothing is reallocated: "
+                        + str(solved.get("note", "")))}
+    term = solved["primary_constraint"]
+    plan = REALLOCATION.get(term, {"function": None, "owners": [], "experiments": ()})
+    return {"move": True, "toward": term, "function": plan["function"],
+            "owners": list(plan["owners"]), "experiments": list(plan["experiments"]),
+            "secondary": list(solved.get("secondary_constraints") or []),
+            "why": (f"{term} has the highest expected monthly contribution per week of "
+                    f"effort; experiments and owners on it take priority this week")}

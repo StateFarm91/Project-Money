@@ -244,6 +244,37 @@ def _whats_included(cir: CIR, twin: TwinModel, pages: int | None,
                  caption="what is included", image=img)
 
 
+# The object the size card draws beside the piece, and what it is called on the card.
+SCALE_REFERENCE_CM = 180.0
+SCALE_REFERENCE_OBJECT = "adult"
+ROUND_SHAPES = ("vessel", "disc", "tube", "cone", "dome")
+
+
+def size_frame_displays(*, width_cm: float | None, height_cm: float | None,
+                        shape: str | None = None) -> dict:
+    """Every number the size card shows, with what it traces to (#60).
+
+    The card draws its labels from this, and the dimensional auditor reads the same list, so
+    the audited numbers are the drawn ones rather than a second description of them.
+    """
+    if not (width_cm and height_cm):
+        return {"label": "", "reference_label": "", "measurements": [], "references": []}
+    rounded = shape in ROUND_SHAPES
+    w, h = float(f"{width_cm:.0f}"), float(f"{height_cm:.0f}")
+    label = (f"{width_cm:.0f} cm across × {height_cm:.0f} cm tall" if rounded
+             else f"{width_cm:.0f} × {height_cm:.0f} cm")
+    reference_label = f"{SCALE_REFERENCE_CM:.0f} cm {SCALE_REFERENCE_OBJECT}"
+    return {
+        "label": label, "reference_label": reference_label,
+        "measurements": [
+            {"where": "size frame", "value_cm": w, "traces_to": "finished.width"},
+            {"where": "size frame", "value_cm": h, "traces_to": "finished.length"},
+        ],
+        "references": [{"where": "size frame", "value_cm": SCALE_REFERENCE_CM,
+                        "names": SCALE_REFERENCE_OBJECT, "label": reference_label}],
+    }
+
+
 def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
     """Finished size, drawn to scale against a known reference object."""
     size = CANVAS
@@ -252,7 +283,7 @@ def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
 
     if twin.width_cm and twin.height_cm:
         # Draw the piece against a 180cm human silhouette bar, so scale is felt not read.
-        ref_cm = 180.0
+        ref_cm = SCALE_REFERENCE_CM
         area_h = int(size * 0.46)
         px_per_cm = area_h / ref_cm
         top = y + int(size * 0.04)
@@ -265,15 +296,17 @@ def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
         # profile of a cylinder is that rectangle -- and the label was the part that made a
         # shopper picture the wrong object. The catalogue's own words for a basket are
         # "25 cm across, 23 cm tall"; the listing image now uses them too.
-        label = (f"{twin.width_cm:.0f} cm across × {twin.height_cm:.0f} cm tall"
-                 if getattr(twin, "shape", None) in ("vessel", "disc", "tube", "cone", "dome")
-                 else f"{twin.width_cm:.0f} × {twin.height_cm:.0f} cm")
+        shown = size_frame_displays(width_cm=twin.width_cm, height_cm=twin.height_cm,
+                                    shape=getattr(twin, "shape", None))
+        label = shown["label"]
         d.text((left + w_px // 2, top + h_px + 18), label,
                font=_font(int(size * 0.030)), fill=INK, anchor="ma")
         ref_x = left + w_px + int(size * 0.10)
         d.rectangle([ref_x, top, ref_x + int(size * 0.035), top + area_h], outline=LINE,
                     width=4)
-        d.text((ref_x + int(size * 0.018), top + area_h + 18), "180 cm",
+        # Named, not bare: "180 cm" alone beside the card is the unexplained marker #60
+        # names by example, and it reads as a second size of the product.
+        d.text((ref_x + int(size * 0.018), top + area_h + 18), shown["reference_label"],
                font=_font(int(size * 0.026)), fill=MUTED, anchor="ma")
         _rows(d, [("Worked at", "the gauge in the pattern — your gauge changes the size "
                                 "in the same proportion")],

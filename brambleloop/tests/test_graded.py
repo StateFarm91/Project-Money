@@ -125,6 +125,30 @@ def test_the_size_table_is_written_and_read_back():
     assert tampered != text and G.parse_size_table(tampered) != design.size_table()
 
 
+def test_the_monotonic_check_measures_the_built_cir_when_it_can():
+    """Audit C-10: requested figures can rise while the built object does not, because
+    whole stitches and rows are rounded per size. A design that says how to measure a built
+    size is checked on what it built; one that does not is checked on its figures only."""
+    import dataclasses
+    widths = {}
+
+    def measure(cir):
+        w = cir.components[0].foundation
+        widths[cir.slug] = w
+        return {"chest": float(w)}
+    design = dataclasses.replace(_design(table=G.WOMAN), measure=measure)
+    design.check_monotonic()
+    assert len(widths) == len(G.WOMAN.names)
+    flat = dataclasses.replace(design, measure=lambda cir: {"chest": 1.0})
+    flat.check_monotonic(built=False)
+    try:
+        flat.check_monotonic()
+    except GradingRefused as e:
+        assert "built chest" in str(e)
+    else:
+        raise AssertionError("a built chest that does not rise passed")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

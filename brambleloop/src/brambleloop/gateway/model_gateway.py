@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
-from ..agents.registry import Registry
+from ..agents.registry import BudgetExceeded, Registry
 from ..core.resilience import (
     CircuitBreaker, MalformedModelOutput, PermanentError, TransientError, parse_model_json,
 )
@@ -246,8 +246,7 @@ class ModelGateway:
         assert last is not None
         raise last
 
-    @staticmethod
-    def _estimate_cad(prompt, provider, user: str) -> float:
+    def _estimate_cad(self, prompt, provider, user: str) -> float:
         """What this call may cost, padded, assuming the model writes its whole allowance.
 
         Priced from the one table that bills (`anthropic.PRICES_USD_PER_MTOK`) when the model
@@ -262,10 +261,28 @@ class ModelGateway:
         out_tok = int(prompt.max_output_tokens)
         try:
             return gw.estimate_cad(provider.model, input_tokens=in_tok, output_tokens=out_tok)
-        except gw.BudgetExceeded:
-            usd_free = (in_tok / 1000 * float(provider.cost_per_1k_input_cad)
-                        + out_tok / 1000 * float(provider.cost_per_1k_output_cad))
-            return round(usd_free * gw.ESTIMATE_PADDING, 6)
+        except gw.BudgetExceeded as unpriced:
+            rate_in = float(provider.cost_per_1k_input_cad or 0.0)
+            rate_out = float(provider.cost_per_1k_output_cad or 0.0)
+            if self.registry is not None and not (rate_in > 0 or rate_out > 0):
+                # Certification C-35: with a ledger attached, an unpriced model whose own
+                # rates are zero would be estimated at CA$0 and billed at CA$0 however many
+                # tokens it used. Refused before the call (fail closed), with the refusal
+                # recorded; a stand-in that declares a nonzero rate is still usable.
+                from ..finance import spend_report
+
+                message = (f"{provider.model!r} ({provider.name}) has no price on file and "
+                           f"declares zero rates, so what it spends cannot be counted "
+                           f"against the ceiling. An unpriced call is an unbounded one")
+                spend_report.record_refusal(
+                    self.registry.db, agent="", ceiling_cad=gw.monthly_ceiling_cad(),
+                    estimate_cad=0.0, committed_cad=0.0, which="unpriced_model",
+                    why=message, purpose=prompt.ref,
+                    detail={"model": provider.model, "provider": provider.name,
+                            "job_id": self.job_id})
+                raise gw.BudgetExceeded(message) from unpriced
+            cad = in_tok / 1000 * rate_in + out_tok / 1000 * rate_out
+            return round(cad * gw.ESTIMATE_PADDING, 6)
 
     def _record(self, prompt, provider, agent: str, in_tok: int, out_tok: int,
                 attempt: int, ok: bool, error: str, latency_ms: float = 0.0,
@@ -299,16 +316,32 @@ class ModelGateway:
             # tokens stored to re-price it from afterwards. A zero-cost row carrying real
             # token counts is evidence that something is wrong with the price; silence is
             # indistinguishable from not having run.
-            self.registry.record_cost(agent, cost, kind=routing.COST_KIND, tokens_in=in_tok,
-                                      tokens_out=out_tok, job_id=self.job_id,
-                                      # #31 asks for agent/API *minutes* as well as
-                                      # dollars. The latency is already measured for the
-                                      # response; persisting it is what makes the minutes
-                                      # half of that requirement a query rather than a
-                                      # number nobody kept.
-                                      detail={"prompt": prompt.ref,
-                                              "provider": provider.name,
-                                              "latency_ms": round(latency_ms, 1)})
+            #
+            # Certification C-34: the row carries provider, model, purpose and the estimate
+            # the reservation was made on, so `estimate_drift` reconciles it and a provider
+            # ceiling (read from the ledger by provider) binds on gateway spend.
+            # `Registry.record_cost` writes none of those, so the row is written here with
+            # the same order that method keeps: write first, then refuse on the agent's day.
+            from ..core.models import CostEntry
+
+            estimated = float((reservation or {}).get("estimate_cad") or 0.0)
+            with self.registry.db.session() as s:
+                s.add(CostEntry(
+                    agent=agent, amount_cad=cost, kind=routing.COST_KIND, job_id=self.job_id,
+                    tokens_in=in_tok, tokens_out=out_tok, provider=provider.name[:40],
+                    model=str(provider.model or "")[:80], purpose=prompt.ref[:60],
+                    estimated_cad=round(estimated, 6),
+                    # #31 asks for agent/API *minutes* as well as dollars. The latency is
+                    # already measured for the response; persisting it is what makes the
+                    # minutes half of that requirement a query rather than a number nobody
+                    # kept.
+                    detail={"prompt": prompt.ref, "provider": provider.name,
+                            "latency_ms": round(latency_ms, 1),
+                            "reservation_id": (reservation or {}).get("reservation_id")}))
+            ceiling = self.registry.get(agent).daily_cost_ceiling_cad
+            if self.registry.spend_today(agent) > ceiling:
+                raise BudgetExceeded(
+                    f"agent {agent!r} would exceed its daily ceiling of CA${ceiling:.2f}")
         return cost
 
     def spend_cad(self) -> float:

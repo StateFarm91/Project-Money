@@ -54,7 +54,13 @@ AXES: dict[str, str] = {
 
 BLOCKED = "blocked"
 UNBLOCKED = "unblocked"
-BLOCK_STATES: tuple[str, ...] = (BLOCKED, UNBLOCKED)
+# A size computed from the pattern's stated gauge is in whatever state that gauge swatch was
+# measured in, and says so. That is a stated state, not an omitted one: the maker who blocks
+# their swatch gets a blocked size, and the label tells them which number to compare. Listed
+# because the geometry object computes every finished size this way, and forcing it to pick
+# "blocked" or "unblocked" would be the one fabrication this module exists to prevent.
+AT_GAUGE = "at_stated_gauge"
+BLOCK_STATES: tuple[str, ...] = (BLOCKED, UNBLOCKED, AT_GAUGE)
 
 # How far a displayed value may sit from its canonical source before it is a different
 # number rather than a rounding of the same one. Tighter than the size tolerance the truth
@@ -118,8 +124,27 @@ class Displayed:
             raise DimensionRefused(f"{self.where}: {self.value_cm} cm is not a measurement")
 
 
+@dataclass(frozen=True)
+class Reference:
+    """A number that is a known object's size, drawn beside the product for scale.
+
+    Not a product measurement, so it traces to nothing canonical -- and that is exactly why
+    it must name the object it is. A bare "180 cm" beside a 90 x 122 cm card is the
+    requirement's own example of the unexplained marker; "180 cm adult" is a scale reference.
+    """
+
+    where: str
+    value_cm: float
+    names: str            # the object, as the buyer reads it on the frame
+    label: str = ""       # the text actually drawn
+
+    def __post_init__(self) -> None:
+        if self.value_cm <= 0:
+            raise DimensionRefused(f"{self.where}: {self.value_cm} cm is not a measurement")
+
+
 def audit(displayed: list[Displayed], canonical: list[Canonical], *,
-          has_variants: bool = False) -> dict:
+          has_variants: bool = False, references: list[Reference] | tuple = ()) -> dict:
     """Every displayed number against the one object that knows it."""
     by_key = {c.key: c for c in canonical}
     duplicated = sorted({c.identity for c in canonical
@@ -176,6 +201,17 @@ def audit(displayed: list[Displayed], canonical: list[Canonical], *,
                 "displayed": d.blocked, "canonical": source.blocked,
                 "why": "the card and the geometry describe different states of the fabric"})
 
+    # A reference object's size is context only when the buyer is told what it is.
+    for r in references:
+        named = r.names.strip()
+        if not named or (r.label and named.lower() not in r.label.lower()):
+            problems.append({
+                "kind": "unexplained_reference", "where": r.where, "value_cm": r.value_cm,
+                "label": r.label,
+                "why": (f"{r.value_cm:g} cm is drawn for scale without naming what it is. "
+                        f"This is the unexplained marker: beside a finished-size card it "
+                        f"reads as a second, contradictory size of the product")})
+
     # The contradiction the requirement names, and the one no per-measurement check finds.
     seen: dict[tuple, list[Displayed]] = {}
     for d in displayed:
@@ -197,6 +233,7 @@ def audit(displayed: list[Displayed], canonical: list[Canonical], *,
 
     return {
         "displayed": len(displayed), "canonical": len(canonical),
+        "references": len(references),
         "problems": problems, "ok": not problems,
         "traced": sum(1 for d in displayed if d.traces_to in by_key),
         "note": ("every number a buyer sees traces to the geometry object, which is where "

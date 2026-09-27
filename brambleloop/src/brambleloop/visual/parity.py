@@ -252,7 +252,9 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
         results[COMPETITIVE] = _verdict(
             True, str(benchmark_quality.get("why") or "not materially inferior"))
     else:
-        results[COMPETITIVE] = _verdict(None, "the comparison did not reach a verdict")
+        # A stale or refused comparison says why; that reason is the actionable part.
+        results[COMPETITIVE] = _verdict(
+            None, str(benchmark_quality.get("why") or "the comparison did not reach a verdict"))
 
     if set(results) != set(DIMENSIONS):
         raise ParityRefused(

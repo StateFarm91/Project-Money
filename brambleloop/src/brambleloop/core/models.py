@@ -290,6 +290,245 @@ class PatternVersion(Base):
     __table_args__ = (UniqueConstraint("product_id", "version", name="uq_product_version"),)
 
 
+class CultureConcept(Base):
+    """One original product idea translated from a cultural signal (#134, #137, #138, #144).
+
+    A candidate for creative development, never an engineering job: the concept tournament,
+    the jury and the CIR still stand between this row and a pattern. Rejected and withdrawn
+    ideas are kept with their reason, because the reason is what next year's agent needs.
+    """
+
+    __tablename__ = "culture_concepts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    signal_key: Mapped[str] = mapped_column(String(80), index=True)
+    slug: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    family: Mapped[str] = mapped_column(String(30), default="")
+    premise: Mapped[str] = mapped_column(Text, default="")
+    era: Mapped[str] = mapped_column(String(40), default="")
+    theme: Mapped[str] = mapped_column(String(40), default="")
+    lane: Mapped[str] = mapped_column(String(30), default="original_concept")
+    origin: Mapped[str] = mapped_column(String(30), default="era_combination", index=True)
+    status: Mapped[str] = mapped_column(String(20), default="candidate", index=True)
+    stage: Mapped[str] = mapped_column(String(30), default="creative_development")
+    priority: Mapped[str] = mapped_column(String(20), default="standard")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    product_slug: Mapped[str] = mapped_column(String(80), default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CultureIPElement(Base):
+    """A Brambleloop-owned character, motif, joke, tradition or world, as proposed (#146).
+
+    `proposed` until it has appeared in enough releases across enough seasons; nothing here
+    promotes it by assertion.
+    """
+
+    __tablename__ = "culture_ip_elements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(30), index=True)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    about: Mapped[str] = mapped_column(Text, default="")
+    derived_from: Mapped[dict] = mapped_column(JSON, default=dict)
+    signals: Mapped[list] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    appearances: Mapped[list] = mapped_column(JSON, default=list)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OperatingReading(Base):
+    """One recorded reading of a recurring decision job, keyed by its period (W6 repair).
+
+    The weekly growth solve (#25, #28, #229, #264, #270, #272) and the daily seasonal plan
+    (#33, #131, #267, #286, #289, #291) write here so what they decided is a row rather than a
+    log line. A quantity with no source is stored as the string UNMEASURED, never as zero.
+    """
+
+    __tablename__ = "operating_readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(60), index=True)
+    period_key: Mapped[str] = mapped_column(String(20), index=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("kind", "period_key", name="uq_operating_reading"),)
+
+
+class SeasonalTeam(Base):
+    """One event's strike team, persisted with what it owns (#287).
+
+    A team is capacity or it is a name: the share is the allocation `seasonal.teams` granted,
+    `owns` holds the opportunity map, product gaps, colour and motif language, deadlines,
+    benchmark changes and revenue target (UNMEASURED until sales exist), and a team whose
+    occasion has passed its last practical make date is recorded `disbanded`, not deleted.
+    """
+
+    __tablename__ = "seasonal_teams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event: Mapped[str] = mapped_column(String(60), index=True)
+    year: Mapped[int] = mapped_column(Integer, index=True)
+    state: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    standing: Mapped[bool] = mapped_column(Boolean, default=False)
+    owner_agent: Mapped[str] = mapped_column(String(64), default="", index=True)
+    products: Mapped[list] = mapped_column(JSON, default=list)
+    owns: Mapped[dict] = mapped_column(JSON, default=dict)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("event", "year", name="uq_seasonal_team"),)
+
+
+class TrendProvenance(Base):
+    """Source, window, population and freshness stamped on one trend datum (#38).
+
+    One row per trend/search row (`culture_observations`, `insights_snapshots`). A datum that
+    cannot say whom it measured is stamped `refused` with the reason rather than discounted,
+    and `usable_value` is the figure after the population and staleness discount.
+    """
+
+    __tablename__ = "trend_provenance"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_table: Mapped[str] = mapped_column(String(40), index=True)
+    row_id: Mapped[int] = mapped_column(Integer, index=True)
+    topic: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(Text, default="")
+    population: Mapped[str] = mapped_column(String(20), default="UNKNOWN", index=True)
+    window_from: Mapped[str] = mapped_column(String(10), default="")
+    window_to: Mapped[str] = mapped_column(String(10), default="")
+    shape: Mapped[str] = mapped_column(String(20), default="")
+    raw_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    usable_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    freshness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    refused_reason: Mapped[str] = mapped_column(Text, default="")
+    stamped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("source_table", "row_id", name="uq_trend_provenance"),)
+
+
+class MjsMissionEvent(Base):
+    """One new or changed benchmark listing, carried through the mission pipeline (#214, #309).
+
+    One row per listing *content* (the scan's own fingerprint), so an unchanged listing is
+    never re-reasoned over and a restart does not reprocess the catalogue. Every step's result
+    is stored beside the decision it produced, because a pipeline that records only its
+    conclusion cannot be audited for the step that quietly became optional.
+    """
+
+    __tablename__ = "mjs_mission_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), default="", index=True)
+    event_fingerprint: Mapped[str] = mapped_column(String(64), default="", index=True)
+    observation_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    what: Mapped[str] = mapped_column(String(30), default="")
+    pod: Mapped[str] = mapped_column(String(40), default="", index=True)
+    arena: Mapped[str] = mapped_column(String(40), default="", index=True)
+    proven: Mapped[bool] = mapped_column(Boolean, default=False)
+    decision: Mapped[str] = mapped_column(String(30), default="", index=True)
+    entered: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    gap_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tournament_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seasonal: Mapped[dict] = mapped_column(JSON, default=dict)
+    steps: Mapped[dict] = mapped_column(JSON, default=dict)
+    pipeline: Mapped[dict] = mapped_column(JSON, default=dict)
+    sentinel: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("benchmark_key", "listing_ref", "fingerprint",
+                                       name="uq_mjs_event_content"),)
+
+
+class OwnerVeto(Base):
+    """One owner ruling on flagship creative or canonical identity, kept countable (#228).
+
+    `owner_vetoed` is False for a ruling that let the thing through: alignment is scored on
+    both kinds, and an evaluator graded only on refusals would learn that refusing is right.
+    The prediction columns hold what an evaluator said *before* the ruling, or nothing.
+    """
+
+    __tablename__ = "owner_vetoes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    subject_ref: Mapped[str] = mapped_column(String(120), index=True)
+    scope: Mapped[str] = mapped_column(String(40), index=True)
+    reason: Mapped[str] = mapped_column(String(40), default="", index=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    owner_vetoed: Mapped[bool] = mapped_column(Boolean, default=True)
+    predicted_veto: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    predicted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    recorded_by: Mapped[str] = mapped_column(String(40), default="owner")
+
+
+class CompetitiveStandard(Base):
+    """A standard this shop holds that a benchmark may raise and never lower (#220)."""
+
+    __tablename__ = "competitive_standards"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    higher_is_better: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Every raise, hold and refused lowering, with the observation that prompted it.
+    history: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class PodCapabilityReading(Base):
+    """A pod's discernment and creativity, computed from rows and never folded into one (#226)."""
+
+    __tablename__ = "pod_capability_readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    measured: Mapped[bool] = mapped_column(Boolean, default=False)
+    discernment: Mapped[dict] = mapped_column(JSON, default=dict)
+    creativity: Mapped[dict] = mapped_column(JSON, default=dict)
+    balance: Mapped[dict] = mapped_column(JSON, default=dict)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ListingSetCertificateRecord(Base):
+    """A listing-set release certificate (#70), and whether it still describes the product.
+
+    `publish.listing_set.certify` issues it at export time from the four-gate readings; its
+    validity is recomputed from the fingerprints on every publish attempt and on every
+    re-certification of the pattern, never read from `state` alone -- `state` records the
+    last recomputation so an invalidation is visible without re-running it.
+    """
+
+    __tablename__ = "listing_set_certificates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    release_hash: Mapped[str] = mapped_column(String(64), default="")
+    certificate: Mapped[dict] = mapped_column(JSON, default=dict)
+    geometry_fingerprint: Mapped[str] = mapped_column(String(32), default="")
+    claims_fingerprint: Mapped[str] = mapped_column(String(32), default="")
+    policy_version: Mapped[str] = mapped_column(String(40), default="")
+    state: Mapped[str] = mapped_column(String(20), default="valid", index=True)
+    invalidated_by: Mapped[list] = mapped_column(JSON, default=list)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                            nullable=True)
+
+
 class Incident(Base):
     """A correlated quality problem (Gate E). P0/P1 can halt publication."""
 

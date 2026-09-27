@@ -195,6 +195,12 @@ def _check_lineage(artefact_class: str, lineage) -> None:
             f"that cannot say which job, commit and authority made it is exactly the row the "
             f"production audit found 275 of, so the write path refuses it rather than "
             f"remembering to add one later")
+    if not isinstance(lineage, Lineage):
+        # Certification C-28: a dict, a string or any other stand-in is not a lineage, and
+        # reading attributes off it with defaults would let `{}` through as "complete".
+        raise ProvenanceRefused(
+            f"a {artefact_class} lineage must be a Lineage; got {type(lineage).__name__} "
+            f"{str(lineage)[:40]!r}. A shape that merely resembles one is refused")
     missing = [name for name in REQUIRED_LINEAGE if not str(getattr(lineage, name, "") or "")]
     if missing:
         raise ProvenanceRefused(
@@ -244,11 +250,24 @@ def record_lineage(db, *, artefact_class: str, artefact_key: str, product_slug: 
         raise ProvenanceRefused(
             f"{artefact_class!r} is not an artefact class: {sorted(ARTEFACT_CLASSES)}")
     _check_lineage(artefact_class, lineage)
-    out = record(db, artefact_class=artefact_class, artefact_key=artefact_key,
-                 product_slug=product_slug, inputs=inputs, chain_version=chain_version)
 
     from sqlalchemy import select
 
+    prior = db.scalar(select(ArtefactProvenance)
+                      .where(ArtefactProvenance.artefact_class == artefact_class)
+                      .where(ArtefactProvenance.artefact_key == artefact_key))
+    if prior is not None and lineage.source == "backfilled" and _is_recorded(prior):
+        # Certification C-30: the build's own lineage outranks anything inferred later. The
+        # backfill skips existing keys; this is the boundary that makes sure of it.
+        raise ProvenanceRefused(
+            f"{artefact_class} {artefact_key} already carries the lineage recorded by job "
+            f"{prior.job_id} ({prior.created_by}). A backfilled row is inferred from evidence "
+            f"and may fill an absence, never replace a recorded derivation")
+    previous = _snapshot(prior) if prior is not None else None
+
+    out = _write_inputs(db, artefact_class=artefact_class, artefact_key=artefact_key,
+                        product_slug=product_slug, inputs=inputs,
+                        chain_version=chain_version)
     row = db.scalar(select(ArtefactProvenance)
                     .where(ArtefactProvenance.artefact_class == artefact_class)
                     .where(ArtefactProvenance.artefact_key == artefact_key))
@@ -265,8 +284,59 @@ def record_lineage(db, *, artefact_class: str, artefact_key: str, product_slug: 
     row.source = lineage.source
     row.evidence = dict(lineage.evidence or {})
     db.flush()
+    _audit_replacement(db, artefact_class, artefact_key, previous, _snapshot(row),
+                       writer=lineage.created_by)
     out["lineage"] = lineage.to_dict()
     return out
+
+
+OVERWRITTEN_ACTION = "provenance.overwritten"
+
+# The fields whose change means the row now tells a different story about the artefact.
+_SNAPSHOT_FIELDS = ("inputs", "chain_version", "created_by", "job_id", "code_commit", "model",
+                    "provider", "cost_cad", "sha256", "parents", "validation_status",
+                    "publication_authority", "source", "evidence")
+
+
+def _is_recorded(row) -> bool:
+    """A row the build that made the artefact wrote, with its lineage complete."""
+    return bool(row is not None and (row.created_by or "").strip()
+                and row.source == "recorded" and row.job_id is not None)
+
+
+def _snapshot(row) -> dict:
+    out = {name: getattr(row, name, None) for name in _SNAPSHOT_FIELDS}
+    out["inputs"] = dict(out["inputs"] or {})
+    out["parents"] = list(out["parents"] or [])
+    out["evidence"] = dict(out["evidence"] or {})
+    out["built_at"] = row.built_at.isoformat() if getattr(row, "built_at", None) else None
+    return out
+
+
+def _audit_replacement(db, artefact_class: str, artefact_key: str, previous: dict | None,
+                       now: dict, *, writer: str) -> None:
+    """Certification C-29: a row is one-per-artefact, so a rewrite keeps its history here.
+
+    The provenance table holds the current derivation; the audit log (append-only) holds
+    every derivation it replaced, verbatim, so the first lineage is never unrecoverable.
+    Rewriting an identical row (a retried job recording the same facts) is not a change.
+    """
+    if previous is None:
+        return
+    changed = sorted(k for k in _SNAPSHOT_FIELDS if previous.get(k) != now.get(k))
+    if not changed:
+        return
+    from ..core.models import AuditLog
+
+    db.add(AuditLog(
+        actor=(writer or "unattributed")[:64], action=OVERWRITTEN_ACTION,
+        artifact=f"{artefact_class}:{artefact_key}"[:200],
+        detail={"artefact_class": artefact_class, "artefact_key": artefact_key,
+                "changed": changed, "previous": previous,
+                "replacement": {k: now.get(k) for k in changed},
+                "why": ("one row per artefact holds the current derivation; the one it "
+                        "replaced is kept here so it is never lost without trace")}))
+    db.flush()
 
 
 # --- keys: one spelling per artefact, shared by the write path, the sweep and the backfill -----
@@ -355,7 +425,41 @@ class Verdict:
 
 def record(db, *, artefact_class: str, artefact_key: str, product_slug: str,
            inputs: dict[str, str], chain_version: str = "") -> dict:
-    """Tie one derived artefact to the fingerprints of everything it was made from."""
+    """Tie one derived artefact to the fingerprints of everything it was made from.
+
+    The inputs half only, with no lineage. Certification C-27: a row written here says what
+    the artefact was made from but not who made it, so it must not be able to pass for a
+    lineage-complete row. Rewriting a row that did carry lineage therefore strips it (the
+    lineage no longer describes these inputs) and audits the replacement; the worker's
+    backstop then reads the row as incomplete rather than instrumented.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import ArtefactProvenance
+
+    prior = db.scalar(select(ArtefactProvenance)
+                      .where(ArtefactProvenance.artefact_class == artefact_class)
+                      .where(ArtefactProvenance.artefact_key == artefact_key)
+                      ) if artefact_class in ARTEFACT_CLASSES else None
+    previous = _snapshot(prior) if prior is not None else None
+    out = _write_inputs(db, artefact_class=artefact_class, artefact_key=artefact_key,
+                        product_slug=product_slug, inputs=inputs,
+                        chain_version=chain_version)
+    row = db.scalar(select(ArtefactProvenance)
+                    .where(ArtefactProvenance.artefact_class == artefact_class)
+                    .where(ArtefactProvenance.artefact_key == artefact_key))
+    if previous is not None and (previous["created_by"] or "").strip() and (
+            previous["inputs"] != dict(inputs) or previous["chain_version"] != chain_version):
+        row.created_by = ""
+        row.job_id = None
+        db.flush()
+    _audit_replacement(db, artefact_class, artefact_key, previous, _snapshot(row),
+                       writer="")
+    return out
+
+
+def _write_inputs(db, *, artefact_class: str, artefact_key: str, product_slug: str,
+                  inputs: dict[str, str], chain_version: str = "") -> dict:
     from ..core.models import ArtefactProvenance
 
     if artefact_class not in ARTEFACT_CLASSES:
@@ -699,10 +803,39 @@ def assert_instrumented(db, *, since, job_id: int | None = None) -> dict:
 
     from ..core.models import ArtefactProvenance
 
-    have = {(r.artefact_class, r.artefact_key) for r in db.scalars(select(ArtefactProvenance))}
-    missing = [(cls, key, slug) for cls, key, slug in expected if (cls, key) not in have]
+    rows = {(r.artefact_class, r.artefact_key): r
+            for r in db.scalars(select(ArtefactProvenance))}
+    missing: list[tuple[str, str, str]] = []
+    incomplete: list[dict] = []
+    for cls, key, slug in expected:
+        row = rows.get((cls, key))
+        if row is None:
+            missing.append((cls, key, slug))
+            continue
+        # Certification C-27: a row existing is not a row instrumented. An artefact created
+        # during this job is accounted for only by a row this job recorded with its lineage:
+        # a creator, `source == recorded`, and `job_id` naming this job. A bare `record()`
+        # row (no creator, no job) or a row left by some other job does not qualify.
+        gaps = lineage_gaps(row, job_id=job_id)
+        if gaps:
+            missing.append((cls, key, slug))
+            incomplete.append({"artefact_class": cls, "artefact_key": key, "gaps": gaps})
     return {"job_id": job_id, "since": _aware(since).isoformat() if since else None,
-            "checked": len(expected), "missing": missing}
+            "checked": len(expected), "missing": missing, "incomplete": incomplete}
+
+
+def lineage_gaps(row, *, job_id: int | None = None) -> list[str]:
+    """What a provenance row lacks to count as recorded by the job that made it."""
+    gaps: list[str] = []
+    if not (row.created_by or "").strip():
+        gaps.append("created_by")
+    if row.source != "recorded":
+        gaps.append(f"source={row.source!r}")
+    if row.job_id is None:
+        gaps.append("job_id")
+    elif job_id is not None and row.job_id != job_id:
+        gaps.append(f"job_id={row.job_id} (not this job, {job_id})")
+    return gaps
 
 
 def may_enforce_unproven(db, *, ignoring=()) -> dict:

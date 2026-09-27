@@ -444,6 +444,7 @@ JOB_BANDS: dict[str, str] = {
     "finance.reconcile": "proven_winner",
     # The named benchmark moved, or might have.
     "mjs.scan": "benchmark_change",
+    "intel.serp_capture": "exploration",
     "mjs.reviews": "benchmark_change",
     "intel.benchmark_health": "benchmark_change",
     "etsy.probe": "benchmark_change",

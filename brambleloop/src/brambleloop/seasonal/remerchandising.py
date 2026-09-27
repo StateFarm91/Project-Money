@@ -408,3 +408,94 @@ def bundle_pairs(db, *, forms: dict[str, str] | None = None,
                  "no two certified products complement each other, which is a statement "
                  "about how narrow this catalogue is rather than about bundling"),
     }
+
+
+# ---------------------------------------------------------------------------
+# #279 at runtime: the seasonal transformation engine, run over every proven evergreen
+# concept by the weekly re-merchandising review.
+
+# Calendar events to the motif grammar's seasons. An event with no grammar is refused by name
+# rather than transformed with somebody else's motifs.
+MOTIF_SEASON: dict[str, str] = {
+    "Christmas": "christmas", "Halloween": "halloween", "Thanksgiving (CA)": "fall",
+    "Easter": "spring", "Mother's Day": "spring",
+}
+
+PRESENTATION_LAYERS: tuple[str, ...] = ("palette", "styling", "gift_context",
+                                        "collection_story")
+OBJECT_LAYERS: tuple[str, ...] = ("motif_vocabulary", "trim")
+
+
+def transformations(db, *, event: str, briefs: list[dict] | None = None) -> dict:
+    """Evaluate, route and (only from a brief carrying a promise) derive transformations.
+
+    Parents are the certified catalogue concepts for no particular occasion -- the proven
+    evergreen base. Each is surveyed with `evaluate`, its presentation-only transformation is
+    routed to re-merchandising with `transform`, and its object-changing transformation is
+    evaluated and held until a promise exists. A brief supplies that promise; `derive` then
+    mints the child concept, which faces the jury like any other.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+    from ..creative.audit import catalogue_concepts
+    from ..creative.invention import MOTIF_GRAMMAR, SATURATED
+    from ..creative.seasonal_transform import (
+        TransformRefused, derive, evaluate, transform,
+    )
+
+    season = MOTIF_SEASON.get(event)
+    if season is None or season not in MOTIF_GRAMMAR:
+        return {"event": event, "season": None, "evaluated": 0, "routed": 0,
+                "surveys": [], "held": [], "derived": [],
+                "refused": [f"{event} has no motif grammar, so no transformation can be "
+                            f"described for it"]}
+
+    with db.session() as s:
+        certified = {p.slug for p in s.scalars(select(Product))
+                     if s.scalar(select(PatternVersion).where(
+                         PatternVersion.product_id == p.id,
+                         PatternVersion.certified == True)) is not None}  # noqa: E712
+    parents = [c for c in catalogue_concepts()
+               if c.occasion == "everyday" and c.key in certified]
+    fresh = sorted(set(MOTIF_GRAMMAR[season]) - set(SATURATED.get(season, frozenset())))
+
+    surveys, routed, held, refused = [], [], [], []
+    for parent in parents:
+        survey = evaluate(parent, occasions=(season,))
+        surveys.append({"parent": parent.key,
+                        "layers": [r["layer"] for r in survey["seasons"][0]["ladder"]]})
+        presentation = transform(parent, occasion=season, layers=PRESENTATION_LAYERS)
+        routed.append({"parent": parent.key, **presentation.to_dict()})
+        engineered = transform(parent, occasion=season, layers=OBJECT_LAYERS,
+                               motifs=tuple(fresh[:2]))
+        held.append({"parent": parent.key, "problems": engineered.problems,
+                     "why": "held: an object-changing transformation needs an emotional "
+                            "promise, and none is invented here"})
+
+    by_key = {p.key: p for p in parents}
+    derived = []
+    for brief in briefs or []:
+        parent = by_key.get(brief.get("parent", ""))
+        if parent is None:
+            refused.append(f"brief for {brief.get('parent')!r}: not a certified evergreen "
+                           f"concept")
+            continue
+        try:
+            t = transform(parent, occasion=season,
+                          layers=tuple(brief.get("layers") or OBJECT_LAYERS),
+                          motifs=tuple(brief.get("motifs") or ()),
+                          feeling=brief.get("feeling", ""),
+                          execution=brief.get("execution", ""), how=brief.get("how", ""))
+            child = derive(parent, t, key=brief["key"], title=brief["title"],
+                           premise=brief["premise"], palette_story=brief["palette_story"],
+                           recipient=brief["recipient"], function=brief["function"])
+        except (TransformRefused, KeyError, ValueError) as exc:
+            refused.append(f"brief for {parent.key}: {exc}")
+            continue
+        derived.append({"key": child.key, "title": child.title, "occasion": child.occasion,
+                        "motif": child.motif, "provenance": child.provenance,
+                        "make_lane": child.make_lane})
+    return {"event": event, "season": season, "evaluated": len(parents),
+            "routed": len(routed), "surveys": surveys, "presentation": routed,
+            "held": held, "derived": derived, "refused": refused}

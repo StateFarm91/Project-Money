@@ -40,7 +40,18 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 ACTION = "creative.blind_review"
-METHOD_VERSION = 1
+# v2 (2026-09-27, certification C-44/C-45): the comparison is made against the dated,
+# category-matched benchmark set (`intel.benchmark_set.build`) and refuses a stale or thin
+# one; #67's missing dimensions (finished-result clarity, information density, consistency,
+# visual polish, physical proof) are compared; the #218 MJs challenge dimensions are carried
+# by name; and the reader takes this product's own newest row, refusing one older than
+# `MAX_REVIEW_AGE_DAYS`.
+METHOD_VERSION = 2
+
+# A review is a reading of the frames and the benchmark as they were on the day it ran. The
+# cadence runs daily; a row older than this is a record of a listing that may no longer
+# exist in that form, and parity does not read it as a current comparison (C-45).
+MAX_REVIEW_AGE_DAYS = 7
 
 INFERIOR = "inferior"
 NOT_INFERIOR = "not_inferior"
@@ -89,7 +100,56 @@ DIMENSIONS: dict[str, dict] = {
         "ours": "no video path exists",
         "what": "whether the technique is shown moving",
     },
+    # #67's remaining dimensions. Each reads a recorded observation field on their side and
+    # a recorded frame fact on ours; where either side has nothing on file it is unjudged.
+    "finished_result_clarity": {
+        "theirs": "vision: product_visibility",
+        "ours": "hero inspection: finished_or_in_progress_agrees",
+        "what": "whether the hero shows the finished object at a glance",
+    },
+    "information_density": {
+        "theirs": "vision: infographic_use / typography",
+        "ours": "information-card frames on file (listing_assets INFOGRAPHIC / PATTERN_PREVIEW)",
+        "what": "whether the gallery teaches size, materials and contents with cards",
+    },
+    "consistency": {
+        "theirs": "vision: brand_coherence",
+        "ours": "one identity pack and one pattern version across the frames",
+        "what": "whether the gallery reads as one shop and one product",
+    },
+    "visual_polish": {
+        "theirs": "vision: composition / setting",
+        "ours": "photographic_realism verdicts on the frames",
+        "what": "lighting, composition and material realism",
+    },
+    "physical_proof": {
+        "theirs": "not recorded: the vocabulary does not ask whether an image is a photograph",
+        "ours": "commerce.buyer_trust image provenance: a physical photograph on file",
+        "what": "a photograph of a real finished object made from the pattern",
+    },
 }
+
+# The #218 MJs challenge gate names its own eight dimensions. Each maps onto the comparison
+# row that carries its evidence, or onto a recorded benchmark field that no reading of our
+# frames exists for -- in which case it is unjudged and says which judge would be needed.
+CHALLENGE: dict[str, dict] = {
+    "concept_desirability": {"row": None, "theirs_field": "aesthetic_currency",
+                             "needs": "a blinded judged reading of our concept (#126 grid "
+                                      "panel); no reading of our frames exists"},
+    "distinctiveness": {"row": None, "theirs_field": "silhouette_strength",
+                        "needs": "a blinded judged reading of our concept (#126 grid panel)"},
+    "product_clarity": {"row": "finished_result_clarity"},
+    "thumbnail_strength": {"row": "thumbnail_readability"},
+    "styling": {"row": "visual_polish"},
+    "apparent_craftsmanship": {"row": "detail_coverage"},
+    "giftability": {"row": None, "theirs_field": "gift_narrative",
+                    "needs": "a blinded judged reading of our gift narrative (#126 grid "
+                             "panel); no reading of our frames exists"},
+    "purchase_confidence": {"row": "information_density"},
+}
+
+# Asset classes of the deterministic listing frames that are information cards.
+CARD_CLASSES: tuple[str, ...] = ("INFOGRAPHIC", "PATTERN_PREVIEW")
 
 # How our declared frame roles map onto the recorded shot vocabulary, for shot_variety.
 ROLE_SHOT: dict[str, str] = {
@@ -156,6 +216,11 @@ class Standard:
     detail_share: float | None = None
     video_share: float | None = None
     video_audited: int = 0
+    prominence_positive_share: float | None = None
+    cards_positive_share: float | None = None
+    brand_positive_share: float | None = None
+    polish_positive_share: float | None = None
+    challenge_reads: dict = field(default_factory=dict)
 
     @property
     def sufficient(self) -> bool:
@@ -176,6 +241,11 @@ class Standard:
             "median_distinct_shots": self.median_distinct_shots,
             "detail_share": self.detail_share,
             "video_share": self.video_share, "video_audited": self.video_audited,
+            "prominence_positive_share": self.prominence_positive_share,
+            "cards_positive_share": self.cards_positive_share,
+            "brand_positive_share": self.brand_positive_share,
+            "polish_positive_share": self.polish_positive_share,
+            "challenge_reads": {k: v[:10] for k, v in self.challenge_reads.items()},
         }
 
 
@@ -252,6 +322,23 @@ def standard_for(db, pod: str, *, benchmark_key: str = "") -> Standard:
     if audited:
         standard.video_share = round(
             sum(1 for ref in audited if video[ref]) / len(audited), 3)
+
+    def share(*fields: str) -> float | None:
+        reads = [str(o.get(f)) for obs in by_listing.values() for o in obs
+                 for f in fields if o.get(f)]
+        if not reads:
+            return None
+        return round(sum(1 for r in reads if not reads_negative(r)) / len(reads), 3)
+
+    standard.prominence_positive_share = share("product_visibility")
+    standard.cards_positive_share = share("infographic_use", "typography")
+    standard.brand_positive_share = share("brand_coherence")
+    standard.polish_positive_share = share("composition", "setting")
+    for spec in CHALLENGE.values():
+        f = spec.get("theirs_field")
+        if f:
+            standard.challenge_reads[f] = [str(o.get(f)) for obs in by_listing.values()
+                                           for o in obs if o.get(f)]
     return standard
 
 
@@ -259,12 +346,60 @@ def standard_for(db, pod: str, *, benchmark_key: str = "") -> Standard:
 # Our side: the frames on file
 
 
-def our_side(frames: list[dict]) -> dict:
-    """What this company's listing renders are, read off the asset records."""
+def _realism(frame: dict) -> str | None:
+    from ..visual.parity import _realism_of
+
+    got = _realism_of(frame)
+    if got is None:
+        return None
+    return str(got.get("verdict") or "") or None
+
+
+def our_side(frames: list[dict], *, cards: list[dict] | None = None,
+             physical_proof: bool | None = None) -> dict:
+    """What this company's listing renders are, read off the asset records.
+
+    `cards` are the deterministic listing frames `assets.build` filed (`ListingAsset` rows);
+    `physical_proof` is whether a physical photograph is on file in the image provenance.
+    Both None mean nobody looked, which is reported rather than read as zero.
+    """
     made = [f for f in frames if f.get("made", True)]
     roles = [str(f.get("role") or "") for f in made]
     grid = [f.get("readable_at_grid") for f in made]
+    hero = next((f for f in made if (f.get("role") or "hero") == "hero"), None)
+    finished = None
+    if hero is not None:
+        inspection = hero.get("inspection") or {}
+        if inspection.get("described") is True:
+            finished = (inspection.get("semantic") or {}).get("finished_or_in_progress_agrees")
+    realism = [_realism(f) for f in made]
+    if any(r == "blocked" for r in realism):
+        polish = False
+    elif made and all(r == "clear" for r in realism):
+        polish = True
+    else:
+        polish = None
+    modelled = [f for f in made if f.get("carries_model")]
+    packs = {(f.get("conditioned_on") or {}).get("pack_version") for f in modelled}
+    packs.discard(None)
+    versions = {str(f.get("version")) for f in made if f.get("version")}
+    if not made:
+        consistent = None
+    elif len(versions) > 1 or len(packs) > 1:
+        consistent = False
+    elif modelled and not packs:
+        consistent = None
+    else:
+        consistent = True
+    card_rows = None if cards is None else [
+        c for c in cards if str(c.get("asset_class") or "") in CARD_CLASSES]
     return {
+        "finished_result": finished,
+        "polish": polish,
+        "consistent": consistent,
+        "cards": None if card_rows is None else len(card_rows),
+        "card_roles": [] if card_rows is None else [c.get("role") for c in card_rows],
+        "physical_proof": physical_proof,
         "frames": len(made),
         "roles": roles,
         "distinct_shots": len({ROLE_SHOT.get(r, r) for r in roles if r}),
@@ -367,10 +502,99 @@ def compare(ours: dict, standard: Standard) -> dict:
             f"this company has no video; {standard.video_share:.0%} of "
             f"{standard.video_audited} audited benchmark listings carry one")
 
+    # finished-result clarity: our hero read as the finished object, against how prominent
+    # the product was observed to be in theirs.
+    theirs = standard.prominence_positive_share
+    mine = ours.get("finished_result")
+    if theirs is None or mine is None:
+        rows["finished_result_clarity"] = _row(
+            "unjudged", mine, theirs,
+            "no observation recorded product_visibility" if theirs is None else
+            "our hero was never described, so whether it reads as finished is not known")
+    else:
+        rows["finished_result_clarity"] = _row(
+            "behind" if mine is False and theirs >= 0.5 else "level", mine, theirs,
+            f"our hero {'reads' if mine else 'does not read'} as the finished object; "
+            f"{theirs:.0%} of observed benchmark frames show the product prominently")
+
+    # information density: cards on file against how often theirs teach with cards.
+    theirs = standard.cards_positive_share
+    cards = ours.get("cards")
+    if theirs is None or cards is None:
+        rows["information_density"] = _row(
+            "unjudged", cards, theirs,
+            "no observation recorded infographic_use or typography" if theirs is None else
+            "our information cards were not read")
+    else:
+        state = ("behind" if cards == 0 and theirs >= 0.5 else
+                 "ahead" if cards >= 2 and theirs < 0.5 else "level")
+        rows["information_density"] = _row(
+            state, cards, theirs,
+            f"{cards} information card(s) of ours; {theirs:.0%} of observed benchmark "
+            f"card/typography reads were positive")
+
+    # consistency: one identity and one version across our frames, against brand coherence.
+    theirs = standard.brand_positive_share
+    mine = ours.get("consistent")
+    if theirs is None or mine is None:
+        rows["consistency"] = _row(
+            "unjudged", mine, theirs,
+            "no observation recorded brand_coherence" if theirs is None else
+            "our frames do not record which identity or version they depict")
+    else:
+        rows["consistency"] = _row(
+            "behind" if mine is False else "level", mine, theirs,
+            "our frames mix identities or pattern versions" if mine is False else
+            "our frames depict one identity and one pattern version")
+
+    # visual polish: our realism verdicts against observed composition/setting.
+    theirs = standard.polish_positive_share
+    mine = ours.get("polish")
+    if theirs is None or mine is None:
+        rows["visual_polish"] = _row(
+            "unjudged", mine, theirs,
+            "no observation recorded composition or setting" if theirs is None else
+            "our frames were not all judged against the photography standard")
+    else:
+        rows["visual_polish"] = _row(
+            "behind" if mine is False and theirs >= 0.5 else "level", mine, theirs,
+            "a frame of ours reads as generated" if mine is False else
+            "every frame of ours reads as believable photography")
+
+    # physical proof: nothing on their side records whether an image is a photograph.
+    rows["physical_proof"] = _row(
+        "unjudged", ours.get("physical_proof"), None,
+        "the observation vocabulary does not record whether a benchmark image is a "
+        "photograph of a real object, so this cannot be compared; ours is reported")
+
     judged = [d for d, r in rows.items() if r["state"] != "unjudged"]
     behind = [d for d, r in rows.items() if r["state"] == "behind"]
     unjudged = [d for d, r in rows.items() if r["state"] == "unjudged"]
     return {"dimensions": rows, "judged": judged, "behind": behind, "unjudged": unjudged}
+
+
+def challenge(comparison: dict, standard: Standard) -> dict:
+    """#218's eight named dimensions, each from its evidence or unjudged with the judge needed.
+
+    Nothing here is scored: a named dimension reads the comparison row that carries its
+    evidence. The three that only a judged reading of our own concept could answer
+    (desirability, distinctiveness, giftability) carry the benchmark's recorded reads and
+    stay unjudged on our side -- a comparison with one side missing has not been made.
+    """
+    out: dict[str, dict] = {}
+    for name, spec in CHALLENGE.items():
+        row = spec.get("row")
+        if row:
+            got = comparison["dimensions"].get(row) or {}
+            out[name] = {"state": got.get("state", "unjudged"), "from": row,
+                         "why": got.get("why", "")}
+        else:
+            reads = standard.challenge_reads.get(spec["theirs_field"], [])
+            out[name] = {"state": "unjudged", "from": spec["theirs_field"],
+                         "theirs_reads": reads[:5], "why": spec["needs"]}
+    behind = [n for n, r in out.items() if r["state"] == "behind"]
+    return {"dimensions": out, "behind": behind,
+            "unjudged": [n for n, r in out.items() if r["state"] == "unjudged"]}
 
 
 def verdict_of(comparison: dict, standard: Standard, ours: dict) -> tuple[str, bool | None, str]:
@@ -429,18 +653,94 @@ def pod_for(slug: str, title: str = "") -> str:
     return pods.UNCLASSIFIED
 
 
+def _cards_on_file(db, slug: str) -> list[dict] | None:
+    """The deterministic listing frames `assets.build` filed for this product, newest version."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+
+    with db.session() as s:
+        rows = [{"asset_class": r.asset_class, "role": r.role, "version": r.version,
+                 "position": r.position}
+                for r in s.scalars(select(ListingAsset).where(
+                    ListingAsset.product_slug == slug))]
+    if not rows:
+        return None
+    newest = max(r["version"] for r in rows)
+    return [r for r in rows if r["version"] == newest]
+
+
+def _physical_proof_on_file(db, slug: str) -> bool | None:
+    from ..commerce import buyer_trust
+
+    try:
+        return buyer_trust.gallery_proof_on_file(db, slug=slug)["has_physical_proof_reading"]
+    except Exception:  # noqa: BLE001 - provenance unreadable is not "no proof"
+        return None
+
+
+def current_set(db, pod: str, *, benchmark_key: str = "", now: datetime | None = None) -> dict:
+    """#76: the dated, category-matched benchmark set this review compares against.
+
+    Built by `intel.benchmark_set.build`, the Creative Director's set. A thin set is refused
+    by the builder and a stale one (#67 asks for a *current* sample) is refused here; both
+    come back as `usable: False` with the reason, which the review writes as UNKNOWN.
+    """
+    from ..intel import benchmark_set
+
+    try:
+        built = benchmark_set.build(db, pod, benchmark_key=benchmark_key, now=now)
+    except benchmark_set.SetRefused as exc:
+        return {"usable": False, "refused": "thin", "why": str(exc), "pod": pod}
+    summary = {k: built.get(k) for k in ("pod", "benchmark", "built_at", "listings",
+                                         "observations", "oldest_evidence", "newest_evidence",
+                                         "age_days", "current", "stale_after_days",
+                                         "measured", "unmeasured")}
+    if not built.get("current"):
+        return {"usable": False, "refused": "stale", "set": summary, "built": built,
+                "why": (f"the {pod!r} benchmark set's newest evidence is "
+                        f"{built.get('newest_evidence')} ({built.get('age_days')} days old), "
+                        f"past {built.get('stale_after_days')} days. #67 and #76 ask for a "
+                        f"current sample; last season's galleries are not one")}
+    return {"usable": True, "set": summary, "built": built}
+
+
 def review(db, *, slug: str, title: str = "", pod: str = "", frames: list[dict] | None = None,
-           benchmark_key: str = "", now: datetime | None = None) -> dict:
-    """One product's competitive blind review, from evidence on file. Never renders."""
+           benchmark_key: str = "", now: datetime | None = None,
+           cards: list[dict] | None = None, physical_proof: bool | None = None) -> dict:
+    """One product's competitive blind review, from evidence on file. Never renders.
+
+    Compared against the dated benchmark set `intel.benchmark_set.build` assembles for the
+    product's pod (#76); a thin or stale set is refused and the review is UNKNOWN (#67).
+    """
     from ..publish import listing_asset
 
+    now = now or _utcnow()
     pod = pod or pod_for(slug, title)
+    reading_db = frames is None
     frames = listing_asset.frames_for(db, slug=slug) if frames is None else list(frames)
-    ours = our_side(frames)
+    if cards is None and reading_db:
+        cards = _cards_on_file(db, slug)
+    if physical_proof is None and reading_db:
+        physical_proof = _physical_proof_on_file(db, slug)
+    ours = our_side(frames, cards=cards, physical_proof=physical_proof)
     standard = standard_for(db, pod, benchmark_key=benchmark_key)
+    bench = current_set(db, pod, benchmark_key=benchmark_key, now=now)
     comparison = compare(ours, standard)
     verdict, inferior, why = verdict_of(comparison, standard, ours)
-    now = now or _utcnow()
+    if verdict != UNKNOWN and not bench["usable"]:
+        # The standard cleared its floors but the set is not a current sample: a comparison
+        # against it is a comparison against the past, and it is not written as a verdict.
+        verdict, inferior, why = UNKNOWN, None, bench["why"]
+    set_comparison = None
+    if bench["usable"]:
+        from ..intel import benchmark_set
+
+        try:
+            set_comparison = benchmark_set.compare_listing_set(frames, bench["built"])
+        except benchmark_set.SetRefused as exc:  # pragma: no cover - usable means current
+            set_comparison = {"refused": str(exc)}
+    trial = challenge(comparison, standard)
     return {
         "slug": slug,
         "pod": pod,
@@ -451,7 +751,13 @@ def review(db, *, slug: str, title: str = "", pod: str = "", frames: list[dict] 
         "method_version": METHOD_VERSION,
         "ours": ours,
         "standard": standard.to_dict(),
+        "benchmark_set": {k: v for k, v in bench.items() if k != "built"},
+        "benchmark_set_comparison": set_comparison,
         "comparison": comparison,
+        "mjs_challenge": trial,
+        # #218: obviously inferior beside the MJs set goes back to creative development
+        # rather than shipping. The handler acts on this; the review only states it.
+        "returns_to_development": inferior is True,
         "evidence": {
             "observation_ids": standard.observation_ids[:200],
             "observation_dates": {"oldest": standard.oldest, "newest": standard.newest},
@@ -503,12 +809,61 @@ def run(db, *, slugs: list[tuple[str, str]] | None = None, benchmark_key: str = 
         "reviewed": len(reviews),
         "counts": counts,
         "reviews": [{k: r[k] for k in ("slug", "pod", "verdict", "materially_inferior",
-                                       "why", "audit_id")} for r in reviews],
+                                       "why", "audit_id", "returns_to_development")}
+                    for r in reviews],
         "method_version": METHOD_VERSION,
         "note": ("Deterministic, from recorded observations and asset records. An UNKNOWN "
                  "here is a pod nobody has judged enough of or a product with no render on "
                  "file; both block release under #75 and neither is a pass"),
     }
+
+
+def current_review(db, *, slug: str, now: datetime | None = None,
+                   max_age_days: int = MAX_REVIEW_AGE_DAYS) -> dict | None:
+    """The review parity reads for this product: its own newest row, and only if current.
+
+    Filtered by product in the query, not by scanning a window of recent rows -- a window of
+    ten with eleven products in the catalogue left one of them permanently unjudged
+    (C-45, reproduced on winter-village-graphghan). A row older than `max_age_days` is
+    returned as an UNKNOWN reading that names its age rather than as the verdict it once
+    was, so parity blocks on it and says why.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    now = now or _utcnow()
+    with db.session() as s:
+        row = None
+        for candidate in s.scalars(select(AuditLog).where(AuditLog.action == ACTION,
+                                                          AuditLog.artifact == slug)
+                                   .order_by(desc(AuditLog.id))):
+            detail = candidate.detail or {}
+            if detail.get("slug", slug) == slug and "materially_inferior" in detail:
+                row = candidate
+                break
+        if row is None:
+            return None
+        detail = dict(row.detail or {})
+        at = _aware(row.at) if row.at is not None else None
+    stamp = detail.get("reviewed_at")
+    try:
+        reviewed = _aware(datetime.fromisoformat(stamp)) if stamp else at
+    except (TypeError, ValueError):
+        reviewed = at
+    if reviewed is None:
+        return {**detail, "materially_inferior": None, "stale": True,
+                "why": "the blind review on file carries no date, so its currency is unknown"}
+    age = (now - reviewed).total_seconds() / 86400.0
+    if age > max_age_days:
+        return {**detail, "materially_inferior": None, "stale": True,
+                "recorded_verdict": detail.get("verdict"),
+                "age_days": round(age, 1),
+                "why": (f"the newest blind review for {slug} is {age:.0f} days old "
+                        f"({reviewed.date().isoformat()}), past {max_age_days}. A comparison "
+                        f"of frames and benchmark galleries as they were is not a current "
+                        f"comparison (C-45)")}
+    return {**detail, "stale": False, "age_days": round(age, 1)}
 
 
 def last_review(db, *, slug: str) -> dict | None:

@@ -440,17 +440,44 @@ def test_a_call_priced_at_zero_still_leaves_the_tokens_it_spent():
     registry = Registry(db)
     registry.seed_defaults()
 
+    from brambleloop.core.models import AuditLog
+    from brambleloop.gateway.anthropic import BudgetExceeded
+
     # A provider whose prices are zero is exactly what a missing price table entry produced.
+    #
+    # Certification C-35 changed this expectation. It used to assert the call went ahead and
+    # left a CA$0 row with its tokens. The certification rule is stricter: with a ledger
+    # attached, an unpriced model declaring zero rates is refused *before* the call (fail
+    # closed), so it spends nothing to leave evidence of -- and the refusal itself is the
+    # evidence, one `spend.refused` row naming `unpriced_model`.
     free = _echo({"names": ["A", "B", "C"]},
                  cost_per_1k_input_cad=0.0, cost_per_1k_output_cad=0.0)
     gateway = ModelGateway([free], registry=registry)
-    gateway.complete_json("concept.naming@1", agent="market_radar",
-                          values={"category": "c", "motifs": "m", "season": "s"})
-
+    try:
+        gateway.complete_json("concept.naming@1", agent="market_radar",
+                              values={"category": "c", "motifs": "m", "season": "s"})
+    except BudgetExceeded as exc:
+        assert "no price on file" in str(exc)
+    else:
+        raise AssertionError("an unpriced zero-rate model was called with a ledger attached")
     with db.session() as s:
         rows = list(s.scalars(select(CostEntry)))
-    assert rows, "a call that billed nothing left no evidence that it happened"
-    assert rows[0].amount_cad == 0.0
+        refusals = [a.detail for a in s.scalars(select(AuditLog))
+                    if a.action == "spend.refused"]
+    assert rows == [], "a refused call wrote a ledger row"
+    assert refusals and refusals[-1]["which"] == "unpriced_model", refusals
+
+    # The property the original test pinned still holds for a priced call whose computed
+    # cost rounds to nothing: the row is written with its tokens rather than skipped.
+    tiny = _echo({"names": ["A", "B", "C"]},
+                 cost_per_1k_input_cad=1e-12, cost_per_1k_output_cad=1e-12)
+    ModelGateway([tiny], registry=registry).complete_json(
+        "concept.naming@1", agent="market_radar",
+        values={"category": "c", "motifs": "m", "season": "s"})
+    with db.session() as s:
+        rows = list(s.scalars(select(CostEntry)))
+    assert rows, "a call that billed almost nothing left no evidence that it happened"
+    assert rows[0].amount_cad < 1e-6
     assert rows[0].tokens_in or rows[0].tokens_out, "the tokens were not kept either"
 
 

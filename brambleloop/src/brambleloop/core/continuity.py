@@ -86,6 +86,9 @@ NON_REDERIVABLE = (
     "listing_outcomes",
     "brand_knowledge",
     "season_harvests",
+    # C-40: what the search index ranked on a day, and what the owner read off Shop Manager.
+    "serp_snapshots",
+    "insights_snapshots",
     "cohorts",
     # The build loop's own state. Re-derivable from the registry only in part: the claims,
     # the completion evidence and the decision history are not in any file, and losing them

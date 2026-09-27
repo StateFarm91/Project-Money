@@ -121,7 +121,7 @@ def keyword_plan(db, allocation: dict[str, int]) -> dict:
     rather than asked again (#37). Candidates are the pod's own form vocabulary, most
     specific first -- the same words the market map routes by.
     """
-    from . import insights, pods
+    from . import insights, pods, serp
 
     done = insights.queried_keywords(db)
     plan: dict[str, dict] = {}
@@ -129,10 +129,10 @@ def keyword_plan(db, allocation: dict[str, int]) -> dict:
         pod = pods.BY_KEY.get(pod_key)
         if pod is None or share <= 0:
             continue
-        candidates = [f"crochet {kw} pattern" for kw in pod.keywords]
-        skipped = [k for k in candidates if k in done or k.split(" ", 1)[1].rsplit(" ", 1)[0]
-                   in done]
-        fresh = [k for k in candidates if k not in skipped]
+        # A reading recorded under the bare keyword or under its search phrase counts.
+        pairs = [(kw, serp.query_for(kw)) for kw in pod.keywords]
+        skipped = [q for kw, q in pairs if q in done or kw in done]
+        fresh = [q for _kw, q in pairs if q not in skipped]
         plan[pod_key] = {"ask": fresh[:share], "skipped_already_recorded": skipped}
     return {"by_pod": plan, "already_recorded": sorted(done),
             "basis": insights.BASIS}

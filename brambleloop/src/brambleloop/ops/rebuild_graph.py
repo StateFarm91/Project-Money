@@ -190,7 +190,8 @@ def _topological(keys: set[str], children: dict[str, set[str]]) -> list[str]:
 
 
 def enqueue(db, queue, *, changed: dict[str, str], reason: str,
-            expected: list[tuple[str, str, str]] | None = None) -> dict:
+            expected: list[tuple[str, str, str]] | None = None,
+            per: str = "artefact", previous: dict[str, str] | None = None) -> dict:
     """Enqueue the rebuild set idempotently, keyed on what moved.
 
     The key carries the new fingerprint, so the same change enqueues once however many times
@@ -204,6 +205,33 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
     stamp = "-".join(f"{ref}={fp[:8]}" for ref, fp in sorted(changed.items()))
 
     enqueued, already = [], []
+    if per == "product":
+        # One job per product carrying that product's exact descendants in order. The chain
+        # stage it drives rebuilds a whole product, so a job per artefact would run that
+        # stage once per artefact for one change -- same result, many times the work. The
+        # key still carries the new fingerprints, so the idempotency property is unchanged.
+        by_product: dict[str, list[dict]] = {}
+        for row in plan["rebuild"]:
+            by_product.setdefault(row["product_slug"], []).append(row)
+        for slug, rows in sorted(by_product.items()):
+            key = f"rebuild:product:{slug}:{stamp}"
+            try:
+                queue.enqueue("listing", "chain.rebuild",
+                              {"product_slug": slug,
+                               "artefacts": [r["key"] for r in rows],
+                               "reason": reason, "changed": plan["changed"],
+                               "fingerprints": {
+                                   ref: {"old": (previous or {}).get(ref), "new": fp}
+                                   for ref, fp in sorted(changed.items())}},
+                              idempotency_key=key)
+                enqueued.extend(r["key"] for r in rows)
+            except DuplicateJob:
+                already.extend(r["key"] for r in rows)
+        return {"enqueued": enqueued, "already_queued": already,
+                "plan": plan, "reason": reason, "per": per,
+                "idempotency": ("keyed on the product and the new fingerprint, so the same "
+                                "change enqueues once and a different change enqueues again")}
+
     for row in plan["rebuild"]:
         key = f"rebuild:{row['key']}:{stamp}"
         try:
@@ -234,6 +262,61 @@ def blocks_publication(db, *, changed: dict[str, str], rebuilt: set[str]) -> dic
                 f"{len(outstanding)} descendant(s) still carry the old input. Publishing now "
                 f"ships a set that is partly current, which is harder to find than one that "
                 f"is wholly stale"),
+    }
+
+
+def publication_gate(db, *, slug: str, current: dict[str, str] | None = None) -> dict:
+    """#172 at the publish path: may this product publish, given what has moved upstream?
+
+    `changed` is every upstream reference a recorded artefact of this product was built from
+    that has since moved (old and new fingerprint kept); `rebuilt` is every node whose
+    upstreams all match now, which is the completion evidence -- a descendant is rebuilt
+    when its provenance row says it was made from the current input, not when a job said so.
+    """
+    from .artefacts import FRESH, STALE, current_from_db
+
+    current = current if current is not None else current_from_db(db)
+    verdicts = check(db, current=current)
+    changed: dict[str, str] = {}
+    previous: dict[str, str] = {}
+    from sqlalchemy import select
+
+    from ..core.models import ArtefactProvenance
+
+    recorded = {(r.artefact_class, r.artefact_key): (r.inputs or {}, r.built_at)
+                for r in db.scalars(select(ArtefactProvenance)
+                                    .where(ArtefactProvenance.product_slug == slug))}
+    for v in verdicts:
+        if v.product_slug != slug or v.state != STALE:
+            continue
+        inputs = recorded.get((v.artefact_class, v.artefact_key), ({}, None))[0]
+        for ref in v.moved:
+            if ref in current:
+                changed[ref] = current[ref]
+                previous[ref] = inputs.get(ref)
+    rebuilt = {_node_key(v.artefact_class, v.artefact_key) for v in verdicts
+               if v.state == FRESH}
+    unprovable = sorted(_node_key(v.artefact_class, v.artefact_key) for v in verdicts
+                        if v.product_slug == slug and v.state == STALE and v.unknown
+                        and not v.moved)
+    verdict = (blocks_publication(db, changed=changed, rebuilt=rebuilt) if changed
+               else {"may_publish": True, "outstanding": [], "why": "nothing upstream moved"})
+    nodes = load_graph(db)["nodes"]
+    outstanding = [k for k in verdict["outstanding"]
+                   if k in nodes and nodes[k].product_slug == slug]
+    evidence = [{"key": _node_key(c, k), "built_at": str(built)}
+                for (c, k), (_, built) in sorted(recorded.items())
+                if _node_key(c, k) in rebuilt]
+    return {
+        "slug": slug, "may_publish": not outstanding, "outstanding": outstanding,
+        "changed": {ref: {"old": previous.get(ref), "new": fp}
+                    for ref, fp in sorted(changed.items())},
+        "rebuilt_evidence": evidence[:40],
+        # Reported, not blocking here: an upstream with no current fingerprint is the
+        # sentinel's to raise (it halts through the incident flag the publish path reads).
+        "unprovable": unprovable,
+        "why": (f"{len(outstanding)} descendant(s) of this product still carry the old "
+                f"input: {outstanding[:5]}" if outstanding else verdict["why"]),
     }
 
 

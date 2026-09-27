@@ -33,6 +33,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+from .governance import PROTECTED_GATES, normalise_surface
+
 # Evidence kinds a promotion can carry. Closed, because "we tested it" is not a kind.
 BASELINE = "baseline"
 SANDBOX_RESULT = "sandbox_result"
@@ -112,6 +114,11 @@ SURFACE_TIER: dict[str, str] = {
     "spend_limit": "gate", "release": "gate", "publication": "gate", "budget": "gate",
     "truth_gate": "gate", "disclosure": "gate",
 }
+# Every protected gate is a gate-tier surface. Found by certification (C-21): only
+# `asset_truth` was listed, so `product_truth` and ten others fell to the `code` default and
+# promoted with caller-asserted test evidence and no owner. A protected gate is the surface
+# where being wrong is not recoverable by reverting quickly, which is what `gate` means.
+SURFACE_TIER.update({name: "gate" for name in PROTECTED_GATES})
 
 
 class TierRefused(PermissionError):
@@ -131,8 +138,7 @@ def classify(touches: tuple[str, ...]) -> Tier:
             "change takes whichever lane its author felt like")
     ranks = []
     for surface in touches:
-        key = (surface or "").strip().lower()
-        tier = SURFACE_TIER.get(key)
+        tier = SURFACE_TIER.get(normalise_surface(surface))
         ranks.append(TIER_BY_KEY[tier].rank if tier else TIER_BY_KEY["code"].rank)
     return TIER_BY_RANK[max(ranks)]
 

@@ -246,6 +246,10 @@ class GradedDesign:
     requires: tuple[str, ...]
     sizes: tuple[str, ...] | None = None
     primitives: tuple[str, ...] = ("cir.graded",)
+    # How to measure a BUILT size: CIR -> {"chest": cm, other finished measures: cm}, from
+    # its compiled rows and twin. When given, `check_monotonic` checks what was built as
+    # well as what was asked for, because rounding happens between the two (audit C-10).
+    measure: Callable[[CIR], dict] | None = None
 
     def __post_init__(self) -> None:
         unknown = [m for m in self.requires if m not in MEASUREMENTS]
@@ -297,6 +301,14 @@ class GradedDesign:
         if cir.authored != "brambleloop":
             raise GradingRefused(f"{self.key}: a graded Brambleloop design must be authored "
                                  f"as Brambleloop's own")
+        # A garment whose neck cannot sit on this size's body is refused here, with the body
+        # in hand, as well as by certification from the CIR alone (audit C-7).
+        from .specification import GarmentImplausible, refuse_an_implausible_garment
+        try:
+            refuse_an_implausible_garment(
+                cir, cross_back_cm=graded.body.cm("cross_back"))
+        except GarmentImplausible as exc:
+            raise GradingRefused(f"{self.key} size {size}: {exc}") from exc
         if cir.provenance is None:
             cir.provenance = Provenance(
                 concept_key=self.key, brief_digest=self.brief_digest(),
@@ -317,8 +329,13 @@ class GradedDesign:
                 for m in self.requires}})
         return rows
 
-    def check_monotonic(self) -> None:
-        """Finished chest rises strictly with size; every other measure never falls."""
+    def check_monotonic(self, *, built: bool = True) -> None:
+        """Finished chest rises strictly with size; every other measure never falls.
+
+        Checked on the requested figures and, when the design says how to measure a built
+        size and `built` is true, on the built CIRs too: whole rows and stitches are rounded
+        per size, and a requested length that rises can still build shorter (audit C-10).
+        """
         table = self.size_table()
         for m in self.requires:
             values = [r["measurements"][m]["finished_cm"] for r in table]
@@ -327,6 +344,17 @@ class GradedDesign:
                     raise GradingRefused(
                         f"{self.key}: finished {m} goes from {values[i - 1]} at "
                         f"{table[i - 1]['size']} to {values[i]} at {table[i]['size']}")
+        if built and self.measure is not None:
+            sizes = self.sourced_sizes()
+            measured = [self.measure(self.build(s)) for s in sizes]
+            for i in range(1, len(measured)):
+                a, b = measured[i - 1], measured[i]
+                for m in b:
+                    if b[m] + 1e-9 < a.get(m, float("-inf")) or \
+                            (m == "chest" and not b[m] > a[m]):
+                        raise GradingRefused(
+                            f"{self.key}: built {m} goes from {a[m]:.1f} cm at {sizes[i - 1]} "
+                            f"to {b[m]:.1f} cm at {sizes[i]}")
 
 
 # ---- the size table, as a document states it and a reader reads it -----------------------

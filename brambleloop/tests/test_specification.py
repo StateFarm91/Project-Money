@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from brambleloop.cir import benchmarks as B, specification as S
+from brambleloop.cir.model import Material
 from brambleloop.cir.model import CIR, Component, Gauge, Op, Row, Seam
 from brambleloop.products.builder import CATALOGUE, for_slug
 
@@ -152,6 +153,206 @@ def test_the_benchmark_itself_passes_because_it_is_what_it_says_it_is():
 def test_no_catalogue_product_matches_a_benchmark():
     for slug in sorted(CATALOGUE):
         assert S.benchmark_matches(for_slug(slug)) == [], slug
+
+
+# ---- the firewall hardened (certification audit C-6) --------------------------------------
+
+
+def _ours(cir):
+    cir.authored, cir.slug, cir.title = "brambleloop", "meadow-cardigan", "Meadow Cardigan"
+    return cir
+
+
+def test_any_one_identifying_benchmark_piece_is_refused_on_its_own():
+    """Keeping only some pieces of a benchmark is still carrying a benchmark's piece."""
+    for keep in ("body", "sleeve", "pocket", "neck_ribbing"):
+        cir = _ours(B.cardigan("M"))
+        cir.components = [c for c in cir.components if c.name == keep]
+        cir.assembly = []
+        matches = S.benchmark_matches(cir)
+        assert matches and any(keep in m["pieces"] for m in matches), keep
+        try:
+            S.refuse_a_benchmark_in_our_clothes(cir)
+            raise AssertionError(f"{keep} alone was not refused")
+        except S.BenchmarkDerived:
+            pass
+
+
+def test_trimming_or_padding_a_few_rows_does_not_evade_the_firewall():
+    from brambleloop.cir.model import Row
+    for size in ("XS", "M", "5XL"):
+        for cut in (1, 2):
+            trimmed = _ours(B.cardigan(size))
+            for comp in trimmed.components:
+                if len(comp.rows) > S.MIN_IDENTIFYING_ROWS:
+                    comp.rows = comp.rows[:-cut]
+            assert S.benchmark_matches(trimmed), (size, cut)
+        # one row taken out of the middle of the body's longest run
+        body = _ours(B.cardigan(size))
+        rows = body.components[0].rows
+        mid = len(rows) // 2
+        body.components = [body.components[0]]
+        body.components[0].rows = [Row(index=i + 1, ops=r.ops, declared_count=r.declared_count,
+                                       turning_chain=r.turning_chain, skips=r.skips,
+                                       allow_remainder=r.allow_remainder)
+                                   for i, r in enumerate(rows[:mid] + rows[mid + 1:])]
+        body.assembly = []
+        assert any(m["tiers"].get("body") == "counts" for m in S.benchmark_matches(body)), size
+
+
+def test_the_counts_tier_survives_relabelling_the_stitch():
+    """A body re-worked in another stitch with the same per-row counts is still the body."""
+    from brambleloop.cir.model import Op, Repeat
+    cir = _ours(B.cardigan("L"))
+    cir.components = [cir.components[0]]
+    cir.assembly = []
+
+    def swap(nodes):
+        for n in nodes:
+            if isinstance(n, Repeat):
+                swap(n.ops)
+            elif isinstance(n, Op) and n.stitch == "hdc":
+                n.stitch = "sc"
+    for row in cir.components[0].rows:
+        swap(row.ops)
+    assert any(m["tiers"].get("body") == "counts" for m in S.benchmark_matches(cir))
+
+
+def test_a_plain_rectangle_of_the_benchmark_sleeves_width_is_not_a_match():
+    """The sleeve is a 64-stitch rectangle: counts alone would refuse every 64-stitch
+    rectangle anyone writes. Our own plain one is not the benchmark's worked rows."""
+    from brambleloop.cir.model import CIR, Component, Gauge, Op, Row
+    for stitch in ("sc", "hdc"):
+        rows = [Row(index=i, ops=[Op(stitch, 64)], declared_count=64, turning_chain=1)
+                for i in range(1, 60)]
+        cir = CIR(slug="plain-64", title="Plain", version="1.0.0", construction="flat_rows",
+                  components=[Component("panel", "flat_rows", rows, foundation=64)],
+                  gauge=Gauge(16, 18))
+        assert S.benchmark_matches(cir) == [], stitch
+    # and a 94-wide rectangle is not the 94-wide body: the body's armhole rows are missing
+    rows = [Row(index=i, ops=[Op("hdc", 94)], declared_count=94, turning_chain=1)
+            for i in range(1, 140)]
+    cir = CIR(slug="plain-94", title="Plain", version="1.0.0", construction="flat_rows",
+              components=[Component("panel", "flat_rows", rows, foundation=94)],
+              gauge=Gauge(16, 18))
+    assert S.benchmark_matches(cir) == []
+
+
+def test_the_firewall_thresholds_are_stated():
+    assert S.MIN_IDENTIFYING_ROWS == 10
+    assert S.RUN_TOLERANCE_ROWS >= 2 and 0 < S.RUN_TOLERANCE_FRACTION <= 0.2
+    assert S.MIN_COUNT_CHANGES == 2
+
+
+def test_no_genuine_brambleloop_design_is_a_false_positive():
+    """Every catalogue product, every Launch-0 build, every size of both garment fixtures and
+    of a spread of concept-designed garments: none matches any benchmark piece."""
+    from brambleloop.creative import garment_design as GD
+    from brambleloop.creative.concept import Concept
+    from brambleloop.products import garments as G, launch0
+    from brambleloop.products import nordic_forest, texture, vessels
+    cirs = [for_slug(s) for s in sorted(CATALOGUE)]
+    cirs += [launch0.cir_for(k) for k in sorted(launch0.BUILDERS)]
+    cirs += list(nordic_forest.all_sizes().values())
+    cirs += [texture.build_cable_throw(), texture.build_bobble_pillow(),
+             texture.build_ribbed_scarf(), vessels.build()]
+    for make in G.DESIGNS.values():
+        cirs += list(make().build_all().values())
+    for i, (cons, rec, lane, feeling, pal) in enumerate((
+            ("top_down_yoke", "self", "LONG", "rugged", "moss and slate"),
+            ("top_down_yoke", "child", "QUICK", "festive", "ember and soot"),
+            ("side_to_side", "self", "SHORT", "serene", "sea glass"),
+            ("flat_rows", "teen", "MEDIUM", "folkloric", "cream, spruce and gold"))):
+        c = Concept(key=f"fp-{i}", title=f"Fp {i}", premise="a lattice of offset ridges that reads as woven bark from across a room",
+                    pod="garments", form="fitted_garment", construction=cons, motif="field",
+                    palette_story=pal, recipient=rec, occasion="everyday", feeling=feeling,
+                    function="a layer", make_lane=lane, provenance="test")
+        cirs += list(GD.design_for(c).build_all().values())
+    hits = [(c.slug, S.benchmark_matches(c)) for c in cirs if S.benchmark_matches(c)]
+    assert not hits, hits[:3]
+    assert len(cirs) > 60, len(cirs)
+
+
+# ---- a garment that cannot be worn (certification audit C-7) ------------------------------
+
+
+def _wide_neck_raglan():
+    """A top-down raglan whose yoke barely grows: the pre-fix construction's failure."""
+    from brambleloop.cir.model import CIR, Component, Gauge, Hold, Op, Row
+    f, s, b = 20, 20, 40
+    rows = [Row(index=1, ops=[Op("dc", 2 * f + 2 * s + b)], declared_count=2 * f + 2 * s + b,
+                turning_chain=3),
+            Row(index=2, ops=[Op("dc", 2 * f + b)], declared_count=2 * f + b, skips=2 * s,
+                turning_chain=3)]
+    comp = Component("yoke_and_body", "flat_rows", rows, foundation=2 * f + 2 * s + b,
+                     holds=[Hold("sleeve_left", 1, s, from_stitch=f),
+                            Hold("sleeve_right", 1, s, from_stitch=f + s + b)])
+    return CIR(slug="wide-neck", title="Wide", version="1.0.0", construction="flat_rows",
+               components=[comp], gauge=Gauge(14, 8, stitch_type="dc"))
+
+
+def test_a_raglan_whose_neck_is_most_of_its_chest_is_refused():
+    cir = _wide_neck_raglan()
+    geo = S.yoke_geometry(cir)
+    assert geo["sections_at_neck"] == [20, 20, 40, 20, 20] and geo["back_neck"] == 40
+    problems = S.garment_implausibilities(cir)
+    assert any("neck edge" in p for p in problems) and any("back neck" in p for p in problems)
+    try:
+        S.refuse_an_underspecified_design(cir)
+        raise AssertionError("implausible yoke passed the specification gate")
+    except S.GarmentImplausible:
+        pass
+    # a benchmark record is allowed to be what it is
+    cir.authored = "benchmark"
+    S.refuse_an_implausible_garment(cir)
+
+
+def test_certification_and_grading_refuse_a_template_that_ships_a_wide_neck():
+    """A future template aimed at a neck three times the shoulders: the template runs, and
+    both the grading (body known) and certification (CIR alone) refuse what it made."""
+    from brambleloop.cir.graded import GradedDesign
+    from brambleloop.cir.grading import GradingRefused
+    from brambleloop.gates.certificate import certify
+    from brambleloop.products import garments as G
+    pebble = G.pebble_cardigan()
+    fam, mat = G.StitchFamily("dc", "plain"), Material("dk cotton")
+
+    def wide(g):
+        return G.raglan_top_down(g, key="wide", title="Wide", family=fam, material=mat,
+                                 neck_of_cross_back=3.0)
+    cir = wide(pebble.graded_size("8"))
+    cert = certify(cir)
+    assert not cert.granted and any("cannot be worn" in r for r in cert.blocking_reasons), \
+        cert.blocking_reasons
+    d = GradedDesign(key="wide", title="Wide", table=pebble.table, fit=pebble.fit,
+                     gauge=pebble.gauge, template=wide, requires=G.RAGLAN_REQUIRES)
+    try:
+        d.build("8")
+        raise AssertionError("grading built an unwearable neck")
+    except GradingRefused as exc:
+        assert "cannot be worn" in str(exc)
+
+
+def test_a_back_neck_wider_than_the_cross_back_is_refused_when_the_body_is_known():
+    cir = _wide_neck_raglan()
+    back_neck_cm = 40 / 1.4
+    assert any("cross-back" in p for p in
+               S.garment_implausibilities(cir, cross_back_cm=back_neck_cm - 1))
+    assert not any("cross-back" in p for p in
+                   S.garment_implausibilities(cir, cross_back_cm=back_neck_cm + 1))
+
+
+def test_the_neck_derivation_walks_real_increases_back_to_the_neck():
+    from brambleloop.products import garments as G
+    d = G.pebble_cardigan()
+    for size in ("2", "16"):
+        cir = d.build(size)
+        geo = S.yoke_geometry(cir)
+        f, sl, b, sr, f2 = geo["sections_at_neck"]
+        assert (f, sl) == (f2, sr) and sum(geo["sections_at_neck"]) == geo["neck_edge"]
+        assert geo["neck_edge"] / geo["chest"] <= S.MAX_NECK_EDGE_OF_CHEST
+        assert geo["back_neck"] <= S.MAX_BACK_NECK_OF_BACK * geo["back_at_underarm"]
+
 
 if __name__ == "__main__":
     import traceback

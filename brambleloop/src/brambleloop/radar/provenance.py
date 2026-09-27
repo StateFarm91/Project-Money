@@ -213,3 +213,127 @@ def example_window(days_ago: int, length_days: int = 30,
     today = today or date.today()
     end = today - timedelta(days=days_ago)
     return (end - timedelta(days=length_days)).isoformat(), end.isoformat()
+
+
+# ---------------------------------------------------------------------------
+# Stamping the rows (certification repair #38). The rules above had no caller, so every
+# trend row in the database travelled without its population, window or freshness. This
+# stamps one `trend_provenance` row per datum and restamps freshness as it ages.
+
+# What each recorded source measured. A source not listed here is UNKNOWN and its rows are
+# stamped refused rather than guessed at.
+SOURCE_POPULATION: dict[str, str] = {
+    # English Wikipedia reference reading, all access, all agents: worldwide readers.
+    "wikimedia_pageviews": "GLOBAL",
+}
+
+# How many days a reading from each source describes, ending on `observed_on`.
+SOURCE_WINDOW_DAYS: dict[str, int] = {"wikimedia_pageviews": 28, "benchmark": 7}
+
+# Insights snapshots name their geography in words; the closed vocabulary above is the key.
+GEOGRAPHY_POPULATION: dict[str, str] = {
+    "ca": "CA", "canada": "CA", "us": "US", "united states": "US", "usa": "US",
+    "us_ca": "US_CA", "north america": "US_CA", "uk": "UK", "united kingdom": "UK",
+    "eu": "EU", "global": "GLOBAL", "worldwide": "GLOBAL", "all": "GLOBAL",
+}
+
+# Marketplace Insights reports a trailing month.
+INSIGHTS_WINDOW_DAYS = 30
+
+SHAPE_FOR_HALF_LIFE: dict[str, str] = {
+    "flash": FAD, "short_seasonal": SEASONAL, "recurring_seasonal": SEASONAL,
+    "multi_season_fashion": EVERGREEN, "evergreen": EVERGREEN,
+}
+
+
+def _source_key(source: str) -> str:
+    return (source or "").split(":")[0].strip()
+
+
+def _stamp_row(s, *, table: str, row_id: int, topic: str, source: str, population: str,
+               window_from: str, window_to: str, shape: str, value: float | None,
+               today: date) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import TrendProvenance
+
+    stamp = s.scalar(select(TrendProvenance).where(TrendProvenance.source_table == table,
+                                                   TrendProvenance.row_id == row_id))
+    if stamp is None:
+        stamp = TrendProvenance(source_table=table, row_id=row_id)
+        s.add(stamp)
+    stamp.topic, stamp.source, stamp.population = topic, source, population
+    stamp.window_from, stamp.window_to, stamp.shape = window_from, window_to, shape
+    stamp.raw_value = value
+    try:
+        datum = TrendDatum(topic=topic or "unnamed", value=float(value or 0.0),
+                           source=source, population=population, window_from=window_from,
+                           window_to=window_to, shape=shape)
+        used = datum.discounted(today)
+        # A datum with no value keeps its weight and has no usable value: the weight is a
+        # fact about the source, and a missing count is not a count of zero.
+        stamp.weight = used["weight"]
+        stamp.usable_value = used["usable_value"] if value is not None else None
+        stamp.freshness, stamp.refused_reason = used["freshness"], ""
+        return {"refused": False}
+    except ProvenanceRefused as exc:
+        stamp.weight = stamp.usable_value = stamp.freshness = None
+        stamp.refused_reason = str(exc)[:1000]
+        return {"refused": True}
+
+
+def stamp_all(db, *, today: date | None = None, half_lives: dict[str, str] | None = None,
+              limit: int = 5000) -> dict:
+    """Stamp every culture observation and Insights snapshot with its provenance (#38).
+
+    Idempotent: a row already stamped is restamped, which is how freshness keeps pace with
+    age. `half_lives` maps a signal key to its half-life class, which chooses the staleness
+    horizon; an unclassified signal is treated as seasonal.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CultureObservation, CultureSignal, InsightsSnapshot
+
+    today = today or date.today()
+    half_lives = half_lives or {}
+    stamped = refused = 0
+    by_population: dict[str, int] = {}
+    with db.session() as s:
+        topics = {r.key: r.topic for r in s.scalars(select(CultureSignal))}
+        for obs in s.scalars(select(CultureObservation).order_by(
+                CultureObservation.id.desc()).limit(limit)):
+            key = _source_key(obs.source) or obs.channel
+            population = SOURCE_POPULATION.get(key, "UNKNOWN")
+            days = SOURCE_WINDOW_DAYS.get(key, 0)
+            end = obs.observed_on or ""
+            start = ((date.fromisoformat(end) - timedelta(days=days)).isoformat()
+                     if end and days else "")
+            shape = SHAPE_FOR_HALF_LIFE.get(half_lives.get(obs.signal_key, ""), SEASONAL)
+            got = _stamp_row(s, table="culture_observations", row_id=obs.id,
+                             topic=topics.get(obs.signal_key, obs.signal_key),
+                             source=obs.source or obs.channel, population=population,
+                             window_from=start, window_to=end, shape=shape,
+                             value=obs.interest, today=today)
+            stamped += 1
+            refused += int(got["refused"])
+            by_population[population] = by_population.get(population, 0) + 1
+        for snap in s.scalars(select(InsightsSnapshot).order_by(
+                InsightsSnapshot.id.desc()).limit(limit)):
+            population = GEOGRAPHY_POPULATION.get((snap.geography or "").strip().lower(),
+                                                  "UNKNOWN")
+            end = snap.observed_on.date().isoformat() if snap.observed_on else ""
+            start = ((date.fromisoformat(end) - timedelta(days=INSIGHTS_WINDOW_DAYS))
+                     .isoformat() if end else "")
+            got = _stamp_row(s, table="insights_snapshots", row_id=snap.id,
+                             topic=snap.keyword, source=snap.basis or "insights",
+                             population=population, window_from=start, window_to=end,
+                             shape=SEASONAL,
+                             value=(float(snap.search_count)
+                                    if snap.search_count is not None else None),
+                             today=today)
+            stamped += 1
+            refused += int(got["refused"])
+            by_population[population] = by_population.get(population, 0) + 1
+    return {"stamped": stamped, "refused": refused, "by_population": by_population,
+            "note": ("every trend row carries its source, window, population and freshness; "
+                     "rows whose population is unknown are stamped refused, not discounted")}

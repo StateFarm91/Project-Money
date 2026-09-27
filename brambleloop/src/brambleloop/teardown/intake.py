@@ -396,6 +396,18 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
     _set_state(db, ref, AWAITING_ANALYST, title=row["title"])
 
     audit = deliverable_audit(promises, scan.inferred)
+    # #151: the scorecard's promise-to-delivery audit, on the same inputs, so the alignment
+    # figure the teardown reports is computed at the moment the files arrive. And #159/#170:
+    # every applicable audit schedule prefilled from what the filenames settle, so the
+    # analyst starts from the manifest rather than retyping it.
+    from . import audits as audit_schedules
+    from . import lab
+    from .scorecard import promise_audit
+
+    alignment = promise_audit(audit_promises(promises), scan.inferred)
+    prefilled = {spec.key: audit_schedules.prefill(spec.key, scan.inferred)
+                 for spec in audit_schedules.AUDITS
+                 if audit_schedules.applies(spec, scan.inferred)}
     mirrored = (mirror(db, ref, scan.files, folder, env=env) if mirror_files
                 else {"mirrored": 0, "durable": False, "why": "mirroring was not requested"})
 
@@ -409,6 +421,8 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
         "paid_source": ("supplied at upload" if paid_cad is not None
                         else "the observed listing price, not a receipt"),
         "promise_audit": audit,
+        "promise_alignment": alignment,
+        "audit_prefill": prefilled,
         "offsite": mirrored,
         "durable": bool(mirrored.get("durable")),
         "needs_owner": [n for n in scan.needs_owner
@@ -420,8 +434,34 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
     Registry(db).audit("orchestrator", INTAKE_ACTION,
                        detail={"ref": ref, "listing_ref": str(listing_ref),
                                "files": len(scan.files), "durable": result["durable"],
-                               "verdict": audit["verdict"]})
+                               "verdict": audit["verdict"],
+                               "alignment": alignment["alignment"],
+                               "broken_promises": alignment["broken"],
+                               "prefilled_audits": sorted(prefilled)})
+    # #170: the manifest regenerated on every arrival, into the quarantine, never the repo.
+    manifest = lab.write_manifest(db, env=env)
+    result["manifest"] = {k: manifest[k] for k in ("path", "bytes", "sha256",
+                                                    "teardown_queue")}
     return result
+
+
+# What intake reads from a listing, in the vocabulary `scorecard.promise_audit` judges. A
+# promise nobody observed stays out rather than becoming `false`: an absent claim is not a
+# claim of absence.
+_PROMISE_VOCABULARY: tuple[tuple[str, str], ...] = (
+    ("has_chart", "chart_included"),
+    ("has_video", "video_included"),
+    ("has_print_edition", "print_edition"),
+)
+
+
+def audit_promises(promises: dict) -> dict:
+    out = {}
+    for ours, theirs in _PROMISE_VOCABULARY:
+        value = (promises or {}).get(ours)
+        if value is not None:
+            out[theirs] = bool(value)
+    return out
 
 
 def _why_selected(db, listing_ref: str) -> str:

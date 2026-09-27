@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from .governance import normalise_actor, normalise_touches
 from .cells import (BY_KEY, CELLS, PROMOTED, PROPOSED, REJECTED, REVERTED, TESTING,
                     ImprovementRefused)
 
@@ -68,10 +69,12 @@ def _open_rows(db) -> list[dict]:
     from ..core.models import Improvement
 
     with db.session() as s:
+        # Normalised exactly as `improve.tiers` normalises them (C-22): 'Weights ' and
+        # 'weights' are one surface to the tier, so they are one surface here.
         return [{"id": r.id, "cell": r.cell, "state": r.state,
-                 "touches": tuple((r.evidence or {}).get("touches") or ()),
+                 "touches": normalise_touches((r.evidence or {}).get("touches") or ()),
                  "kind": (r.evidence or {}).get("kind"),
-                 "proposed_by": (r.evidence or {}).get("proposed_by") or "",
+                 "proposed_by": normalise_actor((r.evidence or {}).get("proposed_by")),
                  "conflict": (r.evidence or {}).get("conflict")}
                 for r in s.scalars(select(Improvement).where(
                     Improvement.state.in_((PROPOSED, TESTING))).order_by(Improvement.id))]
@@ -161,8 +164,11 @@ def resolve(db, *, keep: int, drop: int | None, resolved_by: str, why: str) -> d
         other = s.get(Improvement, partner) if partner else None
         if other is None:
             raise ImprovementRefused(f"improvement {keep} has no conflict partner to resolve")
-        proposers = {(r.evidence or {}).get("proposed_by") for r in (kept, other)}
-        if resolved_by in proposers - {None, ""}:
+        proposers = {normalise_actor((r.evidence or {}).get("proposed_by"))
+                     for r in (kept, other)}
+        if not normalise_actor(resolved_by):
+            raise ImprovementRefused("a conflict resolution names who resolved it")
+        if normalise_actor(resolved_by) in proposers - {""}:
             raise ImprovementRefused(
                 f"{resolved_by!r} proposed one side of this conflict and may not decide it")
         at = datetime.now(timezone.utc).isoformat()
@@ -327,7 +333,7 @@ def execute_approved(db, *, executor: str = "evaluator") -> dict:
 
     detect(db)
     with db.session() as s:
-        testing = [(r.id, r.cell, tuple((r.evidence or {}).get("touches") or ()),
+        testing = [(r.id, r.cell, normalise_touches((r.evidence or {}).get("touches") or ()),
                     (r.evidence or {}).get("approved_by") or "",
                     (r.evidence or {}).get("proposed_by") or "")
                    for r in s.scalars(select(Improvement).where(Improvement.state == TESTING)

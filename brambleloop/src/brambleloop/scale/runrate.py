@@ -424,3 +424,187 @@ def allowable_cac_risk_adjusted(*, price_cad: float, fee_rate: float, refund_rat
                  "the first order loses money before any ad is bought; no CAC is allowable "
                  "and the problem is the price or the cost of sale, not the campaign"),
     }
+
+
+# ---------------------------------------------------------------------------
+# The runtime half (certification repair C-48). `ops.capacity` used to hand `constraint()` an
+# empty `Observed()`, so no term was ever identifiable and no scale rule could fire (#25, #28).
+# This reads the funnel from the rows that record it. A term with no source stays None --
+# UNMEASURED -- and never becomes zero: zero orders from a shop that has never been live is
+# not a conversion rate of zero, it is no conversion rate at all.
+
+UNMEASURED = "UNMEASURED"
+WINDOW_DAYS = 30
+
+
+def _aware(value):
+    from datetime import timezone
+
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def orders_source_live(db) -> dict:
+    """Whether an order count of zero would be a measurement.
+
+    Orders are counted from the `orders` table, which only an order ingest writes. Until a
+    listing has been published or an order has been recorded, nothing could have produced a
+    row, so a count of zero says nothing about buyers and is reported UNMEASURED.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import Listing, Order
+
+    with db.session() as s:
+        orders_ever = s.scalar(select(func.count()).select_from(Order)) or 0
+        published = s.scalar(select(func.count()).select_from(Listing).where(
+            Listing.state == "published")) or 0
+    live = bool(orders_ever or published)
+    return {"live": live, "orders_ever": int(orders_ever), "published_listings": int(published),
+            "why": ("orders have been recorded or a listing is published, so a count is a "
+                    "measurement" if live else
+                    "no listing has been published and no order has ever been recorded, so an "
+                    "order count of zero would be the absence of a source reported as a "
+                    "number")}
+
+
+def observe(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
+    """The funnel as the database records it over the trailing window (C-48, #24, #25).
+
+    Sources, each read only where it exists:
+      * visits and impressions -- `listing_outcomes` rows whose period ends in the window;
+      * orders, revenue, contribution, repeat orders, refunds -- `orders`, once the order
+        source is live (see `orders_source_live`);
+      * revenue where no order rows exist -- ledger `sale` entries;
+      * listings -- published listings, which this database always knows;
+      * support rate -- support cases against orders, once there are orders.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry, Listing, ListingOutcome, Order, SupportCase
+
+    now = datetime.now(timezone.utc) if today is None else datetime(
+        today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
+    since = now - timedelta(days=window_days)
+    since_day = since.date().isoformat()
+    source = orders_source_live(db)
+
+    with db.session() as s:
+        outcomes = [r for r in s.scalars(select(ListingOutcome))
+                    if (r.period_end or "") >= since_day]
+        orders = [o for o in s.scalars(select(Order))
+                  if _aware(o.at) is not None and _aware(o.at) >= since]
+        sales = [x for x in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
+                 if _aware(x.at) is not None and _aware(x.at) >= since]
+        published = sum(1 for r in s.scalars(select(Listing)) if r.state == "published")
+        support = [c for c in s.scalars(select(SupportCase))
+                   if _aware(c.at) is not None and _aware(c.at) >= since]
+
+    visits = sum(int(r.visits or 0) for r in outcomes) if outcomes else None
+    impressions = sum(int(r.impressions or 0) for r in outcomes) if outcomes else None
+
+    if source["live"]:
+        kept = [o for o in orders if not o.refunded]
+        n_orders = len(kept)
+        revenue = round(sum(float(o.revenue_cad or 0.0) for o in kept), 2)
+        contribution = round(sum(float(o.contribution_cad or 0.0) for o in kept), 2)
+        repeat = sum(1 for o in kept if o.is_repeat)
+        refund_rate = (sum(1 for o in orders if o.refunded) / len(orders)) if orders else None
+        support_rate = (len(support) / len(orders)) if orders else None
+    else:
+        n_orders = revenue = contribution = repeat = refund_rate = support_rate = None
+        if sales:
+            # Money the ledger holds is real even when no order row exists for it.
+            revenue = round(sum(float(x.gross_cad or 0.0) for x in sales), 2)
+            contribution = round(sum(float(x.net_cad) for x in sales), 2)
+
+    observed = Observed(visits=visits, impressions=impressions, orders=n_orders,
+                        revenue_cad=revenue, contribution_cad=contribution,
+                        repeat_orders=repeat, listings=published)
+    unmeasured = [name for name, value in (
+        ("visits", visits), ("impressions", impressions), ("orders", n_orders),
+        ("revenue_cad", revenue), ("contribution_cad", contribution),
+        ("repeat_orders", repeat), ("refund_rate", refund_rate),
+        ("support_rate", support_rate)) if value is None]
+    return {
+        "observed": observed,
+        "refund_rate": refund_rate,
+        "support_rate": support_rate,
+        "window_days": window_days,
+        "since": since.isoformat(),
+        "orders_source": source,
+        "outcome_rows": len(outcomes),
+        "unmeasured": unmeasured,
+        "sources": {
+            "visits": "listing_outcomes" if outcomes else UNMEASURED,
+            "impressions": "listing_outcomes" if outcomes else UNMEASURED,
+            "orders": "orders" if source["live"] else UNMEASURED,
+            "revenue_cad": ("orders" if source["live"] else
+                            "ledger" if sales else UNMEASURED),
+            "listings": "listings (published)",
+            "support_rate": "support_cases / orders" if support_rate is not None
+            else UNMEASURED,
+        },
+    }
+
+
+def reading(value):
+    """A value as it is written to a reading: the number, or UNMEASURED. Never zero-for-None."""
+    return UNMEASURED if value is None else value
+
+
+def per_visitor_from_db(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
+    """#24 at runtime: rank SKUs on contribution per visitor from recorded outcomes.
+
+    A SKU enters the ranking only with recorded visits and a measured order count; the rest
+    are listed as UNMEASURED rather than ranked at a conversion of zero.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing, ListingOutcome, Order
+
+    now = datetime.now(timezone.utc) if today is None else datetime(
+        today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
+    since = now - timedelta(days=window_days)
+    live = orders_source_live(db)["live"]
+    with db.session() as s:
+        prices = {r.product_slug: float(r.price_cad or 0.0) for r in s.scalars(select(Listing))
+                  if r.version != "collection"}
+        visits: dict[str, int] = {}
+        for r in s.scalars(select(ListingOutcome)):
+            if (r.period_end or "") >= since.date().isoformat():
+                visits[r.product_slug] = visits.get(r.product_slug, 0) + int(r.visits or 0)
+        orders: dict[str, list] = {}
+        for o in s.scalars(select(Order)):
+            if _aware(o.at) is not None and _aware(o.at) >= since and not o.refunded:
+                orders.setdefault(o.product_slug, []).append(
+                    (float(o.revenue_cad or 0.0), float(o.contribution_cad or 0.0)))
+
+    candidates, unmeasured = [], []
+    for slug in sorted(set(prices) | set(visits)):
+        v = visits.get(slug)
+        if not v or not live:
+            unmeasured.append({"slug": slug, "reading": UNMEASURED,
+                               "why": ("no recorded visits" if not v else
+                                       "the order source is not live")})
+            continue
+        got = orders.get(slug, [])
+        revenue = sum(r for r, _ in got)
+        contribution = sum(c for _, c in got)
+        price = (revenue / len(got)) if got else prices.get(slug, 0.0)
+        if price <= 0:
+            unmeasured.append({"slug": slug, "reading": UNMEASURED, "why": "no price"})
+            continue
+        candidates.append({
+            "slug": slug, "price_cad": round(price, 2), "conversion": len(got) / v,
+            "contribution_rate": (contribution / revenue) if revenue else 1.0})
+    ranked = per_visitor(candidates) if candidates else {
+        "ranked": [], "best": None, "conversion_ranking_disagrees": None,
+        "note": "no SKU has recorded visits and a measured order count, so nothing is ranked"}
+    ranked["unmeasured"] = unmeasured
+    return ranked

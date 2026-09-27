@@ -94,6 +94,11 @@ TILT_FOR: dict[str, tuple[str, str]] = {
                            "one multiplies it"),
     "product_coverage": (MARKET_INTELLIGENCE, "there is not enough to sell, which is a "
                                               "selection question"),
+    # `runrate.constraint` names this term `coverage` (its TERMS key). Without the alias the
+    # first identifiable `cac_below_allowable` week would raise instead of tilting -- a path
+    # that could not be reached while the review only ever saw an empty observation.
+    "coverage": (MARKET_INTELLIGENCE, "there is not enough to sell, which is a selection "
+                                      "question"),
 }
 
 

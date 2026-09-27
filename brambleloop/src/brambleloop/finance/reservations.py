@@ -151,6 +151,9 @@ def outstanding_in(session, *, exclude_holder: str | None = None,
     for row in session.scalars(select(SpendReservation).where(
             SpendReservation.released_at.is_(None))):
         entry = {"id": row.id, "holder": row.holder, "agent": row.agent,
+                 # The table has no provider column; `check_budget_cad` writes it into
+                 # `detail` so a provider ceiling can count other holders' live claims.
+                 "provider": str((row.detail or {}).get("provider") or ""),
                  "purpose": row.purpose, "amount_cad": round(row.amount_cad or 0.0, 6),
                  "expires_at": (_aware(row.expires_at).isoformat()
                                 if row.expires_at else None)}

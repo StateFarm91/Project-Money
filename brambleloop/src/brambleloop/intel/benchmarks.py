@@ -256,6 +256,14 @@ def seed(db) -> list[str]:
                 continue
             for field_name in declared:
                 current, want = getattr(row, field_name), getattr(spec, field_name)
+                # A recorded `moved` resolution is observed state, not drift: the deploy must
+                # not quietly put back the URL Etsy stopped serving (#206). Only a move that
+                # still names this shop is kept; anything else reverts to the declaration.
+                if (field_name == "canonical_url" and current != want
+                        and (row.scan_health or {}).get("state") == MOVED
+                        and (shop_segment(current) or "").lower()
+                        == spec.shop_name.lower()):
+                    continue
                 if current != want:
                     setattr(row, field_name, want)
                     changes.append(f"{spec.key}.{field_name} updated")
@@ -275,8 +283,28 @@ def record_resolution(db, resolution: Resolution) -> None:
         if row is None:
             return
         row.scan_health = resolution.to_dict()
-        if resolution.checked_at is not None:
-            row.last_scan_at = resolution.checked_at
+        # The check time lives in `scan_health.checked_at`. It used to be written into
+        # `last_scan_at` as well, which made a URL health check read as a catalogue scan on
+        # the mission dashboard -- the one timestamp that must mean the catalogue was read.
         # A `moved` result updates where we look. A `wrong_shop` result never does.
         if resolution.state == MOVED:
             row.canonical_url = resolution.url
+
+
+def fetcher_for(db, env: dict[str, str] | None = None) -> Fetcher | None:
+    """The fetcher `resolve` may use, or None when no observation capability is proven.
+
+    A rendered-page worker counts only once `intel.browser` has recorded a successful fetch;
+    an endpoint that is merely configured is the typed-string gate this company already
+    refused once. With None, `resolve` answers `unverified` -- never `healthy`.
+    """
+    from . import browser
+
+    if not (browser.configured(env) and browser.usable(db)):
+        return None
+
+    def _fetch(url: str) -> "tuple[int, str]":
+        got = browser.fetch(url, env=env)
+        return int(got.get("status") or 200), str(got.get("final_url") or url)
+
+    return _fetch

@@ -422,6 +422,74 @@ def classify(*, product_class: str, assets: list[AssetClaim],
                           disclosures=sorted(set(disclosures)), problems=problems)
 
 
+# ---------------------------------------------------------------------------
+# #35 in the runtime: every release is classified before its listing is written
+
+CLASSIFIED_ACTION = "listing.classified"
+
+# The listing frames `publish.listing_assets` renders, by the role each plays, onto the asset
+# roles this gate reasons about. Every one is a deterministic render of the certified pattern.
+FRAME_ROLE: dict[str, str] = {
+    "hero": "primary_listing_image",
+    "whats_included": "pattern_page_preview",
+    "size": "scale_reference",
+    "materials": "pattern_page_preview",
+    "pattern_preview": "pattern_page_preview",
+    "chart": "chart_render",
+    "collection": "mood_frame",
+}
+
+# Model-rendered frames by the job they do. Each makes a claim about the finished object,
+# which is the point: a generated image in one of these roles is refused, labelled or not.
+GENERATED_ROLE: dict[str, str] = {
+    "hero": "finished_object_photo", "fit": "finished_object_photo",
+    "lifestyle": "finished_object_photo", "detail": "detail_photo",
+    "scale": "scale_reference",
+}
+
+
+def release_assets(frames: list[dict], generated: list[dict] | None = None) -> list[AssetClaim]:
+    """The asset claims a release's listing gallery makes, from the records on file.
+
+    `frames` are the deterministic frames `assets.build` stored; `generated` are the
+    model-rendered photography frames the parity gate judges. A frame role this gate has no
+    mapping for is refused rather than guessed into a permissive role.
+    """
+    claims: list[AssetClaim] = []
+    for frame in frames:
+        role = FRAME_ROLE.get(str(frame.get("role") or ""))
+        if role is None:
+            raise PolicyRefused(
+                f"listing frame role {frame.get('role')!r} has no asset-role mapping "
+                f"({sorted(FRAME_ROLE)}); an unmapped frame cannot be classified")
+        claims.append(AssetClaim(ref=f"frame-{frame.get('position')}", role=role,
+                                 generated=False, deterministic_render=True, labelled=True))
+    for i, frame in enumerate(generated or [], start=1):
+        job = str(frame.get("role") or frame.get("shot") or "hero")
+        claims.append(AssetClaim(
+            ref=str(frame.get("image_ref") or f"generated-{i}"),
+            role=GENERATED_ROLE.get(job, "finished_object_photo"), generated=True,
+            deterministic_render=False,
+            labelled=bool(frame.get("disclosed_as_illustration", False))))
+    return claims
+
+
+def classify_release(frames: list[dict], generated: list[dict] | None = None, *,
+                     ai_assisted_design: bool = True) -> Classification:
+    """#35 for one release: Brambleloop sells seller-designed digital patterns whose design
+    was developed with AI assistance, so the class is `ai_assisted_design`, digital."""
+    return classify(product_class=AI_ASSISTED_DESIGN if ai_assisted_design
+                    else SELLER_DESIGNED_DIGITAL,
+                    assets=release_assets(frames, generated),
+                    ai_assisted_design=ai_assisted_design, digital=True)
+
+
+def disclosure_block(classification: Classification) -> str:
+    """The owed disclosures as a description section, verbatim, so the gate can find them."""
+    lines = ["DISCLOSURES"] + [f"- {d}" for d in classification.disclosures]
+    return "\n".join(lines)
+
+
 def describe() -> dict:
     return {
         "policy_sources": {k: {"url": v[0], "affects": list(v[1])}

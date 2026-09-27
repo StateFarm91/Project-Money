@@ -50,6 +50,26 @@ CELL_FOR_DIMENSION: dict[str, str] = {
 
 assert set(CELL_FOR_DIMENSION) == set(DIMENSIONS)
 
+# The surfaces a change arising from each dimension touches, declared so a finding can be
+# promoted without anybody inventing them per finding (#164). None is a protected gate: a
+# teardown finding that needed one would be refused by governance, which is the point.
+TOUCHES_FOR_DIMENSION: dict[str, tuple[str, ...]] = {
+    "product_creativity": ("prompt",),
+    "pattern_correctness_evidence": ("code",),
+    "instruction_clarity": ("wording", "code"),
+    "chart_quality": ("code",),
+    "beginner_support": ("wording",),
+    "premium_presentation": ("code",),
+    "video_support": ("code",),
+    "materials_clarity": ("wording",),
+    "delivery_packaging": ("code",),
+    "support_experience": ("wording",),
+    "listing_promise_alignment": ("copy",),
+    "perceived_value": ("priority",),
+}
+
+assert set(TOUCHES_FOR_DIMENSION) == set(DIMENSIONS)
+
 # The dimensions #168 names as the ones a buyer experiences directly in the first ten minutes
 # after paying. Being behind on video support is a gap; being behind on instruction clarity is
 # a refund.

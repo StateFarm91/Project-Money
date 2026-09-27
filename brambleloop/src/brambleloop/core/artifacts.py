@@ -70,6 +70,20 @@ class ArtifactStore:
                     f"file on disk with no record of the job, commit and authority that "
                     f"made it is exactly the artefact the sentinel can only call unproven")
         digest = hashlib.sha256(payload).hexdigest()
+        if artefact_class is not None:
+            # Certification C-28: absent is not the only way to lack a lineage. The same
+            # validation `record_lineage` applies runs here, before any byte reaches disk,
+            # against the hash of the bytes being stored (a lineage that names a different
+            # file is refused rather than corrected).
+            if isinstance(lineage, provenance.Lineage) and lineage.sha256 and \
+                    lineage.sha256 != digest:
+                raise provenance.ProvenanceRefused(
+                    f"refusing to store {key!r}: its lineage names file "
+                    f"{lineage.sha256[:12]} and these bytes hash to {digest[:12]}")
+            provenance._check_lineage(
+                artefact_class,
+                lineage.for_file(digest) if isinstance(lineage, provenance.Lineage)
+                and not lineage.sha256 else lineage)
         path = self.root / digest[:2] / digest
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():

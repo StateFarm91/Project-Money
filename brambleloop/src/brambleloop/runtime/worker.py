@@ -406,6 +406,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # before a single request is made. Two hours is the adaptive floor; with thin history it
     # falls back to six hours and says so.
     ("mjs_scan", "market_radar", "mjs.scan", 2 * 60 * 60),
+    # Certification C-40 (#2, #15, #98): daily capture of the API search index for the pod
+    # vocabulary, labelled api_index_score_sort -- directional, never the rendered page.
+    ("serp_capture", "market_radar", "intel.serp_capture", 24 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the
     # customer_pain domain without this company having customers. It keeps counts per theme
     # and no review text, reviewer or quotation.

@@ -148,7 +148,7 @@ def _counts(db) -> dict:
 def ladder(db, *, observed_conversion: float = 0.0, conversion_sample: int = 0,
            selling_skus: int = 0, product_families: int = 0,
            acquisition_loops: int = 0, repeat_orders: int = 0,
-           top_sku_revenue_share: float = 1.0) -> list[Rung]:
+           top_sku_revenue_share: float = 1.0, stress: dict | None = None) -> list[Rung]:
     """The seven layers of #274, each computed from what exists.
 
     The optional arguments are counts a caller supplies from systems that do not exist yet
@@ -263,10 +263,33 @@ def ladder(db, *, observed_conversion: float = 0.0, conversion_sample: int = 0,
     # portfolio with nothing in it is not diversified, it is empty.
     resilience = 0.0 if selling_skus == 0 else round(
         min(1.0, (1.0 - top_sku_revenue_share) / 0.6) * min(1.0, product_families / 2.0), 3)
+    # #270: the stress test is part of the confidence, not a report beside it. A portfolio
+    # whose target collapses under one plausible failure is capped by how much of the target
+    # the worst single loss leaves standing; one with no revenue to stress stays at zero and
+    # says the stress test is UNMEASURED rather than passed.
+    stress_evidence: dict = {"stress_test": "not supplied"}
+    if stress is not None:
+        if not stress.get("testable"):
+            resilience = 0.0
+            stress_evidence = {"stress_test": "UNMEASURED",
+                               "why": stress.get("reason", "no revenue to stress"),
+                               "refused": [r.get("scenario") for r in
+                                           stress.get("refused", [])]}
+        else:
+            target = float(stress.get("target_cad") or 0.0)
+            remaining = [float(x.get("remaining_cad", 0.0)) for x in stress.get("scenarios", [])]
+            worst = min(remaining) if remaining else 0.0
+            survives_share = min(1.0, worst / target) if target else 0.0
+            if stress.get("fragile_to"):
+                resilience = round(min(resilience, survives_share), 3)
+            stress_evidence = {"stress_test": "measured",
+                               "fragile_to": list(stress.get("fragile_to") or []),
+                               "worst_single_loss_leaves_cad": round(worst, 2),
+                               "share_of_target_surviving": round(survives_share, 3)}
     rungs.append(Rung(
         "portfolio_resilience", resilience, True,
         {"selling_skus": selling_skus, "product_families": product_families,
-         "top_sku_revenue_share": top_sku_revenue_share},
+         "top_sku_revenue_share": top_sku_revenue_share, **stress_evidence},
         "revenue spread across several SKUs in more than one family, so losing the best "
         "one does not lose the target"))
 

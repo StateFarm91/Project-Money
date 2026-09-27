@@ -213,3 +213,72 @@ def state() -> dict:
                  "catalogue look busy. A bundle of one pod is a set; across four it is a "
                  "raffle (#234)."),
     }
+
+
+def attribution_from_db(db, *, today=None) -> dict:
+    """#45 at runtime: every bundle in the pool measured from recorded orders.
+
+    The bundle's launch is its first recorded order, or its drafted listing when it has none.
+    The baseline is the same-length window before that for its components. With no orders --
+    today -- `bundle_effect` refuses for want of a baseline and `amplification_check` refuses
+    the win: Winner Amplification may not be declared, and the reading says UNMEASURED.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing, Order
+    from ..radar.opportunity import POOL
+    from ..scale.runrate import orders_source_live
+    from .attribution import Period, amplification_check, bundle_effect
+
+    live = orders_source_live(db)["live"]
+
+    def _aware(v):
+        return v if v is None or v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+    now = datetime.now(timezone.utc) if today is None else datetime(
+        today.year, today.month, today.day, tzinfo=timezone.utc) + timedelta(days=1)
+    with db.session() as s:
+        orders = [(o.product_slug, _aware(o.at), float(o.revenue_cad or 0.0),
+                   float(o.contribution_cad or 0.0))
+                  for o in s.scalars(select(Order).where(Order.refunded.is_(False)))]
+        drafted = {r.product_slug: _aware(r.created_at) for r in s.scalars(select(Listing))}
+
+    def _period(slug: str, start, end) -> Period:
+        got = [(r, c) for sl, at, r, c in orders if sl == slug and start <= at < end]
+        return Period(slug, len(got), round(sum(r for r, _ in got), 2),
+                      round(sum(c for _, c in got), 2))
+
+    rows = []
+    for bundle in [m for m in POOL if m.is_bundle]:
+        members = [m.slug for m in POOL if m.family == bundle.family and not m.is_bundle]
+        first_sale = min((at for sl, at, _, _ in orders if sl == bundle.slug), default=None)
+        launched = first_sale or drafted.get(bundle.slug)
+        if launched is None:
+            rows.append({"bundle": bundle.slug, "verdict": "unmeasured",
+                         "may_declare_winner": False,
+                         "why": "the bundle has neither a listing nor an order, so it has no "
+                                "launch to measure from"})
+            continue
+        if not live:
+            rows.append({"bundle": bundle.slug, "verdict": "unmeasured",
+                         "may_declare_winner": False,
+                         "why": "no order source is live, so neither window has a count"})
+            continue
+        span = max(timedelta(days=1), now - launched)
+        # With a live order source a component that sold nothing in a window sold nothing:
+        # that zero is a measurement, and it is the baseline the bundle is judged against.
+        before = [_period(m, launched - span, launched) for m in members]
+        after = [_period(m, launched, now) for m in members]
+        effect = bundle_effect(bundle.slug, bundle=_period(bundle.slug, launched, now),
+                               components_before=before, components_after=after)
+        check = amplification_check(effect)
+        rows.append({"bundle": bundle.slug, "launched": launched.isoformat(),
+                     "members": members, **effect.to_dict(),
+                     "may_declare_winner": check["may_declare_winner"],
+                     "amplification": check})
+    return {"bundles": rows,
+            "winners_declarable": [r["bundle"] for r in rows if r["may_declare_winner"]],
+            "note": ("contribution decides; a bundle with no baseline window cannot be called "
+                     "a winner however well it sells (#45)")}

@@ -339,3 +339,63 @@ def report(db, *, target_cad: float = 5000.0) -> dict:
         "stress_test": stress,
         "diversification_plan": diversification_plan(shaped, conc, stress),
     }
+
+
+# ---------------------------------------------------------------------------
+# #232 at creation time: the role the next product is created *for*.
+#
+# Roles only guide creation if something upstream of engineering reads the gap and writes the
+# brief to it. These are what each creatable role asks of a concept -- the make lanes it
+# belongs in and one sentence for the brief -- so the ideation handlers can aim a field at the
+# portfolio's hole rather than at the next listing count. RETIRE is not creatable.
+ROLE_BRIEF: dict[str, dict] = {
+    HERO: {"lanes": ("MEDIUM", "LONG", "FLAGSHIP"),
+           "brief": "a traffic and revenue driver: the product the shop is found by"},
+    CORE: {"lanes": ("SHORT", "MEDIUM"),
+           "brief": "a reliable evergreen or seasonal earner that sells every year"},
+    ENTRY: {"lanes": ("QUICK", "SHORT"),
+            "brief": "a low-friction first purchase: quick, cheap and finishable"},
+    BUNDLE: {"lanes": ("QUICK", "SHORT", "MEDIUM"),
+             "brief": "a product that raises order value by belonging to a set"},
+    CROSS_SELL: {"lanes": ("QUICK", "SHORT"),
+                 "brief": "an attachment bought beside something the shop already sells"},
+    EXPERIMENT: {"lanes": ("QUICK", "SHORT", "MEDIUM", "LONG", "FLAGSHIP"),
+                 "brief": "a learning vehicle, expected to mostly fail"},
+}
+
+
+def next_role(positions: list[Position], *, pending: list[str] | None = None) -> dict:
+    """The role the next product should be created for, from the portfolio's gaps (#232).
+
+    `pending` is the roles already assigned to concepts that have not become products yet, so
+    two ideation runs in a week do not both chase the same hole. The choice is the creatable
+    role furthest below its healthy share in the *projected* catalogue; ties break in ROLES
+    order so the answer is reproducible.
+    """
+    pending = [r for r in (pending or []) if r in ROLE_BRIEF]
+    projected = list(positions) + [Position(slug=f"pending-{i}", role=r)
+                                   for i, r in enumerate(pending)]
+    report = shape(projected)
+    total = max(1, report["skus"])
+    shortfall: dict[str, float] = {}
+    for role, (low, _high) in HEALTHY_SHARE.items():
+        shortfall[role] = low - report["counts"][role] / total
+    ranked = sorted(HEALTHY_SHARE, key=lambda r: (-shortfall[r], ROLES.index(r)))
+    role = ranked[0]
+    if shortfall[role] <= 0:
+        # Every creatable role is at or above its floor: the portfolio has no hole, and the
+        # next product is a learning vehicle rather than a fill.
+        role = EXPERIMENT
+    return {
+        "role": role,
+        "lanes": list(ROLE_BRIEF[role]["lanes"]),
+        "brief": ROLE_BRIEF[role]["brief"],
+        "shortfall": round(max(0.0, shortfall.get(role, 0.0)), 3),
+        "catalogue_skus": len(positions),
+        "pending": pending,
+        "projected_counts": report["counts"],
+        "roles_absent": report["roles_absent"],
+        "why": (f"{role} is the creatable role furthest below its healthy share once the "
+                f"{len(pending)} role(s) already assigned to undeveloped concepts are counted: "
+                f"product creation follows the portfolio's gap, not the listing count (#232)"),
+    }

@@ -456,7 +456,9 @@ def _frozen_db(tmp_face: Path) -> Database:
 
 def _approval(**overrides) -> dict:
     record = {"at": "2026-10-01", "decision": "adopt the repaired portrait of the same woman",
-              "supersedes_version": 1, "scope": "portrait_repair"}
+              "supersedes_version": 1, "scope": "portrait_repair",
+              # certification C-26: an approval names who approved it; none is assumed
+              "approved_by": "owner"}
     record.update(overrides)
     return record
 

@@ -277,3 +277,72 @@ def holdout(organic: Arm | None, promoted: Arm | None) -> dict:
                  "the promoted arm produced no orders beyond what the organic rate predicts "
                  "for its traffic: this spend bought visits, not sales"),
     }
+
+
+def record_price_set(db, *, product_slug: str, category: str, price_cad: float,
+                     season: str = "", traffic_source: str = "unattributed",
+                     on_sale: bool = False, set_by: str = "pricing.position") -> dict:
+    """Open a price point when pricing sets or changes a price (#46).
+
+    Called by `pricing.position` every time it positions a product. A price that has not
+    changed since the last open point is not a new observation and is not re-recorded, so a
+    rebuild cannot manufacture a flat history. The row starts with no visits and no orders
+    because none have accrued yet; `detail.reading` says so, and `memory()` counts it as an
+    unreadable point rather than as a price that sold nothing.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PriceObservation
+
+    with db.session() as s:
+        last = s.scalar(select(PriceObservation).where(
+            PriceObservation.product_slug == product_slug).order_by(
+                PriceObservation.id.desc()).limit(1))
+        if last is not None and round(float(last.price_cad), 2) == round(float(price_cad), 2) \
+                and bool(last.on_sale) == bool(on_sale):
+            return {"recorded": False, "id": last.id, "price_cad": last.price_cad,
+                    "why": "unchanged since the open price point"}
+        previous = round(float(last.price_cad), 2) if last is not None else None
+        today = date.today().isoformat()
+        if last is not None and last.to_date >= today:
+            last.to_date = today
+    row_id = record(db, PricePoint(
+        product_slug=product_slug, category=category, price_cad=float(price_cad),
+        visits=0, orders=0, revenue_cad=0.0, contribution_cad=0.0, season=season,
+        traffic_source=traffic_source, on_sale=on_sale))
+    with db.session() as s:
+        row = s.get(PriceObservation, row_id)
+        row.detail = {"set_by": set_by, "previous_price_cad": previous,
+                      "reading": ("UNMEASURED: the point opened when the price was set; "
+                                  "visits and orders accrue only once the listing is live")}
+    return {"recorded": True, "id": row_id, "price_cad": float(price_cad),
+            "previous_price_cad": previous}
+
+
+def holdout_from_db(db, product_slug: str) -> dict:
+    """#48 at runtime: the latest organic and promoted cohorts for a product, compared.
+
+    With one arm or none the answer is `separable: False` and says which arm is missing --
+    the case every product is in today, and the reason a promotion may not be scaled on its
+    own conversion rate.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Cohort
+
+    with db.session() as s:
+        rows = list(s.scalars(select(Cohort).where(Cohort.product_slug == product_slug)
+                              .order_by(Cohort.id)))
+    latest: dict[str, Arm] = {}
+    for r in rows:
+        if r.arm in ARMS:
+            latest[r.arm] = Arm(key=r.key, product_slug=r.product_slug, arm=r.arm,
+                                visits=int(r.visits or 0), orders=int(r.orders or 0),
+                                revenue_cad=float(r.revenue_cad or 0.0),
+                                spend_cad=float(r.spend_cad or 0.0),
+                                assisted=int(r.assisted or 0), direct=int(r.direct or 0))
+    out = holdout(latest.get(ORGANIC), latest.get(PROMOTED))
+    out["product"] = product_slug
+    out["cohorts"] = len(rows)
+    out["have_promoted"] = PROMOTED in latest
+    return out

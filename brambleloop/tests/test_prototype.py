@@ -161,6 +161,22 @@ def test_no_model_is_consulted_about_what_the_pattern_says():
         assert forbidden not in source, forbidden
 
 
+def test_a_garment_concept_is_authored_from_its_own_words():
+    """Audit C-8: two garment concepts that differ only in palette, motif and feeling are
+    authored as different CIRs by the prototype stage, deterministically."""
+    import dataclasses
+    a = dataclasses.replace(_concept("fitted_garment", "top_down_yoke", "g-a"), pod="garments")
+    b = dataclasses.replace(a, key="g-b", palette_story="sea glass", motif="tidepool ripples",
+                            feeling="serene")
+    ca, cb = P.author(a), P.author(b)
+    assert compile_cir(ca).ok and compile_cir(cb).ok
+    assert ca.fingerprint != cb.fingerprint
+    assert set(ca.colors) == {"ember", "soot"} and set(cb.colors) == {"sea-glass"}
+    loops = lambda c: {o.loop for r in c.components[0].rows for o in r.ops}  # noqa: E731
+    assert loops(ca) != loops(cb)
+    assert P.author(a).fingerprint == ca.fingerprint
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

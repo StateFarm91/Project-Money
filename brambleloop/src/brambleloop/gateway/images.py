@@ -715,8 +715,11 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     key = key_for(provider.key, e) if provider else ""
     if provider is None or not key:
         want = provider.key if provider else "a provider"
+        # Certification C-37: with no provider configured there is no account to name, and
+        # reading `.account` off None raised AttributeError instead of this refusal.
+        named = f"Set {key_var(provider.account)} if it is named, or " if provider else "Set "
         raise ImagesNotConfigured(
-            f"no credential for {want}. Set {key_var(provider.account)} if it is named, or "
+            f"no credential for {want}. {named}"
             f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
             f"key. This is the state the gate describes rather than a failure to retry")
 

@@ -85,9 +85,10 @@ def test_tactics_are_split_by_what_actually_happened_to_them():
         db, cell="quality",
         hypothesis="tightening the chart check before certification should catch defects",
         expected_effect="fewer defects after release", rollback_ref="git:aaa",
-        touches=("weights",))
+        touches=("weights",), proposed_by="quality_director")
     cells.test_result(db, good, 0.20)
-    cells.promote(db, good)
+    cells.approve(db, good, approved_by="evaluator", why="beat the baseline")
+    cells.promote(db, good, promoted_by="evaluator")
 
     bad = cells.propose(
         db, cell="quality",

@@ -154,9 +154,15 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
             "to work out how to undo it")
 
     governance.check(hypothesis, touches=touches, reversible=reversible,
-                     spend_cad=spend_cad,
-                     spend_authorised_cad=spend_authorised_cad).raise_if_refused()
+                     spend_cad=spend_cad, spend_authorised_cad=spend_authorised_cad,
+                     cell=cell).raise_if_refused()
 
+    # Surfaces and the proposer are stored normalised, so every later comparison -- the
+    # tier, the Director's shared-surface check, separation of duties -- compares like with
+    # like (C-19, C-22). An unattributed proposal is recorded as such: it can be tested and
+    # judged, and it can never be promoted, because nobody can be shown not to be its author
+    # (C-18).
+    proposer = governance.normalise_actor(proposed_by)
     baseline = latest_capability(db, cell)
     with db.session() as s:
         row = Improvement(cell=cell, metric=BY_KEY[cell].metric, hypothesis=hypothesis,
@@ -164,8 +170,9 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
                           baseline_ref=f"capability:{cell}:{len(capability_history(db, cell))}",
                           expected_effect=expected_effect, rollback_ref=rollback_ref,
                           cost_cad=spend_cad,
-                          evidence={"touches": list(touches),
-                                    **({"proposed_by": proposed_by} if proposed_by else {})})
+                          evidence={"touches": list(governance.normalise_touches(touches)),
+                                    **({"proposed_by": proposer} if proposer
+                                       else {"unattributed": True})})
         s.add(row)
         s.flush()
         return row.id
@@ -219,7 +226,7 @@ def approve(db, improvement_id: int, *, approved_by: str, why: str = "") -> dict
     from ..core.models import Improvement
     from . import roles
 
-    who = (approved_by or "").strip()
+    who = governance.normalise_actor(approved_by)
     if not who:
         raise ImprovementRefused("an approval names who approved")
     if who in roles.BY_KEY and roles.JUDGE not in roles.BY_KEY[who].powers:
@@ -234,15 +241,19 @@ def approve(db, improvement_id: int, *, approved_by: str, why: str = "") -> dict
             raise ImprovementRefused(
                 f"improvement {improvement_id} is {row.state!r}; only a change that beat its "
                 f"baseline in the sandbox can be approved")
-        proposer = (row.evidence or {}).get("proposed_by") or ""
+        proposer = governance.normalise_actor((row.evidence or {}).get("proposed_by"))
         if proposer and proposer == who:
             raise ImprovementRefused(
                 f"{who} proposed improvement {improvement_id} and may not approve it. The "
                 f"proposing agent may not be the judge of its own change")
+        # Recorded either way; for an unattributed proposal the approval cannot be shown to
+        # be independent, so `promote` will refuse it however it was judged.
         row.evidence = {**(row.evidence or {}), "approved_by": who,
                         "approved_because": why,
+                        "approval_independent": bool(proposer),
                         "approved_at": datetime.now(timezone.utc).isoformat()}
-    return {"improvement": improvement_id, "approved_by": who, "proposed_by": proposer}
+    return {"improvement": improvement_id, "approved_by": who, "proposed_by": proposer,
+            "independent": bool(proposer)}
 
 
 def promote(db, improvement_id: int, *,
@@ -268,25 +279,43 @@ def promote(db, improvement_id: int, *,
                 f"baseline recorded before it may be promoted (#92)")
         if not row.rollback_ref:
             raise ImprovementRefused("cannot promote without a rollback path (#93)")
-        touches = tuple((row.evidence or {}).get("touches") or ())
+        if row.baseline_value is None or row.result_value is None or not (
+                row.result_value > row.baseline_value if BY_KEY[row.cell].higher_is_better
+                else row.result_value < row.baseline_value):
+            raise ImprovementRefused(
+                f"improvement {improvement_id} has no recorded result better than its "
+                f"recorded baseline ({row.result_value} against {row.baseline_value}); only "
+                f"a change that beat a baseline recorded before it may be promoted (#92)")
+        touches = governance.normalise_touches((row.evidence or {}).get("touches") or ())
         carried = _evidence_kinds(row, extra=evidence)
-        proposer = (row.evidence or {}).get("proposed_by") or ""
-        approver = (row.evidence or {}).get("approved_by") or ""
+        proposer = governance.normalise_actor((row.evidence or {}).get("proposed_by"))
+        approver = governance.normalise_actor((row.evidence or {}).get("approved_by"))
+    promoter = governance.normalise_actor(promoted_by)
 
-    # Separation of duties. A change with a recorded proposer is promoted by somebody else,
-    # named, and never on its own proposer's approval: an agent promoting its own unproven
-    # change is the unsupervised rewriting #178 forbids, arriving through the front door.
-    if proposer:
-        if not promoted_by:
-            raise ImprovementRefused(
-                f"improvement {improvement_id} was proposed by {proposer!r}; its promotion "
-                f"has to name who is promoting it, so that it can be shown not to be them")
-        if promoted_by == proposer:
-            raise ImprovementRefused(
-                f"{proposer!r} proposed improvement {improvement_id} and may not promote it. "
-                f"The proposing agent may not be the judge of its own change")
-        if approver == proposer:  # pragma: no cover - approve() already refuses this
-            raise ImprovementRefused("a change approved by its own proposer is unapproved")
+    # Separation of duties, at the door itself rather than at the callers that thought of it
+    # (C-17, C-18, C-19). A change is promoted only when it has a recorded proposer, an
+    # approval recorded by somebody else, and a named promoter who is not the proposer. All
+    # three names are compared normalised, so 'Listing' and 'listing ' are listing.
+    if not proposer:
+        raise ImprovementRefused(
+            f"improvement {improvement_id} has no recorded proposer, so no approval or "
+            f"promotion of it can be shown to be independent of its author. Separation of "
+            f"duties is not opt-in: re-propose it with `proposed_by`")
+    if not promoter:
+        raise ImprovementRefused(
+            f"improvement {improvement_id} was proposed by {proposer!r}; its promotion "
+            f"has to name who is promoting it, so that it can be shown not to be them")
+    if promoter == proposer:
+        raise ImprovementRefused(
+            f"{proposer!r} proposed improvement {improvement_id} and may not promote it. "
+            f"The proposing agent may not be the judge of its own change")
+    if not approver:
+        raise ImprovementRefused(
+            f"improvement {improvement_id} beat its baseline and has not been approved. "
+            f"Promotion needs an approval recorded by a judge independent of its proposer "
+            f"(`approve`), not only a better number")
+    if approver == proposer:
+        raise ImprovementRefused("a change approved by its own proposer is unapproved")
 
     # The Improvement Director (#91): two cells optimising the same surface, or metrics
     # that trade against each other, promote neither until the conflict is resolved.
@@ -316,7 +345,7 @@ def promote(db, improvement_id: int, *,
         row.promoted_at = datetime.now(timezone.utc)
         row.evidence = {**(row.evidence or {}), "tier": graded["tier"],
                         "tier_evidence": graded["satisfied"],
-                        **({"promoted_by": promoted_by} if promoted_by else {})}
+                        "promoted_by": promoter}
         cell, result_value = row.cell, row.result_value
 
     tiers.record_promotion(db, tier=graded["tier"],
@@ -327,24 +356,100 @@ def promote(db, improvement_id: int, *,
     return PROMOTED
 
 
+# The one identity whose approval satisfies a gate-tier promotion. Owner approval is recorded
+# on the row by `record_owner_approval`, never asserted by the promoting caller (C-21).
+OWNER = "owner"
+
+# Evidence kinds that exist only as a record on the improvement row. A caller naming one of
+# these at promotion without the record is refused, not believed: "evidence=(REGRESSION_TEST,)"
+# is a string, and a string is not a test result.
+RECORDED_KINDS: tuple[str, ...] = ("regression_test", "adversarial_test", "owner_approval")
+
+
+def record_test(db, improvement_id: int, *, kind: str, ref: str, passed: bool,
+                recorded_by: str) -> dict:
+    """Record a regression or adversarial test run against this improvement.
+
+    The record names the run (`ref`: a test id, a job id, a commit) and who recorded it, and
+    the recorder may not be the proposer. A failed run is recorded too, and it does not count.
+    """
+    from ..core.models import Improvement
+    from . import tiers
+
+    if kind not in (tiers.REGRESSION_TEST, tiers.ADVERSARIAL_TEST):
+        raise ImprovementRefused(
+            f"{kind!r} is not a test kind; recorded tests are "
+            f"{[tiers.REGRESSION_TEST, tiers.ADVERSARIAL_TEST]}")
+    who = governance.normalise_actor(recorded_by)
+    if not who or not (ref or "").strip():
+        raise ImprovementRefused("a test record names the run and who recorded it")
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        if who == governance.normalise_actor((row.evidence or {}).get("proposed_by")):
+            raise ImprovementRefused(
+                f"{who!r} proposed improvement {improvement_id} and may not record the tests "
+                f"that clear it")
+        tests = dict((row.evidence or {}).get("tests") or {})
+        tests[kind] = {"ref": ref.strip(), "passed": bool(passed), "by": who,
+                       "at": datetime.now(timezone.utc).isoformat()}
+        row.evidence = {**(row.evidence or {}), "tests": tests}
+    return {"improvement": improvement_id, "kind": kind, "passed": bool(passed)}
+
+
+def record_owner_approval(db, improvement_id: int, *, approved_by: str, why: str) -> dict:
+    """The owner's decision on a gate-tier change, recorded on the row it approves."""
+    from ..core.models import Improvement
+
+    who = governance.normalise_actor(approved_by)
+    if who != OWNER:
+        raise ImprovementRefused(
+            f"{approved_by!r} is not the owner. A gate-tier change reaches production only "
+            f"with the owner's recorded decision")
+    if len((why or "").split()) < 3:
+        raise ImprovementRefused("an owner approval says why; this is a label")
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        row.evidence = {**(row.evidence or {}),
+                        "owner_approval": {"by": who, "because": why,
+                                           "at": datetime.now(timezone.utc).isoformat()}}
+    return {"improvement": improvement_id, "owner_approved": True}
+
+
 def _evidence_kinds(row, *, extra: tuple[str, ...] = ()) -> tuple[str, ...]:
     """What this improvement actually carries, read off the row rather than asserted.
 
-    A caller may add the kinds only it knows about -- that a regression test was written, that
-    the owner approved -- and may not add the ones the row can be asked about directly.
+    Every kind is read from the row: the baseline, the sandbox result and the rollback from
+    their columns, the tests from `record_test`, the owner's approval from
+    `record_owner_approval`. A caller may name kinds it expects the row to carry, and naming
+    one the row does not carry is refused rather than believed (C-21).
     """
     from . import tiers
 
-    carried = set(extra)
-    carried.discard(tiers.BASELINE)
-    carried.discard(tiers.SANDBOX_RESULT)
-    carried.discard(tiers.ROLLBACK)
+    evidence = row.evidence or {}
+    carried = set()
     if row.baseline_value is not None:
         carried.add(tiers.BASELINE)
     if row.result_value is not None:
         carried.add(tiers.SANDBOX_RESULT)
     if row.rollback_ref:
         carried.add(tiers.ROLLBACK)
+    for kind, record in (evidence.get("tests") or {}).items():
+        if isinstance(record, dict) and record.get("passed") and record.get("ref"):
+            carried.add(kind)
+    owner = evidence.get("owner_approval") or {}
+    if isinstance(owner, dict) and governance.normalise_actor(owner.get("by")) == OWNER:
+        carried.add(tiers.OWNER_APPROVAL)
+    asserted = [kind for kind in extra if kind not in carried
+                and kind not in (tiers.BASELINE, tiers.SANDBOX_RESULT, tiers.ROLLBACK)]
+    if asserted:
+        raise ImprovementRefused(
+            f"evidence {asserted} was asserted by the caller and is not recorded on "
+            f"improvement {row.id}. Record it with `record_test` or `record_owner_approval`; "
+            f"a named kind is not a result")
     return tuple(sorted(carried))
 
 

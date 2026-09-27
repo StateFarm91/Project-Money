@@ -304,13 +304,39 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     """
     from ..finance import reservations, spend_policy, spend_report
 
+    import math
+
     me = holder or reservations.holder_id()
     spent = spent_this_month_cad(db, now=now)
     mine = max(0.0, float(uncommitted_cad or 0.0))
     others = reservations.outstanding(db, exclude_holder=me, now=now)
     committed = round(spent + mine + others["cad"], 6)
     ceiling = monthly_ceiling_cad()
-    estimate = round(float(estimate_cad), 6)
+    try:
+        raw_estimate = float(estimate_cad)
+    except (TypeError, ValueError):
+        raw_estimate = float("nan")
+    # Certification C-36: NaN compares False against every ceiling and a negative estimate
+    # subtracts from what is committed, so either would pass a spent month. Refused, with
+    # the refusal recorded like every other (the raw value in detail, 0 in the number).
+    if not math.isfinite(raw_estimate) or raw_estimate < 0:
+        message = (f"the estimate {estimate_cad!r} is not a finite, non-negative amount, so "
+                   f"it cannot be checked against any ceiling. Refused rather than read as "
+                   f"free")
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=ceiling, estimate_cad=0.0, committed_cad=committed,
+            which="invalid_estimate", why=message, purpose=purpose, now=now,
+            detail={"model": model, "provider": provider, "job_id": job_id,
+                    "raw_estimate": repr(estimate_cad)[:40]})
+        raise BudgetExceeded(message)
+    estimate = round(raw_estimate, 6)
+    # Other holders' live claims, by the dimension each ceiling is about (C-32/C-33). The
+    # monthly step already counted them; the agent and provider steps read only billed rows
+    # plus this caller's own, so two concurrent holders each fit and together overshot.
+    others_agent_cad = round(sum(r["amount_cad"] for r in others["reservations"]
+                                 if agent and r.get("agent") == agent), 6)
+    others_provider_cad = round(sum(r["amount_cad"] for r in others["reservations"]
+                                    if provider and r.get("provider") == provider), 6)
 
     def _refuse(exc_type, which: str, message: str, **extra):
         spend_report.record_refusal(
@@ -338,15 +364,18 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     if provider_ceiling is not None:
         by_provider = spend_report.what_it_bought(db, now=now)["by_provider"]
         provider_spent = float((by_provider.get(provider) or {}).get("cad") or 0.0)
-        if provider_spent + mine + estimate > provider_ceiling:
+        if provider_spent + mine + others_provider_cad + estimate > provider_ceiling:
             _refuse(BudgetExceeded, "provider_ceiling",
                     f"provider {provider!r} has spent CA${provider_spent:.4f} of its "
                     f"CA${provider_ceiling:.2f} monthly ceiling (spend_policy."
-                    f"PROVIDER_CEILINGS_CAD) and this call is estimated at CA${estimate:.4f}. "
+                    f"PROVIDER_CEILINGS_CAD), other callers hold CA${others_provider_cad:.4f} "
+                    f"in live reservations against it, and this call is estimated at "
+                    f"CA${estimate:.4f}. "
                     f"Refused before the call. The monthly ceiling still has "
                     f"CA${round(ceiling - committed, 2):.2f}; this is the owner's cap on this "
                     f"provider, not the budget",
-                    ceiling=provider_ceiling, committed=round(provider_spent + mine, 6))
+                    ceiling=provider_ceiling,
+                    committed=round(provider_spent + mine + others_provider_cad, 6))
 
     # 3. This agent's daily permission. After the month, because the month is authoritative
     #    and a per-agent ceiling is a permission rather than a slice of it.
@@ -354,18 +383,20 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     if permission is not None:
         today = permission["spent_today_cad"]
         allowed = permission["daily_ceiling_cad"]
-        if today + mine + estimate > allowed:
+        if today + mine + others_agent_cad + estimate > allowed:
             _refuse(AgentCeilingExceeded, "agent_daily_ceiling",
                     f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
-                    f"CA${today + mine:.4f} of it (CA${today:.4f} billed, CA${mine:.4f} unbilled "
-                    f"in this run); this call is estimated at CA${estimate:.4f}. Refused before "
-                    f"the call. This is a daily permission, not the budget -- the month still "
+                    f"CA${today + mine + others_agent_cad:.4f} of it; this call is estimated "
+                    f"at CA${estimate:.4f}. Refused before the call (CA${today:.4f} billed, "
+                    f"CA${mine:.4f} unbilled in this run, CA${others_agent_cad:.4f} reserved "
+                    f"by other callers for this agent). This is a daily permission, not the "
+                    f"budget -- the month still "
                     f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
                     f"work resumes at the next UTC day. To do more today, either lower the work "
                     f"this agent asks for (the cadence is derived from this ceiling, so it will "
                     f"follow) or have the owner raise the agent's ceiling in "
                     f"`agents.registry.DEFAULT_AGENTS`",
-                    ceiling=allowed, committed=round(today + mine, 6))
+                    ceiling=allowed, committed=round(today + mine + others_agent_cad, 6))
 
     # 4. Written down before the call, so another process reading the same month sees it.
     reservation_id = None
@@ -377,7 +408,7 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
         # about which instant they mean.
         reservation_id = reservations.reserve(
             db, amount_cad=estimate, holder=me, agent=agent, purpose=purpose, model=model,
-            job_id=job_id, now=now,
+            job_id=job_id, now=now, detail={"provider": provider} if provider else None,
             ttl_seconds=(reservations.DEFAULT_TTL_SECONDS if ttl_seconds is None
                          else ttl_seconds))
 

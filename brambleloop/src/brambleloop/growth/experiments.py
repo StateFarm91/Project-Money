@@ -396,3 +396,234 @@ def scale_readiness(conditions: dict[str, bool]) -> dict:
                  f"Not ready: {', '.join(unmet)}. Scaling multiplies whatever is already "
                  f"true, including the parts nobody has fixed."),
     }
+
+
+# ---------------------------------------------------------------------------
+# The runtime conclusion step (#265, #266). Registration was reachable; nothing ever fed a
+# result back, estimated a value, or concluded. `conclude_all` is what the daily
+# `growth.conclude` job runs. With no data it concludes nothing and says so per experiment.
+
+QUICK_MAX_DAYS = 28
+EV_WINDOW_DAYS = 90
+UNMEASURED = "UNMEASURED"
+
+
+def _aware(value):
+    from datetime import timezone
+
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def observe_metric(db, row) -> dict:
+    """The pre-registered metric, read from the rows that measure it, or UNMEASURED.
+
+    Only rows dated after the registration count: data from before a test started is not a
+    result of the test.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import ListingOutcome, Order
+    from ..scale.runrate import orders_source_live
+
+    since = _aware(row.created_at).date().isoformat() if row.created_at else ""
+    slug = row.product_slug
+    with db.session() as s:
+        outcomes = [o for o in s.scalars(select(ListingOutcome).where(
+            ListingOutcome.product_slug == slug)) if (o.period_start or "") >= since]
+        orders = [o for o in s.scalars(select(Order).where(Order.product_slug == slug))
+                  if _aware(o.at) is not None
+                  and _aware(o.at).date().isoformat() >= since]
+        attached = [o for o in s.scalars(select(Order).where(Order.cross_sell_of == slug))
+                    if _aware(o.at) is not None
+                    and _aware(o.at).date().isoformat() >= since]
+
+    metric = row.metric
+    if metric == "listing_click_through_rate":
+        impressions = sum(int(o.impressions or 0) for o in outcomes)
+        if not outcomes or not impressions:
+            return {"observed": None, "sample": 0, "why": "no recorded impressions"}
+        visits = sum(int(o.visits or 0) for o in outcomes)
+        return {"observed": round(visits / impressions, 5), "sample": impressions,
+                "source": "listing_outcomes"}
+    if metric == "conversion_rate":
+        counted = [o for o in outcomes if o.orders is not None]
+        visits = sum(int(o.visits or 0) for o in counted)
+        if not counted or not visits:
+            return {"observed": None, "sample": 0,
+                    "why": "no recorded visits with a measured order count"}
+        return {"observed": round(sum(int(o.orders) for o in counted) / visits, 5),
+                "sample": visits, "source": "listing_outcomes"}
+    if metric == "bundle_attach_rate":
+        if not orders_source_live(db)["live"] or not orders:
+            return {"observed": None, "sample": 0, "why": "no recorded orders for the product"}
+        return {"observed": round(len(attached) / len(orders), 5), "sample": len(orders),
+                "source": "orders.cross_sell_of"}
+    return {"observed": None, "sample": 0,
+            "why": f"no source records {metric!r} yet; it is UNMEASURED, not zero"}
+
+
+def control_present(db, row) -> dict:
+    """Whether the design's control actually exists in the data (#266).
+
+    A holdout design with no organic cohort is a pre/post in disguise, and it may not make
+    a causal claim however it was registered.
+    """
+    from sqlalchemy import select
+
+    from ..commerce.elasticity import holdout_from_db
+    from ..core.models import ListingOutcome
+
+    if row.design == HOLDOUT:
+        got = holdout_from_db(db, row.product_slug)
+        return {"present": bool(got["separable"]), "via": "cohorts",
+                "why": got.get("reason", "organic and promoted arms both recorded")}
+    if row.design == STAGGERED:
+        with db.session() as s:
+            arms = {o.hero_style or o.version for o in s.scalars(select(ListingOutcome).where(
+                ListingOutcome.test_key == row.key))}
+        return {"present": len(arms) >= 2, "via": "listing_outcomes.test_key",
+                "why": f"{len(arms)} rollout arm(s) recorded under this test key"}
+    return {"present": False, "via": row.design,
+            "why": f"a {row.design} design has no control by construction"}
+
+
+def estimate_expected_value(db, row, *, today: date | None = None) -> float | None:
+    """What the decision is worth, from measured contribution, or None (#265).
+
+    The stake is the product's contribution over the trailing ninety days, scaled by how far
+    apart the pre-registered success and failure lines sit: a test whose two outcomes are
+    close together decides little. With no recorded orders there is no contribution to put
+    at stake, and the value stays None -- UNMEASURED, never a guessed number.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import Order
+    from ..scale.runrate import orders_source_live
+
+    if not orders_source_live(db)["live"]:
+        return None
+    now = datetime.now(timezone.utc) if today is None else datetime(
+        today.year, today.month, today.day, tzinfo=timezone.utc)
+    since = now - timedelta(days=EV_WINDOW_DAYS)
+    with db.session() as s:
+        got = [o for o in s.scalars(select(Order).where(Order.product_slug == row.product_slug))
+               if _aware(o.at) is not None and _aware(o.at) >= since and not o.refunded]
+    if not got:
+        return None
+    stake = sum(float(o.contribution_cad or 0.0) for o in got)
+    top = max(abs(row.success_threshold), abs(row.failure_threshold))
+    gap = abs(row.success_threshold - row.failure_threshold) / top if top else 0.0
+    return round(max(0.0, stake) * gap, 2)
+
+
+def balance(db) -> dict:
+    """Quick low-cost tests against strategic longer ones, among live experiments (#265)."""
+    from sqlalchemy import select
+
+    from ..core.models import RegisteredExperiment
+
+    quick, long_ = [], []
+    with db.session() as s:
+        for r in s.scalars(select(RegisteredExperiment)):
+            if r.state in (KILLED, CONCLUDED, ABANDONED):
+                continue
+            created = _aware(r.created_at).date() if r.created_at else date.today()
+            days = (date.fromisoformat(r.stop_on) - created).days if r.stop_on else 0
+            (quick if days <= QUICK_MAX_DAYS else long_).append(
+                {"key": r.key, "days": days, "cost_cad": r.cost_cad, "state": r.state})
+    runnable_long = [x for x in long_ if x["state"] != GATED]
+    return {
+        "quick": len(quick), "long": len(long_),
+        "long_runnable": len(runnable_long),
+        "balanced": bool(quick) and bool(runnable_long),
+        "quick_max_days": QUICK_MAX_DAYS,
+        "note": ("both quick and strategic experiments are running" if quick and runnable_long
+                 else "no strategic (longer) experiment can run: every one is gated on a "
+                      "surface this company does not have yet" if quick and long_
+                 else "no strategic experiment is registered" if quick
+                 else "no quick experiment is registered"),
+        "long_detail": long_[:20],
+    }
+
+
+def conclude_all(db, *, today: date | None = None) -> dict:
+    """Estimate values, feed results in, and conclude what the pre-registration allows.
+
+    Per registered or running experiment: re-estimate the expected value from measured
+    contribution (killing it if its cost now exceeds that value), read the metric, and when
+    there is a reading pass it through `record_persisted`, which concludes only at the
+    pre-registered sample. The claim is written with the incrementality discipline: a
+    success without a control present in the data is an association, never a cause. With no
+    data nothing is concluded.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import RegisteredExperiment
+
+    with db.session() as s:
+        keys = [r.key for r in s.scalars(select(RegisteredExperiment).where(
+            RegisteredExperiment.state.in_([REGISTERED, RUNNING])))]
+
+    results = []
+    for key in keys:
+        with db.session() as s:
+            row = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
+        # Everything is read before anything is written, so no read runs inside a write.
+        ev = estimate_expected_value(db, row, today=today)
+        reading = observe_metric(db, row)
+        control = control_present(db, row)
+        kill = (f"costs CA${row.cost_cad:.2f} against an expected value of CA${ev:.2f}"
+                if ev is not None and row.cost_cad > ev else "")
+        with db.session() as s:
+            fresh = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
+            if ev != fresh.expected_value_cad:
+                fresh.expected_value_cad = ev
+                fresh.updated_at = datetime.now(timezone.utc)
+            if kill:
+                fresh.state = KILLED
+                fresh.killed_reason = kill
+        if kill:
+            results.append({"key": key, "state": KILLED, "expected_value_cad": ev,
+                            "concluded": False, "why": kill})
+            continue
+        if reading["observed"] is None:
+            results.append({"key": key, "state": row.state, "concluded": False,
+                            "expected_value_cad": ev if ev is not None else UNMEASURED,
+                            "observed": UNMEASURED, "why": reading["why"]})
+            continue
+        verdict = record_persisted(db, key, reading["observed"], reading["sample"])
+        causal = bool(verdict.get("causal")) and control["present"]
+        claim = (verdict.get("claim", "") if causal or not verdict.get("claimable") else
+                 f"{row.metric} was {reading['observed']}; the {row.design} design's control "
+                 f"is not present in the data ({control['why']}), so this is recorded as an "
+                 f"association and never as a cause (#266)")
+        with db.session() as s:
+            fresh = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
+            detail = dict(fresh.detail or {})
+            detail["last_verdict"] = {**verdict, "causal": causal,
+                                      "control": control, "claim": claim,
+                                      "source": reading.get("source"),
+                                      "at": datetime.now(timezone.utc).isoformat()}
+            fresh.detail = detail
+            state = fresh.state
+        results.append({"key": key, "state": state, "concluded": state == CONCLUDED,
+                        "verdict": verdict.get("verdict"), "causal": causal,
+                        "expected_value_cad": ev if ev is not None else UNMEASURED,
+                        "observed": reading["observed"], "sample": reading["sample"]})
+
+    return {"examined": len(results),
+            "concluded": [r["key"] for r in results if r.get("concluded")],
+            "killed": [r["key"] for r in results if r["state"] == KILLED],
+            "no_data": sum(1 for r in results if r.get("observed") == UNMEASURED),
+            "results": results, "balance": balance(db),
+            "note": ("nothing was concluded: no experiment has a reading, and with no data "
+                     "the discipline concludes nothing" if not any(r.get("concluded")
+                                                                  for r in results)
+                     else "concluded only at the pre-registered sample; claims without a "
+                          "control present in the data are recorded as association")}
