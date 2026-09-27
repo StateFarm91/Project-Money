@@ -3453,10 +3453,79 @@ def api_benchmarks() -> dict:
     yet: no listings, no impressions, no orders. That is different from a baseline of zero.
     """
     from ..commerce import benchmarks
+    from ..runtime import growth_ops
 
+    # C-60 (#238, #239): baselines from the observations the database holds, each listing
+    # diagnosed against its own cell, and micro-markets ranked on incremental contribution.
     out = benchmarks.state()
-    out["cells"] = benchmarks.cells([])
+    reading = growth_ops.benchmarks_reading(db)
+    out["cells"] = reading["cells"]
+    out["baselines"] = reading["baselines"]
+    out["diagnoses"] = reading["diagnoses"]
+    out["skipped"] = reading["skipped"]
+    out["opportunities"] = reading["opportunities"]
     return out
+
+
+@app.post("/api/attribution/stats")
+async def api_attribution_stats(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """Ingest an owner-exported Etsy Stats CSV and join it to orders (#237). Authenticated.
+
+    The body is the CSV text itself. It is parsed by `commerce.attribution.parse_stats_csv`,
+    which refuses a malformed export whole, then joined to what the orders table knows: the
+    contribution rate of the orders on file, and support cases and repeat orders per search
+    term. The joined reading is stored, and the SEO agent reads it the next time it chooses
+    tags -- a term shown thousands of times that never sold stops holding a slot.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from datetime import date as _date
+
+    from ..commerce import attribution
+    from ..runtime import growth_ops
+    from ..runtime.release import ATTRIBUTION_KIND
+
+    text = (await request.body()).decode("utf-8", errors="replace")
+    try:
+        rows = attribution.parse_stats_csv(text)
+    except attribution.StatsRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    from ..core.models import Order
+
+    with db.session() as s:
+        orders = [o for o in s.scalars(select(Order)) if not o.refunded]
+        revenue = sum(float(o.revenue_cad or 0.0) for o in orders)
+        contribution = sum(float(o.contribution_cad or 0.0) for o in orders)
+        support: dict[str, int] = {}
+        repeat: dict[str, int] = {}
+        for o in orders:
+            if o.search_term:
+                if o.support_case_id:
+                    support[o.search_term] = support.get(o.search_term, 0) + 1
+                if o.is_repeat:
+                    repeat[o.search_term] = repeat.get(o.search_term, 0) + 1
+    rate = (contribution / revenue) if revenue > 0 and 0 < contribution <= revenue else None
+    joined = attribution.join_stats(rows, contribution_rate=rate,
+                                    support_by_term=support if orders else None,
+                                    repeat_by_term=repeat if orders else None)
+    key = _date.today().isoformat()
+    reading_id = growth_ops.record(db, ATTRIBUTION_KIND, key, {
+        "period_key": key, "rows": len(rows), "joined": joined,
+        "contribution_rate": rate if rate is not None else "UNMEASURED",
+        "recorded_by": "owner_export"})
+    Registry(db).audit("orchestrator", "attribution.stats_ingested", detail={
+        "rows": len(rows), "reading_id": reading_id, "ranked_on": joined["ranked_on"],
+        "vanity_terms": joined["vanity_terms"][:20]})
+    return JSONResponse({"reading_id": reading_id, "rows": len(rows),
+                         "ranked_on": joined["ranked_on"],
+                         "vanity_terms": joined["vanity_terms"],
+                         "top_terms": [t["term"] for t in joined["terms"][:10]]})
 
 
 @app.get("/api/listing-tests")

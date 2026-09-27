@@ -149,6 +149,9 @@ def board(db, *, now: datetime | None = None, target_cad: float = TARGET_CAD) ->
                      for a in s.scalars(select(OwnerAction).where(
                          OwnerAction.done == False).order_by(OwnerAction.id))]  # noqa: E712
     live = [e for e in experiments if e.state in ("registered", "running")]
+    # #264: `growth.steer` ranks the experiment queue toward the week's constraint; the board
+    # shows it in that order, so the agent reading it takes the constraint's levers first.
+    live.sort(key=lambda e: ((e.detail or {}).get("steer_rank", 2), e.key))
     valued = sorted((e for e in live if e.expected_value_cad is not None),
                     key=lambda e: (-e.expected_value_cad, e.key))
     if not valued:

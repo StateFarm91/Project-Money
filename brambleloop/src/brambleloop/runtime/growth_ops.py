@@ -1210,8 +1210,25 @@ def handle_growth_steer(ctx: JobContext) -> dict:
     GREEN: re-prioritises pending work within bounded credits and orders the experiment queue;
     it enqueues nothing that spends and raises no ceiling.
     """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..swarm.orchestrate import BAND_BY_KIND
+
     today = _today(ctx)
     out = steer(ctx.db, today=today)
+    # #291: an admitted fast-lane product with no listing gets its asset and listing chain
+    # started now, at the seasonal-deadline band, rather than at the next hourly rebuild.
+    with ctx.db.session() as s:
+        listed = {r.product_slug for r in s.scalars(select(Listing))}
+    unlisted = sorted(set(out["fast_lane_admitted"]) - listed)
+    out["fast_lane_chain"] = None
+    if unlisted:
+        job = ctx.enqueue("listing", "chain.rebuild",
+                          {"source": "fast_lane", "slugs": unlisted},
+                          idempotency_key=f"fast_lane:chain:{today.isoformat()}",
+                          priority=BAND_BY_KIND["seasonal_deadline"])
+        out["fast_lane_chain"] = {"job_id": job.id if job else None, "slugs": unlisted}
     record(ctx.db, STEER_KIND, today.isoformat(), out)
     summary = {"moved": len(out["jobs_moved"]),
                "experiments_prioritised": len(out["experiments_prioritised"]),
