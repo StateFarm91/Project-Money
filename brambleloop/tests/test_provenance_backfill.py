@@ -361,7 +361,9 @@ def test_the_api_reports_the_estate_by_class_source_and_unknown_fields():
     assert body["by_source"] == {"backfilled": 10}
     assert body["by_class"]["certificate"] == {"fresh": 1, "stale": 0, "unproven": 0}
     assert body["by_class"]["listing_copy"] == {"fresh": 0, "stale": 1, "unproven": 1}
-    assert body["by_class"]["visual_truth"] == {"fresh": 0, "stale": 0, "unproven": 1}
+    # One frame matched a build's output and was backfilled under chain 6, so it reads stale
+    # (the sibling test states why); the other matched nothing and stays unproven.
+    assert body["by_class"]["visual_truth"] == {"fresh": 0, "stale": 1, "unproven": 1}
     assert body["unknown_fields"]["code_commit"] == 10
     assert body["unknown_fields"]["model"] == 10 - 3      # the three listing rows had a cost entry
     assert body["enforcing"] is False

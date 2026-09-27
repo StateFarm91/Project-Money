@@ -103,8 +103,18 @@ API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 
 
-class BudgetExceeded(PermanentError):
-    """The monthly model ceiling would be crossed by this call."""
+from ..agents.registry import BudgetExceeded as _LedgerBudgetExceeded  # noqa: E402
+
+
+class BudgetExceeded(PermanentError, _LedgerBudgetExceeded):
+    """The monthly model ceiling would be crossed by this call.
+
+    Also a `agents.registry.BudgetExceeded`, deliberately. Two unrelated classes of the same
+    name meant a caller written against the ledger's refusal (the worker, every gateway
+    caller, the runaway-loop guard) did not catch the pre-call refusal once the model gateway
+    started checking before the call on 2026-09-26: the control fired and the exception
+    escaped the handler built to stop on it. One refusal, one hierarchy.
+    """
 
 
 class AgentCeilingExceeded(BudgetExceeded):

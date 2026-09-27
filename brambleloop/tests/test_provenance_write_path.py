@@ -150,7 +150,7 @@ def test_the_recorded_design_fingerprint_is_the_one_the_sweep_compares_against()
     with db.session() as s:
         current = P.current_from_db(s)
         pv = s.scalar(select(PatternVersion))
-        cir_fp = CIR.from_dict(pv.cir_json).fingerprint()
+        cir_fp = CIR.from_dict(pv.cir_json).fingerprint  # a property
     rows = _rows(db)
     assert rows
     for row in rows:

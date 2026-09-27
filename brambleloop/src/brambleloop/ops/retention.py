@@ -146,6 +146,14 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "ops.requeued_for_commit": ("latest", "runtime.pipeline reads the last re-drive"),
     "improve.nightly": ("latest", "runtime.release reads the last nightly"),
     "improve.promoted": ("windowed", "improve.tiers and improve.roi read recent promotions"),
+    "creative.tournament": ("lifetime_total",
+                            "improve.measure scores product_creativity over every recorded "
+                            "tournament (survival rate beside the research kill rate); a "
+                            "pruned history would change the capability reading, and "
+                            "runtime.release counts them for the weekly cadence proof"),
+    "finance.forecast": ("lifetime_total",
+                         "improve.measure compares realised revenue against every recorded "
+                         "forecast; pruning a forecast would flatter the finance cell"),
     "creative.blinded": ("latest", "runtime.release reads the last blinded run"),
     "creative.blind_review": ("latest", "runtime.release reads the last review"),
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),

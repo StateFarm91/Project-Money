@@ -204,8 +204,13 @@ def test_model_cost_is_recorded_against_the_calling_agent():
     db = _db()
     reg = Registry(db)
     paid = _echo({"names": ["A", "B", "C"]})
-    paid.cost_per_1k_input_cad = 3.0
-    paid.cost_per_1k_output_cad = 15.0
+    # Realistic stand-in rates (about CA$3 / CA$15 per million tokens). The fixture used to
+    # price per thousand at those figures -- a thousand times any real model -- which passed
+    # only while nothing estimated a call before making it. With the pre-call guard a worst-
+    # case estimate at that price exceeds this agent's CA$4 daily permission and is refused,
+    # correctly. The assertion is unchanged: a call that happens is billed to its agent.
+    paid.cost_per_1k_input_cad = 0.003
+    paid.cost_per_1k_output_cad = 0.015
     g = ModelGateway([paid], registry=reg)
     g.complete_json("concept.naming@1", agent="market_radar",
                     values={"category": "mosaic blanket", "motifs": "fir, star",
