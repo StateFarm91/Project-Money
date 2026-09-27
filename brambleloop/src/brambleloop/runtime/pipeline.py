@@ -240,7 +240,16 @@ def handle_radar_score(ctx: JobContext) -> dict:
 
     today = _scan_date(ctx)
     rescored = score_concept(seed, today)
-    promote = rescored.score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+    # #38 (C-69): the score is discounted by the stamped trend evidence about this concept --
+    # stale or foreign-population evidence lowers it, and the discounted score is the one
+    # that decides promotion.
+    from ..radar import provenance as trend_provenance
+
+    evidence = trend_provenance.evidence_for(ctx.db, seed, today=today)
+    evidence_score = round(rescored.score * evidence["discount"], 4)
+    ctx.audit("radar.evidence_discount", artifact=seed.slug,
+              detail={"raw_score": rescored.score, "score": evidence_score, **evidence})
+    promote = evidence_score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
 
     # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
     # score says a slot is worth filling; it says nothing about whether *this idea* deserves
@@ -265,7 +274,8 @@ def handle_radar_score(ctx: JobContext) -> dict:
             promote = gate["engineer"]
 
     ctx.audit("radar.scored", artifact=seed.slug, detail={
-        "score": rescored.score, "components": rescored.components,
+        "score": evidence_score, "raw_score": rescored.score,
+        "evidence_discount": evidence["discount"], "components": rescored.components,
         "promoted": promote,
         "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
     })
@@ -276,7 +286,10 @@ def handle_radar_score(ctx: JobContext) -> dict:
             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
         ctx.enqueue("crochet_engineer", "cir.draft", payload,
                     idempotency_key=f"draft:{seed.slug}")
-    return {"slug": seed.slug, "score": rescored.score, "promoted": promote,
+    return {"slug": seed.slug, "score": evidence_score, "raw_score": rescored.score,
+            "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
+                                                      "mean_weight", "why")},
+            "promoted": promote,
             "components": rescored.components,
             "gate": (None if gate is None else
                      {k: gate[k] for k in ("decision", "failed", "unmeasured", "reasons",
@@ -286,7 +299,9 @@ def handle_radar_score(ctx: JobContext) -> dict:
                 "Class C requires physical testing that does not exist yet"
                 if seed.risk_class == "C" else
                 gate["consequence"] if gate is not None else
-                f"score {rescored.score} below promotion threshold {PROMOTION_THRESHOLD}")}
+                f"score {evidence_score} below promotion threshold {PROMOTION_THRESHOLD}"
+                + (f" after the evidence discount ({evidence['why']})"
+                   if evidence.get("measured") else ""))}
 
 
 # Concepts whose pattern is engineered rather than templated. The generic builder below makes
@@ -482,6 +497,9 @@ def handle_certify(ctx: JobContext) -> dict:
         teardown = teardown_lab.product_qa(
             ctx.db, cir.slug,
             product_class=(getattr(cir, "category", "") or (seed.category if seed else "")))
+        _mark_withheld(ctx, cir, (("teardown QA (#163): "
+                                   + str(teardown["unique_value"].get("reason", ""))[:300])
+                                  if teardown.get("blocks_release") else None))
         if teardown.get("blocks_release"):
             ctx.audit("gate.release_withheld", artifact=f"{cir.slug}@{cir.version}",
                       detail={"reason": "teardown QA (#163): "
@@ -503,6 +521,44 @@ def handle_certify(ctx: JobContext) -> dict:
     return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
             "release_hash": cert.release_hash,
             "reasons": cert.blocking_reasons[:5]}
+
+
+def _mark_withheld(ctx: JobContext, cir: CIR, reason: str | None) -> None:
+    """Record the teardown withhold on the stored release itself (C-69, #163).
+
+    The release is persisted before the teardown QA runs (the QA reads it), so the withhold
+    has to live on the row every later stage reads -- `chain.rebuild`, `listing.draft` --
+    rather than only in an audit row they never consult. A later certification that clears
+    the QA clears the mark.
+    """
+    from sqlalchemy import select
+
+    with ctx.db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == cir.slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == cir.version)) if product is not None else None
+        if pv is None:
+            return
+        cert = dict(pv.certificate or {})
+        if reason:
+            cert["withheld"] = reason
+        elif "withheld" in cert:
+            cert.pop("withheld")
+        else:
+            return
+        pv.certificate = cert
+
+
+def _withheld_reason(db, slug: str, version: str) -> str | None:
+    from sqlalchemy import select
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == version)) if product is not None else None
+        return (pv.certificate or {}).get("withheld") if pv is not None else None
 
 
 def _recheck_listing_certificates(ctx: JobContext, cir: CIR) -> list[dict]:
@@ -607,6 +663,38 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
         inputs = {f"cir:{cir.slug}": provenance.fingerprint(existing.cir_json)}
         if release_hash:
             inputs[f"release:{cir.slug}"] = release_hash[:16]
+        # C-69 (#171): the twin, the geometry proof and the reverse compiler's reading are
+        # derived artefacts of the design in their own right, recorded here against the same
+        # stored design so a CIR change invalidates them -- they were ARTEFACT_CLASSES nothing
+        # ever wrote. Each carries the fingerprint of what that stage concluded, and the
+        # certificate names them as its parents, so the rebuild graph follows design ->
+        # twin/geometry/reverse -> certificate -> everything downstream.
+        stages = list(certificate.get("stages_run") or [])
+        base = provenance.release_key(cir.slug, cir.version)
+        stage_rows = {
+            "twin": ("twin" in stages, {"twin": certificate.get("twin")}),
+            "geometry_proof": ("geometry" in stages, {
+                "findings": [f for f in certificate.get("findings") or []
+                             if str(f.get("code", "")).upper().startswith("GEOM")]}),
+            "reverse_result": ("reverse" in stages, {
+                "findings": [f for f in certificate.get("findings") or []
+                             if str(f.get("code", "")).upper().startswith(("REV", "REVERSE"))]}),
+        }
+        parents: list[str] = []
+        for cls, (ran, reading) in stage_rows.items():
+            if not ran:
+                continue
+            key = f"{base}#{cls}"
+            provenance.record_lineage(
+                s, artefact_class=cls, artefact_key=key, product_slug=cir.slug,
+                inputs=inputs, chain_version=str(DOC_VERSION),
+                lineage=provenance.Lineage(
+                    created_by=ctx.job.agent, job_id=ctx.job.id,
+                    validation_status="passed",
+                    publication_authority=ctx.phase.value if ctx.phase else "shadow",
+                    evidence={"stage": cls, "reading_fingerprint":
+                              provenance.fingerprint(reading)}))
+            parents.append(f"{cls}:{key}")
         provenance.record_lineage(
             s, artefact_class="certificate",
             artefact_key=provenance.release_key(cir.slug, cir.version),
@@ -614,7 +702,7 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             lineage=provenance.Lineage(
                 created_by=ctx.job.agent, job_id=ctx.job.id,
                 sha256=release_hash if len(release_hash or "") == 64 else "",
-                validation_status="certified",
+                validation_status="certified", parents=tuple(parents),
                 publication_authority=ctx.phase.value if ctx.phase else "shadow"))
 
 
@@ -628,6 +716,12 @@ def handle_listing_draft(ctx: JobContext) -> dict:
     """
     slug = ctx.job.inputs["slug"]
     version = ctx.job.inputs["version"]
+    withheld = _withheld_reason(ctx.db, slug, version)
+    if withheld:
+        # #163 / C-69: a release the teardown QA withheld gets no listing, whoever asked.
+        ctx.audit("listing.refused_withheld", artifact=f"{slug}@{version}",
+                  detail={"why": withheld})
+        return {"artifact": slug, "drafted": False, "withheld": withheld}
     ctx.audit("listing.drafted", artifact=slug)
     from .release import chain_key
 
@@ -1374,10 +1468,13 @@ def _listing_parity(ctx: JobContext) -> dict:
     # chart and twin from -- which is what `assets.build` does, free and truthful.
     deterministic = _certified_release(ctx.db, slug, version)
     try:
+        from ..visual.gallery import gates_now
+
         verdict = parity.assess(frames, benchmark_quality=_benchmark_quality(ctx.db, slug),
                                 deterministic_available=(
                                     deterministic is not None
-                                    or parity._deterministic_available(frames)))
+                                    or parity._deterministic_available(frames)),
+                                gate_open=gates_now(ctx.db))
     except parity.ParityRefused as exc:
         # A partial set cannot satisfy #75, and the refusal is the gate working. Reported
         # as blocking rather than raised, so the publish attempt records why.
@@ -1391,6 +1488,30 @@ def _listing_parity(ctx: JobContext) -> dict:
     # (generation, physical proof) are never started from here, and release stays blocked
     # until parity passes on the new frames.
     escalation = verdict.get("escalation") or {}
+    if escalation.get("taken") in ("regenerate_constrained", "change_composition",
+                                   "change_tool"):
+        # C-69 (#81): the image gate is open, so the first rung is attempted: the product's
+        # own photography job, carrying the failure as its brief. That job budget-checks,
+        # reserves and gates itself; nothing here spends.
+        import hashlib
+
+        from ..products.builder import for_slug
+
+        cir_ = for_slug(slug)
+        job_type = ("assets.model_photography"
+                    if cir_ is not None and listing_asset.needs_the_model(cir_)
+                    else "assets.owned_photography")
+        state = hashlib.sha256(repr(sorted(verdict.get("failed") or [])).encode()
+                               ).hexdigest()[:12]
+        job = ctx.enqueue("publishing", job_type,
+                          {"slug": slug, "reason": f"parity_escalation:{escalation['taken']}",
+                           "failed": verdict.get("failed")},
+                          idempotency_key=f"parity-rung:{slug}:{escalation['taken']}:{state}")
+        escalation["enqueued"] = {"job_type": job_type, "job_id": getattr(job, "id", None),
+                                  "already_queued": job is None}
+        ctx.audit("creative.escalation_taken", artifact=f"{slug}@{version}",
+                  detail={"failed": verdict.get("failed"), "rung": escalation["taken"],
+                          **escalation["enqueued"]})
     if escalation.get("taken") == "deterministic_representation" and deterministic:
         import hashlib
 
@@ -1412,6 +1533,16 @@ def _listing_parity(ctx: JobContext) -> dict:
         ctx.audit("creative.escalation_taken", artifact=f"{slug}@{version}",
                   detail={"failed": verdict.get("failed"), "rung": escalation["taken"],
                           **escalation["enqueued"]})
+
+    # #61 (C-69): every listing frame must have been independently reviewed and cleared.
+    # Unreviewed (the vision gate is closed) is not a pass.
+    from .release import frame_review_state
+
+    review = frame_review_state(ctx.db, slug, version)
+    verdict["frame_review"] = review
+    if not review["reviewed"]:
+        verdict["blocks_release"] = True
+        verdict["why"] = f"{verdict['why']}; {review['why']}"
 
     # #41 re-checked at publish: an owed purchase disclosure missing from the stored copy
     # blocks export, whatever parity says. UNMEASURED (no copy) is reported; publication

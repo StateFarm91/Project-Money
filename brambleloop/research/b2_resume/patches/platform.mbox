@@ -1,7 +1,7 @@
 From d06928893f4615623023f1708c208e708cb686cb Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:41:52 +0000
-Subject: [PATCH 1/6] C-65: reachability is a call graph from scheduled
+Subject: [PATCH 01/10] C-65: reachability is a call graph from scheduled
  handlers, loops and DB-computing routes; owner_gated built halves checked;
  unchecked gates explicit
 
@@ -1080,7 +1080,7 @@ index 0000000..37c84b1
 From 02cc3a15bb42c3e6f2b2768f0db6162890e27e85 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:50:15 +0000
-Subject: [PATCH 2/6] C-68: worker pool activated by the allocation; function
+Subject: [PATCH 02/10] C-68: worker pool activated by the allocation; function
  mix and production-lane split enforced at the claim; parallelism scales both
  ways; experiment spend attributed
 
@@ -2168,7 +2168,7 @@ index 0000000..f31ad00
 From 2c20df59235125da31950c110bb1b170b2b1e236 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:02:50 +0000
-Subject: [PATCH 3/6] C-69: chain.rebuild honours its inputs, remakes exactly
+Subject: [PATCH 03/10] C-69: chain.rebuild honours its inputs, remakes exactly
  the stale artefacts from the earliest stage, writes completion evidence,
  respects the #163 withhold;
  twin/geometry/reverse/support_knowledge/release_bundle provenance; #40
@@ -3010,7 +3010,7 @@ index 0000000..496317f
 From 81ece066a2ceb921ecff921c42aa0be1c0c14960 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:07:21 +0000
-Subject: [PATCH 4/6] #163 compared against purchased benchmarks; #169 ten
+Subject: [PATCH 04/10] #163 compared against purchased benchmarks; #169 ten
  delight drivers measured from artefacts and acted on; teardown QA re-run at
  launch with withhold
 
@@ -3524,7 +3524,7 @@ index 0000000..be2b636
 From 0006b991ceabf3978e33483e67a2e047ad9b506b Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:09:28 +0000
-Subject: [PATCH 5/6] #81: escalation ladder reads live gate state; an opened
+Subject: [PATCH 05/10] #81: escalation ladder reads live gate state; an opened
  gate's rung is attempted
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -3793,8 +3793,8 @@ index aa4d4eb..89701d8 100644
 From 253e71701c2c06a5ddd3db53419fd115768d53d5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:19:48 +0000
-Subject: [PATCH 6/6] #59/#61 layout QA and independent review on every listing
- frame; #54 launch package measured; #34 suspension, backoff, progress
+Subject: [PATCH 06/10] #59/#61 layout QA and independent review on every
+ listing frame; #54 launch package measured; #34 suspension, backoff, progress
  metrics, changed-hypothesis retries
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -4747,6 +4747,1562 @@ index 496317f..08b40ac 100644
  def test_a_divergent_listing_is_refused_and_halts_publication():
      from brambleloop.core.models import Incident
      from brambleloop.runtime import release
+-- 
+2.43.0
+
+
+From cdd61195cd7054ce02d3dbdb60f4c9cd43c01953 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 13:23:30 +0000
+Subject: [PATCH 07/10] #34 tests; backoff skips suspended loops
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/swarm/orchestrate.py      |   9 +-
+ brambleloop/tests/test_cert_thrash.py         | 140 ++++++++++++++++++
+ 2 files changed, 146 insertions(+), 3 deletions(-)
+ create mode 100644 brambleloop/tests/test_cert_thrash.py
+
+diff --git a/brambleloop/src/brambleloop/swarm/orchestrate.py b/brambleloop/src/brambleloop/swarm/orchestrate.py
+index d104286..9c045fc 100644
+--- a/brambleloop/src/brambleloop/swarm/orchestrate.py
++++ b/brambleloop/src/brambleloop/swarm/orchestrate.py
+@@ -326,7 +326,8 @@ def thrash_sweep(db, *, now: datetime | None = None,
+             incidents.append(signature)
+ 
+         progress = _progress(s, since=since)
+-        backoffs = _free_poll_backoff(s, progress, now=now)
++        backoffs = _free_poll_backoff(s, progress, now=now,
++                                      skip={e["job_type"] for e in tripped.values()})
+     return {"observed": observed, "window_hours": window_hours,
+             "tripped": len(tripped), "incidents": incidents, "cancelled": cancelled,
+             "limit": THRASH_LIMIT,
+@@ -414,7 +415,8 @@ def _progress(session, *, since: datetime) -> dict:
+     return out
+ 
+ 
+-def _free_poll_backoff(session, progress: dict, *, now: datetime) -> dict:
++def _free_poll_backoff(session, progress: dict, *, now: datetime,
++                       skip: set[str] | frozenset = frozenset()) -> dict:
+     """Unchanged polling backs off exponentially; progress lifts the backoff (#34)."""
+     from sqlalchemy import select
+ 
+@@ -424,7 +426,8 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime) -> dict:
+     period_of = {jt: period for _n, _a, jt, period in CADENCES}
+     applied, lifted = [], []
+     for jt, row in sorted(progress.items()):
+-        if jt in LIVENESS_JOB_TYPES or jt not in period_of or not row["cadence"]:
++        if jt in LIVENESS_JOB_TYPES or jt in skip or jt not in period_of \
++                or not row["cadence"]:
+             continue
+         signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
+         open_row = session.scalar(select(Incident).where(Incident.signature == signature,
+diff --git a/brambleloop/tests/test_cert_thrash.py b/brambleloop/tests/test_cert_thrash.py
+new file mode 100644
+index 0000000..d86c312
+--- /dev/null
++++ b/brambleloop/tests/test_cert_thrash.py
+@@ -0,0 +1,140 @@
++"""#34 acted on (C-68): a tripped loop is suspended, unchanged polling backs off, progress is
++measured per iteration and per dollar, and a retry needs a changed hypothesis.
++
++Every sweep runs `ops.thrash` through the worker; the effect is read where it acts -- the
++scheduler that would have re-enqueued the loop, and the dead-letter re-drive.
++"""
++from __future__ import annotations
++
++import os
++import sys
++import tempfile
++from datetime import timedelta
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / "src"))
++sys.path.insert(0, str(ROOT))
++
++from sqlalchemy import select  # noqa: E402
++
++from brambleloop.agents.registry import Registry  # noqa: E402
++from brambleloop.core.db import Database  # noqa: E402
++from brambleloop.core.models import Incident, Job, JobStatus, utcnow  # noqa: E402
++from brambleloop.queue.durable import JobQueue  # noqa: E402
++from brambleloop.runtime import pipeline, release  # noqa: E402,F401
++from brambleloop.runtime.worker import Scheduler, Worker  # noqa: E402
++from brambleloop.swarm import orchestrate as orc  # noqa: E402
++
++
++def _db():
++    db = Database(f"sqlite:///{tempfile.mkdtemp()}/thrash.sqlite")
++    db.create_all()
++    Registry(db).seed_defaults()
++    return db
++
++
++def _done(db, job_type, outputs, *, cost=0.0, n=3, inputs=None, status=JobStatus.DONE,
++          error=""):
++    now = utcnow()
++    with db.session() as s:
++        for i in range(n):
++            s.add(Job(agent="market_radar", job_type=job_type,
++                      inputs=inputs if inputs is not None else {"cadence": "c"},
++                      status=status, outputs=outputs, cost_cad=cost, last_error=error or None,
++                      started_at=now - timedelta(minutes=30 - i),
++                      finished_at=now - timedelta(minutes=20 - i)))
++
++
++def _sweep(db):
++    job = JobQueue(db).enqueue("orchestrator", "ops.thrash", {},
++                               idempotency_key=f"sweep:{utcnow().timestamp()}", priority=0)
++    Worker(db, "thrash", job_types=["ops.thrash"]).run_once()
++    with db.session() as s:
++        row = s.get(Job, job.id)
++        assert row.status == JobStatus.DONE, row.last_error
++        return dict(row.outputs)
++
++
++def _enqueued(db, job_type):
++    with db.session() as s:
++        return [j for j in s.scalars(select(Job).where(Job.job_type == job_type,
++                                                       Job.status == JobStatus.PENDING))]
++
++
++def test_a_paid_loop_is_suspended_until_the_hypothesis_changes():
++    db = _db()
++    _done(db, "mjs.scan", {"same": 1, "at": "t"}, cost=0.2,
++          inputs={"cadence": "mjs_scan", "x": 1})
++    out = _sweep(db)
++    assert out["tripped"] == 1
++    assert "mjs.scan" in out["suspended"]
++    assert out["progress"]["mjs.scan"]["progress_per_iteration"] == 0
++    assert out["progress"]["mjs.scan"]["progress_per_dollar"] == 0
++    Scheduler(db).tick()
++    assert not _enqueued(db, "mjs.scan"), "the next cadence window restarted the loop"
++    # a new build is a changed hypothesis: the suspension lifts and the cadence runs again
++    os.environ["BRAMBLELOOP_COMMIT"] = "f" * 40
++    try:
++        Scheduler(db).tick()
++        assert _enqueued(db, "mjs.scan")
++    finally:
++        os.environ.pop("BRAMBLELOOP_COMMIT", None)
++
++
++def test_unchanged_free_polling_backs_off_and_progress_lifts_it():
++    db = _db()
++    _done(db, "etsy.probe", {"reachable": False, "checked_at": "x"})
++    out = _sweep(db)
++    applied = {a["job_type"]: a for a in out["backoff"]["applied"]}
++    assert applied["etsy.probe"]["factor"] == 2
++    Scheduler(db).tick()
++    assert not _enqueued(db, "etsy.probe")
++    # still unchanged: the backoff doubles
++    out = _sweep(db)
++    assert {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]["factor"] == 4
++    # the state changes: progress lifts the backoff
++    _done(db, "etsy.probe", {"reachable": True}, n=1)
++    out = _sweep(db)
++    assert "etsy.probe" in out["backoff"]["lifted"]
++    Scheduler(db).tick()
++    assert _enqueued(db, "etsy.probe")
++
++
++def test_liveness_watchdogs_are_never_backed_off():
++    db = _db()
++    _done(db, "ops.health", {"ok": True})
++    out = _sweep(db)
++    assert "ops.health" not in {a["job_type"] for a in out["backoff"]["applied"]}
++
++
++def test_a_dead_call_the_breaker_tripped_is_not_redriven_under_the_same_build():
++    db = _db()
++    _done(db, "etsy.probe", None, status=JobStatus.DEAD, error="401 unauthorised",
++          inputs={"x": 1})
++    assert _sweep(db)["tripped"] == 1
++    result = JobQueue(db).requeue_dead(job_types=["etsy.probe"])
++    assert not result["requeued"] and result["skipped"]
++    assert all("changed hypothesis" in s["reason"] for s in result["skipped"])
++    os.environ["BRAMBLELOOP_COMMIT"] = "e" * 40
++    try:
++        result = JobQueue(db).requeue_dead(job_types=["etsy.probe"])
++        assert result["requeued"], result
++    finally:
++        os.environ.pop("BRAMBLELOOP_COMMIT", None)
++
++
++if __name__ == "__main__":
++    fails = 0
++    for name, fn in list(globals().items()):
++        if name.startswith("test_"):
++            try:
++                fn()
++                print("OK  ", name)
++            except Exception as e:  # noqa: BLE001
++                import traceback
++                traceback.print_exc()
++                fails += 1
++                print("FAIL", name, repr(e))
++    print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
++    sys.exit(1 if fails else 0)
+-- 
+2.43.0
+
+
+From 10c579265fc02608bd80c06c1826ea178e71ad62 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 13:25:27 +0000
+Subject: [PATCH 08/10] #38: radar.score discounts stale/mismatched stamped
+ evidence; SERP captures stamped
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/radar/provenance.py       |  83 +++++++++++++
+ .../src/brambleloop/runtime/pipeline.py       |  23 +++-
+ brambleloop/tests/test_cert_trend_evidence.py | 112 ++++++++++++++++++
+ 3 files changed, 214 insertions(+), 4 deletions(-)
+ create mode 100644 brambleloop/tests/test_cert_trend_evidence.py
+
+diff --git a/brambleloop/src/brambleloop/radar/provenance.py b/brambleloop/src/brambleloop/radar/provenance.py
+index 9edbd14..d10c694 100644
+--- a/brambleloop/src/brambleloop/radar/provenance.py
++++ b/brambleloop/src/brambleloop/radar/provenance.py
+@@ -334,6 +334,89 @@ def stamp_all(db, *, today: date | None = None, half_lives: dict[str, str] | Non
+             stamped += 1
+             refused += int(got["refused"])
+             by_population[population] = by_population.get(population, 0) + 1
++        # C-69 (#38): the API search-index captures are search data too. The index is the
++        # marketplace's worldwide listing index (`api_index_score_sort`), so the population is
++        # GLOBAL, discounted as evidence about Canada; the window is the capture day.
++        from ..core.models import SerpSnapshot
++
++        for snap in s.scalars(select(SerpSnapshot).order_by(SerpSnapshot.id.desc())
++                              .limit(limit)):
++            end = snap.captured_at.date().isoformat() if snap.captured_at else ""
++            got = _stamp_row(s, table="serp_snapshots", row_id=snap.id, topic=snap.query,
++                             source=f"etsy_api:{snap.basis}", population="GLOBAL",
++                             window_from=end, window_to=end, shape=SEASONAL,
++                             value=(float(snap.total_count)
++                                    if snap.total_count is not None else None),
++                             today=today)
++            stamped += 1
++            refused += int(got["refused"])
++            by_population["GLOBAL"] = by_population.get("GLOBAL", 0) + 1
+     return {"stamped": stamped, "refused": refused, "by_population": by_population,
+             "note": ("every trend row carries its source, window, population and freshness; "
+                      "rows whose population is unknown are stamped refused, not discounted")}
++
++
++# ---------------------------------------------------------------------------
++# #38 in the scorer (C-69): opportunity scores discount stale or mismatched evidence.
++
++# Evidence at zero usable weight still leaves the concept's own priors half their force:
++# the pool's scores are not trend data, and stale trend data makes them less sure, not void.
++EVIDENCE_FLOOR = 0.5
++
++
++def _terms_for(seed) -> list[str]:
++    words = {w for w in (seed.slug or "").replace("-", " ").split() if len(w) > 3}
++    for extra in (seed.category, seed.season):
++        if extra:
++            words.update(w for w in str(extra).lower().replace("_", " ").split() if len(w) > 3)
++    return sorted(words)
++
++
++def evidence_for(db, seed, *, today: date | None = None) -> dict:
++    """The stamped trend evidence about this concept, and the discount it earns.
++
++    Reads `trend_provenance` (the daily stamps): every row whose topic names one of the
++    concept's terms. The discount is the mean usable weight -- population relevance times
++    freshness -- mapped onto [EVIDENCE_FLOOR, 1]. No matching row is UNMEASURED and leaves the
++    score alone; refused rows (no population) are evidence about nobody and are not counted.
++    Each row is also put through `check_presentable_as_current`, so what the scorer may say
++    is current Canadian demand is decided here, not in a sentence written later.
++    """
++    from sqlalchemy import select
++
++    from ..core.models import TrendProvenance
++
++    today = today or date.today()
++    terms = _terms_for(seed)
++    rows = []
++    with db.session() as s:
++        for r in s.scalars(select(TrendProvenance)):
++            topic = (r.topic or "").lower()
++            if not any(t in topic for t in terms):
++                continue
++            rows.append((r.source_table, r.row_id, r.topic, r.source, r.population,
++                         r.window_from, r.window_to, r.shape, r.weight, r.refused_reason,
++                         r.raw_value))
++    usable = [r for r in rows if r[8] is not None and not r[9]]
++    if not usable:
++        return {"measured": False, "terms": terms, "rows": len(rows), "discount": 1.0,
++                "why": "no stamped trend evidence names this concept; UNMEASURED, score "
++                       "left on the concept's own priors"}
++    mean_weight = sum(r[8] for r in usable) / len(usable)
++    presentable, not_presentable = [], []
++    for r in usable:
++        try:
++            datum = TrendDatum(topic=r[2] or "unnamed", value=float(r[10] or 0.0),
++                               source=r[3] or "unknown", population=r[4],
++                               window_from=r[5], window_to=r[6], shape=r[7] or SEASONAL)
++            check_presentable_as_current(datum, claim="current Canadian demand", today=today)
++            presentable.append(f"{r[0]}:{r[1]}")
++        except ProvenanceRefused as exc:
++            not_presentable.append({"row": f"{r[0]}:{r[1]}", "why": str(exc)[:160]})
++    discount = round(EVIDENCE_FLOOR + (1 - EVIDENCE_FLOOR) * mean_weight, 4)
++    return {"measured": True, "terms": terms, "rows": len(usable),
++            "mean_weight": round(mean_weight, 4), "discount": discount,
++            "presentable_as_current_canadian": presentable[:10],
++            "not_presentable": not_presentable[:10],
++            "why": (f"{len(usable)} stamped row(s), mean usable weight {mean_weight:.2f}; "
++                    f"the opportunity score is multiplied by {discount}")}
+diff --git a/brambleloop/src/brambleloop/runtime/pipeline.py b/brambleloop/src/brambleloop/runtime/pipeline.py
+index c303a90..20b51dd 100644
+--- a/brambleloop/src/brambleloop/runtime/pipeline.py
++++ b/brambleloop/src/brambleloop/runtime/pipeline.py
+@@ -240,7 +240,16 @@ def handle_radar_score(ctx: JobContext) -> dict:
+ 
+     today = _scan_date(ctx)
+     rescored = score_concept(seed, today)
+-    promote = rescored.score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
++    # #38 (C-69): the score is discounted by the stamped trend evidence about this concept --
++    # stale or foreign-population evidence lowers it, and the discounted score is the one
++    # that decides promotion.
++    from ..radar import provenance as trend_provenance
++
++    evidence = trend_provenance.evidence_for(ctx.db, seed, today=today)
++    evidence_score = round(rescored.score * evidence["discount"], 4)
++    ctx.audit("radar.evidence_discount", artifact=seed.slug,
++              detail={"raw_score": rescored.score, "score": evidence_score, **evidence})
++    promote = evidence_score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+ 
+     # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
+     # score says a slot is worth filling; it says nothing about whether *this idea* deserves
+@@ -265,7 +274,8 @@ def handle_radar_score(ctx: JobContext) -> dict:
+             promote = gate["engineer"]
+ 
+     ctx.audit("radar.scored", artifact=seed.slug, detail={
+-        "score": rescored.score, "components": rescored.components,
++        "score": evidence_score, "raw_score": rescored.score,
++        "evidence_discount": evidence["discount"], "components": rescored.components,
+         "promoted": promote,
+         "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
+     })
+@@ -276,7 +286,10 @@ def handle_radar_score(ctx: JobContext) -> dict:
+             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
+         ctx.enqueue("crochet_engineer", "cir.draft", payload,
+                     idempotency_key=f"draft:{seed.slug}")
+-    return {"slug": seed.slug, "score": rescored.score, "promoted": promote,
++    return {"slug": seed.slug, "score": evidence_score, "raw_score": rescored.score,
++            "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
++                                                      "mean_weight", "why")},
++            "promoted": promote,
+             "components": rescored.components,
+             "gate": (None if gate is None else
+                      {k: gate[k] for k in ("decision", "failed", "unmeasured", "reasons",
+@@ -286,7 +299,9 @@ def handle_radar_score(ctx: JobContext) -> dict:
+                 "Class C requires physical testing that does not exist yet"
+                 if seed.risk_class == "C" else
+                 gate["consequence"] if gate is not None else
+-                f"score {rescored.score} below promotion threshold {PROMOTION_THRESHOLD}")}
++                f"score {evidence_score} below promotion threshold {PROMOTION_THRESHOLD}"
++                + (f" after the evidence discount ({evidence['why']})"
++                   if evidence.get("measured") else ""))}
+ 
+ 
+ # Concepts whose pattern is engineered rather than templated. The generic builder below makes
+diff --git a/brambleloop/tests/test_cert_trend_evidence.py b/brambleloop/tests/test_cert_trend_evidence.py
+new file mode 100644
+index 0000000..15ddba5
+--- /dev/null
++++ b/brambleloop/tests/test_cert_trend_evidence.py
+@@ -0,0 +1,112 @@
++"""#38 in the scorer (C-69): opportunity scores discount stale or mismatched evidence.
++
++The stamps existed (`trend_provenance.weight` / `usable_value`) and no scorer read them. Here
++`radar.score` runs through the worker over stamped evidence and the discounted score is what
++decides promotion; the API search-index captures are stamped too.
++"""
++from __future__ import annotations
++
++import sys
++import tempfile
++from datetime import date, datetime, timezone
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / "src"))
++sys.path.insert(0, str(ROOT))
++
++from sqlalchemy import select  # noqa: E402
++
++from brambleloop.agents.registry import Registry  # noqa: E402
++from brambleloop.core.db import Database  # noqa: E402
++from brambleloop.core.models import (  # noqa: E402
++    AuditLog, InsightsSnapshot, Job, JobStatus, SerpSnapshot, TrendProvenance,
++)
++from brambleloop.queue.durable import JobQueue  # noqa: E402
++from brambleloop.radar import provenance  # noqa: E402
++from brambleloop.runtime import pipeline  # noqa: E402,F401
++from brambleloop.runtime.worker import Worker  # noqa: E402
++
++SLUG = "chunky-ribbed-scarf"          # raw score 0.5987 on 2026-09-17, threshold 0.55
++TODAY = date(2026, 9, 17)
++
++
++def _db():
++    db = Database(f"sqlite:///{tempfile.mkdtemp()}/trend.sqlite")
++    db.create_all()
++    Registry(db).seed_defaults()
++    return db
++
++
++def _insight(db, keyword, geography, observed):
++    with db.session() as s:
++        s.add(InsightsSnapshot(keyword=keyword, search_count=900, geography=geography,
++                               observed_on=datetime.combine(observed, datetime.min.time(),
++                                                            tzinfo=timezone.utc)))
++
++
++def _score(db, key):
++    job = JobQueue(db).enqueue("market_radar", "radar.score",
++                               {"slug": SLUG, "as_of": TODAY.isoformat()},
++                               idempotency_key=key, priority=0)
++    Worker(db, key, job_types=["radar.score"]).run_once()
++    with db.session() as s:
++        row = s.get(Job, job.id)
++        assert row.status == JobStatus.DONE, row.last_error
++        return dict(row.outputs)
++
++
++def test_stale_foreign_evidence_discounts_the_score_below_promotion():
++    db = _db()
++    _insight(db, "chunky scarf", "united states", date(2025, 6, 1))
++    provenance.stamp_all(db, today=TODAY)
++    out = _score(db, "stale")
++    assert out["raw_score"] > pipeline.PROMOTION_THRESHOLD
++    assert out["evidence"]["measured"] and out["evidence"]["discount"] < 1.0
++    assert out["score"] < pipeline.PROMOTION_THRESHOLD and out["promoted"] is False
++    assert "evidence discount" in out["reason"]
++    with db.session() as s:
++        row = s.scalar(select(AuditLog).where(AuditLog.action == "radar.evidence_discount"))
++        assert row.detail["not_presentable"], "stale US data was presentable as current CA"
++
++
++def test_current_canadian_evidence_keeps_full_weight():
++    db = _db()
++    _insight(db, "chunky scarf", "canada", date(2026, 9, 10))
++    provenance.stamp_all(db, today=TODAY)
++    out = _score(db, "fresh")
++    assert out["evidence"]["discount"] == 1.0 and out["score"] == out["raw_score"]
++
++
++def test_no_evidence_is_unmeasured_and_leaves_the_score_alone():
++    out = _score(_db(), "none")
++    assert out["evidence"]["measured"] is False and out["score"] == out["raw_score"]
++
++
++def test_serp_captures_are_stamped_with_their_population_and_window():
++    db = _db()
++    with db.session() as s:
++        s.add(SerpSnapshot(query="chunky scarf pattern", total_count=1200,
++                           captured_at=datetime(2026, 9, 16, tzinfo=timezone.utc)))
++    provenance.stamp_all(db, today=TODAY)
++    with db.session() as s:
++        stamp = s.scalar(select(TrendProvenance).where(
++            TrendProvenance.source_table == "serp_snapshots"))
++    assert stamp is not None and stamp.population == "GLOBAL"
++    assert stamp.weight is not None and stamp.weight < 1.0 and stamp.window_to == "2026-09-16"
++
++
++if __name__ == "__main__":
++    fails = 0
++    for name, fn in list(globals().items()):
++        if name.startswith("test_"):
++            try:
++                fn()
++                print("OK  ", name)
++            except Exception as e:  # noqa: BLE001
++                import traceback
++                traceback.print_exc()
++                fails += 1
++                print("FAIL", name, repr(e))
++    print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
++    sys.exit(1 if fails else 0)
+-- 
+2.43.0
+
+
+From c8bbc3907ccafbad00ec7e0b72486e554640e0f4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 13:31:14 +0000
+Subject: [PATCH 09/10] #44 moat from evidence with recognisability; #50/#29
+ daily dependency sweep raising incidents; #31 unit cost acted on by the
+ governor and the allocation
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/agents/registry.py        |   2 +
+ brambleloop/src/brambleloop/brand/moat.py     | 110 +++++++++++++-
+ .../src/brambleloop/finance/governor.py       |  67 +++++++++
+ .../src/brambleloop/launch/readiness.py       |  14 +-
+ .../src/brambleloop/ops/dependencies.py       | 116 +++++++++++++++
+ brambleloop/src/brambleloop/ops/retention.py  |   8 ++
+ .../src/brambleloop/runtime/release.py        |  29 ++++
+ brambleloop/src/brambleloop/runtime/worker.py |   3 +
+ .../src/brambleloop/scale/dependency.py       |  57 +++++++-
+ .../src/brambleloop/swarm/orchestrate.py      |   7 +
+ brambleloop/tests/test_cert_dependencies.py   | 136 ++++++++++++++++++
+ brambleloop/tests/test_cert_rebuild_chain.py  |  18 +++
+ brambleloop/tests/test_moat.py                |  13 +-
+ 13 files changed, 565 insertions(+), 15 deletions(-)
+ create mode 100644 brambleloop/tests/test_cert_dependencies.py
+
+diff --git a/brambleloop/src/brambleloop/agents/registry.py b/brambleloop/src/brambleloop/agents/registry.py
+index 35021d9..6b68b45 100644
+--- a/brambleloop/src/brambleloop/agents/registry.py
++++ b/brambleloop/src/brambleloop/agents/registry.py
+@@ -58,6 +58,8 @@ DEFAULT_AGENTS: list[dict] = [
+                             "improve.sandbox", "improve.league",
+                             # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
+                             "ops.thrash", "seasonal.engine",
++                            # C-69 (#50, #29): the daily dependency and fragility sweep.
++                            "ops.dependencies",
+                             "ops.provenance_backfill",
+                             # The three gates that stopped reading environment variables
+                             # need something to keep asking whether the capability still
+diff --git a/brambleloop/src/brambleloop/brand/moat.py b/brambleloop/src/brambleloop/brand/moat.py
+index adc50e2..5494e21 100644
+--- a/brambleloop/src/brambleloop/brand/moat.py
++++ b/brambleloop/src/brambleloop/brand/moat.py
+@@ -117,22 +117,122 @@ SIGNATURES: tuple[Signature, ...] = (
+ BY_KEY: dict[str, Signature] = {s.key: s for s in SIGNATURES}
+ 
+ 
+-def inventory() -> dict:
++# How each signature's existence is proved from what the running system produced (C-69,
++# #44). The hand-set `exists` flags above are the plan; with a database the inventory reads
++# evidence instead, and a signature with nothing to show for it is planned whatever the plan
++# says.
++EVIDENCE_FOR: dict[str, str] = {
++    "canonical_model": "the canonical_model gate is open (an owner-approved identity)",
++    "naming_architecture": "certified products listed under their own titles",
++    "editorial_layout": "a customer PDF recorded as passed",
++    "photography_language": "a product photograph that cleared its floors",
++    "chart_style": "a chart recorded as passed with the colour cue present",
++    "tutorial_voice": "nothing measures a voice yet; UNMEASURED is not built",
++    "collection_families": "a collection assembled from certified members",
++    "deterministic_validation": "a certificate whose chain ran compile and reverse",
++    "version_aware_support": "a version-keyed support knowledge pack recorded as passed",
++    "measured_yardage": "a completed physical test that passed",
++}
++# A product-first listing is recognisable without the model when it carries at least this
++# many built non-model signatures of its own.
++RECOGNISABLE_MIN = 3
++
++
++def evidence(db) -> dict:
++    """Per signature: exists (from rows), and per listed product: which signatures it shows."""
++    from sqlalchemy import select
++
++    from ..core.models import (ArtefactProvenance, AuditLog, Collection, Listing,
++                               PatternVersion, PhysicalTest, Product)
++
++    with db.session() as s:
++        prov = [(r.artefact_class, r.product_slug, r.validation_status)
++                for r in s.scalars(select(ArtefactProvenance))]
++        listings = sorted({l.product_slug for l in s.scalars(
++            select(Listing).where(Listing.state != "withdrawn"))})
++        certs = {p.slug: dict(pv.certificate or {}) for pv, p in s.execute(
++            select(PatternVersion, Product).join(Product, Product.id == PatternVersion.product_id)
++            .where(PatternVersion.certified.is_(True)))}
++        photos = {str((r.detail or {}).get("slug") or r.artifact or "")
++                  for r in s.scalars(select(AuditLog).where(
++                      AuditLog.action == "assets.owned_photography"))
++                  if (r.detail or {}).get("made")}
++        collections = s.scalar(select(Collection).limit(1)) is not None
++        physical = any(t.passed for t in s.scalars(select(PhysicalTest)))
++    try:
++        from ..build2 import executor
++
++        model_open = bool(executor.GATE_BY_KEY["canonical_model"].open(db))
++    except Exception:  # noqa: BLE001 - an unreadable gate is closed
++        model_open = False
++
++    def passed(cls, slug=None):
++        return any(c == cls and v == "passed" and (slug is None or sl == slug)
++                   for c, sl, v in prov)
++
++    def validated(slug):
++        stages = set((certs.get(slug) or {}).get("stages_run") or [])
++        return {"compile", "reverse"} <= stages
++
++    exists = {
++        "canonical_model": model_open,
++        "naming_architecture": bool(listings),
++        "editorial_layout": passed("pdf"),
++        "photography_language": bool(photos),
++        "chart_style": passed("chart"),
++        "tutorial_voice": False,
++        "collection_families": collections,
++        "deterministic_validation": any(validated(sl) for sl in certs),
++        "version_aware_support": passed("support_knowledge"),
++        "measured_yardage": physical,
++    }
++    per_listing = {}
++    for slug in listings:
++        shown = [k for k, ok in (
++            ("naming_architecture", True), ("editorial_layout", passed("pdf", slug)),
++            ("chart_style", passed("chart", slug)),
++            ("deterministic_validation", validated(slug)),
++            ("version_aware_support", passed("support_knowledge", slug)),
++            ("photography_language", slug in photos)) if ok]
++        per_listing[slug] = {"signatures": shown,
++                             "recognisable_without_model": len(shown) >= RECOGNISABLE_MIN}
++    return {"exists": exists, "per_listing": per_listing}
++
++
++def inventory(db=None) -> dict:
+     """The moat as it actually stands, separating what exists from what is planned.
+ 
+     An asset nobody has built is not a moat, and listing it beside the real ones produces a
+-    page saying the company is defensible when it is aspiring.
++    page saying the company is defensible when it is aspiring. With a database, existence is
++    read from evidence (`evidence`), and recognisability on product-first listings -- the
++    requirement's own test -- is measured per listing.
+     """
+-    built = [s for s in SIGNATURES if s.exists]
+-    planned = [s for s in SIGNATURES if not s.exists]
++    measured = evidence(db) if db is not None else None
++    signatures = (tuple(Signature(s.key, s.what, s.replication, s.why,
++                                  exists=bool(measured["exists"].get(s.key)))
++                        for s in SIGNATURES) if measured else SIGNATURES)
++    built = [s for s in signatures if s.exists]
++    planned = [s for s in signatures if not s.exists]
+ 
+     by_band: dict[str, list[str]] = {}
+     for s in built:
+         by_band.setdefault(s.replication, []).append(s.key)
+ 
+     structural = [s.key for s in built if s.replication == STRUCTURAL]
++    recognisable = None
++    if measured is not None:
++        rows = measured["per_listing"]
++        recognisable = {"listings": len(rows),
++                        "recognisable": sorted(k for k, v in rows.items()
++                                               if v["recognisable_without_model"]),
++                        "not_recognisable": sorted(k for k, v in rows.items()
++                                                   if not v["recognisable_without_model"]),
++                        "min_signatures": RECOGNISABLE_MIN, "per_listing": rows}
+     return {
+-        "signatures": [s.to_dict() for s in SIGNATURES],
++        "measured_from_evidence": measured is not None,
++        "evidence_rules": EVIDENCE_FOR,
++        "recognisable_without_model": recognisable,
++        "signatures": [s.to_dict() for s in signatures],
+         "built": [s.key for s in built],
+         "planned": [s.key for s in planned],
+         "built_by_replication": {band: by_band.get(band, []) for band in REPLICATION},
+diff --git a/brambleloop/src/brambleloop/finance/governor.py b/brambleloop/src/brambleloop/finance/governor.py
+index 0b46332..103c732 100644
+--- a/brambleloop/src/brambleloop/finance/governor.py
++++ b/brambleloop/src/brambleloop/finance/governor.py
+@@ -550,6 +550,70 @@ def _open_incident(session, *, signature: str, summary: str, detail: dict,
+     return "opened"
+ 
+ 
++# #31 (C-68): validated products per operating dollar, measured hourly and acted on. Below
++# this much spend in the window the ratio is noise; above it, spend that produced no validated
++# pattern is an incident, and the lanes that spent it are capped at the next allocation.
++MIN_SPEND_FOR_THROUGHPUT_CAD = 5.0
++MIN_AGENT_SPEND_CAD = 1.0
++THROUGHPUT_SIGNATURE = "throughput-no-validated-output"
++
++
++def _act_on_unit_cost(db, *, now: datetime) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import CostEntry
++    from . import unit_cost
++
++    try:
++        uc = unit_cost.unit_costs(db, days=30, now=now)
++    except Exception as exc:  # noqa: BLE001 - an unreadable ratio acts on nothing
++        return {"measurable": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
++    spent = float(uc["operating_cost_cad"] or 0.0)
++    validated = int(uc["artefacts"]["validated_pattern"]["produced"])
++    out = {"measurable": spent >= MIN_SPEND_FOR_THROUGHPUT_CAD,
++           "operating_cost_cad": spent, "validated_products": validated,
++           "validated_products_per_operating_dollar":
++               uc["validated_products_per_operating_dollar"],
++           "contribution_per_operating_dollar": uc["contribution_per_operating_dollar"],
++           "burning": uc["burning"], "action": "none", "unproductive_agents": []}
++    if not out["measurable"]:
++        out["why"] = (f"CA${spent:.2f} spent in 30 days, under the CA$"
++                      f"{MIN_SPEND_FOR_THROUGHPUT_CAD:.2f} below which the ratio is noise")
++        return out
++    if validated == 0:
++        since = now - timedelta(days=30)
++        by_agent: dict[str, float] = {}
++        with db.session() as s:
++            for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
++                by_agent[c.agent] = by_agent.get(c.agent, 0.0) + float(c.amount_cad or 0.0)
++            state = _open_incident(
++                s, signature=f"{THROUGHPUT_SIGNATURE}:{now.strftime('%Y-%m')}",
++                summary=(f"CA${spent:.2f} of operating spend in 30 days produced no validated "
++                         f"pattern (#31: validated products per operating dollar is 0). The "
++                         f"lanes that spent it are capped at one specialist until a pattern "
++                         f"validates"),
++                detail={"unit_cost": out, "by_agent": by_agent}, severity="P2")
++        out["unproductive_agents"] = sorted(a for a, v in by_agent.items()
++                                            if v >= MIN_AGENT_SPEND_CAD)
++        out.update({"action": "incident_and_lane_cap", "incident": state})
++    return out
++
++
++def unproductive_lanes(db, *, now: datetime | None = None) -> list[str]:
++    """The agents the latest governor reading capped for spending without validated output."""
++    from sqlalchemy import desc, select
++
++    from ..core.models import AuditLog
++
++    now = now or datetime.now(timezone.utc)
++    with db.session() as s:
++        row = s.scalar(select(AuditLog).where(AuditLog.action == ACTION)
++                       .order_by(desc(AuditLog.id)).limit(1))
++    if row is None or now - _aware(row.at) > timedelta(hours=6):
++        return []
++    return list(((row.detail or {}).get("unit_cost") or {}).get("unproductive_agents") or [])
++
++
+ def enforce(db, *, days: int = 30, now: datetime | None = None) -> dict:
+     """Run the governor's readings and act on the ones that are measurable (#188)."""
+     from sqlalchemy import desc, select
+@@ -626,8 +690,11 @@ def enforce(db, *, days: int = 30, now: datetime | None = None) -> dict:
+                                             "from": ACTION, "at": now.isoformat()}}
+             fed = alloc.id
+ 
++    throughput = _act_on_unit_cost(db, now=now)
++
+     detail = {
+         "at": now.isoformat(),
++        "unit_cost": throughput,
+         "company_anomaly": company,
+         "agent_anomalies": {"spiking": agents["spiking"],
+                             "unmeasurable": agents["unmeasurable"],
+diff --git a/brambleloop/src/brambleloop/launch/readiness.py b/brambleloop/src/brambleloop/launch/readiness.py
+index 63fe0e1..2886883 100644
+--- a/brambleloop/src/brambleloop/launch/readiness.py
++++ b/brambleloop/src/brambleloop/launch/readiness.py
+@@ -657,14 +657,20 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
+     # read, and a brand moat that does not rest on the most copyable asset in it.
+     from ..brand import moat as brand_moat
+ 
+-    moat_state = brand_moat.inventory()
++    moat_state = brand_moat.inventory(db)
++    recognisable = moat_state.get("recognisable_without_model") or {}
++    moat_ready = (bool(moat_state["structural_advantages"])
++                  and bool(recognisable.get("listings"))
++                  and not recognisable.get("not_recognisable"))
+     out.append(Requirement(
+         key="brand_moat",
+-        description=("the brand rests on something a competitor cannot reproduce in weeks"),
+-        ready=bool(moat_state["structural_advantages"]),
+-        blocked_by=None if moat_state["structural_advantages"] else BLOCKED_BUILD,
++        description=("the brand rests on something a competitor cannot reproduce in weeks, "
++                     "and every product-first listing is recognisable without the model"),
++        ready=moat_ready,
++        blocked_by=None if moat_ready else BLOCKED_BUILD,
+         evidence={"structural": moat_state["structural_advantages"],
+                   "built": moat_state["built"], "planned": moat_state["planned"],
++                  "not_recognisable_without_model": recognisable.get("not_recognisable"),
+                   "why": ("the canonical model is the most visible asset and the most "
+                           "copyable; a brand that is only the model is a brand with a "
+                           "week's lead (#44)")}))
+diff --git a/brambleloop/src/brambleloop/ops/dependencies.py b/brambleloop/src/brambleloop/ops/dependencies.py
+index 71bf061..1dba148 100644
+--- a/brambleloop/src/brambleloop/ops/dependencies.py
++++ b/brambleloop/src/brambleloop/ops/dependencies.py
+@@ -192,3 +192,119 @@ def drill(key: str) -> dict:
+                  if dependency.owner_only else
+                  "this recovery is within the system's own authority"),
+     }
++
++
++# ---------------------------------------------------------------------------
++# #50 continuously (C-69): the map run daily against live evidence, and acted on.
++
++DEPENDENCY_SIGNATURE = "dependency"
++# The postgres recovery strategy is the continuity restore; it counts only while proved.
++RESTORE_PROOF_MAX_AGE_DAYS = 2
++# What each dependency's live probe reads, beyond environment configuration.
++PROBE_GATES: dict[str, str] = {"model_provider": "model_provider", "etsy_account": "etsy_api",
++                               "tester_network": "tester_roster"}
++
++
++def probe(db) -> dict:
++    """Each dependency checked against the database: reachable, proven, or UNKNOWN."""
++    from datetime import datetime, timedelta, timezone
++
++    from sqlalchemy import desc, select, text
++
++    from ..core.models import AuditLog, CostEntry
++
++    now = datetime.now(timezone.utc)
++    out: dict[str, dict] = {}
++    try:
++        with db.session() as s:
++            s.execute(text("select 1"))
++            restore = s.scalar(select(AuditLog.at).where(
++                AuditLog.action == "continuity.verified").order_by(desc(AuditLog.id)).limit(1))
++            providers = sorted({(c.provider or "").strip() for c in s.scalars(
++                select(CostEntry).where(CostEntry.at >= now - timedelta(days=30)))
++                if (c.provider or "").strip()})
++        reachable = True
++    except Exception as exc:  # noqa: BLE001 - an unreachable database is the finding
++        reachable, restore, providers = False, None, []
++        out["postgres"] = {"ok": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
++    if reachable:
++        at = (None if restore is None else
++              restore if restore.tzinfo else restore.replace(tzinfo=timezone.utc))
++        proved = at is not None and now - at <= timedelta(days=RESTORE_PROOF_MAX_AGE_DAYS)
++        out["postgres"] = {"ok": proved, "recovery_proved": proved,
++                           "last_restore_proof": at.isoformat() if at else None,
++                           "why": ("reachable, and its recovery (the continuity restore) was "
++                                   "proved recently" if proved else
++                                   "reachable, but its recovery strategy has not been proved "
++                                   f"within {RESTORE_PROOF_MAX_AGE_DAYS} days")}
++    out["railway"] = {"ok": True, "why": "this probe is running on it"}
++    from ..build2 import executor
++
++    for key, gate_key in PROBE_GATES.items():
++        try:
++            ok = bool(executor.GATE_BY_KEY[gate_key].open(db))
++        except Exception:  # noqa: BLE001
++            ok = False
++        out[key] = {"ok": ok, "gate": gate_key,
++                    "why": f"the {gate_key} gate is {'open' if ok else 'closed'}"}
++    for d in DEPENDENCIES:
++        out.setdefault(d.key, {"ok": None, "why": "no live probe exists for this dependency; "
++                                                  "UNKNOWN, not healthy"})
++    return {"probes": out, "providers_in_use": providers}
++
++
++def sweep(db, env: dict[str, str] | None = None) -> dict:
++    """Map, probe and act: an incident per failed probe, per unmapped dependency in use and
++    per recovery strategy that is missing or unproved; resolved when the probe recovers."""
++    from sqlalchemy import select
++
++    from ..core.models import Incident
++
++    state = map_state(db, env)
++    live = probe(db)
++    mapped = {d.key for d in DEPENDENCIES}
++    # A provider the company is paying that the map does not name is a dependency nobody
++    # planned a recovery for -- found from the cost ledger, not remembered.
++    provider_keys = {"anthropic": "model_provider", "openai": "model_provider",
++                     "google": "model_provider", "gemini": "model_provider"}
++    unmapped = sorted(p for p in live["providers_in_use"]
++                      if provider_keys.get(p.lower(), p.lower()) not in mapped)
++    findings: dict[str, dict] = {}
++    for key, p in live["probes"].items():
++        d = BY_KEY.get(key)
++        if p.get("ok") is False and d is not None and not d.owner_only:
++            findings[f"{DEPENDENCY_SIGNATURE}:{key}"] = {
++                "severity": "P1" if d.impact == FATAL else "P2",
++                "summary": f"dependency {key} failed its live probe: {p['why']}",
++                "detail": {"dependency": key, "impact": d.impact, "probe": p,
++                           "recovery": d.recovery}}
++    for name in unmapped:
++        findings[f"{DEPENDENCY_SIGNATURE}:unmapped:{name}"] = {
++            "severity": "P2",
++            "summary": (f"{name} is billed in the cost ledger and has no mapped recovery "
++                        f"strategy (#50)"),
++            "detail": {"provider": name}}
++    opened, resolved = [], []
++    with db.session() as s:
++        open_rows = {i.signature: i for i in s.scalars(select(Incident).where(
++            Incident.resolved.is_(False),
++            Incident.signature.like(f"{DEPENDENCY_SIGNATURE}:%")))}
++        for sig, f in findings.items():
++            row = open_rows.get(sig)
++            if row is None:
++                s.add(Incident(severity=f["severity"], signature=sig, summary=f["summary"],
++                               halts_publication=False, detail=f["detail"]))
++                opened.append(sig)
++            else:
++                row.report_count = (row.report_count or 1) + 1
++                row.detail = f["detail"]
++        for sig, row in open_rows.items():
++            if sig not in findings:
++                row.resolved = True
++                resolved.append(sig)
++    return {"map": {k: state[k] for k in ("single_points_of_failure", "unconfigured",
++                                          "owner_only_to_recover")},
++            "probes": live["probes"], "providers_in_use": live["providers_in_use"],
++            "unmapped": unmapped, "incidents_opened": opened, "incidents_resolved": resolved,
++            "failing": sorted(k for k, p in live["probes"].items() if p.get("ok") is False),
++            "unknown": sorted(k for k, p in live["probes"].items() if p.get("ok") is None)}
+diff --git a/brambleloop/src/brambleloop/ops/retention.py b/brambleloop/src/brambleloop/ops/retention.py
+index e717405..07b7dae 100644
+--- a/brambleloop/src/brambleloop/ops/retention.py
++++ b/brambleloop/src/brambleloop/ops/retention.py
+@@ -187,6 +187,14 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+                             "app.main /api/etsy/oauth/start reports the last authorization "
+                             "attempt so an operator can tell a flow that was never finished "
+                             "from one that failed"),
++    # C-69: the moat inventory counts every product photograph ever made (#44), and the
++    # teardown QA reads whether a release's deliverable recorded problems (#169).
++    "assets.owned_photography": ("lifetime_total",
++                                 "brand.moat.evidence counts made product photographs as "
++                                 "the photography-language signature's evidence"),
++    "assets.deliverable_problems": ("lifetime_total",
++                                    "teardown.lab.measured_self_scores reads whether a "
++                                    "release's PDF recorded problems (instruction clarity)"),
+     "runtime.started": ("windowed",
+                         "ops.health.container_starts reads a 24-hour window to tell a "
+                         "restart from a deploy"),
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index a591c60..ab9df0d 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -4145,6 +4145,7 @@ def handle_finance_governor(ctx: JobContext) -> dict:
+ 
+     out = governor.enforce(ctx.db)
+     return {"ran": True, "paused": out["paused"], "incidents": out["incidents"],
++            "unit_cost": out.get("unit_cost"),
+             "marginal_value": out["marginal_value"], "parallelism": out["parallelism"],
+             "allocation_fed": out["allocation_fed"],
+             "company_anomaly_measurable": bool(out["company_anomaly"].get("measurable")),
+@@ -4497,6 +4498,34 @@ def handle_capacity_review(ctx: JobContext) -> dict:
+     return detail
+ 
+ 
++@handlers.register("ops.dependencies")
++def handle_dependency_sweep(ctx: JobContext) -> dict:
++    """#50 continuously and #29 acted on (C-69). Daily.
++
++    The single-point dependency map is probed against the database -- the database itself and
++    whether its recovery (the continuity restore) is proved, the model provider, the Etsy API,
++    the tester roster -- and a failed probe, a recovery strategy that is missing or unproved,
++    or a provider the cost ledger bills that the map does not name, opens an incident (and
++    closes it when the probe recovers). The anti-fragility axes are read from the same rows
++    and an existential concentration -- one AI provider the whole system runs on, today --
++    is raised as an incident rather than written in a note.
++
++    GREEN: reads rows and gates, writes incidents and one audit row. Spends nothing.
++    """
++    from ..ops import dependencies
++    from ..scale import dependency as anti_fragility
++
++    mapped = dependencies.sweep(ctx.db)
++    fragility = anti_fragility.act(ctx.db)
++    detail = {"failing": mapped["failing"], "unknown": mapped["unknown"],
++              "unmapped": mapped["unmapped"], "opened": mapped["incidents_opened"]
++              + fragility["incidents_opened"],
++              "resolved": mapped["incidents_resolved"] + fragility["incidents_resolved"],
++              "existential": fragility["existential"], "axes": fragility["axes"]}
++    ctx.audit("ops.dependencies", detail=detail)
++    return {**detail, "probes": mapped["probes"]}
++
++
+ @handlers.register("growth.conclude")
+ def handle_growth_conclude(ctx: JobContext) -> dict:
+     """Feed results into pre-registered experiments and conclude what they allow (#265, #266).
+diff --git a/brambleloop/src/brambleloop/runtime/worker.py b/brambleloop/src/brambleloop/runtime/worker.py
+index ccaee22..ff6fc73 100644
+--- a/brambleloop/src/brambleloop/runtime/worker.py
++++ b/brambleloop/src/brambleloop/runtime/worker.py
+@@ -563,6 +563,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
+     # gate reads and refuses to run at all when it finds an audit action nobody has decided
+     # about; `ops.retention` carries the reasoning.
+     ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
++    # C-69 (#50, #29): the dependency map probed daily and every failed probe, unproved
++    # recovery, unmapped paid provider or existential concentration raised as an incident.
++    ("dependency_sweep", "orchestrator", "ops.dependencies", 24 * 60 * 60),
+ ]
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/scale/dependency.py b/brambleloop/src/brambleloop/scale/dependency.py
+index 3e51a40..2a61ac8 100644
+--- a/brambleloop/src/brambleloop/scale/dependency.py
++++ b/brambleloop/src/brambleloop/scale/dependency.py
+@@ -150,7 +150,22 @@ def report(db) -> dict:
+         by_pod[concept.pod] = by_pod.get(concept.pod, 0) + 1
+         by_occasion[concept.occasion] = by_occasion.get(concept.occasion, 0) + 1
+ 
+-    providers = {name: 1 for name in available_providers()}
++    # C-69 (#29): the providers the company actually runs on are the ones it pays, read from
++    # the cost ledger (model spend by provider over 30 days); configuration is the fallback
++    # when nothing has been spent yet.
++    from datetime import datetime, timedelta, timezone
++
++    from ..core.models import CostEntry
++
++    since = datetime.now(timezone.utc) - timedelta(days=30)
++    with db.session() as s:
++        spent: dict[str, float] = {}
++        for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
++            name = (c.provider or "").strip()
++            if name and (c.kind or "llm") in ("llm", "model", "vision", "image", "api"):
++                spent[name] = spent.get(name, 0.0) + float(c.amount_cad or 0.0)
++    providers = ({k: v for k, v in spent.items() if v > 0}
++                 or {name: 1 for name in available_providers()})
+     # A marketplace counts once a listing exists for it, drafted or live. Etsy is the only
+     # integration this company has, so this reads one by construction today -- and saying so
+     # from a count rather than from a constant is what makes it change by itself later.
+@@ -212,3 +227,43 @@ def report(db) -> dict:
+                  "plan, and telling a pre-revenue company to open a second marketplace is "
+                  "how its one real advantage becomes five half-built ones (#29)."),
+     }
++
++
++ANTI_FRAGILITY_SIGNATURE = "anti-fragility"
++
++
++def act(db) -> dict:
++    """#29 on a cadence: every existential axis is raised as an incident, and one that is no
++    longer existential is resolved. A plan-stage concentration raises nothing -- the rule's
++    second half is that diversifying before a channel is understood is its own failure."""
++    from sqlalchemy import select
++
++    from ..core.models import Incident
++
++    rep = report(db)
++    opened, resolved = [], []
++    with db.session() as s:
++        open_rows = {i.signature: i for i in s.scalars(select(Incident).where(
++            Incident.resolved.is_(False),
++            Incident.signature.like(f"{ANTI_FRAGILITY_SIGNATURE}:%")))}
++        live = {f"{ANTI_FRAGILITY_SIGNATURE}:{a['axis']}": a for a in rep["axes"]
++                if a["verdict"] == EXISTENTIAL}
++        for sig, axis in live.items():
++            row = open_rows.get(sig)
++            summary = (f"existential dependency on the {axis['axis']} axis: {axis['why']} "
++                       f"(#29)")
++            if row is None:
++                s.add(Incident(severity="P2", signature=sig, summary=summary[:500],
++                               halts_publication=False, detail={"axis": axis}))
++                opened.append(sig)
++            else:
++                row.report_count = (row.report_count or 1) + 1
++                row.detail = {"axis": axis}
++        for sig, row in open_rows.items():
++            if sig not in live:
++                row.resolved = True
++                resolved.append(sig)
++    return {"existential": rep["existential"], "focus": rep["focus"],
++            "incidents_opened": opened, "incidents_resolved": resolved,
++            "axes": {a["axis"]: {k: a.get(k) for k in ("verdict", "largest", "share",
++                                                       "holders")} for a in rep["axes"]}}
+diff --git a/brambleloop/src/brambleloop/swarm/orchestrate.py b/brambleloop/src/brambleloop/swarm/orchestrate.py
+index 9c045fc..05d7c80 100644
+--- a/brambleloop/src/brambleloop/swarm/orchestrate.py
++++ b/brambleloop/src/brambleloop/swarm/orchestrate.py
+@@ -701,6 +701,7 @@ JOB_BANDS: dict[str, str] = {
+     "ops.offsite_archive": "housekeeping",
+     "ops.retention": "housekeeping",
+     "ops.capacity": "housekeeping",
++    "ops.dependencies": "housekeeping",
+     "ops.provenance_backfill": "housekeeping",
+     "swarm.review": "housekeeping",
+     "swarm.allocate": "housekeeping",
+@@ -940,6 +941,9 @@ def allocate(db, *, now: datetime | None = None,
+                        .order_by(desc(_Audit.id)).limit(1))
+         if cap is not None:
+             bottleneck = (cap.detail or {}).get("tilted_toward")
++    from ..finance.governor import unproductive_lanes
++
++    unproductive = set(unproductive_lanes(db, now=now))
+     pressure: dict[str, bool] = {}
+     valuable: dict[str, int] = {}
+     for _id, agent_name, jt, _st in open_jobs:
+@@ -970,6 +974,9 @@ def allocate(db, *, now: datetime | None = None,
+             granted, boosts = granted + 1, boosts + [
+                 f"{valuable[agent.name]} open job(s) at proven-winner value or above"]
+         granted = min(granted, affordable) if pending else fo["granted"]
++        if agent.name in unproductive and granted > 1:
++            # #31: spend that produced no validated pattern caps the lane that spent it.
++            granted, boosts = 1, boosts + ["capped: 30 days of spend, no validated pattern"]
+         lanes[agent.name] = {
+             "open_work": pending, "wanted": fo["wanted"], "granted": granted,
+             "bounded_by": fo["bounded_by"], "binding_ceiling": fits["binding_ceiling"],
+diff --git a/brambleloop/tests/test_cert_dependencies.py b/brambleloop/tests/test_cert_dependencies.py
+new file mode 100644
+index 0000000..9945777
+--- /dev/null
++++ b/brambleloop/tests/test_cert_dependencies.py
+@@ -0,0 +1,136 @@
++"""#50, #29 and #31 on a cadence, acted on (C-68/C-69).
++
++`ops.dependencies` (daily) probes the dependency map against the database and raises what
++fails; the anti-fragility axes raise an existential concentration; `finance.governor`
++(hourly) measures validated products per operating dollar and caps the lanes that spent
++without producing one. Each runs through the worker on a real database.
++"""
++from __future__ import annotations
++
++import sys
++import tempfile
++from datetime import timedelta
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / "src"))
++sys.path.insert(0, str(ROOT))
++
++from sqlalchemy import select  # noqa: E402
++
++from brambleloop.agents.registry import Registry  # noqa: E402
++from brambleloop.core.db import Database  # noqa: E402
++from brambleloop.core.models import (  # noqa: E402
++    AuditLog, CostEntry, Incident, Job, JobStatus, utcnow,
++)
++from brambleloop.queue.durable import JobQueue  # noqa: E402
++from brambleloop.runtime import pipeline, release  # noqa: E402,F401
++from brambleloop.runtime.worker import CADENCES, Worker  # noqa: E402
++from brambleloop.swarm import orchestrate as orc  # noqa: E402
++
++
++def _db():
++    db = Database(f"sqlite:///{tempfile.mkdtemp()}/deps.sqlite")
++    db.create_all()
++    Registry(db).seed_defaults()
++    return db
++
++
++def _run(db, agent, job_type):
++    job = JobQueue(db).enqueue(agent, job_type, {}, priority=0,
++                               idempotency_key=f"{job_type}:{utcnow().timestamp()}")
++    Worker(db, "deps", job_types=[job_type]).run_once()
++    with db.session() as s:
++        row = s.get(Job, job.id)
++        assert row.status == JobStatus.DONE, row.last_error
++        return dict(row.outputs)
++
++
++def _open(db, prefix):
++    with db.session() as s:
++        return sorted(i.signature for i in s.scalars(select(Incident).where(
++            Incident.resolved.is_(False), Incident.signature.like(f"{prefix}%"))))
++
++
++def test_the_dependency_sweep_is_scheduled_granted_and_banded():
++    assert any(jt == "ops.dependencies" for _n, _a, jt, _p in CADENCES)
++    assert orc.band_for("ops.dependencies")["mapped"]
++
++
++def test_failed_probes_and_an_unproved_recovery_are_raised_and_resolve_when_fixed():
++    db = _db()
++    out = _run(db, "orchestrator", "ops.dependencies")
++    assert "postgres" in out["failing"], out["failing"]      # restore never proved
++    assert "model_provider" in out["failing"]
++    opened = _open(db, "dependency:")
++    assert "dependency:postgres" in opened and "dependency:model_provider" in opened
++    assert "dependency:etsy_account" not in opened, "owner-only recoveries are not our incident"
++    with db.session() as s:
++        s.add(AuditLog(actor="orchestrator", action="continuity.verified", detail={}))
++    out = _run(db, "orchestrator", "ops.dependencies")
++    assert "dependency:postgres" in out["resolved"]
++    assert "dependency:postgres" not in _open(db, "dependency:")
++
++
++def test_a_billed_provider_the_map_does_not_name_is_raised():
++    db = _db()
++    with db.session() as s:
++        s.add(CostEntry(agent="creative_director", amount_cad=0.3, provider="mistral",
++                        kind="llm"))
++    out = _run(db, "orchestrator", "ops.dependencies")
++    assert out["unmapped"] == ["mistral"]
++    assert "dependency:unmapped:mistral" in _open(db, "dependency:")
++
++
++def test_one_ai_provider_carrying_all_the_spend_is_raised_as_existential():
++    db = _db()
++    with db.session() as s:
++        s.add(CostEntry(agent="creative_director", amount_cad=2.0, provider="anthropic",
++                        kind="llm"))
++    out = _run(db, "orchestrator", "ops.dependencies")
++    assert "ai_provider" in out["existential"], out["axes"]
++    assert out["axes"]["ai_provider"]["largest"] == "anthropic"
++    assert "anti-fragility:ai_provider" in _open(db, "anti-fragility:")
++
++
++def test_spend_without_a_validated_pattern_is_an_incident_and_caps_the_lane():
++    db = _db()
++    with db.session() as s:
++        s.add(CostEntry(agent="creative_director", amount_cad=6.0, provider="anthropic",
++                        kind="llm", at=utcnow() - timedelta(days=2)))
++    out = _run(db, "cfo", "finance.governor")
++    uc = out["unit_cost"]
++    assert uc["measurable"] and uc["validated_products"] == 0
++    assert uc["action"] == "incident_and_lane_cap"
++    assert "creative_director" in uc["unproductive_agents"]
++    assert _open(db, "throughput-no-validated-output:")
++    # enough queued work that the lane would otherwise be granted two specialists
++    for i in range(13):
++        JobQueue(db).enqueue("creative_director", "creative.blinded", {"i": i},
++                             idempotency_key=f"b{i}", priority=85)
++    alloc = orc.allocate(db)
++    lane = alloc["lanes"]["creative_director"]
++    assert lane["wanted"] >= 2 and lane["granted"] == 1, lane
++    assert any("no validated pattern" in b for b in lane["boosts"]), lane["boosts"]
++
++
++def test_below_the_spend_floor_the_ratio_is_noise_and_nothing_acts():
++    db = _db()
++    out = _run(db, "cfo", "finance.governor")
++    assert out["unit_cost"]["measurable"] is False and out["unit_cost"]["action"] == "none"
++
++
++if __name__ == "__main__":
++    fails = 0
++    for name, fn in list(globals().items()):
++        if name.startswith("test_"):
++            try:
++                fn()
++                print("OK  ", name)
++            except Exception as e:  # noqa: BLE001
++                import traceback
++                traceback.print_exc()
++                fails += 1
++                print("FAIL", name, repr(e))
++    print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
++    sys.exit(1 if fails else 0)
+diff --git a/brambleloop/tests/test_cert_rebuild_chain.py b/brambleloop/tests/test_cert_rebuild_chain.py
+index 08b40ac..de484ba 100644
+--- a/brambleloop/tests/test_cert_rebuild_chain.py
++++ b/brambleloop/tests/test_cert_rebuild_chain.py
+@@ -151,6 +151,24 @@ def test_launch_readiness_measures_the_launch_package_from_what_the_chain_produc
+     assert job.status == JobStatus.DONE, job.last_error
+ 
+ 
++def test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured():
++    """#44 (C-69): existence read from what the chain produced, not hand-set flags."""
++    from brambleloop.brand import moat
++    from brambleloop.launch.readiness import assess
++
++    st = chain()
++    inv = moat.inventory(st["db"])
++    assert inv["measured_from_evidence"] is True
++    for key in ("deterministic_validation", "version_aware_support", "editorial_layout",
++                "chart_style", "naming_architecture"):
++        assert key in inv["built"], (key, inv["built"])
++    assert "canonical_model" in inv["planned"] and "measured_yardage" in inv["planned"]
++    rec = inv["recognisable_without_model"]
++    assert st["slug"] in rec["recognisable"], rec
++    by = {r.key: r for r in assess(st["db"], phase="shadow").requirements}
++    assert by["brand_moat"].ready is True, by["brand_moat"].evidence
++
++
+ def test_a_divergent_listing_is_refused_and_halts_publication():
+     from brambleloop.core.models import Incident
+     from brambleloop.runtime import release
+diff --git a/brambleloop/tests/test_moat.py b/brambleloop/tests/test_moat.py
+index 57fc072..4214a70 100644
+--- a/brambleloop/tests/test_moat.py
++++ b/brambleloop/tests/test_moat.py
+@@ -159,12 +159,15 @@ def test_the_launch_gate_carries_the_v14_additions():
+     for key in ("brand_moat", "rollback_plan", "analytics_baseline", "brand_clearance"):
+         assert key in assessed, key
+ 
+-    # A baseline taken after the change is the change measured against itself.
++    # C-69: every item is measured from what the company produced, never a constant. An
++    # empty company has no baseline, no proven rollback and no moat anybody can see -- the
++    # old hand-set flags said two structural advantages existed before anything was built.
+     assert assessed["analytics_baseline"].ready is False
+-    assert "measured against itself" in assessed["analytics_baseline"].evidence["why"]
+-    # The moat gate passes because two structural advantages already exist.
+-    assert assessed["brand_moat"].ready is True
+-    assert assessed["rollback_plan"].ready is True
++    assert assessed["analytics_baseline"].evidence["listings"] == 0
++    assert assessed["brand_moat"].ready is False
++    assert assessed["brand_moat"].evidence["structural"] == []
++    assert assessed["rollback_plan"].ready is False
++    assert assessed["rollback_plan"].evidence["last_restore_proof"] is None
+ 
+ 
+ if __name__ == "__main__":
+-- 
+2.43.0
+
+
+From df0de796a900747dd0b20400380043a245107baf Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 13:33:14 +0000
+Subject: [PATCH 10/10] #131: takeover executor applies and reverts storefront
+ surfaces on schedule
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/brand/storefront.py       |  9 +-
+ brambleloop/src/brambleloop/brand/takeover.py | 99 +++++++++++++++++++
+ .../src/brambleloop/launch/readiness.py       |  2 +-
+ brambleloop/src/brambleloop/seasonal/daily.py |  8 +-
+ brambleloop/tests/test_cert_takeover.py       | 89 +++++++++++++++++
+ 5 files changed, 204 insertions(+), 3 deletions(-)
+ create mode 100644 brambleloop/tests/test_cert_takeover.py
+
+diff --git a/brambleloop/src/brambleloop/brand/storefront.py b/brambleloop/src/brambleloop/brand/storefront.py
+index e89d86b..525466f 100644
+--- a/brambleloop/src/brambleloop/brand/storefront.py
++++ b/brambleloop/src/brambleloop/brand/storefront.py
+@@ -144,8 +144,15 @@ def _icon_brief() -> str:
+         f"with a shop name in it is illegible at the size it is actually shown.")
+ 
+ 
+-def build_storefront(season: str | None = None) -> Storefront:
++def build_storefront(season: str | None = None, *, db=None) -> Storefront:
++    """The drafted storefront; with `db`, carrying any takeover the executor applied (#131)."""
+     announcement = ANNOUNCEMENT_TEMPLATES.get(season or "", ANNOUNCEMENT_TEMPLATES["evergreen"])
++    if db is not None:
++        from .takeover import active
++
++        live = active(db)
++        if live.get("banner"):
++            announcement = live["banner"]["change"]
+     store = Storefront(
+         shop_name=SHOP_NAME,
+         announcement=announcement,
+diff --git a/brambleloop/src/brambleloop/brand/takeover.py b/brambleloop/src/brambleloop/brand/takeover.py
+index 73b72e3..75155a8 100644
+--- a/brambleloop/src/brambleloop/brand/takeover.py
++++ b/brambleloop/src/brambleloop/brand/takeover.py
+@@ -212,3 +212,102 @@ def calendar(events: dict[str, date], *, today: date | None = None) -> dict:
+                  "saying December in October competes against what the buyer can still "
+                  "finish (#131)."),
+     }
++
++
++
++# ---------------------------------------------------------------------------
++# The executor (C-69, #131): scheduled takeovers applied on their date and reverted on theirs.
++#
++# The storefront this company holds is the drafted one (`brand.storefront`); the marketplace
++# copy of it is written only when publishing is allowed. So a takeover is applied here to the
++# stored storefront state -- one `operating_readings` row per event and surface, the state the
++# storefront is rendered from -- on its transition date, checked against the storefront's own
++# rules and the continuity invariants, and reverted on its revert date. A surface whose
++# applied storefront fails its checks is reverted at once rather than left up.
++
++STATE_KIND = "storefront.takeover"
++APPLIED, REVERTED = "applied", "reverted"
++
++
++def execute(db, plans: list[dict], *, today: date | None = None) -> dict:
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    today = today or date.today()
++    applied, reverted, refused = [], [], []
++    with db.session() as s:
++        rows = {r.period_key: r for r in s.scalars(select(OperatingReading).where(
++            OperatingReading.kind == STATE_KIND))}
++        for plan_ in plans:
++            event, changes = plan_["event"], plan_.get("changes") or {}
++            for surface in plan_["surfaces"]:
++                import hashlib
++
++                tag = hashlib.sha256(f"{event}|{plan_['event_date']}".encode()).hexdigest()[:8]
++                key = f"{tag}:{surface['surface'][:11]}"
++                starts = date.fromisoformat(surface["transitions_on"])
++                ends = date.fromisoformat(surface["reverts_on"])
++                row = rows.get(key)
++                state = (row.payload or {}).get("state") if row is not None else None
++                if starts <= today < ends and state != APPLIED:
++                    change = changes.get(surface["surface"], "")
++                    problems = _applied_problems(surface["surface"], change)
++                    if problems:
++                        refused.append({"event": event, "surface": surface["surface"],
++                                        "problems": problems})
++                        continue
++                    payload = {"state": APPLIED, "event": event,
++                               "surface": surface["surface"], "change": change,
++                               "applied_on": today.isoformat(),
++                               "reverts_on": ends.isoformat(),
++                               "marketplace_write": "withheld: shadow mode drafts the "
++                                                    "storefront and publishes nothing"}
++                    if row is None:
++                        s.add(OperatingReading(kind=STATE_KIND, period_key=key,
++                                               payload=payload))
++                    else:
++                        row.payload = payload
++                    applied.append(key)
++        # Revert by date whatever today's plans contain: once an occasion has passed it is no
++        # longer planned, and that is exactly when its banner must come down.
++        for key, row in rows.items():
++            p = dict(row.payload or {})
++            if p.get("state") == APPLIED and today >= date.fromisoformat(p["reverts_on"]):
++                row.payload = {**p, "state": REVERTED, "reverted_on": today.isoformat()}
++                reverted.append(key)
++    return {"applied": applied, "reverted": reverted, "refused": refused,
++            "active": active(db, today=today)}
++
++
++def _applied_problems(surface: str, change: str) -> list[str]:
++    """The storefront's own checks, run on the storefront as the takeover would leave it."""
++    from . import storefront
++
++    store = storefront.build_storefront()
++    if surface == "banner":
++        store.announcement = change
++    elif surface == "shop_content":
++        store.about = f"{store.about}\n\n{change}"
++    problems = storefront.check_storefront(store)
++    if not change.strip():
++        problems.append(f"TAKEOVER_SURFACE_EMPTY: {surface}")
++    return problems
++
++
++def active(db, *, today: date | None = None) -> dict[str, dict]:
++    """The takeover changes live on the drafted storefront today, by surface."""
++    from sqlalchemy import select
++
++    from ..core.models import OperatingReading
++
++    today = today or date.today()
++    out: dict[str, dict] = {}
++    with db.session() as s:
++        for r in s.scalars(select(OperatingReading).where(
++                OperatingReading.kind == STATE_KIND)):
++            p = r.payload or {}
++            if p.get("state") == APPLIED and date.fromisoformat(p["reverts_on"]) > today:
++                out[p["surface"]] = {"event": p["event"], "change": p["change"],
++                                     "reverts_on": p["reverts_on"]}
++    return out
+diff --git a/brambleloop/src/brambleloop/launch/readiness.py b/brambleloop/src/brambleloop/launch/readiness.py
+index 2886883..3885e32 100644
+--- a/brambleloop/src/brambleloop/launch/readiness.py
++++ b/brambleloop/src/brambleloop/launch/readiness.py
+@@ -460,7 +460,7 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
+         content >= len(listings) and bool(listings),
+         {"content_pieces": content, "listings": len(listings)}))
+ 
+-    store_problems = check_storefront(build_storefront())
++    store_problems = check_storefront(build_storefront(db=db))
+     out.append(_build(
+         "storefront", "shop announcement, About and all five policies pass their checks",
+         not store_problems, {"problems": store_problems[:5]}))
+diff --git a/brambleloop/src/brambleloop/seasonal/daily.py b/brambleloop/src/brambleloop/seasonal/daily.py
+index 64d03d6..fcf1e6c 100644
+--- a/brambleloop/src/brambleloop/seasonal/daily.py
++++ b/brambleloop/src/brambleloop/seasonal/daily.py
+@@ -333,9 +333,15 @@ def takeovers(db, rolling: dict, catalogue: dict, *, today: date) -> dict:
+             refused.append({"event": name, "why": str(exc)})
+             continue
+         planned.append(plan)
++    # C-69 (#131): the executor applies each planned surface on its transition date and
++    # reverts it on its revert date, on the drafted storefront.
++    executed = takeover.execute(db, planned, today=today)
+     return {"planned": planned, "refused": refused,
+             "overdue_surfaces": sum(len(p["overdue"]) for p in planned),
+-            "note": "scheduled plans only; nothing is changed on a storefront in shadow mode"}
++            "executed": {k: executed[k] for k in ("applied", "reverted", "refused")},
++            "active": executed["active"],
++            "note": ("applied to and reverted from the drafted storefront on schedule; the "
++                     "marketplace write is withheld in shadow mode")}
+ 
+ 
+ # ---- #289: collections from the catalogue's concepts ---------------------------------------
+diff --git a/brambleloop/tests/test_cert_takeover.py b/brambleloop/tests/test_cert_takeover.py
+new file mode 100644
+index 0000000..e02e2b4
+--- /dev/null
++++ b/brambleloop/tests/test_cert_takeover.py
+@@ -0,0 +1,89 @@
++"""#131 executed (C-69): scheduled storefront takeovers applied and reverted on their dates.
++
++`seasonal.engine` plans each takeover from the collection calendar; the executor now applies
++each surface to the drafted storefront on its transition date and reverts it on its revert
++date, and the storefront the launch gate checks is rendered with what is live.
++"""
++from __future__ import annotations
++
++import sys
++from datetime import date
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(ROOT / "src"))
++sys.path.insert(0, str(ROOT))
++
++from sqlalchemy import select  # noqa: E402
++
++from brambleloop.brand import storefront, takeover  # noqa: E402
++from brambleloop.core.models import OperatingReading  # noqa: E402
++from tests.test_cert_growth_seasonal import _db, _run, _seasonal_fixture  # noqa: E402
++
++TODAY = date(2026, 9, 27)
++
++
++def _states(db):
++    with db.session() as s:
++        return {(r.payload["event"], r.payload["surface"]): r.payload["state"]
++                for r in s.scalars(select(OperatingReading).where(
++                    OperatingReading.kind == takeover.STATE_KIND))}
++
++
++def test_the_engine_applies_due_surfaces_and_reverts_them_after_the_occasion():
++    db = _db()
++    _seasonal_fixture(db)
++    out = _run(db, "seasonal.engine", {"as_of": TODAY.isoformat()})
++    assert out is not None
++    states = _states(db)
++    # Halloween's banner (60 days ahead of 31 October) is due; Christmas's is not yet.
++    assert states.get(("Halloween", "banner")) == takeover.APPLIED, states
++    assert ("Christmas", "banner") not in states
++    assert states.get(("Christmas", "featured_collection")) == takeover.APPLIED
++    live = takeover.active(db, today=TODAY)
++    assert "Halloween" in live["banner"]["change"]
++    # idempotent: a second run applies nothing new
++    _run(db, "seasonal.engine", {"as_of": TODAY.isoformat()})
++    assert _states(db) == states
++
++    # a week after Halloween the banner comes down, whatever is planned that day
++    _run(db, "seasonal.engine", {"as_of": "2026-11-08"})
++    states = _states(db)
++    assert states[("Halloween", "banner")] == takeover.REVERTED
++    assert "Halloween" not in (takeover.active(db, today=date(2026, 11, 8)).get("banner")
++                               or {}).get("change", "")
++
++
++def test_the_storefront_is_rendered_with_the_live_takeover_and_still_checked():
++    db = _db()
++    _seasonal_fixture(db)
++    _run(db, "seasonal.engine", {"as_of": TODAY.isoformat()})
++    store = storefront.build_storefront(db=db)
++    live = takeover.active(db)
++    if live.get("banner"):
++        assert store.announcement == live["banner"]["change"]
++    assert storefront.check_storefront(store) == store.problems
++
++
++def test_a_takeover_that_breaks_the_storefront_rules_is_refused_not_applied():
++    db = _db()
++    plan = takeover.plan("Test", date(2026, 10, 1), {"banner": "x" * 5000}, today=TODAY)
++    out = takeover.execute(db, [plan], today=TODAY)
++    assert out["applied"] == [] and out["refused"]
++    assert any("ANNOUNCEMENT_TOO_LONG" in p for p in out["refused"][0]["problems"])
++
++
++if __name__ == "__main__":
++    fails = 0
++    for name, fn in list(globals().items()):
++        if name.startswith("test_"):
++            try:
++                fn()
++                print("OK  ", name)
++            except Exception as e:  # noqa: BLE001
++                import traceback
++                traceback.print_exc()
++                fails += 1
++                print("FAIL", name, repr(e))
++    print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
++    sys.exit(1 if fails else 0)
 -- 
 2.43.0
 

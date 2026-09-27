@@ -13,6 +13,7 @@ written. Nothing downstream is allowed to assert something nothing upstream comp
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import date
 
 from ..cir.compiler import compile_cir
@@ -306,12 +307,23 @@ def handle_assets_build(ctx: JobContext) -> dict:
               | {"brief": flow["brief"]})
 
     stored_frames = []
+    frame_paths: dict[int, str] = {}
     for frame in frames:
         art = store.put(f"{slug}/{version}/frame-{frame.position}.png", frame.png(),
                         "image/png", artefact_class="visual_truth", lineage=lineage)
         stored_frames.append({"position": frame.position, "role": frame.role,
                               "asset_class": frame.asset_class.value,
                               "sha256": art.sha256})
+        frame_paths[frame.position] = str(art.path)
+
+    # #61 (C-69): independent visual review of every listing frame -- the finished-result
+    # frame, the size card, the chart preview and the rest -- not only the hero. A model that
+    # never sees the caption describes each frame and deterministic code compares that with
+    # what the frame's role claims. It runs when the vision gate is open; otherwise every
+    # frame is recorded UNREVIEWED, which the publish path reads as not passed. A frame the
+    # review blocks stops the chain here.
+    review = _review_frames(ctx, slug, version, frames, frame_paths)
+    blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
     # simulated, AI-assisted or not, the pattern version it depicts and its colourway.
@@ -583,6 +595,16 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     ctx.audit("listing.disclosure_finding" if disclosure.get("finding")
               else "listing.disclosure_checked", artifact=f"{slug}@{version}",
               detail=disclosure)
+    # C-69 / #40 / #54: the product's support knowledge (its FAQ, rendered from the one terms
+    # decision plus this release's own facts) is produced here, where the PDF and the listing
+    # both exist, and the three surfaces are checked against each other on the produced
+    # artefacts. A divergence stops the chain before launch and halts publication.
+    knowledge = _support_knowledge(ctx, slug, version, i, cir=cir, twin=twin,
+                                   listing_text=copy.description)
+    if knowledge.get("divergent"):
+        return {"slug": slug, "version": version, "ok": False,
+                "blocking": ["terms diverge across PDF, listing and FAQ"],
+                "terms": knowledge["consistency"]}
     # #240: the catalogue reading, with this listing in it.
     from ..commerce import portfolio as portfolio_mod
 
@@ -600,6 +622,159 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading}
+
+
+SUPPORT_KNOWLEDGE_ACTION = "support.knowledge_built"
+TERMS_DIVERGENCE_SIGNATURE = "terms-divergence"
+
+
+def support_faq(cir, twin, *, version: str) -> str:
+    """This release's FAQ: the shop FAQ (terms rendered from one decision) plus its own facts."""
+    from ..commerce import shop_package
+
+    stitches = ", ".join(sorted(twin.stitch_types_used)) or "see the stitch key"
+    yardage = "; ".join(f"{name} about {m * (1 - twin.yardage_tolerance):.0f}-"
+                        f"{m * (1 + twin.yardage_tolerance):.0f} m"
+                        for name, m in sorted(twin.yarn_metres_by_color.items()))
+    product = [
+        ("Which version of this pattern do I have?",
+         f"This is version {version} of {cir.title}. Every question is answered against the "
+         f"exact version you bought."),
+        ("Which stitches do I need?", f"{stitches}. Every stitch is in the key."),
+        ("How much yarn does it take?", yardage or "See the materials page of the pattern."),
+        ("How hard is it?", f"{_difficulty(twin, cir)}."),
+    ]
+    return shop_package.faq_text() + "\n\n" + "\n\n".join(f"{q}\n{a}" for q, a in product)
+
+
+def _support_knowledge(ctx: JobContext, slug: str, version: str, i: dict, *, cir, twin,
+                       listing_text: str) -> dict:
+    """Build and record the release's support knowledge; check #40 on the produced surfaces."""
+    from ..commerce import terms as customer_terms
+    from ..core.artifacts import ArtifactMissing
+    from ..core.models import Incident
+    from ..ops import artefacts as provenance
+    from ..publish.pdf import extracted_text
+
+    faq = support_faq(cir, twin, version=version)
+    store = ArtifactStore(i.get("artifact_dir"))
+    lineage = _lineage(ctx, validation_status="passed")
+    stored = store.put(f"{slug}/{version}/support-faq.txt", faq.encode("utf-8"),
+                       "text/plain", artefact_class="support_knowledge", lineage=lineage)
+    key = provenance.release_key(slug, version)
+    pdf_sha = (i.get("pdf_sha256_by_terminology") or {}).get("US") or i.get("pdf_sha256")
+    pdf_text, pdf_status = None, "UNMEASURED: no PDF hash on this job"
+    if pdf_sha:
+        try:
+            pdf_text = extracted_text(store.get(pdf_sha, db=ctx.db))
+            pdf_status = "measured"
+        except ArtifactMissing as exc:
+            pdf_status = f"UNMEASURED: {exc}"[:200]
+    consistency = (customer_terms.consistency(pdf_text, listing_text, faq)
+                   if pdf_text is not None else None)
+    divergent = bool(consistency and not consistency["consistent"])
+    with ctx.db.session() as s:
+        design = provenance.design_inputs(s, slug, version)
+        parents = [f"listing_copy:{key}"]
+        if pdf_sha:
+            parents.append(f"pdf:{provenance.pdf_key(slug, version, 'US')}")
+        provenance.record_lineage(
+            s, artefact_class="support_knowledge", artefact_key=f"{key}#support",
+            product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+            lineage=lineage.for_file(stored.sha256).under(*parents).validated(
+                "blocked" if divergent else ("passed" if consistency else "unmeasured")))
+        if divergent:
+            sig = f"{TERMS_DIVERGENCE_SIGNATURE}:{slug}"
+            if s.scalar(select_incident(Incident, sig)) is None:
+                s.add(Incident(severity="P1", signature=sig, halts_publication=True,
+                               summary=(f"customer-use terms diverge across the produced PDF, "
+                                        f"listing and FAQ of {slug}@{version} (#40)"),
+                               detail={"divergences": consistency["divergences"][:12]}))
+    ctx.audit("terms.divergent" if divergent else SUPPORT_KNOWLEDGE_ACTION,
+              artifact=f"{slug}@{version}",
+              detail={"faq_sha256": stored.sha256, "faq_chars": len(faq),
+                      "pdf": pdf_status,
+                      "consistent": None if consistency is None else consistency["consistent"],
+                      "divergences": (consistency or {}).get("divergences", [])[:12]})
+    return {"faq_sha256": stored.sha256, "consistency": consistency, "divergent": divergent,
+            "pdf": pdf_status}
+
+
+def select_incident(Incident, signature: str):
+    from sqlalchemy import select
+
+    return select(Incident).where(Incident.signature == signature,
+                                  Incident.resolved.is_(False))
+
+
+FRAME_REVIEW_ACTION = "assets.frame_review"
+# What each frame's role claims, in the closed vocabulary `visual.inspect.compare` checks.
+ROLE_CLAIMS: dict[str, dict] = {
+    "hero": {"shows_finished_object": True},
+    "size": {"shows_size_reference": True},
+    "chart": {"shows_chart_preview": True},
+    "pattern_preview": {"shows_text": True},
+}
+
+
+def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict) -> dict:
+    from ..visual import inspect as inspection_mod
+    from ..visual.gallery import gates_now
+
+    vision_open = gates_now(ctx.db, keys=("image_vision",)).get("image_vision", False)
+    verdicts: dict[int, dict] = {}
+    blocking: list[str] = []
+    for frame in frames:
+        claim = ROLE_CLAIMS.get(frame.role, {})
+        if not vision_open:
+            verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
+                                        "why": "image_vision gate closed: no model has "
+                                               "been proven to look at a picture"}
+            continue
+        try:
+            got = inspection_mod.inspect_image(paths[frame.position], db=ctx.db, claim=claim)
+            verdict = inspection_mod.gate(got)
+        except Exception as exc:  # noqa: BLE001 - a review that failed is unmade, not passed
+            verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
+                                        "why": f"{type(exc).__name__}: {exc}"[:200]}
+            continue
+        # A deterministic render has no realism to judge; the semantic comparison and the
+        # marks are the review. Unmade realism on a render is not a failure of the frame.
+        if verdict["verdict"] == "unjudged" and got.get("described"):
+            verdict = {"verdict": "clear", "why": "described and compared; realism not "
+                                                  "applicable to a deterministic render"}
+        verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
+                                    "why": verdict.get("why"),
+                                    "semantic": (got.get("semantic") or {}).get("problems")}
+        if verdict["verdict"] == "blocked":
+            blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
+                            f"does not communicate what it claims: "
+                            f"{(got.get('semantic') or {}).get('problems')}"[:400])
+    ctx.audit(FRAME_REVIEW_ACTION, artifact=f"{slug}@{version}",
+              detail={"vision_open": vision_open,
+                      "frames": {str(k): v for k, v in verdicts.items()},
+                      "unreviewed": sorted(k for k, v in verdicts.items()
+                                           if v["verdict"] == "unreviewed")})
+    return {"verdicts": verdicts, "blocking": blocking, "vision_open": vision_open}
+
+
+def frame_review_state(db, slug: str, version: str) -> dict:
+    """The latest independent review of this release's frames, for the publish path."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == FRAME_REVIEW_ACTION,
+                                              AuditLog.artifact == f"{slug}@{version}")
+                       .order_by(desc(AuditLog.id)).limit(1))
+    if row is None:
+        return {"reviewed": False, "why": "no independent frame review is on record (#61)"}
+    frames = (row.detail or {}).get("frames") or {}
+    bad = {k: v["verdict"] for k, v in frames.items() if v.get("verdict") != "clear"}
+    return {"reviewed": not bad, "not_clear": bad,
+            "why": ("every frame was independently reviewed and communicates its claim"
+                    if not bad else f"frames not independently cleared (#61): {bad}")}
 
 
 def _stored_frames(db, slug: str, version: str) -> list[dict]:
@@ -942,6 +1117,30 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         ctx.audit("growth.experiments_unregistered", artifact=f"{slug}@{i['version']}",
                   detail={"error": f"{type(e).__name__}: {str(e)[:300]}"})
 
+    # C-69 (#171): the release bundle -- everything this release ships together -- recorded
+    # as its own derived artefact, over the rows of its members, so a CIR change invalidates
+    # the bundle as a whole and not only its parts.
+    _record_release_bundle(ctx, slug, i["version"])
+
+    # #163 / #169 (C-69): the teardown QA again, now that the product's artefacts exist -- the
+    # advantages its support knowledge evidences are compared with the purchased benchmarks
+    # and its delight mechanisms are measured from its files. A parity-only product is
+    # withheld here exactly as at certification: no content, no publication.
+    from ..teardown import lab as teardown_lab
+    from .pipeline import _mark_withheld
+
+    seed_ = _seed_for(slug)
+    qa_ = teardown_lab.product_qa(ctx.db, slug,
+                                  product_class=(seed_.category if seed_ else ""))
+    if qa_.get("blocks_release"):
+        reason = "teardown QA (#163): " + str(qa_["unique_value"].get("reason", ""))[:300]
+        _mark_withheld(ctx, _load_cir(ctx, slug, i["version"]), reason)
+        ctx.audit("gate.release_withheld", artifact=f"{slug}@{i['version']}",
+                  detail={"reason": reason, "stage": "launch.plan"})
+        out = plan.to_dict()
+        out.update({"withheld": reason, "window_decision": decision})
+        return out
+
     publish_inputs = {"slug": slug, "version": i["version"]}
     for carried in ("as_of", "positioning"):
         if i.get(carried):
@@ -955,6 +1154,37 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     out = plan.to_dict()
     out["window_decision"] = decision
     return out
+
+
+BUNDLE_MEMBER_CLASSES = ("certificate", "pdf", "chart", "visual_truth", "listing_copy", "seo",
+                         "pricing", "support_knowledge")
+
+
+def _record_release_bundle(ctx: JobContext, slug: str, version: str) -> dict | None:
+    from sqlalchemy import select
+
+    from ..core.models import ArtefactProvenance
+    from ..ops import artefacts as provenance
+
+    key = provenance.release_key(slug, version)
+    with ctx.db.session() as s:
+        members = sorted(
+            (r.artefact_class, r.artefact_key, r.sha256 or provenance.fingerprint(r.inputs))
+            for r in s.scalars(select(ArtefactProvenance).where(
+                ArtefactProvenance.product_slug == slug,
+                ArtefactProvenance.artefact_class.in_(BUNDLE_MEMBER_CLASSES)))
+            if r.artefact_key == key or r.artefact_key.startswith(key + "#"))
+        if not members:
+            return None
+        design = provenance.design_inputs(s, slug, version)
+        manifest = provenance.fingerprint([list(m) for m in members])
+        provenance.record_lineage(
+            s, artefact_class="release_bundle", artefact_key=f"{key}#bundle",
+            product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+            lineage=_lineage(ctx, validation_status="passed",
+                             evidence={"manifest": manifest, "members": len(members)})
+            .under(*[f"{c}:{k}" for c, k, _ in members]))
+    return {"manifest": manifest, "members": len(members)}
 
 
 @handlers.register("marketing.schedule")
@@ -983,6 +1213,15 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     gate = for_marketing(ctx.db, slug=slug, version=version,
                          today=date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
                          positioning=i.get("positioning"))
+    outstanding = list(gate["staleness"]["rebuild"]["outstanding"] or [])
+    if (gate["blocks"] and i.get("rebuild") and outstanding
+            and all(k.startswith("marketing_asset:") for k in outstanding)
+            and not gate["staleness"]["halted"]
+            and all("#172" in r for r in gate["reasons"])):
+        # C-69: the only thing outstanding is the content this rebuild exists to remake.
+        # Blocking it on its own staleness would make a stale marketing asset unrebuildable.
+        gate = {**gate, "blocks": False, "reasons": [],
+                "rebuilding": outstanding}
     if gate["blocks"]:
         ctx.audit("marketing.blocked", artifact=f"{slug}@{version}",
                   detail={"reasons": gate["reasons"][:5], "published": False,
@@ -1029,10 +1268,23 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
                 ContentPiece.product_slug == slug,
                 ContentPiece.channel == piece.channel,
                 ContentPiece.title == piece.title))
-            if existing is not None:
+            if existing is not None and not i.get("rebuild"):
                 # Written by an earlier run under inputs this run cannot vouch for. Its
                 # lineage is the backfill's to derive from that run's evidence, or it
                 # stays unproven; recording it here would be a lineage nobody had.
+                continue
+            if existing is not None:
+                # C-69 (#172): a rebuild remakes the piece from the current release -- this
+                # run wrote these words, so it records their lineage.
+                existing.body = piece.body
+                existing.detail = piece.detail
+                existing.scheduled_for = piece.scheduled_for
+                provenance.record_lineage(
+                    s, artefact_class="marketing_asset",
+                    artefact_key=provenance.marketing_key(slug, piece.channel, piece.title),
+                    product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+                    lineage=lineage.for_file(_content_hash(piece.title, piece.body))
+                                   .under(listing_ref))
                 continue
             s.add(ContentPiece(product_slug=slug, channel=piece.channel, title=piece.title,
                                body=piece.body, scheduled_for=piece.scheduled_for,
@@ -2327,7 +2579,14 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
 
     This looks for certified releases with no listing at the current chain version and starts
     them at `listing.draft`. It is idempotent: a release that already has one is left alone.
+
+    C-69 (#172): a job enqueued by the dependency graph carries the exact stale artefacts, the
+    old and new fingerprints and the reason; those inputs are honoured (`_targeted_rebuild`),
+    and a release withheld by the teardown QA (#163) is never re-driven by either mode.
     """
+    if ctx.job.inputs.get("artefacts") or ctx.job.inputs.get("artefact_key"):
+        return _targeted_rebuild(ctx)
+
     from sqlalchemy import select
 
     from ..core.models import Listing, PatternVersion, Product
@@ -2355,9 +2614,16 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
 
     started: list[str] = []
     reasons: dict[str, str] = {}
+    withheld_releases: list[str] = []
     for pv in certified:
         slug = products.get(pv.product_id)
         if not slug:
+            continue
+        if (pv.certificate or {}).get("withheld"):
+            # #163: the teardown QA withheld this release; the rebuild must not draft the
+            # listing the withhold refused.
+            reasons[slug] = "withheld: " + str((pv.certificate or {})["withheld"])[:120]
+            withheld_releases.append(f"{slug}@{pv.version}")
             continue
         wanted = f"c{CHAIN_VERSION}:{pv.release_hash or 'none'}"
         actual = built_from.get((slug, pv.version), "missing")
@@ -2447,10 +2713,185 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
                                        "redrafted": redrafted[:20],
                                        "redrafted_count": len(redrafted),
                                        "collections_restarted": collections_started,
+                                       "withheld": withheld_releases,
                                        "listings": reasons})
     return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
             "certified": len(certified), "restarted": started,
-            "redrafted": redrafted, "collections_restarted": collections_started}
+            "redrafted": redrafted, "collections_restarted": collections_started,
+            "withheld": withheld_releases}
+
+
+# C-69 (#172): which chain stage re-derives each artefact class. Each stage cascades to the
+# stages after it, so a rebuild enqueues the *earliest* stage any stale artefact needs and no
+# other -- a stale marketing asset alone restarts pricing (which re-drives the listing, the
+# support knowledge, the launch plan, the content and the release bundle from the current
+# release), not the certificate.
+REBUILD_STAGE: dict[str, str] = {
+    "twin": "gate.certify", "geometry_proof": "gate.certify",
+    "reverse_result": "gate.certify", "certificate": "gate.certify",
+    "pdf": "assets.build", "chart": "assets.build", "visual_truth": "assets.build",
+    "pricing": "pricing.position", "listing_copy": "pricing.position",
+    "seo": "pricing.position", "support_knowledge": "pricing.position",
+    "marketing_asset": "pricing.position", "release_bundle": "pricing.position",
+}
+STAGE_ORDER = ("gate.certify", "assets.build", "pricing.position")
+STAGE_AGENT = {"gate.certify": "quality_director", "assets.build": "publishing",
+               "pricing.position": "pricing"}
+# How many times the rebuild comes back to collect completion evidence before it raises.
+REBUILD_VERIFY_ATTEMPTS = 3
+REBUILD_VERIFY_DELAY_MINUTES = 20
+REBUILD_INCOMPLETE_SIGNATURE = "rebuild-incomplete"
+
+
+def _targeted_rebuild(ctx: JobContext) -> dict:
+    """Rebuild exactly the artefacts the dependency graph named, and prove each one was.
+
+    Reads `ctx.job.inputs`: `product_slug`, `artefacts` (node keys 'class:key'; or the
+    per-artefact form `artefact_class`/`artefact_key`), `fingerprints` ({ref: {old, new}}),
+    `reason`. Per artefact it records the request (`chain.rebuild_requested`, with the old and
+    new fingerprints, the reason and the stage job that will remake it). A later run of the
+    same job with `verify` reads the provenance rows back and writes completion evidence per
+    artefact (`chain.rebuild_completed`: the row's new inputs, build time and the job that
+    wrote it), or raises an incident when the artefacts are still stale after
+    REBUILD_VERIFY_ATTEMPTS checks. A withheld release (#163) is refused and audited.
+    """
+    from datetime import timedelta as _td
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import (ArtefactProvenance, Incident, Job, JobStatus, PatternVersion,
+                               Product, utcnow)
+    from ..ops import artefacts as provenance
+
+    i = dict(ctx.job.inputs)
+    slug = i.get("product_slug") or i.get("slug") or ""
+    keys = list(i.get("artefacts") or [])
+    if not keys and i.get("artefact_key"):
+        keys = [f"{i['artefact_class']}:{i['artefact_key']}"]
+    fingerprints = dict(i.get("fingerprints") or {})
+    reason = str(i.get("reason") or "")
+    verify = int(i.get("verify") or 0)
+
+    with ctx.db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
+                       .order_by(desc(PatternVersion.id)).limit(1))
+              if product is not None else None)
+        version = pv.version if pv is not None else ""
+        release = pv.release_hash or "" if pv is not None else ""
+        cir_json = dict(pv.cir_json) if pv is not None else None
+        withheld = (pv.certificate or {}).get("withheld") if pv is not None else None
+        current = provenance.current_from_db(s)
+        verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
+                    for v in provenance.check(s, current=current)}
+        rows = {f"{r.artefact_class}:{r.artefact_key}": r for r in s.scalars(
+            select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug))}
+        row_facts = {k: {"inputs": dict(r.inputs or {}), "built_at": str(r.built_at),
+                         "job_id": r.job_id, "created_by": r.created_by}
+                     for k, r in rows.items()}
+
+    if pv is None:
+        ctx.audit("chain.rebuild_refused", artifact=slug,
+                  detail={"why": "no stored release for this product", "artefacts": keys})
+        return {"targeted": True, "slug": slug, "refused": "no stored release"}
+    if withheld:
+        ctx.audit("chain.rebuild_refused", artifact=f"{slug}@{version}",
+                  detail={"why": f"release withheld (#163): {str(withheld)[:200]}",
+                          "artefacts": keys, "reason": reason})
+        return {"targeted": True, "slug": slug, "version": version, "withheld": True,
+                "rebuilt": []}
+
+    fresh = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
+    stale = [k for k in keys if k not in fresh]
+
+    if verify:
+        for k in fresh:
+            ctx.audit("chain.rebuild_completed", artifact=k, detail={
+                "product_slug": slug, "version": version, "reason": reason,
+                "fingerprints": fingerprints, "evidence": row_facts.get(k),
+                "verified_on_check": verify})
+        if stale and verify < REBUILD_VERIFY_ATTEMPTS:
+            ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale,
+                                                     "verify": verify + 1},
+                        idempotency_key=(f"rebuild-verify:{slug}:{ctx.job.id}:"
+                                         f"{verify + 1}"),
+                        run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
+        elif stale:
+            with ctx.db.session() as s:
+                sig = f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"
+                inc = s.scalar(select(Incident).where(Incident.signature == sig,
+                                                      Incident.resolved.is_(False)))
+                if inc is None:
+                    s.add(Incident(severity="P2", signature=sig, halts_publication=True,
+                                   summary=(f"{len(stale)} artefact(s) of {slug} still carry "
+                                            f"a moved input after {verify} rebuild checks: "
+                                            f"{stale[:5]}"),
+                                   detail={"stale": stale, "reason": reason,
+                                           "fingerprints": fingerprints}))
+                else:
+                    inc.report_count += 1
+        ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
+            "completed": fresh, "outstanding": stale, "check": verify})
+        return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
+                "outstanding": stale}
+
+    classes = {k.split(":", 1)[0] for k in stale}
+    unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
+    stages = [st for st in STAGE_ORDER if any(REBUILD_STAGE.get(c) == st for c in classes)]
+    stage = stages[0] if stages else None
+    token = hashlib.sha256(json.dumps(
+        {"artefacts": sorted(stale), "fingerprints": fingerprints},
+        sort_keys=True, default=str).encode()).hexdigest()[:12]
+    stage_job = None
+    if stage == "gate.certify":
+        stage_job = ctx.enqueue(STAGE_AGENT[stage], stage, {"cir": cir_json},
+                                idempotency_key=f"rebuild-cert:{slug}:{version}:{token}")
+    elif stage == "assets.build":
+        stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
+                                {"slug": slug, "version": version, "release": release,
+                                 "rebuild": token},
+                                idempotency_key=chain_key("assets", slug, version, release,
+                                                          token))
+    elif stage == "pricing.position":
+        # Pricing and everything after it read what assets.build measured; the latest
+        # completed build's own payload is that measurement.
+        with ctx.db.session() as s:
+            built = next((dict(j.outputs or {}) for j in s.scalars(
+                select(Job).where(Job.job_type == "assets.build",
+                                  Job.status == JobStatus.DONE).order_by(desc(Job.id)))
+                if (j.outputs or {}).get("slug") == slug
+                and (j.outputs or {}).get("version") == version
+                and (j.outputs or {}).get("pdf_sha256")), None)
+        if built is None:
+            stage = "assets.build"
+            stage_job = ctx.enqueue("publishing", stage,
+                                    {"slug": slug, "version": version, "release": release,
+                                     "rebuild": token},
+                                    idempotency_key=chain_key("assets", slug, version,
+                                                              release, token))
+        else:
+            stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
+                                    {**built, "release": release, "rebuild": token},
+                                    idempotency_key=chain_key("price", slug, version,
+                                                              release, token))
+    for k in stale:
+        ctx.audit("chain.rebuild_requested", artifact=k, detail={
+            "product_slug": slug, "version": version, "reason": reason,
+            "fingerprints": fingerprints, "old_inputs": (row_facts.get(k) or {}).get("inputs"),
+            "stage": REBUILD_STAGE.get(k.split(":", 1)[0]), "enqueued_stage": stage,
+            "stage_job": getattr(stage_job, "id", None)})
+    for k in fresh:
+        ctx.audit("chain.rebuild_completed", artifact=k, detail={
+            "product_slug": slug, "version": version, "reason": reason,
+            "fingerprints": fingerprints, "evidence": row_facts.get(k),
+            "already_fresh": True})
+    if stale:
+        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1},
+                    idempotency_key=f"rebuild-verify:{slug}:{ctx.job.id}:1",
+                    run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
+    return {"targeted": True, "slug": slug, "version": version, "reason": reason,
+            "requested": stale, "already_fresh": fresh, "stage": stage,
+            "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
 
 
 @handlers.register("ops.policy_watch")
@@ -3709,6 +4150,7 @@ def handle_finance_governor(ctx: JobContext) -> dict:
 
     out = governor.enforce(ctx.db)
     return {"ran": True, "paused": out["paused"], "incidents": out["incidents"],
+            "unit_cost": out.get("unit_cost"),
             "marginal_value": out["marginal_value"], "parallelism": out["parallelism"],
             "allocation_fed": out["allocation_fed"],
             "company_anomaly_measurable": bool(out["company_anomaly"].get("measurable")),
@@ -4059,6 +4501,34 @@ def handle_capacity_review(ctx: JobContext) -> dict:
     }
     ctx.audit("ops.capacity", detail=detail)
     return detail
+
+
+@handlers.register("ops.dependencies")
+def handle_dependency_sweep(ctx: JobContext) -> dict:
+    """#50 continuously and #29 acted on (C-69). Daily.
+
+    The single-point dependency map is probed against the database -- the database itself and
+    whether its recovery (the continuity restore) is proved, the model provider, the Etsy API,
+    the tester roster -- and a failed probe, a recovery strategy that is missing or unproved,
+    or a provider the cost ledger bills that the map does not name, opens an incident (and
+    closes it when the probe recovers). The anti-fragility axes are read from the same rows
+    and an existential concentration -- one AI provider the whole system runs on, today --
+    is raised as an incident rather than written in a note.
+
+    GREEN: reads rows and gates, writes incidents and one audit row. Spends nothing.
+    """
+    from ..ops import dependencies
+    from ..scale import dependency as anti_fragility
+
+    mapped = dependencies.sweep(ctx.db)
+    fragility = anti_fragility.act(ctx.db)
+    detail = {"failing": mapped["failing"], "unknown": mapped["unknown"],
+              "unmapped": mapped["unmapped"], "opened": mapped["incidents_opened"]
+              + fragility["incidents_opened"],
+              "resolved": mapped["incidents_resolved"] + fragility["incidents_resolved"],
+              "existential": fragility["existential"], "axes": fragility["axes"]}
+    ctx.audit("ops.dependencies", detail=detail)
+    return {**detail, "probes": mapped["probes"]}
 
 
 @handlers.register("growth.conclude")
@@ -4427,7 +4897,7 @@ def handle_blind_review(ctx: JobContext) -> dict:
     from ..products.builder import for_slug
     from ..publish import listing_asset
     from ..visual import parity
-    from ..visual.gallery import escalation_plan
+    from ..visual.gallery import escalation_plan, gates_now
 
     today = date.today().isoformat()
     returned = []
@@ -4436,7 +4906,8 @@ def handle_blind_review(ctx: JobContext) -> dict:
             continue
         slug = row["slug"]
         cir = for_slug(slug)
-        plan = escalation_plan([parity.COMPETITIVE], deterministic_available=cir is not None)
+        plan = escalation_plan([parity.COMPETITIVE], deterministic_available=cir is not None,
+                               gate_open=gates_now(ctx.db))
         job_type = ("assets.model_photography"
                     if cir is not None and listing_asset.needs_the_model(cir)
                     else "assets.owned_photography")
@@ -4593,6 +5064,8 @@ def handle_lane_routing(ctx: JobContext) -> dict:
             if rows:
                 withdrawn.append(artifact)
 
+    lane_capacity = _lane_capacity(ctx, lanes)
+
     seeds = {seed.slug: seed for seed in POOL}
     demand_rows = []
     for card in routed["products"]:
@@ -4636,7 +5109,60 @@ def handle_lane_routing(ctx: JobContext) -> dict:
             "testing_demands": len(tester_plan["forecast"]["demands"]),
             "testing_late": len(tester_plan["forecast"]["late"]),
             "testers_assigned": len(tester_plan["assignments"]),
-            "testers_unassigned": len(tester_plan["unassigned"])}
+            "testers_unassigned": len(tester_plan["unassigned"]),
+            "lane_capacity": lane_capacity}
+
+
+# How far a starved production lane's queued engineering work is moved up, and the most it
+# may be moved above its own band in total: enough to be claimed first within its band's
+# neighbourhood, never enough to outrank a customer or a truth defect.
+LANE_STARVED_BOOST = 5
+
+
+def _lane_capacity(ctx: JobContext, lanes) -> dict:
+    """#5's two floors on making capacity, measured and acted on (C-68).
+
+    The split the claim enforces is `lanes.allocate` over the engineering workers the #30 mix
+    gives product/QA, recorded as `lanes.capacity` for `swarm.capacity.share_decision` to
+    read. The split actually run -- engineering job-seconds per lane over seven days -- is
+    checked against both floors with `lanes.check_mix`; a lane below its floor has its queued
+    engineering work moved up (bounded), so the next claims go to it. With nothing run yet
+    the measured split is UNMEASURED and nothing is moved.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+    from ..swarm import capacity as cap
+    from ..swarm.orchestrate import priority_for
+
+    budgets = cap.function_budgets(cap.latest_mix(ctx.db)["mix"], cap.worker_threads())
+    plan = lanes.allocate(float(budgets.get(cap.PRODUCT_QA, 1)))
+    split = cap.measured_lane_split(ctx.db)
+    verdict, starved, boosted = None, [], []
+    if split["shares"]:
+        measured = {lane: split["shares"].get(lane, 0.0) for lane in lanes.LANES}
+        verdict = lanes.check_mix(measured)
+        floors = {lanes.FAST: lanes.FAST_FLOOR, lanes.FLAGSHIP: lanes.FLAGSHIP_FLOOR}
+        starved = sorted(l for l in lanes.LANES if measured[l] < floors[l])
+    if starved:
+        with ctx.db.session() as s:
+            for job in s.scalars(select(Job).where(
+                    Job.status.in_((JobStatus.PENDING, JobStatus.FAILED)),
+                    Job.job_type.in_(sorted(cap.ENGINEERING_JOB_TYPES)))):
+                slug = str((job.inputs or {}).get("slug") or "")
+                if cap.product_lane(ctx.db, slug) not in starved:
+                    continue
+                floor = max(0, priority_for(job.job_type) - LANE_STARVED_BOOST)
+                if job.priority > floor:
+                    job.priority = max(floor, job.priority - LANE_STARVED_BOOST)
+                    boosted.append(job.id)
+    detail = {"shares": plan["shares"], "units": plan["units"],
+              "engineering_workers": budgets.get(cap.PRODUCT_QA, 1),
+              "measured": split, "mix_check": verdict,
+              "measured_status": "measured" if split["shares"] else "UNMEASURED",
+              "starved": starved, "boosted_jobs": boosted}
+    ctx.audit(cap.LANE_CAPACITY_ACTION, detail=detail)
+    return detail
 
 
 @handlers.register("intel.acceptance")

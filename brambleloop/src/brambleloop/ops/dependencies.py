@@ -192,3 +192,119 @@ def drill(key: str) -> dict:
                  if dependency.owner_only else
                  "this recovery is within the system's own authority"),
     }
+
+
+# ---------------------------------------------------------------------------
+# #50 continuously (C-69): the map run daily against live evidence, and acted on.
+
+DEPENDENCY_SIGNATURE = "dependency"
+# The postgres recovery strategy is the continuity restore; it counts only while proved.
+RESTORE_PROOF_MAX_AGE_DAYS = 2
+# What each dependency's live probe reads, beyond environment configuration.
+PROBE_GATES: dict[str, str] = {"model_provider": "model_provider", "etsy_account": "etsy_api",
+                               "tester_network": "tester_roster"}
+
+
+def probe(db) -> dict:
+    """Each dependency checked against the database: reachable, proven, or UNKNOWN."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import desc, select, text
+
+    from ..core.models import AuditLog, CostEntry
+
+    now = datetime.now(timezone.utc)
+    out: dict[str, dict] = {}
+    try:
+        with db.session() as s:
+            s.execute(text("select 1"))
+            restore = s.scalar(select(AuditLog.at).where(
+                AuditLog.action == "continuity.verified").order_by(desc(AuditLog.id)).limit(1))
+            providers = sorted({(c.provider or "").strip() for c in s.scalars(
+                select(CostEntry).where(CostEntry.at >= now - timedelta(days=30)))
+                if (c.provider or "").strip()})
+        reachable = True
+    except Exception as exc:  # noqa: BLE001 - an unreachable database is the finding
+        reachable, restore, providers = False, None, []
+        out["postgres"] = {"ok": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
+    if reachable:
+        at = (None if restore is None else
+              restore if restore.tzinfo else restore.replace(tzinfo=timezone.utc))
+        proved = at is not None and now - at <= timedelta(days=RESTORE_PROOF_MAX_AGE_DAYS)
+        out["postgres"] = {"ok": proved, "recovery_proved": proved,
+                           "last_restore_proof": at.isoformat() if at else None,
+                           "why": ("reachable, and its recovery (the continuity restore) was "
+                                   "proved recently" if proved else
+                                   "reachable, but its recovery strategy has not been proved "
+                                   f"within {RESTORE_PROOF_MAX_AGE_DAYS} days")}
+    out["railway"] = {"ok": True, "why": "this probe is running on it"}
+    from ..build2 import executor
+
+    for key, gate_key in PROBE_GATES.items():
+        try:
+            ok = bool(executor.GATE_BY_KEY[gate_key].open(db))
+        except Exception:  # noqa: BLE001
+            ok = False
+        out[key] = {"ok": ok, "gate": gate_key,
+                    "why": f"the {gate_key} gate is {'open' if ok else 'closed'}"}
+    for d in DEPENDENCIES:
+        out.setdefault(d.key, {"ok": None, "why": "no live probe exists for this dependency; "
+                                                  "UNKNOWN, not healthy"})
+    return {"probes": out, "providers_in_use": providers}
+
+
+def sweep(db, env: dict[str, str] | None = None) -> dict:
+    """Map, probe and act: an incident per failed probe, per unmapped dependency in use and
+    per recovery strategy that is missing or unproved; resolved when the probe recovers."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    state = map_state(db, env)
+    live = probe(db)
+    mapped = {d.key for d in DEPENDENCIES}
+    # A provider the company is paying that the map does not name is a dependency nobody
+    # planned a recovery for -- found from the cost ledger, not remembered.
+    provider_keys = {"anthropic": "model_provider", "openai": "model_provider",
+                     "google": "model_provider", "gemini": "model_provider"}
+    unmapped = sorted(p for p in live["providers_in_use"]
+                      if provider_keys.get(p.lower(), p.lower()) not in mapped)
+    findings: dict[str, dict] = {}
+    for key, p in live["probes"].items():
+        d = BY_KEY.get(key)
+        if p.get("ok") is False and d is not None and not d.owner_only:
+            findings[f"{DEPENDENCY_SIGNATURE}:{key}"] = {
+                "severity": "P1" if d.impact == FATAL else "P2",
+                "summary": f"dependency {key} failed its live probe: {p['why']}",
+                "detail": {"dependency": key, "impact": d.impact, "probe": p,
+                           "recovery": d.recovery}}
+    for name in unmapped:
+        findings[f"{DEPENDENCY_SIGNATURE}:unmapped:{name}"] = {
+            "severity": "P2",
+            "summary": (f"{name} is billed in the cost ledger and has no mapped recovery "
+                        f"strategy (#50)"),
+            "detail": {"provider": name}}
+    opened, resolved = [], []
+    with db.session() as s:
+        open_rows = {i.signature: i for i in s.scalars(select(Incident).where(
+            Incident.resolved.is_(False),
+            Incident.signature.like(f"{DEPENDENCY_SIGNATURE}:%")))}
+        for sig, f in findings.items():
+            row = open_rows.get(sig)
+            if row is None:
+                s.add(Incident(severity=f["severity"], signature=sig, summary=f["summary"],
+                               halts_publication=False, detail=f["detail"]))
+                opened.append(sig)
+            else:
+                row.report_count = (row.report_count or 1) + 1
+                row.detail = f["detail"]
+        for sig, row in open_rows.items():
+            if sig not in findings:
+                row.resolved = True
+                resolved.append(sig)
+    return {"map": {k: state[k] for k in ("single_points_of_failure", "unconfigured",
+                                          "owner_only_to_recover")},
+            "probes": live["probes"], "providers_in_use": live["providers_in_use"],
+            "unmapped": unmapped, "incidents_opened": opened, "incidents_resolved": resolved,
+            "failing": sorted(k for k, p in live["probes"].items() if p.get("ok") is False),
+            "unknown": sorted(k for k, p in live["probes"].items() if p.get("ok") is None)}

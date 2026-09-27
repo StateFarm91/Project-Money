@@ -198,8 +198,14 @@ def test_production_start_command_runs_kills_and_resumes_without_this_session():
             assert _health(port), "the production start command never served /health"
             assert _wait(lambda: any(j.status is JobStatus.DONE for j in _jobs(db)), 120), \
                 "worker A completed nothing"
-            # Let it run a little further so follow-on work exists, then catch it mid-job.
-            _wait(lambda: sum(1 for j in _jobs(db) if j.status is JobStatus.DONE) >= 12, 120)
+            # Let the release chain run until it reaches the production gate: in shadow,
+            # store.publish is refused by the capability layer. That refusal is the gate
+            # doing its job, recorded on a real job the chain itself enqueued. Then catch
+            # the worker mid-job for the kill.
+            assert _wait(lambda: any(
+                j.job_type == "store.publish" and
+                (j.last_error or "").startswith("capability not enabled")
+                for j in _jobs(db)), 420), "the chain never reached the publish gate"
             _wait(lambda: any(j.status is JobStatus.RUNNING for j in _jobs(db)), 60, 0.2)
         finally:
             _kill(a)
@@ -229,7 +235,15 @@ def test_production_start_command_runs_kills_and_resumes_without_this_session():
         # Gates and cost controls run inside the runtime: with no credentials in the container,
         # anything that would reach a paid or external capability is refused, and nothing costs.
         refused = [j for j in jobs if (j.last_error or "").startswith("capability not enabled")]
-        assert refused, "no capability gate was exercised"
+        assert refused and all(j.job_type == "store.publish" for j in refused), \
+            [(j.job_type, (j.last_error or "")[:80]) for j in refused]
+        assert all(j.status is JobStatus.DEAD for j in refused), "a refusal was retried"
+        with db.session() as s:
+            published = s.scalar(select(func.count()).select_from(AuditLog).where(
+                AuditLog.action == "store.published")) or 0
+            refusals = s.scalar(select(func.count()).select_from(AuditLog).where(
+                AuditLog.action == "job.capability_not_enabled")) or 0
+        assert published == 0 and refusals >= len(refused)
         assert sum(j.cost_cad or 0.0 for j in jobs) == 0.0
         assert _boots(db) == 1
 
@@ -281,9 +295,13 @@ def test_production_start_command_runs_kills_and_resumes_without_this_session():
             assert after[j.id].attempts >= 2, (j.job_type, after[j.id].attempts)
 
         # ---- the next window comes from durable state alone (no process remembers it)
-        horizon = utcnow() + timedelta(days=8)
-        fresh = Scheduler(db).tick(horizon)
-        assert set(fresh) >= {n for n, _a, _jt, _p in CADENCES}, "cadences did not continue"
+        # Past the longest cadence period (30 days), so every window is a new one. A loop the
+        # thrash breaker suspended (#34) is legitimately skipped and is excluded by name.
+        horizon = utcnow() + timedelta(days=31)
+        sched = Scheduler(db)
+        fresh = sched.tick(horizon)
+        expected = {n for n, _a, jt, _p in CADENCES if jt not in (sched.suspended or {})}
+        assert set(fresh) >= expected, ("cadences did not continue", sorted(expected - set(fresh)))
         assert Scheduler(db).tick(horizon) == [], "a second scheduler duplicated the window"
 
 

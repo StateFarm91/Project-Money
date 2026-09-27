@@ -111,7 +111,8 @@ def _realism_of(frame: dict) -> dict | None:
     return {"verdict": "unjudged", "from": "inspection.realism", "checks": checks}
 
 def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
-           deterministic_available: bool | None = None) -> dict:
+           deterministic_available: bool | None = None,
+           gate_open: dict[str, bool] | None = None) -> dict:
     """Judge all eight from evidence already gathered. Never renders, never asks again.
 
     `frames` are asset records -- what `model_photography.make` and
@@ -273,7 +274,8 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
 
         available = (deterministic_available if deterministic_available is not None
                      else _deterministic_available(frames))
-        escalation = escalation_plan(failed, deterministic_available=available)
+        escalation = escalation_plan(failed, deterministic_available=available,
+                                     gate_open=gate_open)
 
     return {
         "escalation": escalation,

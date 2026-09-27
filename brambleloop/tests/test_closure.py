@@ -48,11 +48,46 @@ _dead_data = R.Requirement(id=996, title="t", body="b", version="v", section="s"
                            proof="gateway/evals.py tests/test_gateway.py")
 check("a data-gated row whose machinery nothing runs is OPEN (C-59)",
       C.classify(_dead_data)["state"] == C.OPEN)
+# C-65: the three blind spots the 9434c53 audit found in the rule above.
+_static = R.Requirement(id=995, title="t", body="b", version="v", section="s",
+                        status=R.COVERED, note="", parked_on="",
+                        proof="commerce/offers.py runtime/release.py app/main.py tests/test_offers.py")
+_sv = C.classify(_static)
+check("a covered row whose library only a static state() route touches is OPEN, and naming a "
+      "runtime root beside it does not count as reach (C-65)",
+      _sv["state"] == C.OPEN and "commerce/offers.py" in _sv["proof"]["unreached"], str(_sv["proof"]))
+_orig_gate_for = C.executor.gate_for
+C.executor.gate_for = lambda i: "owned_surfaces" if i in (994, 993) else _orig_gate_for(i)
+try:
+    _og = R.Requirement(id=994, title="t", body="b", version="v", section="s",
+                        status=R.OWNER_GATED, note="", parked_on="",
+                        proof="commerce/preproduction.py tests/test_preproduction.py")
+    _ogv = C.classify(_og, gate_open={"owned_surfaces": False})
+    check("an owner_gated row whose built half names unreached machinery is OPEN (C-65)",
+          _ogv["state"] == C.OPEN and "not reached" in _ogv["why"], _ogv["why"])
+    _og_live = R.Requirement(id=993, title="t", body="b", version="v", section="s",
+                             status=R.OWNER_GATED, note="", parked_on="",
+                             proof="commerce/kill_table.py tests/test_kill_table.py")
+    _olv = C.classify(_og_live, gate_open={"owned_surfaces": False})
+    check("the same owner_gated row naming live machinery stays OWNER-GATED",
+          _olv["state"] == C.OWNER_GATED and _olv["gate_checked"] is True, _olv["why"])
+    _unchecked = C.classify(_og_live)
+    check("with no database the gate is reported UNCHECKED, never as verified closed (C-65)",
+          _unchecked["gate_open"] is None and _unchecked["gate_checked"] is False
+          and "NOT checked live" in _unchecked["why"], _unchecked["why"])
+finally:
+    C.executor.gate_for = _orig_gate_for
+check("the matrix without a database says its gates were not checked and names the rows resting "
+      "on the registry's word", m["gates_checked_live"] is False
+      and isinstance(m["gates_unchecked"], dict) and m["gates_unchecked"]["rows"])
 check("a partial row with no gate is OPEN (executable work owed)", all(r["state"] == C.OPEN for r in m["rows"] if r["status"] in R.EXECUTABLE and not executor.gate_for(r["id"])))
 r75 = next(r for r in m["rows"] if r["id"] == 75)
 print("     #75:", r75["state"], r75["gate"], r75["why"][:80])
 # an opened gate returns its requirements to OPEN
-parked = next((r for r in R.load() if r.parked_on and r.parked_on in C.OWNER_GATES), None)
+# (a parked row whose built half is live: one whose machinery is unreached is OPEN already, C-65)
+parked = next((r for r in R.load() if r.parked_on and r.parked_on in C.OWNER_GATES
+               and C.classify(r, gate_open={r.parked_on: False})["state"] != C.OPEN), None)
+check("a parked row with a live built half exists to test the reopening on", parked is not None)
 if parked:
     row = C.classify(parked, gate_open={parked.parked_on: True})
     check("an opened gate returns its requirement to OPEN rather than leaving it parked", row["state"] == C.OPEN and "opened" in row["why"])
@@ -69,6 +104,6 @@ from brambleloop.app import main as _main  # noqa: E402
 with TestClient(_main.app) as _c:
     _r = _c.get("/api/closure")
     _j = _r.json() if _r.status_code == 200 else {}
-check("/api/closure serves the matrix with gates checked live", _r.status_code == 200 and _j.get("gates_checked_live") is True and sum(_j.get("counts", {}).values()) == 320, str(_r.status_code))
+check("/api/closure serves the matrix with gates checked live", _r.status_code == 200 and _j.get("gates_checked_live") is True and _j.get("gates_unchecked") is None and sum(_j.get("counts", {}).values()) == 320, str(_r.status_code))
 check("/api/closure agrees with the module on every state count except gate-opened rows", set(_j.get("counts", {})) == set(m["counts"]))
 print(f"\n  {PASSED} passing, {FAILED} failing"); sys.exit(1 if FAILED else 0)

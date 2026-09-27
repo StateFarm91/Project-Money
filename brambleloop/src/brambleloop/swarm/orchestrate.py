@@ -307,22 +307,218 @@ def thrash_sweep(db, *, now: datetime | None = None,
                        f"loop has stopped working and started spending; its queued retries "
                        f"were cancelled and it needs a changed hypothesis before it runs "
                        f"again (#34).")
+            # C-68/#34: a tripped loop is *suspended*, not only reported. The scheduler will
+            # not re-enqueue this job type while the suspension stands, and it stands until
+            # the hypothesis changes -- which, for a deployed system, is a different build
+            # (the root-cause fix) -- so the next cadence window cannot restart the loop.
+            suspension = {"kind": SUSPENDED, "job_type": entry["job_type"],
+                          "code_commit": _commit(), "since": now.isoformat()}
             if row is None:
                 s.add(Incident(severity="P2", signature=signature, summary=summary,
                                detail={"job_type": entry["job_type"],
                                        "inputs": entry["inputs"], "result": entry["result"],
-                                       "job_ids": entry["job_ids"][-20:]}))
+                                       "job_ids": entry["job_ids"][-20:],
+                                       "suspension": suspension}))
             else:
                 row.report_count = (row.report_count or 1) + 1
                 row.summary = summary
+                row.detail = {**dict(row.detail or {}), "suspension": suspension}
             incidents.append(signature)
+
+        progress = _progress(s, since=since)
+        backoffs = _free_poll_backoff(s, progress, now=now,
+                                      skip={e["job_type"] for e in tripped.values()})
     return {"observed": observed, "window_hours": window_hours,
             "tripped": len(tripped), "incidents": incidents, "cancelled": cancelled,
             "limit": THRASH_LIMIT,
+            "progress": progress, "backoff": backoffs,
+            "suspended": sorted(suspended_job_types(db, now=now)),
             "note": ("no loop: no failing or paid call repeated an identical result three "
                      "times" if not tripped else
                      f"{len(tripped)} loop(s) broken: incidents raised and queued retries "
                      f"cancelled")}
+
+
+# ---------------------------------------------------------------------------
+# #34 (C-68): progress per iteration and per dollar, backoff for unchanged polling, and
+# suspension until the hypothesis changes.
+
+SUSPENDED = "suspended"
+BACKOFF = "backoff"
+BACKOFF_SIGNATURE_PREFIX = "thrash:backoff:"
+# Three identical states without progress is the requirement's own number.
+IDENTICAL_STATES = THRASH_LIMIT
+# Backoff doubles per unchanged sweep, capped: a poll slowed to a week is a poll abandoned.
+MAX_BACKOFF_FACTOR = 32
+# Watchdogs whose whole job is to keep looking: liveness, the queue, the allocator, the
+# sweeps themselves. Backing these off would blind the system to the change they exist to
+# notice, and they cost nothing.
+LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
+    "ops.heartbeat", "ops.health", "ops.queue_check", "ops.thrash", "build.tick",
+    "swarm.allocate", "swarm.orphans", "swarm.backlog", "swarm.review", "ops.sentinel",
+    "finance.governor", "finance.escalation_check", "ops.retention", "support.triage",
+})
+_VOLATILE_KEYS = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
+                  "allocation_id", "reading_id", "job_id", "audit_id", "id")
+
+
+def _commit() -> str:
+    from ..core.build import commit
+
+    return commit()
+
+
+def _state_of(outputs) -> str:
+    """A job's result with its clocks and row ids removed: what state did it observe?"""
+    def strip(v):
+        if isinstance(v, dict):
+            return {k: strip(x) for k, x in sorted(v.items())
+                    if k not in _VOLATILE_KEYS and not k.endswith("_at")}
+        if isinstance(v, list):
+            return [strip(x) for x in v]
+        return v
+    blob = json.dumps(strip(outputs or {}), sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+
+def _progress(session, *, since: datetime) -> dict:
+    """Per job type over the window: iterations, dollars, distinct states and the ratios."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    by: dict[str, dict] = {}
+    for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE)
+                               .order_by(Job.id)):
+        finished = job.finished_at
+        if finished is None or _aware(finished) < since:
+            continue
+        row = by.setdefault(job.job_type, {"iterations": 0, "cost_cad": 0.0, "states": [],
+                                           "cadence": bool((job.inputs or {}).get("cadence"))})
+        row["iterations"] += 1
+        row["cost_cad"] += float(job.cost_cad or 0.0)
+        row["states"].append(_state_of(job.outputs))
+    out = {}
+    for jt, row in by.items():
+        states = row["states"]
+        changes = sum(1 for a, b in zip(states, states[1:]) if a != b)
+        tail = states[-IDENTICAL_STATES:]
+        out[jt] = {
+            "iterations": row["iterations"], "cost_cad": round(row["cost_cad"], 6),
+            "state_changes": changes,
+            "progress_per_iteration": round(changes / row["iterations"], 4),
+            "progress_per_dollar": (round(changes / row["cost_cad"], 4)
+                                    if row["cost_cad"] > 0 else None),
+            "identical_tail": (len(tail) == IDENTICAL_STATES and len(set(tail)) == 1),
+            "cadence": row["cadence"],
+        }
+    return out
+
+
+def _free_poll_backoff(session, progress: dict, *, now: datetime,
+                       skip: set[str] | frozenset = frozenset()) -> dict:
+    """Unchanged polling backs off exponentially; progress lifts the backoff (#34)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..runtime.worker import CADENCES
+
+    period_of = {jt: period for _n, _a, jt, period in CADENCES}
+    applied, lifted = [], []
+    for jt, row in sorted(progress.items()):
+        if jt in LIVENESS_JOB_TYPES or jt in skip or jt not in period_of \
+                or not row["cadence"]:
+            continue
+        signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
+        open_row = session.scalar(select(Incident).where(Incident.signature == signature,
+                                                         Incident.resolved.is_(False)))
+        if not row["identical_tail"]:
+            if open_row is not None:
+                open_row.resolved = True
+                lifted.append(jt)
+            continue
+        level = int(((open_row.detail or {}).get("suspension") or {}).get("level", 0)) + 1 \
+            if open_row is not None else 1
+        factor = min(MAX_BACKOFF_FACTOR, 2 ** level)
+        until = now + timedelta(seconds=period_of[jt] * factor)
+        suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
+                      "suspend_until": until.isoformat(), "code_commit": _commit()}
+        summary = (f"{jt} observed {IDENTICAL_STATES} identical states in a row without "
+                   f"progress; polling backs off to every {factor}x its period (#34)")
+        if open_row is None:
+            session.add(Incident(severity="P3", signature=signature, summary=summary,
+                                 halts_publication=False,
+                                 detail={"suspension": suspension, "progress": row}))
+        else:
+            open_row.detail = {**dict(open_row.detail or {}), "suspension": suspension,
+                               "progress": row}
+            open_row.summary = summary
+            open_row.report_count = (open_row.report_count or 1) + 1
+        applied.append({"job_type": jt, "factor": factor, "until": until.isoformat()})
+    return {"applied": applied, "lifted": lifted}
+
+
+def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
+    """Job types the scheduler must not enqueue now, with the reason (#34).
+
+    A paid loop tripped by the breaker stays suspended until the running build differs from
+    the one it was suspended under (a changed hypothesis) or somebody resolves the incident;
+    an unchanged poll is suspended until its backoff expires."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    now = now or datetime.now(timezone.utc)
+    commit = _commit()
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(
+                Incident.resolved.is_(False),
+                Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}%"))):
+            sus = (inc.detail or {}).get("suspension") or {}
+            jt = sus.get("job_type")
+            if not jt:
+                continue
+            if sus.get("kind") == SUSPENDED:
+                if sus.get("code_commit") and sus["code_commit"] != commit:
+                    continue                      # a new build is a changed hypothesis
+                out[jt] = {"kind": SUSPENDED, "incident": inc.signature,
+                           "why": "a loop spending without progress; waits for a changed "
+                                  "hypothesis (a new build) or a resolved incident"}
+            elif sus.get("kind") == BACKOFF:
+                until = datetime.fromisoformat(sus["suspend_until"])
+                if until > now:
+                    out[jt] = {"kind": BACKOFF, "until": sus["suspend_until"],
+                               "factor": sus.get("factor"), "incident": inc.signature}
+    return out
+
+
+def retry_allowed(db, job) -> dict:
+    """A retry of a call the breaker tripped needs a changed hypothesis (#34).
+
+    Deployment retries included: re-driving the same call under the same build is the same
+    hypothesis, and the answer will be the same. Allowed once the running build differs from
+    the one the loop was caught under, or the incident has been resolved by somebody."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    call = _thrash_call(job)
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(
+                Incident.resolved.is_(False),
+                Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}{job.job_type}:%"))):
+            detail = inc.detail or {}
+            same = json.dumps({"job_type": detail.get("job_type"),
+                               "inputs": detail.get("inputs") or {}},
+                              sort_keys=True, default=str) == call
+            sus = detail.get("suspension") or {}
+            if same and sus.get("code_commit", _commit()) == _commit():
+                return {"allowed": False, "incident": inc.signature,
+                        "why": ("this exact call tripped the thrash breaker under this build; "
+                                "a retry needs a changed hypothesis -- a root-cause fix "
+                                "deployed, or the incident resolved (#34)")}
+    return {"allowed": True}
 
 
 # ---------------------------------------------------------------------------
@@ -505,6 +701,7 @@ JOB_BANDS: dict[str, str] = {
     "ops.offsite_archive": "housekeeping",
     "ops.retention": "housekeeping",
     "ops.capacity": "housekeeping",
+    "ops.dependencies": "housekeeping",
     "ops.provenance_backfill": "housekeeping",
     "swarm.review": "housekeeping",
     "swarm.allocate": "housekeeping",
@@ -726,6 +923,36 @@ def allocate(db, *, now: datetime | None = None,
     for _id, agent, _t, _st in open_jobs:
         depth[agent] = depth.get(agent, 0) + 1
 
+    # C-68 (#175): the allocation reads category, season, opportunity value and bottleneck,
+    # not only queue depth and budget. Category is the agent's #30 function; season is open
+    # work in the seasonal-deadline (or more urgent) bands, which is deadline pressure for
+    # `fan_out`; opportunity value is open work in the proven-winner band or better; the
+    # bottleneck is the function the latest capacity reading tilted toward.
+    from .capacity import function_of, latest_mix
+
+    mix = latest_mix(db, now=now)
+    bottleneck = None
+    with db.session() as s:
+        from sqlalchemy import desc, select as _select
+
+        from ..core.models import AuditLog as _Audit
+
+        cap = s.scalar(_select(_Audit).where(_Audit.action == "ops.capacity")
+                       .order_by(desc(_Audit.id)).limit(1))
+        if cap is not None:
+            bottleneck = (cap.detail or {}).get("tilted_toward")
+    from ..finance.governor import unproductive_lanes
+
+    unproductive = set(unproductive_lanes(db, now=now))
+    pressure: dict[str, bool] = {}
+    valuable: dict[str, int] = {}
+    for _id, agent_name, jt, _st in open_jobs:
+        band = band_for(jt)["band"]
+        if band <= BAND_BY_KIND["seasonal_deadline"]:
+            pressure[agent_name] = True
+        if band <= BAND_BY_KIND["proven_winner"]:
+            valuable[agent_name] = valuable.get(agent_name, 0) + 1
+
     lanes: dict[str, dict] = {}
     for agent in Registry(db).all():
         if not agent.enabled:
@@ -735,14 +962,31 @@ def allocate(db, *, now: datetime | None = None,
                               period_seconds=period_seconds,
                               unit_cost_cad=LANE_UNIT_COST_CAD, now=now)
         fo = fan_out(open_work=pending, budget_remaining_cad=fits["cad_available_now"],
-                     cost_per_specialist_cad=LANE_UNIT_COST_CAD)
+                     cost_per_specialist_cad=LANE_UNIT_COST_CAD,
+                     deadline_pressure=pressure.get(agent.name, False))
+        function = function_of(agent.name)
+        granted = fo["granted"]
+        affordable = fo["affordable"]
+        boosts = []
+        if pending and bottleneck and function == bottleneck:
+            granted, boosts = granted + 1, boosts + [f"bottleneck function {bottleneck}"]
+        if pending and valuable.get(agent.name):
+            granted, boosts = granted + 1, boosts + [
+                f"{valuable[agent.name]} open job(s) at proven-winner value or above"]
+        granted = min(granted, affordable) if pending else fo["granted"]
+        if agent.name in unproductive and granted > 1:
+            # #31: spend that produced no validated pattern caps the lane that spent it.
+            granted, boosts = 1, boosts + ["capped: 30 days of spend, no validated pattern"]
         lanes[agent.name] = {
-            "open_work": pending, "wanted": fo["wanted"], "granted": fo["granted"],
+            "open_work": pending, "wanted": fo["wanted"], "granted": granted,
             "bounded_by": fo["bounded_by"], "binding_ceiling": fits["binding_ceiling"],
             "cad_available_now": fits["cad_available_now"],
-            "batch": min(pending, fo["granted"] * WORK_PER_SPECIALIST) if pending else 0,
-            "active": fo["granted"] > 0,
+            "batch": min(pending, granted * WORK_PER_SPECIALIST) if pending else 0,
+            "active": granted > 0,
             "green": agent.authority == Authority.GREEN,
+            "function": function, "target_share": mix["mix"].get(function),
+            "deadline_pressure": pressure.get(agent.name, False),
+            "value_open": valuable.get(agent.name, 0), "boosts": boosts,
         }
         # #302: the benchmark mission's lane holds a reserved floor generic research cannot
         # draw below. Sized for the reserve plus the generic draw and bounded only by what
@@ -775,6 +1019,7 @@ def allocate(db, *, now: datetime | None = None,
         "backlog_batch": backlog_batch, "backlog_lanes": backlog_lanes,
         "mjs_reserve": (lanes.get(mission_capacity.MISSION_AGENT) or {}).get("mjs_reserve"),
         "spend_increase_cad": 0.0,
+        "mix": mix, "bottleneck": bottleneck,
         "note": ("Allocation reads existing ceilings and never raises one. An inactive lane "
                  "is one whose ceiling has no room for another run; the standing backlog "
                  "does not feed it (#175)."),
@@ -786,6 +1031,13 @@ def allocate(db, *, now: datetime | None = None,
         s.add(row)
         s.flush()
         record["allocation_id"] = row.id
+    # #175: what the runner activates from this allocation, recorded beside it.
+    from .capacity import worker_target
+
+    record["workers"] = worker_target(db, now=now)
+    with db.session() as s:
+        row = s.get(SwarmAllocation, record["allocation_id"])
+        row.detail = {**dict(row.detail or {}), "workers": record["workers"]}
     return record
 
 
@@ -890,6 +1142,14 @@ def lane_concurrency(db, agent: str, *, now: datetime | None = None) -> dict:
         limit = MIN_SPECIALISTS
         why += (". The governor found added workers only duplicated work "
                 f"({advice.get('why')}), so the lane runs one job at a time")
+    elif advice and advice.get("advice") == "scale_up":
+        # #188: parallelism is scaled *up* when it materially improved throughput, bounded
+        # by the worker pool that exists -- a limit above the pool would be a number only.
+        from .capacity import worker_threads
+
+        limit = min(max(limit, MIN_SPECIALISTS) + 1, max(worker_threads(), limit))
+        why += (". The governor found added workers raised throughput "
+                f"({advice.get('why')}), so the lane may run one more at once")
     return {"known": True, "limit": limit, "granted": granted,
             "allocation_id": alloc["allocation_id"],
             "parallelism": (advice or {}).get("advice"), "why": why}
@@ -954,7 +1214,14 @@ def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
     now = now or datetime.now(timezone.utc)
     decision = claim_decision(db, job.agent, job_type=job.job_type, job_id=job.id, now=now)
     if decision["may_claim"]:
-        return False
+        # C-68 (#5, #30): the function mix and the production-lane split, at the same claim.
+        from .capacity import share_decision
+
+        share = share_decision(db, job, now=now, exempt=LANE_EXEMPT_PREFIXES)
+        if not share["hold"]:
+            return False
+        decision = {**decision, "may_claim": False, "why": share["why"],
+                    "hold_kind": share.get("kind"), "share": share}
     values = {"status": JobStatus.PENDING, "leased_by": None, "lease_expires_at": None,
               "attempts": Job.attempts - 1,
               "run_after": now + timedelta(seconds=LANE_HOLD_SECONDS)}
@@ -970,6 +1237,8 @@ def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
         s.add(AuditLog(actor="swarm_steward", action=LANE_HELD_ACTION,
                        artifact=job.job_type, job_id=job.id,
                        detail={"agent": job.agent, "worker": worker,
+                               "hold_kind": decision.get("hold_kind") or "agent_lane",
+                               "share": decision.get("share"),
                                "running": decision.get("running"),
                                "limit": decision.get("limit"),
                                "allocation_id": (decision.get("lane") or {}).get(

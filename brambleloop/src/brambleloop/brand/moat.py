@@ -117,22 +117,122 @@ SIGNATURES: tuple[Signature, ...] = (
 BY_KEY: dict[str, Signature] = {s.key: s for s in SIGNATURES}
 
 
-def inventory() -> dict:
+# How each signature's existence is proved from what the running system produced (C-69,
+# #44). The hand-set `exists` flags above are the plan; with a database the inventory reads
+# evidence instead, and a signature with nothing to show for it is planned whatever the plan
+# says.
+EVIDENCE_FOR: dict[str, str] = {
+    "canonical_model": "the canonical_model gate is open (an owner-approved identity)",
+    "naming_architecture": "certified products listed under their own titles",
+    "editorial_layout": "a customer PDF recorded as passed",
+    "photography_language": "a product photograph that cleared its floors",
+    "chart_style": "a chart recorded as passed with the colour cue present",
+    "tutorial_voice": "nothing measures a voice yet; UNMEASURED is not built",
+    "collection_families": "a collection assembled from certified members",
+    "deterministic_validation": "a certificate whose chain ran compile and reverse",
+    "version_aware_support": "a version-keyed support knowledge pack recorded as passed",
+    "measured_yardage": "a completed physical test that passed",
+}
+# A product-first listing is recognisable without the model when it carries at least this
+# many built non-model signatures of its own.
+RECOGNISABLE_MIN = 3
+
+
+def evidence(db) -> dict:
+    """Per signature: exists (from rows), and per listed product: which signatures it shows."""
+    from sqlalchemy import select
+
+    from ..core.models import (ArtefactProvenance, AuditLog, Collection, Listing,
+                               PatternVersion, PhysicalTest, Product)
+
+    with db.session() as s:
+        prov = [(r.artefact_class, r.product_slug, r.validation_status)
+                for r in s.scalars(select(ArtefactProvenance))]
+        listings = sorted({l.product_slug for l in s.scalars(
+            select(Listing).where(Listing.state != "withdrawn"))})
+        certs = {p.slug: dict(pv.certificate or {}) for pv, p in s.execute(
+            select(PatternVersion, Product).join(Product, Product.id == PatternVersion.product_id)
+            .where(PatternVersion.certified.is_(True)))}
+        photos = {str((r.detail or {}).get("slug") or r.artifact or "")
+                  for r in s.scalars(select(AuditLog).where(
+                      AuditLog.action == "assets.owned_photography"))
+                  if (r.detail or {}).get("made")}
+        collections = s.scalar(select(Collection).limit(1)) is not None
+        physical = any(t.passed for t in s.scalars(select(PhysicalTest)))
+    try:
+        from ..build2 import executor
+
+        model_open = bool(executor.GATE_BY_KEY["canonical_model"].open(db))
+    except Exception:  # noqa: BLE001 - an unreadable gate is closed
+        model_open = False
+
+    def passed(cls, slug=None):
+        return any(c == cls and v == "passed" and (slug is None or sl == slug)
+                   for c, sl, v in prov)
+
+    def validated(slug):
+        stages = set((certs.get(slug) or {}).get("stages_run") or [])
+        return {"compile", "reverse"} <= stages
+
+    exists = {
+        "canonical_model": model_open,
+        "naming_architecture": bool(listings),
+        "editorial_layout": passed("pdf"),
+        "photography_language": bool(photos),
+        "chart_style": passed("chart"),
+        "tutorial_voice": False,
+        "collection_families": collections,
+        "deterministic_validation": any(validated(sl) for sl in certs),
+        "version_aware_support": passed("support_knowledge"),
+        "measured_yardage": physical,
+    }
+    per_listing = {}
+    for slug in listings:
+        shown = [k for k, ok in (
+            ("naming_architecture", True), ("editorial_layout", passed("pdf", slug)),
+            ("chart_style", passed("chart", slug)),
+            ("deterministic_validation", validated(slug)),
+            ("version_aware_support", passed("support_knowledge", slug)),
+            ("photography_language", slug in photos)) if ok]
+        per_listing[slug] = {"signatures": shown,
+                             "recognisable_without_model": len(shown) >= RECOGNISABLE_MIN}
+    return {"exists": exists, "per_listing": per_listing}
+
+
+def inventory(db=None) -> dict:
     """The moat as it actually stands, separating what exists from what is planned.
 
     An asset nobody has built is not a moat, and listing it beside the real ones produces a
-    page saying the company is defensible when it is aspiring.
+    page saying the company is defensible when it is aspiring. With a database, existence is
+    read from evidence (`evidence`), and recognisability on product-first listings -- the
+    requirement's own test -- is measured per listing.
     """
-    built = [s for s in SIGNATURES if s.exists]
-    planned = [s for s in SIGNATURES if not s.exists]
+    measured = evidence(db) if db is not None else None
+    signatures = (tuple(Signature(s.key, s.what, s.replication, s.why,
+                                  exists=bool(measured["exists"].get(s.key)))
+                        for s in SIGNATURES) if measured else SIGNATURES)
+    built = [s for s in signatures if s.exists]
+    planned = [s for s in signatures if not s.exists]
 
     by_band: dict[str, list[str]] = {}
     for s in built:
         by_band.setdefault(s.replication, []).append(s.key)
 
     structural = [s.key for s in built if s.replication == STRUCTURAL]
+    recognisable = None
+    if measured is not None:
+        rows = measured["per_listing"]
+        recognisable = {"listings": len(rows),
+                        "recognisable": sorted(k for k, v in rows.items()
+                                               if v["recognisable_without_model"]),
+                        "not_recognisable": sorted(k for k, v in rows.items()
+                                                   if not v["recognisable_without_model"]),
+                        "min_signatures": RECOGNISABLE_MIN, "per_listing": rows}
     return {
-        "signatures": [s.to_dict() for s in SIGNATURES],
+        "measured_from_evidence": measured is not None,
+        "evidence_rules": EVIDENCE_FOR,
+        "recognisable_without_model": recognisable,
+        "signatures": [s.to_dict() for s in signatures],
         "built": [s.key for s in built],
         "planned": [s.key for s in planned],
         "built_by_replication": {band: by_band.get(band, []) for band in REPLICATION},

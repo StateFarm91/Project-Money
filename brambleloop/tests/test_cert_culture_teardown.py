@@ -460,7 +460,14 @@ def test_our_own_product_is_qa_checked_for_unique_value_and_delight():
     assert set(by["fixture-good"]["unique_value"]["advantages"]) == {
         "deterministic_validation", "reverse_compilation"}
     assert by["fixture-bare"]["blocks_release"] is True             # parity is not a position
-    assert by["fixture-good"]["delight"]["answerable"] is False      # unscored, not neutral
+    # C-69 (#169): our own product's delight is measured from what it has -- here only its
+    # certificate (confidence 3: certified, no physical sample) and its one size -- and the
+    # mechanisms with nothing to read stay unscored rather than neutral.
+    good_delight = by["fixture-good"]["delight"]
+    assert good_delight["answerable"] is True
+    assert good_delight["drivers"] == {"customization": 3, "confidence": 3}, good_delight
+    assert "bonus_utility" in good_delight["unscored"] and "navigation" in good_delight["unscored"]
+    assert by["fixture-good"]["unique_value"]["status"] == "UNMEASURED"   # no benchmark scored
     lab.record_finding(db, "brambleloop:fixture-good", "chart_quality", 4,
                        "every chart carries a per-yarn letter in each cell",
                        "keep the per-yarn letter on every chart page we publish")

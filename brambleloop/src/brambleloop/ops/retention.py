@@ -187,6 +187,14 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                             "app.main /api/etsy/oauth/start reports the last authorization "
                             "attempt so an operator can tell a flow that was never finished "
                             "from one that failed"),
+    # C-69: the moat inventory counts every product photograph ever made (#44), and the
+    # teardown QA reads whether a release's deliverable recorded problems (#169).
+    "assets.owned_photography": ("lifetime_total",
+                                 "brand.moat.evidence counts made product photographs as "
+                                 "the photography-language signature's evidence"),
+    "assets.deliverable_problems": ("lifetime_total",
+                                    "teardown.lab.measured_self_scores reads whether a "
+                                    "release's PDF recorded problems (instruction clarity)"),
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),

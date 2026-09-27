@@ -58,6 +58,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "improve.sandbox", "improve.league",
                             # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
                             "ops.thrash", "seasonal.engine",
+                            # C-69 (#50, #29): the daily dependency and fragility sweep.
+                            "ops.dependencies",
                             "ops.provenance_backfill",
                             # The three gates that stopped reading environment variables
                             # need something to keep asking whether the capability still
