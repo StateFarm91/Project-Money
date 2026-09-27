@@ -264,7 +264,7 @@ def _to_row_fields(e: Experiment, product_slug: str) -> dict:
 
 
 def persist(db, experiment: Experiment, *, product_slug: str = "",
-            gate_open: bool | None = None) -> dict:
+            gate_open: bool | None = None, launch: dict | None = None) -> dict:
     """Write a pre-registered experiment, or leave the existing registration alone.
 
     Registration is write-once: the thresholds are what make the result mean anything, so a
@@ -292,10 +292,18 @@ def persist(db, experiment: Experiment, *, product_slug: str = "",
             if row.state == GATED and state == REGISTERED:
                 row.state = REGISTERED
                 row.updated_at = datetime.now(timezone.utc)
+            confounding = None
+            if launch is not None:
+                # Thresholds never move; what the launch variables did since registration is
+                # appended as the confounder log (#241).
+                confounding = log_confounders(row, launch)
             return {"key": row.key, "created": False, "state": row.state,
-                    "killed_reason": row.killed_reason}
+                    "killed_reason": row.killed_reason, "confounding": confounding}
+        fields = _to_row_fields(experiment, product_slug)
+        if launch is not None:
+            fields["detail"] = {**fields["detail"], **launch_detail(experiment, launch)}
         row = RegisteredExperiment(key=experiment.key, state=state, killed_reason=kill,
-                                   **_to_row_fields(experiment, product_slug))
+                                   **fields)
         s.add(row)
     return {"key": experiment.key, "created": True, "state": state, "killed_reason": kill}
 
@@ -355,8 +363,13 @@ def register_launch(db, *, product: str, price_cad: float, today: date | None = 
         surfaces_open = False
     pack = launch_pack(product=product, hypothesis="", price_cad=price_cad, today=today)
     pack.append(content_experiment(product=product, today=today))
-    results = [persist(db, e, product_slug=product, gate_open=surfaces_open) for e in pack]
+    record_ = launch_record(db, product, price_cad=price_cad, today=today)
+    results = [persist(db, e, product_slug=product, gate_open=surfaces_open, launch=record_)
+               for e in pack]
+    confounded = [r["key"] for r in results
+                  if (r.get("confounding") or {}).get("confounded")]
     return {"product": product, "experiments": results,
+            "launch_record": record_, "confounded": confounded,
             "owned_surfaces_open": surfaces_open,
             "created": sum(1 for r in results if r["created"]),
             "killed": [r["key"] for r in results if r["state"] == KILLED],
@@ -598,11 +611,15 @@ def conclude_all(db, *, today: date | None = None) -> dict:
                             "observed": UNMEASURED, "why": reading["why"]})
             continue
         verdict = record_persisted(db, key, reading["observed"], reading["sample"])
-        causal = bool(verdict.get("causal")) and control["present"]
+        causal = (bool(verdict.get("causal")) and control["present"]
+                  and not (row.detail or {}).get("confounded"))
         claim = (verdict.get("claim", "") if causal or not verdict.get("claimable") else
-                 f"{row.metric} was {reading['observed']}; the {row.design} design's control "
-                 f"is not present in the data ({control['why']}), so this is recorded as an "
-                 f"association and never as a cause (#266)")
+                 f"{row.metric} was {reading['observed']}; "
+                 + ((row.detail or {}).get("confounded_why", "") + " (#241)"
+                    if (row.detail or {}).get("confounded") else
+                    f"the {row.design} design's control is not present in the data "
+                    f"({control['why']})")
+                 + ", so this is recorded as an association and never as a cause (#266)")
         with db.session() as s:
             fresh = s.scalar(select(RegisteredExperiment).where(RegisteredExperiment.key == key))
             detail = dict(fresh.detail or {})
@@ -627,3 +644,175 @@ def conclude_all(db, *, today: date | None = None) -> dict:
                                                                   for r in results)
                      else "concluded only at the pre-registered sample; claims without a "
                           "control present in the data are recorded as association")}
+
+
+
+# ---------------------------------------------------------------------------
+# #241: the launch record -- hero variants, the title/tag strategy and the confounders --
+# written with the pack at launch rather than a day after drafting.
+
+# The launch variables. Each is recorded with its value when the pack is registered; any of
+# them changing afterwards is a confounder, and more than one changing at once confounds every
+# experiment whose metric they move.
+LAUNCH_VARIABLES: tuple[str, ...] = ("price_cad", "hero", "title", "tags", "bundle",
+                                     "release_hash")
+
+# Which variables each experiment's metric is sensitive to.
+SENSITIVE_TO: dict[str, tuple[str, ...]] = {
+    "thumbnail": ("hero", "title", "price_cad"),
+    "price": ("price_cad", "hero", "title", "tags", "bundle"),
+    "search": ("title", "tags"),
+    "bundle": ("bundle", "price_cad"),
+    "pinterest_content": ("hero", "title"),
+}
+
+HERO_CHALLENGER_ROLES: tuple[str, ...] = ("collection", "pattern_preview")
+ROTATION_DAYS = 14
+
+
+def _suffix(key: str) -> str:
+    return key.rsplit(":", 1)[-1]
+
+
+def launch_record(db, product: str, *, price_cad: float | None = None,
+                  today: date | None = None) -> dict:
+    """What is being launched, read from the stored listing and frames. Nothing invented.
+
+    Hero variants are the product's stored frames that could lead the listing: the `hero`
+    frame, then approved frames in a challenger role. Two or more give a staggered rotation
+    with dated windows; one gives no rotation, and the thumbnail test says it has no
+    challenger; none is UNMEASURED.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing, ListingAsset
+    from ..radar.opportunity import POOL
+
+    today = today or date.today()
+    with db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == product,
+                                                 Listing.version != "collection")
+                           .order_by(Listing.id.desc()))
+        frames = list(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == product).order_by(ListingAsset.position)))
+    usable = [f for f in frames if not (f.blocked_reasons or [])]
+    heroes = [f for f in usable if f.role == "hero"] + \
+        [f for f in usable if f.role in HERO_CHALLENGER_ROLES and f.approved]
+    variants = [{"name": f"{'ABCDEFGH'[i]}:{f.role}:{f.asset_class}@{f.position}",
+                 "position": f.position, "role": f.role, "asset_class": f.asset_class,
+                 "sha256": f.sha256} for i, f in enumerate(heroes[:4])]
+    if len(variants) >= 2:
+        plan = {"design": STAGGERED, "rotation_days": ROTATION_DAYS,
+                "schedule": [{"variant": v["name"],
+                              "from": (today + timedelta(days=i * ROTATION_DAYS)).isoformat(),
+                              "to": (today + timedelta(days=(i + 1) * ROTATION_DAYS - 1))
+                              .isoformat()} for i, v in enumerate(variants)]}
+    elif variants:
+        plan = {"design": "single_hero", "schedule": [],
+                "why": "one stored hero frame and no approved challenger: there is nothing "
+                       "to rotate, so the thumbnail test measures this frame against its "
+                       "thresholds and supports no comparison"}
+    else:
+        plan = {"design": "UNMEASURED", "schedule": [],
+                "why": "no stored frame exists for this product yet"}
+
+    seed = next((m for m in POOL if m.slug == product), None)
+    bundle = next((m.slug for m in POOL if seed and seed.family and m.is_bundle
+                   and m.family == seed.family), None)
+    tags = list(listing.tags or []) if listing else []
+    values = {
+        "price_cad": (float(listing.price_cad) if listing and listing.price_cad
+                      else price_cad),
+        "hero": variants[0]["sha256"] if variants else None,
+        "title": listing.title if listing else None,
+        "tags": sorted(tags) if listing else None,
+        "bundle": bundle,
+        "release_hash": listing.release_hash if listing else None,
+    }
+    return {
+        "recorded_on": today.isoformat(),
+        "hero_variants": variants,
+        "hero_plan": plan,
+        "title_tag_strategy": {
+            "title": values["title"], "tags": tags,
+            "on_failure": ("rewrite the tags that drew no impressions from target queries and "
+                           "retest the title's leading phrase; the rest of the listing is held "
+                           "fixed while that runs" if listing else
+                           "UNMEASURED: no listing is drafted, so no title or tag set exists"),
+        },
+        "variables": values,
+        "unrecorded": sorted(k for k, v in values.items() if v is None),
+    }
+
+
+def launch_detail(experiment: Experiment, launch: dict) -> dict:
+    """The part of the launch record an experiment carries in its registration."""
+    out = {"launch": {"recorded_on": launch["recorded_on"],
+                      "variables": launch["variables"],
+                      "unrecorded": launch["unrecorded"]},
+           "confounder_log": [], "confounded": False}
+    part = _suffix(experiment.key)
+    if part == "thumbnail":
+        out["hero_variants"] = launch["hero_variants"]
+        out["hero_plan"] = launch["hero_plan"]
+    if part == "search":
+        out["title_tag_strategy"] = launch["title_tag_strategy"]
+    return out
+
+
+def log_confounders(row, launch: dict) -> dict:
+    """Compare today's launch variables with those registered, and log what moved.
+
+    One change is recorded as a confounder of the experiments it touches. More than one at
+    once, on variables this experiment is sensitive to, marks it `confounded`: its result may
+    still be read, and may never be claimed as caused by any single one of them.
+    """
+    detail = dict(row.detail or {})
+    registered = (detail.get("launch") or {}).get("variables")
+    if registered is None:
+        # Registered before launch records existed: record the baseline now, flagged late.
+        detail["launch"] = {"recorded_on": launch["recorded_on"],
+                            "variables": launch["variables"],
+                            "unrecorded": launch["unrecorded"], "late": True}
+        detail.setdefault("confounder_log", [])
+        row.detail = detail
+        return {"changed": [], "confounded": bool(detail.get("confounded"))}
+    changed = [k for k in LAUNCH_VARIABLES
+               if k in launch["variables"] and registered.get(k) != launch["variables"][k]
+               and registered.get(k) is not None]
+    if not changed:
+        return {"changed": [], "confounded": bool(detail.get("confounded"))}
+    relevant = [k for k in changed if k in SENSITIVE_TO.get(_suffix(row.key), ())]
+    log = list(detail.get("confounder_log") or [])
+    log.append({"on": launch["recorded_on"], "changed": changed, "relevant": relevant,
+                "from": {k: registered.get(k) for k in changed},
+                "to": {k: launch["variables"].get(k) for k in changed}})
+    detail["confounder_log"] = log
+    if len(relevant) > 1:
+        detail["confounded"] = True
+        detail["confounded_why"] = (f"{', '.join(relevant)} changed at once; the result cannot "
+                                    f"be attributed to any one of them")
+    detail["launch"] = {**detail["launch"], "variables": {**registered,
+                                                          **launch["variables"]}}
+    row.detail = detail
+    return {"changed": changed, "relevant": relevant,
+            "confounded": bool(detail.get("confounded"))}
+
+
+def register_at_launch(db, *, product: str, price_cad: float | None = None,
+                       today: date | None = None) -> dict:
+    """The launch path's call: register the pack with its launch record, at launch (#241).
+
+    The price is the drafted listing's when none is given. With no listing the pack still
+    registers, and its launch record says which variables are UNMEASURED.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    if price_cad is None:
+        with db.session() as s:
+            listing = s.scalar(select(Listing).where(Listing.product_slug == product,
+                                                     Listing.version != "collection"))
+            price_cad = float(listing.price_cad) if listing else 0.0
+    return register_launch(db, product=product, price_cad=price_cad, today=today)

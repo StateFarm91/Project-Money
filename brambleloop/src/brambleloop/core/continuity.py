@@ -99,6 +99,8 @@ NON_REDERIVABLE = (
     "owner_vetoes",
     "competitive_standards",
     "pod_capability_readings",
+    # #70: a listing-set certificate is what was vouched for on the day it was issued.
+    "listing_set_certificates",
     "cohorts",
     # The build loop's own state. Re-derivable from the registry only in part: the claims,
     # the completion evidence and the decision history are not in any file, and losing them

@@ -158,6 +158,12 @@ def _rows(d: ImageDraw.ImageDraw, pairs: list[tuple[str, str]], y: int,
 # ---- the frames ------------------------------------------------------------
 
 
+# The hero's inner margin: the marketplace's title-safe band (`mobile.TITLE_SAFE_MARGIN`, 8%
+# at thumbnail size) plus room for resampling. Defined here rather than imported because
+# `publish.mobile` sits above this module; a test pins the two together.
+HERO_TITLE_SAFE = 0.095
+
+
 def _hero(cir: CIR, twin: TwinModel) -> Frame:
     """A clean finished-result hero, not a cluttered collage (section 7).
 
@@ -167,14 +173,21 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
     """
     size = CANVAS
     img, d = _canvas(size)
-    m = _safe(size)
+    # Certification C-58. The hero is the one frame shown at search-grid size, where the
+    # marketplace overlays its own interface on an 8% band at every edge
+    # (`mobile.TITLE_SAFE_MARGIN`). The earlier layout put the fabric at 96% of the width, the
+    # brand line at 7% from the top and the render disclosure at 94% -- 4.7% of the band
+    # carried ink, so the disclosure that says "not a photograph" was the first thing the
+    # overlay hid. Everything now sits inside the band, with a margin for thumbnail
+    # resampling.
+    m = int(size * HERO_TITLE_SAFE)
 
-    # The fabric gets most of the frame. Thumbnail Warfare measures subject coverage at
+    # The fabric gets most of what is left. Thumbnail Warfare measures subject coverage at
     # search-grid size, and a hero that is mostly cream background loses the click to one
     # that is not -- an earlier layout sat barely above the floor at 36%.
-    top = int(size * 0.175)
-    bottom = int(size * 0.885)
-    box_w, box_h = int(size * 0.96), bottom - top
+    top = int(size * 0.195)
+    bottom = int(size * 0.805)
+    box_w, box_h = size - 2 * m, bottom - top
     round_worked = is_round(cir, twin)
     hero_fabric_flat = False
     if round_worked:
@@ -205,18 +218,18 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
                             max(1, int(fabric.height * scale))), Image.LANCZOS)
     img.paste(fabric, ((size - fabric.width) // 2, top + (box_h - fabric.height) // 2))
 
-    d.text((m, int(size * 0.072)), "BRAMBLELOOP STUDIO", font=_font(int(size * 0.024)),
+    d.text((m, int(size * 0.095)), "BRAMBLELOOP STUDIO", font=_font(int(size * 0.024)),
            fill=MUTED)
-    _fit_text(d, cir.title, m, int(size * 0.105), size - 2 * m, int(size * 0.056), PINE)
+    _fit_text(d, cir.title, m, int(size * 0.125), size - 2 * m, int(size * 0.052), PINE)
 
-    foot = _font(int(size * 0.025))
-    d.text((m, int(size * 0.900)), "CROCHET PATTERN · PDF · CHART + WRITTEN", font=foot,
-           fill=GOLD)
-    d.text((m, int(size * 0.936)),
-           ("Digital render from above, not a photograph of a finished item"
-            if round_worked else
-            "Digital pattern render, not a photograph of a finished item"), font=foot,
-           fill=MUTED)
+    # Fitted to the inner width like the title: the disclosure line at full size ran past the
+    # right edge of the title-safe band, which is the one place it must never be hidden.
+    _fit_text(d, "CROCHET PATTERN · PDF · CHART + WRITTEN", m, int(size * 0.818),
+              size - 2 * m, int(size * 0.025), GOLD)
+    _fit_text(d, ("Digital render from above, not a photograph of a finished item"
+                  if round_worked else
+                  "Digital pattern render, not a photograph of a finished item"),
+              m, int(size * 0.852), size - 2 * m, int(size * 0.025), MUTED)
     return Frame(position=1, role="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
                  caption="clean finished-result hero", image=img,
                  fabric_is_flat=hero_fabric_flat,

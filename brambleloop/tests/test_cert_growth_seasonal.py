@@ -642,6 +642,82 @@ def test_a_bundle_waiting_for_members_defers_and_does_not_die():
     assert out.get("waiting") is None and len(out["members"]) == 2
 
 
+
+# ---- #241: the launch experiment pack ------------------------------------------------------
+
+
+def _frames(db, slug, roles):
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        for i, role in enumerate(roles):
+            s.add(ListingAsset(product_slug=slug, version="1.0.0", position=i,
+                               asset_class="finished_object", role=role,
+                               sha256=hashlib.sha256(f"{slug}{i}".encode()).hexdigest(),
+                               approved=True))
+
+
+def test_launch_pack_records_hero_variants_title_tags_and_confounders():
+    from brambleloop.growth.experiments import register_at_launch
+
+    db = _db()
+    _certify(db, "hexie-coaster-set")
+    with db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == "hexie-coaster-set"))
+        listing.tags = ["hexagon coaster", "crochet coaster pattern"]
+    _frames(db, "hexie-coaster-set", ["hero", "collection", "chart"])
+    out = register_at_launch(db, product="hexie-coaster-set", today=TODAY)
+    assert out["created"] == 5 and out["confounded"] == []
+    with db.session() as s:
+        rows = {r.key.rsplit(":", 1)[-1]: r for r in s.scalars(select(RegisteredExperiment))}
+    thumb = rows["thumbnail"].detail
+    # Named hero variants from the stored frames, in a dated staggered rotation.
+    assert [v["role"] for v in thumb["hero_variants"]] == ["hero", "collection"]
+    assert thumb["hero_plan"]["design"] == "staggered_rollout"
+    assert len(thumb["hero_plan"]["schedule"]) == 2
+    # The actual title and tag set, and what changes on failure.
+    strategy = rows["search"].detail["title_tag_strategy"]
+    assert strategy["title"] == "hexie-coaster-set"
+    assert strategy["tags"] == ["hexagon coaster", "crochet coaster pattern"]
+    assert "rewrite" in strategy["on_failure"]
+    # The launch variables are recorded at registration, on every experiment.
+    assert rows["price"].detail["launch"]["variables"]["price_cad"] == 18.0
+    thresholds = (rows["price"].success_threshold, rows["price"].failure_threshold)
+
+    # Adversarial: price and hero change at once after launch. The pack is not rewritten
+    # (write-once), the change is logged, and the price test is marked confounded.
+    with db.session() as s:
+        s.scalar(select(Listing).where(Listing.product_slug == "hexie-coaster-set")
+                 ).price_cad = 22.0
+        from brambleloop.core.models import ListingAsset
+
+        s.scalar(select(ListingAsset).where(ListingAsset.role == "hero")).sha256 = "f" * 64
+    again = register_at_launch(db, product="hexie-coaster-set", today=TODAY)
+    assert again["created"] == 0 and "hexie-coaster-set:price" in again["confounded"]
+    with db.session() as s:
+        price = s.scalar(select(RegisteredExperiment).where(
+            RegisteredExperiment.key == "hexie-coaster-set:price"))
+        assert (price.success_threshold, price.failure_threshold) == thresholds
+        assert price.detail["confounded"] is True
+        assert set(price.detail["confounder_log"][-1]["changed"]) == {"price_cad", "hero"}
+        search = s.scalar(select(RegisteredExperiment).where(
+            RegisteredExperiment.key == "hexie-coaster-set:search"))
+        # The search test is sensitive to title and tags only: logged, not confounded.
+        assert search.detail["confounded"] is False
+
+
+def test_launch_pack_with_one_frame_or_none_says_so_rather_than_inventing_a_variant():
+    from brambleloop.growth.experiments import launch_record
+
+    db = _db()
+    assert launch_record(db, "pet-snuggle-mat", today=TODAY)["hero_plan"]["design"] \
+        == "UNMEASURED"
+    _frames(db, "pet-snuggle-mat", ["hero"])
+    one = launch_record(db, "pet-snuggle-mat", today=TODAY)
+    assert one["hero_plan"]["design"] == "single_hero" and len(one["hero_variants"]) == 1
+    assert "title" in one["unrecorded"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

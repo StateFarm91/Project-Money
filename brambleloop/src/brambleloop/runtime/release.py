@@ -52,7 +52,7 @@ from .worker import JobContext, handlers
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "7"
+CHAIN_VERSION = "8"  # 8: hero kept out of the title-safe band (C-58), size-card labels (#60)
 
 # How much of an owner action's opening clause identifies it, for adopting rows queued
 # before `OwnerAction.requirement_key` existed. Long enough to be unambiguous, short enough
@@ -440,6 +440,11 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     seed = _seed_for(slug)
     category = i.get("category") or (seed.category if seed else "mosaic_blanket")
     season = seed.season if seed else None
+    # #297: a pivot to evergreen removes the seasonal premise from the copy -- no season in
+    # the title and none in the query set -- rather than relabelling a Christmas listing.
+    evergreen = i.get("positioning") == "evergreen"
+    if evergreen:
+        season = None
     motifs = _motifs_for(slug)
 
     tolerance_pct = int(twin.yardage_tolerance * 100)
@@ -590,7 +595,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                                                     "stuffing", "required_facets_missing")}})
     ctx.enqueue("growth", "launch.plan", i,
                 idempotency_key=chain_key("launch", slug, version, i.get("release", ""),
-                                          i.get("rebuild", "")))
+                                          i.get("rebuild", "")
+                                          + (":evergreen" if evergreen else "")))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading}
@@ -890,6 +896,18 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     i["window_decision"] = decision
     if not decision["may_launch_seasonally"]:
         ctx.audit("launch.held", artifact=f"{slug}@{i['version']}", detail=decision)
+        # #297: when the decision is a pivot, carry it out -- the copy is rewritten as
+        # evergreen, which comes back here with the pivot applied -- rather than leaving the
+        # product held with the recommendation written down and nobody acting on it.
+        from ..seasonal import leadtime as _lt
+
+        if decision.get("action") == _lt.PIVOT_EVERGREEN and not decision.get("pivot_applied"):
+            ctx.enqueue("listing", "listing.seo", {**i, "positioning": "evergreen"},
+                        idempotency_key=chain_key("seo", slug, i["version"],
+                                                  i.get("release", ""),
+                                                  i.get("rebuild", "") + ":evergreen"))
+            ctx.audit("launch.pivot_queued", artifact=f"{slug}@{i['version']}",
+                      detail={"why": decision.get("why"), "occasion": decision.get("occasion")})
         out = plan.to_dict()
         out.update({"held": True, "window_decision": decision})
         return out

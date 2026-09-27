@@ -409,6 +409,67 @@ def test_a_missed_window_holds_the_launch_and_queues_no_publication():
     assert any("#297" in r for r in v["reasons"]), v["reasons"]
 
 
+def test_a_pivot_decision_is_carried_out_by_rewriting_the_listing_as_evergreen():
+    """#297's pivot, acted on rather than recorded: launch.plan queues listing.seo with the
+    seasonal premise removed, and the rewritten listing carries no season in its title."""
+    st = chain()
+    db = st["db"]
+    from brambleloop.seasonal import leadtime as lt
+
+    real = RG.window_decision
+
+    def pivot(db_, **kw):
+        return {"slug": kw["slug"], "action": lt.PIVOT_EVERGREEN, "why": "test: small make",
+                "occasion": "Christmas", "may_launch_seasonally": kw.get("positioning") ==
+                "evergreen", "pivot_applied": kw.get("positioning") == "evergreen",
+                "positioning": kw.get("positioning") or "seasonal"}
+
+    # The inputs launch.plan really receives from listing.seo (price, copy, frames), so the
+    # rewrite it queues is a real one rather than an unpriced stub.
+    with db.session() as s:
+        real_inputs = dict(next(j for j in s.scalars(select(Job))
+                                if j.job_type == "launch.plan").inputs or {})
+    RG.window_decision = pivot
+    try:
+        job = _run(db, "growth", "launch.plan",
+                   {**real_inputs, "rebuild": "pv"}, "gates-pivot")
+    finally:
+        RG.window_decision = real
+    assert job.status == JobStatus.DONE, job.last_error
+    assert job.outputs["held"] is True
+    assert _audits(db, "launch.pivot_queued", job.id)
+    with db.session() as s:
+        seo = [j for j in s.scalars(select(Job)) if j.job_type == "listing.seo"
+               and (j.inputs or {}).get("positioning") == "evergreen"
+               and (j.inputs or {}).get("rebuild") == "pv"]
+    assert seo, "the pivot was recorded but no evergreen rewrite was queued"
+    # And the queued rewrite itself, run by the worker, drops the season from the copy.
+    pivot_id = seo[0].id
+    w = Worker(db, "gates-pivot-seo", phase=Phase.SHADOW, job_types=["listing.seo"])
+    for _ in range(20):
+        with db.session() as s:
+            if s.get(Job, pivot_id).status in (JobStatus.DONE, JobStatus.DEAD):
+                break
+        if not w.run_once():
+            break
+    with db.session() as s:
+        done = s.get(Job, pivot_id)
+        assert done.status == JobStatus.DONE, (done.status, done.last_error)
+        t_ever = done.outputs["listing"]["title"]
+        seasonal = [j for j in s.scalars(select(Job)) if j.job_type == "listing.seo"
+                    and j.status == JobStatus.DONE
+                    and not (j.inputs or {}).get("positioning")]
+        t_seas = seasonal[0].outputs["listing"]["title"]
+    assert "Christmas" not in t_ever and "Holiday" not in t_ever, t_ever
+    assert "Christmas" in t_seas, t_seas      # the control: the seasonal copy did say it
+    # The shared chain database is reused by the tests after this one: the follow-on work
+    # this test's pivot queued (rebuild "pv") is removed so no later worker claims it.
+    with db.session() as s:
+        for j in list(s.scalars(select(Job))):
+            if (j.inputs or {}).get("rebuild") == "pv" and j.status == JobStatus.PENDING:
+                s.delete(j)
+
+
 def test_an_unjudged_search_grid_blocks_publish_as_an_audited_refusal():
     """#126 release half: no grid verdict on file reads as not cleared, and refuses."""
     st = chain()
