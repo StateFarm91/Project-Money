@@ -263,3 +263,7 @@ Principal risks: CIR may omit construction intent; nominal gauge may be physical
 Existing offline assertions: E1 17,E3 10,Bench1 34,Bench2 42,V1grad40,fabric relief8 =**151 PASS across six suites**. E4/E5 are **blocked**, because their frozen D reference PNG is missing; do not substitute a JPEG. [Raw test summary](out/tests/offline_checks.json). These results do not certify Build2 or this schematic render.
 
 Reproduction commands, environment versions and artifact inventory are in [README.md](README.md). Read [CURRENT_STATE.md](CURRENT_STATE.md) first after compaction; then [DECISIONS.md](DECISIONS.md), [EXPERIMENTS.md](EXPERIMENTS.md) and [NEXT_SESSION.md](NEXT_SESSION.md). Continue this persistent thread from repository memory; a new conversation is not required merely because context compacts.
+
+## 17. Follow-up execution: V2-P06
+
+The stage1 coupon experiment has now run. Four explicit-yarn candidates fail physical clearance; local post winding and source counts alone are insufficient. The routing repair is real, but the DC/chain spatial embedding is rejected and stage2 remains blocked. Construction semantics for the composite cable also need authoritative resolution. See [the executed result](coupon/RESULTS.md), raw measurements and CURRENT_STATE.md. No Product Truth, historical gate or Build2 status changed; paid spend remains$0. This does not certify B+C or disprove deterministic rendering in general.

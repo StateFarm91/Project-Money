@@ -25,7 +25,7 @@ def segment_distance(a,b,c,d):
         distances.append(np.linalg.norm(p-q-tt[:,None]*delta,axis=1))
     return np.min(distances,axis=0)
 
-def collision(points,diameter):
+def collision(points,diameter,ranges,pieces):
     from scipy.spatial import cKDTree
     p=points.astype(float);d=np.diff(p,axis=0);length=np.linalg.norm(d,axis=1)
     mids=(p[:-1]+p[1:])/2;arc=np.r_[0,np.cumsum(length)];midarc=(arc[:-1]+arc[1:])/2
@@ -35,8 +35,18 @@ def collision(points,diameter):
     i,j=pairs.T
     dist=segment_distance(p[i],p[i+1],p[j],p[j+1])
     bad=dist<floor-1e-9;order=np.argsort(dist)[:25]
+    owner=np.full(len(d),-1,dtype=int)
+    for k,(lo,hi) in enumerate(ranges):owner[lo:hi-1]=k
+    categories={}; op_pairs=set()
+    for ii,jj in zip(i[bad],j[bad]):
+        ai,bi=int(owner[ii]),int(owner[jj]);op_pairs.add(tuple(sorted((ai,bi))))
+        def category(k):
+            if k<0:return "connector"
+            return "edge_chain" if "chain" in pieces[k]["kind"] else "body"
+        key="/".join(sorted((category(ai),category(bi))))
+        categories[key]=categories.get(key,0)+1
     return {"status":"FAIL" if bad.any() else "PASS","floor_mm":floor,"exact_segment_pairs_tested":len(dist),
-      "penetrating_segment_pairs":int(bad.sum()),"minimum_distance_mm":float(dist.min()) if len(dist) else None,
+      "penetrating_segment_pairs":int(bad.sum()),"contact_categories":categories,"unique_offending_operation_pairs":len(op_pairs),"minimum_distance_mm":float(dist.min()) if len(dist) else None,
       "worst_pairs":[{"segments":[int(i[k]),int(j[k])],"distance_mm":float(dist[k])} for k in order],
       "max_rendered_segment_length_mm":float(length.max()),
       "exclusion":"shared vertex and along-yarn separation <= pi*yarn radius, matching existing instrument",
@@ -47,6 +57,14 @@ def trace_valid(kind,trace):
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("--tag",required=True);ap.add_argument("--deps",required=True)
     a=ap.parse_args();sys.path.insert(0,str(Path(a.deps).resolve()))
+    tests=[
+      ([[0,0,0],[2,0,0],[1,-1,0],[1,1,0]],0.0),
+      ([[0,0,0],[2,0,0],[1,-1,2],[1,1,2]],2.0),
+      ([[0,0,0],[2,0,0],[0,1,0],[2,1,0]],1.0),
+      ([[0,0,0],[1,0,0],[2,1,0],[2,-1,0]],1.0)]
+    for coordinates,expected in tests:
+        arrays=[np.asarray(x,float)[None,:] for x in coordinates]
+        assert abs(segment_distance(*arrays)[0]-expected)<1e-9
     folder=HERE/"out"/a.tag
     meta=json.loads((folder/"geometry.json").read_text());pts=np.load(folder/"centerline.npz")["points_mm"]
     assert hashlib.sha256(pts.tobytes()).hexdigest()==meta["centerline_sha256"]
@@ -72,16 +90,20 @@ def main():
         center=np.asarray(p["anchor_center"]);e=np.asarray(p["basis_e"]);n=np.asarray(p["basis_n"])
         w=winding(span,center,e,n)
         wrong=winding(span,center+50*e,e,n)
+        expected_sign=-(1 if p["row"]%2 else -1)*(1 if p["kind"]=="fpdc" else -1)
+        mirrored=span-2*((span-center)@n)[:,None]*n
+        reversed_face=winding(mirrored,center,e,n)
         attachments.append({"row":p["row"],"position":p["position"],"kind":p["kind"],
-           "winding":round(w,8),"moved_anchor_winding":round(wrong,8),
-           "status":"PASS" if abs(abs(w)-1)<1e-4 else "FAIL"})
-    contact=collision(pts,meta["yarn_diameter_mm"])
-    negative={"wrong_post_target_detected":all(abs(p["moved_anchor_winding"])<1e-4 for p in attachments),
+           "winding":round(w,8),"expected_sign":expected_sign,"mirrored_winding":round(reversed_face,8),"moved_anchor_winding":round(wrong,8),
+           "status":"PASS" if abs(w-expected_sign)<1e-4 else "FAIL"})
+    contact=collision(pts,meta["yarn_diameter_mm"],ranges,pieces)
+    negative={"wrong_post_face_detected":all(abs(p["mirrored_winding"]-p["expected_sign"])>1 for p in attachments),
+      "wrong_post_target_detected":all(abs(p["moved_anchor_winding"])<1e-4 for p in attachments),
       "drop_dc_pullthrough_detected":not trace_valid("fpdc",[1,2,3,1]),
       "drop_stitch_detected":len(bodies[:-1])!=72,
       "shift_crossing_row_detected":sorted({6 if p["row"]==5 else p["row"] for p in bodies if p["kind"]=="cable2x2"})!=[5,9],
       "unresolved_product_refused":meta["strict_product_compile_refused"]}
-    result={"tag":a.tag,"input_centerline_sha256":meta["centerline_sha256"],"source_semantics":{"status":"PASS" if all(semantic.values()) else "FAIL","checks":semantic,"coupon_inventory":inventory},
+    result={"verifier_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),"tag":a.tag,"input_centerline_sha256":meta["centerline_sha256"],"analytic_distance_controls_passed":4,"source_semantics":{"status":"PASS" if all(semantic.values()) else "FAIL","checks":semantic,"coupon_inventory":inventory},
        "local_post_wraps":{"pass":sum(p["status"]=="PASS" for p in attachments),"total":len(attachments),"records":attachments,
           "scope":"winding of an open local arc with artificial closing chord around prior post axis; not full entanglement proof"},
        "contact":contact,"negative_checks":negative,

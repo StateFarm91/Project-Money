@@ -18,5 +18,12 @@ Research decisions only; no Build2 or production authority. Date:2026-09-27.
 
 Do not revise earlier observations silently. Append corrections with raw evidence; distinguish raw FAIL, UNKNOWN, and missing data. The architecture report contains source links and technical options; CURRENT_STATE contains operational next actions.
 
+## Executed coupon decisions
+
+| ID | Decision | Evidence / reason | Status |
+|---|---|---|---|
 | V2-012 | Execute stage1 yarn coupon, refuse full-product compile while cable construction is unresolved. | Current resumed source review exposes missing cable anchor/direction contract; not permission to alter truth. | Implemented fail-closed adapter |
 | V2-013 | Reject local winding as a sufficient topology certificate. | Both depth trials56/56 winding proxies yet exact yarn-tube intersections. | StructuralFAIL; no material/hero qualification |
+
+| V2-014 | Reject the current hand-shaped DC/chain spatial embedding. | Four trials retain physical intersections; body collisions persist after connector repair. | Do not advance to full throw or material work |
+| V2-015 | Require executable anchor/pull-through semantics, not decorative loops or hook-count labels alone. |56/56 local winding proxies pass all four structurally invalid candidates. | Next target is one physically validated post/DC unit |

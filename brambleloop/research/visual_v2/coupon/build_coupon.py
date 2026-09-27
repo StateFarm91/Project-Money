@@ -66,7 +66,7 @@ def frame(axis):
     n=np.cross(e,v);n/=np.linalg.norm(n)
     return e,n,v
 
-def post_route(x,y0,y1,parent,kind,direction,spread,anchor_mode="post"):
+def post_route(x,y0,y1,parent,kind,direction,spread,anchor_mode="post", revision=0):
     H=y1-y0; L=6.25; face=direction*(1 if kind!="bpdc" else -1)
     center=np.asarray(parent["post_center"],float); axis=np.asarray(parent["post_axis"],float)
     if anchor_mode=="top":
@@ -84,7 +84,7 @@ def post_route(x,y0,y1,parent,kind,direction,spread,anchor_mode="post"):
     for cy,arr in [(y0+.42*H,close1),(y0+.70*H,close2)]:
         for t in np.linspace(0,1,10):
             arr.append([x+direction*1.05*np.cos(2*np.pi*t),cy+.65*np.sin(2*np.pi*t),
-                        z+face*1.05*np.sin(2*np.pi*t)+.3*t])
+                        z+face*1.05*np.sin(2*np.pi*t)+(1.2 if revision else .3)*t])
     head=np.array([[x+direction*2.1,y1,-1.35],[x-direction*2.1,y1,-1.35],
       [x-direction*2.5,y1+.30,0],[x-direction*2.1,y1+.45,1.35],[x+direction*2.1,y1+.1,1.35]])
     start=np.array([x-direction*L/2,y1-.3*H,face*.8])
@@ -98,7 +98,7 @@ def post_route(x,y0,y1,parent,kind,direction,spread,anchor_mode="post"):
        "post_center":((pa+pb)/2).tolist(),"post_axis":(pb-pa).tolist(),
        "top_center":[x,y1,0],"closure_count":2,"hook_trace":[1,2,3,2,1]}
 
-def build(spread, cable_mode):
+def build(spread, cable_mode, revision=0):
     contract,edges,w=source_contract()
     records={(r["row"],r["position"]):r for r in contract["records"]}
     pieces=[];infos=[];parent={}
@@ -107,10 +107,11 @@ def build(spread, cable_mode):
         meta.update({"kind":kind,"row":row,"position":pos,"control_points":np.asarray(control).tolist()})
         pieces.append(pts);infos.append(meta)
     # Diagnostic eight-stitch coupon: foundation/turn hypotheses explicit, not product edge certification.
-    for pos in range(8):
+    for pos in (range(7,-1,-1) if revision else range(8)):
         x=(pos+.5)*w;t=np.linspace(0,2*np.pi,17)
         q=np.column_stack([x+2.0*np.cos(t),.5*np.sin(t),1.2*np.sin(t)])
         q[0]=[pos*w,0,0];q[-1]=[(pos+1)*w,0,0]
+        if revision:q=q[::-1].copy()
         add("foundation_chain",0,pos,q,{"hook_trace":[1,1],"closure_count":1})
     for row in range(1,10):
         direction=1 if row%2 else -1
@@ -120,9 +121,10 @@ def build(spread, cable_mode):
                 cy=float(edges[row-1]+(j+.5)*(edges[row]-edges[row-1])/2)
                 t=np.linspace(0,2*np.pi,17)
                 q=np.column_stack([edge_x-direction*(1+1.5*np.sin(t)),cy+1.8*np.cos(t),1.4*np.sin(t)])
+                if revision:q[:,1]+=1.2*t/(2*np.pi)
                 add("turn_chain",row,-1,q,{"hook_trace":[1,1],"closure_count":1})
         else:
-            add("turn_chain",1,-1,[[-1,0,0],[-2,1,1],[-1,2,-1],[0,0,0]],{"hook_trace":[1,1],"closure_count":1})
+            add("turn_chain",1,-1,[[-1,0,0],[-2,1,1],[-1,2,-1],[0,2.1,2] if revision else [0,0,0]],{"hook_trace":[1,1],"closure_count":1})
         current={}
         for pos in (range(8) if direction>0 else range(7,-1,-1)):
             rec=records[(row,pos)];kind=rec["kind"];x=(pos+.5)*w;y0,y1=edges[row-1:row+1]
@@ -137,7 +139,7 @@ def build(spread, cable_mode):
                 target=pos;mode="post"
                 if kind=="cable2x2":
                     offset=pos%8-2;target=pos+(2 if offset<2 else -2);mode=cable_mode
-                q,meta=post_route(x,y0,y1,parent[target],kind,direction,spread,mode)
+                q,meta=post_route(x,y0,y1,parent[target],kind,direction,spread,mode,revision)
                 meta["target_position"]=target
                 meta["research_hypothesis"]=kind=="cable2x2"
             add(kind,row,pos,q,meta);current[pos]=meta
@@ -153,7 +155,7 @@ def build(spread, cable_mode):
         start=len(path);path.extend(piece);ranges.append([start,len(path)])
     pts=np.asarray(path,dtype=np.float32)
     meta={"scope":"8x9 diagnostic coupon, NOT a reduced product or certified crochet",
-          "spread_mm":spread,"yarn_diameter_mm":DIA,"contact_floor_mm":COMPRESSED_CONTACT*DIA,
+          "route_revision":revision,"spread_mm":spread,"yarn_diameter_mm":DIA,"contact_floor_mm":COMPRESSED_CONTACT*DIA,
           "cable_mode_hypothesis":cable_mode,"coupon_source_rows":[1,9],"coupon_source_positions":[0,7],
           "product_contract":{k:v for k,v in contract.items() if k!="records"},
           "pieces":infos,"ranges":ranges,"connectors":connectors,
@@ -165,9 +167,10 @@ def build(spread, cable_mode):
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("--spread",type=float,default=2.2)
+    ap.add_argument("--route-revision",type=int,choices=[0,1],default=0)
     ap.add_argument("--cable-mode",choices=["post","top"],default="top");ap.add_argument("--tag",required=True)
     args=ap.parse_args();out=HERE/"out"/args.tag;out.mkdir(parents=True,exist_ok=True)
-    pts,meta,contract=build(args.spread,args.cable_mode)
+    pts,meta,contract=build(args.spread,args.cable_mode,args.route_revision)
     strict_refused=False
     try:strict_build(contract)
     except ValueError:strict_refused=True

@@ -1,6 +1,8 @@
 {
+  "verifier_sha256": "a2dce01fd74b264c10835a0e27671ecd8e22e7552a6130a3a570d8643480d0e8",
   "tag": "wider_top",
   "input_centerline_sha256": "07b1897d33162144bb092502dd8be5b893b9b06e90cb580ee8bdc60478d18bec",
+  "analytic_distance_controls_passed": 4,
   "source_semantics": {
     "status": "PASS",
     "checks": {
@@ -30,6 +32,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -38,6 +42,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -46,6 +52,8 @@
         "position": 5,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -54,6 +62,8 @@
         "position": 4,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -62,6 +72,8 @@
         "position": 3,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -70,6 +82,8 @@
         "position": 2,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -78,6 +92,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -86,6 +102,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -94,6 +112,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -102,6 +122,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -110,6 +132,8 @@
         "position": 2,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -118,6 +142,8 @@
         "position": 3,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -126,6 +152,8 @@
         "position": 4,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -134,6 +162,8 @@
         "position": 5,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -142,6 +172,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -150,6 +182,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -158,6 +192,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -166,6 +202,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -174,6 +212,8 @@
         "position": 5,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -182,6 +222,8 @@
         "position": 4,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -190,6 +232,8 @@
         "position": 3,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -198,6 +242,8 @@
         "position": 2,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -206,6 +252,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -214,6 +262,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -222,6 +272,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -230,6 +282,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -238,6 +292,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -246,6 +302,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -254,6 +312,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -262,6 +322,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -270,6 +332,8 @@
         "position": 5,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -278,6 +342,8 @@
         "position": 4,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -286,6 +352,8 @@
         "position": 3,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -294,6 +362,8 @@
         "position": 2,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -302,6 +372,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -310,6 +382,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -318,6 +392,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -326,6 +402,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -334,6 +412,8 @@
         "position": 2,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -342,6 +422,8 @@
         "position": 3,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -350,6 +432,8 @@
         "position": 4,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -358,6 +442,8 @@
         "position": 5,
         "kind": "fpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -366,6 +452,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -374,6 +462,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -382,6 +472,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -390,6 +482,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -398,6 +492,8 @@
         "position": 5,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -406,6 +502,8 @@
         "position": 4,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -414,6 +512,8 @@
         "position": 3,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -422,6 +522,8 @@
         "position": 2,
         "kind": "fpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -430,6 +532,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -438,6 +542,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -446,6 +552,8 @@
         "position": 0,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
@@ -454,6 +562,8 @@
         "position": 1,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -462,6 +572,8 @@
         "position": 6,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
@@ -470,6 +582,8 @@
         "position": 7,
         "kind": "bpdc",
         "winding": 1.0,
+        "expected_sign": 1,
+        "mirrored_winding": -1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       }
@@ -481,6 +595,15 @@
     "floor_mm": 0.81,
     "exact_segment_pairs_tested": 42289,
     "penetrating_segment_pairs": 32236,
+    "contact_categories": {
+      "body/body": 24374,
+      "connector/edge_chain": 3406,
+      "edge_chain/edge_chain": 626,
+      "body/edge_chain": 2179,
+      "body/connector": 1161,
+      "connector/connector": 490
+    },
+    "unique_offending_operation_pairs": 230,
     "minimum_distance_mm": 0.0,
     "worst_pairs": [
       {
@@ -664,6 +787,7 @@
     "scope": "dense centerline tubes; ply/fibre envelopes not included"
   },
   "negative_checks": {
+    "wrong_post_face_detected": true,
     "wrong_post_target_detected": true,
     "drop_dc_pullthrough_detected": true,
     "drop_stitch_detected": true,

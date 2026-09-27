@@ -42,3 +42,7 @@ Expected proof: full semantic schedulePASS, five structural mutantsFAIL, three o
 Generated local intermediates `routing_probe.npz`, `routing_probe.blend` and `passes_0001.exr` are ignored. Rebuild/render before verification in a fresh checkout. EXR carries raw passes; PNG previews are display-transformed. Current composition uses8-bit straight sRGB/coverage decoded into linear light; production float-EXR/fibre coverage remains a future test. Render seeds are fixed, but hardware/version byte identity is not promised. The manifests tie verification to the actual render being inspected.
 
 Only this directory may change in this lane. No paid API calls, merge, deployment, publication, production changes, Etsy, advertising, Build2 status edits or canonical identity changes are authorized.
+
+## Executed next experiment
+
+[V2-P06 results](coupon/RESULTS.md): four explicit yarn coupon hypotheses built, measured and rejected for physical intersections. The current diagnostic is coupon/out/routed_top/diagnostic.png. Follow its reproduction commands and closeout manifest. A successful runner exit does not mean a structural PASS.

@@ -45,3 +45,9 @@ Build a topology-correct post/cable unit with continuous yarn and edge/turn case
 ## V2-P06 initial runs — executed, still active
 
 Resumed d38e471. Full source contract preserved. Built one8x9 diagnostic repeat with SC asset reuse, explicit lower-post wrapping and experimental DC draw-through paths; foundation/turns explicit but unvalidated. Outputs under coupon/out. Baseline(depth2.2):34,182 penetrating segment pairs,min0mm; wider(depth4.0):32,236,min0mm. Both56/56 local winding proxies. Yarn diameter1.8/contact floor0.81 fixed. Five negative checks pass. No photographic judgement; no full-throw stage. Next targeted repair is foundation travel/turn continuity and closed-arc routing, not softer gates or thinner yarn.
+
+## V2-P06 closeout — four executed trials, implementation rejected
+
+See [coupon/RESULTS.md](coupon/RESULTS.md). Repaired routed_top removes the51mm foundation return (max connector7.877mm) but has29,483 failing segment pairs, including27,056 body/body. Alternate post-anchor hypothesis has30,003 failing pairs; corresponding cable control points differ by up to9.1069mm. Every candidate retains fixed truth,1.8mm yarn,0.81mm contact floor. All56 signed wrap proxies, nine fixture checks, six negative checks and four analytic distance controls pass; structural truthFAIL, photographic realismUNKNOWN. No stage2. Centerline regeneration matches all four hashes. Neutral Cycles diagnostic13.828s. $0 spend.
+
+The old151 offline assertions were not rerun because no historical implementation changed. New measurements cover the new coupon. Independent crochet and photographic review remainUNKNOWN. Next work is a correctly embedded one-post DC, not a paid generation call or another blind depth sweep.

@@ -1,6 +1,6 @@
 # Visual V2 — durable working memory
 
-Updated 2026-09-27. Read this first after compaction; continue in the same thread. The owner explicitly requested this checkpoint and continued work, not abandonment or a new conversation. The first-pass report and handoff are complete; the next engineering experiment is specified, not executed.
+Updated 2026-09-27. Read this first after compaction; continue in the same thread. The owner explicitly requested this checkpoint and continued work, not abandonment or a new conversation. The first-pass report is complete. V2-P06 has now run; its current yarn embedding is rejected. See the latest-experiment section below.
 
 ## Objective, isolation and authority
 
@@ -84,12 +84,18 @@ Remaining research uncertainties: correct continuous post/cable topology and row
 Continuity: automatic context compaction may occur; reread this file and continue in the same thread. No owner-created new conversation is necessary merely because context becomes low. The original assignment's first-pass deliverables are complete once the final commit/push is verified; the next experiment is durably specified.
 
 
-## Active second pass: V2-P06 (2026-09-27)
+## Latest experiment: V2-P06 executed and rejected (2026-09-27)
 
-Resumed verified clean d38e471. Built coupon/build_coupon.py, verify_coupon.py and diagnostic renderer. Full frozen source contract still has 17,424 cells, 18 columns, 540 crossings. Stage1 fixture is an8x9 repeat only, not a changed or smaller product. Strict full-product compile refuses unresolved cable anchoring/direction and unreviewed DC/chain geometry.
+Resumed clean d38e471. Initial failed coupon trials committed at d9d5006. Read coupon/RESULTS.md and coupon/out/closeout.json for current measurements, not old conversation history.
 
-Measured baseline_top(depth2.2mm):56/56 local post-wrap winding proxies;34,182 penetrating segment pairs, minimum0mm. wider_top(depth4mm):56/56 proxies;32,236 pairs,min0mm. Fixed yarn diameter1.8mm,contact floor0.81mm. Both structuralFAIL; realismUNKNOWN; no stage2. Semantic checks and five adversarial checks pass. Counts do not prove crochet topology.
+Built full frozen source/anchor contract and an8x9 diagnostic repeat, one ordered yarn centerline, explicit post wraps, DC closure hypotheses, foundation/turn paths, exact segment-contact checks and a neutral Blender diagnostic. This fixture is not a smaller replacement product. Current code regenerates all four recorded centerline hashes.
 
-Next: repair observed construction defects before any material work. Foundation was laid in same direction as row1, causing a full-width return connector; chain/closure hypotheses contain near-closed self-colliding arcs. Correct route construction while leaving gauge/counts unchanged, measure again, retain all failures, render neutral diagnostics only. Avoid blanket depth sweeps; increasing depth did not remove intersections.
+Results: baseline_top34,182 failed segment pairs; wider_top32,236; repaired routed_top29,483; alternate routed_post_hypothesis30,003. Every trial56/56 local signed post-winding proxies and nine source checks, six negatives, four analytic distance controls. Contact floor0.81mm unchanged; minimum distance0 or effectively0. All STRUCTURAL TRUTH FAIL. PHOTOGRAPHIC REALISM UNKNOWN. Full-throw stageBLOCKED. Winding is only an open-arc/closure proxy, not complete topology.
 
-Source gap: cable registry crossing=None; written method mentions cable needle/ordinary DC; design notes hold first pair in front. Exact crochet target/handedness remains unresolved. Do not silently substitute front-post crossings. Narrow primary documentation was checked for DC/post semantics; see coupon/EXPERIMENT.md. Current sandbox is read-only; writes/runs must use approved escalation confined to this lane. $0 spend.
+Repair removed a51mm full-width return connector (now max7.877mm), but27,056 body/body pairs still fail in routed_top. The hand-shaped DC/chain embedding is rejected; do not keep adjusting depth, thinning yarn or applying materials/AI to conceal the fault. Cable attachment variants differ by up to9.1069mm despite identical counts. Diagnostic render corrected exposure only; geometry unchanged.
+
+Construction gap remains: registry crossing=None; written cable method names cable needle/ordinary DC; design notes held pair in front. Strict authoritative compilation refuses this unresolved cable contract. Owner clarification about existing authoritative attachment/crossing instructions was requested asynchronously; no response at this checkpoint. Never silently substitute front-post crossings. Geometry remains faulty independently of that clarification.
+
+Next bounded work: replace the guessed DC loop embedding with a fabrication-operation graph and spatially validated one-post DC coupon (actual two-stage pull-through, self-contact and prior-strand attachment), then neighbor/turn transition. Independent crochet review UNKNOWN. Only after a complete original repeat/edge coupon passes may full144x121/18-column stage2 and six view/light renders proceed. No paid call is needed/requested.
+
+Current authority/environment: read-only sandbox requires scoped escalation for writes/runs. Existing runtime paths above remain valid. All new files are under coupon/ and these ledgers; no Build2, production, original truth/gate or canonical identity edits. External spend$0. Keep this persistent thread; use repository state after compaction. First-pass final_validation.json is historical; the current experiment uses coupon/out/closeout.json.

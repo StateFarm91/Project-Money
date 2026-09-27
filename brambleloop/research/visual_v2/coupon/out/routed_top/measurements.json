@@ -1,7 +1,7 @@
 {
   "verifier_sha256": "a2dce01fd74b264c10835a0e27671ecd8e22e7552a6130a3a570d8643480d0e8",
-  "tag": "baseline_top",
-  "input_centerline_sha256": "405b84cd383a4f61a389e8d962833897ec893dc893164cbece3c8723729273d7",
+  "tag": "routed_top",
+  "input_centerline_sha256": "ac778da25c93bd658e1e34b7e633f99d98c4ea9814276aabd40128da2697eb46",
   "analytic_distance_controls_passed": 4,
   "source_semantics": {
     "status": "PASS",
@@ -84,21 +84,21 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": -0.0,
-        "status": "PASS"
-      },
-      {
-        "row": 2,
-        "position": 1,
-        "kind": "bpdc",
-        "winding": -1.0,
-        "expected_sign": -1,
-        "mirrored_winding": 1.0,
         "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
         "row": 2,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "expected_sign": -1,
+        "mirrored_winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
         "position": 0,
         "kind": "bpdc",
         "winding": -1.0,
@@ -124,7 +124,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -134,7 +134,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -144,7 +144,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -154,7 +154,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -164,7 +164,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -224,7 +224,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -234,7 +234,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -254,7 +254,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -264,7 +264,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -274,7 +274,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -284,7 +284,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -314,7 +314,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -324,7 +324,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -334,7 +334,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -374,7 +374,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -414,7 +414,7 @@
         "winding": -1.0,
         "expected_sign": -1,
         "mirrored_winding": 1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -454,7 +454,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -464,7 +464,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": -0.0,
+        "moved_anchor_winding": 0.0,
         "status": "PASS"
       },
       {
@@ -494,7 +494,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -574,7 +574,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       },
       {
@@ -584,7 +584,7 @@
         "winding": 1.0,
         "expected_sign": 1,
         "mirrored_winding": -1.0,
-        "moved_anchor_winding": 0.0,
+        "moved_anchor_winding": -0.0,
         "status": "PASS"
       }
     ],
@@ -593,193 +593,193 @@
   "contact": {
     "status": "FAIL",
     "floor_mm": 0.81,
-    "exact_segment_pairs_tested": 44348,
-    "penetrating_segment_pairs": 34182,
+    "exact_segment_pairs_tested": 40083,
+    "penetrating_segment_pairs": 29483,
     "contact_categories": {
-      "connector/connector": 490,
-      "connector/edge_chain": 3407,
-      "edge_chain/edge_chain": 626,
-      "body/connector": 291,
-      "body/edge_chain": 790,
-      "body/body": 28578
+      "edge_chain/edge_chain": 456,
+      "body/edge_chain": 776,
+      "body/body": 27056,
+      "body/connector": 43,
+      "connector/edge_chain": 904,
+      "connector/connector": 248
     },
-    "unique_offending_operation_pairs": 236,
-    "minimum_distance_mm": 0.0,
+    "unique_offending_operation_pairs": 205,
+    "minimum_distance_mm": 3.522435961169186e-10,
     "worst_pairs": [
       {
         "segments": [
-          727,
-          758
+          9633,
+          9669
         ],
-        "distance_mm": 0.0
+        "distance_mm": 3.522435961169186e-10
       },
       {
         "segments": [
-          0,
-          758
+          20494,
+          20530
         ],
-        "distance_mm": 0.0
+        "distance_mm": 3.5224359611691934e-10
       },
       {
         "segments": [
-          726,
-          758
+          15122,
+          15158
         ],
-        "distance_mm": 0.0
+        "distance_mm": 3.522436078475714e-10
       },
       {
         "segments": [
-          0,
-          726
+          4261,
+          4297
         ],
-        "distance_mm": 0.0
+        "distance_mm": 3.52243608122344e-10
       },
       {
         "segments": [
-          197,
-          651
+          157,
+          192
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.8193204120704004e-09
       },
       {
         "segments": [
-          196,
-          651
+          25,
+          60
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.8193204120704004e-09
       },
       {
         "segments": [
-          727,
-          757
+          91,
+          126
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.8193204120704004e-09
       },
       {
         "segments": [
-          132,
-          676
+          223,
+          258
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.8193236837588766e-09
       },
       {
         "segments": [
-          395,
-          577
+          289,
+          324
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.8193236837588766e-09
       },
       {
         "segments": [
-          65,
-          702
+          421,
+          456
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.8193239233508766e-09
       },
       {
         "segments": [
-          462,
-          551
+          487,
+          522
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.8193246582064288e-09
       },
       {
         "segments": [
-          461,
-          551
+          355,
+          390
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.819326257688194e-09
       },
       {
         "segments": [
-          462,
-          552
+          10725,
+          11399
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.3597456400782216e-08
       },
       {
         "segments": [
-          65,
-          701
+          10387,
+          11060
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.3597456400782216e-08
       },
       {
         "segments": [
-          395,
-          576
+          10830,
+          11504
         ],
-        "distance_mm": 0.0
+        "distance_mm": 4.259484963302405e-08
       },
       {
         "segments": [
-          396,
-          577
+          10492,
+          11165
         ],
-        "distance_mm": 0.0
+        "distance_mm": 4.259484963302405e-08
       },
       {
         "segments": [
-          64,
-          701
+          21341,
+          22352
         ],
-        "distance_mm": 0.0
+        "distance_mm": 6.366986289388785e-08
       },
       {
         "segments": [
-          461,
-          552
+          10401,
+          11412
         ],
-        "distance_mm": 0.0
+        "distance_mm": 7.377080591833181e-08
       },
       {
         "segments": [
-          263,
-          626
+          10480,
+          11491
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.0751363498098633e-07
       },
       {
         "segments": [
-          396,
-          576
+          21572,
+          21909
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.2985962531011574e-07
       },
       {
         "segments": [
-          330,
-          602
+          10842,
+          11179
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.6759139862123474e-07
       },
       {
         "segments": [
-          329,
-          602
+          10711,
+          11048
         ],
-        "distance_mm": 0.0
+        "distance_mm": 1.7009226766653867e-07
       },
       {
         "segments": [
-          460,
-          552
+          21586,
+          22260
         ],
-        "distance_mm": 0.0
+        "distance_mm": 2.0659832033456362e-07
       },
       {
         "segments": [
-          330,
-          601
+          21248,
+          21921
         ],
-        "distance_mm": 0.0
+        "distance_mm": 2.0659832033456362e-07
       },
       {
         "segments": [
-          328,
-          601
+          21703,
+          22040
         ],
-        "distance_mm": 0.0
+        "distance_mm": 2.903507426847335e-07
       }
     ],
     "max_rendered_segment_length_mm": 0.25,
@@ -797,7 +797,7 @@
   "continuity": {
     "one_polyline": true,
     "declared_endpoints": 2,
-    "longest_connector_mm": 51.0,
+    "longest_connector_mm": 7.877019631282175,
     "warning": "connecting splines is not proof that the connections represent crochet"
   },
   "structural_truth": "FAIL",

@@ -1,0 +1,12 @@
+{
+  "tag": "routed_top",
+  "renderer": "4.5.0",
+  "centerline_sha256": "ac778da25c93bd658e1e34b7e633f99d98c4ea9814276aabd40128da2697eb46",
+  "seconds": 13.828,
+  "diagnostic_png_sha256": "b5c97fe22a207103b78712c132f86bfc39cc0225f2efb237eb28716737339c6c",
+  "rendered_curve": "POLY over exactly measured dense centerline",
+  "diameter_mm": 1.8,
+  "exposure_stops": -5,
+  "material": "neutral diagnostic, no fibres, no product realism claim",
+  "spend_usd": 0
+}

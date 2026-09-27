@@ -21,7 +21,7 @@ obj.data.materials.append(mat)
 scene=bpy.context.scene;scene.render.engine="CYCLES";scene.cycles.device="CPU";scene.cycles.samples=32;scene.cycles.use_denoising=False;scene.cycles.seed=927
 scene.render.threads_mode="FIXED";scene.render.threads=8;scene.render.resolution_x=1000;scene.render.resolution_y=1200;scene.render.resolution_percentage=100
 scene.render.image_settings.file_format="PNG";scene.render.image_settings.color_mode="RGBA";scene.render.film_transparent=True
-scene.view_settings.view_transform="Standard";scene.view_settings.look="None"
+scene.view_settings.view_transform="Standard";scene.view_settings.look="None";scene.view_settings.exposure=-5
 world=bpy.data.worlds.new("diagnostic_world");scene.world=world;world.use_nodes=True
 world.node_tree.nodes["Background"].inputs[0].default_value=(.16,.16,.16,1)
 world.node_tree.nodes["Background"].inputs[1].default_value=.45
@@ -33,6 +33,6 @@ scene.render.filepath=str(out/"diagnostic.png");bpy.ops.render.render(write_stil
 record={"tag":a.tag,"renderer":bpy.app.version_string,"centerline_sha256":m["centerline_sha256"],"seconds":round(time.perf_counter()-started,3),
         "diagnostic_png_sha256":hashlib.sha256((out/"diagnostic.png").read_bytes()).hexdigest(),
         "rendered_curve":"POLY over exactly measured dense centerline","diameter_mm":m["yarn_diameter_mm"],
-        "material":"neutral diagnostic, no fibres, no product realism claim","spend_usd":0}
+        "exposure_stops":-5,"material":"neutral diagnostic, no fibres, no product realism claim","spend_usd":0}
 (out/"render.json").write_text(json.dumps(record,indent=2),encoding="utf-8",newline="\n")
 print(json.dumps(record))

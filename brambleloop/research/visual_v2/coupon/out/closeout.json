@@ -1,0 +1,102 @@
+{
+  "status": "PASS for experimental integrity; product remains FAIL",
+  "variants": {
+    "baseline_top": {
+      "centerline_rebuild_matches": true,
+      "verifier_hash_matches": true,
+      "source_checks": 9,
+      "negative_checks": 6,
+      "distance_controls": 4,
+      "post_wraps_pass": 56,
+      "structural_truth": "FAIL",
+      "photographic_realism": "UNKNOWN",
+      "tube_bbox_mm": [
+        56.793460845947266,
+        95.46573638916016,
+        10.5993013381958
+      ]
+    },
+    "wider_top": {
+      "centerline_rebuild_matches": true,
+      "verifier_hash_matches": true,
+      "source_checks": 9,
+      "negative_checks": 6,
+      "distance_controls": 4,
+      "post_wraps_pass": 56,
+      "structural_truth": "FAIL",
+      "photographic_realism": "UNKNOWN",
+      "tube_bbox_mm": [
+        56.793460845947266,
+        95.46591186523438,
+        17.792308807373047
+      ]
+    },
+    "routed_top": {
+      "centerline_rebuild_matches": true,
+      "verifier_hash_matches": true,
+      "source_checks": 9,
+      "negative_checks": 6,
+      "distance_controls": 4,
+      "post_wraps_pass": 56,
+      "structural_truth": "FAIL",
+      "photographic_realism": "UNKNOWN",
+      "tube_bbox_mm": [
+        56.77870559692383,
+        95.46572875976562,
+        10.598652839660645
+      ]
+    },
+    "routed_post_hypothesis": {
+      "centerline_rebuild_matches": true,
+      "verifier_hash_matches": true,
+      "source_checks": 9,
+      "negative_checks": 6,
+      "distance_controls": 4,
+      "post_wraps_pass": 56,
+      "structural_truth": "FAIL",
+      "photographic_realism": "UNKNOWN",
+      "tube_bbox_mm": [
+        56.77870559692383,
+        95.4657211303711,
+        10.598652839660645
+      ]
+    }
+  },
+  "historical_v0_builder_hash_matches_d9d5006": true,
+  "historical_source_files_unchanged": 482,
+  "diagnostic_geometry_and_png_provenance": "PASS",
+  "external_spend_usd": 0,
+  "scope": "Visual V2 only",
+  "stage2": "BLOCKED",
+  "routed_render_seconds": 13.828,
+  "unresolved_authoritative_cable_definition": true,
+  "artifacts": {
+    "build_probe.py": "ed2eb531fd41b1b73cc189256408af6a32643a5b4b0844d1a515bf9b34c3ef03",
+    "coupon\\build_coupon.py": "84dc1b8404b7283a8dee398cb76f8c88ab93265b5615ecf2d8dddce561c3e773",
+    "coupon\\EXPERIMENT.md": "4fea3c585b6fc4d93a2e01c5d4cdfd59b55941a3e5718578ea40786dda4d0980",
+    "coupon\\out\\baseline_top\\geometry.json": "c2147be0be046588ed936e077bffcfdeb59027ca9825d01ab291a0d10234dbe3",
+    "coupon\\out\\baseline_top\\measurements.json": "1d0b0d4025497deac7002972eddd4f0751623994b948e3af0c4ba43e3f7c2ef4",
+    "coupon\\out\\routed_post_hypothesis\\geometry.json": "f011ced256b604140c861915a899e7f5a1ba6b69a126e0785ccacb4e76b404eb",
+    "coupon\\out\\routed_post_hypothesis\\measurements.json": "77045e6bc138f3ceacb07b035f1b0a801f90c337f35717f0468c8c5ca1024533",
+    "coupon\\out\\routed_top\\diagnostic.png": "b5c97fe22a207103b78712c132f86bfc39cc0225f2efb237eb28716737339c6c",
+    "coupon\\out\\routed_top\\geometry.json": "8af4a4416cfd886477c0439d6c6dc6d64ae25dcf58dc7d472fab0deb25ae5a42",
+    "coupon\\out\\routed_top\\measurements.json": "746dafcc9808adec8c1242b971880e47c79dd5cfd30d37e2edf5cdfa7b601674",
+    "coupon\\out\\routed_top\\render.json": "e040a54cf852e672f7109e21a56760f6d3188f94f1336895c5d9daf685e78f4d",
+    "coupon\\out\\source_contract.json": "6db4dee221ef51fbcc4cacd4007b1001147f2bc4003d97222c1b0d15dddff5cf",
+    "coupon\\out\\wider_top\\geometry.json": "601ac9d537e59cf5b24ba9831de1ba8dabd09933f880c0a7c4f46c3c2722643d",
+    "coupon\\out\\wider_top\\measurements.json": "ff1937d2f35275eb6b1ccdb35abdb97adeb53e83c71cc067ef07b8056d0fe0c2",
+    "coupon\\render_coupon.py": "683568145a9f45fabb8b704fab56ff048356cdabf9a8052e96a7b35f740ae88c",
+    "coupon\\RESULTS.md": "f3b6cffa0a615efb95e3561a981ed1754c2760e2198dc6a650f814ca8688f03a",
+    "coupon\\verify_coupon.py": "a2dce01fd74b264c10835a0e27671ecd8e22e7552a6130a3a570d8643480d0e8",
+    "CURRENT_STATE.md": "0e8582df7eb825a549236ca382e380731033e586492f11d1ace742a87f9dd3b4",
+    "DECISIONS.md": "62fde31a0649622ec177dfe1cd1592d23964931f1bf16cf4e9c1455f17f7436d",
+    "evidence_audit.py": "3bf490492757bff58b3acfe27ce9d6bf7015bcc79e387b1cdb68bf8d4f4d2d9f",
+    "EXPERIMENTS.md": "9ce64fe3f8b4c3ebdb688b748ed22206d55f607c72874cbd8970565271eed41f",
+    "NEXT_SESSION.md": "a6f775fe3768081fe67263a5e470770caea186c0af171ea8b3e6c1d2b34c5f9f",
+    "README.md": "7cfc105b6ae51d28777969557cebade0b3a8316458501b1584d859ece619d7f1",
+    "render_probe.py": "7cb341db76f9c861bcbb1a2089c005432f25fb3f67119a8522494bcbf00d4457",
+    "run_offline_checks.py": "e0d0e365a706a3fe0ef4d420fcc6551a42f1bf37c154191d2d75cd2a82d4072a",
+    "verify_probe.py": "ea88cdf685eb33e6d7ac89dc0f2ad84f55ed147409252a4ea47c361140a854fa",
+    "VISUAL_V2_ARCHITECTURE.md": "87e4ac2564665b1c0ee6080a5334af432b357da784d7448b455a7cb904e7c5a3"
+  }
+}
