@@ -176,7 +176,9 @@ DEFAULT_AGENTS: list[dict] = [
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
-         allowed_job_types=["launch.plan", "marketing.schedule", "content.draft"],
+         allowed_job_types=["launch.plan", "marketing.schedule", "content.draft",
+                            # C-60: distribution planning and the buyer-journey audit (GREEN).
+                            "growth.distribution", "growth.journey"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="listing", description="Drafts listings and SEO. Cannot spend ad money.",
@@ -265,7 +267,9 @@ DEFAULT_AGENTS.extend([
                       "allocation, orphaned work, the idle standing backlog (#174-#176, "
                       "#186, #187). Spends nothing."),
          allowed_job_types=["swarm.review", "swarm.allocate", "swarm.orphans",
-                            "swarm.backlog"],
+                            "swarm.backlog",
+                            # C-60 (#264 #267 #276 #291): the week applied to the queue.
+                            "growth.steer"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=0.25),
     dict(name="experiment_steward",
          description=("Pre-registers and persists each launch's experiment pack, with owner, "
