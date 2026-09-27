@@ -98,13 +98,18 @@ def _publish_past_shadow(db, key: str, inputs: dict) -> Job:
     from brambleloop.integrations import etsy
 
     orig = etsy.EtsyClient, etsy.Credentials.from_env
+    orig_parity = pipeline._listing_parity
     etsy.EtsyClient = _StubClient
     etsy.Credentials.from_env = staticmethod(lambda *a, **k: None)
+    # Parity (#75) is another gate with its own tests; forced to pass so these reach ours.
+    pipeline._listing_parity = lambda ctx: {"verdict": "pass", "blocks_release": False,
+                                            "why": "forced by test", "dimensions": {}}
     try:
         return _run(db, "store_operator", "store.publish", inputs, key,
                     phase=Phase.LIMITED_PRODUCTION)
     finally:
         etsy.EtsyClient, etsy.Credentials.from_env = orig
+        pipeline._listing_parity = orig_parity
 
 
 # ---- computed on every publish attempt, from the persisted rows --------------------------
@@ -141,6 +146,34 @@ def test_shadow_publish_runs_every_gate_library_on_the_real_listing_set():
     refusals = _audits(db, "store.publish_refused")
     assert refusals and "shadow" in refusals[-1]["reason"].lower()
     assert "release_gates_would_block" in refusals[-1]
+
+
+def test_the_qa_stage_stores_the_context_renders_and_publish_only_verifies_them():
+    st = chain()
+    db = st["db"]
+    qa = [d for d in _audits(db, "listing.mobile_qa")]
+    assert qa and qa[-1]["mobile"]["complete"], qa[-1:]
+    refs = qa[-1]["mobile"]["render_refs"]
+    from brambleloop.core.artifacts import ArtifactStore
+
+    assert all(ArtifactStore().exists(r) for r in refs.values()), refs
+    # Without the stored renders, publish reads the contexts as not rendered and blocks.
+    import shutil
+
+    moved = []
+    for r in refs.values():
+        path = Path(os.environ["BRAMBLELOOP_ARTIFACT_DIR"]) / r[:2] / r
+        if path.exists():
+            shutil.move(str(path), str(path) + ".aside")
+            moved.append(path)
+    try:
+        v = RG.listing_set(db, slug=st["slug"], version=st["version"], issue=False)
+        assert v["mobile"]["complete"] is False and v["blocks_release"]
+        hero = v["frames"][0]
+        assert hero["gates"]["COMMERCIAL_QA"] == "not_run" and not hero["may_export"]
+    finally:
+        for path in moved:
+            shutil.move(str(path) + ".aside", str(path))
 
 
 def test_the_verdict_for_the_flagship_is_reported_honestly():
