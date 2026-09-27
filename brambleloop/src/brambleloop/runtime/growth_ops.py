@@ -685,11 +685,34 @@ def creators_reading(db) -> dict:
         graduations.append(creators.may_graduate(creators.Graduation(
             tester_ref=ref, invited=counts["invited"], delivered=counts["delivered"],
             testing_terms="", ambassador_terms="", consent_ref=consent)))
+    graduated = [g["tester_ref"] for g in graduations if g["may_graduate"]]
+    # #250: the offer itself is the owner's -- a second, separate agreement with a person --
+    # so a tester the check clears becomes one owner card, once, at no cost. Nothing is sent.
+    from sqlalchemy import select as _select
+
+    from ..core.models import OwnerAction
+
+    cards = []
     with db.session() as s:
         roster = creators.roster(s)
+        for ref in graduated:
+            key = f"creators.graduate:{ref}"
+            if s.scalar(_select(OwnerAction).where(OwnerAction.requirement_key == key,
+                                                   OwnerAction.done == False)) is None:  # noqa: E712
+                s.add(OwnerAction(
+                    requirement_key=key,
+                    action=(f"Offer tester {ref} the ambassador relationship under a separate "
+                            f"agreement (their testing terms stay as they are)"),
+                    reason=(f"{ref} delivered every test asked and has recorded consent to a "
+                            f"second relationship; testing compensation and public advocacy "
+                            f"must stay two documents (#250)"),
+                    max_cost_cad=0.0, minutes=10,
+                    consequence_of_delay="their finished projects stay unused as proof",
+                    blocks="#250"))
+                cards.append(key)
     return {"roster": roster, "portfolio": portfolio,
             "stopped_collaborations": stopped, "graduations": graduations,
-            "graduated": [g["tester_ref"] for g in graduations if g["may_graduate"]]}
+            "graduated": graduated, "owner_cards": cards}
 
 
 def tools_reading(db, items: dict) -> dict:
@@ -1058,6 +1081,34 @@ def benchmarks_reading(db) -> dict:
             "opportunities": benchmarks.opportunities(markets)}
 
 
+# #238: the factors Etsy names as moving conversion, and so the ones a below-cohort listing is
+# tested on -- systematically, one at a time, never by guessing which one it was.
+CONVERSION_FACTORS = ("photos", "price", "reviews", "title_and_description", "policies")
+
+
+def benchmark_incidents(db, reading: dict) -> dict:
+    """#238: a listing converting below its own cohort's baseline is an incident that names the
+    factors to test, open until the listing converts at or above the cohort again."""
+    from ..ops.incident_lifecycle import open_or_restate, reconcile
+
+    below = [d for d in reading["diagnoses"] if d["verdict"] == "below_cohort"]
+    wanted = {f"benchmark:{d['slug']}:below_cohort" for d in below}
+    with db.session() as s:
+        for d in below:
+            open_or_restate(
+                s, signature=f"benchmark:{d['slug']}:below_cohort", severity="P3",
+                product_slug=d["slug"],
+                summary=(f"{d['slug']} converts at {d['conversion']:.2%} against its cohort's "
+                         f"{d['cell_baseline']:.2%} ({d['cell']})"),
+                detail={**d, "factors_to_test": list(CONVERSION_FACTORS),
+                        "why": ("diagnosed against comparable listings in the same category, "
+                                "traffic source, price band, season, maturity and age, not "
+                                "against the shop average")})
+        closed = reconcile(s, "benchmark:", lambda row: row.signature in wanted,
+                           resolution="the listing converts at or above its cohort again")
+    return {"opened": sorted(wanted), "resolved": closed["resolved"]}
+
+
 def proof_sweep(db) -> dict:
     """#17: every passed physical test and every sale ledger row attached as proof, once, via
     `trust.record_proof` -- which refuses anything without a row behind it."""
@@ -1101,6 +1152,7 @@ def handle_growth_journey(ctx: JobContext) -> dict:
         "benchmarks": benchmarks_reading(ctx.db),
         "proof": proof_sweep(ctx.db),
     }
+    reading["benchmarks"]["incidents"] = benchmark_incidents(ctx.db, reading["benchmarks"])
     reading_id = record(ctx.db, JOURNEY_KIND, today.isoformat(), reading)
     summary = {
         "reading_id": reading_id,
@@ -1109,6 +1161,7 @@ def handle_growth_journey(ctx: JobContext) -> dict:
         "first_customer_outstanding": reading["first_customer"]["before"]["outstanding"],
         "promotions": len(reading["promotions"]["promotions"]),
         "benchmark_cells": reading["benchmarks"]["cells"]["occupied"],
+        "below_cohort": reading["benchmarks"]["incidents"]["opened"],
         "opportunities_ranked": len(reading["benchmarks"]["opportunities"]["ranked"]),
         "proof_recorded": reading["proof"]["recorded"],
     }

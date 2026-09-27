@@ -237,8 +237,13 @@ def test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak
     assert "t1" in r["creators"]["graduated"]
     assert r["tools"]["hostable"] and all(f["may_claim_contribution"] for f in r["tools"]["flows"])
     assert r["interviews"]["gate"]["may_open"] is True
+    # #250 acted on: the graduable tester is one owner card (the offer is the owner's), once.
+    assert r["creators"]["owner_cards"] == ["creators.graduate:t1"]
     with db.session() as s:
         assert {c.state for c in s.scalars(select(Collaboration))} == {"stopped"}
+        card = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "creators.graduate:t1"))
+        assert card is not None and card.max_cost_cad == 0.0 and "#250" in card.blocks
 
     # The design moves: every video module cut from the old tutorial is re-planned.
     with db.session() as s:
@@ -248,6 +253,10 @@ def test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak
          agent="growth")
     r2 = _reading(db, growth_ops.DISTRIBUTION_KIND)
     assert [x["slug"] for x in r2["video"]["stale_replanned"]] == [FLAGSHIP]
+    assert r2["creators"]["owner_cards"] == []           # the card is not raised twice
+    with db.session() as s:
+        assert len(list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == "creators.graduate:t1")))) == 1
 
 
 # ---- the buyer journey (#17, #19, #238, #239, #259, #261) -----------------------------------
@@ -267,10 +276,11 @@ def test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof()
                          result={"full_price_cad": 12.5, "promo_price_cad": 9.0,
                                  "starts": (TODAY - timedelta(days=20)).isoformat(),
                                  "ends": (TODAY - timedelta(days=1)).isoformat()}))
+        # Three listings in one cell; the first converts at zero against the cohort's rate.
         for k in range(3):
             s.add(ListingOutcome(product_slug=f"bench-{k}", period_start="2026-08-01",
                                  period_end="2026-08-31", impressions=400, visits=40,
-                                 orders=1, source="fixture"))
+                                 orders=0 if k == 0 else 1, source="fixture"))
     done = _work(db, "growth", "growth.journey")
     assert done.status == JobStatus.DONE, done.last_error
     r = _reading(db, growth_ops.JOURNEY_KIND)
@@ -280,12 +290,19 @@ def test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof()
     promo = r["promotions"]["promotions"][0]
     assert promo["measurable"] is True and promo["verdict"] != "worth repeating"
     assert r["benchmarks"]["cells"]["occupied"] >= 1
-    assert r["benchmarks"]["diagnoses"]
+    verdicts = {d["slug"]: d["verdict"] for d in r["benchmarks"]["diagnoses"]}
+    assert verdicts["bench-0"] == "below_cohort" and verdicts["bench-1"] == "at_or_above"
+    # #238 acted on: the below-cohort listing is an incident naming the factors to test.
+    assert r["benchmarks"]["incidents"]["opened"] == ["benchmark:bench-0:below_cohort"]
     with db.session() as s:
         friction = [i.signature for i in s.scalars(select(Incident).where(
             Incident.signature.like("friction:%"), Incident.resolved == False))]  # noqa: E712
         assert friction and all(sig.startswith(f"friction:{FLAGSHIP}:") for sig in friction)
         assert s.scalar(select(Experiment)).state == "not_repeatable"
+        bench = s.scalar(select(Incident).where(
+            Incident.signature == "benchmark:bench-0:below_cohort"))
+        assert bench is not None and not bench.resolved
+        assert "price" in bench.detail["factors_to_test"]
 
     # Re-run: proof is attached once, and friction resolves when the listing no longer has it.
     with db.session() as s:
@@ -517,9 +534,13 @@ def test_stats_ingest_benchmarks_and_scale_routes_read_the_database():
         def __init__(self, phrase):
             self.phrase = phrase
 
+    # #237 / #24: the vanity tag's slot goes to the term the export shows earning per visit
+    # before it goes to an unproven phrase.
     tags, got = release._drop_vanity_tags(
         main.db, [Q("mosaic blanket"), Q("nordic throw")], ["mosaic blanket", "xmas"])
-    assert got["vanity_dropped"] == ["mosaic blanket"] and tags == ["xmas", "nordic throw"]
+    assert got["vanity_dropped"] == ["mosaic blanket"]
+    assert tags == ["xmas", "christmas throw"]
+    assert got["refilled_from_earning"] == ["christmas throw"]
 
 
 if __name__ == "__main__":

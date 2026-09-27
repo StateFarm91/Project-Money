@@ -769,16 +769,23 @@ def _drop_vanity_tags(db, queries, tags: list[str]) -> tuple[list[str], dict]:
         return tags, {"status": "measured", "vanity_dropped": [], "earning_terms": earning[:10],
                       "export": stats.get("period_key")}
     kept = [t for t in tags if t.lower() not in vanity]
-    for q in queries:
+    # #24: a freed slot goes first to a term the export shows earning per visit, and only then
+    # to a phrase nothing has measured yet -- contribution economics, not impressions.
+    refilled_from_earning = []
+    for phrase in list(earning) + [q.phrase for q in queries]:
         if len(kept) >= len(tags):
             break
-        phrase = q.phrase
-        if phrase.lower() not in vanity and phrase not in kept and len(phrase) <= 20:
+        if (phrase.lower() not in vanity and phrase.lower() not in {k.lower() for k in kept}
+                and len(phrase) <= 20):
             kept.append(phrase)
+            if phrase in earning:
+                refilled_from_earning.append(phrase)
     return kept, {"status": "measured", "vanity_dropped": dropped, "earning_terms": earning[:10],
+                  "refilled_from_earning": refilled_from_earning,
                   "export": stats.get("period_key"),
                   "why": (f"{len(dropped)} tag(s) were shown and never sold in the owner's "
-                          f"Stats export; their slots went to unproven phrases instead")}
+                          f"Stats export; their slots went to terms that earned per visit "
+                          f"first, then to unproven phrases")}
 
 
 def _quote_screen(db, text: str) -> tuple[list[str], dict]:
