@@ -635,11 +635,22 @@ def test_a_bundle_waiting_for_members_defers_and_does_not_die():
             AuditLog.action == "collection.waiting")))
         assert waits and waits[-1].detail["requeued"] is True
 
-    # And once a second member certifies, the next run assembles the collection.
+    # And once a second member certifies, the next run stops waiting and assesses the
+    # collection. C-60 (#289): the assessment now blocks -- two members are a product and its
+    # accessory, not a collection -- so it is refused rather than drafted as a listing, and it
+    # still never dies.
     _certify(db, "nordic-forest-stocking")
     out = _run(db, "collection.assemble",
                {"slug": "nordic-forest-bundle", "family": "nordic-forest"}, agent="listing")
     assert out.get("waiting") is None and len(out["members"]) == 2
+    assert out["refused"] is True and out["drafted"] is False
+    assert out["architecture"]["coherent"] is False and out["architecture"]["problems"]
+    with db.session() as s:
+        from brambleloop.core.models import Listing
+
+        assert s.scalar(select(Listing).where(
+            Listing.product_slug == "nordic-forest-bundle",
+            Listing.version == "collection")) is None, "an incoherent collection was drafted"
 
 
 

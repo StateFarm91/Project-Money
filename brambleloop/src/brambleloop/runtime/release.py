@@ -1298,6 +1298,25 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     # point; the assessment is recorded with the listing rather than trusted to the name.
     architecture = _collection_architecture(slug, seed, [m.slug for m in members])
     ctx.audit("collection.assessed", artifact=slug, detail=architecture)
+    # C-60 (#289): the assessment blocks. An incoherent collection -- no shared story, a
+    # derivative pair, one price point, too few members -- is not drafted as a listing, and a
+    # draft already on file for it is withdrawn. `chain.rebuild` re-runs this job, so the
+    # collection is drafted on the day its members make it coherent.
+    if not architecture.get("coherent"):
+        with ctx.db.session() as s:
+            stale = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                   Listing.version == "collection"))
+            withdrawn = False
+            if stale is not None and stale.state != "withdrawn":
+                stale.state = "withdrawn"
+                withdrawn = True
+        ctx.audit("collection.refused", artifact=slug, detail={
+            "problems": architecture.get("problems"), "withdrawn_draft": withdrawn,
+            "members": [m.slug for m in members]})
+        return {"slug": slug, "refused": True, "drafted": False,
+                "members": [m.slug for m in members], "withdrawn_draft": withdrawn,
+                "architecture": {k: architecture.get(k) for k in (
+                    "coherent", "problems", "price_points", "members", "without_concept")}}
 
     titles = [m.title for m in members]
     collection_name = (seed.family or slug).replace("-", " ").title()
@@ -2100,8 +2119,11 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
 
     result = mission_runtime.pod_capability(ctx.db)
     ctx.audit("mjs.pod_capability", detail=result)
+    # C-60 (#210): each cell's opportunity map, persisted beside its capability reading.
+    maps = mission_runtime.pod_maps(ctx.db, today=_mjs_today(ctx))
+    result["pod_maps"] = sorted(maps["pods"])
     return {"pods": len(result["pods"]), "records": result["records"],
-            "judgements": result["judgements"],
+            "judgements": result["judgements"], "pod_maps": result["pod_maps"],
             "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
 
 
@@ -2875,7 +2897,10 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
         return {"ran": False, "reason": "no benchmark listing has been observed yet"}
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
-    arena = prospecting.choose(found, cycle=week)
+    # C-60 (#287): the strike teams' persisted shares decide the priority reservation.
+    from ..seasonal.daily import active_shares
+    team_shares = active_shares(ctx.db)
+    arena = prospecting.choose(found, cycle=week, shares=team_shares)
     # #216: a benchmark release queues a divergent ("breakthrough") tournament with its own
     # arena and briefs. It is honoured rather than replaced by the weekly wheel: the arena the
     # release happened in is taken when it is a proven arena, and its divergent briefs are
@@ -2884,14 +2909,15 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     inputs = ctx.job.inputs or {}
     from ..intel.mission_runtime import SAME_ARENA_LANE
     # #215: a same-arena response started from a CONCEPTING gap is honoured the same way.
-    breakthrough = (inputs if inputs.get("lane") in (BREAKTHROUGH_LANE, SAME_ARENA_LANE)
+    breakthrough = (inputs if inputs.get("lane") in (BREAKTHROUGH_LANE, SAME_ARENA_LANE,
+                                                     "breakout_adjacent")
                     else None)
     if breakthrough:
         match = [a for a in found if a.pod == breakthrough.get("pod")]
         if match:
             # The same chooser as the wheel, over the release's pod only, so an arena whose
             # event can no longer be made in time is not picked just because it matched.
-            arena = prospecting.choose(match, cycle=week) or arena
+            arena = prospecting.choose(match, cycle=week, shares=team_shares) or arena
 
     # Every ideation input is read before anything is generated (#85, #101, #105, #117-#122,
     # #124, #142, #232), and the arena moves if saturation leaves it nothing to enter.
@@ -2994,7 +3020,8 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     from ..core.models import utcnow
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
-    arena = prospecting.choose(found, cycle=week)
+    from ..seasonal.daily import active_shares
+    arena = prospecting.choose(found, cycle=week, shares=active_shares(ctx.db))
 
     arena, plan, moved_from = _ideation_arena(ctx, found, arena, kind="expedition",
                                               cycle=week)
@@ -4339,6 +4366,20 @@ def handle_seasonal_engine(ctx: JobContext) -> dict:
         "fast_lane_admitted": reading["fast_lane"]["admitted"],
         "trend_rows_stamped": reading["provenance"]["stamped"],
     }
+    # C-60 (#128): a breakout's decomposition becomes an adjacent-original tournament now,
+    # while the window is open, rather than a line in the reading.
+    queued = []
+    from ..swarm.orchestrate import priority_for
+
+    for req in reading["engine"].get("breakout_mining", {}).get("requests", []):
+        job = ctx.enqueue("creative_director", "creative.tournament", req,
+                          priority=priority_for("creative.tournament"),
+                          idempotency_key=(f"breakout_adjacent:{req['diverged_from']}:"
+                                           f"{reading['period']}"))
+        if job is not None:
+            queued.append(job.id)
+    summary["breakout_adjacent_queued"] = queued
+    summary["collections_persisted"] = reading.get("collections_persisted", {})
     ctx.audit("seasonal.engine", detail=summary)
     return summary
 

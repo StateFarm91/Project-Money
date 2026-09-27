@@ -987,7 +987,8 @@ def history(db, *, limit: int = 10) -> dict:
 # Which arena an expedition goes to
 
 
-def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Arena:
+def choose(found: list[Arena], *, cycle: int, today: date | None = None,
+           shares: dict[str, float] | None = None) -> Arena:
     """Pick this cycle's arena, honouring the priority programme's reservation.
 
     Plain round-robin over twelve arenas gives Christmas one expedition in twelve, which is
@@ -1024,7 +1025,10 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     # while Christmas sat at 96 and Halloween at 41, because the wheel indexed the list in
     # whatever order the matrix returned it. A discovery run aimed at the occasion furthest
     # away is the one whose runway was least in danger.
-    reserved = priority_shares()["shares"]
+    # C-60 (#287): with persisted strike teams, their shares are the reservation -- the
+    # occasions that hold a team are the priority half, and the slice of the wheel they get
+    # is the capacity the teams were granted, not the compression seed's figure.
+    reserved = dict(shares) if shares else priority_shares()["shares"]
     # C-60 (#2): within an occasion, the department the weakness hunt scored most open goes
     # first; an arena with no rankable market score follows every scored one.
     def _order(a):
@@ -1045,6 +1049,9 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     held = reservation(soonest.event,
                        lane_states(soonest.days_away, today=today or date.today()))
     share = max(held.get("share", 0.0), MIN_PRIORITY_SHARE)
+    if shares:
+        share = max(MIN_PRIORITY_SHARE, min(0.75, sum(
+            float(shares.get(e, 0.0)) for e in {a.event for a in priority})))
 
     # A wheel no longer than the programme's own runway, with its slots *spread* rather than
     # blocked at the front.

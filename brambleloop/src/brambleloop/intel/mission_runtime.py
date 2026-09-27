@@ -1182,6 +1182,9 @@ def consume_concepting(db, *, enqueue: Callable, today: date | None = None,
         gaps = [(g.id, g.benchmark_key, g.arena, g.pod, dict(g.evidence or {}))
                 for g in s.scalars(select(CoverageGap).where(
                     CoverageGap.state == coverage.CONCEPTING))]
+    # #210: the pods' own opportunity maps decide which gap's design starts first.
+    priority = _pod_priority(db)
+    gaps.sort(key=lambda g: (0 if g[3] in priority else 1, -priority.get(g[3], 0.0), g[0]))
     for gap_id, key, _arena, pod, evidence in gaps:
         if evidence.get("design_job_id"):
             continue
@@ -1435,6 +1438,100 @@ def pod_capability(db) -> dict:
     return {"pods": readings, "records": len(records), "judgements": len(judgements),
             "note": ("computed from pod lessons, mission events, coverage outcomes and "
                      "owner vetoes; a half with too little evidence reads unmeasured")}
+
+
+# ---------------------------------------------------------------------------
+# #210: each pod's own opportunity map, persisted and read
+
+POD_MAPS_KIND = "mjs.pod_maps"
+
+
+def pod_maps(db, *, today: date | None = None) -> dict:
+    """Every specialist cell's category history, rubric, opportunity map and lessons (#210).
+
+    Built from rows: observed depth and forms, the arbitrage card's weakness opening and
+    market score, image evidence from judged galleries (`vision.by_pod`, which says "empty"
+    rather than implying a quiet department when nothing is judged), the pod's open coverage
+    gaps, its held lessons and its newest capability reading. Persisted daily as an
+    `OperatingReading`; `consume_concepting` reads it to decide which pod's same-arena design
+    starts first, so the map changes what happens next rather than describing it.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import (
+        BenchmarkListing, CoverageGap, OperatingReading, PodCapabilityReading, PodLesson,
+    )
+    from ..creative import prospecting
+    from ..radar import arbitrage
+    from . import vision
+
+    today = today or datetime.now(timezone.utc).date()
+    steer = arbitrage.steering(db)
+    images = vision.by_pod(db)
+    maps: dict[str, dict] = {}
+    with db.session() as s:
+        depth: dict[str, int] = {}
+        for r in s.scalars(select(BenchmarkListing).where(
+                BenchmarkListing.audit_state != "withdrawn")):
+            if r.pod and r.pod in pods.POD_KEYS and r.pod != pods.UNCLASSIFIED:
+                depth[r.pod] = depth.get(r.pod, 0) + 1
+        gaps = [(g.pod, g.arena, g.state) for g in s.scalars(select(CoverageGap))]
+        lessons = [(le.pod, le.mechanism, le.active) for le in s.scalars(select(PodLesson))]
+        latest = {}
+        for r in s.scalars(select(PodCapabilityReading).order_by(desc(PodCapabilityReading.id))):
+            latest.setdefault(r.pod, r)
+        caps = {p: {"measured": r.measured, "discernment": (r.discernment or {}).get("reading"),
+                    "creativity": (r.creativity or {}).get("reading")}
+                for p, r in latest.items()}
+    for pod in sorted(depth):
+        spec = pods.BY_KEY.get(pod)
+        hunt = arbitrage.weakness_hunt(db, pod=pod)
+        maps[pod] = {
+            "history": {"observed_listings": depth[pod],
+                        "forms": prospecting.arena_forms(db, pod).get("forms") or {}},
+            "rubric": list(spec.rubric) if spec else [],
+            "opportunity": {
+                "market_score": (steer.get(pod) or {}).get("score"),
+                "weakness_opening": arbitrage._opportunity(hunt),  # noqa: SLF001
+                "image_evidence": images.get(pod, {"state": "no listing observed"}),
+                "open_gaps": [{"arena": a, "state": st} for p, a, st in gaps if p == pod],
+            },
+            "lessons": {"held": sum(1 for p, _m, act in lessons if p == pod and act),
+                        "mechanisms": sorted({m for p, m, act in lessons if p == pod and act})},
+            "capability": caps.get(pod, {"measured": False}),
+        }
+    payload = {"as_of": today.isoformat(), "pods": maps}
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == POD_MAPS_KIND,
+            OperatingReading.period_key == today.isoformat()))
+        if row is None:
+            s.add(OperatingReading(kind=POD_MAPS_KIND, period_key=today.isoformat(),
+                                   payload=payload))
+        else:
+            row.payload = payload
+    return payload
+
+
+def _pod_priority(db) -> dict[str, float]:
+    """Each pod's opportunity from its newest persisted map; absent pods sort last."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import OperatingReading
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == POD_MAPS_KIND)
+            .order_by(desc(OperatingReading.period_key)).limit(1))
+        maps = ((row.payload or {}).get("pods") or {}) if row is not None else {}
+    out = {}
+    for pod, m in maps.items():
+        opp = m.get("opportunity") or {}
+        vals = [v for v in (opp.get("market_score"), opp.get("weakness_opening"))
+                if isinstance(v, (int, float))]
+        if vals:
+            out[pod] = sum(vals) / len(vals)
+    return out
 
 
 # ---------------------------------------------------------------------------
