@@ -206,8 +206,14 @@ def taste_judge(concept, *, field: list, nearest_distance: float | None,
     for other in field:
         counts[pair(other)] = counts.get(pair(other), 0) + 1
     mine = pair(concept)
-    if counts and counts.get(mine, 0) >= OBVIOUS_AT and counts[mine] == max(counts.values()):
-        return "obvious"
+    # Obvious means the pairing DOMINATES the field: shared by OBVIOUS_AT entrants and strictly
+    # more common than any other pairing. In a field where every pairing is equally common
+    # (a uniform brief) nothing is the first thing anybody would think of, and a tie must not
+    # reject the one entrant that survived research.
+    if counts and counts.get(mine, 0) >= OBVIOUS_AT:
+        others = [n for k, n in counts.items() if k != mine]
+        if not others or counts[mine] > max(others):
+            return "obvious"
     if (nearest_distance is not None and floor_value is not None and floor_value > 0
             and nearest_distance < floor_value * (1 + DERIVATIVE_MARGIN)):
         return "derivative_feeling"
