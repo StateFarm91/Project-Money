@@ -1,0 +1,685 @@
+{
+  "tag": "wider_top",
+  "input_centerline_sha256": "07b1897d33162144bb092502dd8be5b893b9b06e90cb580ee8bdc60478d18bec",
+  "source_semantics": {
+    "status": "PASS",
+    "checks": {
+      "coupon_inventory": true,
+      "unique_body_slots": true,
+      "body_total": true,
+      "source_truth_frozen": true,
+      "full_truth_18_columns_540_crossings": true,
+      "hook_loop_operation_traces": true,
+      "foundation_count": true,
+      "turn_chain_count": true,
+      "crossing_rows": true
+    },
+    "coupon_inventory": {
+      "sc": 8,
+      "fpdc": 24,
+      "bpdc": 32,
+      "cable2x2": 8
+    }
+  },
+  "local_post_wraps": {
+    "pass": 56,
+    "total": 56,
+    "records": [
+      {
+        "row": 2,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
+        "position": 5,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
+        "position": 4,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
+        "position": 3,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
+        "position": 2,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 2,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 2,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 3,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 4,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 5,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 3,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 5,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 4,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 3,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 2,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 4,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 5,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 5,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 5,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 5,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 5,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 4,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 3,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 2,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 6,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 2,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 3,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 4,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 5,
+        "kind": "fpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 7,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 5,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 4,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 3,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 2,
+        "kind": "fpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 8,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": -1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 9,
+        "position": 0,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": -0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 9,
+        "position": 1,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 9,
+        "position": 6,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      },
+      {
+        "row": 9,
+        "position": 7,
+        "kind": "bpdc",
+        "winding": 1.0,
+        "moved_anchor_winding": 0.0,
+        "status": "PASS"
+      }
+    ],
+    "scope": "winding of an open local arc with artificial closing chord around prior post axis; not full entanglement proof"
+  },
+  "contact": {
+    "status": "FAIL",
+    "floor_mm": 0.81,
+    "exact_segment_pairs_tested": 42289,
+    "penetrating_segment_pairs": 32236,
+    "minimum_distance_mm": 0.0,
+    "worst_pairs": [
+      {
+        "segments": [
+          460,
+          551
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          130,
+          676
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          461,
+          552
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          131,
+          677
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          461,
+          551
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          462,
+          552
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          726,
+          757
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          0,
+          757
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          263,
+          627
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          264,
+          626
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          263,
+          626
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          264,
+          627
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          0,
+          726
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          727,
+          757
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          131,
+          676
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          460,
+          552
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          198,
+          652
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          197,
+          651
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          198,
+          651
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          65,
+          701
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          66,
+          701
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          727,
+          758
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          132,
+          676
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          65,
+          702
+        ],
+        "distance_mm": 0.0
+      },
+      {
+        "segments": [
+          328,
+          602
+        ],
+        "distance_mm": 0.0
+      }
+    ],
+    "max_rendered_segment_length_mm": 0.25,
+    "exclusion": "shared vertex and along-yarn separation <= pi*yarn radius, matching existing instrument",
+    "scope": "dense centerline tubes; ply/fibre envelopes not included"
+  },
+  "negative_checks": {
+    "wrong_post_target_detected": true,
+    "drop_dc_pullthrough_detected": true,
+    "drop_stitch_detected": true,
+    "shift_crossing_row_detected": true,
+    "unresolved_product_refused": true
+  },
+  "continuity": {
+    "one_polyline": true,
+    "declared_endpoints": 2,
+    "longest_connector_mm": 51.0,
+    "warning": "connecting splines is not proof that the connections represent crochet"
+  },
+  "structural_truth": "FAIL",
+  "photographic_realism": "UNKNOWN",
+  "independent_crochet_review": "UNKNOWN",
+  "edge_chain_topology": "UNKNOWN",
+  "full_throw_stage": "BLOCKED",
+  "spend_usd": 0
+}

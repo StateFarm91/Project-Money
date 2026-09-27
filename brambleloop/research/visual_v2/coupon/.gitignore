@@ -1,0 +1,5 @@
+out/*/*.npz
+out/*/*.blend*
+out/*/*.exr
+out/*/*.log
+__pycache__/

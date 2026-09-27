@@ -17,3 +17,6 @@ Research decisions only; no Build2 or production authority. Date:2026-09-27.
 | V2-011 | Repository-backed memory is the continuity authority. | Owner course corrections at28%/8% context; no need for a new thread after compaction. | CURRENT_STATE, DECISIONS, EXPERIMENTS checkpointed and maintained |
 
 Do not revise earlier observations silently. Append corrections with raw evidence; distinguish raw FAIL, UNKNOWN, and missing data. The architecture report contains source links and technical options; CURRENT_STATE contains operational next actions.
+
+| V2-012 | Execute stage1 yarn coupon, refuse full-product compile while cable construction is unresolved. | Current resumed source review exposes missing cable anchor/direction contract; not permission to alter truth. | Implemented fail-closed adapter |
+| V2-013 | Reject local winding as a sufficient topology certificate. | Both depth trials56/56 winding proxies yet exact yarn-tube intersections. | StructuralFAIL; no material/hero qualification |

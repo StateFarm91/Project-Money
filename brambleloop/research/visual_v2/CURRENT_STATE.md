@@ -82,3 +82,14 @@ Existing offline checks:151 assertions pass across E1(17),E3(10),Bench1(34),Benc
 Remaining research uncertainties: correct continuous post/cable topology and row/edge transitions; material realism without finished-product photographs; actual production-quality PBR latency; geometry-to-pixel observable stitch gates; folds/drape; immutable canonical body pack and allowed poses. These are future engineering work, not concealed successes in this report. Finish one question at a time and persist conclusions immediately. Do not reopen broad investigation or repeat disproven prompt sweeps.
 
 Continuity: automatic context compaction may occur; reread this file and continue in the same thread. No owner-created new conversation is necessary merely because context becomes low. The original assignment's first-pass deliverables are complete once the final commit/push is verified; the next experiment is durably specified.
+
+
+## Active second pass: V2-P06 (2026-09-27)
+
+Resumed verified clean d38e471. Built coupon/build_coupon.py, verify_coupon.py and diagnostic renderer. Full frozen source contract still has 17,424 cells, 18 columns, 540 crossings. Stage1 fixture is an8x9 repeat only, not a changed or smaller product. Strict full-product compile refuses unresolved cable anchoring/direction and unreviewed DC/chain geometry.
+
+Measured baseline_top(depth2.2mm):56/56 local post-wrap winding proxies;34,182 penetrating segment pairs, minimum0mm. wider_top(depth4mm):56/56 proxies;32,236 pairs,min0mm. Fixed yarn diameter1.8mm,contact floor0.81mm. Both structuralFAIL; realismUNKNOWN; no stage2. Semantic checks and five adversarial checks pass. Counts do not prove crochet topology.
+
+Next: repair observed construction defects before any material work. Foundation was laid in same direction as row1, causing a full-width return connector; chain/closure hypotheses contain near-closed self-colliding arcs. Correct route construction while leaving gauge/counts unchanged, measure again, retain all failures, render neutral diagnostics only. Avoid blanket depth sweeps; increasing depth did not remove intersections.
+
+Source gap: cable registry crossing=None; written method mentions cable needle/ordinary DC; design notes hold first pair in front. Exact crochet target/handedness remains unresolved. Do not silently substitute front-post crossings. Narrow primary documentation was checked for DC/post semantics; see coupon/EXPERIMENT.md. Current sandbox is read-only; writes/runs must use approved escalation confined to this lane. $0 spend.

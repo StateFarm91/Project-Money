@@ -41,3 +41,7 @@ Network-disabled subprocess harness:`run_offline_checks.py`. E1spec17,E3 10,Benc
 ## Next experiment — planned, not executed
 
 Build a topology-correct post/cable unit with continuous yarn and edge/turn cases; validate consumed loops, crossing order, collision/clearance and nominal metric layout. Instance unchanged full18-column Heirloom, render whole flat/detail/controlled fold views, and test structure plus all original photographic criteria independently. Full acceptance, stop rules and economics are specified in VISUAL_V2_ARCHITECTURE.md sections12–13. No new paid call required/requested. This is the remaining engineering hypothesis, not a completed certification.
+
+## V2-P06 initial runs — executed, still active
+
+Resumed d38e471. Full source contract preserved. Built one8x9 diagnostic repeat with SC asset reuse, explicit lower-post wrapping and experimental DC draw-through paths; foundation/turns explicit but unvalidated. Outputs under coupon/out. Baseline(depth2.2):34,182 penetrating segment pairs,min0mm; wider(depth4.0):32,236,min0mm. Both56/56 local winding proxies. Yarn diameter1.8/contact floor0.81 fixed. Five negative checks pass. No photographic judgement; no full-throw stage. Next targeted repair is foundation travel/turn continuity and closed-arc routing, not softer gates or thinner yarn.
