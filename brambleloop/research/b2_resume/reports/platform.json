@@ -1,0 +1,148 @@
+{
+ "cluster": "platform",
+ "branch": "claude/b2r-platform",
+ "head": "76732da",
+ "verified_by": "independent read-only verifier at b9f7e3a; lead removed the #61/#81 parks until their software halves (P06, P11) are fixed",
+ "rows": [
+  {
+   "id": 5,
+   "status": "partial",
+   "parked_on": null,
+   "proof": "tests/test_cert_lanes_capacity.py::test_a_lane_over_its_engineering_share_is_held_while_the_other_lane_waits, ::test_a_starved_lane_has_its_queued_engineering_moved_up, ::test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_the_split",
+   "note": "gate.lanes (daily) \u2192 lanes.route_certified reads pattern_count from certified family members in the DB and writes gate.lane_routed; _lane_capacity (release.py:5537) calls lanes.allocate/check_mix on measured job-seconds and boosts a starved lane's queued engineering priority; Worker.run_once \u2192 lane_hold \u2192 capacity.share_decision (capacity.py:170) holds an over-share lane job at the claim. STILL MISSING: sizes is not read from anything real \u2014 lanes._sizes_of (lanes.py:556) looks for CIR keys sizes/graded_sizes/grading.sizes that no CIR.to_dict emits (cir/model.py has no such field), so sizes==1 for every product exactly as before and the size-depth path stays unreachable; and capacity._slug (capacity.py:154) reads inputs.slug/product_slug, but cir.compile and gate.certify carry {\"cir\": {...}} so those two engineering job types are never lane-counted. With the 3-thread pool the lane limits are always {fast:1, flagship:1} (floor of 0.6/0.4 of one engineering worker), so the split numbers themselves are inert."
+  },
+  {
+   "id": 29,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_dependencies.py::test_one_ai_provider_carrying_all_the_spend_is_raised_as_existential",
+   "note": "ops.dependencies (CADENCES daily, orchestrator grant, housekeeping band) \u2192 scale.dependency.act reads provider concentration from CostEntry (30d) and opens/resolves Incident anti-fragility:<axis> for EXISTENTIAL axes; ai_provider is load_bearing=True so real anthropic spend raises it. Runs through the worker in the test."
+  },
+  {
+   "id": 30,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_lanes_capacity.py::test_a_function_over_its_share_is_held_while_distribution_waits, ::test_the_mix_is_work_conserving_when_nothing_else_waits",
+   "note": "ops.capacity (weekly) writes detail.mix; capacity.latest_mix reads it (else BUILD_MIX); share_decision at every claim holds a job whose function already holds its budget while a starved function has runnable work (proved through Worker.run_once). Caveat (defect D3): function_budgets = max(1, floor(share*workers)); with the 3-worker pool every function's budget is 1 whatever the mix, so the mix is enforced only as 'at least one slot each', not as 30/30/30/10 or the distribution floor."
+  },
+  {
+   "id": 31,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_dependencies.py::test_spend_without_a_validated_pattern_is_an_incident_and_caps_the_lane, ::test_below_the_spend_floor_the_ratio_is_noise_and_nothing_acts",
+   "note": "finance.governor (hourly) \u2192 governor._act_on_unit_cost (governor.py:561) reads unit_cost.unit_costs (CostEntry + gate.certified audits); \u2265CA$5/30d with zero validated patterns opens Incident throughput-no-validated-output and lists unproductive agents; swarm.allocate (hourly) reads governor.unproductive_lanes and caps those lanes to 1 specialist. Below the floor it records measurable=False. Only the zero case acts; a falling ratio and contribution/dollar are reported, not acted on."
+  },
+  {
+   "id": 34,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes, ::test_unchanged_free_polling_backs_off_and_progress_lifts_it, ::test_a_dead_call_the_breaker_tripped_is_not_redriven_under_the_same_build",
+   "note": "ops.thrash (hourly) \u2192 thrash_sweep writes suspension into Incident.detail; _progress computes progress/iteration and /dollar over all DONE jobs (free ones included); Scheduler.tick reads suspended_job_types and skips suspended/backed-off cadences (worker.py); JobQueue.requeue_dead reads retry_allowed and refuses a re-drive under the same build SHA. Defects D1 (backoff level grows per sweep with no new observation; deadline refreshed from now) and D2 (any new commit lifts the suspension) apply \u2014 see Codex P07/P08."
+  },
+  {
+   "id": 38,
+   "status": "partial",
+   "parked_on": null,
+   "proof": "tests/test_cert_trend_evidence.py::test_stale_foreign_evidence_discounts_the_score_below_promotion, ::test_serp_captures_are_stamped_with_their_population_and_window",
+   "note": "seasonal.engine (daily) \u2192 daily.run \u2192 radar.provenance.stamp_all stamps CultureObservation, InsightsSnapshot and now SerpSnapshot into trend_provenance; radar.scan (6h) enqueues radar.score, whose handler (pipeline.py) calls provenance.evidence_for \u2192 weight/check_presentable_as_current, multiplies the score, and the discounted score decides cir.draft promotion (proved through the worker). MISSING: MJs benchmark observations are still not stamped (stamp_all reads three tables, none MJs), which was half of the auditor's gap; concept\u2194evidence matching is substring-of-slug-words on topic (provenance.py:367), a heuristic."
+  },
+  {
+   "id": 40,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_rebuild_chain.py::test_terms_are_checked_on_the_produced_pdf_listing_and_faq, ::test_a_divergent_listing_is_refused_and_halts_publication",
+   "note": "listing.seo handler (enqueued by pricing.position in the chain) \u2192 release._support_knowledge (release.py:795) renders the FAQ from shop_package.faq_text + release facts, stores it as support_knowledge with lineage, extracts the produced PDF text and runs commerce.terms.consistency over PDF/listing/FAQ; divergence writes a P1 Incident with halts_publication and returns blocking so the chain stops. The consistent path is proved through the full worker chain; the divergent path is proved by calling _support_knowledge directly (not via the worker). shop_package.surface_consistency still has no runtime caller (terms.consistency is the one used)."
+  },
+  {
+   "id": 44,
+   "status": "partial",
+   "parked_on": null,
+   "proof": "tests/test_cert_rebuild_chain.py::test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured",
+   "note": "launch.readiness (daily) \u2192 readiness.assess \u2192 brand.moat.inventory(db) \u2192 moat.evidence reads ArtefactProvenance/Listing/PatternVersion/AuditLog/PhysicalTest/Collection and the canonical_model gate, replacing the hand-set exists flags; brand_moat readiness is false unless every listing is 'recognisable'. MISSING: recognisability is not measured \u2014 it is `len(signatures) >= 3` (moat.py:198), a count of built artefact classes, with no independent judgement that a product-first frame reads as this brand; tutorial_voice is a constant False (honest). A real measurement needs a vision judge (image_vision) and could legitimately be parked there; the count should be labelled a proxy."
+  },
+  {
+   "id": 50,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_dependencies.py::test_failed_probes_and_an_unproved_recovery_are_raised_and_resolve_when_fixed, ::test_a_billed_provider_the_map_does_not_name_is_raised",
+   "note": "ops.dependencies (daily) \u2192 ops.dependencies.sweep: probes postgres (select 1 + continuity.verified within 2 days = recovery proved), model_provider/etsy_account/tester_network via executor gates, unmapped billed providers from CostEntry; a failed probe of a non-owner-only dependency or an unmapped provider opens Incident dependency:*, resolved when the probe recovers. Caveats: the railway probe is a constant ok=True (dependencies.py:240) and 4 dependencies have no probe (recorded UNKNOWN, honest); 'recovery strategy missing' is checked only for postgres."
+  },
+  {
+   "id": 54,
+   "status": "partial",
+   "parked_on": null,
+   "proof": "tests/test_cert_rebuild_chain.py::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced",
+   "note": "launch.readiness (daily) \u2192 readiness._launch_package_items (readiness.py:697) computes digital_disclosure, support_knowledge, faq, pricing_promotion_plan, launch_calendar, analytics_baseline, rollback_plan per listing from DB rows; the hard-coded rollback ready=True and analytics_baseline=bool(listings) are gone. MISSING: analytics_baseline = listing.seo_score>0 plus any OperatingReading row of any kind (readiness.py:744), and rollback_plan = certificate retained plus a continuity.verified DB-restore proof \u22643 days \u2014 neither is a pre-launch traffic baseline nor a rehearsed withdrawal (Codex P12). And nothing downstream consumes readiness.ready except the launch.assessed audit, the owner queue (owner items only) and the /api readiness route, so a BUILD-blocked package item blocks no job."
+  },
+  {
+   "id": 59,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_listing_frames.py::test_type_over_the_chart_on_a_non_hero_frame_stops_the_chain, ::test_every_frame_is_measured_and_recorded_unreviewed_when_vision_is_closed",
+   "note": "assets.build \u2192 listing_assets.build_frames draws through _RecordingDraw (every text box recorded) and _paste (hero fabric, chart) into image.info.layout; check_frame_plan runs layout_qa.inspect on every non-hero frame plus layout_qa.check_layout (safe-area/title truncation, text-graphic collision, footer overlap, min pt) on every frame, and a problem is blocking for the chain. The handler-level collision test injects one layout entry into a real frame; the clean-build test proves the recorder produces layout (no LAYOUT_UNRECORDED). Only two graphics are recorded (hero fabric, chart); silhouettes drawn with primitives on the size card are not collision targets."
+  },
+  {
+   "id": 61,
+   "status": "partial",
+   "parked_on": null,
+   "proof": "tests/test_cert_listing_frames.py::test_a_chart_preview_the_independent_review_says_is_not_a_chart_stops_the_chain, ::test_every_frame_is_measured_and_recorded_unreviewed_when_vision_is_closed",
+   "note": "assets.build \u2192 release._review_frames (release.py:865) runs visual.inspect.inspect_image on every stored frame when the image_vision gate is open, compares the description to ROLE_CLAIMS, blocks the chain on a blocked frame, and writes assets.frame_review; store.publish \u2192 _listing_parity reads frame_review_state and sets blocks_release when any frame is not clear (unreviewed included). Gate is closed today, so every frame is UNREVIEWED and publication is blocked \u2014 honest. DEFECTS: ROLE_CLAIMS (release.py:857) covers only hero/size/chart/pattern_preview, so whats_included, materials and collection frames are reviewed against an empty claim and pass vacuously; release.py:888 converts unjudged\u2192clear for any described frame; frame_review_state (release.py:920) returns reviewed=True for an audit whose frames map is empty; review is keyed by slug@version, not frame hash (Codex P06)."
+  },
+  {
+   "id": 81,
+   "status": "partial",
+   "parked_on": null,
+   "proof": "tests/test_gallery_escalation.py::test_an_open_image_gate_attempts_the_first_rung_through_the_photography_job, ::test_a_completed_physical_test_opens_the_proof_rung_read_live_from_the_database",
+   "note": "store.publish \u2192 _listing_parity \u2192 parity.assess(gate_open=gallery.gates_now(db)) reads image_generation/physical_proof live from executor gates; an open gate marks the first eligible rung taken and enqueues assets.owned/model_photography with reason parity_escalation:<rung> (pipeline.py:1629-1647). MISSING: the rungs are not distinct strategies \u2014 handle_owned_photography never reads reason/failed and its what_to_do_next refuses when a usable asset is on file or ATTEMPTS(3) are spent, so 'regenerate_constrained', 'change_composition' and 'change_tool' all enqueue the identical daily job (or a no-op); no rung attempt/result is persisted, start_attempt is always 0, so the ladder never advances past rung 1 (Codex P11). The gate-open proof monkeypatches gate.check, acceptable for an external gate."
+  },
+  {
+   "id": 131,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_takeover.py::test_the_engine_applies_due_surfaces_and_reverts_them_after_the_occasion, ::test_a_takeover_that_breaks_the_storefront_rules_is_refused_not_applied",
+   "note": "seasonal.engine (daily) \u2192 daily.takeovers \u2192 takeover.execute (takeover.py:232) writes OperatingReading storefront.takeover rows APPLIED on transition date (after storefront.check_storefront on the resulting storefront; refused otherwise) and REVERTED on revert date; storefront.build_storefront(db) renders the live banner and launch readiness checks it. Marketplace write is withheld in shadow (honest). Caveat: only the banner surface reaches the rendered storefront (storefront.py:154); shop_content/featured_collection APPLIED state has no renderer."
+  },
+  {
+   "id": 163,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_unique_value.py::test_a_release_whose_advantages_every_benchmark_matches_is_withheld_and_not_redriven, ::test_with_no_benchmark_scored_the_comparison_is_unmeasured_not_a_pass; tests/test_cert_rebuild_chain.py::test_a_withheld_release_is_never_redriven",
+   "note": "gate.certify and launch.plan \u2192 teardown.lab.product_qa \u2192 compare_advantages (lab.py:357) against TeardownFinding rows of purchased benchmarks; parity_only \u2192 refused \u2192 _mark_withheld writes certificate.withheld on the PatternVersion row (fixes the persist-before-withhold bypass); listing.draft refuses, hourly chain.rebuild skips and targeted rebuild refuses withheld releases. No benchmark scored \u2192 UNMEASURED, recorded, non-blocking (the purchases are owner-gated). Codex P04 stands: an advantage is 'beyond' whenever the best benchmark scores <5 on the mapped dimension \u2014 capability presence, not a measured product score."
+  },
+  {
+   "id": 169,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_unique_value.py::test_delight_is_measured_from_the_products_artefacts_and_the_weakest_is_acted_on",
+   "note": "product_qa (at gate.certify and launch.plan) \u2192 lab.measured_self_scores (lab.py:193) scores all ten DELIGHT_DRIVERS (bonus_utility, navigation, customization, confidence added) from assets.build outputs, provenance and certificate; delight_question answers; _act_on_delight proposes one Improvement per weakest driver via improve.cells.propose (idempotent). Codex P05 stands: scores are fixed constants keyed on artefact presence (labelled measured_from_artefacts), provenance is read slug-wide across versions (lab.py:214), and customization reads a CIR 'sizes' key that never exists (always 3)."
+  },
+  {
+   "id": 171,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_rebuild_chain.py::test_the_chain_records_twin_reverse_support_knowledge_and_release_bundle, ::test_a_shaped_design_records_its_geometry_proof",
+   "note": "gate.certify \u2192 pipeline._persist_release records twin, geometry_proof (when the geometry stage ran) and reverse_result ArtefactProvenance rows keyed on cir fingerprint, with the certificate's parents naming them; listing.seo records support_knowledge; launch.plan \u2192 _record_release_bundle (release.py:1351) records release_bundle over its members. All through the worker chain; a CIR change now marks all of them stale for ops.sentinel."
+  },
+  {
+   "id": 172,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_rebuild_chain.py::test_a_targeted_rebuild_remakes_exactly_the_stale_marketing_and_proves_it, ::test_a_stale_pdf_restarts_at_assets_build_not_at_certification",
+   "note": "ops.sentinel (hourly) \u2192 rebuild_graph.enqueue(per=product) enqueues chain.rebuild with product_slug, artefacts, fingerprints{old,new}, reason; handle_chain_rebuild \u2192 _targeted_rebuild (release.py:3068) reads them, enqueues the earliest REBUILD_STAGE (gate.certify/assets.build/pricing.position), writes chain.rebuild_requested per artefact, and a delayed verify job writes chain.rebuild_completed per artefact when provenance.check says FRESH, or a rebuild-incomplete Incident after 3 checks. marketing.schedule now remakes an existing ContentPiece on rebuild. Codex P10 partly stands: completion = 'row is FRESH now', not bound to the stage_job or to fingerprints.new; the marketing staleness exception matches the literal string '#172' in gate reasons (release.py:1408)."
+  },
+  {
+   "id": 175,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_lanes_capacity.py::test_the_runner_starts_a_pool_and_activates_only_the_target, ::test_allocation_reads_category_season_value_and_bottleneck_and_sets_the_worker_target",
+   "note": "app.runner.start spawns BRAMBLELOOP_WORKER_THREADS (default 3) worker threads inside the single uvicorn process; each re-reads capacity.worker_target every 30s and stays dormant above the target; swarm.allocate (hourly) reads function (category), seasonal-deadline band pressure, proven-winner value and the ops.capacity bottleneck and writes workers.target on the SwarmAllocation; lane_hold can now hold because a second worker exists. Codex P09: admission is claim-then-check with a 60s hold, not a transactional reservation; no concurrent test."
+  },
+  {
+   "id": 188,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_lanes_capacity.py::test_parallelism_advice_scales_the_worker_target_and_lane_limit_up_and_down, ::test_experiment_spend_is_attributed_from_the_spending_job",
+   "note": "finance.governor (hourly) records a parallelism observation (distinct live lease holders vs completions) per run and, with \u22652 distinct worker counts in 7 days, advises scale_up/scale_down; capacity.worker_target adds a worker on scale_up (bounded by pool) and lane_concurrency raises the lane limit by one; spend_by('experiment') now has a reader (detail.experiment \u2192 job.inputs.experiment \u2192 exploration:<job_type>). Codex P13 stands: the exploration:<job_type> label is a band proxy, not an experiment record."
+  }
+ ]
+}

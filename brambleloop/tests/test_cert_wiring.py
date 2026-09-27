@@ -458,10 +458,13 @@ def test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension(
 
 
 def test_record_order_writes_the_bought_version():
-    """#42 library half: cohorts.record_order -> buyer_trust.record_sale_version. (No
-    production caller of record_order exists: ledger C-2; the row is not claimed covered.)"""
+    """#42: cohorts.record_order -> buyer_trust.record_sale_version, and the row may claim
+    covered only while a production caller of record_order exists -- the order ingest
+    (C-64: `commerce.orders_ingest`, registered and on cadence). Until C-64 there was none
+    (ledger C-2) and the row was refused `covered`; the refusal is kept as the condition."""
     from brambleloop.build2 import requirements as reqs
     from brambleloop.commerce import buyer_trust, cohorts
+    from brambleloop.runtime.worker import CADENCES, handlers
 
     db = drained()["db"]
     spy = Spy(buyer_trust, "record_sale_version")
@@ -473,7 +476,15 @@ def test_record_order_writes_the_bought_version():
     finally:
         spy.restore()
     assert spy.calls and "version_recorded" in out, out
-    assert reqs.get(42).status != reqs.COVERED, "#42 claims covered with no order ingest"
+    ingest_live = (handlers.get("commerce.orders_ingest") is not None
+                   and any(jt == "commerce.orders_ingest" for _n, _a, jt, _p in CADENCES))
+    if not ingest_live:
+        assert reqs.get(42).status != reqs.COVERED, "#42 claims covered with no order ingest"
+    else:
+        # The ingest is the caller: it must actually record the bought version on a sale.
+        src = open(ROOT / "src" / "brambleloop" / "commerce" / "orders_ingest.py").read()
+        assert "record_sale_version" in src or "record_order(" in src, \
+            "the ingest exists but does not record the bought version"
 
 
 def test_api_paths_reach_radar_memory_and_the_stress_test():
