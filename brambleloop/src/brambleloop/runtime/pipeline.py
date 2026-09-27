@@ -478,6 +478,9 @@ def handle_certify(ctx: JobContext) -> dict:
         teardown = teardown_lab.product_qa(
             ctx.db, cir.slug,
             product_class=(getattr(cir, "category", "") or (seed.category if seed else "")))
+        _mark_withheld(ctx, cir, (("teardown QA (#163): "
+                                   + str(teardown["unique_value"].get("reason", ""))[:300])
+                                  if teardown.get("blocks_release") else None))
         if teardown.get("blocks_release"):
             ctx.audit("gate.release_withheld", artifact=f"{cir.slug}@{cir.version}",
                       detail={"reason": "teardown QA (#163): "
@@ -499,6 +502,44 @@ def handle_certify(ctx: JobContext) -> dict:
     return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
             "release_hash": cert.release_hash,
             "reasons": cert.blocking_reasons[:5]}
+
+
+def _mark_withheld(ctx: JobContext, cir: CIR, reason: str | None) -> None:
+    """Record the teardown withhold on the stored release itself (C-69, #163).
+
+    The release is persisted before the teardown QA runs (the QA reads it), so the withhold
+    has to live on the row every later stage reads -- `chain.rebuild`, `listing.draft` --
+    rather than only in an audit row they never consult. A later certification that clears
+    the QA clears the mark.
+    """
+    from sqlalchemy import select
+
+    with ctx.db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == cir.slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == cir.version)) if product is not None else None
+        if pv is None:
+            return
+        cert = dict(pv.certificate or {})
+        if reason:
+            cert["withheld"] = reason
+        elif "withheld" in cert:
+            cert.pop("withheld")
+        else:
+            return
+        pv.certificate = cert
+
+
+def _withheld_reason(db, slug: str, version: str) -> str | None:
+    from sqlalchemy import select
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == version)) if product is not None else None
+        return (pv.certificate or {}).get("withheld") if pv is not None else None
 
 
 def _recheck_listing_certificates(ctx: JobContext, cir: CIR) -> list[dict]:
@@ -603,6 +644,38 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
         inputs = {f"cir:{cir.slug}": provenance.fingerprint(existing.cir_json)}
         if release_hash:
             inputs[f"release:{cir.slug}"] = release_hash[:16]
+        # C-69 (#171): the twin, the geometry proof and the reverse compiler's reading are
+        # derived artefacts of the design in their own right, recorded here against the same
+        # stored design so a CIR change invalidates them -- they were ARTEFACT_CLASSES nothing
+        # ever wrote. Each carries the fingerprint of what that stage concluded, and the
+        # certificate names them as its parents, so the rebuild graph follows design ->
+        # twin/geometry/reverse -> certificate -> everything downstream.
+        stages = list(certificate.get("stages_run") or [])
+        base = provenance.release_key(cir.slug, cir.version)
+        stage_rows = {
+            "twin": ("twin" in stages, {"twin": certificate.get("twin")}),
+            "geometry_proof": ("geometry" in stages, {
+                "findings": [f for f in certificate.get("findings") or []
+                             if str(f.get("code", "")).upper().startswith("GEOM")]}),
+            "reverse_result": ("reverse" in stages, {
+                "findings": [f for f in certificate.get("findings") or []
+                             if str(f.get("code", "")).upper().startswith(("REV", "REVERSE"))]}),
+        }
+        parents: list[str] = []
+        for cls, (ran, reading) in stage_rows.items():
+            if not ran:
+                continue
+            key = f"{base}#{cls}"
+            provenance.record_lineage(
+                s, artefact_class=cls, artefact_key=key, product_slug=cir.slug,
+                inputs=inputs, chain_version=str(DOC_VERSION),
+                lineage=provenance.Lineage(
+                    created_by=ctx.job.agent, job_id=ctx.job.id,
+                    validation_status="passed",
+                    publication_authority=ctx.phase.value if ctx.phase else "shadow",
+                    evidence={"stage": cls, "reading_fingerprint":
+                              provenance.fingerprint(reading)}))
+            parents.append(f"{cls}:{key}")
         provenance.record_lineage(
             s, artefact_class="certificate",
             artefact_key=provenance.release_key(cir.slug, cir.version),
@@ -610,7 +683,7 @@ def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash:
             lineage=provenance.Lineage(
                 created_by=ctx.job.agent, job_id=ctx.job.id,
                 sha256=release_hash if len(release_hash or "") == 64 else "",
-                validation_status="certified",
+                validation_status="certified", parents=tuple(parents),
                 publication_authority=ctx.phase.value if ctx.phase else "shadow"))
 
 
@@ -624,6 +697,12 @@ def handle_listing_draft(ctx: JobContext) -> dict:
     """
     slug = ctx.job.inputs["slug"]
     version = ctx.job.inputs["version"]
+    withheld = _withheld_reason(ctx.db, slug, version)
+    if withheld:
+        # #163 / C-69: a release the teardown QA withheld gets no listing, whoever asked.
+        ctx.audit("listing.refused_withheld", artifact=f"{slug}@{version}",
+                  detail={"why": withheld})
+        return {"artifact": slug, "drafted": False, "withheld": withheld}
     ctx.audit("listing.drafted", artifact=slug)
     from .release import chain_key
 

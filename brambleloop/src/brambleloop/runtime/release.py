@@ -13,6 +13,7 @@ written. Nothing downstream is allowed to assert something nothing upstream comp
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import date
 
 from ..cir.compiler import compile_cir
@@ -583,6 +584,16 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     ctx.audit("listing.disclosure_finding" if disclosure.get("finding")
               else "listing.disclosure_checked", artifact=f"{slug}@{version}",
               detail=disclosure)
+    # C-69 / #40 / #54: the product's support knowledge (its FAQ, rendered from the one terms
+    # decision plus this release's own facts) is produced here, where the PDF and the listing
+    # both exist, and the three surfaces are checked against each other on the produced
+    # artefacts. A divergence stops the chain before launch and halts publication.
+    knowledge = _support_knowledge(ctx, slug, version, i, cir=cir, twin=twin,
+                                   listing_text=copy.description)
+    if knowledge.get("divergent"):
+        return {"slug": slug, "version": version, "ok": False,
+                "blocking": ["terms diverge across PDF, listing and FAQ"],
+                "terms": knowledge["consistency"]}
     # #240: the catalogue reading, with this listing in it.
     from ..commerce import portfolio as portfolio_mod
 
@@ -600,6 +611,89 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading}
+
+
+SUPPORT_KNOWLEDGE_ACTION = "support.knowledge_built"
+TERMS_DIVERGENCE_SIGNATURE = "terms-divergence"
+
+
+def support_faq(cir, twin, *, version: str) -> str:
+    """This release's FAQ: the shop FAQ (terms rendered from one decision) plus its own facts."""
+    from ..commerce import shop_package
+
+    stitches = ", ".join(sorted(twin.stitch_types_used)) or "see the stitch key"
+    yardage = "; ".join(f"{name} about {m * (1 - twin.yardage_tolerance):.0f}-"
+                        f"{m * (1 + twin.yardage_tolerance):.0f} m"
+                        for name, m in sorted(twin.yarn_metres_by_color.items()))
+    product = [
+        ("Which version of this pattern do I have?",
+         f"This is version {version} of {cir.title}. Every question is answered against the "
+         f"exact version you bought."),
+        ("Which stitches do I need?", f"{stitches}. Every stitch is in the key."),
+        ("How much yarn does it take?", yardage or "See the materials page of the pattern."),
+        ("How hard is it?", f"{_difficulty(twin, cir)}."),
+    ]
+    return shop_package.faq_text() + "\n\n" + "\n\n".join(f"{q}\n{a}" for q, a in product)
+
+
+def _support_knowledge(ctx: JobContext, slug: str, version: str, i: dict, *, cir, twin,
+                       listing_text: str) -> dict:
+    """Build and record the release's support knowledge; check #40 on the produced surfaces."""
+    from ..commerce import terms as customer_terms
+    from ..core.artifacts import ArtifactMissing
+    from ..core.models import Incident
+    from ..ops import artefacts as provenance
+    from ..publish.pdf import extracted_text
+
+    faq = support_faq(cir, twin, version=version)
+    store = ArtifactStore(i.get("artifact_dir"))
+    lineage = _lineage(ctx, validation_status="passed")
+    stored = store.put(f"{slug}/{version}/support-faq.txt", faq.encode("utf-8"),
+                       "text/plain", artefact_class="support_knowledge", lineage=lineage)
+    key = provenance.release_key(slug, version)
+    pdf_sha = (i.get("pdf_sha256_by_terminology") or {}).get("US") or i.get("pdf_sha256")
+    pdf_text, pdf_status = None, "UNMEASURED: no PDF hash on this job"
+    if pdf_sha:
+        try:
+            pdf_text = extracted_text(store.get(pdf_sha, db=ctx.db))
+            pdf_status = "measured"
+        except ArtifactMissing as exc:
+            pdf_status = f"UNMEASURED: {exc}"[:200]
+    consistency = (customer_terms.consistency(pdf_text, listing_text, faq)
+                   if pdf_text is not None else None)
+    divergent = bool(consistency and not consistency["consistent"])
+    with ctx.db.session() as s:
+        design = provenance.design_inputs(s, slug, version)
+        parents = [f"listing_copy:{key}"]
+        if pdf_sha:
+            parents.append(f"pdf:{provenance.pdf_key(slug, version, 'US')}")
+        provenance.record_lineage(
+            s, artefact_class="support_knowledge", artefact_key=f"{key}#support",
+            product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+            lineage=lineage.for_file(stored.sha256).under(*parents).validated(
+                "blocked" if divergent else ("passed" if consistency else "unmeasured")))
+        if divergent:
+            sig = f"{TERMS_DIVERGENCE_SIGNATURE}:{slug}"
+            if s.scalar(select_incident(Incident, sig)) is None:
+                s.add(Incident(severity="P1", signature=sig, halts_publication=True,
+                               summary=(f"customer-use terms diverge across the produced PDF, "
+                                        f"listing and FAQ of {slug}@{version} (#40)"),
+                               detail={"divergences": consistency["divergences"][:12]}))
+    ctx.audit("terms.divergent" if divergent else SUPPORT_KNOWLEDGE_ACTION,
+              artifact=f"{slug}@{version}",
+              detail={"faq_sha256": stored.sha256, "faq_chars": len(faq),
+                      "pdf": pdf_status,
+                      "consistent": None if consistency is None else consistency["consistent"],
+                      "divergences": (consistency or {}).get("divergences", [])[:12]})
+    return {"faq_sha256": stored.sha256, "consistency": consistency, "divergent": divergent,
+            "pdf": pdf_status}
+
+
+def select_incident(Incident, signature: str):
+    from sqlalchemy import select
+
+    return select(Incident).where(Incident.signature == signature,
+                                  Incident.resolved.is_(False))
 
 
 def _stored_frames(db, slug: str, version: str) -> list[dict]:
@@ -942,6 +1036,11 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         ctx.audit("growth.experiments_unregistered", artifact=f"{slug}@{i['version']}",
                   detail={"error": f"{type(e).__name__}: {str(e)[:300]}"})
 
+    # C-69 (#171): the release bundle -- everything this release ships together -- recorded
+    # as its own derived artefact, over the rows of its members, so a CIR change invalidates
+    # the bundle as a whole and not only its parts.
+    _record_release_bundle(ctx, slug, i["version"])
+
     publish_inputs = {"slug": slug, "version": i["version"]}
     for carried in ("as_of", "positioning"):
         if i.get(carried):
@@ -955,6 +1054,37 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     out = plan.to_dict()
     out["window_decision"] = decision
     return out
+
+
+BUNDLE_MEMBER_CLASSES = ("certificate", "pdf", "chart", "visual_truth", "listing_copy", "seo",
+                         "pricing", "support_knowledge")
+
+
+def _record_release_bundle(ctx: JobContext, slug: str, version: str) -> dict | None:
+    from sqlalchemy import select
+
+    from ..core.models import ArtefactProvenance
+    from ..ops import artefacts as provenance
+
+    key = provenance.release_key(slug, version)
+    with ctx.db.session() as s:
+        members = sorted(
+            (r.artefact_class, r.artefact_key, r.sha256 or provenance.fingerprint(r.inputs))
+            for r in s.scalars(select(ArtefactProvenance).where(
+                ArtefactProvenance.product_slug == slug,
+                ArtefactProvenance.artefact_class.in_(BUNDLE_MEMBER_CLASSES)))
+            if r.artefact_key == key or r.artefact_key.startswith(key + "#"))
+        if not members:
+            return None
+        design = provenance.design_inputs(s, slug, version)
+        manifest = provenance.fingerprint([list(m) for m in members])
+        provenance.record_lineage(
+            s, artefact_class="release_bundle", artefact_key=f"{key}#bundle",
+            product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+            lineage=_lineage(ctx, validation_status="passed",
+                             evidence={"manifest": manifest, "members": len(members)})
+            .under(*[f"{c}:{k}" for c, k, _ in members]))
+    return {"manifest": manifest, "members": len(members)}
 
 
 @handlers.register("marketing.schedule")
@@ -983,6 +1113,15 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     gate = for_marketing(ctx.db, slug=slug, version=version,
                          today=date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
                          positioning=i.get("positioning"))
+    outstanding = list(gate["staleness"]["rebuild"]["outstanding"] or [])
+    if (gate["blocks"] and i.get("rebuild") and outstanding
+            and all(k.startswith("marketing_asset:") for k in outstanding)
+            and not gate["staleness"]["halted"]
+            and all("#172" in r for r in gate["reasons"])):
+        # C-69: the only thing outstanding is the content this rebuild exists to remake.
+        # Blocking it on its own staleness would make a stale marketing asset unrebuildable.
+        gate = {**gate, "blocks": False, "reasons": [],
+                "rebuilding": outstanding}
     if gate["blocks"]:
         ctx.audit("marketing.blocked", artifact=f"{slug}@{version}",
                   detail={"reasons": gate["reasons"][:5], "published": False,
@@ -1029,10 +1168,23 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
                 ContentPiece.product_slug == slug,
                 ContentPiece.channel == piece.channel,
                 ContentPiece.title == piece.title))
-            if existing is not None:
+            if existing is not None and not i.get("rebuild"):
                 # Written by an earlier run under inputs this run cannot vouch for. Its
                 # lineage is the backfill's to derive from that run's evidence, or it
                 # stays unproven; recording it here would be a lineage nobody had.
+                continue
+            if existing is not None:
+                # C-69 (#172): a rebuild remakes the piece from the current release -- this
+                # run wrote these words, so it records their lineage.
+                existing.body = piece.body
+                existing.detail = piece.detail
+                existing.scheduled_for = piece.scheduled_for
+                provenance.record_lineage(
+                    s, artefact_class="marketing_asset",
+                    artefact_key=provenance.marketing_key(slug, piece.channel, piece.title),
+                    product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
+                    lineage=lineage.for_file(_content_hash(piece.title, piece.body))
+                                   .under(listing_ref))
                 continue
             s.add(ContentPiece(product_slug=slug, channel=piece.channel, title=piece.title,
                                body=piece.body, scheduled_for=piece.scheduled_for,
@@ -2322,7 +2474,14 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
 
     This looks for certified releases with no listing at the current chain version and starts
     them at `listing.draft`. It is idempotent: a release that already has one is left alone.
+
+    C-69 (#172): a job enqueued by the dependency graph carries the exact stale artefacts, the
+    old and new fingerprints and the reason; those inputs are honoured (`_targeted_rebuild`),
+    and a release withheld by the teardown QA (#163) is never re-driven by either mode.
     """
+    if ctx.job.inputs.get("artefacts") or ctx.job.inputs.get("artefact_key"):
+        return _targeted_rebuild(ctx)
+
     from sqlalchemy import select
 
     from ..core.models import Listing, PatternVersion, Product
@@ -2350,9 +2509,16 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
 
     started: list[str] = []
     reasons: dict[str, str] = {}
+    withheld_releases: list[str] = []
     for pv in certified:
         slug = products.get(pv.product_id)
         if not slug:
+            continue
+        if (pv.certificate or {}).get("withheld"):
+            # #163: the teardown QA withheld this release; the rebuild must not draft the
+            # listing the withhold refused.
+            reasons[slug] = "withheld: " + str((pv.certificate or {})["withheld"])[:120]
+            withheld_releases.append(f"{slug}@{pv.version}")
             continue
         wanted = f"c{CHAIN_VERSION}:{pv.release_hash or 'none'}"
         actual = built_from.get((slug, pv.version), "missing")
@@ -2442,10 +2608,185 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
                                        "redrafted": redrafted[:20],
                                        "redrafted_count": len(redrafted),
                                        "collections_restarted": collections_started,
+                                       "withheld": withheld_releases,
                                        "listings": reasons})
     return {"chain_version": CHAIN_VERSION, "doc_version": DOC_VERSION,
             "certified": len(certified), "restarted": started,
-            "redrafted": redrafted, "collections_restarted": collections_started}
+            "redrafted": redrafted, "collections_restarted": collections_started,
+            "withheld": withheld_releases}
+
+
+# C-69 (#172): which chain stage re-derives each artefact class. Each stage cascades to the
+# stages after it, so a rebuild enqueues the *earliest* stage any stale artefact needs and no
+# other -- a stale marketing asset alone restarts pricing (which re-drives the listing, the
+# support knowledge, the launch plan, the content and the release bundle from the current
+# release), not the certificate.
+REBUILD_STAGE: dict[str, str] = {
+    "twin": "gate.certify", "geometry_proof": "gate.certify",
+    "reverse_result": "gate.certify", "certificate": "gate.certify",
+    "pdf": "assets.build", "chart": "assets.build", "visual_truth": "assets.build",
+    "pricing": "pricing.position", "listing_copy": "pricing.position",
+    "seo": "pricing.position", "support_knowledge": "pricing.position",
+    "marketing_asset": "pricing.position", "release_bundle": "pricing.position",
+}
+STAGE_ORDER = ("gate.certify", "assets.build", "pricing.position")
+STAGE_AGENT = {"gate.certify": "quality_director", "assets.build": "publishing",
+               "pricing.position": "pricing"}
+# How many times the rebuild comes back to collect completion evidence before it raises.
+REBUILD_VERIFY_ATTEMPTS = 3
+REBUILD_VERIFY_DELAY_MINUTES = 20
+REBUILD_INCOMPLETE_SIGNATURE = "rebuild-incomplete"
+
+
+def _targeted_rebuild(ctx: JobContext) -> dict:
+    """Rebuild exactly the artefacts the dependency graph named, and prove each one was.
+
+    Reads `ctx.job.inputs`: `product_slug`, `artefacts` (node keys 'class:key'; or the
+    per-artefact form `artefact_class`/`artefact_key`), `fingerprints` ({ref: {old, new}}),
+    `reason`. Per artefact it records the request (`chain.rebuild_requested`, with the old and
+    new fingerprints, the reason and the stage job that will remake it). A later run of the
+    same job with `verify` reads the provenance rows back and writes completion evidence per
+    artefact (`chain.rebuild_completed`: the row's new inputs, build time and the job that
+    wrote it), or raises an incident when the artefacts are still stale after
+    REBUILD_VERIFY_ATTEMPTS checks. A withheld release (#163) is refused and audited.
+    """
+    from datetime import timedelta as _td
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import (ArtefactProvenance, Incident, Job, JobStatus, PatternVersion,
+                               Product, utcnow)
+    from ..ops import artefacts as provenance
+
+    i = dict(ctx.job.inputs)
+    slug = i.get("product_slug") or i.get("slug") or ""
+    keys = list(i.get("artefacts") or [])
+    if not keys and i.get("artefact_key"):
+        keys = [f"{i['artefact_class']}:{i['artefact_key']}"]
+    fingerprints = dict(i.get("fingerprints") or {})
+    reason = str(i.get("reason") or "")
+    verify = int(i.get("verify") or 0)
+
+    with ctx.db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
+                       .order_by(desc(PatternVersion.id)).limit(1))
+              if product is not None else None)
+        version = pv.version if pv is not None else ""
+        release = pv.release_hash or "" if pv is not None else ""
+        cir_json = dict(pv.cir_json) if pv is not None else None
+        withheld = (pv.certificate or {}).get("withheld") if pv is not None else None
+        current = provenance.current_from_db(s)
+        verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
+                    for v in provenance.check(s, current=current)}
+        rows = {f"{r.artefact_class}:{r.artefact_key}": r for r in s.scalars(
+            select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug))}
+        row_facts = {k: {"inputs": dict(r.inputs or {}), "built_at": str(r.built_at),
+                         "job_id": r.job_id, "created_by": r.created_by}
+                     for k, r in rows.items()}
+
+    if pv is None:
+        ctx.audit("chain.rebuild_refused", artifact=slug,
+                  detail={"why": "no stored release for this product", "artefacts": keys})
+        return {"targeted": True, "slug": slug, "refused": "no stored release"}
+    if withheld:
+        ctx.audit("chain.rebuild_refused", artifact=f"{slug}@{version}",
+                  detail={"why": f"release withheld (#163): {str(withheld)[:200]}",
+                          "artefacts": keys, "reason": reason})
+        return {"targeted": True, "slug": slug, "version": version, "withheld": True,
+                "rebuilt": []}
+
+    fresh = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
+    stale = [k for k in keys if k not in fresh]
+
+    if verify:
+        for k in fresh:
+            ctx.audit("chain.rebuild_completed", artifact=k, detail={
+                "product_slug": slug, "version": version, "reason": reason,
+                "fingerprints": fingerprints, "evidence": row_facts.get(k),
+                "verified_on_check": verify})
+        if stale and verify < REBUILD_VERIFY_ATTEMPTS:
+            ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale,
+                                                     "verify": verify + 1},
+                        idempotency_key=(f"rebuild-verify:{slug}:{ctx.job.id}:"
+                                         f"{verify + 1}"),
+                        run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
+        elif stale:
+            with ctx.db.session() as s:
+                sig = f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"
+                inc = s.scalar(select(Incident).where(Incident.signature == sig,
+                                                      Incident.resolved.is_(False)))
+                if inc is None:
+                    s.add(Incident(severity="P2", signature=sig, halts_publication=True,
+                                   summary=(f"{len(stale)} artefact(s) of {slug} still carry "
+                                            f"a moved input after {verify} rebuild checks: "
+                                            f"{stale[:5]}"),
+                                   detail={"stale": stale, "reason": reason,
+                                           "fingerprints": fingerprints}))
+                else:
+                    inc.report_count += 1
+        ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
+            "completed": fresh, "outstanding": stale, "check": verify})
+        return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
+                "outstanding": stale}
+
+    classes = {k.split(":", 1)[0] for k in stale}
+    unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
+    stages = [st for st in STAGE_ORDER if any(REBUILD_STAGE.get(c) == st for c in classes)]
+    stage = stages[0] if stages else None
+    token = hashlib.sha256(json.dumps(
+        {"artefacts": sorted(stale), "fingerprints": fingerprints},
+        sort_keys=True, default=str).encode()).hexdigest()[:12]
+    stage_job = None
+    if stage == "gate.certify":
+        stage_job = ctx.enqueue(STAGE_AGENT[stage], stage, {"cir": cir_json},
+                                idempotency_key=f"rebuild-cert:{slug}:{version}:{token}")
+    elif stage == "assets.build":
+        stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
+                                {"slug": slug, "version": version, "release": release,
+                                 "rebuild": token},
+                                idempotency_key=chain_key("assets", slug, version, release,
+                                                          token))
+    elif stage == "pricing.position":
+        # Pricing and everything after it read what assets.build measured; the latest
+        # completed build's own payload is that measurement.
+        with ctx.db.session() as s:
+            built = next((dict(j.outputs or {}) for j in s.scalars(
+                select(Job).where(Job.job_type == "assets.build",
+                                  Job.status == JobStatus.DONE).order_by(desc(Job.id)))
+                if (j.outputs or {}).get("slug") == slug
+                and (j.outputs or {}).get("version") == version
+                and (j.outputs or {}).get("pdf_sha256")), None)
+        if built is None:
+            stage = "assets.build"
+            stage_job = ctx.enqueue("publishing", stage,
+                                    {"slug": slug, "version": version, "release": release,
+                                     "rebuild": token},
+                                    idempotency_key=chain_key("assets", slug, version,
+                                                              release, token))
+        else:
+            stage_job = ctx.enqueue(STAGE_AGENT[stage], stage,
+                                    {**built, "release": release, "rebuild": token},
+                                    idempotency_key=chain_key("price", slug, version,
+                                                              release, token))
+    for k in stale:
+        ctx.audit("chain.rebuild_requested", artifact=k, detail={
+            "product_slug": slug, "version": version, "reason": reason,
+            "fingerprints": fingerprints, "old_inputs": (row_facts.get(k) or {}).get("inputs"),
+            "stage": REBUILD_STAGE.get(k.split(":", 1)[0]), "enqueued_stage": stage,
+            "stage_job": getattr(stage_job, "id", None)})
+    for k in fresh:
+        ctx.audit("chain.rebuild_completed", artifact=k, detail={
+            "product_slug": slug, "version": version, "reason": reason,
+            "fingerprints": fingerprints, "evidence": row_facts.get(k),
+            "already_fresh": True})
+    if stale:
+        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1},
+                    idempotency_key=f"rebuild-verify:{slug}:{ctx.job.id}:1",
+                    run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
+    return {"targeted": True, "slug": slug, "version": version, "reason": reason,
+            "requested": stale, "already_fresh": fresh, "stage": stage,
+            "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
 
 
 @handlers.register("ops.policy_watch")
