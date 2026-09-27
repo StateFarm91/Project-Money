@@ -54,3 +54,7 @@ that candidate and repaired in an explicit follow-up commit.
 | C-46 | High | orchestration | `JobQueue.enqueue` defaults to priority 100, below every band (at most 95): only cadence jobs get `priority_for`, so the release chain (`gate.certify`, `listing.draft`, `store.publish`) runs after housekeeping, the opposite of #187 | pending |
 | C-47 | Medium | buyer trust | the #41 disclosure check runs in `listing.draft`, before `listing.seo` writes the Listing row, so it reads UNMEASURED on every first release | pending |
 | C-48 | Medium | growth | `ops.capacity` passes an empty `runrate.Observed()` and `/api/growth` calls `constraint({})`: the weekly binding constraint is always computed on nothing (#229, #264) | pending |
+
+## Fresh full suite on the frozen candidate
+
+Clean detached checkout of `63f2493` (tree `dbb99ff`), `run_tests.sh` with the project venv, started 2026-09-27T01:44:36Z, ended 02:49:05Z (3,869 s wall clock under heavy concurrent load; about 20 minutes unloaded). Result: **TOTAL PASSING 4,615; suites failing 0** across 237 suites, exit 0. The candidate's own suite is green, so every defect above (C-1..C-48) is a defect the suite did not test for -- which is the point of this certification.
