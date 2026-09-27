@@ -202,6 +202,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "assets.deliverable_problems": ("lifetime_total",
                                     "teardown.lab.measured_self_scores reads whether a "
                                     "release's PDF recorded problems (instruction clarity)"),
+    # C-80 (#81): the parity verdict resumes the escalation ladder from the rung results the
+    # photography job persisted; pruning one would re-run a strategy already tried.
+    "creative.escalation_result": ("lifetime_total",
+                                   "visual.gallery.escalation_progress reads every rung "
+                                   "result for a release to place the next attempt"),
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),

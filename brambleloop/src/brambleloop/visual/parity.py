@@ -112,7 +112,7 @@ def _realism_of(frame: dict) -> dict | None:
 
 def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
            deterministic_available: bool | None = None,
-           gate_open: dict[str, bool] | None = None) -> dict:
+           gate_open: dict[str, bool] | None = None, start_attempt: int = 0) -> dict:
     """Judge all eight from evidence already gathered. Never renders, never asks again.
 
     `frames` are asset records -- what `model_photography.make` and
@@ -274,8 +274,10 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
 
         available = (deterministic_available if deterministic_available is not None
                      else _deterministic_available(frames))
+        # C-80 defect 8: the walk starts where the persisted rung results left it, so a
+        # rung already attempted without a usable frame is not taken again.
         escalation = escalation_plan(failed, deterministic_available=available,
-                                     gate_open=gate_open)
+                                     gate_open=gate_open, start_attempt=int(start_attempt))
 
     return {
         "escalation": escalation,

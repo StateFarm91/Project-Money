@@ -3933,6 +3933,20 @@ def handle_model_photography(ctx: JobContext) -> dict:
                                        if listing_asset.needs_the_model(cir) else {}))
 
     ctx.audit(model_photography.ACTION, detail=record)
+    # C-80 defect 8: a model-bearing product's rung attempt is persisted too, so the ladder
+    # resumes rather than restarting (the model path carries no rung brief yet: it is the
+    # same conditioned render, recorded as such).
+    if str(ctx.job.inputs.get("reason") or "").startswith("parity_escalation:"):
+        from ..visual.gallery import ESCALATION_RESULT_ACTION
+
+        ctx.audit(ESCALATION_RESULT_ACTION, artifact=f"{slug}@{cir.version}",
+                  detail={"rung": str(ctx.job.inputs["reason"]).split(":", 1)[1],
+                          "failed": list(ctx.job.inputs.get("failed") or []),
+                          "attempted": bool(record.get("made")), "made": record.get("made"),
+                          "usable": bool(record.get("usable_as_listing_asset")),
+                          "verdict": (record.get("floors") or {}).get("verdict")
+                          if isinstance(record.get("floors"), dict) else None,
+                          "strategy": "model_path_unchanged"})
     # #36: a generated frame is stored with its provenance -- simulated, AI-assisted, the
     # version it depicts -- the moment it exists.
     if record.get("made"):
@@ -6170,6 +6184,17 @@ def handle_owned_photography(ctx: JobContext) -> dict:
     if cir is None:
         return {"ran": False, "reason": f"no CIR for {slug!r}"}
 
+    # C-80 defect 8 (Codex P11): a job enqueued as a #81 rung is a distinct strategy. It
+    # reads the rung and the failed dimensions, has its own one-attempt budget, changes what
+    # the rung says it changes (brief, composition or tool), and persists its result so the
+    # next parity verdict resumes the ladder from here instead of at the first rung.
+    rung = str(ctx.job.inputs.get("rung") or "")
+    if not rung and str(ctx.job.inputs.get("reason") or "").startswith("parity_escalation:"):
+        rung = str(ctx.job.inputs["reason"]).split(":", 1)[1]
+    failed = list(ctx.job.inputs.get("failed") or [])
+    if rung:
+        return _owned_photography_rung(ctx, cir, slug, rung, failed)
+
     next_move = owned_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
     if not next_move["render"]:
         return {"ran": False, "reason": next_move["reason"], "slug": slug,
@@ -6196,6 +6221,68 @@ def handle_owned_photography(ctx: JobContext) -> dict:
             "verdict": record.get("verdict"), "why": record.get("why"),
             "usable_as_listing_asset": record.get("usable_as_listing_asset"),
             "spent_cad": record.get("spent_cad", 0.0)}
+
+
+def _owned_photography_rung(ctx: JobContext, cir, slug: str, rung: str,
+                            failed: list[str]) -> dict:
+    """One #81 rung, executed as the strategy it names and recorded as attempted or not."""
+    import os
+
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+    from ..core import workspace
+    from ..publish import owned_photography
+    from ..visual import tournament
+    from ..visual.gallery import ESCALATION_RESULT_ACTION, GENERATION_RUNGS, RUNG_BRIEFS
+
+    version = cir.version
+    key = f"{slug}@{version}"
+
+    def result(**detail):
+        ctx.audit(ESCALATION_RESULT_ACTION, artifact=key,
+                  detail={"rung": rung, "failed": failed, **detail})
+        return {"ran": bool(detail.get("attempted")), "slug": slug, "version": version,
+                "rung": rung, **detail}
+
+    if rung not in GENERATION_RUNGS:
+        return result(attempted=False, reason="not_a_generation_rung",
+                      why=f"{rung!r} is not a rung this job executes")
+    if owned_photography.rung_attempts(ctx.db, slug=slug, version=version, rung=rung):
+        return result(attempted=False, reason="rung_already_attempted",
+                      why="this rung was already attempted for this release; the ladder "
+                          "advances rather than repeating a strategy")
+    brief = RUNG_BRIEFS[rung]
+    env = dict(os.environ)
+    earlier = {a.get("provider") for a in owned_photography.assets_for(
+        ctx.db, slug=slug, version=version) if a.get("provider")}
+    provider_key = ""
+    if brief["provider"] == "alternate":
+        provider_key = tournament.alternate_provider(ctx.db, env, exclude=earlier)
+        if not provider_key:
+            return result(attempted=False, reason="no_alternate_tool",
+                          why=f"no permitted image model other than {sorted(earlier)} is "
+                              f"available in this environment; the rung cannot be executed "
+                              f"and is recorded so, not skipped")
+    constraints = tuple(brief["constraints"])
+    if rung == "regenerate_constrained":
+        constraints += (f"The previous render of this product failed these checks: "
+                        f"{', '.join(failed) or 'unnamed'}. Each must be visibly answered.",)
+    compiled = compile_cir(cir)
+    if not compiled.ok:
+        return result(attempted=False, reason="does_not_compile",
+                      why=f"{slug} does not compile, so there is nothing true to photograph")
+    with workspace.work_dir(ctx.job.inputs.get("work_dir"), prefix="owned-rung-") as work:
+        record = owned_photography.make(
+            ctx.db, cir, build_twin(cir, compiled), occasion=ctx.job.inputs.get("occasion", ""),
+            env=env, work_dir=work, provider_key=provider_key, rung=rung,
+            constraints=constraints)
+    ctx.audit(owned_photography.ACTION, detail=record)
+    return result(attempted=bool(record.get("made")), made=record.get("made"),
+                  usable=bool(record.get("usable_as_listing_asset")),
+                  verdict=record.get("verdict"), why=(record.get("why") or "")[:300],
+                  provider=record.get("provider") or provider_key or None,
+                  composition=brief["composition"], constraints=list(constraints),
+                  spent_cad=record.get("spent_cad", 0.0))
 
 
 def _representative_slug(db) -> str:

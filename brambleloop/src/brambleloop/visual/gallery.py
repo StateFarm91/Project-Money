@@ -210,6 +210,68 @@ RUNG_EXECUTES_VIA: dict[str, str] = {
 }
 
 
+# C-80 defect 8 (Codex P11): the three generation rungs are *different strategies*, not the
+# same job three times. Each carries what changes, and the photography job reads it.
+GENERATION_RUNGS: tuple[str, ...] = ("regenerate_constrained", "change_composition",
+                                     "change_tool")
+RUNG_BRIEFS: dict[str, dict] = {
+    "regenerate_constrained": {
+        "provider": "same",
+        "composition": "unchanged",
+        "constraints": ("The failed checks are named in the brief and the render must "
+                        "answer each one directly; the composition stays as before.",)},
+    "change_composition": {
+        "provider": "same",
+        "composition": "alternate",
+        "constraints": ("Change the composition entirely: a three-quarter overhead angle, a "
+                        "different crop that shows the whole object with a plain margin "
+                        "round it, and a different plain surface and light direction from "
+                        "any earlier render of this product.",)},
+    "change_tool": {
+        "provider": "alternate",
+        "composition": "unchanged",
+        "constraints": ("Rendered on a different permitted image model from every earlier "
+                        "attempt at this product.",)},
+}
+# The audit action the photography job writes when it has attempted a rung, with the result.
+ESCALATION_RESULT_ACTION = "creative.escalation_result"
+
+
+def escalation_progress(db, *, slug: str, version: str) -> dict:
+    """Where this release stands on the #81 ladder, from persisted rung results.
+
+    Each rung attempt the photography job completed is a `creative.escalation_result` audit
+    row for the release naming the rung and whether it produced a usable frame. The next
+    attempt is the first generation rung with no completed result; when every generation
+    rung has one, the ladder stands at the deterministic rung. A rung whose result is usable
+    ends the walk (parity is re-read from the new frame, not assumed).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    results: dict[str, dict] = {}
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(
+                AuditLog.action == ESCALATION_RESULT_ACTION,
+                AuditLog.artifact == f"{slug}@{version}").order_by(AuditLog.id)):
+            d = dict(row.detail or {})
+            if d.get("rung") and d.get("attempted"):
+                results[d["rung"]] = {"usable": bool(d.get("usable")),
+                                      "verdict": d.get("verdict"), "job_id": row.job_id,
+                                      "at": row.at.isoformat() if row.at else None}
+    attempted = [r for r in GENERATION_RUNGS if r in results]
+    start_attempt = 0
+    for r in GENERATION_RUNGS:
+        if r in results and not results[r]["usable"]:
+            start_attempt += 1
+        else:
+            break
+    return {"results": results, "attempted": attempted, "start_attempt": start_attempt,
+            "usable_from": next((r for r in GENERATION_RUNGS
+                                 if results.get(r, {}).get("usable")), None)}
+
+
 def gates_now(db, keys=("image_generation", "physical_proof")) -> dict[str, bool]:
     """The live state of the gates the ladder's rungs wait on, read from the database."""
     from ..build2 import executor
@@ -273,6 +335,7 @@ def escalation_plan(failed: list[str], *, deterministic_available: bool,
         "failed_dimensions": list(failed),
         "rungs": rungs,
         "taken": taken,
+        "start_attempt": start_attempt,
         "gated": [r["action"] for r in rungs if r["status"] == "gated"],
         "gates_read_live": gate_open is not None,
         "outcome": ("replace the failing frame with a deterministic representation"
