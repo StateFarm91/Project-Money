@@ -96,6 +96,31 @@ def test_serp_captures_are_stamped_with_their_population_and_window():
     assert stamp.weight is not None and stamp.weight < 1.0 and stamp.window_to == "2026-09-16"
 
 
+def test_mjs_benchmark_listings_are_stamped_global_over_their_seen_window_and_discount_scores():
+    """C-80 defect 14 (#38): the MJs listing observations are trend evidence, stamped GLOBAL
+    with the span they were seen over, and the scorer reads them like every other stamp."""
+    from brambleloop.core.models import BenchmarkListing
+
+    db = _db()
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key="mjs-1", listing_ref="L1",
+                               title="Chunky ribbed scarf crochet pattern", pod="wearables",
+                               price_cad=9.5,
+                               first_seen=datetime(2025, 5, 1, tzinfo=timezone.utc),
+                               last_seen=datetime(2025, 6, 1, tzinfo=timezone.utc)))
+    out = provenance.stamp_all(db, today=TODAY)
+    assert out["by_population"]["GLOBAL"] >= 1
+    with db.session() as s:
+        stamp = s.scalar(select(TrendProvenance).where(
+            TrendProvenance.source_table == "benchmark_listings"))
+    assert stamp is not None and stamp.population == "GLOBAL" and stamp.source == "mjs:mjs-1"
+    assert stamp.window_from == "2025-05-01" and stamp.window_to == "2025-06-01"
+    assert stamp.weight is not None and stamp.weight < 0.7, "a year-old global datum at full weight"
+    scored = _score(db, "mjs")
+    assert scored["evidence"]["measured"] and scored["evidence"]["discount"] < 1.0
+    assert scored["evidence"]["rows"] >= 1
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

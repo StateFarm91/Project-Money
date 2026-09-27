@@ -378,8 +378,15 @@ def test_experiment_spend_is_attributed_from_the_spending_job():
     with db.session() as s:
         out = governor.spend_by(s, "experiment")
     rows = {r["key"]: r["cad"] for r in out["rows"]}
-    assert rows == {"exp-7": 0.5, "exploration:creative.blinded": 0.25}, rows
+    # C-80 defect 13 (Codex P13): only a tagged experiment is an experiment row, and it says
+    # so; the exploration-band spend is a proxy bucket of its own, never an experiment key.
+    assert rows == {"exp-7": 0.5}, rows
+    assert {r["key"]: r["basis"] for r in out["rows"]} == {"exp-7": governor.BASIS_TAGGED}
+    assert out["proxy"]["basis"] == governor.BASIS_BAND_PROXY
+    assert {r["key"]: r["cad"] for r in out["proxy"]["rows"]} == {
+        "exploration:creative.blinded": 0.25}
     assert abs(out["unattributed_cad"] - 0.1) < 1e-9 and out["has_writer"] is True
+    assert abs(out["total_cad"] - 0.85) < 1e-9, "rows + proxy + unattributed reconcile"
 
 
 def test_the_new_rule_sees_the_capacity_path_live():

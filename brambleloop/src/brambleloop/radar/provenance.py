@@ -351,6 +351,25 @@ def stamp_all(db, *, today: date | None = None, half_lives: dict[str, str] | Non
             stamped += 1
             refused += int(got["refused"])
             by_population["GLOBAL"] = by_population.get("GLOBAL", 0) + 1
+        # C-80 defect 14 (#38): the MJs benchmark listing observations are trend evidence too
+        # -- what the leading shops list, at what price, over which dates. A benchmark shop
+        # sells on the worldwide marketplace, so its population is GLOBAL (discounted as
+        # evidence about Canada); the window is the span the listing was seen over.
+        from ..core.models import BenchmarkListing
+
+        for row in s.scalars(select(BenchmarkListing).order_by(BenchmarkListing.id.desc())
+                             .limit(limit)):
+            start = row.first_seen.date().isoformat() if row.first_seen else ""
+            end = row.last_seen.date().isoformat() if row.last_seen else start
+            got = _stamp_row(s, table="benchmark_listings", row_id=row.id,
+                             topic=row.title or row.listing_ref,
+                             source=f"mjs:{row.benchmark_key}", population="GLOBAL",
+                             window_from=start, window_to=end, shape=SEASONAL,
+                             value=(float(row.price_cad) if row.price_cad else None),
+                             today=today)
+            stamped += 1
+            refused += int(got["refused"])
+            by_population["GLOBAL"] = by_population.get("GLOBAL", 0) + 1
     return {"stamped": stamped, "refused": refused, "by_population": by_population,
             "note": ("every trend row carries its source, window, population and freshness; "
                      "rows whose population is unknown are stamped refused, not discounted")}
@@ -386,11 +405,19 @@ def evidence_for(db, seed, *, today: date | None = None) -> dict:
 
     from ..core.models import TrendProvenance
 
+    from sqlalchemy import or_
+
     today = today or date.today()
     terms = _terms_for(seed)
     rows = []
+    if not terms:
+        return {"measured": False, "terms": terms, "rows": 0, "discount": 1.0,
+                "why": "the concept names no term to match evidence on; UNMEASURED"}
     with db.session() as s:
-        for r in s.scalars(select(TrendProvenance)):
+        # Bounded in SQL (C-80 defect 17): only rows whose topic names one of the concept's
+        # terms, not a full scan of the stamp table per radar.score job.
+        for r in s.scalars(select(TrendProvenance).where(
+                or_(*[TrendProvenance.topic.ilike(f"%{t}%") for t in terms]))):
             topic = (r.topic or "").lower()
             if not any(t in topic for t in terms):
                 continue

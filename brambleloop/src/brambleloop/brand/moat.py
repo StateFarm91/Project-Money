@@ -146,8 +146,11 @@ def evidence(db) -> dict:
                                PatternVersion, PhysicalTest, Product)
 
     with db.session() as s:
+        # Bounded (C-80 defect 17): only the classes the signatures read, not every row daily.
         prov = [(r.artefact_class, r.product_slug, r.validation_status)
-                for r in s.scalars(select(ArtefactProvenance))]
+                for r in s.scalars(select(ArtefactProvenance).where(
+                    ArtefactProvenance.artefact_class.in_(
+                        ("pdf", "chart", "support_knowledge"))))]
         listings = sorted({l.product_slug for l in s.scalars(
             select(Listing).where(Listing.state != "withdrawn"))})
         certs = {p.slug: dict(pv.certificate or {}) for pv, p in s.execute(
