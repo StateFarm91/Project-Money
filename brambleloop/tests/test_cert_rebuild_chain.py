@@ -151,6 +151,24 @@ def test_launch_readiness_measures_the_launch_package_from_what_the_chain_produc
     assert job.status == JobStatus.DONE, job.last_error
 
 
+def test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured():
+    """#44 (C-69): existence read from what the chain produced, not hand-set flags."""
+    from brambleloop.brand import moat
+    from brambleloop.launch.readiness import assess
+
+    st = chain()
+    inv = moat.inventory(st["db"])
+    assert inv["measured_from_evidence"] is True
+    for key in ("deterministic_validation", "version_aware_support", "editorial_layout",
+                "chart_style", "naming_architecture"):
+        assert key in inv["built"], (key, inv["built"])
+    assert "canonical_model" in inv["planned"] and "measured_yardage" in inv["planned"]
+    rec = inv["recognisable_without_model"]
+    assert st["slug"] in rec["recognisable"], rec
+    by = {r.key: r for r in assess(st["db"], phase="shadow").requirements}
+    assert by["brand_moat"].ready is True, by["brand_moat"].evidence
+
+
 def test_a_divergent_listing_is_refused_and_halts_publication():
     from brambleloop.core.models import Incident
     from brambleloop.runtime import release

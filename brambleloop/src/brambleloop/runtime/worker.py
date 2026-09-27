@@ -563,6 +563,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # gate reads and refuses to run at all when it finds an audit action nobody has decided
     # about; `ops.retention` carries the reasoning.
     ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
+    # C-69 (#50, #29): the dependency map probed daily and every failed probe, unproved
+    # recovery, unmapped paid provider or existential concentration raised as an incident.
+    ("dependency_sweep", "orchestrator", "ops.dependencies", 24 * 60 * 60),
 ]
 
 

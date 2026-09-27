@@ -159,12 +159,15 @@ def test_the_launch_gate_carries_the_v14_additions():
     for key in ("brand_moat", "rollback_plan", "analytics_baseline", "brand_clearance"):
         assert key in assessed, key
 
-    # A baseline taken after the change is the change measured against itself.
+    # C-69: every item is measured from what the company produced, never a constant. An
+    # empty company has no baseline, no proven rollback and no moat anybody can see -- the
+    # old hand-set flags said two structural advantages existed before anything was built.
     assert assessed["analytics_baseline"].ready is False
-    assert "measured against itself" in assessed["analytics_baseline"].evidence["why"]
-    # The moat gate passes because two structural advantages already exist.
-    assert assessed["brand_moat"].ready is True
-    assert assessed["rollback_plan"].ready is True
+    assert assessed["analytics_baseline"].evidence["listings"] == 0
+    assert assessed["brand_moat"].ready is False
+    assert assessed["brand_moat"].evidence["structural"] == []
+    assert assessed["rollback_plan"].ready is False
+    assert assessed["rollback_plan"].evidence["last_restore_proof"] is None
 
 
 if __name__ == "__main__":

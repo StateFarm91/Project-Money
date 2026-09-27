@@ -4145,6 +4145,7 @@ def handle_finance_governor(ctx: JobContext) -> dict:
 
     out = governor.enforce(ctx.db)
     return {"ran": True, "paused": out["paused"], "incidents": out["incidents"],
+            "unit_cost": out.get("unit_cost"),
             "marginal_value": out["marginal_value"], "parallelism": out["parallelism"],
             "allocation_fed": out["allocation_fed"],
             "company_anomaly_measurable": bool(out["company_anomaly"].get("measurable")),
@@ -4495,6 +4496,34 @@ def handle_capacity_review(ctx: JobContext) -> dict:
     }
     ctx.audit("ops.capacity", detail=detail)
     return detail
+
+
+@handlers.register("ops.dependencies")
+def handle_dependency_sweep(ctx: JobContext) -> dict:
+    """#50 continuously and #29 acted on (C-69). Daily.
+
+    The single-point dependency map is probed against the database -- the database itself and
+    whether its recovery (the continuity restore) is proved, the model provider, the Etsy API,
+    the tester roster -- and a failed probe, a recovery strategy that is missing or unproved,
+    or a provider the cost ledger bills that the map does not name, opens an incident (and
+    closes it when the probe recovers). The anti-fragility axes are read from the same rows
+    and an existential concentration -- one AI provider the whole system runs on, today --
+    is raised as an incident rather than written in a note.
+
+    GREEN: reads rows and gates, writes incidents and one audit row. Spends nothing.
+    """
+    from ..ops import dependencies
+    from ..scale import dependency as anti_fragility
+
+    mapped = dependencies.sweep(ctx.db)
+    fragility = anti_fragility.act(ctx.db)
+    detail = {"failing": mapped["failing"], "unknown": mapped["unknown"],
+              "unmapped": mapped["unmapped"], "opened": mapped["incidents_opened"]
+              + fragility["incidents_opened"],
+              "resolved": mapped["incidents_resolved"] + fragility["incidents_resolved"],
+              "existential": fragility["existential"], "axes": fragility["axes"]}
+    ctx.audit("ops.dependencies", detail=detail)
+    return {**detail, "probes": mapped["probes"]}
 
 
 @handlers.register("growth.conclude")

@@ -550,6 +550,70 @@ def _open_incident(session, *, signature: str, summary: str, detail: dict,
     return "opened"
 
 
+# #31 (C-68): validated products per operating dollar, measured hourly and acted on. Below
+# this much spend in the window the ratio is noise; above it, spend that produced no validated
+# pattern is an incident, and the lanes that spent it are capped at the next allocation.
+MIN_SPEND_FOR_THROUGHPUT_CAD = 5.0
+MIN_AGENT_SPEND_CAD = 1.0
+THROUGHPUT_SIGNATURE = "throughput-no-validated-output"
+
+
+def _act_on_unit_cost(db, *, now: datetime) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+    from . import unit_cost
+
+    try:
+        uc = unit_cost.unit_costs(db, days=30, now=now)
+    except Exception as exc:  # noqa: BLE001 - an unreadable ratio acts on nothing
+        return {"measurable": False, "why": f"{type(exc).__name__}: {exc}"[:200]}
+    spent = float(uc["operating_cost_cad"] or 0.0)
+    validated = int(uc["artefacts"]["validated_pattern"]["produced"])
+    out = {"measurable": spent >= MIN_SPEND_FOR_THROUGHPUT_CAD,
+           "operating_cost_cad": spent, "validated_products": validated,
+           "validated_products_per_operating_dollar":
+               uc["validated_products_per_operating_dollar"],
+           "contribution_per_operating_dollar": uc["contribution_per_operating_dollar"],
+           "burning": uc["burning"], "action": "none", "unproductive_agents": []}
+    if not out["measurable"]:
+        out["why"] = (f"CA${spent:.2f} spent in 30 days, under the CA$"
+                      f"{MIN_SPEND_FOR_THROUGHPUT_CAD:.2f} below which the ratio is noise")
+        return out
+    if validated == 0:
+        since = now - timedelta(days=30)
+        by_agent: dict[str, float] = {}
+        with db.session() as s:
+            for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
+                by_agent[c.agent] = by_agent.get(c.agent, 0.0) + float(c.amount_cad or 0.0)
+            state = _open_incident(
+                s, signature=f"{THROUGHPUT_SIGNATURE}:{now.strftime('%Y-%m')}",
+                summary=(f"CA${spent:.2f} of operating spend in 30 days produced no validated "
+                         f"pattern (#31: validated products per operating dollar is 0). The "
+                         f"lanes that spent it are capped at one specialist until a pattern "
+                         f"validates"),
+                detail={"unit_cost": out, "by_agent": by_agent}, severity="P2")
+        out["unproductive_agents"] = sorted(a for a, v in by_agent.items()
+                                            if v >= MIN_AGENT_SPEND_CAD)
+        out.update({"action": "incident_and_lane_cap", "incident": state})
+    return out
+
+
+def unproductive_lanes(db, *, now: datetime | None = None) -> list[str]:
+    """The agents the latest governor reading capped for spending without validated output."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+    if row is None or now - _aware(row.at) > timedelta(hours=6):
+        return []
+    return list(((row.detail or {}).get("unit_cost") or {}).get("unproductive_agents") or [])
+
+
 def enforce(db, *, days: int = 30, now: datetime | None = None) -> dict:
     """Run the governor's readings and act on the ones that are measurable (#188)."""
     from sqlalchemy import desc, select
@@ -626,8 +690,11 @@ def enforce(db, *, days: int = 30, now: datetime | None = None) -> dict:
                                             "from": ACTION, "at": now.isoformat()}}
             fed = alloc.id
 
+    throughput = _act_on_unit_cost(db, now=now)
+
     detail = {
         "at": now.isoformat(),
+        "unit_cost": throughput,
         "company_anomaly": company,
         "agent_anomalies": {"spiking": agents["spiking"],
                             "unmeasurable": agents["unmeasurable"],

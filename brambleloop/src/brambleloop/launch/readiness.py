@@ -657,14 +657,20 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # read, and a brand moat that does not rest on the most copyable asset in it.
     from ..brand import moat as brand_moat
 
-    moat_state = brand_moat.inventory()
+    moat_state = brand_moat.inventory(db)
+    recognisable = moat_state.get("recognisable_without_model") or {}
+    moat_ready = (bool(moat_state["structural_advantages"])
+                  and bool(recognisable.get("listings"))
+                  and not recognisable.get("not_recognisable"))
     out.append(Requirement(
         key="brand_moat",
-        description=("the brand rests on something a competitor cannot reproduce in weeks"),
-        ready=bool(moat_state["structural_advantages"]),
-        blocked_by=None if moat_state["structural_advantages"] else BLOCKED_BUILD,
+        description=("the brand rests on something a competitor cannot reproduce in weeks, "
+                     "and every product-first listing is recognisable without the model"),
+        ready=moat_ready,
+        blocked_by=None if moat_ready else BLOCKED_BUILD,
         evidence={"structural": moat_state["structural_advantages"],
                   "built": moat_state["built"], "planned": moat_state["planned"],
+                  "not_recognisable_without_model": recognisable.get("not_recognisable"),
                   "why": ("the canonical model is the most visible asset and the most "
                           "copyable; a brand that is only the model is a brand with a "
                           "week's lead (#44)")}))

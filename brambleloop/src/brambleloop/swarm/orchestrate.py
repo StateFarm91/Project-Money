@@ -701,6 +701,7 @@ JOB_BANDS: dict[str, str] = {
     "ops.offsite_archive": "housekeeping",
     "ops.retention": "housekeeping",
     "ops.capacity": "housekeeping",
+    "ops.dependencies": "housekeeping",
     "ops.provenance_backfill": "housekeeping",
     "swarm.review": "housekeeping",
     "swarm.allocate": "housekeeping",
@@ -940,6 +941,9 @@ def allocate(db, *, now: datetime | None = None,
                        .order_by(desc(_Audit.id)).limit(1))
         if cap is not None:
             bottleneck = (cap.detail or {}).get("tilted_toward")
+    from ..finance.governor import unproductive_lanes
+
+    unproductive = set(unproductive_lanes(db, now=now))
     pressure: dict[str, bool] = {}
     valuable: dict[str, int] = {}
     for _id, agent_name, jt, _st in open_jobs:
@@ -970,6 +974,9 @@ def allocate(db, *, now: datetime | None = None,
             granted, boosts = granted + 1, boosts + [
                 f"{valuable[agent.name]} open job(s) at proven-winner value or above"]
         granted = min(granted, affordable) if pending else fo["granted"]
+        if agent.name in unproductive and granted > 1:
+            # #31: spend that produced no validated pattern caps the lane that spent it.
+            granted, boosts = 1, boosts + ["capped: 30 days of spend, no validated pattern"]
         lanes[agent.name] = {
             "open_work": pending, "wanted": fo["wanted"], "granted": granted,
             "bounded_by": fo["bounded_by"], "binding_ceiling": fits["binding_ceiling"],
