@@ -84,15 +84,72 @@ WEAKNESS_SIGNALS: dict[str, str] = {
                  "wants two has to buy twice",
 }
 
-# The two weaknesses the requirement names that no amount of text can answer. Kept in the
-# vocabulary rather than dropped, because a list quietly shortened to what is measurable
-# today is how a requirement gets reported as met.
-NEEDS_VISION: dict[str, str] = {
-    "weak_branding": "whether the shop and its listings read as one coherent thing, which "
-                     "is a judgement about rendered pages and photographs",
-    "stale_aesthetics": "whether the styling looks like this year, which is a judgement "
-                        "about photographs",
+# The two weaknesses the requirement names that no amount of text can answer, now answered
+# from the photographs: the vision observation records `brand_coherence` and
+# `aesthetic_currency` per judged image (`intel.vision.OBSERVATION_FIELDS`), and the hunt
+# reads them as measured openings. They were carried as `needs_vision` until the vocabulary
+# carried them; a list quietly shortened to what is measurable is how a requirement gets
+# reported as met, and a list that never grows when the measurement arrives is the other way.
+VISION_SIGNALS: dict[str, tuple[str, str]] = {
+    "weak_branding": ("brand_coherence",
+                      "whether the shop and its listings read as one coherent thing, judged "
+                      "per photograph by the vision model"),
+    "stale_aesthetics": ("aesthetic_currency",
+                         "whether the styling looks like this year, judged per photograph by "
+                         "the vision model"),
 }
+WEAKNESS_SIGNALS.update({k: v[1] for k, v in VISION_SIGNALS.items()})
+
+# Phrases in those two fields that read as the weakness. A short closed reading of a short
+# closed phrase, on top of the blind review's markers; nothing is inferred beyond it.
+_VISION_NEGATIVE = ("dated", "stale", "outdated", "old-fashioned", "old fashioned",
+                    "inconsistent", "incoherent", "mismatched", "generic", "disjointed")
+
+
+def _reads_weak(phrase: str) -> bool:
+    from ..creative.blind_review import reads_negative
+
+    text = str(phrase or "").strip().lower()
+    return reads_negative(text) or any(m in text for m in _VISION_NEGATIVE)
+
+
+def _vision_openings(db, refs: list[str]) -> dict:
+    """weak_branding and stale_aesthetics, measured from recorded gallery observations.
+
+    A listing counts when at least one of its judged images carries the field; it is weak
+    when most of those phrases read as the weakness. A listing nobody judged is excluded,
+    for the reason video is: our unjudged backlog is not their weakness.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkObservation
+
+    phrases: dict[str, dict[str, list[str]]] = {k: {} for k in VISION_SIGNALS}
+    if refs:
+        with db.session() as s:
+            for row in s.scalars(select(BenchmarkObservation).where(
+                    BenchmarkObservation.kind == "gallery_image_observation",
+                    BenchmarkObservation.listing_ref.in_(refs))):
+                observation = (row.detail or {}).get("observation") or {}
+                for signal, (fld, _why) in VISION_SIGNALS.items():
+                    value = str(observation.get(fld) or "").strip()
+                    if value:
+                        phrases[signal].setdefault(row.listing_ref, []).append(value)
+    out: dict[str, dict] = {}
+    for signal, (fld, _why) in VISION_SIGNALS.items():
+        judged = phrases[signal]
+        weak = sorted(ref for ref, ps in judged.items()
+                      if sum(1 for p in ps if _reads_weak(p)) * 2 > len(ps))
+        out[signal] = {
+            "field": fld, "measurable": bool(judged), "judged_listings": len(judged),
+            "weak": len(weak), "refs": weak[:50],
+            "share": round(len(weak) / len(judged), 3) if judged else None,
+            "reason": ("" if judged else
+                       f"no judged image of these listings carries `{fld}`, so this is "
+                       f"unmeasured -- which is not the same as no weakness"),
+        }
+    return out
+
 
 # Fewer images than this and a buyer cannot judge a pattern they will never hold.
 THIN_MEDIA_BELOW = 5
@@ -303,6 +360,8 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         "share": round(len(bundled) / len(listings), 3),
     }
 
+    vision_openings = _vision_openings(db, [r["ref"] for r in listings])
+
     return {
         "measurable": True,
         "listings": len(listings),
@@ -314,7 +373,8 @@ def weakness_hunt(db, *, pod: str = "") -> dict:
         "sizes": sizes,
         "bundles": bundles,
         "signals": WEAKNESS_SIGNALS,
-        "needs_vision": NEEDS_VISION,
+        "branding": vision_openings["weak_branding"],
+        "aesthetics": vision_openings["stale_aesthetics"],
         "note": (f"{len(thin)} of {len(listings)} observed listings carry fewer than "
                  f"{THIN_MEDIA_BELOW} images, which is fewer than a buyer needs to judge a "
                  f"pattern they will never hold. Video and recurring complaints are "
@@ -391,6 +451,10 @@ def _opportunity(hunt: dict) -> float | None:
     bundles = hunt.get("bundles") or {}
     if bundles.get("measurable"):
         openings.append(1.0 - bundles["share"])
+    for key in ("branding", "aesthetics"):
+        signal = hunt.get(key) or {}
+        if signal.get("measurable") and signal.get("share") is not None:
+            openings.append(signal["share"])
     if not openings:
         return None
     return round(sum(openings) / len(openings), 4)

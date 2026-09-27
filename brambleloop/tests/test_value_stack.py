@@ -110,6 +110,26 @@ def test_progress_milestones_state_a_number_a_maker_can_count():
     assert abs(marks[-1]["height_so_far_cm"] - twin.height_cm) < 1.0
 
 
+def test_flat_milestones_read_the_twins_per_row_height_rather_than_an_even_share():
+    """A dc row is taller than an sc row, so progress is not total * index / rows."""
+    import sys as _sys
+    from pathlib import Path as _P
+
+    _sys.path.insert(0, str(_P(__file__).resolve().parents[1]))
+    from tests import fixtures
+
+    cir = fixtures.good_mosaic_panel()
+    twin = build_twin(cir, compile_cir(cir))
+    progress = V.milestones(cir, twin)
+    assert progress["interpolated"] is False
+    for mark in progress["milestones"]:
+        assert mark["interpolated"] is False
+        assert mark["height_so_far_cm"] == round(twin.row_top_cm[mark["row"]], 1)
+    # Row 1 (sc) is shorter than a quarter of a panel whose later rows carry dc.
+    first = progress["milestones"][0]
+    assert first["height_so_far_cm"] < round(twin.height_cm * 1 / progress["rows_total"], 1) + 0.01
+
+
 def test_print_safety_is_measured_on_lightness_because_home_printers_are_greyscale():
     """A chart whose colours differ in hue but not in value prints as one flat block --
     unusable on exactly the copy a maker props open beside them."""

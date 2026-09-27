@@ -134,12 +134,17 @@ def digest_of(text: str) -> str:
 
 
 def record_snapshot(db, source: str, *, text: str, version: str = "",
-                    summary: str = "", checked_on: str = "") -> dict:
+                    summary: str = "", checked_on: str = "", read_by: str = "",
+                    basis: str = "") -> dict:
     """Record one reading of one policy, and say whether it changed materially.
 
     "Material" is decided by comparing digests against the previous snapshot of the same
     source rather than by judgement, because a judgement about whether a policy change
     matters is exactly the judgement somebody makes quickly at the end of a week.
+
+    Only the digest of `text` is stored, never the text: the snapshot proves which reading a
+    certificate rests on without keeping a copy of Etsy's page. `read_by` and `basis` say who
+    read it and how, and live in `detail`.
     """
     from sqlalchemy import select
 
@@ -147,6 +152,9 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
 
     if source not in POLICY_SOURCES:
         raise PolicyRefused(f"{source!r} is not a watched policy: {sorted(POLICY_SOURCES)}")
+    if not (text or "").strip():
+        raise PolicyRefused("an empty reading is not a reading: the digest of nothing proves "
+                            "nothing was read")
 
     url, affects = POLICY_SOURCES[source]
     new_digest = digest_of(text)
@@ -158,7 +166,8 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
         row = PolicySnapshot(
             source=source, url=url, checked_on=checked_on or date.today().isoformat(),
             version=version or date.today().isoformat(), digest=new_digest,
-            summary=summary, material_change=changed, affects=list(affects))
+            summary=summary, material_change=changed, affects=list(affects),
+            detail={"read_by": read_by, "basis": basis, "text_length": len(text)})
         s.add(row)
         s.flush()
         snapshot_id = row.id
@@ -166,6 +175,65 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
     return {"id": snapshot_id, "source": source, "digest": new_digest,
             "material_change": changed, "affects": list(affects),
             "first_reading": previous is None}
+
+
+PAGE_BASIS = "page"
+
+
+def record_page_reading(db, *, source: str, text: str, version: str = "", summary: str = "",
+                        read_by: str, checked_on: str = "",
+                        today: date | None = None) -> dict:
+    """An operator's reading of an Etsy policy page, recorded and acted on at once.
+
+    Etsy's bot protection refuses automated retrieval of these pages (recorded in
+    `gates.policy_knowledge.RETRIEVAL_BLOCK`), and this company does not evade it. A person
+    opening the page in their own browser, reading it and pasting what they read is not
+    evasion: it is the ordinary way a seller learns the rules, and it is the owner action the
+    policy incidents have been asking for. So this records that reading as a `page`-basis
+    snapshot, which supersedes the repository's excerpt reading of the same source, and
+    closes the open `policy_stale:<source>` incident immediately with the same fields the
+    watch uses -- but only when the reading is itself current. A reading older than
+    `MAX_AGE_DAYS` is recorded and the incident stays open, because recording an old page
+    is not the same as the policy being current.
+
+    The text is digested and never stored or logged.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident, utcnow
+
+    if not (read_by or "").strip():
+        raise PolicyRefused("a page reading must say who read it")
+    today = today or date.today()
+    checked = checked_on or today.isoformat()
+    try:
+        age = (today - date.fromisoformat(checked)).days
+    except ValueError as e:
+        raise PolicyRefused(f"checked_on {checked!r} is not an ISO date") from e
+    if age < 0:
+        raise PolicyRefused("a reading cannot be dated in the future")
+    res = record_snapshot(db, source, text=text, version=version or checked,
+                          summary=summary, checked_on=checked, read_by=read_by.strip(),
+                          basis=PAGE_BASIS)
+    resolved: list[int] = []
+    current = age <= MAX_AGE_DAYS
+    if current:
+        with db.session() as s:
+            for inc in s.scalars(select(Incident).where(
+                    Incident.resolved == False,  # noqa: E712
+                    Incident.signature == f"policy_stale:{source}")):
+                detail = dict(inc.detail or {})
+                detail["resolution"] = (
+                    f"{source} read on {checked} (version {version or checked}) by "
+                    f"{read_by.strip()} from the page itself; snapshot {res['id']}")
+                detail["resolved_at"] = utcnow().isoformat()
+                inc.detail = detail
+                inc.resolved = True
+                resolved.append(inc.id)
+    return {**res, "basis": PAGE_BASIS, "checked_on": checked, "age_days": age,
+            "current": current, "incidents_resolved": resolved,
+            "note": ("recorded; the incident stays open because the reading is older than "
+                     f"{MAX_AGE_DAYS} days" if not current else "recorded and current")}
 
 
 def freshness(db, *, today: date | None = None) -> dict:

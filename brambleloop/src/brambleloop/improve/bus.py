@@ -43,6 +43,11 @@ SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     # it is the one holding the competitive picture the territory has to survive.
     "cultural_territory": ("product_creativity", "market_radar", "seo_search", "portfolio"),
     "cultural_timing": ("market_radar", "growth", "portfolio", "product_creativity"),
+    # #85: jury feedback as training memory. Why concepts died is a creativity lesson first,
+    # and the same deaths tell Market Radar which arenas are crowded, Creative Assets which
+    # ideas do not survive the grid, and Search which premises read as generic.
+    "creative_rejection": ("product_creativity", "market_radar", "creative_assets",
+                           "seo_search"),
 }
 
 CONFIDENCE = ("observed", "measured", "confirmed")
@@ -120,8 +125,15 @@ def acted_on(db, lesson_id: int, cell: str, *, how: str = "") -> list[str]:
         return [e["cell"] for e in entries]
 
 
-def inbox(db, cell: str, *, unacted_only: bool = True) -> list[dict]:
-    """What this cell has been told and has not yet done anything about."""
+def inbox(db, cell: str, *, unacted_only: bool = True,
+          include_own: bool = False) -> list[dict]:
+    """What this cell has been told and has not yet done anything about.
+
+    `include_own` adds the lessons this cell published itself. Routing sends a lesson to the
+    *other* cells it concerns, which is right for distribution and wrong for memory: the
+    creative jury's autopsies originate in Creativity, and a brief that could not read them
+    would be a department forgetting its own rejections (#85).
+    """
     from sqlalchemy import select
 
     from ..core.models import Lesson
@@ -130,7 +142,8 @@ def inbox(db, cell: str, *, unacted_only: bool = True) -> list[dict]:
         rows = list(s.scalars(select(Lesson).where(Lesson.superseded_by.is_(None))))
     out = []
     for row in rows:
-        if cell not in (row.routed_to or []):
+        if cell not in (row.routed_to or []) and not (include_own
+                                                      and row.origin_cell == cell):
             continue
         acted = [e.get("cell") for e in (row.acted_on_by or [])]
         if unacted_only and cell in acted:
@@ -183,3 +196,38 @@ def compounding(db, *, stale_after_days: int = 30) -> dict:
                  f"{len(acted)} of {len(routed)} routed lessons changed something in the "
                  f"cell that received them."),
     }
+
+
+def brief_lessons(db, *, artifact: str, cell: str = "product_creativity",
+                  limit: int = 12) -> dict:
+    """The lessons a brief is assembled with, and the provenance record that it used them.
+
+    #101's test of compounding is that a later design can be shown to have drawn on what the
+    company learned, so reading the inbox is only half of it: the other half is
+    `roi.design_provenance`, written here. Written once per distinct set of lessons rather
+    than once per read, because a brief served on every page load would otherwise record a
+    hundred designs that are one design.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from . import roi
+
+    lessons = inbox(db, cell, unacted_only=False, include_own=True)
+    lessons.sort(key=lambda l: -int(l["id"]))
+    chosen = lessons[:limit]
+    ids = tuple(sorted(int(l["id"]) for l in chosen))
+    with db.session() as s:
+        last = s.scalar(select(AuditLog).where(
+            AuditLog.action == "design.provenance", AuditLog.artifact == artifact)
+            .order_by(desc(AuditLog.id)).limit(1))
+        last_ids = tuple(sorted((last.detail or {}).get("lesson_ids") or ())) if last else None
+    if last_ids == ids:
+        record = {"record_id": last.id, "recorded": False,
+                  "why": "this brief already recorded drawing on exactly these lessons"}
+    else:
+        out = roi.design_provenance(db, product_slug=artifact, lesson_ids=ids,
+                                    brief=f"{cell} brief")
+        record = {"record_id": out["record_id"], "recorded": True, "note": out["note"]}
+    return {"cell": cell, "lessons": chosen, "lesson_ids": list(ids),
+            "provenance": record}

@@ -259,7 +259,20 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
 
     fixtures = _capture_regressions(db, read, fixture_dir=fixture_dir)
 
-    total_read = len(read["incidents"]) + len(read["blocked"]) + len(read["dead"])
+    # The creative jury is a failure source too: every concept it killed died of something,
+    # and the Creativity Director keeps each recorded run's causes as a lesson (#85).
+    from ..creative.audit import creativity_director
+
+    director = creativity_director(db, since_audit_id=since["audit_id"])
+    for out in director["kept"]:
+        entry = {"lesson": out["lesson"], "kind": "jury_autopsy",
+                 "code": out.get("dominant_cause"), "evidence_ref": out["evidence_ref"],
+                 "members": 1, "reports": 1, "routed_to": out["routed_to"],
+                 "origin": "product_creativity"}
+        (published if out["lesson"] not in before else reused).append(entry)
+
+    total_read = (len(read["incidents"]) + len(read["blocked"]) + len(read["dead"])
+                  + director["runs_read"] + director["autopsies_read"])
     detail = {
         "at": now.isoformat(),
         "audit_id": read["newest_audit"], "job_id": read["newest_job"],
@@ -267,6 +280,7 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
         "read": total_read,
         "incidents": len(read["incidents"]), "blocked": len(read["blocked"]),
         "dead": len(read["dead"]),
+        "jury_runs": director["runs_read"], "jury_refused": director["refused"],
         "groups": len(groups),
         "found": len(published),
         "published": published, "reused": reused,
@@ -288,4 +302,5 @@ def state() -> dict:
         "publishes_through": "improve.bus.publish, idempotent on evidence_ref",
         "routes_by": "improve.bus.SUBJECT_ROUTING",
         "regression": "gates.regression.capture_from_incident when an incident carries a CIR",
+        "jury": "creative.audit.creativity_director keeps each recorded jury run as a lesson",
     }

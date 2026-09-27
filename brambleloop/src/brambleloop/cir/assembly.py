@@ -49,6 +49,24 @@ class Footprint:
     # Openings the construction makes inside this piece, by span length in cm. An armhole is
     # a slit, so what another piece sews into is its PERIMETER: twice the span.
     openings: tuple[float, ...] = ()
+    # The height of one row of this piece, in cm, when it is worked in flat rows. A join
+    # PLACED across rows a-b of a piece (a sleeve sewn to the body's side across the rows
+    # around the shoulder line) is as long as those rows, not as the whole edge.
+    row_cm: float | None = None
+
+    def placed_edge_cm(self, edge: str, spans_rows: int) -> float | None:
+        """The length of `spans_rows` rows of a side edge, or None where that has no meaning.
+
+        Rows stack along the edges that run across them: left/right on a piece whose grain
+        is "up", top/bottom on one worked "across". A placement on any other edge, or on a
+        piece not worked in flat rows, is not a length this can state.
+        """
+        if self.row_cm is None:
+            return None
+        along = ("left", "right") if self.grain == "up" else ("top", "bottom")
+        if edge not in along:
+            return None
+        return spans_rows * self.row_cm
 
     def edge_cm(self, edge: str) -> float | None:
         """The length of one named edge. `fold` is the across-axis; `perimeter` the whole."""
@@ -150,9 +168,12 @@ def footprint(component, twin, gauge=None) -> Footprint:
     if w is None or h is None:
         raise ValueError(f"{component.name}: no finished size, so it cannot be placed")
     across, up = (w, h) if component.grain == "up" else (h, w)
+    row_cm = None
+    if component.construction == "flat_rows" and component.rows:
+        row_cm = h / len(component.rows)
     return Footprint(piece=component.name, across_cm=across, up_cm=up,
                      grain=component.grain, copies=component.make,
-                     openings=openings_cm(component, gauge))
+                     openings=openings_cm(component, gauge), row_cm=row_cm)
 
 
 def assemble(cir, twins: dict) -> ObjectGeometry:
@@ -186,6 +207,11 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             join.why = "one of the pieces has no measured footprint"
         else:
             la, lb = fa.edge_cm(seam.edge_a), fb.edge_cm(seam.edge_b)
+            # A join placed across particular rows of piece_b runs along those rows only.
+            if seam.at_round is not None:
+                placed = fb.placed_edge_cm(seam.edge_b, seam.spans_rounds)
+                if placed is not None:
+                    lb = placed
             join.length_a_cm, join.length_b_cm = la, lb
             if la is None or lb is None:
                 join.why = "an edge name has no length on its piece"

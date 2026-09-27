@@ -453,6 +453,97 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             "attributes": attributes, "search_coverage": coverage.to_dict()}
 
 
+# ---- swarm stewardship and experiment registration -------------------------------------
+#
+# Thin handlers over `swarm.orchestrate` and `growth.experiments`, placed beside the listing
+# stage because the experiment pack is what a drafted listing launches with. All GREEN: they
+# read the database, write recommendations and records, reassign only pending work to agents
+# that already hold the permission, and enqueue only non-spending GREEN work.
+
+
+@handlers.register("swarm.review")
+def handle_swarm_review(ctx: JobContext) -> dict:
+    """#174: every agent's quality metric, read from job outcomes, against its retirement
+    condition. Recommends; never disables."""
+    from ..swarm.orchestrate import agent_quality
+
+    out = agent_quality(ctx.db)
+    ctx.audit("swarm.agent_review", detail={
+        "retire": out["retire"], "merge": out["merge"], "watch": out["watch"],
+        "unmeasured": len(out["unmeasured"]), "agents": len(out["agents"])})
+    return out
+
+
+@handlers.register("swarm.allocate")
+def handle_swarm_allocate(ctx: JobContext) -> dict:
+    """#175: fan-out per lane, bounded by `work_that_fits`, recorded and then acted on by
+    the idle backlog. Raises no ceiling and spends nothing."""
+    from ..swarm.orchestrate import allocate
+
+    out = allocate(ctx.db)
+    ctx.audit("swarm.allocation", detail={k: v for k, v in out.items() if k != "lanes"})
+    return {k: v for k, v in out.items() if k != "lanes"}
+
+
+@handlers.register("swarm.orphans")
+def handle_swarm_orphans(ctx: JobContext) -> dict:
+    """#176: work items from jobs, incidents and improvements; unowned work is reassigned
+    or raised as an incident with its evidence."""
+    from ..swarm.orchestrate import resolve_orphans
+
+    out = resolve_orphans(ctx.db)
+    for moved in out["reassigned"]:
+        ctx.audit("swarm.reassigned", artifact=f"job:{moved['ref']}", detail=moved)
+    ctx.audit("swarm.orphans", detail={
+        "work_items": out["work_items"], "orphans": len(out["orphans"]),
+        "reassigned": len(out["reassigned"]),
+        "incident_owners_assigned": len(out["incident_owners_assigned"]),
+        "surfaced": len(out["surfaced_as_incident"])})
+    return out
+
+
+@handlers.register("swarm.backlog")
+def handle_swarm_backlog(ctx: JobContext) -> dict:
+    """#186: when the queue is idle, enqueue the highest-value standing items the latest
+    allocation allows. Idempotent per window, bounded, GREEN-only, non-spending."""
+    from ..swarm.orchestrate import feed_idle
+
+    out = feed_idle(ctx.db, ctx.queue)
+    ctx.audit("swarm.backlog", detail={"idle": out["idle"],
+                                       "enqueued": [e["job_type"] for e in out["enqueued"]],
+                                       "skipped": len(out.get("skipped", []))})
+    return out
+
+
+@handlers.register("growth.experiments")
+def handle_growth_experiments(ctx: JobContext) -> dict:
+    """#241, #265: every drafted listing launches with a persisted, pre-registered pack.
+
+    With `slug` and `price_cad` in the inputs it registers that product; without, it
+    registers every drafted listing that has none. Registration is write-once, so re-running
+    is free and cannot move a threshold after the fact.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..growth.experiments import register_launch
+
+    i = dict(ctx.job.inputs or {})
+    if i.get("slug"):
+        targets = [(i["slug"], float(i.get("price_cad") or 0.0))]
+    else:
+        with ctx.db.session() as s:
+            targets = sorted({(r.product_slug, float(r.price_cad or 0.0))
+                              for r in s.scalars(select(Listing))})
+    results = [register_launch(ctx.db, product=slug, price_cad=price)
+               for slug, price in targets]
+    created = sum(r["created"] for r in results)
+    ctx.audit("growth.experiments_registered", detail={
+        "products": len(results), "created": created,
+        "killed": [k for r in results for k in r["killed"]],
+        "gated": sum(len(r["gated"]) for r in results)})
+    return {"products": len(results), "created": created, "results": results}
+
 def _lineage(ctx: JobContext, **overrides):
     """Who is making this artefact, from the job that is making it (#171).
 
@@ -1091,89 +1182,175 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
                     "recommendation": r["recommendation"]} for r in missed[:20]],
     })
 
-    # An at-risk window is the last one in which reallocating effort changes the outcome, so
-    # it is raised rather than logged. Missed windows are not incidents: #297 already decided
-    # what happens to them, and an incident per missed product every day is noise that trains
-    # everyone to ignore the channel.
-    if at_risk:
-        from ..core.models import Incident
-
-        soonest = min(at_risk, key=lambda r: r["days_to_latest"])
-        signature = f"seasonal.at_risk:{soonest['slug']}:{soonest['event']}"
-        with ctx.db.session() as s:
-            from sqlalchemy import select
-
-            existing = s.scalar(select(Incident).where(
-                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
-            if existing is None:
-                s.add(Incident(
-                    severity="P2", signature=signature,
-                    product_slug=soonest["slug"],
-                    summary=(f"{soonest['slug']} has {soonest['days_to_latest']} days of "
-                             f"runway left for {soonest['event']}: past its preferred launch "
-                             f"date and inside the last window where reallocating effort "
-                             f"still changes whether a customer can finish the object in "
-                             f"time. After the latest effective date the only honest options "
-                             f"are pivot, simplify or hold (#297)."),
-                    halts_publication=False,
-                    detail={"slug": soonest["slug"], "event": soonest["event"],
-                            "days_to_latest": soonest["days_to_latest"],
-                            "latest_effective_launch": soonest["latest_effective_launch"]},
-                ))
-
-    # #123: the collection calendar's dated commitments, checked on the same cadence. The
-    # launch-date work above answers "can a customer still finish this"; this answers "did
-    # the work that had to happen by now happen", which slips silently -- a phase that is
-    # late does not announce itself, it becomes the next phase.
-    from ..seasonal.calendar import collection_calendar
+    # Every detector below follows `ops.incident_lifecycle`: a condition that still holds is
+    # restated on its open row, and a condition that stopped holding is resolved with the
+    # sentence that says why. Signatures carry the event *and its year*, which is what lets
+    # tomorrow's run recognise today's row -- and what lets Halloween 2026 close when it
+    # passes instead of standing open as Halloween 2027.
+    from ..ops import incident_lifecycle as lifecycle
+    from ..seasonal.leadtime import next_occurrence, occasion_for
     from ..radar.market import SEASONAL_EVENTS
 
     today = _date.fromisoformat(as_of) if as_of else _date.today()
-    behind: list[dict] = []
-    for event in SEASONAL_EVENTS:
-        event_date = event.event_date
-        if event_date < today:
-            try:
-                event_date = event_date.replace(year=event_date.year + 1)
-            except ValueError:  # pragma: no cover - 29 February
+    plans = room["plans"]
+    plan_for = {(r["slug"], r["event"]): r for r in plans}
+
+    # ---- at risk ----------------------------------------------------------------------
+    # An at-risk window is the last one in which reallocating effort changes the outcome, so
+    # every at-risk (product, occasion) is raised -- not only the soonest, which opened one
+    # new row a day and closed none. Missed windows are not incidents: #297 already decided
+    # what happens to them, and the row that was at risk closes carrying that decision.
+    wanted = {f"seasonal.at_risk:{r['slug']}:{r['event']}:{r['event_year']}": r
+              for r in plans if r["status"] == "at_risk"}
+
+    def _at_risk_resolution(row) -> str:
+        parts = row.signature.split(":")
+        slug, event = (parts[1:3] + ["", ""])[:2]
+        year = parts[3] if len(parts) > 3 else None
+        current = plan_for.get((slug, event))
+        if current is None:
+            return (f"{slug} is not merchandised for {event} (its occasion is "
+                    f"{occasion_for(slug)}), so it has no {event} window to be at risk in. "
+                    f"The row was raised when every product was scheduled against every "
+                    f"event.")
+        key = f"seasonal.at_risk:{slug}:{event}:{current['event_year']}"
+        if year is None and key in wanted:
+            return f"re-keyed as {key}, which carries the event year; still open there."
+        if year is not None and str(current["event_year"]) != year:
+            return (f"the {event} {year} occurrence has passed; {slug} is now scheduled "
+                    f"for {event} {current['event_year']} ({current['status']}, "
+                    f"{current['days_to_latest']} days to its latest launch).")
+        if current["status"] == "missed":
+            nxt = current.get("next_window") or {}
+            return (f"missed for {event} {current['event_year']}: latest effective launch "
+                    f"{current['latest_effective_launch']} has passed. Recommendation: "
+                    f"{current['recommendation']} -- {current['because']}. Next window: "
+                    f"{event} {str(nxt.get('event_date', ''))[:4]}, preferred launch "
+                    f"{nxt.get('preferred_launch')}, latest {nxt.get('latest_effective_launch')}.")
+        return (f"no longer at risk: {current['status']} with {current['days_to_latest']} "
+                f"days to its latest launch ({current['latest_effective_launch']}).")
+
+    with ctx.db.session() as s:
+        at_risk_life = lifecycle.reconcile(
+            s, "seasonal.at_risk:", lambda row: row.signature in wanted,
+            resolution=_at_risk_resolution)
+        for signature, r in wanted.items():
+            if signature in at_risk_life["still_open"]:
                 continue
-        calendar = collection_calendar(event.name, event_date, today=today)
+            lifecycle.open_or_restate(
+                s, signature=signature, severity="P2", product_slug=r["slug"],
+                summary=(f"{r['slug']} has {r['days_to_latest']} days of runway left for "
+                         f"{r['event']} {r['event_year']}: past its preferred launch date "
+                         f"and inside the last window where reallocating effort still "
+                         f"changes whether a customer can finish the object in time. After "
+                         f"the latest effective date the only honest options are pivot, "
+                         f"simplify or hold (#297)."),
+                detail={"slug": r["slug"], "event": r["event"],
+                        "event_year": r["event_year"],
+                        "days_to_latest": r["days_to_latest"],
+                        "latest_effective_launch": r["latest_effective_launch"]})
+
+    # ---- collection calendar (#123) ---------------------------------------------------
+    # The launch-date work above answers "can a customer still finish this"; this answers
+    # "did the work that had to happen by now happen", which slips silently -- a phase that
+    # is late does not announce itself, it becomes the next phase.
+    #
+    # Milestone completion is read from audit evidence for the products that target the
+    # occasion, and a milestone due before the first such product existed is `preceded`
+    # rather than missed. An incident needs all three of: a milestone genuinely missed, a
+    # lane that can still reach a customer, and a product that targets the event. Without
+    # the last two there is nothing anybody could do about it this cycle.
+    from sqlalchemy import select as _select
+
+    from ..core.models import Product
+    from ..seasonal.calendar import (
+        MILESTONES, collection_calendar, heaviest_launchable_lane, milestone_evidence,
+    )
+
+    targets: dict[str, list[str]] = {}
+    for r in plans:
+        targets.setdefault(r["event"], [])
+        if r["slug"] not in targets[r["event"]]:
+            targets[r["event"]].append(r["slug"])
+    with ctx.db.session() as s:
+        created = {p.slug: p.created_at for p in s.scalars(_select(Product).where(
+            Product.slug.in_(sorted({x for v in targets.values() for x in v}) or [""])))}
+
+    behind: list[dict] = []
+    calendar_state: dict[str, dict] = {}
+    for event in SEASONAL_EVENTS:
+        event_date = next_occurrence(event.event_date, today)
+        slugs = targets.get(event.name, [])
+        births = [created[x] for x in slugs if created.get(x) is not None]
+        not_before = min(births).date() if births else None
+        completed = milestone_evidence(ctx.db, slugs=slugs, event_date=event_date,
+                                       today=today)
+        calendar = collection_calendar(event.name, event_date, today=today,
+                                       completed=completed, not_before=not_before)
+        lane = heaviest_launchable_lane((event_date - today).days, today=today)
+        calendar_state[event.name] = {"year": event_date.year, "targets": slugs,
+                                      "lane": lane, "on_schedule": calendar["on_schedule"]}
         if calendar["missed"]:
             behind.append({"event": event.name,
                            "event_date": event_date.isoformat(),
                            "missed": [m["milestone"] for m in calendar["missed"]],
+                           "done": sorted(completed),
+                           "targets": slugs,
+                           "heaviest_launchable_lane": lane,
+                           "raised": bool(slugs and lane),
                            "next_due": calendar["next_due"]})
 
-    if behind:
-        from sqlalchemy import select
+    raise_behind = {f"seasonal.calendar_behind:{b['event']}:{b['event_date'][:4]}": b
+                    for b in behind if b["raised"]}
 
-        from ..core.models import Incident
-        from ..seasonal.calendar import MILESTONES
+    def _calendar_resolution(row) -> str:
+        parts = row.signature.split(":")
+        event = parts[1] if len(parts) > 1 else ""
+        year = parts[2] if len(parts) > 2 else None
+        state = calendar_state.get(event)
+        if state is None:
+            return f"{event} is no longer on the seasonal calendar."
+        key = f"seasonal.calendar_behind:{event}:{state['year']}"
+        if year is None and key in raise_behind:
+            return f"re-keyed as {key}, which carries the event year; still open there."
+        if year is not None and str(state["year"]) != year:
+            return f"the {event} {year} occurrence has passed."
+        if not state["targets"]:
+            return (f"no certified product is merchandised for {event}, so there is no "
+                    f"collection whose milestones could slip. The row was raised from dates "
+                    f"alone, including milestones due before this company existed.")
+        if not state["lane"]:
+            return (f"no product lane can still reach a customer for {event} "
+                    f"{state['year']}; the remaining work is next year's, which the "
+                    f"compression programme carries.")
+        return (f"{event} {state['year']} is on schedule: every milestone due so far has "
+                f"audit evidence or fell before the first product for it existed.")
 
-        # One incident for the worst-affected event rather than one per missed milestone:
-        # eight rows about one Christmas is the noise that trains everybody to close the
-        # channel, and the event is the unit somebody can actually act on.
-        worst = max(behind, key=lambda b: len(b["missed"]))
-        signature = f"seasonal.calendar_behind:{worst['event']}"
-        with ctx.db.session() as s:
-            existing = s.scalar(select(Incident).where(
-                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
-            if existing is None:
-                s.add(Incident(
-                    severity="P2", signature=signature,
-                    summary=(f"{worst['event']}: {len(worst['missed'])} of "
-                             f"{len(MILESTONES)} collection milestones are already past "
-                             f"({', '.join(worst['missed'][:3])}). A missed date is a "
-                             f"portfolio failure rather than a scheduling detail, and the "
-                             f"failure is silent -- a phase that slips becomes the next "
-                             f"phase, and the first visible symptom is a product that lists "
-                             f"in December (#123)."),
-                    halts_publication=False,
-                    detail={"behind": behind, "as_of": today.isoformat()}))
+    with ctx.db.session() as s:
+        calendar_life = lifecycle.reconcile(
+            s, "seasonal.calendar_behind:", lambda row: row.signature in raise_behind,
+            resolution=_calendar_resolution)
+        for signature, b in raise_behind.items():
+            if signature in calendar_life["still_open"]:
+                continue
+            lifecycle.open_or_restate(
+                s, signature=signature, severity="P2",
+                summary=(f"{b['event']} {b['event_date'][:4]}: {len(b['missed'])} of "
+                         f"{len(MILESTONES)} collection milestones are already past with no "
+                         f"evidence ({', '.join(b['missed'][:3])}) while "
+                         f"{', '.join(b['targets'][:3])} target it and a "
+                         f"{b['heaviest_launchable_lane']} product can still reach a "
+                         f"customer. A missed date is a portfolio failure rather than a "
+                         f"scheduling detail, and the failure is silent -- a phase that "
+                         f"slips becomes the next phase, and the first visible symptom is a "
+                         f"product that lists in December (#123)."),
+                detail={"behind": [b], "as_of": today.isoformat()})
 
     ctx.audit("seasonal.calendar_checked", detail={
         "as_of": today.isoformat(),
         "events_behind": [b["event"] for b in behind],
+        "events_raised": sorted(b["event"] for b in behind if b["raised"]),
+        "resolved": calendar_life["resolved"],
         "events_checked": len(SEASONAL_EVENTS)})
 
     # The compression programme for every priority occasion, recomputed on the same cadence.
@@ -1183,19 +1360,28 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
     # recorded as a transition, because "FLAGSHIP closed today" is the sentence a reader
     # needs and "FLAGSHIP is closed" is the one they will misread a fortnight later.
     from ..seasonal import uncertainty
-    from ..seasonal.compression import priority_shares, programme
+    from ..seasonal.compression import (
+        PREPARATION_EVIDENCE, preparation_started, priority_shares, programme,
+    )
 
+    occurrence = {e.name: next_occurrence(e.event_date, today) for e in SEASONAL_EVENTS}
     samples = uncertainty.sample_count(ctx.db)
     programmes = []
     overdue_prep: list[dict] = []
+    started_by_event: dict[str, dict] = {}
     for name in priority_shares()["shares"]:
         try:
-            plan = programme(name, today=today, samples=samples)
+            when = occurrence.get(name)
+            started = (preparation_started(ctx.db, event_date=when, today=today)
+                       if when else {})
+            started_by_event[name] = started
+            plan = programme(name, today=today, samples=samples, started=started)
         except Exception as exc:  # noqa: BLE001 - a calendar fault must not stop the sentinel
             ctx.audit("seasonal.compression_failed",
                       detail={"event": name, "error": str(exc)[:300]})
             continue
-        late = [row for row in plan["preparation"] if row["overdue"]]
+        late = [dict(row, event=name, event_year=plan["event_date"][:4])
+                for row in plan["preparation"] if row["overdue"]]
         overdue_prep.extend(late)
         programmes.append({
             "event": name, "days_away": plan["days_away"], "mode": plan["mode"]["mode"],
@@ -1204,30 +1390,65 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
             "retired_classes": [r["lane"] for r in plan["retired_classes"]],
             "departments": [a["department"] for a in plan["arenas"]],
             "capacity_share": plan["capacity"]["share"],
+            "preparation_started": started,
             "overdue_preparation": [f"{r['lane']}:{r['stream']}" for r in late][:10],
         })
         ctx.audit("seasonal.compression", detail=programmes[-1])
 
-    if overdue_prep:
-        from sqlalchemy import select
+    # One row per (occasion, year, stream): the lanes a stream serves share one start --
+    # the earliest -- and one piece of evidence starts it for all of them.
+    prep_rows: dict[str, list[dict]] = {}
+    for row in overdue_prep:
+        prep_rows.setdefault(
+            f"seasonal.preparation_late:{row['event']}:{row['event_year']}:{row['stream']}",
+            []).append(row)
 
-        from ..core.models import Incident
+    def _prep_resolution(row) -> str:
+        parts = row.signature.split(":")
+        if len(parts) == 3:  # the old shape: lane:stream, with no event in it
+            stream = parts[2]
+            open_now = [k for k in prep_rows if k.endswith(f":{stream}")]
+            if open_now:
+                return (f"re-keyed with the event and year as {', '.join(open_now)}; the "
+                        f"old signature named a lane and no occasion, so it could never "
+                        f"close.")
+        else:
+            stream = parts[-1]
+        event = parts[1] if len(parts) == 5 else None
+        year = parts[2] if len(parts) == 5 else None
+        if event and year and occurrence.get(event) and str(occurrence[event].year) != year:
+            return f"the {event} {year} occurrence has passed."
+        for name, started in started_by_event.items():
+            if event and name != event:
+                continue
+            if started.get(stream):
+                return (f"{stream} has started: "
+                        f"{'/'.join(PREPARATION_EVIDENCE.get(stream, ()))} recorded on "
+                        f"{started[stream]}.")
+        return (f"{stream} is no longer overdue for any open lane"
+                + (f" of {event} {year}" if event else "") + ".")
 
-        soonest = min(overdue_prep, key=lambda r: r["days_until"])
-        signature = f"seasonal.preparation_late:{soonest['lane']}:{soonest['stream']}"
-        with ctx.db.session() as s:
-            existing = s.scalar(select(Incident).where(
-                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
-            if existing is None:
-                s.add(Incident(
-                    severity="P3", signature=signature,
-                    summary=(f"{soonest['stream']} for the {soonest['lane']} lane should "
-                             f"have started {abs(soonest['days_until'])} days ago. "
-                             f"{soonest['why']} A product ready on its launch date is late: "
-                             f"indexing is not instant, and a listing nobody can find is "
-                             f"not a launch."),
-                    halts_publication=False,
-                    detail={"overdue": overdue_prep[:20], "as_of": today.isoformat()}))
+    with ctx.db.session() as s:
+        prep_life = lifecycle.reconcile(
+            s, "seasonal.preparation_late:", lambda row: row.signature in prep_rows,
+            resolution=_prep_resolution)
+        for signature, rows in prep_rows.items():
+            if signature in prep_life["still_open"]:
+                continue
+            first = min(rows, key=lambda r: r["days_until"])
+            lifecycle.open_or_restate(
+                s, signature=signature, severity="P3",
+                summary=(f"{first['stream']} for {first['event']} {first['event_year']} "
+                         f"({', '.join(sorted({r['lane'] for r in rows}))}) should have "
+                         f"started {abs(first['days_until'])} days ago and nothing shows it "
+                         f"has ({'/'.join(first['started_evidence'])}). {first['why']} A "
+                         f"product ready on its launch date is late: indexing is not "
+                         f"instant, and a listing nobody can find is not a launch."),
+                detail={"overdue": rows[:20], "as_of": today.isoformat()})
+
+    ctx.audit("seasonal.incidents_reconciled", detail={
+        "at_risk": at_risk_life, "calendar_behind": calendar_life,
+        "preparation_late": prep_life})
 
     return {"products_scheduled": room["products_scheduled"], "counts": counts,
             "at_risk": len(at_risk), "missed": len(missed),
@@ -2305,10 +2526,12 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
 
     GREEN: it reads rows, writes an audit record and queues nothing that promotes itself.
     """
+    from datetime import timezone
+
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog, CapabilityPoint, ConfigVersion, Lesson
-    from ..improve import bootstrap, freshness, mine, nightly, profiles
+    from ..improve import bootstrap, freshness, measure, mine, nightly, profiles
 
     def _aware(value):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
@@ -2324,16 +2547,20 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
 
     results = []
 
-    # INGEST reads the evidence `improve.measure` wrote: every capability point, and the ones
-    # recorded since the previous sweep are what was found. Twelve empty sources read as
-    # zero and `did_not_run`, which is the honest reading of a company nothing has measured.
+    # INGEST measures every cell first (an identical reading is not re-recorded, so this and
+    # the daily improve.measure cadence cannot double-count), then reads every capability
+    # point; the ones recorded since the previous sweep are what was found. Twelve empty
+    # sources read as zero and `did_not_run`, the honest reading of an unmeasured company.
+    measured = measure.record_all(ctx.db)
     with ctx.db.session() as session:
         points = [(p.cell, _aware(p.at), (p.detail or {}).get("from", ""))
                   for p in session.scalars(select(CapabilityPoint))]
     fresh = [p for p in points if previous_at is None or p[1] > previous_at]
     results.append(nightly.stage_ran(
-        nightly.INGEST, read=len(points), found=len(fresh),
+        nightly.INGEST, read=len(points) + measured["read"], found=len(fresh),
         cells_measured=sorted({cell for cell, _at, _src in fresh}),
+        measured_tonight=[r["cell"] for r in measured["recorded"]],
+        not_measurable={k: v["reason"] for k, v in measured["skipped"].items()},
         sources=sorted({src for _c, _at, src in fresh if src})))
 
     # MINE reads the failures -- unresolved incidents, gate and asset refusals, dead letters
@@ -2413,13 +2640,21 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
     architecture half proposes nothing on its own here -- it reports what the freshness sweep
     and the velocity review found, and a week that only added would be asked why.
 
-    GREEN: it reads rows and writes an audit record.
+    It also acts (#100, #192). The retirement review runs over the cells' own records and
+    its merge/retire recommendations are the architecture changes the cycle judges -- never
+    applied here, because retiring a department is the owner's decision. And the approved,
+    tested, lowest-risk improvements are executed through `cells.promote` with its tier
+    limits; everything else is queued for the authority its tier names.
+
+    GREEN: reads rows, may promote a scoring-tier change an independent judge approved,
+    writes an audit record. Spends nothing.
     """
     from sqlalchemy import func, select
 
     from ..core.models import (AuditLog, CapabilityPoint, Incident, Job, JobStatus,
                                LedgerEntry, PatternVersion, SupportCase)
-    from ..improve import freshness, roi, weekly
+    from ..improve import director, freshness, roi, weekly
+    from ..swarm.orchestrate import retirement_review
 
     readings = []
     with ctx.db.session() as session:
@@ -2456,11 +2691,37 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
             ("cost", ledger, 0)):
         readings.append(weekly.DomainReading(domain=domain, read=read, findings=found))
 
-    cycle = weekly.cycle(readings, [])
-    plan = weekly.roadmap(cycle)
+    # #192: the retirement review over the cells' own records, fed to the cycle as the
+    # architecture changes it has to judge. Recommendations only: nothing is retired here.
+    candidates = director.retirement_candidates(ctx.db)
+    review = retirement_review(candidates["cells"])
+    changes = [weekly.ArchitectureChange(
+                   move=weekly.RETIRE, subject=r["cell"], proposed_by="improvement_director",
+                   because=(f"{r['reason']}; preserve {len(r['preserve'])} lesson(s) "
+                            f"before any retirement"))
+               for r in review["retire"]]
+    changes += [weekly.ArchitectureChange(
+                    move=weekly.MERGE, subject=r["cell"], proposed_by="improvement_director",
+                    because=(f"{r['reason']}, into {r['into']}; preserve "
+                             f"{len(r['preserve'])} lesson(s) first"))
+                for r in review["merge"]]
+    cycle = weekly.cycle(readings, changes)
+
+    # #100: execute what is approved, tested and low-risk; queue the rest for authority.
+    executed = director.execute_approved(ctx.db)
+    plan = weekly.roadmap(cycle, carried=[
+        {"improvement": q["improvement"], "cell": q["cell"], "waiting_for": q["authority"],
+         "why": q["why"]} for q in executed["queued_for_authority"]])
     realised = roi.realised_benefit(ctx.db)
     detail = {"complete": cycle["complete"], "not_audited": cycle["not_audited"],
               "total_read": cycle["total_read"], "total_findings": cycle["total_findings"],
+              "architecture": cycle["architecture"],
+              "retirement_review": {"keep": review["keep"], "merge": review["merge"],
+                                    "retire": review["retire"],
+                                    "waiting_for_data": candidates["waiting_for_data"]},
+              "executed": executed["executed"],
+              "queued_for_authority": executed["queued_for_authority"],
+              "conflicts": director.conflicts(ctx.db),
               "roadmap": plan,
               "realised_benefit": {k: realised[k] for k in
                                    ("promotions", "assessed", "spent_cad", "hit_rate")}}
@@ -2484,13 +2745,15 @@ def handle_capability_measure(ctx: JobContext) -> dict:
     from ..improve import measure
 
     out = measure.record_all(ctx.db)
-    detail = {"recorded": out["recorded"], "skipped": out["skipped"],
+    detail = {"recorded": out["recorded"], "repeated": out["repeated"],
+              "skipped": out["skipped"],
               "read": out["read"], "found": out["found"], "cells": out["cells"],
               "note": out["note"]}
     ctx.audit("improve.measure", detail=detail)
     return {"ran": True, "measured": out["found"], "of": out["cells"],
             "read": out["read"],
             "cells": [r["cell"] for r in out["recorded"]],
+            "repeated": out["repeated"],
             "skipped": {k: v["reason"] for k, v in out["skipped"].items()}}
 
 
@@ -2532,6 +2795,7 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
     out = monitor.sweep(ctx.db)
     return {"ran": True, "promoted": out["promoted"], "judged": out["judged"],
             "held": len(out["held"]), "reverted": [r["improvement"] for r in out["reverted"]],
+            "rollback_proposals": [r["rollback"]["incident"] for r in out["reverted"]],
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
@@ -2561,10 +2825,11 @@ def handle_health_sweep(ctx: JobContext) -> dict:
     incidents, and spends nothing.
     """
     import os
+    from datetime import datetime, timezone
 
     from sqlalchemy import desc, select
 
-    from ..core.models import AuditLog, Incident
+    from ..core.models import AuditLog
     from ..ops import health
 
     with ctx.db.session() as session:
@@ -2602,28 +2867,45 @@ def handle_health_sweep(ctx: JobContext) -> dict:
     }
     ctx.audit("ops.health", detail=detail)
 
+    # A health incident closes when its signal reads healthy again, and says what it read.
+    # Before this, `health:<signal>` rows were opened on persistence and never closed, so a
+    # signal that recovered stayed "bad for three sweeps" on the incident page indefinitely.
+    from ..ops import incident_lifecycle
+
+    by_signal = {r.signal: r for r in readings}
     raised = []
     with ctx.db.session() as session:
+        def _still_bad(row) -> bool:
+            reading = by_signal.get(row.signature.split(":", 1)[-1])
+            # A signal this sweep did not read at all is not evidence of recovery.
+            return reading is None or reading.bad
+
+        def _recovered(row) -> str:
+            reading = by_signal[row.signature.split(":", 1)[-1]]
+            return (f"{reading.signal} read {reading.state} on the sweep at "
+                    f"{datetime.now(timezone.utc).isoformat()}"
+                    + (f": {reading.why}" if reading.why else "")
+                    + f" (evidence: {reading.evidence})")
+
+        life = incident_lifecycle.reconcile(session, "health:", _still_bad,
+                                            resolution=_recovered)
         for signal in persistence["persistent"]:
             signature = f"health:{signal}"
-            existing = session.scalar(select(Incident)
-                                      .where(Incident.signature == signature)
-                                      .where(Incident.resolved.is_(False)))
-            if existing is not None:
+            if signature in life["still_open"]:
                 continue
-            reading = next((r for r in readings if r.signal == signal), None)
-            session.add(Incident(
-                signature=signature, product_slug=None, severity="P1",
-                halts_publication=False,
+            reading = by_signal.get(signal)
+            incident_lifecycle.open_or_restate(
+                session, signature=signature, severity="P1",
                 summary=(f"{signal} has been bad for "
-                         f"{health.ESCALATE_AFTER_SWEEPS} consecutive sweeps")[:500],
+                         f"{health.ESCALATE_AFTER_SWEEPS} consecutive sweeps"),
                 detail={"signal": signal,
                         "reading": reading.to_dict() if reading else None,
                         "consecutive": persistence["consecutive"].get(signal),
                         "escalation": [e for e in remediation["must_escalate"]
-                                       if e["signal"] == signal]}))
+                                       if e["signal"] == signal]})
             raised.append(signature)
     detail["escalated"] = raised
+    detail["recovered"] = life["resolved"]
     return detail
 
 

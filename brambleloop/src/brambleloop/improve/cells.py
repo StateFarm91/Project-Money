@@ -132,7 +132,8 @@ def latest_capability(db, cell: str) -> float | None:
 
 def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
             rollback_ref: str, touches: tuple[str, ...] = (), reversible: bool = True,
-            spend_cad: float = 0.0, spend_authorised_cad: float = 5.0) -> int:
+            spend_cad: float = 0.0, spend_authorised_cad: float = 5.0,
+            proposed_by: str = "") -> int:
     """Record a hypothesis, with its baseline taken now.
 
     The baseline is captured at proposal time on purpose. Taking it after the change means
@@ -163,7 +164,8 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
                           baseline_ref=f"capability:{cell}:{len(capability_history(db, cell))}",
                           expected_effect=expected_effect, rollback_ref=rollback_ref,
                           cost_cad=spend_cad,
-                          evidence={"touches": list(touches)})
+                          evidence={"touches": list(touches),
+                                    **({"proposed_by": proposed_by} if proposed_by else {})})
         s.add(row)
         s.flush()
         return row.id
@@ -181,7 +183,8 @@ def test_result(db, improvement_id: int, value: float, *, evidence: dict | None 
             raise ImprovementRefused(
                 f"improvement {improvement_id} is {row.state}, not awaiting a result")
         row.result_value = float(value)
-        row.evidence = {**(row.evidence or {}), **(evidence or {})}
+        row.evidence = {**(row.evidence or {}), **(evidence or {}),
+                        "decided_at": datetime.now(timezone.utc).isoformat()}
 
         cell = BY_KEY[row.cell]
         if row.baseline_value is None:
@@ -205,8 +208,45 @@ def test_result(db, improvement_id: int, value: float, *, evidence: dict | None 
         return row.state
 
 
+def approve(db, improvement_id: int, *, approved_by: str, why: str = "") -> dict:
+    """An independent judge's approval of a tested change. Never the proposer's own (#85, #179).
+
+    The author of a change has necessarily been thinking about the cases it handles well, so
+    an approval from the proposer is refused, and a meta-agent role may approve only if it
+    holds the judging power. Approval is recorded evidence, not promotion: the tier, its
+    cooldown and its ceiling still decide whether and when the change may land.
+    """
+    from ..core.models import Improvement
+    from . import roles
+
+    who = (approved_by or "").strip()
+    if not who:
+        raise ImprovementRefused("an approval names who approved")
+    if who in roles.BY_KEY and roles.JUDGE not in roles.BY_KEY[who].powers:
+        raise ImprovementRefused(
+            f"{who} may not approve: its powers are {list(roles.BY_KEY[who].powers)} and "
+            f"approving is judging")
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        if row.state != TESTING:
+            raise ImprovementRefused(
+                f"improvement {improvement_id} is {row.state!r}; only a change that beat its "
+                f"baseline in the sandbox can be approved")
+        proposer = (row.evidence or {}).get("proposed_by") or ""
+        if proposer and proposer == who:
+            raise ImprovementRefused(
+                f"{who} proposed improvement {improvement_id} and may not approve it. The "
+                f"proposing agent may not be the judge of its own change")
+        row.evidence = {**(row.evidence or {}), "approved_by": who,
+                        "approved_because": why,
+                        "approved_at": datetime.now(timezone.utc).isoformat()}
+    return {"improvement": improvement_id, "approved_by": who, "proposed_by": proposer}
+
+
 def promote(db, improvement_id: int, *,
-            evidence: tuple[str, ...] = ()) -> str:
+            evidence: tuple[str, ...] = (), promoted_by: str = "") -> str:
     """Apply a tested improvement. Refuses anything that was not actually shown to be better.
 
     Also refuses anything that outruns its risk tier (#178). Learning may happen as fast as
@@ -230,6 +270,35 @@ def promote(db, improvement_id: int, *,
             raise ImprovementRefused("cannot promote without a rollback path (#93)")
         touches = tuple((row.evidence or {}).get("touches") or ())
         carried = _evidence_kinds(row, extra=evidence)
+        proposer = (row.evidence or {}).get("proposed_by") or ""
+        approver = (row.evidence or {}).get("approved_by") or ""
+
+    # Separation of duties. A change with a recorded proposer is promoted by somebody else,
+    # named, and never on its own proposer's approval: an agent promoting its own unproven
+    # change is the unsupervised rewriting #178 forbids, arriving through the front door.
+    if proposer:
+        if not promoted_by:
+            raise ImprovementRefused(
+                f"improvement {improvement_id} was proposed by {proposer!r}; its promotion "
+                f"has to name who is promoting it, so that it can be shown not to be them")
+        if promoted_by == proposer:
+            raise ImprovementRefused(
+                f"{proposer!r} proposed improvement {improvement_id} and may not promote it. "
+                f"The proposing agent may not be the judge of its own change")
+        if approver == proposer:  # pragma: no cover - approve() already refuses this
+            raise ImprovementRefused("a change approved by its own proposer is unapproved")
+
+    # The Improvement Director (#91): two cells optimising the same surface, or metrics
+    # that trade against each other, promote neither until the conflict is resolved.
+    from . import director
+
+    director.detect(db)
+    blocking = director.blocking(db, improvement_id)
+    if blocking:
+        raise ImprovementRefused(
+            f"improvement {improvement_id} is in an unresolved conflict with "
+            f"{blocking['with']}: {blocking['why']}. Neither side is promoted until the "
+            f"Improvement Director's conflict is resolved")
 
     if not touches:
         raise ImprovementRefused(
@@ -246,7 +315,8 @@ def promote(db, improvement_id: int, *,
         row.state = PROMOTED
         row.promoted_at = datetime.now(timezone.utc)
         row.evidence = {**(row.evidence or {}), "tier": graded["tier"],
-                        "tier_evidence": graded["satisfied"]}
+                        "tier_evidence": graded["satisfied"],
+                        **({"promoted_by": promoted_by} if promoted_by else {})}
         cell, result_value = row.cell, row.result_value
 
     tiers.record_promotion(db, tier=graded["tier"],
@@ -299,18 +369,28 @@ def monitor(db, improvement_id: int, observed: float) -> dict:
             degraded = observed < expected * (1 - REGRESSION_TOLERANCE)
         else:
             degraded = observed > expected * (1 + REGRESSION_TOLERANCE)
+        # Below the baseline captured before the change is a regression whatever the
+        # tolerance says: the change is now worse than not having made it.
+        baseline = row.baseline_value
+        below_baseline = baseline is not None and (
+            observed < baseline if cell.higher_is_better else observed > baseline)
+        degraded = degraded or below_baseline
 
         if degraded:
             row.state = REVERTED
             row.reverted_at = datetime.now(timezone.utc)
             row.evidence = {**(row.evidence or {}),
                             "reverted_because": (
-                                f"observed {observed} against {expected} at promotion, "
-                                f"outside the {REGRESSION_TOLERANCE:.0%} tolerance"),
+                                f"observed {observed} against {expected} at promotion and "
+                                f"{baseline} at baseline: "
+                                + ("worse than the baseline captured before the change"
+                                   if below_baseline else
+                                   f"outside the {REGRESSION_TOLERANCE:.0%} tolerance")),
                             "rollback_ref": row.rollback_ref}
             outcome = {"improvement": improvement_id, "state": REVERTED,
                        "action": "reverted", "rollback_ref": row.rollback_ref,
-                       "observed": observed, "expected": expected}
+                       "observed": observed, "expected": expected, "baseline": baseline,
+                       "below_baseline": below_baseline}
         else:
             outcome = {"improvement": improvement_id, "state": PROMOTED, "action": "held",
                        "observed": observed, "expected": expected}
@@ -359,6 +439,15 @@ def retrospective(db, *, days: int = 7) -> dict:
     regressed = [k for k, v in moved.items() if v["direction"] == "regressed"]
     unmeasured = [c.key for c in CELLS if not any(p.cell == c.key for p in points)]
 
+    # #100's remaining clauses, each computed from rows by the Improvement Director rather
+    # than written up: experiments that reached a verdict and the ones killed, what to stop
+    # doing, and the upgrades nearest to landing.
+    from . import director
+
+    ran = director.experiments(db, days=days)
+    lessons_learned = [{"id": r.id, "subject": r.subject, "from": r.origin_cell,
+                        "statement": r.statement[:200]} for r in lessons]
+
     return {
         "window_days": days,
         "improvements_by_state": by_state,
@@ -368,6 +457,15 @@ def retrospective(db, *, days: int = 7) -> dict:
         "regressed_cells": regressed,
         "unmeasured_cells": unmeasured,
         "lessons_recorded": len(lessons),
+        "learned": lessons_learned,
+        "experiments_completed": ran["completed"],
+        "experiments_killed": ran["killed"],
+        "stop_doing": director.stop_doing(db),
+        "top_next_upgrades": director.next_upgrades(db),
+        "department_health": {c.key: (moved.get(c.key, {}).get("direction")
+                                      or ("unmeasured" if c.key in unmeasured
+                                          else "one reading"))
+                              for c in CELLS},
         # #104's clause, run rather than described. A retrospective is where a plateau has
         # to arrive: it is the weekly moment somebody reads, and a defect that only exists
         # when queried does not exist.

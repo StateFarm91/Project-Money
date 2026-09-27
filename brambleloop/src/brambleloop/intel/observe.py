@@ -356,12 +356,113 @@ def _open_gaps(db, benchmark_key: str) -> list[str]:
     return opened
 
 
+# ---------------------------------------------------------------------------
+# #313: the scan interval follows the benchmark shop's own posting behaviour
+
+# The fixed interval this replaces, and the one used whenever history is too thin to adapt.
+FIXED_INTERVAL_SECONDS = 6 * 60 * 60
+# Bounds. The floor is courtesy to a sanctioned API and the cost of a scan that finds nothing;
+# the ceiling is how stale the named benchmark is ever allowed to get.
+ADAPTIVE_FLOOR_SECONDS = 2 * 60 * 60
+ADAPTIVE_CEILING_SECONDS = 24 * 60 * 60
+# Posting events needed, and the span they must cover, before the history is believed.
+MIN_POSTING_EVENTS = 4
+MIN_HISTORY_DAYS = 7
+# Scans per mean posting gap. Four means a new listing waits on average an eighth of the gap.
+SAMPLES_PER_POSTING_GAP = 4
+# A run this close to due counts as due, so window jitter cannot skip a whole period.
+DUE_TOLERANCE = 0.95
+
+
+def _aware(value):
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def adaptive_interval(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+                      now: datetime | None = None) -> dict:
+    """How often to scan, from when the benchmark shop actually posts (#313).
+
+    Posting history is read from `BenchmarkObservation` rows the scan itself writes: each
+    non-baseline scan that found a new or materially changed listing is one posting event.
+    The mean gap between events, divided by SAMPLES_PER_POSTING_GAP and clamped to
+    [floor, ceiling], is the interval. With fewer than MIN_POSTING_EVENTS events or less than
+    MIN_HISTORY_DAYS of history the interval is the fixed six hours, and the reason says so:
+    adapting to three data points is a guess with a formula attached.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkObservation
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        rows = [(_aware(r.at), r.detail or {}) for r in s.scalars(
+            select(BenchmarkObservation).where(
+                BenchmarkObservation.benchmark_key == benchmark_key,
+                BenchmarkObservation.kind == "official_api_read")
+            .order_by(BenchmarkObservation.at))]
+
+    scans = [at for at, _d in rows]
+    events = [at for at, d in rows
+              if not d.get("baseline")
+              and any(c.get("what") in ("new listing", "materially changed")
+                      for c in (d.get("changes") or []))]
+    last_scan = scans[-1] if scans else None
+    base = {"benchmark": benchmark_key, "scans": len(scans), "posting_events": len(events),
+            "last_scan_at": last_scan.isoformat() if last_scan else None,
+            "floor_seconds": ADAPTIVE_FLOOR_SECONDS,
+            "ceiling_seconds": ADAPTIVE_CEILING_SECONDS}
+
+    span_days = ((events[-1] - events[0]).total_seconds() / 86400) if len(events) > 1 else 0
+    if len(events) < MIN_POSTING_EVENTS or span_days < MIN_HISTORY_DAYS:
+        return {**base, "adaptive": False, "interval_seconds": FIXED_INTERVAL_SECONDS,
+                "reason": (f"history too thin to adapt: {len(events)} posting event(s) over "
+                           f"{span_days:.1f} days, against at least {MIN_POSTING_EVENTS} "
+                           f"over {MIN_HISTORY_DAYS} days. Using the fixed "
+                           f"{FIXED_INTERVAL_SECONDS // 3600}-hour interval")}
+
+    gaps = [(b - a).total_seconds() for a, b in zip(events, events[1:])]
+    mean_gap = sum(gaps) / len(gaps)
+    raw = mean_gap / SAMPLES_PER_POSTING_GAP
+    interval = int(min(ADAPTIVE_CEILING_SECONDS, max(ADAPTIVE_FLOOR_SECONDS, raw)))
+    bound = ("floor" if raw < ADAPTIVE_FLOOR_SECONDS else
+             "ceiling" if raw > ADAPTIVE_CEILING_SECONDS else "none")
+    return {**base, "adaptive": True, "interval_seconds": interval,
+            "mean_posting_gap_hours": round(mean_gap / 3600, 2), "bounded_by": bound,
+            "reason": (f"the shop posted {len(events)} times over {span_days:.1f} days, a "
+                       f"mean of {mean_gap / 3600:.1f} hours apart; scanning "
+                       f"{SAMPLES_PER_POSTING_GAP} times per gap gives "
+                       f"{interval / 3600:.1f} hours"
+                       + (f" (held at the {bound})" if bound != "none" else ""))}
+
+
+def scan_due(db, *, benchmark_key: str = benchmarks.MJS_KEY,
+             now: datetime | None = None) -> dict:
+    """Whether the adaptive interval has elapsed since the last recorded scan."""
+    now = now or datetime.now(timezone.utc)
+    cadence = adaptive_interval(db, benchmark_key=benchmark_key, now=now)
+    last = cadence["last_scan_at"]
+    if last is None:
+        return {"due": True, "why": "no scan has been recorded", "cadence": cadence}
+    elapsed = (now - datetime.fromisoformat(last)).total_seconds()
+    due = elapsed >= cadence["interval_seconds"] * DUE_TOLERANCE
+    return {"due": due, "elapsed_seconds": int(elapsed), "cadence": cadence,
+            "why": (f"{elapsed / 3600:.1f} hours since the last scan against an interval of "
+                    f"{cadence['interval_seconds'] / 3600:.1f}")}
+
+
 def scan_or_explain(db, *, env: dict[str, str] | None = None,
-                    transport=None, **kwargs) -> dict:
+                    transport=None, adaptive: bool = True, now: datetime | None = None,
+                    **kwargs) -> dict:
     """Run a scan, or say precisely why one could not run (#224).
 
     An unconfigured credential is not a failure to report as an outage. It is the mandate
     being unmet for a stated reason, which is what the requirement asks for.
+
+    With `adaptive` (the default), a scan the adaptive interval says is not yet due is
+    deferred rather than run (#313): the cadence can then fire at the floor and the shop's
+    own posting rhythm decides how many of those firings do any work.
     """
     from ..integrations.http import UrllibTransport
 
@@ -374,6 +475,14 @@ def scan_or_explain(db, *, env: dict[str, str] | None = None,
                 "substituted": False,
                 "note": ("No observation was performed and nothing was approximated from "
                          "search results, screenshots or fixtures (#224).")}
+
+    if adaptive:
+        due = scan_due(db, benchmark_key=kwargs.get("benchmark_key", benchmarks.MJS_KEY),
+                       now=now)
+        if not due["due"]:
+            return {"ran": False, "deferred": True,
+                    "reason": f"adaptive interval (#313): not due -- {due['why']}",
+                    "cadence": due["cadence"]}
 
     result = scan(db, reader, env=env, **kwargs)
     report = result.to_report()

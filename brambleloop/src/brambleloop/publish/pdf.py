@@ -774,6 +774,19 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.space(4 * mm)
     doc.para(AI_DISCLOSURE, size=9, color=MUTED)
 
+    # -- schematic ---------------------------------------------------------
+    # Multi-piece designs only: every piece's outline and every join, drawn from the same
+    # assembly model the certificate checked (publish/schematic.py). One-piece products keep
+    # the document they had.
+    from .schematic import schematic_for
+    schematic = schematic_for(cir, result)
+    if schematic is not None:
+        doc.new_page(head)
+        doc.heading("Schematic")
+        doc.para("Every piece as worked, to scale, with the joins that make it one object. "
+                 "Measurements are computed from the stated gauge.", size=9, color=MUTED)
+        doc.image(schematic.image, running_head=head)
+
     # -- materials ---------------------------------------------------------
     doc.new_page(head)
     doc.heading("Materials")

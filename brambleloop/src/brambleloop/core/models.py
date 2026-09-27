@@ -307,6 +307,85 @@ class Incident(Base):
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class OrderVersion(Base):
+    """Which released version one order bought, written at sale time (#42).
+
+    It cannot be reconstructed afterwards: once a listing has moved to 1.2.0 nothing says who
+    bought 1.1.0 unless this row was written when they did. `current_safe_version` is the
+    version support should point the buyer at now, and `correction_notice_sent_at` stays null
+    until a notice has actually been sent -- shadow mode prepares notices and never sends.
+    """
+
+    __tablename__ = "order_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), index=True)
+    release_hash: Mapped[str] = mapped_column(String(64), default="")
+    sold_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                              index=True)
+    current_safe_version: Mapped[str] = mapped_column(String(20), default="")
+    correction_notice_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class RegisteredExperiment(Base):
+    """A pre-registered growth experiment, persisted rather than held in a dict (#241, #265).
+
+    Separate from `experiments` (section 9's price/creative arms) because this row carries
+    what #241 asks to be fixed before a test starts -- thresholds, sample, stop date -- and
+    what #265 asks of every experiment: an owner, an expected value, and the decision it can
+    change. An experiment that cannot change a decision is killed rather than run.
+    """
+
+    __tablename__ = "registered_experiments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    hypothesis: Mapped[str] = mapped_column(Text, default="")
+    metric: Mapped[str] = mapped_column(String(80), default="")
+    design: Mapped[str] = mapped_column(String(30), default="")
+    success_threshold: Mapped[float] = mapped_column(Float, default=0.0)
+    failure_threshold: Mapped[float] = mapped_column(Float, default=0.0)
+    minimum_sample: Mapped[int] = mapped_column(Integer, default=0)
+    higher_is_better: Mapped[bool] = mapped_column(Boolean, default=True)
+    stop_on: Mapped[str] = mapped_column(String(10), default="")
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    owner: Mapped[str] = mapped_column(String(64), default="", index=True)
+    expected_value_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    decision: Mapped[str] = mapped_column(Text, default="")
+    gated_on: Mapped[str] = mapped_column(String(60), default="", index=True)
+    state: Mapped[str] = mapped_column(String(20), default="registered", index=True)
+    observed: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sample: Mapped[int] = mapped_column(Integer, default=0)
+    killed_reason: Mapped[str] = mapped_column(Text, default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SwarmAllocation(Base):
+    """One capacity decision: which lanes are active and how much each may take (#175).
+
+    Written by `swarm.allocate` and read by the idle-backlog handler, so the fan-out number
+    decides something instead of being reported. Never raises spend: every lane's batch is
+    bounded by `finance.spend_policy.work_that_fits` against ceilings that already exist.
+    """
+
+    __tablename__ = "swarm_allocations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    open_work: Mapped[int] = mapped_column(Integer, default=0)
+    granted: Mapped[int] = mapped_column(Integer, default=0)
+    lanes: Mapped[dict] = mapped_column(JSON, default=dict)
+    backlog_batch: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 class OwnerAction(Base):
     """The single consolidated owner queue (section 14)."""
 

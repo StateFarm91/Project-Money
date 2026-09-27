@@ -380,7 +380,8 @@ def queue_proposals(db, *, now: datetime | None = None,
                 improvement_id = propose(
                     db, cell=cell_key, hypothesis=proposal["hypothesis"],
                     expected_effect=proposal.get("expected_effect") or expected,
-                    rollback_ref=rollback_ref, touches=touches)
+                    rollback_ref=rollback_ref, touches=touches,
+                    proposed_by=CELL_AGENT.get(cell_key, "orchestrator"))
             except (ImprovementRefused, governance.GovernanceRefused) as exc:
                 refused.append({"cell": cell_key, "kind": kind, "touches": list(touches),
                                 "why": str(exc)[:300]})

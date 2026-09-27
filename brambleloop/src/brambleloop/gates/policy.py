@@ -93,9 +93,62 @@ def check_proof_claims(text: str, where: str, proof_states: dict | None) -> list
             for refusal in check_claim(text, proof_states)]
 
 
-def check_listing(draft: ListingDraft, cir: CIR | None = None,
-                  proof_states: dict | None = None) -> list[Finding]:
+# The disclosures `platform_policy.classify` can owe that are about AI. When classify says one
+# is owed, the listing must carry that exact sentence -- not a paraphrase, not a keyword.
+AI_DISCLOSURE_KEYS: tuple[str, ...] = ("ai_assisted_design", "generated_imagery")
+
+
+def _ai_disclosure_rule() -> dict:
+    """Etsy's Seller Policy rule, with the reading it came from (read_on, basis, url)."""
+    from .policy_knowledge import READINGS
+
+    reading = READINGS["seller_policy"]
+    for c in reading.conclusions:
+        if c.get("rule") == "ai_disclosure_required":
+            return {"rule": c["rule"], "text": c["text"], "read_on": reading.read_on,
+                    "basis": reading.basis, "url": reading.urls[0]}
+    raise KeyError("gates.policy_knowledge seller_policy has no ai_disclosure_required rule")
+
+
+def check_ai_disclosure(description: str, classification) -> list[Finding]:
+    """ERROR for every AI disclosure `classify` owes that the description does not carry.
+
+    `classification` is a `platform_policy.Classification` or its `to_dict()`. The rule is
+    sourced: Etsy's Seller Policy as read into `policy_knowledge.READINGS["seller_policy"]`,
+    and the finding cites that reading's date and basis so it can be re-examined when the
+    reading changes.
+    """
+    from .platform_policy import DISCLOSURES
+
+    owed = (classification.get("disclosures") if isinstance(classification, dict)
+            else getattr(classification, "disclosures", None)) or []
+    rule = _ai_disclosure_rule()
     out: list[Finding] = []
+    for key in AI_DISCLOSURE_KEYS:
+        sentence = DISCLOSURES[key]
+        if sentence in owed and sentence not in (description or ""):
+            out.append(Finding(
+                ERROR, "POLICY_AI_DISCLOSURE_MISSING",
+                f"the listing owes the {key} disclosure and does not carry it verbatim: "
+                f"{sentence!r}. Source: Etsy Seller Policy ({rule['url']}), "
+                f"{rule['rule']} -- \"{rule['text']}\" -- read {rule['read_on']} on basis "
+                f"{rule['basis']}", "listing.description"))
+    return out
+
+
+def check_listing(draft: ListingDraft, cir: CIR | None = None,
+                  proof_states: dict | None = None,
+                  classification=None) -> list[Finding]:
+    """Listing-level policy findings.
+
+    `classification` is what `platform_policy.classify` returned for this release. When it
+    is supplied and owes an AI disclosure, a description without that exact sentence is an
+    ERROR (`check_ai_disclosure`). Without it the older keyword WARNING below still applies,
+    because a listing nobody classified is not thereby free of disclosure duties.
+    """
+    out: list[Finding] = []
+    if classification is not None:
+        out += check_ai_disclosure(draft.description, classification)
     out += check_text(draft.title, "listing.title")
     out += check_text(draft.description, "listing.description")
     out += check_proof_claims(draft.title, "listing.title", proof_states)

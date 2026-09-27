@@ -237,7 +237,8 @@ def run(db, *, today: date | None = None, gateway=None,
     if not _images.usable(db):
         assets.state = GATED
         assets.gated_on = "image_generation"
-        assets.why = ("chart and schematic assets render from the certified CIR today; "
+        assets.why = ("chart assets render from the certified CIR today, and a piece "
+                      "schematic renders for multi-piece designs; "
                       "a styled image of the finished object needs the image-generation "
                       "capability, and no successful generation is on file. Rendering a "
                       "placeholder and calling it a product photograph is the one thing "
@@ -323,7 +324,8 @@ def run(db, *, today: date | None = None, gateway=None,
             "floors": floors,
             "conditioned_on": owned.get("conditioned_on"),
             "carries_model": True,
-            "charts_and_schematics": "rendered deterministically from the certified CIR"}
+            "charts_and_schematics": ("charts rendered deterministically from the certified CIR; "
+                                      "a schematic only for multi-piece designs")}
         if owned.get("usable_as_listing_asset"):
             assets.state = RAN
         else:
@@ -348,7 +350,8 @@ def run(db, *, today: date | None = None, gateway=None,
             "motif_claimed": owned.get("motif_claimed"),
             "motif_verdict": (owned.get("motif") or {}).get("verdict"),
             "disclosed_as_illustration": owned.get("disclosed_as_illustration"),
-            "charts_and_schematics": "rendered deterministically from the certified CIR"}
+            "charts_and_schematics": ("charts rendered deterministically from the certified CIR; "
+                                      "a schematic only for multi-piece designs")}
         assets.why = owned.get("motif_why", "")
     elif owned.get("usable_as_listing_asset"):
         assets.state = RAN
@@ -358,7 +361,8 @@ def run(db, *, today: date | None = None, gateway=None,
             "verdict": owned.get("verdict"),
             "disclosed_as_illustration": owned.get("disclosed_as_illustration"),
             "disclosure": owned.get("disclosure"),
-            "charts_and_schematics": "rendered deterministically from the certified CIR"}
+            "charts_and_schematics": ("charts rendered deterministically from the certified CIR; "
+                                      "a schematic only for multi-piece designs")}
     else:
         assets.state = FAILED
         assets.evidence = {"slug": owned.get("slug"), "verdict": owned.get("verdict")}

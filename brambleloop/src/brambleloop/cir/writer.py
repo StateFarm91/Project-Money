@@ -123,8 +123,12 @@ def resume_line(comp: Component) -> str:
     """How a held piece starts, said rather than implied."""
     if not comp.resumes:
         return ""
-    return (f"Rejoin yarn to the sts held for {comp.resumes.replace('_', ' ')} and work in "
-            f"the round from here.")
+    # Said for the construction the piece actually has: a flat sleeve worked from held
+    # stitches is worked in rows and seamed, and telling the maker "in the round" would make
+    # a tube the pattern never validated.
+    how = "in rows" if comp.construction == "flat_rows" else "in the round"
+    return (f"Rejoin yarn to the sts held for {comp.resumes.replace('_', ' ')} and work "
+            f"{how} from here.")
 
 
 SPIRAL_LINE = ("Work in a continuous spiral. Do not join the rounds; mark the first stitch "
@@ -159,7 +163,7 @@ _SEAM_WORDS = {
 }
 
 
-def write_seam(seam, position: int) -> str:
+def write_seam(seam, position: int, unit: str = "round") -> str:
     """One finishing step, in the same regular grammar as a row so it can be read back.
 
     The placement clause is what turns a set of correct pieces into an object. A maker who
@@ -174,8 +178,10 @@ def write_seam(seam, position: int) -> str:
         where = f"the {seam.piece_a} to the {seam.piece_b}"
     if seam.is_placed:
         last = seam.at_round + seam.spans_rounds - 1
-        span = (f"round {seam.at_round}" if seam.spans_rounds == 1
-                else f"rounds {seam.at_round}-{last}")
+        # "rows" on a piece worked in flat rows: a maker counting rows of a flat panel is
+        # not counting rounds, and the reader accepts either word.
+        span = (f"{unit} {seam.at_round}" if seam.spans_rounds == 1
+                else f"{unit}s {seam.at_round}-{last}")
         where += f" across {span}"
         if seam.stitches_from_centre is not None:
             where += f", {seam.stitches_from_centre} sts either side of centre"
@@ -194,7 +200,9 @@ def assembly_lines(cir: CIR) -> list[str]:
     if not cir.assembly:
         return []
     out = [ASSEMBLY_HEADING]
-    out.extend(write_seam(seam, i) for i, seam in enumerate(cir.assembly, start=1))
+    flat = {c.name for c in cir.components if c.construction == "flat_rows"}
+    out.extend(write_seam(seam, i, "row" if seam.piece_b in flat else "round")
+               for i, seam in enumerate(cir.assembly, start=1))
     return out
 
 

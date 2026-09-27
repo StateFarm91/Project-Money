@@ -102,8 +102,142 @@ class Readiness:
     post_purchase_clarity: bool = False
 
 
-def before_the_first_customer(readiness: Readiness) -> dict:
-    """The four that are ready or not ready today, and are not waiting for anybody."""
+def _listings(db) -> list[tuple[str, str]]:
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        return [(row.product_slug, row.version) for row in s.scalars(
+            select(Listing).where(Listing.state != "withdrawn"))]
+
+
+def _delivery_path(db) -> tuple[bool, str, dict]:
+    """flawless_downloads: a publish that attached every terminology's certified file."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+    from ..publish.pdf import TERMINOLOGIES
+
+    with db.session() as s:
+        published = [dict(r.detail or {}) for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == "store.published"))]
+        verified = [r.artifact for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == "store.pdf_hash_verified"))]
+    complete = [d for d in published
+                if all((d.get("files_attached_by_terminology") or {}).get(t)
+                       for t in TERMINOLOGIES)]
+    evidence = {"published": len(published), "all_files_attached": len(complete),
+                "hash_verified_uploads": len(verified)}
+    if complete and verified:
+        return True, "", evidence
+    return False, ("the delivery path has never been exercised end to end: no listing has "
+                   "been published with every terminology's certified file attached "
+                   "(store.publish refuses in shadow and the Etsy integration is "
+                   "unexercised)"), evidence
+
+
+def _disclosures(db, listings) -> tuple[bool, str, dict]:
+    """truthful_expectations: every listing's stored copy carries every owed disclosure."""
+    from .buyer_trust import listing_disclosure_finding
+
+    if not listings:
+        return False, "no listing copy exists, so nothing has disclosed anything yet", {}
+    short = []
+    for slug, version in listings:
+        f = listing_disclosure_finding(db, slug=slug, version=version)
+        if not f.get("checked") or not f.get("complete"):
+            short.append({"listing": f"{slug}@{version}",
+                          "missing": [m["disclosure"] for m in f.get("missing") or []],
+                          "misplaced": [m["disclosure"] for m in f.get("misplaced") or []]})
+    if short:
+        return False, (f"{len(short)} of {len(listings)} listings are missing or misplacing "
+                       f"an owed disclosure, first {short[0]['listing']}: "
+                       f"{short[0]['missing'] + short[0]['misplaced']}"), {"short": short[:5]}
+    return True, "", {"listings": len(listings)}
+
+
+def _defects(db, listings) -> tuple[bool, str, dict]:
+    """defect_prevention: every listed release certified, and no open P0/P1."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident, PatternVersion, Product
+
+    if not listings:
+        return False, "nothing is listed, so the release chain has run on nothing sold", {}
+    with db.session() as s:
+        ids = {p.id: p.slug for p in s.scalars(select(Product))}
+        certified = {(ids.get(pv.product_id), pv.version) for pv in s.scalars(
+            select(PatternVersion).where(PatternVersion.certified == True))}  # noqa: E712
+        open_severe = [i.signature for i in s.scalars(select(Incident).where(
+            Incident.resolved == False, Incident.severity.in_(("P0", "P1"))))]  # noqa: E712
+    uncertified = [f"{slug}@{v}" for slug, v in listings if (slug, v) not in certified]
+    if uncertified:
+        return False, (f"{len(uncertified)} listed release(s) carry no certificate, first "
+                       f"{uncertified[0]}"), {"uncertified": uncertified[:5]}
+    if open_severe:
+        return False, (f"{len(open_severe)} open P0/P1 incident(s), first "
+                       f"{open_severe[0]}"), {"open_severe": open_severe[:5]}
+    return True, "", {"listings": len(listings)}
+
+
+def _post_purchase(db, listings) -> tuple[bool, str, dict]:
+    """post_purchase_clarity: the listing says how to get help, and the concierge answers."""
+    from .buyer_trust import listing_disclosure_finding
+
+    try:
+        from ..support.concierge import version_answer  # noqa: F401
+        concierge = True
+    except Exception:  # noqa: BLE001 - an unimportable concierge is a blocker, not a crash
+        concierge = False
+    if not concierge:
+        return False, "the support concierge cannot be loaded, so nobody answers", {}
+    if not listings:
+        return False, "no listing copy exists to tell a buyer how to ask for help", {}
+    silent = [f"{slug}@{v}" for slug, v in listings
+              if any(m["disclosure"] == "support" for m in
+                     listing_disclosure_finding(db, slug=slug, version=v).get("missing")
+                     or [{"disclosure": "support"}])]
+    if silent:
+        return False, (f"{len(silent)} listing(s) do not say how to ask a question, first "
+                       f"{silent[0]}"), {"silent": silent[:5]}
+    return True, "", {"listings": len(listings), "concierge": True}
+
+
+def readiness_from_evidence(db) -> tuple[Readiness, dict[str, dict]]:
+    """Read the four before-the-first-customer priorities from what is on file.
+
+    Each priority's verdict comes with its blocker: the delivery path (publish audits that
+    attached every certified file), the disclosures (`buyer_trust` on each stored listing),
+    the release chain (certificates and open P0/P1 incidents, the launch-readiness rule) and
+    the concierge plus the listing's support line. An empty catalogue is not ready on any of
+    them, because a check that passes on nothing is the vacuous pass launch readiness
+    already had to remove.
+    """
+    listings = _listings(db)
+    checks = {
+        "flawless_downloads": _delivery_path(db),
+        "truthful_expectations": _disclosures(db, listings),
+        "defect_prevention": _defects(db, listings),
+        "post_purchase_clarity": _post_purchase(db, listings),
+    }
+    readiness = Readiness(**{k: v[0] for k, v in checks.items()})
+    detail = {k: {"blocker": v[1], "evidence": v[2]} for k, v in checks.items()}
+    return readiness, detail
+
+
+def before_the_first_customer(readiness: Readiness | None = None, *, db=None) -> dict:
+    """The four that are ready or not ready today, and are not waiting for anybody.
+
+    With `db`, the verdicts are read from evidence (`readiness_from_evidence`) and every
+    not-ready priority names its blocker. With a `Readiness` alone, the caller's verdicts are
+    reported as given.
+    """
+    detail: dict[str, dict] = {}
+    if db is not None:
+        readiness, detail = readiness_from_evidence(db)
+    if readiness is None:
+        raise SprintRefused("pass either a Readiness or the database to read it from")
     rows = []
     for key, spec in PRIORITIES.items():
         if spec["when"] != BEFORE:
@@ -111,7 +245,11 @@ def before_the_first_customer(readiness: Readiness) -> dict:
         ready = bool(getattr(readiness, key))
         rows.append({"priority": key, "ready": ready, "what": spec["what"],
                      "ready_when": spec["ready_when"],
-                     "why_not_later": spec["why_not_later"]})
+                     "why_not_later": spec["why_not_later"],
+                     "blocker": (None if ready else
+                                 (detail.get(key, {}).get("blocker")
+                                  or "reported not ready by the caller")),
+                     "evidence": detail.get(key, {}).get("evidence", {})})
     outstanding = [r["priority"] for r in rows if not r["ready"]]
     return {
         "priorities": rows,

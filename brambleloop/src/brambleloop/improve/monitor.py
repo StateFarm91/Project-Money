@@ -40,6 +40,51 @@ def _aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+ROLLBACK_SIGNATURE = "improve-rollback"
+
+
+def _rollback_proposal(db, improvement_id: int, cell: str, outcome: dict) -> dict:
+    """Make a revert impossible to miss: an open incident naming the way back, and a lesson.
+
+    `cells.monitor` marks the row reverted and records the rollback reference; the reference
+    names what has to be put back, and somebody has to put it back. A revert that only
+    changes a row's state is a rollback that happened on paper, so the rollback is proposed
+    where defects arrive -- an incident, idempotent on the improvement -- and published on the
+    lesson bus so the departments the regression concerns hear about it.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from . import bus
+
+    signature = f"{ROLLBACK_SIGNATURE}:{improvement_id}"
+    summary = (f"Promoted improvement {improvement_id} on {cell} regressed in production "
+               f"(observed {outcome.get('observed')} against {outcome.get('expected')} at "
+               f"promotion, baseline {outcome.get('baseline')}). Roll back via "
+               f"{outcome.get('rollback_ref')!r}")
+    with db.session() as s:
+        existing = s.scalar(select(Incident).where(Incident.signature == signature))
+        if existing is None:
+            s.add(Incident(severity="P2", signature=signature, summary=summary,
+                           halts_publication=False,
+                           detail={"improvement": improvement_id, "cell": cell,
+                                   "rollback_ref": outcome.get("rollback_ref"),
+                                   "observed": outcome.get("observed"),
+                                   "expected": outcome.get("expected"),
+                                   "baseline": outcome.get("baseline")}))
+            opened = True
+        else:
+            opened = False
+    lesson = bus.publish(
+        db, origin_cell=cell, subject="defect",
+        statement=(f"A promoted change to {cell} regressed below what won its promotion and "
+                   f"was reverted; the rollback {outcome.get('rollback_ref')!r} has to be "
+                   f"applied, and the tactic should not be retried unchanged"),
+        evidence_ref=f"rollback:improvement:{improvement_id}", confidence="measured")
+    return {"incident": signature, "opened": opened, "lesson": lesson,
+            "rollback_ref": outcome.get("rollback_ref")}
+
+
 def last_seen(db) -> dict[str, int]:
     """Which capability point each promotion was last judged against."""
     from sqlalchemy import desc, select
@@ -93,7 +138,11 @@ def sweep(db, *, now: datetime | None = None) -> dict:
         entry = {"improvement": improvement_id, "cell": cell, "point_id": point_id,
                  "observed": observed, "expected": outcome.get("expected"),
                  "action": outcome.get("action")}
-        (reverted if outcome.get("action") == "reverted" else held).append(entry)
+        if outcome.get("action") == "reverted":
+            entry["rollback"] = _rollback_proposal(db, improvement_id, cell, outcome)
+            reverted.append(entry)
+        else:
+            held.append(entry)
 
     detail = {
         "at": now.isoformat(),

@@ -424,6 +424,44 @@ def test_an_asset_truth_error_actually_blocks_the_release_chain():
     assert len(blocking) == 1, blocking
     assert "ASSET_MOTIF_ABSENT" in blocking[0]
 
+def test_an_owed_ai_disclosure_missing_verbatim_is_a_sourced_error():
+    """#35: when classify says an AI disclosure is owed, the exact sentence must be there."""
+    from brambleloop.gates import platform_policy as PP
+    from brambleloop.gates.policy_knowledge import READINGS
+
+    cls = PP.classify(product_class=PP.AI_ASSISTED_DESIGN,
+                      assets=[PP.AssetClaim("chart", "chart_render", generated=True,
+                                            deterministic_render=True)])
+    sentence = PP.DISCLOSURES["ai_assisted_design"]
+    assert sentence in cls.disclosures
+
+    # A keyword that satisfied the old warning ("AI assisted") is not the owed sentence.
+    draft = ListingDraft(title="Test Sphere Crochet Pattern",
+                         description="An AI assisted pattern. " + PP.DISCLOSURES["digital_download"],
+                         tags=["crochet"], price_cad=8.0)
+    errors = [f for f in check_listing(draft, classification=cls) if f.is_error]
+    codes = [f.code for f in errors]
+    assert "POLICY_AI_DISCLOSURE_MISSING" in codes, codes
+    msg = next(f.message for f in errors if f.code == "POLICY_AI_DISCLOSURE_MISSING")
+    reading = READINGS["seller_policy"]
+    assert reading.read_on in msg and reading.basis in msg
+    assert "ai_disclosure_required" in msg
+
+    # The chart is a generated (deterministic) render, so the imagery line is owed too.
+    assert PP.DISCLOSURES["generated_imagery"] in cls.disclosures
+    draft.description = " ".join(cls.disclosures)
+    codes = [f.code for f in check_listing(draft, classification=cls.to_dict()) if f.is_error]
+    assert "POLICY_AI_DISCLOSURE_MISSING" not in codes
+
+    # Nothing owed, nothing demanded.
+    plain = PP.classify(product_class=PP.SELLER_DESIGNED_DIGITAL,
+                        assets=[PP.AssetClaim("chart", "chart_render",
+                                              deterministic_render=True)])
+    draft.description = "A pattern."
+    assert "POLICY_AI_DISCLOSURE_MISSING" not in [
+        f.code for f in check_listing(draft, classification=plain)]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

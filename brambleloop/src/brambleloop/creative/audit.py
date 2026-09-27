@@ -204,3 +204,175 @@ def generator_degrees_of_freedom() -> dict:
             "blanket are the same object at different widths. The names promise eleven "
             "products and the fabric delivers one."),
     }
+
+
+# ---------------------------------------------------------------------------
+# #85: the Creativity Director, and jury feedback as training memory
+#
+# The jury already existed -- six critics, each able only to reject -- and so did the autopsy
+# that aggregates why concepts died. What did not exist was anything that kept it: every
+# autopsy was computed on request and thrown away, so the next ideation started from the same
+# generic intelligence as the last one, having learned nothing from eighty deaths. The
+# Director is the component accountable for concept quality across runs rather than within
+# one, and its first duty is the memory: each recorded jury run becomes a Lesson on the bus,
+# routed to Creativity and to the departments the same deaths concern, and read back when the
+# next brief is assembled (`improve.bus.brief_lessons`).
+#
+# Its second duty is the separation #85 names: the proposing agent may not be the sole judge
+# of its own concept. A run whose record says the proposer also judged is refused as training
+# memory, because a verdict an author gave its own work is an opinion about the author's
+# intentions and teaches the next brief nothing about the buyer.
+
+JURY_ACTIONS: tuple[str, ...] = ("creative.tournament", "creative.expedition")
+AUTOPSY_ACTION = "concept.autopsy"
+LESSON_SUBJECT = "creative_rejection"
+LESSON_ORIGIN = "product_creativity"
+JUDGE = "creative.jury"
+
+# What a dominant cause of death says about the *brief*, which is where the fix lives. The
+# wording follows `tournament.autopsy`'s diagnosis for the critics it names, extended with
+# the screening causes a staged tournament records.
+DIAGNOSIS: dict[str, str] = {
+    "sameness": "the generator is varying decoration rather than ideas; the next brief must "
+                "change what may vary, not ask harder",
+    "genericness": "briefs are producing product descriptions instead of premises",
+    "emotional_appeal": "concepts are not being asked who they are for",
+    "derivative": "the field is anchoring too closely on observed competitor products",
+    "thumbnail": "ideas depend on detail that does not survive the grid",
+    "complexity": "briefs are over-scoped for their make lane",
+    "shopping_window": "briefs are written for an occasion the buyer can no longer finish",
+    "unverifiable": "concepts arrive in a shape nothing downstream can check",
+}
+
+
+def _deaths(detail: dict) -> dict[str, int]:
+    causes = detail.get("causes") or detail.get("deaths_by_critic") or {}
+    out: dict[str, int] = {}
+    for key, value in dict(causes).items():
+        try:
+            n = int(value)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            out[str(key)] = n
+    return out
+
+
+def _field_size(detail: dict) -> int:
+    for value in ((detail.get("field") or {}).get("generated"), detail.get("proposed"),
+                  detail.get("field_size")):
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value)
+    return 0
+
+
+def autopsy_statement(autopsy: dict, *, where: str) -> str:
+    """One jury run's deaths as a sentence the next brief can act on."""
+    deaths = autopsy["deaths_by_critic"]
+    dominant = autopsy["dominant_cause"]
+    total = sum(deaths.values())
+    field = autopsy.get("field_size") or 0
+    of = f" of {field}" if field else ""
+    diagnosis = DIAGNOSIS.get(dominant, "the cause is named so the next brief can answer it")
+    return (f"The creative jury recorded {total} death(s){of} in {where}, and "
+            f"{deaths[dominant]} were {dominant!r}: {diagnosis}. Causes: "
+            + ", ".join(f"{k} {v}" for k, v in sorted(deaths.items(), key=lambda kv: -kv[1]))
+            + ". The next brief has to answer the dominant cause rather than the last concept")
+
+
+def persist_autopsy(db, autopsy: dict, *, evidence_ref: str, where: str = "",
+                    proposed_by: str = "", judged_by: str = JUDGE) -> dict:
+    """Keep one jury autopsy as a routed Lesson. Idempotent on `evidence_ref`.
+
+    Refuses as memory a run judged by its own proposer (#85), and records nothing for a run
+    in which nothing died -- a field with no deaths taught the jury nothing to pass on.
+    """
+    from ..improve import bus
+
+    deaths = {k: int(v) for k, v in (autopsy.get("deaths_by_critic") or {}).items() if v}
+    if proposed_by and judged_by and proposed_by == judged_by:
+        return {"evidence_ref": evidence_ref, "lesson": None, "refused": True,
+                "why": (f"{proposed_by!r} both proposed and judged this field. The proposing "
+                        f"agent may not be the sole judge of its own concept (#85), and a "
+                        f"verdict an author gave its own work is not jury feedback")}
+    if not deaths:
+        return {"evidence_ref": evidence_ref, "lesson": None, "refused": False,
+                "why": "nothing died in this run, so the jury has nothing to pass on"}
+    shaped = {"deaths_by_critic": deaths,
+              "dominant_cause": autopsy.get("dominant_cause") or max(deaths, key=deaths.get),
+              "field_size": autopsy.get("field_size") or 0}
+    lesson_id = bus.publish(
+        db, origin_cell=LESSON_ORIGIN, subject=LESSON_SUBJECT,
+        statement=autopsy_statement(shaped, where=where or evidence_ref),
+        evidence_ref=evidence_ref,
+        confidence="measured" if sum(deaths.values()) > 1 else "observed")
+    return {"evidence_ref": evidence_ref, "lesson": lesson_id, "refused": False,
+            "dominant_cause": shaped["dominant_cause"],
+            "routed_to": list(bus.route_for(LESSON_SUBJECT))}
+
+
+def creativity_director(db, *, since_audit_id: int = 0) -> dict:
+    """Read every recorded jury run and rejection autopsy, and keep each as training memory.
+
+    Two sources. A tournament or expedition row carries the run's causes of death; each run
+    becomes one lesson, keyed by its audit row. The per-concept `concept.autopsy` rows
+    (`creative.standard.autopsy`) are grouped by reason, so forty rejections for one reason
+    are one lesson about the brief rather than forty about concepts.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        runs = [(a.id, a.action, a.actor or "", a.artifact or "", dict(a.detail or {}))
+                for a in s.scalars(select(AuditLog).where(
+                    AuditLog.action.in_(("creative.tournament", "creative.expedition")),
+                    AuditLog.id > since_audit_id).order_by(AuditLog.id))]
+        autopsies = [dict(a.detail or {}) for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "concept.autopsy").order_by(AuditLog.id))]
+
+    kept, refused, silent = [], [], []
+    for audit_id, action, actor, artifact, detail in runs:
+        deaths = _deaths(detail)
+        out = persist_autopsy(
+            db, {"deaths_by_critic": deaths,
+                 "dominant_cause": max(deaths, key=deaths.get) if deaths else None,
+                 "field_size": _field_size(detail)},
+            evidence_ref=f"{action}:audit:{audit_id}",
+            where=f"{action.split('.', 1)[-1]} {artifact}".strip(),
+            proposed_by=actor, judged_by=str(detail.get("judged_by") or JUDGE))
+        (refused if out["refused"] else kept if out["lesson"] else silent).append(out)
+
+    by_reason: dict[str, int] = {}
+    for row in autopsies:
+        reason = str(row.get("reason") or "")
+        if reason:
+            by_reason[reason] = by_reason.get(reason, 0) + 1
+    for reason, count in sorted(by_reason.items()):
+        out = persist_autopsy(
+            db, {"deaths_by_critic": {reason: count}, "dominant_cause": reason},
+            evidence_ref=f"concept.autopsy:{reason}", where="recorded concept autopsies")
+        (kept if out["lesson"] else silent).append(out)
+
+    return {
+        "runs_read": len(runs), "autopsies_read": len(autopsies),
+        "kept": kept, "refused": refused, "silent": silent,
+        "proposer_is_not_judge": JUDGE,
+        "note": (f"{len(kept)} jury record(s) kept as lessons, {len(refused)} refused as "
+                 f"self-judged, {len(silent)} with nothing to pass on"),
+    }
+
+
+def persist_catalogue_audit(db) -> dict:
+    """Run the catalogue audit and keep its autopsy, which was computed and thrown away (#85)."""
+    import hashlib
+    import json
+
+    report = audit_catalogue()
+    autopsy = dict(report["autopsy"])
+    digest = hashlib.sha256(json.dumps(autopsy.get("deaths_by_critic") or {},
+                                       sort_keys=True).encode()).hexdigest()[:12]
+    kept = persist_autopsy(db, {**autopsy, "field_size": report["products_audited"]},
+                           evidence_ref=f"creative.audit_catalogue:{digest}",
+                           where="the existing generated catalogue")
+    return {"autopsy": autopsy, "lesson": kept}

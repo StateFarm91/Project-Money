@@ -96,13 +96,19 @@ def milestones(cir, twin) -> dict:
     rip out a correct basket.
 
     So a round piece reports `axial_cm` and `diameter_cm` off the ring the twin already
-    built. A flat piece still interpolates, because for a flat piece the twin really does
-    expose only a total; that gap is `cir/**`'s and is recorded rather than papered over
-    (`interpolated` says which of the two a caller is holding).
+    built, and a flat piece reads `TwinModel.row_top_cm`, the twin's cumulative height at the
+    top of each row (a dc row counts taller than an sc row). Only a row the twin did not model
+    -- a second component, or a pattern with no gauge -- still interpolates, and
+    `interpolated` says so per milestone.
     """
-    rows = [row for component in cir.components for row in component.rows]
+    placed = [(component.name, row) for component in cir.components for row in component.rows]
+    rows = [row for _name, row in placed]
     if not rows:
         raise ValueStackRefused("this pattern has no rows, so it has no progress to show")
+    # A flat piece's per-row cumulative height, from the twin (`TwinModel.row_top_cm`), for
+    # the component the twin modelled. Other components, or a twin without it, interpolate.
+    row_tops = getattr(twin, "row_top_cm", None) or {}
+    twin_component = getattr(twin, "component", None)
 
     total = len(rows)
     height = twin.height_cm or 0.0
@@ -123,10 +129,13 @@ def milestones(cir, twin) -> dict:
                         + (f" and {tall:.0f} cm tall" if tall > 0 else ", still flat"))
             label, unit = f"round {index} of {total}", "round"
         else:
-            tall = round(height * index / total, 1)
+            top = (row_tops.get(row.index)
+                   if placed[index - 1][0] == twin_component else None)
+            made = top if top is not None else height * index / total
+            tall = round(made, 1)
             across = None
             measured = (f"{row.declared_count} stitches across, about "
-                        f"{height * index / total:.0f} cm of fabric made")
+                        f"{made:.0f} cm of fabric made")
             label, unit = f"row {index} of {total}", "row"
         out.append({
             "row": index,
@@ -135,7 +144,8 @@ def milestones(cir, twin) -> dict:
             "stitches_in_this_row": row.declared_count,
             "height_so_far_cm": tall,
             "across_cm": across,
-            "interpolated": ring is None,
+            "interpolated": ring is None and (
+                placed[index - 1][0] != twin_component or row.index not in row_tops),
             "colour": row.color,
             "measured": measured,
             "what_should_be_true": f"{label}: {measured}",
@@ -144,7 +154,7 @@ def milestones(cir, twin) -> dict:
         "milestones": out,
         "rows_total": total,
         "unit": "round" if rings else "row",
-        "interpolated": rings is None,
+        "interpolated": any(m["interpolated"] for m in out),
         "note": ("The rows where the fabric changes, with what should be true at each in "
                  "stitches and centimetres. A maker checking their work needs a number they "
                  "can count, not a picture they can only agree with (#7)."),

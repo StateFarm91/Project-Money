@@ -376,6 +376,20 @@ def measure_all(db, *, now: datetime | None = None) -> dict:
     return {"measured": measured, "skipped": skipped}
 
 
+def _last_readings(db) -> dict[str, tuple[float, int]]:
+    """The newest point this measurer wrote for each cell, as (value, sample)."""
+    from sqlalchemy import select
+
+    from ..core.models import CapabilityPoint
+
+    out: dict[str, tuple[float, int]] = {}
+    with db.session() as s:
+        for p in s.scalars(select(CapabilityPoint).order_by(CapabilityPoint.id)):
+            if (p.detail or {}).get("from") == SOURCE:
+                out[p.cell] = (round(float(p.value), 9), int(p.sample))
+    return out
+
+
 def record_all(db, *, now: datetime | None = None) -> dict:
     """Measure every cell and write a CapabilityPoint for each that has a number.
 
@@ -387,8 +401,16 @@ def record_all(db, *, now: datetime | None = None) -> dict:
     from .cells import record_capability
 
     out = measure_all(db, now=now)
-    recorded = []
+    previous = _last_readings(db)
+    recorded, repeated = [], []
     for m in out["measured"]:
+        # The same number over the same rows is the same reading, not a new one. Written
+        # again it would fill the history with copies, and three copies of one number is
+        # exactly what the plateau detector reads as a flat capability (#104) -- a defect
+        # manufactured by the measuring schedule rather than by the company.
+        if previous.get(m.cell) == (round(m.value, 9), m.sample):
+            repeated.append(m.cell)
+            continue
         point_id = record_capability(
             db, m.cell, m.value, sample=m.sample,
             detail={"from": SOURCE, "sample": m.sample, **m.detail})
@@ -398,13 +420,14 @@ def record_all(db, *, now: datetime | None = None) -> dict:
         v["read"] for v in out["skipped"].values())
     return {
         "recorded": recorded,
+        "repeated": repeated,
         "skipped": out["skipped"],
         "read": read,
         "found": len(recorded),
         "cells": len(CELLS),
-        "note": (f"{len(recorded)} of {len(CELLS)} cells produced a number; the rest name "
-                 f"the table that has to fill first. A first measurement is a baseline, "
-                 f"never a win"),
+        "note": (f"{len(recorded)} of {len(CELLS)} cells produced a new reading and "
+                 f"{len(repeated)} repeated their last one unchanged; the rest name the table "
+                 f"that has to fill first. A first measurement is a baseline, never a win"),
     }
 
 

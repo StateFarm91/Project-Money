@@ -33,9 +33,30 @@ class Stitch:
     height: float
     row_height: float = 0.0
     counts_in_total: bool = True
+    # Cable stitches only: which side of the fabric the held stitches cross on -- "front"
+    # (cable needle held in front, a left-leaning cross) or "back" (held behind, a
+    # right-leaning cross). None means the definition does not say, which is the honest value
+    # for a cable whose written definition names no side, and is never allowed to be read as
+    # either. A non-cable stitch has no crossing at all.
+    crossing: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.crossing not in CROSSINGS + (None,):
+            raise ValueError(f"{self.code}: crossing must be one of {CROSSINGS} or None, "
+                             f"not {self.crossing!r}")
+        if self.crossing is not None and not self.code.startswith(CABLE_PREFIX):
+            raise ValueError(f"{self.code}: only a cable stitch has a crossing side")
+
+    @property
+    def is_cable(self) -> bool:
+        return self.code.startswith(CABLE_PREFIX)
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.code
+
+
+CROSSINGS: tuple[str, ...] = ("front", "back")
+CABLE_PREFIX = "cable"
 
 
 # Canonical registry. `height` is in "sc units" and drives row-height geometry.
@@ -134,10 +155,16 @@ BOBBLE = _register(Stitch("bob", "bobble", "bobble", consumes=1, produces=1,
 # Instead a crossing is one composite stitch: it consumes four and produces four, the
 # arithmetic the compiler checks stays exact, and which two cross in front is a property of
 # the stitch rather than prose nobody validated.
+#
+# `crossing` is None on both: the written definitions (`publish.abbreviations`) say the held
+# stitches are worked after the next ones but not whether the cable needle is held in front
+# or behind, so the side is unstated rather than assumed. A directional variant sets it.
 CABLE_2X2 = _register(Stitch("cable2x2", "2-over-2 cable crossing", "2-over-2 cable crossing",
-                             consumes=4, produces=4, height=3.0, row_height=2.0))
+                             consumes=4, produces=4, height=3.0, row_height=2.0,
+                             crossing=None))
 CABLE_1X1 = _register(Stitch("cable1x1", "1-over-1 cable crossing", "1-over-1 cable crossing",
-                             consumes=2, produces=2, height=3.0, row_height=2.0))
+                             consumes=2, produces=2, height=3.0, row_height=2.0,
+                             crossing=None))
 
 # The star-stitch family (added 2026-09-26 for commercial benchmark 2, a purchased children's
 # cardigan whose body fabric is star stitch). A star row is worked as a beginning star, a run

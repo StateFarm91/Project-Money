@@ -1218,11 +1218,15 @@ def api_policy() -> dict:
     dashboard on every other page, and they are opposite states.
     """
     from ..commerce import terms as customer_terms
+    from ..gates import policy_knowledge
     from ..gates.platform_policy import describe, freshness, policy_stamp
 
     return {
         "freshness": freshness(db),
         "certificate_stamp": policy_stamp(db),
+        # The dated readings themselves: what was concluded, from which URL, on what basis,
+        # and what a page reading recorded through POST /api/policy/snapshot supersedes.
+        "knowledge": policy_knowledge.describe(),
         "rules": describe(),
         "customer_terms": customer_terms.BRAMBLELOOP_TERMS.to_dict(),
         "terms_surfaces": {
@@ -1230,6 +1234,95 @@ def api_policy() -> dict:
             for surface in customer_terms.SURFACES
         },
     }
+
+
+@app.post("/api/policy/snapshot")
+async def api_policy_snapshot(request: Request,
+                              authorization: str = Header(default="")) -> JSONResponse:
+    """Record an operator's reading of one Etsy policy page. Authenticated.
+
+    JSON body: `{source, text, version, summary, read_by}` and optionally `checked_on`
+    (ISO date, default today). `source` must be one of the watched `POLICY_SOURCES`.
+
+    Etsy refuses automated retrieval of its policy pages, and nothing here fetches them. A
+    person opening the page in their own browser and pasting what they read is not evasion;
+    it is how a seller reads the rules, and it is the owner action the `policy_stale`
+    incidents ask for. The reading is stored as a digest (the text is neither stored nor
+    logged), and a current reading closes that source's open incident immediately.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..gates.platform_policy import POLICY_SOURCES, PolicyRefused, record_page_reading
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "the body must be a JSON object"}, status_code=400)
+    source = str(body.get("source") or "").strip()
+    if source not in POLICY_SOURCES:
+        return JSONResponse({"error": f"unknown policy source {source!r}",
+                             "sources": sorted(POLICY_SOURCES)}, status_code=400)
+    try:
+        result = record_page_reading(
+            db, source=source, text=str(body.get("text") or ""),
+            version=str(body.get("version") or ""), summary=str(body.get("summary") or ""),
+            read_by=str(body.get("read_by") or ""),
+            checked_on=str(body.get("checked_on") or ""))
+    except PolicyRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    # The audit names the digest and the length, never the text.
+    Registry(db).audit("orchestrator", "policy.page_reading_recorded", detail={
+        k: result[k] for k in ("id", "source", "digest", "material_change", "checked_on",
+                               "current", "incidents_resolved", "basis")})
+    return JSONResponse(result)
+
+
+@app.get("/api/leading")
+def api_leading() -> dict:
+    """The ten #263 leading indicators, each measured or UNMEASURED, and success refused
+    without orders. Reads the database only; nothing is fetched or estimated."""
+    from ..scale import leading
+
+    return leading.dashboard(db)
+
+
+@app.get("/api/cohorts")
+def api_cohorts() -> dict:
+    """Customer cohorts (#11, #12) and the repeat engine (#252): what exists, what is
+    measurable, and the owner-gated scope that would fill them."""
+    from ..commerce import cohorts, repeat
+
+    return {"cohorts": cohorts.state(db), "repeat": repeat.state()}
+
+
+@app.get("/api/blind-review")
+def api_blind_review() -> dict:
+    """The competitive blind review parity reads (#75): today's verdict per product without
+    writing anything, beside the last recorded row. UNKNOWN is never a pass."""
+    from ..creative import blind_review
+
+    return blind_review.state(db)
+
+
+@app.get("/api/acceptance")
+def api_acceptance() -> dict:
+    """The #222/#320 acceptance checklist over the API+vision path, evaluated offline.
+
+    Reads stored scan and vision rows only; it fetches nothing and files nothing. The
+    `intel.acceptance` job files the graded run. Every grade is provisional until the owner's
+    log records whether an API traversal satisfies a requirement worded browser/vision.
+    """
+    from ..intel import acceptance
+
+    return acceptance.describe(db)
 
 
 @app.get("/api/culture")
@@ -2137,6 +2230,7 @@ def api_mjs_vision() -> dict:
 @app.get("/api/improve")
 def api_improve() -> dict:
     """The Improvement Department: what moved, what regressed, and what it may never do."""
+    from ..improve import director, roi
     from ..improve.bus import compounding
     from ..improve.cells import CELLS, capability_history, retrospective
     from ..improve.governance import describe
@@ -2144,6 +2238,11 @@ def api_improve() -> dict:
     return {
         "retrospective": retrospective(db),
         "compounding": compounding(db),
+        # #99: what promoted changes actually returned against their proposal-time baselines.
+        "realised_benefit": roi.realised_benefit(db),
+        # #91: per-cell backlog and experiments, and the conflicts holding promotions.
+        "director": director.state(db),
+        "backlogs": director.backlogs(db),
         "cells": [{"cell": c.key, "department": c.department, "metric": c.metric,
                    "higher_is_better": c.higher_is_better, "measure": c.measure,
                    "history": capability_history(db, c.key, limit=20)} for c in CELLS],
@@ -2188,6 +2287,42 @@ def api_swarm() -> dict:
         "bands": [{"priority": p, "kind": k, "why": w} for p, k, w in BANDS],
         "next_when_idle": next_work([]),
     }
+
+
+@app.get("/api/swarm/runtime")
+def api_swarm_runtime() -> dict:
+    """What the swarm handlers decided: agent quality, the live allocation, unowned work.
+
+    Read-only. The allocation and the reassignments are made by `swarm.allocate` and
+    `swarm.orphans` on the worker; this reports them rather than recomputing on a page view.
+    """
+    from ..swarm.orchestrate import agent_quality, latest_allocation, orphans, work_items
+
+    items = work_items(db)
+    return {
+        "agent_quality": agent_quality(db),
+        "allocation": latest_allocation(db) or {"reading": "UNMEASURED",
+                                                "why": "no allocation in six hours"},
+        "orphans": orphans([e["item"] for e in items]),
+        "work_items": len(items),
+    }
+
+
+@app.get("/api/experiments")
+def api_experiments() -> dict:
+    """Every pre-registered experiment, with its owner, decision and state (#241, #265)."""
+    from ..core.models import RegisteredExperiment
+
+    with db.session() as s:
+        rows = [{"key": r.key, "owner": r.owner, "state": r.state, "metric": r.metric,
+                 "design": r.design, "decision": r.decision, "gated_on": r.gated_on,
+                 "expected_value_cad": (r.expected_value_cad
+                                        if r.expected_value_cad is not None
+                                        else "UNMEASURED"),
+                 "killed_reason": r.killed_reason, "stop_on": r.stop_on}
+                for r in s.scalars(select(RegisteredExperiment)
+                                   .order_by(RegisteredExperiment.key))]
+    return {"experiments": rows, "count": len(rows)}
 
 
 @app.get("/api/visual")
@@ -3538,9 +3673,11 @@ def api_build() -> dict:
     """
     from ..build2 import autonomy, executor
 
-    # Reconcile on read as well as on the cadence: a gate that opened a minute ago should
-    # show as open on the page somebody is looking at, not in an hour.
-    executor.sync(db)
+    # Read-only. This used to run `executor.sync` on every request -- a GET that rewrote the
+    # task table, recorded completions and un-parks, and ran every gate's probe query --
+    # so each page view was also a write, and the watchdog's evidence could be produced by
+    # somebody looking at it. `build.tick` syncs on its cadence; this page reports what
+    # that last wrote.
     report = executor.report(db)
     report["approval_inbox"] = executor.approval_inbox(db)
     # #195/#185: the proof that this runs with the owner's devices off, and the continuous
@@ -3548,6 +3685,21 @@ def api_build() -> dict:
     report["off_device_proof"] = autonomy.off_device_proof(db)
     report["health"] = autonomy.health(db)
     return report
+
+
+@app.get("/api/incidents")
+def api_incidents() -> dict:
+    """Open incidents, and those resolved in the last day with what resolved them.
+
+    Grouped by detector family (the signature before its first colon), so seventeen rows
+    read as six conditions. A resolved row carries `resolution` and `resolved_at`; one
+    closed without them is counted rather than shown as closed for a reason it does not
+    have.
+    """
+    from ..ops import incident_lifecycle
+
+    with db.session() as s:
+        return incident_lifecycle.snapshot(s)
 
 
 @app.get("/api/build2")

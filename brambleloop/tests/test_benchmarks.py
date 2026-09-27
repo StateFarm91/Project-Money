@@ -155,6 +155,68 @@ def test_state_reports_the_axes_and_the_floors():
     assert "refused by name" in out["note"]
 
 
+# ---- #238 season and listing age, #239 share of opportunity, #237 search-term P&L ----
+
+
+def test_season_and_listing_age_are_axes_a_comparison_is_refused_across():
+    a = B.Cell("blankets", B.TRAFFIC_SOURCES[0], B.PRICE_BAND_KEYS[0], B.MATURITY[0],
+               season="none", listing_age="first_30_days")
+    b = B.Cell("blankets", B.TRAFFIC_SOURCES[0], B.PRICE_BAND_KEYS[0], B.MATURITY[0],
+               season="none", listing_age="over_365_days")
+    assert a.differences(b) == ["listing_age"]
+    assert B.listing_age_for(0) == "first_30_days" and B.listing_age_for(30) == "30_to_120_days"
+    try:
+        B.Cell("blankets", B.TRAFFIC_SOURCES[0], B.PRICE_BAND_KEYS[0], B.MATURITY[0],
+               season="hallowe'en typo")
+    except B.BenchmarkRefused:
+        pass
+    else:
+        raise AssertionError("a season nobody tracks keyed a cell")
+
+
+def test_opportunity_is_ranked_on_contribution_levers_and_no_impressions_is_unmeasured():
+    out = B.opportunities([
+        {"market": "a", "relative_demand": 0.9, "impressions": None},
+        {"market": "b", "relative_demand": 0.5, "impressions": 10000, "ctr": 0.01,
+         "conversion": 0.02, "contribution_per_order_cad": 6.0, "baseline_ctr": 0.02,
+         "baseline_conversion": None},
+    ])
+    assert [r["market"] for r in out["unmeasured"]] == ["a"]
+    row = out["ranked"][0]
+    assert row["incremental_contribution_by_lever_cad"]["ctr"] == 12.0
+    assert row["incremental_contribution_by_lever_cad"]["conversion"] is None
+    try:
+        B.opportunities([{"market": "x", "relative_demand": 1.5, "impressions": 1}])
+    except B.BenchmarkRefused:
+        pass
+    else:
+        raise AssertionError("a demand share above one was accepted")
+
+
+def test_a_stats_export_is_read_strictly_and_ranked_on_what_terms_earned():
+    from brambleloop.commerce import attribution as At
+
+    text = ("Search term,Impressions,Visits,Orders,Revenue\n"
+            "mosaic blanket pattern,1000,50,2,24.00\n"
+            "crochet,20000,40,0,0\n")
+    rows = At.parse_stats_csv(text)
+    joined = At.join_stats(rows, contribution_rate=0.8)
+    assert joined["terms"][0]["term"] == "mosaic blanket pattern"
+    assert joined["vanity_terms"] == ["crochet"]
+    assert joined["ranked_on"] == "contribution_per_visit_cad"
+    unranked = At.join_stats(rows)
+    assert "UNMEASURED" in unranked["ranked_on"]
+    for bad in ("Search term,Impressions,Visits\nx,10,20\n",
+                "Search term,Impressions,Visits\nx,10,\n",
+                "Search term,Impressions,Visits\nx,10,5\nX,10,5\n",
+                "Term only\nx\n"):
+        try:
+            At.parse_stats_csv(bad)
+        except At.StatsRefused:
+            continue
+        raise AssertionError(f"accepted {bad!r}")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

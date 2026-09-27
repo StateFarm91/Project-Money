@@ -307,7 +307,7 @@ _SELF_SEAM_RE = re.compile(r"the two edges of the (.+?) together", re.I)
 _TWO_PIECE_RE = re.compile(r"the (.+?) to the (.+?)(?:\s+across|[.,])", re.I)
 # Placement, read back out of the sentence. Its own patterns, not the writer's: a round trip
 # through shared code proves nothing (B-005).
-_SPAN_RE = re.compile(r"across rounds?\s+(\d+)(?:\s*[-\u2013]\s*(\d+))?", re.I)
+_SPAN_RE = re.compile(r"across (?:rounds?|rows?)\s+(\d+)(?:\s*[-\u2013]\s*(\d+))?", re.I)
 _CENTRE_RE = re.compile(r"(\d+)\s+sts\s+either\s+side\s+of\s+centre", re.I)
 _MIRRORED_RE = re.compile(r"\bmirrored\b", re.I)
 _METHOD_WORDS = {

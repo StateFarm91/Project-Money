@@ -273,33 +273,57 @@ def exit_signal(db, signal_key: str, reason: str, *, lesson: str = "") -> dict:
 # Memory (#144) and the honest empty state (#133)
 
 
+# A second sighting counts toward recurrence only this long after the first: far enough that
+# it is the next occurrence of the thing rather than the same autumn seen twice.
+RECURRENCE_MIN_GAP_DAYS = 300
+
+
 def memory(db, *, recurring_within_days: int = 400) -> dict:
     """What the radar knows, as distinct from what it can currently see.
 
     The recurrence answer is the one that compounds: a signal first seen roughly a year ago
-    and seen again is an annual territory, and knowing that is the difference between
+    and **seen again** is an annual territory, and knowing that is the difference between
     researching retro Halloween once and researching it every autumn forever.
+
+    Seen again is the whole condition. This used to mark a signal recurring from the age of
+    its `first_seen` alone, so a one-week fad recorded last October became an "annual
+    territory" this October without anybody having seen it since (#144, proof audit
+    2026-09-26). Now a signal recurs only with a sighting -- a momentum reading -- in a later
+    calendar year than its first, at least RECURRENCE_MIN_GAP_DAYS after it, and no more than
+    `recurring_within_days` after the sighting before it, so a gap of years reads as a
+    revival rather than a rhythm.
     """
     from sqlalchemy import select
 
-    from ..core.models import CultureSignal
+    from ..core.models import CultureObservation, CultureSignal
 
     with db.session() as s:
         rows = list(s.scalars(select(CultureSignal)))
+        sightings: dict[str, list[str]] = {}
+        for obs in s.scalars(select(CultureObservation)):
+            if obs.observed_on:
+                sightings.setdefault(obs.signal_key, []).append(obs.observed_on)
         signals = [{"key": r.key, "topic": r.topic, "domain": r.domain, "lane": r.lane,
                     "state": r.state, "first_seen": r.first_seen,
                     "protected": len(r.protected_tokens or []),
                     "exit_reason": r.exit_reason,
                     "lesson": (r.outcome or {}).get("lesson", "")} for r in rows]
 
-    today = date.today()
-    recurring = []
+    recurring, evidence = [], {}
     for sig in signals:
         if not sig["first_seen"]:
             continue
-        age = (today - date.fromisoformat(sig["first_seen"])).days
-        if 300 <= age <= recurring_within_days:
-            recurring.append(sig["key"])
+        first = date.fromisoformat(sig["first_seen"])
+        seen = sorted({first, *(date.fromisoformat(d)
+                                for d in sightings.get(sig["key"], []))})
+        for earlier, later in zip(seen, seen[1:]):
+            gap = (later - earlier).days
+            if (later.year > first.year and (later - first).days >= RECURRENCE_MIN_GAP_DAYS
+                    and gap <= recurring_within_days):
+                recurring.append(sig["key"])
+                evidence[sig["key"]] = {"first_seen": first.isoformat(),
+                                        "seen_again": later.isoformat()}
+                break
 
     by_lane = {ORIGINAL: 0, DIRECT: 0}
     for sig in signals:
@@ -310,6 +334,7 @@ def memory(db, *, recurring_within_days: int = 400) -> dict:
         "by_state": {st: sum(1 for x in signals if x["state"] == st) for st in STATES},
         "by_lane": by_lane,
         "recurring_annually": recurring,
+        "recurrence_evidence": evidence,
         "exited_with_a_lesson": [x["key"] for x in signals if x["exit_reason"]],
         "all": signals,
         "note": ("The value of a culture radar is almost entirely in its second year. A "

@@ -39,6 +39,14 @@ PROTECTED_GATES: tuple[str, ...] = (
     "confidence_ladder",            # the CA$5K model counts rows
     "creative_jury",                # one rejection ends a concept
     "benchmark_quarantine",         # competitor files stay unreachable
+    "product_truth",                # the fabric works the certified chart, never a guess
+)
+
+# Objects that are gates by their nature, whatever surface a hypothesis declares. "Lower the
+# threshold" on an unprotected scoring surface is ordinary tuning; "lower the gate threshold"
+# is not, and declaring `touches=("weights",)` beside it does not make it tuning.
+_INTRINSIC_GATE_OBJECTS: tuple[str, ...] = (
+    "gate", "gates", "guard", "guards", "refusal", "refusals", "validation",
 )
 
 # Phrases that describe loosening rather than improving. Matched against the hypothesis text,
@@ -145,8 +153,17 @@ def check(hypothesis: str, *, touches: tuple[str, ...] = (),
                         f"is only worth what produced it",
                         "#102: may never fabricate evidence")
 
-    protected = [name for name in touches if name in PROTECTED_GATES]
+    protected = [name for name in touches if name in PROTECTED_GATES
+                 or _gate_tier_surface(name)]
     loosening = _mentions(hypothesis, _LOOSENING) or _weakens(hypothesis)
+    if loosening and not protected:
+        # The declared surfaces are the part the author chooses. A hypothesis that names a
+        # protected gate in its own words, or weakens something that is a gate by nature,
+        # is judged by what it says rather than by what it declared (#102, #178).
+        named = _names_protected_gate(hypothesis)
+        intrinsic = loosening.rsplit(" ", 1)[-1] in _INTRINSIC_GATE_OBJECTS
+        if named or intrinsic:
+            protected = [named or loosening.rsplit(" ", 1)[-1]]
     if protected and loosening:
         return Boundary(False,
                         f"this proposes to {loosening!r} on {protected}, which improves the "
@@ -180,6 +197,22 @@ def check(hypothesis: str, *, touches: tuple[str, ...] = (),
                         "#99: improvement budget")
 
     return Boundary(True)
+
+
+def _gate_tier_surface(name: str) -> bool:
+    """A declared surface `improve.tiers` grades as a gate is protected here too."""
+    from .tiers import SURFACE_TIER
+
+    return SURFACE_TIER.get((name or "").strip().lower()) == "gate"
+
+
+def _names_protected_gate(text: str) -> str | None:
+    """A protected gate named in prose: `product truth`, `asset-truth`, `creative jury`."""
+    low = re.sub(r"[\s_-]+", " ", (text or "").lower())
+    for name in PROTECTED_GATES:
+        if name.replace("_", " ") in low:
+            return name
+    return None
 
 
 def check_owner_authority(action: str) -> Boundary:

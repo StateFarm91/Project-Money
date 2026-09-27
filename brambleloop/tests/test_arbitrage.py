@@ -172,6 +172,42 @@ def test_the_signals_the_requirement_names_are_carried_even_when_unscored():
     assert len(report["dimensions"]) == 9
 
 
+def test_branding_and_aesthetics_are_scored_from_judged_photographs():
+    """#2's two vision-only weaknesses are measured openings once images are judged."""
+    from brambleloop.core.models import BenchmarkListing, BenchmarkObservation
+
+    db = _db()
+    with db.session() as s:
+        for i in range(6):
+            s.add(BenchmarkListing(benchmark_key="mjs_off_the_hook_designs",
+                                   listing_ref=f"b{i}", title=f"Throw Blanket {i}",
+                                   pod="blankets", price_cad=9.0, media_count=8,
+                                   audit_state="audited",
+                                   detail={"num_favorers": 50, "gallery_audited": True}))
+        for i in range(6):
+            s.add(BenchmarkObservation(
+                benchmark_key="mjs_off_the_hook_designs", listing_ref=f"b{i}",
+                kind="gallery_image_observation", grade="mandated", satisfies_mandate=True,
+                detail={"observation": {
+                    "brand_coherence": "inconsistent with the shop" if i < 3 else "coherent",
+                    "aesthetic_currency": "dated styling" if i < 2 else "current"}}))
+    hunt = A.weakness_hunt(db, pod="blankets")
+    assert hunt["branding"]["measurable"] and hunt["branding"]["share"] == 0.5
+    assert hunt["aesthetics"]["weak"] == 2 and hunt["aesthetics"]["judged_listings"] == 6
+
+    empty = _db()
+    with empty.session() as s:
+        s.add(BenchmarkListing(benchmark_key="mjs_off_the_hook_designs", listing_ref="x",
+                               title="Throw Blanket", pod="blankets", media_count=8))
+    unjudged = A.weakness_hunt(empty, pod="blankets")
+    assert unjudged["branding"]["measurable"] is False and unjudged["branding"]["share"] is None
+    assert "unmeasured" in unjudged["branding"]["reason"]
+
+    # And the opening feeds score_observed through offer_quality.
+    without = A._opportunity({**hunt, "branding": {}, "aesthetics": {}})
+    assert A._opportunity(hunt) != without
+
+
 def _run() -> int:
     failures = 0
     for name, fn in sorted(globals().items()):

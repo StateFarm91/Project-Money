@@ -226,6 +226,81 @@ FORBIDDEN_COMBINATIONS: dict[str, set[str]] = {
 }
 
 
+
+# ---------------------------------------------------------------------------
+# Two stewards, added 2026-09-27 for the swarm and experiment requirements (#174-#176, #186,
+# #187, #241, #265). Appended rather than written into the list above so no existing agent's
+# permissions move. Both GREEN and nominally budgeted: they read the database, write
+# recommendations, reassign pending work only to agents that already hold the permission,
+# and enqueue only non-spending GREEN work. Neither may author a pattern or publish.
+DEFAULT_AGENTS.extend([
+    dict(name="swarm_steward",
+         description=("Elastic capacity steward: agent quality and retirement review, lane "
+                      "allocation, orphaned work, the idle standing backlog (#174-#176, "
+                      "#186, #187). Spends nothing."),
+         allowed_job_types=["swarm.review", "swarm.allocate", "swarm.orphans",
+                            "swarm.backlog"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.25),
+    dict(name="experiment_steward",
+         description=("Pre-registers and persists each launch's experiment pack, with owner, "
+                      "expected value and the decision it can change (#241, #265). Runs "
+                      "nothing live and spends nothing."),
+         allowed_job_types=["growth.experiments"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.25),
+])
+FORBIDDEN_COMBINATIONS.update({
+    "swarm_steward": {"cir.draft", "cir.revise", "store.publish", "store.update",
+                      "gate.certify", "ads.campaign", "ads.adjust"},
+    "experiment_steward": {"cir.draft", "cir.revise", "store.publish", "store.update",
+                           "ads.campaign", "ads.adjust", "pricing.experiment"},
+})
+
+
+# ---------------------------------------------------------------------------
+# Quality metric and retirement condition per agent (#174), as a side table.
+#
+# Kept beside DEFAULT_AGENTS rather than inside each entry so the permission entries -- which
+# `seed_defaults` reconciles into the database -- are not touched by a metadata change, and so
+# every agent has an answer, including one added tomorrow without a line here. The metric is
+# read from job outcomes by `swarm.orchestrate.agent_quality`; the condition is evaluated there
+# by the `swarm.review` handler.
+
+QUALITY_DEFAULTS: dict = {
+    "metric": "job_success_rate",
+    "reads": ("jobs table: done / (done + dead) among this agent's jobs that reached a "
+              "terminal state in the window"),
+    "window_days": 30,
+    "min_sample": 10,
+    # Below the floor the agent is watched; below `retire_below` it is a retirement (or
+    # repair) candidate. Neither acts on its own: the verdict is a recommendation.
+    "floor": 0.8,
+    "retire_below": 0.5,
+    "retire_when": ("success rate under 50% across at least 10 terminal jobs in 30 days; or "
+                    "no completed job in 21 days while none of its job types is scheduled "
+                    "or queued; or a second agent holds exactly the same job types with more "
+                    "completions (merge)"),
+    "exempt": "",
+}
+
+# Agents whose idleness is the gate working rather than the agent failing. Retiring the ads
+# agent because the owner has not authorised paid media would delete the capability the
+# authorisation is waiting for.
+QUALITY_OVERRIDES: dict[str, dict] = {
+    "store_operator": {"exempt": "live publication is owner-gated; idle is shadow mode working"},
+    "ads": {"exempt": "paid media is owner-gated; idle is the spend gate working"},
+    "support": {"exempt": "no customer exists yet; idle is the honest state, not a defect"},
+    "validator": {"floor": 0.95,
+                  "reads": ("jobs table: done / (done + dead) for cir.compile; a validator "
+                            "that dies is a gate that did not run")},
+    "quality_director": {"floor": 0.95},
+}
+
+
+def stewardship(name: str) -> dict:
+    """This agent's quality metric and retirement condition (#174)."""
+    return {**QUALITY_DEFAULTS, **QUALITY_OVERRIDES.get(name, {})}
+
+
 class Registry:
     def __init__(self, db: Database):
         self.db = db

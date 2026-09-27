@@ -96,6 +96,11 @@ class TwinModel:
     geometry: Revolution | None = None
     # Flat pieces only: "rectangle" or "shaped_flat", derived from the row widths.
     outline: str | None = None
+    # Flat pieces only: the fabric height at the top of each row, cumulative, keyed by row
+    # index. Each row contributes its own height (`geometry._row_height_cm`: a dc row is
+    # taller than an sc row), so progress milestones read the twin rather than dividing the
+    # total evenly across rows.
+    row_top_cm: dict[int, float] = field(default_factory=dict)
     # Set when a width had to be computed with an assumed chain gauge. A measurement that
     # rests on an assumption must say so wherever it is read, or it gets quoted as measured.
     width_caveat: str = ""
@@ -277,6 +282,13 @@ def build_twin(
         # a product sold as one shape and delivered as another.
         widths = set(model.row_widths.values())
         model.outline = "rectangle" if len(widths) <= 1 else "shaped_flat"
+        if cir.gauge:
+            from .geometry import _row_height_cm
+
+            top = 0.0
+            for r in rows:
+                top += _row_height_cm(r, cir)
+                model.row_top_cm[r.index] = round(top, 3)
     else:
         # Worked in the round. Stitches around are a circumference, not a width, and the
         # flat arithmetic would advertise a 5 cm bauble as a 15 cm one.

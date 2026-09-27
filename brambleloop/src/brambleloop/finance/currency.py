@@ -31,6 +31,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from ..commerce import fee_schedule as _FS
+
 REPORTING_CURRENCY = "CAD"
 
 # The rate this company reports at until a settlement statement gives a real one. Stated as
@@ -41,11 +43,15 @@ ASSUMED_USD_PER_CAD = 0.715
 # Fee classes #269 names. Each is a rate on the gross unless stated, and each defaults to
 # zero with its basis recorded -- a margin computed without a fee should say it was computed
 # without it rather than look like a margin that included it.
+#
+# The per-sale rates are read from `commerce.fee_schedule`, which parses them from the dated
+# reading in `gates.policy_knowledge.TOPICS["fees"]`. They were literals here, a sixth copy
+# of the same three numbers; the field names are unchanged so every caller keeps working.
 @dataclass(frozen=True)
 class FeeSchedule:
-    transaction: float = 0.065
-    payment_percent: float = 0.030
-    payment_flat: float = 0.25
+    transaction: float = _FS.TRANSACTION.rate
+    payment_percent: float = _FS.PAYMENT_PROCESSING.rate
+    payment_flat: float = _FS.PAYMENT_PROCESSING.amount
     # A marketplace converting the buyer's currency into the seller's takes a spread. It
     # never appears as a line item; it appears as a slightly worse rate, which is why it is
     # the fee most often missing from a margin.
@@ -54,7 +60,8 @@ class FeeSchedule:
     regulatory_operating: float = 0.0
     # Advertising, where it applies to the order rather than to the account.
     ad_fee: float = 0.0
-    basis: str = "Etsy's published rates; conversion and regulatory fees not yet observed"
+    basis: str = (f"commerce.fee_schedule ({_FS.BASIS}, read {_FS.READ_ON}); conversion and "
+                  f"regulatory fees not yet observed")
 
 
 DEFAULT_SCHEDULE = FeeSchedule()
@@ -132,7 +139,7 @@ def to_reporting(money: Money, rate: Rate) -> dict:
 def contribution(price: Money, *, rate: Rate | None = None,
                  schedule: FeeSchedule = DEFAULT_SCHEDULE,
                  expected_sales_per_listing_period: float = 10.0,
-                 listing_fee_usd: float = 0.20) -> dict:
+                 listing_fee_usd: float = _FS.LISTING.amount) -> dict:
     """What is left after every fee class, in the reporting currency and in the original.
 
     The requirement's closing sentence -- *pricing decisions use net contribution, not

@@ -39,6 +39,7 @@ CROCHET_HELP = "crochet_help"
 MATERIALS = "materials"
 TROUBLESHOOTER = "troubleshooter"
 HAPPINESS = "happiness"
+VERSION = "version"
 REVIEW_INTEL = "review_intelligence"
 ESCALATE = "escalate"
 
@@ -52,6 +53,13 @@ _ROUTES: list[tuple[Specialist, re.Pattern]] = [
         r"access my purchase|where is my (file|pattern|pdf|order))\b"
         r"|\b(pdf|file|document)\b[^.?!]{0,40}\b(won'?t|will not|cannot|can'?t|does ?n'?t)\b"
         r"|\b(won'?t|will not|cannot|can'?t)\b[^.?!]{0,30}\b(open|download|print)\b", re.I)),
+    # "Which version did I buy?" is answered from the order-to-version map (#42). After the
+    # download desk and before the troubleshooter, so "the corrected version" is not read as
+    # a defect report.
+    (VERSION, re.compile(
+        r"\b(which|what) version\b|\bversion (did|do) i (buy|have|get)\b"
+        r"|\bcorrect(ed|ion) (pattern|version|file)\b|\bupdated (pattern|version|file)\b",
+        re.I)),
     (TROUBLESHOOTER, re.compile(
         r"\b(does ?n'?t work|does not work|wrong|error|mistake|off by|does ?n'?t match|"
         r"ran out of stitches|too few|too many|short by|left over)\b"
@@ -164,11 +172,30 @@ class CustomerExperience:
             reply = Reply(specialist=specialist, body=DOWNLOAD_REPLY)
         elif specialist == HAPPINESS:
             reply = Reply(specialist=specialist, body=HAPPINESS_REPLY)
+        elif specialist == VERSION:
+            from .concierge import version_answer
+
+            answer = version_answer(self.db, customer_ref=customer_ref,
+                                    product_slug=product_slug, question=message)
+            reply = Reply(specialist=specialist, body=answer.answer,
+                          cited_version=answer.cited_version or None,
+                          escalated=answer.escalated,
+                          escalation_reason=("no recorded order to read the version from"
+                                             if answer.escalated else ""))
         elif cir is None:
+            # The version the buyer owns is recorded at sale time; if it is, say so rather
+            # than asking them for something the company already knows.
+            from .concierge import version_answer
+
+            owned = version_answer(self.db, customer_ref=customer_ref,
+                                   product_slug=product_slug, question=message)
+            known = "" if owned.escalated else f" Our records show: {owned.answer}"
             reply = Reply(
                 specialist=specialist,
                 body=("We need to know which pattern this is about before answering — we "
-                      "answer from the exact version you bought rather than from memory."),
+                      "answer from the exact version you bought rather than from memory."
+                      + known),
+                cited_version=owned.cited_version or None,
                 escalated=True,
                 escalation_reason="no pattern version supplied; guessing would be worse")
         else:
@@ -231,11 +258,17 @@ class CustomerExperience:
         hotspots = [{"product": slug, "row": row, "mentions": n}
                     for (slug, row), n in sorted(row_mentions.items(), key=lambda kv: -kv[1])
                     if n >= 2]
+        from ..commerce.buyer_trust import support_readings
+
         return {
             "cases": len(cases),
             "by_specialist": by_specialist,
             "escalated": sum(1 for c in cases if c.escalated),
             "row_hotspots": hotspots,
+            # #41: confusion contacts as a defect rate, and every open case against Etsy's
+            # case window -- UNKNOWN, with no deadline computed, while no recorded policy
+            # reading states the window in days.
+            "readings": support_readings(self.db),
             "note": ("row hotspots are candidate defects, not confirmed ones. Confirmation "
                      "runs through the compiler, not through a vote."),
         }

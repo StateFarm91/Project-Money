@@ -327,6 +327,60 @@ def test_past_shadow_the_client_still_refuses_for_want_of_credentials():
     reason = refusals[-1]
     assert "authority matrix" in reason or "credentials" in reason, reason
 
+def _certified(db, *, slug="s", version="1.0.0", release="rel-1", pdfs=None):
+    import hashlib
+
+    from brambleloop.core.models import AuditLog, Job
+
+    pdfs = pdfs or {"US": b"us-bytes", "UK": b"uk-bytes"}
+    with db.session() as s:
+        job = Job(agent="publishing", job_type="assets.build",
+                  inputs={"slug": slug, "version": version, "release": release})
+        s.add(job)
+        s.flush()
+        s.add(AuditLog(actor="publishing", action="assets.built", artifact=f"{slug}@{version}",
+                       job_id=job.id, detail={"pdfs": {
+                           t: {"sha256": hashlib.sha256(b).hexdigest()}
+                           for t, b in pdfs.items()}}))
+    return pdfs
+
+
+def test_the_uploaded_pdf_must_be_the_certified_one_or_the_publish_refuses():
+    """PDF_HASH_DRIFT: a re-render that differs from the assets.built hash is not uploaded."""
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.resilience import PermanentError
+    from brambleloop.runtime import pipeline
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/drift.sqlite")
+    db.create_all()
+    pdfs = _certified(db)
+    ok = pipeline.check_pdf_hashes(db, slug="s", version="1.0.0", release="rel-1",
+                                   rendered=pdfs)
+    assert ok["verified"] == ["UK", "US"]
+
+    for kwargs in ({"release": "rel-1", "rendered": {**pdfs, "UK": b"drifted"}},
+                   {"release": "rel-2", "rendered": pdfs}):
+        try:
+            pipeline.check_pdf_hashes(db, slug="s", version="1.0.0", **kwargs)
+        except PermanentError as e:
+            assert str(e).startswith("PDF_HASH_DRIFT"), str(e)
+        else:
+            raise AssertionError(f"uploaded an uncertified file: {kwargs['release']}")
+
+
+def test_the_drift_check_sits_after_the_shadow_refusal_and_before_any_upload():
+    import inspect
+
+    from brambleloop.runtime import pipeline
+
+    src = inspect.getsource(pipeline.handle_store_publish)
+    shadow = src.index("raise ShadowModeRefusal(")
+    check = src.index("check_pdf_hashes(")
+    assert shadow < check < src.index("store.put(") < src.index("client.publish(")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

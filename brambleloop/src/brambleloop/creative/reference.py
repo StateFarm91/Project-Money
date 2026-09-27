@@ -264,9 +264,17 @@ def brief(db, pod: str, *, benchmark_key: str = "") -> dict:
         }
 
     derived = primitives(observations, readings)
+    # #85, #101: the brief is assembled with what the company has learned -- jury autopsies
+    # and routed lessons -- and records that it drew on them, so a later design can be shown
+    # to have used accumulated knowledge rather than restarting from generic intelligence.
+    from ..improve.bus import brief_lessons
+
+    memory = brief_lessons(db, artifact=f"brief:{benchmark_key}:{pod}")
     return {
         "pod": pod, "listings_with_evidence": with_evidence, "usable": True,
         **derived,
+        "lessons": memory["lessons"],
+        "design_provenance": memory["provenance"],
         "is_a_brief_not_an_instruction": (
             "these are constraints to design within -- this silhouette family, this density, "
             "this palette role -- and the tournament that follows makes something original "

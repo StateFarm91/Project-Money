@@ -450,15 +450,24 @@ def test_a_refund_anomaly_pauses_the_campaign():
 
 def test_scaling_requires_profitable_evidence_not_a_good_week():
     caps = pm.CONSERVATIVE_CAPS
+    # #242 put the organic-first gate in front of the campaign's numbers, so this test
+    # supplies a listing that has proved itself organically and checks the campaign rule
+    # behind it; the organic gate has its own tests in test_paid_media_economics.
+    organic = pm.OrganicPeriod(days=pm.MIN_ORGANIC_DAYS, visits=pm.MIN_ORGANIC_VISITS,
+                               orders=5)
     lucky = pm.CampaignState("x", spend_campaign_cad=3.0, clicks=250, conversions=3,
                              contribution_cad=9.0)
-    allowed, why = pm.may_scale(lucky, caps)
+    allowed, why = pm.may_scale(lucky, caps, organic)
     assert not allowed and "lucky week" in why
 
     proven = pm.CampaignState("x", spend_campaign_cad=10.0, clicks=300, conversions=20,
                               contribution_cad=18.0)
-    allowed, why = pm.may_scale(proven, caps)
+    allowed, why = pm.may_scale(proven, caps, organic)
     assert allowed, why
+
+    # And without any organic period the same proven campaign may not scale.
+    allowed, why = pm.may_scale(proven, caps)
+    assert not allowed and "organic-first" in why
 
 
 def test_the_status_report_says_plainly_that_nothing_is_live():

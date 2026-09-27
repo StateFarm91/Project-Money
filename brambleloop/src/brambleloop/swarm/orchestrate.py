@@ -275,3 +275,644 @@ def retirement_review(cells: list[dict], *, now: datetime | None = None) -> dict
                  "Every recommendation carries what to preserve first — retiring a cell and "
                  "discarding what it learned costs more than the cell did (#192)."),
     }
+
+
+# ===========================================================================
+# The runtime half. Everything above is a library; everything below reads the database the
+# worker runs on, so the numbers above decide something instead of being reported.
+#
+# A proof audit (2026-09-26) found #174, #175, #176, #186 and #187 claimed covered while
+# nothing in the runtime called any of this: `fan_out()` produced a number nobody acted on,
+# `orphans()` had no caller, `next_work()` was only ever called with `[]`, and every queued
+# job's priority was 50 or 100 by cadence period. The functions below are what the
+# `swarm.*` handlers call.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# #187: job types to the eight bands
+
+# Every job type this system can run, mapped to the band its *kind of work* belongs to. The
+# mapping is explicit rather than inferred from a name, because an inferred band is decided by
+# whoever named the job type. A job type missing from this table falls to housekeeping and
+# `band_for` says so (`mapped: False`); a test asserts every registered handler is mapped.
+JOB_BANDS: dict[str, str] = {
+    # A customer is waiting on this, now.
+    "support.reply": "customer_incident",
+    # Something this system claims may no longer be true: a stale artefact under a live slug,
+    # a listing built from a superseded release, a gate verdict, or the system's own claims
+    # about itself (online, within budget, capability open). A health check answered late is
+    # a false "online" left standing, which is why liveness is here and not in housekeeping.
+    "ops.sentinel": "truth_defect",
+    "chain.rebuild": "truth_defect",
+    "support.triage": "truth_defect",
+    "gate.quality": "truth_defect",
+    "gate.policy": "truth_defect",
+    "gate.asset_truth": "truth_defect",
+    "gate.certify": "truth_defect",
+    "physical.record": "truth_defect",
+    "ops.heartbeat": "truth_defect",
+    "ops.health": "truth_defect",
+    "ops.queue_check": "truth_defect",
+    "finance.escalation_check": "truth_defect",
+    "finance.challenge": "truth_defect",
+    "ops.capability_probes": "truth_defect",
+    "model.probe": "truth_defect",
+    "ops.policy_watch": "truth_defect",
+    # A window closes and cannot be reopened.
+    "seasonal.sentinel": "seasonal_deadline",
+    "seasonal.remerchandising": "seasonal_deadline",
+    "launch.plan": "seasonal_deadline",
+    "launch.readiness": "seasonal_deadline",
+    "marketing.schedule": "seasonal_deadline",
+    # The release chain of a certified product: known demand, known economics.
+    "cir.draft": "proven_winner",
+    "cir.revise": "proven_winner",
+    "cir.compile": "proven_winner",
+    "cir.twin": "proven_winner",
+    "cir.reverse": "proven_winner",
+    "assets.build": "proven_winner",
+    "assets.render": "proven_winner",
+    "assets.owned_photography": "proven_winner",
+    "assets.model_photography": "proven_winner",
+    "listing.draft": "proven_winner",
+    "listing.seo": "proven_winner",
+    "pricing.position": "proven_winner",
+    "collection.assemble": "proven_winner",
+    "store.publish": "proven_winner",
+    "store.update": "proven_winner",
+    "content.draft": "proven_winner",
+    "finance.reconcile": "proven_winner",
+    # The named benchmark moved, or might have.
+    "mjs.scan": "benchmark_change",
+    "mjs.reviews": "benchmark_change",
+    "etsy.probe": "benchmark_change",
+    "intel.gallery_analysis": "benchmark_change",
+    "intel.acceptance": "benchmark_change",
+    "radar.scan": "benchmark_change",
+    "radar.competitor_snapshot": "benchmark_change",
+    "culture.sweep": "benchmark_change",
+    "creative.blind_review": "benchmark_change",
+    # Unproven, possibly valuable.
+    "radar.score": "new_opportunity",
+    "creative.expedition": "new_opportunity",
+    "creative.tournament": "new_opportunity",
+    "plan.cycle": "new_opportunity",
+    "pricing.experiment": "new_opportunity",
+    "growth.experiments": "new_opportunity",
+    "ads.campaign": "new_opportunity",
+    "ads.adjust": "new_opportunity",
+    # Learning with no committed value.
+    "creative.blinded": "exploration",
+    "creative.image_benchmark": "exploration",
+    "creative.model_tournament": "exploration",
+    "creative.model_reference_pack": "exploration",
+    "creative.model_freeze": "exploration",
+    "creative.photoreal_calibration": "exploration",
+    "visual.provider_trial": "exploration",
+    "visual.portrait_repair": "exploration",
+    "seasonal.cycle_proof": "exploration",
+    "improve.nightly": "exploration",
+    "improve.weekly": "exploration",
+    "improve.retrospective": "exploration",
+    "improve.role_work": "exploration",
+    "improve.measure": "exploration",
+    "improve.mine": "exploration",
+    "improve.monitor": "exploration",
+    "plan.strategy": "exploration",
+    "portfolio.review": "exploration",
+    # Keeps the system honest, urgent to nobody.
+    "build.tick": "housekeeping",
+    "ops.continuity": "housekeeping",
+    "ops.offsite_archive": "housekeeping",
+    "ops.retention": "housekeeping",
+    "ops.capacity": "housekeeping",
+    "ops.provenance_backfill": "housekeeping",
+    "swarm.review": "housekeeping",
+    "swarm.allocate": "housekeeping",
+    "swarm.orphans": "housekeeping",
+    "swarm.backlog": "housekeeping",
+}
+
+UNMAPPED_KIND = "housekeeping"
+
+
+def band_for(job_type: str) -> dict:
+    """The band a job type is enqueued at, and whether that was a decision or a default."""
+    kind = JOB_BANDS.get(job_type)
+    mapped = kind is not None
+    kind = kind or UNMAPPED_KIND
+    return {"job_type": job_type, "kind": kind, "band": BAND_BY_KIND[kind],
+            "mapped": mapped}
+
+
+def priority_for(job_type: str) -> int:
+    """The `Job.priority` to enqueue a job type at: its band (#187). Lower is claimed first.
+
+    This replaces `50 if period <= 3600 else 100`, which ordered work by how often it was
+    scheduled -- a proxy for nothing -- so an hourly image benchmark outranked a daily
+    seasonal sentinel and a customer reply would have waited behind both.
+    """
+    return int(band_for(job_type)["band"])
+
+
+# ---------------------------------------------------------------------------
+# Shared reads
+
+_OPEN_STATUSES = ("pending", "running", "failed")
+_TERMINAL_OK = "done"
+_TERMINAL_BAD = "dead"
+
+
+def _aware(value):
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def _status(job) -> str:
+    return getattr(job.status, "value", str(job.status))
+
+
+def _scheduled_job_types() -> set[str]:
+    try:
+        from ..runtime.worker import CADENCES
+    except Exception:  # noqa: BLE001 # pragma: no cover - import order in odd callers
+        return set()
+    return {job_type for _n, _a, job_type, _p in CADENCES}
+
+
+def _owner_problem(agent, job_type: str) -> str:
+    """Why this agent cannot own this job, or "" when it can."""
+    from ..agents.registry import FORBIDDEN_COMBINATIONS
+
+    if agent is None:
+        return "no such agent in the registry"
+    if not agent.enabled:
+        return f"agent {agent.name!r} is disabled"
+    if job_type in FORBIDDEN_COMBINATIONS.get(agent.name, set()):
+        return f"agent {agent.name!r} is structurally forbidden from {job_type!r}"
+    if job_type not in (agent.allowed_job_types or []):
+        return f"agent {agent.name!r} has no permission for {job_type!r}"
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# #174: every agent has a quality metric and a retirement condition
+
+
+def agent_quality(db, *, now: datetime | None = None) -> dict:
+    """Each agent's quality metric, read from job outcomes, and its retirement verdict.
+
+    The metric and the condition come from `agents.registry.stewardship(name)`, the side
+    table beside `DEFAULT_AGENTS`; this reads the `jobs` table (terminal outcomes in the
+    window) and applies them. Nothing here disables anything: the verdict is a
+    recommendation, because an agent's `enabled` flag is runtime state and switching off an
+    agent whose cadence still fires turns its schedule into dead letters.
+    """
+    from sqlalchemy import select
+
+    from ..agents.registry import Registry, stewardship
+    from ..core.models import Job
+
+    now = now or datetime.now(timezone.utc)
+    agents = Registry(db).all()
+    scheduled = _scheduled_job_types()
+
+    with db.session() as s:
+        jobs = [(j.agent, j.job_type, _status(j), _aware(j.finished_at),
+                 (j.last_error or "")[:40]) for j in s.scalars(select(Job))]
+
+    report, cells = {}, []
+    for agent in agents:
+        rule = stewardship(agent.name)
+        window_start = now - timedelta(days=rule["window_days"])
+        mine = [j for j in jobs if j[0] == agent.name]
+        terminal = [j for j in mine if j[2] in (_TERMINAL_OK, _TERMINAL_BAD)
+                    and j[3] is not None and j[3] >= window_start]
+        done = [j for j in terminal if j[2] == _TERMINAL_OK]
+        dead = [j for j in terminal if j[2] == _TERMINAL_BAD]
+        denied = [j for j in dead if j[4].startswith("permission denied")]
+        pending = [j for j in mine if j[2] in _OPEN_STATUSES]
+        last_done = max((j[3] for j in mine if j[2] == _TERMINAL_OK and j[3]), default=None)
+        on_cadence = sorted(set(agent.allowed_job_types or []) & scheduled)
+
+        sample = len(terminal)
+        rate = round(len(done) / sample, 4) if sample else None
+        measured = sample >= rule["min_sample"]
+        idle_cutoff = now - timedelta(days=IDLE_DAYS_BEFORE_REVIEW)
+        idle = (last_done is None or last_done < idle_cutoff)
+
+        if rule["exempt"]:
+            verdict, why = "keep", f"dormant by design: {rule['exempt']}"
+        elif measured and rate is not None and rate < rule["retire_below"]:
+            verdict = "retire_or_repair"
+            why = (f"{rule['metric']} {rate:.0%} over {sample} terminal jobs is below the "
+                   f"retirement line of {rule['retire_below']:.0%}")
+        elif idle and not on_cadence and not pending:
+            verdict = "retire"
+            why = (f"no completed job in {IDLE_DAYS_BEFORE_REVIEW} days, none of its job "
+                   f"types is scheduled and nothing is queued for it")
+        elif measured and rate is not None and rate < rule["floor"]:
+            verdict = "watch"
+            why = f"{rule['metric']} {rate:.0%} is below its floor of {rule['floor']:.0%}"
+        else:
+            verdict = "keep"
+            why = ("inside its floor" if measured else
+                   f"UNMEASURED: {sample} terminal job(s) in {rule['window_days']} days "
+                   f"against a minimum sample of {rule['min_sample']}")
+
+        report[agent.name] = {
+            "metric": rule["metric"], "reads": rule["reads"],
+            "value": rate if measured else None,
+            "reading": "measured" if measured else "UNMEASURED",
+            "sample": sample, "done": len(done), "dead": len(dead),
+            "permission_denied": len(denied), "open": len(pending),
+            "floor": rule["floor"], "retire_below": rule["retire_below"],
+            "retirement_condition": rule["retire_when"],
+            "on_cadence": on_cadence, "verdict": verdict, "why": why,
+        }
+        cells.append({"key": agent.name,
+                      "scope": "|".join(sorted(agent.allowed_job_types or [])),
+                      "tasks": len(done),
+                      "last_success_at": last_done.isoformat() if last_done else None,
+                      "lessons": []})
+
+    # Redundancy is a property of the set, so it is read from the set: two agents holding
+    # exactly the same job types are the merge `retirement_review` exists for.
+    overlap = retirement_review(cells, now=now)
+    for merge in overlap["merge"]:
+        entry = report.get(merge["cell"])
+        if entry is not None and not stewardship(merge["cell"])["exempt"]:
+            entry["verdict"] = "merge"
+            entry["why"] = f"{merge['reason']}; merge into {merge['into']}"
+    return {
+        "as_of": now.isoformat(),
+        "agents": report,
+        "retire": sorted(k for k, v in report.items() if v["verdict"] in
+                         ("retire", "retire_or_repair")),
+        "merge": sorted(k for k, v in report.items() if v["verdict"] == "merge"),
+        "watch": sorted(k for k, v in report.items() if v["verdict"] == "watch"),
+        "unmeasured": sorted(k for k, v in report.items() if v["reading"] == "UNMEASURED"),
+        "enacted": False,
+        "note": ("A recommendation, not an action: retiring an agent is a change to "
+                 "DEFAULT_AGENTS, reviewed like any other permission change (#174, #192)."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# #175: allocation drives which lanes run and how much each may take
+
+# How many standing-backlog jobs one idle tick may queue. Small on purpose: the backlog exists
+# so an idle worker does something useful, not so it manufactures a queue.
+MAX_BACKLOG_PER_TICK = 2
+# What one specialist-run is priced at for the lane budget. Deliberately the padded figure
+# `fan_out` already uses, so the two cannot disagree.
+LANE_UNIT_COST_CAD = 0.05
+# The allocation's own period, used to pace each agent's daily ceiling across runs.
+ALLOCATION_PERIOD_SECONDS = 60 * 60
+# An allocation older than this is not read; the backlog recomputes one instead.
+ALLOCATION_MAX_AGE = timedelta(hours=6)
+
+
+def _open_jobs(db, *, exclude_prefix: str = "swarm.") -> list[tuple]:
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    with db.session() as s:
+        rows = s.scalars(select(Job).where(
+            Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING))))
+        return [(j.id, j.agent, j.job_type, _status(j)) for j in rows
+                if not j.job_type.startswith(exclude_prefix)]
+
+
+def allocate(db, *, now: datetime | None = None,
+             period_seconds: int = ALLOCATION_PERIOD_SECONDS) -> dict:
+    """Decide which lanes are active and how large each lane's batch may be, and record it.
+
+    A lane is an agent. Its budget is what `spend_policy.work_that_fits` says fits under its
+    own daily ceiling and the month's ceiling *now*; `fan_out` turns that and the lane's queue
+    depth into specialists; the batch is the work those specialists may take. Nothing here
+    raises a ceiling or spends: an agent whose ceiling is spent gets an inactive lane, and
+    the standing backlog will not feed it.
+    """
+    from ..agents.registry import Registry
+    from ..core.models import Authority, SwarmAllocation
+    from ..finance.spend_policy import work_that_fits
+
+    now = now or datetime.now(timezone.utc)
+    open_jobs = _open_jobs(db)
+    depth: dict[str, int] = {}
+    for _id, agent, _t, _st in open_jobs:
+        depth[agent] = depth.get(agent, 0) + 1
+
+    lanes: dict[str, dict] = {}
+    for agent in Registry(db).all():
+        if not agent.enabled:
+            continue
+        pending = depth.get(agent.name, 0)
+        fits = work_that_fits(db, agent=agent.name, purpose="swarm.lane",
+                              period_seconds=period_seconds,
+                              unit_cost_cad=LANE_UNIT_COST_CAD, now=now)
+        fo = fan_out(open_work=pending, budget_remaining_cad=fits["cad_available_now"],
+                     cost_per_specialist_cad=LANE_UNIT_COST_CAD)
+        lanes[agent.name] = {
+            "open_work": pending, "wanted": fo["wanted"], "granted": fo["granted"],
+            "bounded_by": fo["bounded_by"], "binding_ceiling": fits["binding_ceiling"],
+            "cad_available_now": fits["cad_available_now"],
+            "batch": min(pending, fo["granted"] * WORK_PER_SPECIALIST) if pending else 0,
+            "active": fo["granted"] > 0,
+            "green": agent.authority == Authority.GREEN,
+        }
+
+    idle = not open_jobs
+    backlog_lanes = sorted(name for name, lane in lanes.items()
+                           if lane["active"] and lane["green"] and lane["open_work"] == 0)
+    backlog_batch = min(MAX_BACKLOG_PER_TICK, len(backlog_lanes)) if idle else 0
+    granted = sum(lane["granted"] for lane in lanes.values())
+
+    record = {
+        "as_of": now.isoformat(), "open_work": len(open_jobs), "idle": idle,
+        "granted": granted, "lanes": lanes,
+        "active_lanes": sorted(k for k, v in lanes.items() if v["active"]),
+        "inactive_lanes": sorted(k for k, v in lanes.items() if not v["active"]),
+        "backlog_batch": backlog_batch, "backlog_lanes": backlog_lanes,
+        "spend_increase_cad": 0.0,
+        "note": ("Allocation reads existing ceilings and never raises one. An inactive lane "
+                 "is one whose ceiling has no room for another run; the standing backlog "
+                 "does not feed it (#175)."),
+    }
+    with db.session() as s:
+        row = SwarmAllocation(at=now, open_work=len(open_jobs), granted=granted,
+                              lanes=lanes, backlog_batch=backlog_batch,
+                              detail={k: v for k, v in record.items() if k != "lanes"})
+        s.add(row)
+        s.flush()
+        record["allocation_id"] = row.id
+    return record
+
+
+def latest_allocation(db, *, now: datetime | None = None) -> dict | None:
+    """The most recent allocation young enough to act on, or None."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import SwarmAllocation
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(SwarmAllocation).order_by(desc(SwarmAllocation.id)).limit(1))
+        if row is None or now - _aware(row.at) > ALLOCATION_MAX_AGE:
+            return None
+        return {"allocation_id": row.id, "at": _aware(row.at).isoformat(),
+                "lanes": dict(row.lanes or {}), "backlog_batch": row.backlog_batch,
+                **{k: v for k, v in (row.detail or {}).items()
+                   if k in ("idle", "active_lanes", "backlog_lanes")}}
+
+
+def lane_batch(db, agent: str, *, now: datetime | None = None) -> dict:
+    """How much one lane may take this period, per the latest allocation.
+
+    For handlers that batch (the gallery backlog, a scan): the lane's batch is already
+    bounded by `work_that_fits`, so a handler that reads this cannot exceed its ceiling by
+    reading a stale constant.
+    """
+    alloc = latest_allocation(db, now=now)
+    if alloc is None:
+        return {"known": False, "batch": None,
+                "why": "no allocation in the last six hours; the lane is UNMEASURED"}
+    lane = alloc["lanes"].get(agent)
+    if lane is None:
+        return {"known": False, "batch": None, "why": f"no lane for {agent!r}"}
+    return {"known": True, "batch": lane["batch"], "active": lane["active"],
+            "allocation_id": alloc["allocation_id"]}
+
+
+# ---------------------------------------------------------------------------
+# #176: work items from the rows that hold work, and nothing unowned
+
+# Who answers for an incident nobody assigned. Quality owns release certificates and can
+# veto (DEFAULT_AGENTS), which is what an incident about a released pattern needs.
+DEFAULT_INCIDENT_OWNER = "quality_director"
+_OPEN_IMPROVEMENT_STATES = ("proposed", "testing")
+
+
+def work_items(db) -> list[dict]:
+    """Every open unit of work in the database, as a WorkItem with its owner checked.
+
+    Three sources: queued jobs, unresolved incidents and open improvements. An owner is only
+    an owner if it can act -- an agent that exists, is enabled and holds the permission --
+    so a job enqueued against the wrong agent is unowned work, not owned work that fails.
+    """
+    from sqlalchemy import select
+
+    from ..agents.registry import Registry
+    from ..core.models import Improvement, Incident, Job, JobStatus
+
+    try:
+        from ..improve.cells import BY_KEY as CELLS
+    except Exception:  # noqa: BLE001 # pragma: no cover
+        CELLS = {}
+
+    agents = {a.name: a for a in Registry(db).all()}
+    out: list[dict] = []
+    with db.session() as s:
+        for job in s.scalars(select(Job).where(
+                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)))):
+            problem = _owner_problem(agents.get(job.agent), job.job_type)
+            item = WorkItem(key=f"job:{job.id}", kind=band_for(job.job_type)["kind"],
+                            owner="" if problem else job.agent, state="open")
+            out.append({"item": item, "source": "job", "ref": job.id,
+                        "job_type": job.job_type, "named_owner": job.agent,
+                        "status": _status(job), "problem": problem})
+        for inc in s.scalars(select(Incident).where(Incident.resolved.is_(False))):
+            named = str((inc.detail or {}).get("owner") or "")
+            agent = agents.get(named)
+            problem = ("no owner recorded" if not named else
+                       "" if agent is not None and agent.enabled else
+                       f"owner {named!r} is not an enabled agent")
+            kind = "customer_incident" if inc.severity in ("P0", "P1") else "truth_defect"
+            out.append({"item": WorkItem(key=f"incident:{inc.id}", kind=kind,
+                                         owner="" if problem else named, state="open"),
+                        "source": "incident", "ref": inc.id, "signature": inc.signature,
+                        "named_owner": named, "problem": problem})
+        for imp in s.scalars(select(Improvement).where(
+                Improvement.state.in_(_OPEN_IMPROVEMENT_STATES))):
+            problem = "" if imp.cell in CELLS else f"cell {imp.cell!r} is not an improvement cell"
+            out.append({"item": WorkItem(key=f"improvement:{imp.id}", kind="exploration",
+                                         owner="" if problem else imp.cell, state=imp.state),
+                        "source": "improvement", "ref": imp.id, "named_owner": imp.cell,
+                        "problem": problem})
+    return out
+
+
+def _reassign_target(agents: dict, job_type: str) -> str:
+    from ..core.models import Authority
+
+    for name in sorted(agents):
+        agent = agents[name]
+        if agent.authority == Authority.GREEN and not _owner_problem(agent, job_type):
+            return name
+    return ""
+
+
+def resolve_orphans(db, *, now: datetime | None = None) -> dict:
+    """Find unowned work (#176) and give it an owner, or make it somebody's problem.
+
+    Reassignment is deliberately narrow: a *pending* job moves only to a GREEN agent that
+    already holds the permission, so this can never launder a job into authority it did not
+    have -- a store publish enqueued by support is not handed to the store operator, it is
+    surfaced. An unowned incident gets the quality director. Anything else becomes an
+    incident whose evidence says what was unowned and why.
+    """
+    from sqlalchemy import select
+
+    from ..agents.registry import Registry
+    from ..core.models import Incident, Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    agents = {a.name: a for a in Registry(db).all()}
+    entries = work_items(db)
+    unowned = orphans([e["item"] for e in entries])
+    unowned_keys = {o["key"] for o in unowned}
+
+    reassigned, surfaced, owned_incidents = [], [], []
+    with db.session() as s:
+        for entry in entries:
+            if entry["item"].key not in unowned_keys:
+                continue
+            evidence = {k: v for k, v in entry.items() if k != "item"}
+            if entry["source"] == "job":
+                job = s.get(Job, entry["ref"])
+                target = (_reassign_target(agents, job.job_type)
+                          if job is not None and job.status == JobStatus.PENDING else "")
+                if target:
+                    job.agent = target
+                    reassigned.append({**evidence, "to": target})
+                    continue
+            elif entry["source"] == "incident":
+                inc = s.get(Incident, entry["ref"])
+                owner = DEFAULT_INCIDENT_OWNER
+                if inc is not None and owner in agents and agents[owner].enabled:
+                    inc.detail = {**(inc.detail or {}), "owner": owner,
+                                  "owner_assigned_at": now.isoformat(),
+                                  "owner_assigned_by": "swarm.orphans"}
+                    owned_incidents.append({**evidence, "to": owner})
+                    continue
+            signature = f"swarm.orphan:{entry['source']}:{entry['ref']}"
+            open_already = s.scalar(select(Incident).where(
+                Incident.signature == signature, Incident.resolved.is_(False)))
+            if open_already is None:
+                s.add(Incident(
+                    severity="P2", signature=signature,
+                    summary=(f"unowned {entry['source']} {entry['ref']}: "
+                             f"{entry['problem']}"),
+                    detail={"owner": "orchestrator", "evidence": evidence,
+                            "requirement": 176, "raised_at": now.isoformat()}))
+            surfaced.append(evidence)
+
+    items = [e["item"] for e in entries]
+    return {
+        "as_of": now.isoformat(),
+        "work_items": len(items),
+        "by_source": {src: sum(1 for e in entries if e["source"] == src)
+                      for src in ("job", "incident", "improvement")},
+        "orphans": unowned,
+        "reassigned": reassigned,
+        "incident_owners_assigned": owned_incidents,
+        "surfaced_as_incident": surfaced,
+        "schedule_head": [w.to_dict() for w in schedule(items)[:5]],
+    }
+
+
+# ---------------------------------------------------------------------------
+# #186: an idle queue takes the highest-value standing item
+
+# What each standing item *is* in this runtime: the agent and job type that does it, and
+# whether it spends model money. Spending items are never fed from idleness -- an idle worker
+# buying tournaments to look busy is the spend increase #175 forbids -- and they stay on the
+# cadences that already budget for them.
+BACKLOG_JOBS: dict[str, tuple[str, str, bool]] = {
+    "check the named benchmark for changes": ("market_radar", "mjs.scan", False),
+    "score an uncovered arena in the coverage gap queue": ("market_radar", "radar.score",
+                                                           False),
+    "run a concept tournament for the thinnest seasonal department": (
+        "creative_director", "creative.tournament", True),
+    "re-verify the continuity restore proof": ("orchestrator", "ops.continuity", False),
+    "recompute seasonal launch dates against today": ("orchestrator", "seasonal.sentinel",
+                                                      False),
+    "mine recent failures for an improvement hypothesis": ("orchestrator",
+                                                           "improve.retrospective", False),
+    "refresh the Build-2 coverage map from the registry": ("orchestrator", "build.tick",
+                                                           False),
+}
+
+# A standing item already done this recently is not redone from idleness.
+BACKLOG_COOLDOWN = timedelta(hours=6)
+
+
+def feed_idle(db, queue, *, now: datetime | None = None) -> dict:
+    """If the queue is idle, enqueue the highest-value standing items the allocation allows.
+
+    Idempotent (one key per item per cooldown window), bounded (the allocation's
+    `backlog_batch`, at most MAX_BACKLOG_PER_TICK), and GREEN-only: the job's agent must be
+    GREEN, enabled and permitted, and the item must not spend.
+    """
+    from sqlalchemy import select
+
+    from ..agents.registry import Registry
+    from ..core.models import Authority, Job
+    from ..queue.durable import DuplicateJob
+
+    now = now or datetime.now(timezone.utc)
+    open_jobs = _open_jobs(db)
+    if open_jobs:
+        items = [WorkItem(key=f"job:{jid}", kind=band_for(jt)["kind"], owner=agent)
+                 for jid, agent, jt, _st in open_jobs]
+        return {"idle": False, "enqueued": [], "open_work": len(open_jobs),
+                "next": next_work(items)}
+
+    alloc = latest_allocation(db, now=now) or allocate(db, now=now)
+    batch = min(MAX_BACKLOG_PER_TICK, int(alloc.get("backlog_batch") or 0))
+    lanes = alloc.get("lanes") or {}
+    agents = {a.name: a for a in Registry(db).all()}
+    window = int(now.timestamp() // BACKLOG_COOLDOWN.total_seconds())
+
+    with db.session() as s:
+        recent = {j.job_type for j in s.scalars(select(Job).where(
+            Job.finished_at >= now - BACKLOG_COOLDOWN)) if _status(j) == _TERMINAL_OK}
+
+    enqueued, skipped = [], []
+    for kind, description in STANDING_BACKLOG:
+        if len(enqueued) >= batch:
+            break
+        agent_name, job_type, spends = BACKLOG_JOBS[description]
+        agent = agents.get(agent_name)
+        reason = ""
+        if spends:
+            reason = "spends model money; idleness never buys work"
+        elif agent is None or agent.authority != Authority.GREEN:
+            reason = f"{agent_name} is not a GREEN agent"
+        elif _owner_problem(agent, job_type):
+            reason = _owner_problem(agent, job_type)
+        elif not (lanes.get(agent_name) or {}).get("active"):
+            reason = f"lane {agent_name} is inactive in allocation {alloc.get('allocation_id')}"
+        elif job_type in recent:
+            reason = f"{job_type} completed within {BACKLOG_COOLDOWN}"
+        if reason:
+            skipped.append({"description": description, "why": reason})
+            continue
+        try:
+            job = queue.enqueue(agent_name, job_type,
+                                {"source": "standing_backlog", "description": description,
+                                 "band_kind": kind},
+                                idempotency_key=f"backlog:{job_type}:{window}",
+                                priority=priority_for(job_type))
+            enqueued.append({"description": description, "job_type": job_type,
+                             "agent": agent_name, "job_id": job.id,
+                             "priority": priority_for(job_type)})
+        except DuplicateJob:
+            skipped.append({"description": description,
+                            "why": "already fed from the backlog this window"})
+
+    return {"idle": True, "enqueued": enqueued, "skipped": skipped, "batch": batch,
+            "allocation_id": alloc.get("allocation_id"), "next": next_work([])}

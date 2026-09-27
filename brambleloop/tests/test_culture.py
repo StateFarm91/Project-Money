@@ -456,12 +456,40 @@ def test_a_radar_with_no_feed_says_so_rather_than_reporting_no_trends():
 def test_a_signal_seen_again_a_year_later_is_a_recurring_territory():
     """#144's compounding value: research retro Halloween once, not every autumn."""
     db = _db()
-    last_year = (date.today() - timedelta(days=360)).isoformat()
+    first = date(2025, 10, 1)
     radar.record(db, radar.Signal("retro-halloween", "die-cut cats", "nostalgia_era",
-                                  sources=("trends",), first_seen=last_year))
+                                  sources=("trends",), first_seen=first.isoformat()))
     radar.record(db, radar.Signal("this-week", "a meme", "meme", sources=("trends",)))
+    # Seen again, the next autumn. That second sighting is the whole condition.
+    radar.observe(db, "retro-halloween", channel="search", interest=0.6,
+                  observed_on=(first + timedelta(days=362)).isoformat())
     mem = radar.memory(db)
     assert mem["recurring_annually"] == ["retro-halloween"]
+    assert mem["recurrence_evidence"]["retro-halloween"]["seen_again"] == "2026-09-28"
+
+
+def test_age_alone_is_not_recurrence():
+    """#144, proof audit 2026-09-26: a signal first seen a year ago and never since is a fad
+    somebody wrote down, not an annual territory."""
+    db = _db()
+    last_year = (date.today() - timedelta(days=360)).isoformat()
+    radar.record(db, radar.Signal("one-autumn-fad", "a meme cat", "meme",
+                                  sources=("trends",), first_seen=last_year))
+    assert radar.memory(db)["recurring_annually"] == []
+
+
+def test_a_second_sighting_in_the_same_season_is_not_a_second_year():
+    db = _db()
+    radar.record(db, radar.Signal("fad", "a meme", "meme", sources=("trends",),
+                                  first_seen="2025-12-20"))
+    # A later calendar year, but twelve days on: the same season seen twice.
+    radar.observe(db, "fad", channel="search", interest=0.5, observed_on="2026-01-01")
+    assert radar.memory(db)["recurring_annually"] == []
+    # A revival after years is not a rhythm either.
+    radar.record(db, radar.Signal("revival", "old toy", "nostalgia_era", sources=("trends",),
+                                  first_seen="2022-10-01"))
+    radar.observe(db, "revival", channel="search", interest=0.5, observed_on="2026-10-01")
+    assert "revival" not in radar.memory(db)["recurring_annually"]
 
 
 # ---- the rapid-response cell ----------------------------------------------

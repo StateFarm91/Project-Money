@@ -145,9 +145,16 @@ ETSY_PAYOUT = OwnerRequest(
     blocks="publishing, and any revenue at all",
 )
 
-# Etsy's published listing fee, and the CAD figure the estimate is built from.
-LISTING_FEE_USD = 0.20
-LISTING_FEE_CAD = 0.28
+# Etsy's listing fee, and the CAD figure the estimate is built from. Read from
+# `commerce.fee_schedule` (the dated fee reading in `gates.policy_knowledge`); `0.28` used to
+# be typed here, hand-converted from a rate written down somewhere else. Names kept as
+# aliases because other modules import them.
+from ..commerce import fee_schedule as _FS  # noqa: E402
+from ..finance.currency import ASSUMED_USD_PER_CAD as _USD_PER_CAD  # noqa: E402
+
+LISTING_FEE_USD = _FS.LISTING.amount
+LISTING_FEE_CAD = _FS.listing_fee_cad(_USD_PER_CAD)
+LISTING_PERIOD_MONTHS = _FS.LISTING_RENEWAL_MONTHS
 
 
 def listing_fees_request(listings: int) -> OwnerRequest:
@@ -168,9 +175,10 @@ def listing_fees_request(listings: int) -> OwnerRequest:
     return OwnerRequest(
         key="listing_fees",
         action=(f"Confirm you accept Etsy's listing fees for the opening catalogue: "
-                f"US${LISTING_FEE_USD:.2f} per listing for 4 months, so about "
-                f"US${usd:.2f} (about CA${cad:.2f}) for the {listings} listings currently "
-                f"drafted, plus 6.5% transaction fee and payment processing on each sale."),
+                f"US${LISTING_FEE_USD:.2f} per listing for {LISTING_PERIOD_MONTHS} months, so "
+                f"about US${usd:.2f} (about CA${cad:.2f}) for the {listings} listings "
+                f"currently drafted, plus {_FS.TRANSACTION.rate:.1%} transaction fee and "
+                f"payment processing on each sale (fee reading of {_FS.READ_ON})."),
         reason=("This is the first spend that leaves the account, and the directive is "
                 "explicit that no consequential spend happens without approval. It is "
                 "small, but it is not zero and it is not reversible."),

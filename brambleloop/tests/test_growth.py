@@ -79,6 +79,55 @@ def test_the_stress_test_asks_whether_the_target_survives_one_plausible_loss():
     assert "top SKU lost" in result["fragile_to"]
 
 
+
+def test_losing_the_top_season_and_the_top_channel_is_modelled_from_attributed_revenue():
+    """#270, proof audit 2026-09-26: the season that carries the year and the channel that
+    brings the buyers are the two losses a catalogue cannot see in its own SKU list."""
+    positions = [
+        portfolio.Position("xmas-throw", portfolio.HERO, revenue_cad=4000, family="throw"),
+        portfolio.Position("coaster-set", portfolio.CORE, revenue_cad=2000, family="coaster"),
+    ]
+    result = portfolio.stress_test(
+        positions, target_cad=5000.0,
+        revenue_by_season={"Christmas": 4000, "": 2000},
+        revenue_by_channel={"etsy_search": 5000, "pinterest": 700, "unknown": 300})
+    by_name = {s["scenario"]: s for s in result["scenarios"]}
+    assert by_name["top seasonal event lost"]["removed"] == "Christmas"
+    assert by_name["top seasonal event lost"]["remaining_cad"] == 2000.0
+    assert by_name["top traffic channel lost"]["removed"] == "etsy_search"
+    assert {"top seasonal event lost", "top traffic channel lost"} <= set(result["fragile_to"])
+    assert result["refused"] == []
+
+
+def test_an_unattributed_season_or_channel_is_refused_rather_than_estimated():
+    positions = [portfolio.Position("p", portfolio.CORE, revenue_cad=6000, family="f")]
+    result = portfolio.stress_test(positions, revenue_by_season={"": 6000},
+                                   revenue_by_channel={"unknown": 6000})
+    refused = {r["scenario"]: r for r in result["refused"]}
+    assert set(refused) == {"top seasonal event lost", "top traffic channel lost"}
+    assert all(r["reading"] == "UNMEASURED" for r in refused.values())
+    assert all(s["scenario"] not in refused for s in result["scenarios"])
+
+
+def test_the_report_carries_a_diversification_plan_that_waits_for_revenue():
+    """The route `/api/growth` serves: shape actions now, revenue actions once measured."""
+    db = _db()
+    out = portfolio.report(db)
+    plan = out["diversification_plan"]
+    assert any(a["action"] == "create a ENTRY product" for a in plan["actions"])
+    assert all(a["reading"] == "measured" for a in plan["actions"])
+    assert "revenue concentration" in plan["unmeasured"]
+    assert "top seasonal event lost" in plan["unmeasured"]
+
+    fragile = portfolio.stress_test(
+        [portfolio.Position("xmas", portfolio.HERO, revenue_cad=5500, family="t")],
+        revenue_by_season={"Christmas": 5500}, revenue_by_channel={"etsy_search": 5500})
+    plan = portfolio.diversification_plan(
+        portfolio.shape([portfolio.Position("xmas", portfolio.HERO, revenue_cad=5500)]),
+        {"measurable": False}, fragile)
+    actions = " ".join(a["action"] for a in plan["actions"])
+    assert "evergreen CORE" in actions and "second acquisition channel" in actions
+
 def test_a_role_that_does_not_exist_cannot_be_assigned():
     """#232. Roles are declared so a gap is something the system can see."""
     try:

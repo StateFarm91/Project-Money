@@ -283,6 +283,16 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # nothing read is `not_audited` rather than clean, because a weekly report of a healthy
     # business nobody looked at is the same output as one somebody did.
     ("weekly_evolution", "orchestrator", "improve.weekly", 7 * 24 * 60 * 60),
+    # Requirements 90, 94. Daily: one deterministic query per capability cell. An identical
+    # reading is not re-recorded, so running it beside the nightly sweep cannot manufacture
+    # a flat history for the plateau detector to read as a defect.
+    ("capability_measure", "orchestrator", "improve.measure", 24 * 60 * 60),
+    # Requirement 97. Six-hourly: failures mined into routed lessons, idempotent on evidence,
+    # so a defect open for a month is one lesson a month old. Nightly is the minimum sweep.
+    ("failure_mine", "orchestrator", "improve.mine", 6 * 60 * 60),
+    # Requirement 93. Daily: every promoted change judged once per new production reading,
+    # and a regression becomes a revert plus a rollback incident rather than a quiet row.
+    ("promotion_monitor", "orchestrator", "improve.monitor", 24 * 60 * 60),
     # Hourly on purpose: it is the thing that notices a certified product with no listing,
     # which is what a pipeline upgrade leaves behind.
     ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),

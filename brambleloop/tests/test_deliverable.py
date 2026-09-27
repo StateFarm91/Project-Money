@@ -234,13 +234,16 @@ def test_every_weakness_the_requirement_names_is_measured_or_named_as_needing_vi
                        or bool(hunt["complaints"].get("reason"))),
         "limited_sizes": (hunt["sizes"]["measurable"] or bool(hunt["sizes"]["reason"])),
         "no_bundle": hunt["bundles"]["measurable"],
+        # The two no text can answer are read from the photographs, and say so when no
+        # judged image carries them rather than dropping out of the list.
+        "weak_branding": hunt["branding"]["measurable"] or bool(hunt["branding"]["reason"]),
+        "stale_aesthetics": (hunt["aesthetics"]["measurable"]
+                             or bool(hunt["aesthetics"]["reason"])),
     }
     assert set(measured) == set(arbitrage.WEAKNESS_SIGNALS), measured
     assert all(measured.values()), measured
-
-    # The two that cannot be read from text are still named, with what they would need.
-    assert set(hunt["needs_vision"]) == {"weak_branding", "stale_aesthetics"}
-    assert not set(hunt["needs_vision"]) & set(arbitrage.WEAKNESS_SIGNALS)
+    assert "needs_vision" not in hunt
+    assert set(arbitrage.VISION_SIGNALS) == {"weak_branding", "stale_aesthetics"}
 
 
 # ---- the scorer, actually fed ---------------------------------------------

@@ -184,6 +184,71 @@ def escalate(attempt: int) -> dict:
             "remaining": [a for a, _ in ESCALATION[attempt + 1:]]}
 
 
+# What each rung needs before it may be executed, and by whom. The first three generate
+# images, which is model spend under the `image_generation` purpose and is never started from
+# a gate verdict; physical proof needs an object somebody made (`physical_proof`). The
+# deterministic rung needs neither -- a chart or twin render of the certified CIR -- which is
+# why it is the one this plan takes by itself.
+RUNG_GATES: dict[str, str] = {
+    "regenerate_constrained": "image_generation",
+    "change_composition": "image_generation",
+    "change_tool": "image_generation",
+    "deterministic_representation": "",
+    "acquire_physical_proof": "physical_proof",
+    "hold_listing": "",
+}
+
+
+def escalation_plan(failed: list[str], *, deterministic_available: bool,
+                    start_attempt: int = 0) -> dict:
+    """Walk a parity failure through the #81 ladder as a recorded plan.
+
+    Nothing here renders, spends or asks anybody. Each rung from `start_attempt` is read off
+    `escalate()` and classified: rungs that need paid generation or a physical object are
+    recorded as `gated` with the gate that holds them; the deterministic rung is `taken` when
+    a deterministic render is available, because it is free and always truthful; and if no
+    rung was taken the listing is held. Lowering the bar is not a rung.
+    """
+    rungs, taken = [], None
+    attempt = start_attempt
+    while True:
+        step = escalate(attempt)
+        action = step["action"]
+        gate = RUNG_GATES.get(action, "")
+        if action == "hold_listing":
+            status = "outcome" if taken is None else "not_needed"
+        elif gate:
+            status = "gated"
+        elif action == "deterministic_representation":
+            status = "taken" if deterministic_available and taken is None else "unavailable"
+        else:  # pragma: no cover - every rung is classified above
+            status = "unclassified"
+        entry = {"attempt": attempt, "action": action, "why": step["why"], "status": status}
+        if gate:
+            entry["gated_on"] = gate
+            entry["executed"] = False
+        if status == "taken":
+            taken = action
+            entry["executes_via"] = ("assets.build renders the chart and twin from the "
+                                     "certified CIR: deterministic and free")
+        rungs.append(entry)
+        if step["exhausted"] or action == "hold_listing":
+            break
+        attempt += 1
+    return {
+        "failed_dimensions": list(failed),
+        "rungs": rungs,
+        "taken": taken,
+        "gated": [r["action"] for r in rungs if r["status"] == "gated"],
+        "outcome": ("replace the failing frame with a deterministic representation"
+                    if taken else "hold the listing"),
+        "still_blocks_release": True,
+        "note": ("The plan records the path; release still waits for the parity gate to "
+                 "pass on the new frames. Paid generation and physical proof are never "
+                 "started from here (#81)."),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Asset versioning (#80, and stale-asset invalidation)
 

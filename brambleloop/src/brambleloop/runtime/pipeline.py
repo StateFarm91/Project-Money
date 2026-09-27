@@ -521,7 +521,76 @@ def handle_listing_draft(ctx: JobContext) -> dict:
     ctx.enqueue("publishing", "assets.build",
                 {"slug": slug, "version": version, "release": release, "rebuild": token},
                 idempotency_key=chain_key("assets", slug, version, release, token))
-    return {"artifact": slug, "drafted": True}
+    # #41: an owed purchase disclosure missing from the draft's copy is a finding on it.
+    from ..commerce.buyer_trust import listing_disclosure_finding
+
+    disclosure = listing_disclosure_finding(ctx.db, slug=slug, version=version)
+    if disclosure.get("finding"):
+        ctx.audit("listing.disclosure_finding", artifact=f"{slug}@{version}", detail=disclosure)
+    return {"artifact": slug, "drafted": True, "disclosures": disclosure}
+
+
+def _certified_pdf_hashes(db, slug: str, version: str, release: str) -> dict | None:
+    """The per-terminology PDF hashes `assets.build` recorded for (slug, version, release).
+
+    Read from the `assets.built` audit row and the job that wrote it: the row carries the
+    stored files (`pdfs`), the job's inputs carry the release and its outputs carry
+    `pdf_sha256_by_terminology`. Newest first; a release given must match the job's release.
+    None when nothing on record certifies a file for this release.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog, Job
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "assets.built", AuditLog.artifact == f"{slug}@{version}")
+            .order_by(desc(AuditLog.id))))
+        for row in rows:
+            job = s.get(Job, row.job_id) if row.job_id else None
+            inputs = (job.inputs or {}) if job is not None else {}
+            outputs = (job.outputs or {}) if job is not None else {}
+            if release and (inputs.get("release") or outputs.get("release") or "") != release:
+                continue
+            detail = row.detail or {}
+            hashes = (detail.get("pdf_sha256_by_terminology")
+                      or outputs.get("pdf_sha256_by_terminology")
+                      or {t: (v or {}).get("sha256")
+                          for t, v in (detail.get("pdfs") or {}).items()})
+            hashes = {t: h for t, h in (hashes or {}).items() if h}
+            if hashes:
+                return hashes
+    return None
+
+
+def check_pdf_hashes(db, *, slug: str, version: str, release: str,
+                     rendered: dict[str, bytes]) -> dict:
+    """Refuse an upload whose re-rendered PDF is not the file `assets.build` certified.
+
+    `store.publish` renders the customer's documents again at upload time. The release date
+    is pinned so the bytes should be identical; if they are not, something changed between
+    certification and upload (the writer, the renderer, the design) and the buyer would
+    download a file nobody certified. That is `PDF_HASH_DRIFT`, a PermanentError, because
+    retrying renders the same drifted bytes.
+    """
+    import hashlib
+
+    from ..core.resilience import PermanentError
+
+    certified = _certified_pdf_hashes(db, slug, version, release)
+    if not certified:
+        raise PermanentError(
+            f"PDF_HASH_DRIFT: no assets.built hash is on record for {slug}@{version} "
+            f"release {release or '(none)'}, so the file about to be uploaded cannot be shown "
+            f"to be the certified one")
+    actual = {t: hashlib.sha256(b).hexdigest() for t, b in rendered.items()}
+    drift = {t: {"certified": certified.get(t), "rendered": h}
+             for t, h in actual.items() if certified.get(t) != h}
+    if drift:
+        raise PermanentError(
+            f"PDF_HASH_DRIFT: the re-rendered PDF for {slug}@{version} differs from the "
+            f"certified file for {sorted(drift)}: {drift}")
+    return {"verified": sorted(actual), "certified": certified}
 
 
 @handlers.register("store.publish")
@@ -617,6 +686,7 @@ def handle_store_publish(ctx: JobContext) -> dict:
         copy = dict(title=listing.title, description=listing.description,
                     price_cad=listing.price_cad, tags=list(listing.tags))
         already = listing.etsy_listing_id
+        release = ctx.job.inputs.get("release") or listing.release_hash or ""
 
     if already:
         # Publishing twice must not create a second listing. Updating an existing one is a
@@ -648,6 +718,17 @@ def handle_store_publish(ctx: JobContext) -> dict:
     docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on)
             for t in TERMINOLOGIES}
     doc = docs["US"]
+    # The file uploaded must be the file certified: compared per terminology against the
+    # `assets.built` hashes for this release, before anything is stored or sent.
+    try:
+        hash_check = check_pdf_hashes(
+            ctx.db, slug=slug, version=version, release=release,
+            rendered={t: d.pdf_bytes for t, d in docs.items()})
+    except PermanentError as e:
+        ctx.audit("store.publish_refused", artifact=f"{slug}@{version}",
+                  detail={"reason": str(e)[:500], "code": "PDF_HASH_DRIFT"})
+        raise
+    ctx.audit("store.pdf_hash_verified", artifact=f"{slug}@{version}", detail=hash_check)
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     stored_by_terminology = {
         t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
