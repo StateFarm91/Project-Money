@@ -191,6 +191,12 @@ def test_a_superseded_chain_reads_stale_afterwards_which_is_the_honest_reading()
     assert by_key[("certificate", key)]["state"] == P.FRESH
     assert by_key[("listing_copy", key)]["state"] == P.STALE
     assert by_key[("listing_copy", key)]["moved"] == ["chain:release"]
+    # Frame #1 matched a build's output and was backfilled under chain 6, so it reads STALE
+    # for the same reason as the listing copy (certification C-5: this was stated in the API
+    # test's comment but asserted nowhere).
+    frame1 = by_key[("visual_truth", P.visual_key(SLUG, "1.0.0", 1))]
+    assert frame1["state"] == P.STALE, frame1
+    assert "chain:release" in frame1["moved"], frame1
     assert by_key[("visual_truth", P.visual_key(SLUG, "1.0.0", 2))]["state"] == P.UNPROVEN
     assert out["rebuild"] == [SLUG]
 
