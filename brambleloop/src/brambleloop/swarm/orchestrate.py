@@ -412,6 +412,9 @@ JOB_BANDS: dict[str, str] = {
     "ops.health": "truth_defect",
     "ops.queue_check": "truth_defect",
     "finance.escalation_check": "truth_defect",
+    # A spend spike keeps spending until the governor pauses it, so it runs in the same band
+    # as the escalation check rather than behind the week's exploration.
+    "finance.governor": "truth_defect",
     "finance.challenge": "truth_defect",
     "ops.capability_probes": "truth_defect",
     "model.probe": "truth_defect",
@@ -482,6 +485,8 @@ JOB_BANDS: dict[str, str] = {
     "improve.measure": "exploration",
     "improve.mine": "exploration",
     "improve.monitor": "exploration",
+    "improve.sandbox": "exploration",
+    "improve.league": "exploration",
     "creative.style_learning": "exploration",
     "creative.outcome_learning": "exploration",
     "seasonal.harvest": "exploration",

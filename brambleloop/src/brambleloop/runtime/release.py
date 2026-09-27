@@ -1032,30 +1032,68 @@ def handle_support_reply(ctx: JobContext) -> dict:
     """
     from ..support.department import CustomerExperience
 
+    # A reply enqueued by the triage cadence names the stored case it drafts for, and the
+    # draft is written onto that case rather than beside it (#41).
+    case_id = ctx.job.inputs.get("case_id")
     slug = ctx.job.inputs.get("slug")
     version = ctx.job.inputs.get("version")
-    question = ctx.job.inputs["question"]
+    question = ctx.job.inputs.get("question")
     customer = ctx.job.inputs.get("customer_ref", "unknown")
+    if case_id is not None:
+        from ..core.models import SupportCase
+
+        with ctx.db.session() as s:
+            case = s.get(SupportCase, int(case_id))
+            if case is None:
+                raise ValueError(f"support.reply names case {case_id}, which does not exist")
+            question = question or case.question
+            slug = slug or case.product_slug
+            version = version or case.version
+            customer = case.customer_ref or customer
+    if not question:
+        raise ValueError("support.reply needs a question or a stored case to draft for")
 
     cir = _load_cir(ctx, slug, version) if slug and version else None
     reply = CustomerExperience(ctx.db).handle(
         customer_ref=customer, message=question, cir=cir,
-        product_slug=slug, version=version)
+        product_slug=slug, version=version,
+        case_id=int(case_id) if case_id is not None else None)
 
     ctx.audit("support.replied", artifact=f"{slug}@{version}" if slug else None,
               detail={"specialist": reply.specialist, "escalated": reply.escalated,
-                      "sent": reply.sent})
-    return reply.to_dict()
+                      "sent": reply.sent, "case_id": case_id})
+    return {**reply.to_dict(), "case_id": case_id}
 
 
 @handlers.register("support.triage")
 def handle_support_triage(ctx: JobContext) -> dict:
-    """Mine real support cases for themes and candidate defects (section 10)."""
+    """Triage stored cases, enqueue a draft for each that needs one, and mine for defects.
+
+    The cadence #41 lacked (C-42): `support.reply` was registered and nothing ever enqueued
+    it. Triage classifies every stored case once -- including whether the buyer was confused
+    about buying a digital pattern -- and enqueues one `support.reply` per case with nothing
+    drafted, keyed on the case. Replies stay drafts in shadow mode; nothing is sent to anyone.
+    Confusion is then counted from those triage runs, UNMEASURED as a rate until there are
+    orders, and each open case's deadline stays UNKNOWN unless a policy reading states the
+    case window in days.
+    """
     from ..support.department import CustomerExperience
 
-    out = CustomerExperience(ctx.db).mine_cases(ctx.job.inputs.get("slug"))
+    dept = CustomerExperience(ctx.db)
+    triaged = dept.triage_cases(ctx.queue)
+    out = dept.mine_cases(ctx.job.inputs.get("slug"))
+    out["triage"] = {k: triaged[k] for k in ("triaged", "reply_jobs", "awaiting_draft",
+                                            "needing_reply", "sent")}
+    out["confusion"] = triaged["confusion"]
+    out["case_window"] = triaged["case_window"]
     ctx.audit("support.mined", detail={"cases": out["cases"],
-                                       "hotspots": out["row_hotspots"][:5]})
+                                       "hotspots": out["row_hotspots"][:5],
+                                       "triaged": len(triaged["triaged"]),
+                                       "reply_jobs": triaged["reply_jobs"],
+                                       "confusion": triaged["confusion"],
+                                       "case_window_known": bool(
+                                           triaged["case_window"].get("known")),
+                                       "sent": 0})
     for hotspot in out["row_hotspots"]:
         if hotspot["mentions"] >= 3:
             ctx.audit("support.defect_candidate", artifact=hotspot["product"],
@@ -2082,6 +2120,14 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     readiness = assess(ctx.db, phase=ctx.phase.value, providers=providers,
                        storage_durable=store.durable)
 
+    # #195 is a launch-blocking acceptance test, so it is an item of this report and not an
+    # endpoint beside it. PROVEN only on a window the rows show was worked unattended; a
+    # proof that fails, or cannot be computed, is NOT PROVEN and holds `ready` false.
+    from ..build2 import autonomy
+
+    off_device = autonomy.launch_item(ctx.db)
+    ready = bool(readiness.ready) and off_device["status"] == autonomy.PROVEN
+
     # Build-2 access gates join the same queue rather than starting a second one beside it.
     # Section 14 is explicit that there is one owner queue, and the reason is arithmetic: two
     # queues means the owner reads whichever they remember. These are capability requests
@@ -2160,14 +2206,23 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         closed: list[str] = []
         if requests:
             wanted = {r.key for r in requests}
+            from ..improve.upgrades import OWNER_CARD_PREFIXES
+
             for key, row in open_actions.items():
                 if key in wanted or key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
+                    continue
+                # The improvement pipeline's cards are decisions it raised and closes itself;
+                # this assessment never asked for them, so it is not the one to close them.
+                if key.startswith(OWNER_CARD_PREFIXES):
                     continue
                 row.done = True
                 closed.append(key)
 
     ctx.audit("launch.assessed", detail={
-        "ready": readiness.ready,
+        "ready": ready,
+        "ready_before_off_device_proof": bool(readiness.ready),
+        "off_device_proof": {k: off_device.get(k) for k in (
+            "key", "blocking", "status", "unmet", "window_hours", "evidence", "why")},
         "ours_to_do": [r.key for r in readiness.buildable],
         "blocked_on_owner": [r.key for r in readiness.blocked_on("owner")],
         "blocked_on_integration": [r.key for r in readiness.blocked_on("integration")],
@@ -2177,9 +2232,14 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         "owner_actions_closed": closed,
         "capabilities_unavailable": access.unmet_report()["unmet_capabilities"]})
 
-    return {"ready": readiness.ready, "owner_actions_added": len(queued),
+    outstanding = [r.key for r in readiness.outstanding]
+    if off_device["status"] != autonomy.PROVEN:
+        outstanding.append(autonomy.LAUNCH_ITEM_KEY)
+    return {"ready": ready, "owner_actions_added": len(queued),
             "owner_actions_closed": closed,
-            "outstanding": [r.key for r in readiness.outstanding]}
+            "outstanding": outstanding,
+            "blocking_items": [{"key": off_device["key"], "status": off_device["status"],
+                                "unmet": off_device["unmet"], "why": off_device["why"]}]}
 
 
 @handlers.register("chain.rebuild")
@@ -3405,6 +3465,9 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
                              f"{len(r['preserve'])} lesson(s) first"))
                 for r in review["merge"]]
     cycle = weekly.cycle(readings, changes)
+    # ...and the recommendations reach the owner as one batched card rather than a report
+    # (#192). Nothing is disabled: an agent disabled here would dead-letter its cadences.
+    retirement_routing = director.route_retirements(ctx.db, review)
 
     # #100: execute what is approved, tested and low-risk; queue the rest for authority.
     executed = director.execute_approved(ctx.db)
@@ -3417,7 +3480,8 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
               "architecture": cycle["architecture"],
               "retirement_review": {"keep": review["keep"], "merge": review["merge"],
                                     "retire": review["retire"],
-                                    "waiting_for_data": candidates["waiting_for_data"]},
+                                    "waiting_for_data": candidates["waiting_for_data"],
+                                    "routed": retirement_routing},
               "executed": executed["executed"],
               "queued_for_authority": executed["queued_for_authority"],
               "catalogue_autopsy_lesson": catalogue_memory.get("lesson"),
@@ -3497,6 +3561,74 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             "held": len(out["held"]), "reverted": [r["improvement"] for r in out["reverted"]],
             "rollback_proposals": [r["rollback"]["incident"] for r in out["reverted"]],
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
+
+
+@handlers.register("improve.sandbox")
+def handle_improve_sandbox(ctx: JobContext) -> dict:
+    """Take eligible proposals through a sandbox trial, test, judge, and promote or route (#92).
+
+    Proposals were opened nightly and then sat in PROPOSED for ever: nothing moved one to
+    TESTING, recorded its tests or approved it. `improve.runner` is that step. It evaluates a
+    proposal only with a registered trial that re-derives the result from recorded rows,
+    records regression and adversarial runs through `cells.record_test`, has the evaluator --
+    never the proposer -- approve, promotes a pre-authorised tier through `cells.promote`, and
+    puts every other tier in the owner queue until the owner's decision is recorded.
+
+    GREEN: reads rows, may move improvement rows and promote a pre-authorised change, may
+    queue an owner card. Spends nothing and calls no model.
+    """
+    from ..improve import runner
+
+    out = runner.run(ctx.db)
+    detail = {k: out[k] for k in ("sandboxed", "tested", "approved", "promoted",
+                                  "owner_cards", "held", "cards_closed", "note")}
+    detail["waiting"] = len(out["waiting"])
+    ctx.audit(runner.ACTION, detail=detail)
+    return {"ran": True, **detail, "waiting_detail": out["waiting"][:20]}
+
+
+@handlers.register("improve.league")
+def handle_improve_league(ctx: JobContext) -> dict:
+    """Register challengers, compare them on recorded runs, promote or card, roll back (#95, #180).
+
+    GREEN: registers configuration versions, judges recorded runs, may promote a
+    pre-authorised configuration or roll back one the league promoted, may queue an owner
+    card. Runs no challenger itself: producing a run is a model call, and this makes none.
+    """
+    from ..improve import league
+
+    out = league.cycle(ctx.db)
+    detail = {"challengers_registered": {k: out["challengers_registered"][k]
+                                         for k in ("registered", "unchanged", "skipped")},
+              "compared": out["compared"], "waiting": len(out["waiting"]),
+              "refused": out["refused"], "promoted": out["promoted"],
+              "owner_cards": out["owner_cards"], "held": out["held"],
+              "rolled_back": out["rolled_back"], "cards_closed": out["cards_closed"],
+              "note": out["note"]}
+    ctx.audit("improve.league", detail=detail)
+    return {"ran": True, **detail}
+
+
+@handlers.register("finance.governor")
+def handle_finance_governor(ctx: JobContext) -> dict:
+    """The governor's readings on a cadence, each acted on when it is measurable (#188).
+
+    A per-agent spend spike opens an incident and pauses that agent's spend for the rest of
+    its UTC day with a hold in the reservation table, which the ceiling check at dispatch
+    refuses against; no ceiling is raised or rewritten. Marginal value below break-even opens
+    an incident for the owner. The parallelism advice is written onto the latest swarm
+    allocation, where `swarm.orchestrate.lane_concurrency` reads it. Unmeasurable readings
+    act on nothing and say why.
+    """
+    from ..finance import governor
+
+    out = governor.enforce(ctx.db)
+    return {"ran": True, "paused": out["paused"], "incidents": out["incidents"],
+            "marginal_value": out["marginal_value"], "parallelism": out["parallelism"],
+            "allocation_fed": out["allocation_fed"],
+            "company_anomaly_measurable": bool(out["company_anomaly"].get("measurable")),
+            "agents_spiking": out["agent_anomalies"]["spiking"],
+            "ceilings_changed": out["ceilings_changed"]}
 
 
 @handlers.register("creative.style_learning")
