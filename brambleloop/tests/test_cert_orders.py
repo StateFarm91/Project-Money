@@ -175,6 +175,9 @@ def _feed(slug_a_listing="111"):
     receipts.append(_receipt(2002, 6001, "222", 700, currency="USD", days_ago=3))
     receipts.append(_receipt(2003, 6002, "333", 500, days_ago=4, refunded=False))
     receipts.append(_receipt(2004, 6003, "333", 500, days_ago=5, refunded=True))
+    # A line that reconciles to nothing (a negative amount): the cohort writer refuses it and
+    # the run records the refusal rather than dying on it. Its buyer already exists above.
+    receipts.append(_receipt(2005, 5000, "333", -500, days_ago=6))
     return receipts
 
 
@@ -242,6 +245,11 @@ def test_gate_open_ingest_writes_customers_orders_versions_and_ledger():
     assert len(customers) == 43 and all("@" not in c.customer_ref for c in customers)
     assert not any("Never Stored" in str(c.detail) for c in customers)
     assert len(orders) == 44 and len(ledger) == 44          # the second run added nothing
+    # The run reports how many network calls its reader made and which line it refused.
+    got = _audit(db, "commerce.orders_ingested")
+    assert got["ran"] is True and got["network_calls"] == 1
+    assert any(r.get("transaction_id") == "20050" for r in got["not_recorded"])
+    assert not any(o.external_ref.endswith(":20050") for o in orders)
     assert all(o.source == "etsy_receipts" for o in orders)
     assert {v.version for v in versions} == {cir.version}   # recorded at sale time
     assert sum(1 for v in versions if v.product_slug == cir.slug) == 40

@@ -87,11 +87,13 @@ class EtsyReceiptReader:
 
     def __init__(self, client) -> None:
         self.client = client
+        self.calls = 0  # network calls made, reported by every run
 
     def receipts(self, *, since: datetime | None) -> list[dict]:
         out: list[dict] = []
         min_created = int(since.timestamp()) if since is not None else None
         for page in range(MAX_PAGES):
+            self.calls += 1
             got = self.client.get_shop_receipts(min_created=min_created, limit=PAGE,
                                                 offset=page * PAGE)
             out.extend(got)
@@ -277,15 +279,25 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
     receipts = reader.receipts(since=since)
     listed = _catalogue(db)
     written, refused = [], []
+    from .cohorts import CohortRefused
+
     for receipt in receipts:
         try:
             for line in lines(receipt):
-                written.append(_record_line(db, line, listed))
+                try:
+                    written.append(_record_line(db, line, listed))
+                except CohortRefused as exc:
+                    # One line the cohort writer refuses (an amount that reconciles to
+                    # nothing) is recorded as such; it does not stop the other receipts.
+                    refused.append({"receipt_id": receipt.get("receipt_id"),
+                                    "transaction_id": line["transaction_id"],
+                                    "why": str(exc)[:200]})
         except IngestRefused as exc:
             refused.append({"receipt_id": receipt.get("receipt_id"), "why": str(exc)[:200]})
     created = [w for w in written if w.get("order_created")]
     return {
         "ran": True, "reading": "measured", "gate": state,
+        "network_calls": getattr(reader, "calls", None),
         "since": since.isoformat() if since else None, "at": now.isoformat(),
         "receipts": len(receipts), "lines": len(written),
         "orders_created": len(created),

@@ -308,7 +308,7 @@ def _tier(slug: str, version: str, price: float, members: int = 0) -> str:
     return ladder.ENTRY if price <= ladder.BY_KEY[ladder.ENTRY].typical_cad[1] else ladder.PREMIUM
 
 
-def ladder_block(db, rows: list[dict]) -> dict:
+def ladder_block(db, rows: list[dict], *, today: date | None = None) -> dict:
     from sqlalchemy import select
 
     from ..core.models import Listing, PriceObservation
@@ -338,7 +338,7 @@ def ladder_block(db, rows: list[dict]) -> dict:
     by_slug: dict[str, list] = {}
     for o in obs:
         by_slug.setdefault(o[0], []).append(o)
-    today = date.today()
+    today = today or date.today()
     for slug, points in by_slug.items():
         sale = [p for p in points if p[1]]
         if not sale:
@@ -636,7 +636,7 @@ def read(db, *, today: date | None = None) -> dict:
         "offers": offer_block(db),
         "winners": winner_block(db, rows, now=now),
         "reinvestment": reinvestment_block(db, now=now),
-        "ladder": ladder_block(db, rows),
+        "ladder": ladder_block(db, rows, today=today),
         "bundles": bundle_block(db),
         "promotions": promotion_block(db),
         "repeat": repeat_block(rows, as_of=now),

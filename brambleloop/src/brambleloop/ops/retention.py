@@ -152,7 +152,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                      "pruning the row would make a certified release unpublishable"),
     "creative.expedition": ("windowed",
                             "creative.audit reads expeditions after its own last cursor, and "
-                            "unit_cost counts recent ones; history behind the cursor is spent"),
+                            "unit_cost counts recent ones; history behind the cursor is spent. "
+                            "creative.standard.north_star_cohorts (C-64) also reads them by "
+                            "month inside the horizon; older cohorts live on in the daily "
+                            "creative.north_star operating_readings rows"),
     "store.pdf_hash_verified": ("latest",
                                 "commerce.first_hundred reads the latest verification to "
                                 "say whether the delivery path is proven"),
@@ -178,7 +181,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                          "forecast; pruning a forecast would flatter the finance cell"),
     "creative.blinded": ("latest", "runtime.release reads the last blinded run"),
     "creative.blind_review": ("latest", "runtime.release reads the last review"),
-    "creative.grid_tournament": ("latest", "the #126 verdict is read from the last run"),
+    "creative.grid_tournament": ("latest", "the #126 verdict is read from the last run; "
+                                 "creative.standard.north_star_cohorts (C-64) reads our grid "
+                                 "scores by month inside the horizon, and the daily "
+                                 "creative.north_star operating_readings rows keep older "
+                                 "cohorts"),
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),
     "seasonal.cycle_proof": ("latest", "runtime.release reads the last cycle proof"),
     "etsy.probe": ("latest", "intel.etsy_public reads the last probe"),
