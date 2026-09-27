@@ -90,7 +90,25 @@ def target_queries() -> list[dict]:
             taken += 1
             out.append({"query": query_for(keyword), "pod": pod.key,
                         "keyword": keyword})
+    # #33: one query per seasonal event, so the 365-day engine's competitive-weakness factor
+    # has a measured source (the index's listing count for that occasion) rather than none.
+    from ..radar.market import SEASONAL_EVENTS
+
+    for event in SEASONAL_EVENTS:
+        word = event_word(event.name)
+        if word and word not in seen:
+            seen.add(word)
+            out.append({"query": query_for(word), "pod": EVENT_POD, "keyword": word,
+                        "event": event.name})
     return out
+
+
+EVENT_POD = "seasonal_event"
+
+
+def event_word(name: str) -> str:
+    """The word a buyer types for an occasion: "Valentine's" -> "valentine"."""
+    return name.split(" ")[0].split("'")[0].lower()
 
 
 def _price(listing: dict) -> tuple[float | None, str]:

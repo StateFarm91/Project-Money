@@ -927,6 +927,21 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         ctx.audit("listing.mobile_qa", artifact=f"{slug}@{i['version']}",
                   detail={"error": f"{type(e).__name__}: {str(e)[:300]}"})
 
+    # #241: every launch ships with its pre-registered experiment pack (hero variants, title
+    # and tag strategy, confounder log), registered here at launch, write-once. The
+    # growth.experiments cadence remains the backstop for anything launched before this.
+    from ..growth.experiments import register_at_launch
+
+    try:
+        registered = register_at_launch(ctx.db, product=slug)
+        ctx.audit("growth.experiments_registered", artifact=f"{slug}@{i['version']}",
+                  detail={"created": registered.get("created"),
+                          "experiments": [e.get("key") for e in
+                                          registered.get("experiments", [])][:12]})
+    except Exception as e:  # noqa: BLE001 - a pack that failed to register is audited, not silent
+        ctx.audit("growth.experiments_unregistered", artifact=f"{slug}@{i['version']}",
+                  detail={"error": f"{type(e).__name__}: {str(e)[:300]}"})
+
     publish_inputs = {"slug": slug, "version": i["version"]}
     for carried in ("as_of", "positioning"):
         if i.get(carried):

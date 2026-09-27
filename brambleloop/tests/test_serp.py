@@ -151,12 +151,22 @@ def test_a_query_captured_recently_is_not_read_again():
 def test_target_queries_come_from_the_pod_vocabulary():
     from brambleloop.intel import pods
 
-    targets = serp.target_queries()
+    from brambleloop.radar.market import SEASONAL_EVENTS
+
+    everything = serp.target_queries()
+    # Two kinds of target, each from a list somebody can audit: the pod vocabulary, and (#33)
+    # one query per seasonal event so the engine's competitive-weakness factor has a source.
+    targets = [t for t in everything if t["pod"] != serp.EVENT_POD]
+    events = [t for t in everything if t["pod"] == serp.EVENT_POD]
     assert {t["pod"] for t in targets} == {p.key for p in pods.PODS}
     for t in targets:
         assert t["keyword"] in pods.BY_KEY[t["pod"]].keywords
         assert t["query"] == serp.query_for(t["keyword"]) and "pattern" in t["query"]
         assert t["keyword"] in t["query"]
+    assert {t["event"] for t in events} == {e.name for e in SEASONAL_EVENTS}
+    for t in events:
+        assert t["keyword"] == serp.event_word(t["event"])
+        assert t["query"] == serp.query_for(t["keyword"]) and "pattern" in t["query"]
 
 
 # ---- change over time and the search_behaviour domain ----------------------

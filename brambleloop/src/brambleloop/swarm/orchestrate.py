@@ -422,6 +422,8 @@ JOB_BANDS: dict[str, str] = {
     "ops.policy_watch": "truth_defect",
     # A window closes and cannot be reopened.
     "seasonal.sentinel": "seasonal_deadline",
+    "seasonal.engine": "seasonal_deadline",
+    "ops.thrash": "truth_defect",
     # #311: an MJs-derived opportunity's window closes exactly like a certified product's.
     "mjs.seasonal_sentinel": "seasonal_deadline",
     "seasonal.remerchandising": "seasonal_deadline",
@@ -466,6 +468,7 @@ JOB_BANDS: dict[str, str] = {
     "plan.cycle": "new_opportunity",
     "pricing.experiment": "new_opportunity",
     "growth.experiments": "new_opportunity",
+    "growth.conclude": "new_opportunity",
     "ads.campaign": "new_opportunity",
     "ads.adjust": "new_opportunity",
     # Learning with no committed value.

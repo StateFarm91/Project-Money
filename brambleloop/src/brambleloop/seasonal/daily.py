@@ -99,8 +99,8 @@ def opportunities(db, rolling: dict, catalogue: dict, *, samples: int, today: da
     Three factors are arithmetic over this company's own catalogue and calendar (time
     remaining, product fit, production feasibility). Four need the market: expected demand
     (Insights search counts), achievable visibility (recorded impressions), contribution
-    potential (recorded order contribution) and competitive weakness, which no source this
-    company holds measures. An event with any factor unobserved is not scored: a factor left
+    potential (recorded order contribution) and competitive weakness (the API search index's
+    listing count for the occasion's query, relative to the most crowded occasion). An event with any factor unobserved is not scored: a factor left
     out of a product is a factor silently set to one, and a factor set to zero scores the
     occasion dead because nobody looked.
     """
@@ -129,6 +129,21 @@ def opportunities(db, rolling: dict, catalogue: dict, *, samples: int, today: da
     peak_demand = max(demand_by_event.values(), default=0.0)
     total_impressions = sum(int(o.impressions or 0) for o in outcomes)
 
+    # #33 competitive weakness (certification: "no source" was not true once the API search
+    # index was captured). The listing count the index reports for the occasion's own query,
+    # relative to the most crowded occasion: fewer competing listings reads weaker incumbents.
+    # Labelled api_index_count; an occasion whose query was never captured stays unmeasured.
+    from ..intel import serp
+
+    density = serp.density(db)
+    count_by_event: dict[str, int] = {}
+    for event in rolling["events"]:
+        word = serp.event_word(event["event"])
+        reading = density.get(serp.query_for(word)) if word else None
+        if reading is not None:
+            count_by_event[event["event"]] = int(reading["count"])
+    densest = max(count_by_event.values(), default=0)
+
     scored, unscored = [], []
     for event in rolling["events"]:
         name, days = event["event"], int(event["days_away"])
@@ -144,7 +159,8 @@ def opportunities(db, rolling: dict, catalogue: dict, *, samples: int, today: da
                                 if name in demand_by_event and peak_demand else None),
             "achievable_visibility": None,
             "contribution_potential": None,
-            "competitive_weakness": None,
+            "competitive_weakness": (round(1.0 - count_by_event[name] / densest, 4)
+                                     if name in count_by_event and densest else None),
         }
         if total_impressions:
             shown = sum(int(o.impressions or 0) for o in outcomes if o.product_slug in slugs)

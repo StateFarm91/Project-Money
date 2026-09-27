@@ -101,6 +101,11 @@ NON_REDERIVABLE = (
     "pod_capability_readings",
     # #70: a listing-set certificate is what was vouched for on the day it was issued.
     "listing_set_certificates",
+    # C-48 / #286-#291: the week's and day's operating readings, the seasonal teams' ownership,
+    # and where each trend figure came from are facts about a moment.
+    "operating_readings",
+    "seasonal_teams",
+    "trend_provenance",
     "cohorts",
     # The build loop's own state. Re-derivable from the registry only in part: the claims,
     # the completion evidence and the decision history are not in any file, and losing them

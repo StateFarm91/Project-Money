@@ -56,6 +56,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "seasonal.harvest",
                             # #92 / #95 / #180 / #190: sandbox trials and the challenger league.
                             "improve.sandbox", "improve.league",
+                            # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
+                            "ops.thrash", "seasonal.engine",
                             "ops.provenance_backfill",
                             # The three gates that stopped reading environment variables
                             # need something to keep asking whether the capability still
@@ -269,7 +271,9 @@ DEFAULT_AGENTS.extend([
          description=("Pre-registers and persists each launch's experiment pack, with owner, "
                       "expected value and the decision it can change (#241, #265). Runs "
                       "nothing live and spends nothing."),
-         allowed_job_types=["growth.experiments"],
+         allowed_job_types=["growth.experiments",
+                            # #265 / #266: experiments concluded under the incrementality rules.
+                            "growth.conclude"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=0.25),
 ])
 FORBIDDEN_COMBINATIONS.update({

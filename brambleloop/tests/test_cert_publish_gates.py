@@ -470,6 +470,19 @@ def test_a_pivot_decision_is_carried_out_by_rewriting_the_listing_as_evergreen()
                 s.delete(j)
 
 
+def test_a_launch_registers_its_experiment_pack_at_launch():
+    """#241: the pack is registered in launch.plan -- at launch -- with its launch record,
+    not only by the next day's growth.experiments backstop."""
+    from brambleloop.core.models import RegisteredExperiment
+
+    st = chain()
+    rows = _audits(st["db"], "growth.experiments_registered")
+    assert rows, "launch.plan ran and registered no experiment pack"
+    with st["db"].session() as s:
+        keys = {r.key for r in s.scalars(select(RegisteredExperiment))}
+    assert any(k.startswith(st["slug"]) for k in keys), keys
+
+
 def test_an_unjudged_search_grid_blocks_publish_as_an_audited_refusal():
     """#126 release half: no grid verdict on file reads as not cleared, and refuses."""
     st = chain()
