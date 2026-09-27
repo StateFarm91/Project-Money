@@ -25,11 +25,26 @@ readable live at `/api/build2`.
 
 | status | count | meaning |
 |---|---|---|
-| covered | 227 | satisfied, with a named test or artefact |
-| partial | 45 | something real exists and is short of the requirement |
+| covered | 235 | satisfied, and the note or `proof` names a module that exists and a test that exercises it |
+| partial | 45 | something real exists; **every one is parked on a checkable gate** (0 ready to start) |
 | missing | 0 | nobody has built it |
-| owner_gated | 28 | waits on an owner decision, credential or legal acceptance |
+| owner_gated | 20 | waits on an owner decision, credential or legal acceptance |
 | data_gated | 20 | waits on market evidence that does not exist yet in shadow mode |
+
+**Build 2 closure matrix (2026-09-27, `/api/closure`, computed from evidence — `build2/closure.py`):**
+
+| final state | count |
+|---|---|
+| COMPLETE+PROVEN | 235 |
+| OWNER-GATED | 28 |
+| DATA-GATED | 42 |
+| EXTERNAL-BLOCKED | 15 |
+| OPEN (executable work remaining) | **0** |
+
+The five-status table above is the registry's claim; the matrix is the audit of it. A covered
+row counts as COMPLETE+PROVEN only when a module it names exists and a test exercises it; a
+parked row carries the kind of its gate, checked live. See the 2026-09-27 closeout section at
+the end of this file.
 
 Five values rather than two on purpose: "done / not done" is what makes a large build
 dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
@@ -9712,3 +9727,94 @@ verdict read from a watcher's state instead of the job's own terminal evidence. 
 is the same rule `ops/board.py` and `ops/registry.py` already follow -- wait on the log line the
 job itself writes. Had that gone uncorrected, this wave would have been reported clean with a
 temp-directory leak sitting in a newly merged file.
+
+## 2026-09-27 — Build 2 closeout: OPEN = 0, every requirement in a final state
+
+Isolated branch `claude/visual-investigation`, from checkpoint `4cf6959`. The integrated
+branch `claude/repository-setup-nc9x6o` is untouched at `fcb982d`; nothing was deployed,
+published, activated or spent on advertising; no paid Visual generation was run.
+
+**Closure matrix** (`/api/closure`): 235 COMPLETE+PROVEN · 28 OWNER-GATED · 42 DATA-GATED ·
+15 EXTERNAL-BLOCKED · **0 OPEN**. First computed on 2026-09-26 at 161/27/42/19/71; the 71 open
+were 67 covered rows naming no module plus four model-render rows. A 67-row proof audit found
+44 proven, 17 overstated (a correct library nothing in the runtime called) and 3 process
+directives; the 17 were reclassified partial and then made true in the runtime.
+
+**What was built (verified by focused suites, then the full suite):**
+
+- *Etsy/commerce knowledge* — `gates/policy_knowledge.py`: six policy surfaces and six commerce
+  topics as dated readings with declared basis (search-engine excerpts of official pages,
+  because every etsy.com/legal and help.etsy.com page returns 403 to honest automation); the
+  policy watch seeds them and resolves the six `policy_stale` incidents with the snapshot
+  named; `POST /api/policy/snapshot` lets a person record a page they read; `commerce/fee_schedule.py`
+  is the one fee record every fee literal reads; AI disclosure is a sourced ERROR.
+- *Original design* — garment grading from sourced CYC body tables (`cir/graded.py`),
+  shaping primitives, drop-shoulder and top-down raglan templates, two original garments
+  certified at every sourced size (9 adult, 8 child), and `creative/garment_design.py` so a
+  generated garment concept is designed by rule and survives the whole release chain.
+  Writer/reverse are loop-aware and per-piece; certify runs specification and assembly with a
+  twin per piece; a benchmark-containment check refuses purchased-pattern tables; a schematic
+  page renders for multi-piece designs.
+- *Canonical model* — asset MANIFEST with sha256 and role; references hash-pinned
+  (a tampered face returns nothing); `identity.provenance_check` in the frame gate; a
+  version/replacement procedure requiring an owner approval record (not used: no replacement
+  was approved); the poisoned `creative.model_reference_pack` dead letter now stands aside;
+  `/api/model-pack` reads frozen state instead of a literal.
+- *Continuous learning* — measure → mine → hypothesis → sandbox → independent approval →
+  tier-gated promotion → monitor → rollback, all with cadences and handler tests. Proposer,
+  approver and promoter are separate; an Improvement Director blocks conflicting changes;
+  gate thresholds and Product Truth weakening are refused end to end; a full nightly+weekly run
+  leaves 110 gate constants and the cable-throw Product Truth digest unchanged.
+- *Cost governance* — the dashboard states the monthly ceiling and the unset paid-media caps
+  instead of "No spend limits configured"; the 80% escalation is a monthly owner action from a
+  cadence; image renders and the model gateway reserve before spending; one BudgetExceeded
+  hierarchy; refusal audit; provider and department ceiling tables exist and are empty (owner
+  numbers). The date-dependent wave-2 test is fixed by passing its frozen date.
+- *Provenance* — a fail-closed lineage write path on every chain handler, a worker backstop
+  (log-only until the backlog closes), additive lineage columns, and an evidence-only
+  backfill (`source=backfilled`, unmatched rows stay UNPROVEN).
+- *Orchestration and incidents* — `awaiting_build_session` distinguished from `stalled`;
+  `model_bearing_render` gate; completion fenced to the lease holder with worker-side lease
+  renewal (capped at an hour); incident lifecycle reconciliation; seasonal detectors keyed by
+  event and year, filtered to each product's occasion and evidence-aware; `GET /api/incidents`.
+- *Runtime wiring of 17 overstated libraries* — swarm quality/allocation/orphans/backlog,
+  priority bands at enqueue, buyer-trust findings and the order-version table, persisted
+  experiments with kill rules, diversification plan, culture recurrence needing a second
+  sighting, adaptive benchmark scan interval, parity escalation ladder.
+- *Intel and competitive parity* — blind review writer (UNKNOWN without observations, never
+  PASS), dated category-matched benchmark set, insights budgeter, the #126 grid tournament with
+  a three-judge vision panel, and a 13-step #320 acceptance runner.
+- *Dashboard truth* — the console shows ready vs parked work (0 ready; 45 parked) and the
+  closure matrix; parity reads the realism checks product-first frames actually record.
+
+**Honest status of what is not done:**
+
+- **Product-only Visual V1 is NOT LOCKED** (0 of 16 draws, `4cf6959`). #72/#130/#202 are
+  EXTERNAL-BLOCKED on `model_bearing_render`: no provider renders a certified structure
+  faithfully. No further paid draws were run.
+- **Etsy pages are 403 to automation** (#1, #2 density, #15, #37, #39, #189, #221, #222,
+  #236, #277, #281, #320 browser wording): EXTERNAL-BLOCKED; readings are recorded by excerpt
+  or by a person.
+- **Production gates today:** model_provider, image_vision and image_generation are CLOSED
+  because the Anthropic credit is exhausted. The vision-path requirements are built and
+  tested; their production runs are refused before spending until it is funded.
+- **Not deployed.** The seasonal-incident fixes, policy seeding and incident lifecycle will
+  resolve the 17 open production incidents only once this branch is deployed, which is outside
+  this closeout's authority.
+- Physical calibration (yarn factors, fit of class C garments) remains DATA-GATED on a
+  physical sample; nothing was invented.
+
+**OWNER ACTION REQUIRED (batched):**
+
+1. *Fund the Anthropic API* (owner actions 19/20 are duplicates of this). Why: model_provider,
+   image_vision and image_generation are closed, so the vision judges, blind review evidence,
+   gallery analysis and seasonal cycle proof cannot run. Max cost: the existing CA$100/month
+   ceiling, enforced in code. Minutes: 5. Consequence of waiting: competitive parity and the
+   #320 demonstration stay unjudged.
+2. *Decide whether an API + vision traversal satisfies the "browser/vision" wording of
+   #222/#320* (B-105 grades capability, not this). Minutes: 2. Consequence: every acceptance
+   grade stays provisional.
+3. *Authorise deployment of `claude/visual-investigation`* after review. Minutes: 10.
+   Consequence: the 17 production incidents and the dead-letter re-drive stay as they are.
+4. Standing, unchanged: Etsy identity/payout/shop activation, paid-media authority,
+   benchmark purchases, owned surfaces, a physical sample or paid tester.

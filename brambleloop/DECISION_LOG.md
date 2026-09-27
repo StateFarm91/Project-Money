@@ -1216,3 +1216,38 @@ and are not changed here. Mechanisms that needed no owner input (dashboard truth
 as an OwnerAction, reservation before image spend, gateway agent-permission checks, refusal
 audit, provider/department ceiling tables left empty) are built with empty values reported
 honestly as "no cap set", never as "capped".
+
+**D-B2C-8. A handoff between models inherits the work, verifies it, and never rewrites it for
+being unfamiliar.** Two usage interruptions killed nine implementers mid-edit. Their partial
+work was checkpointed first (WIP commits `e5498b0`, `a49f1df`), verified by import and by
+focused suites, finished from where it stopped, and only then re-integrated. Nothing was
+redone because a different model was reading it.
+
+**D-B2C-9. Completion is fenced to the lease holder, and the worker renews a running
+handler's lease for at most an hour.** A reclaimed job's original worker can no longer
+overwrite the run that replaced it; a legitimate long handler keeps its result because the
+worker renews the lease while it runs; a hung handler still becomes reclaimable after the
+cap. Chosen over per-handler heartbeat calls because a rule every handler must remember is
+the rule the next handler forgets.
+
+**D-B2C-10. A garment is a size chart, so it is designed as a function of size from sourced
+body data, and a concept reaches it by rule.** `cir/graded.py` grades from the Craft Yarn
+Council woman (XS-5X) and child/youth (2-16) tables with source URLs; a measurement the table
+does not give is UNSOURCED and refuses that size. `creative/garment_design.py` maps a
+concept's construction, recipient, lane and premise to a template, table, fabric and ease;
+babywear and untaught constructions are refused by name. A fitted premise gets close ease and
+is therefore class C: certification refuses it until a physical fit test exists. No purchased
+pattern is a source: `products/garments.py` imports nothing from `cir/benchmarks.py`, and
+`cir/specification.py` refuses any design whose stitch tables contain a benchmark's.
+
+**D-B2C-11. A gate enforced on its own evidence is complete even when today's products fail
+it.** #75 (eight-part parity) and #71 (competitive parity) are requirements for the gate, not
+for a product that passes it. They close when every dimension has an evidence writer and a
+reader and the gate blocks release on fail or unjudged. Whether a product then passes is a
+product outcome, reported as such.
+
+**D-B2C-12. The live gate state is the truth about what can run today, and the registry says
+so.** Production reads image_vision, image_generation and model_provider CLOSED because the
+Anthropic credit is exhausted (owner actions 19/20). Requirements whose engineering is
+complete on the image-vision path are COMPLETE+PROVEN with that stated; their production runs
+are refused before spending, not failed, until funding returns.
