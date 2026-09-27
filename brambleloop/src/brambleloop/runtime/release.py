@@ -429,10 +429,19 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     seed = _seed_for(slug)
     category = seed.category if seed else "mosaic_blanket"
     band = CATEGORY_BANDS_CAD.get(category, DEFAULT_BAND)
-    proposed = seed.price_cad if seed else band[1]
-
     sizes = len(ctx.job.inputs.get("sizes") or []) or 1
     is_bundle = bool(seed and seed.is_bundle)
+    # #7: the customer outcome is priced -- the finished object, the hours it asks for and the
+    # support that comes with it -- anchored on what the department is observed to charge.
+    # A bundle keeps its own arithmetic below, which is measured against its members.
+    outcome = None if is_bundle else _outcome_price(ctx, i, seed, category, band)
+    proposed = (outcome["price_cad"] if outcome else
+                (seed.price_cad if seed else band[1]))
+    # #24: contribution per visitor, not conversion, decides. When a higher-priced sibling in
+    # this category earns more per visitor than this listing, a lower price is not proposed.
+    per_visitor = _contribution_per_visitor_guard(ctx, slug, category, proposed)
+    proposed = per_visitor["proposed_cad"]
+
     members = ctx.job.inputs.get("bundle_members_cad")
     if is_bundle and not members:
         # A bundle's saving has to be measured against the prices we actually charge for its
@@ -472,7 +481,8 @@ def handle_pricing_position(ctx: JobContext) -> dict:
         season=(seed.season or "evergreen") if seed else "unassigned")
 
     ctx.audit("pricing.positioned", artifact=slug,
-              detail={**decision.to_dict(), "price_point": price_point})
+              detail={**decision.to_dict(), "price_point": price_point,
+                      "outcome_price": outcome, "per_visitor": per_visitor})
     i.update({"price_cad": decision.price_cad, "net_cad": decision.net_cad,
               "pricing_reasons": decision.reasons, "pricing_warnings": decision.warnings,
               "category": category})
@@ -480,6 +490,86 @@ def handle_pricing_position(ctx: JobContext) -> dict:
                 idempotency_key=chain_key("seo", slug, i["version"], i.get("release", ""),
                                           i.get("rebuild", "")))
     return decision.to_dict()
+
+
+OUTCOME_ANCHOR_MIN_LISTINGS = 5
+
+
+def _outcome_price(ctx: JobContext, inputs: dict, seed, category: str,
+                   band: tuple[float, float]) -> dict | None:
+    """#7: `value_stack.outcome_price` on this release's finished size, make time and colours.
+
+    The anchor is the department's observed median price from the benchmark catalogue when
+    at least five listings were observed there, and otherwise the midpoint of the category's
+    researched band -- labelled, so a reader can see which one priced it.
+    """
+    from statistics import median
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..publish.value_stack import ValueStackRefused, outcome_price
+    from ..seasonal.daily import DEPARTMENT_OF
+    from ..seasonal.leadtime import classify
+
+    size = inputs.get("finished_size_cm") or [None, None]
+    if not seed or not size or size[0] is None:
+        return None
+    pod = DEPARTMENT_OF.get(category)
+    with ctx.db.session() as s:
+        prices = [float(r.price_cad) for r in s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.pod == pod)) if r.price_cad and r.price_cad > 0] if pod else []
+    if len(prices) >= OUTCOME_ANCHOR_MIN_LISTINGS:
+        anchor, basis = median(prices), f"observed median of {len(prices)} {pod} listings"
+    else:
+        anchor = (band[0] + band[1]) / 2
+        basis = (f"midpoint of the researched {category} band: {len(prices)} observed {pod} "
+                 f"listing(s), below the {OUTCOME_ANCHOR_MIN_LISTINGS} a median needs")
+    hours = sum(seed.maker_hours) / 2.0
+    try:
+        got = outcome_price(SimpleNamespace(width_cm=float(size[0]),
+                                            height_cm=float(size[1] or size[0])),
+                            make_hours=hours, make_lane=classify(hours),
+                            colours=len(inputs.get("yardage") or {}) or 1,
+                            market_median_cad=anchor)
+    except (ValueStackRefused, TypeError, ValueError):
+        return None
+    got["anchor_basis"] = basis
+    return got
+
+
+def _contribution_per_visitor_guard(ctx: JobContext, slug: str, category: str,
+                                    proposed: float) -> dict:
+    """#24 in the pricing agent: read the per-visitor ranking and refuse a conversion-led cut."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..scale.runrate import per_visitor_from_db
+
+    ranking = per_visitor_from_db(ctx.db)
+    rows = {r["slug"]: r for r in ranking.get("ranked") or []}
+    mine = rows.get(slug)
+    if mine is None:
+        return {"proposed_cad": proposed, "status": UNMEASURED_PRICE,
+                "why": "this listing has no recorded visits and measured orders yet"}
+    peers = [r for k, r in rows.items() if k != slug
+             and (_seed_for(k).category if _seed_for(k) else "") == category]
+    richer = [r for r in peers if r["price_cad"] > mine["price_cad"]
+              and r["contribution_per_visitor"] > mine["contribution_per_visitor"]]
+    with ctx.db.session() as s:
+        current = max((float(l.price_cad or 0.0) for l in s.scalars(
+            select(Listing).where(Listing.product_slug == slug))), default=0.0)
+    floor = current if richer else 0.0
+    return {"proposed_cad": max(proposed, floor), "status": "measured",
+            "contribution_per_visitor": mine["contribution_per_visitor"],
+            "higher_priced_peers_earning_more": [r["slug"] for r in richer],
+            "why": ("a higher-priced sibling earns more per visitor, so the price is not cut "
+                    "to chase conversion" if richer else
+                    "no higher-priced sibling earns more per visitor")}
+
+
+UNMEASURED_PRICE = "UNMEASURED"
 
 
 @handlers.register("listing.seo")
@@ -524,6 +614,10 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # own listings ranked against each other. Re-chosen from the remaining queries, never
     # fewer slots, and the swap is recorded with the catalogue reading below.
     tags, portfolio_reading = _diversify_tags(ctx.db, slug, queries, tags)
+    # #237 / #24: the owner's Etsy Stats export, joined to orders, is read by the SEO agent.
+    # A term shown thousands of times that never sold is a vanity term; a slot spent on it is
+    # re-spent on a phrase that has not been proven to earn nothing.
+    tags, portfolio_reading["search_terms"] = _drop_vanity_tags(ctx.db, queries, tags)
 
     # A children's product's listing carries the statements a buyer needs before they pay.
     #
@@ -865,6 +959,49 @@ def _diversify_tags(db, slug: str, queries, tags: list[str]) -> tuple[list[str],
                                      f"off phrases another listing already competes for")}
     return tags, {**reading, "shared_after": shared_before, "changed": False,
                   "why": "no reachable alternative phrase; the original tags stand"}
+
+
+ATTRIBUTION_KIND = "attribution.stats"
+
+
+def _drop_vanity_tags(db, queries, tags: list[str]) -> tuple[list[str], dict]:
+    """Swap tags the latest ingested Stats export shows as vanity terms (#237)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import OperatingReading
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == ATTRIBUTION_KIND)
+                       .order_by(desc(OperatingReading.at), desc(OperatingReading.id)).limit(1))
+        stats = dict(row.payload or {}) if row is not None else None
+    if not stats:
+        return tags, {"status": "UNMEASURED",
+                      "why": "no Etsy Stats export has been ingested (/api/attribution/stats)"}
+    vanity = {t.lower() for t in (stats.get("joined") or {}).get("vanity_terms") or []}
+    earning = [t["term"] for t in (stats.get("joined") or {}).get("terms") or []
+               if (t.get("contribution_per_visit_cad") or t.get("revenue_per_visit_cad"))]
+    dropped = [t for t in tags if t.lower() in vanity]
+    if not dropped:
+        return tags, {"status": "measured", "vanity_dropped": [], "earning_terms": earning[:10],
+                      "export": stats.get("period_key")}
+    kept = [t for t in tags if t.lower() not in vanity]
+    # #24: a freed slot goes first to a term the export shows earning per visit, and only then
+    # to a phrase nothing has measured yet -- contribution economics, not impressions.
+    refilled_from_earning = []
+    for phrase in list(earning) + [q.phrase for q in queries]:
+        if len(kept) >= len(tags):
+            break
+        if (phrase.lower() not in vanity and phrase.lower() not in {k.lower() for k in kept}
+                and len(phrase) <= 20):
+            kept.append(phrase)
+            if phrase in earning:
+                refilled_from_earning.append(phrase)
+    return kept, {"status": "measured", "vanity_dropped": dropped, "earning_terms": earning[:10],
+                  "refilled_from_earning": refilled_from_earning,
+                  "export": stats.get("period_key"),
+                  "why": (f"{len(dropped)} tag(s) were shown and never sold in the owner's "
+                          f"Stats export; their slots went to terms that earned per visit "
+                          f"first, then to unproven phrases")}
 
 
 def _quote_screen(db, text: str) -> tuple[list[str], dict]:
@@ -1385,10 +1522,73 @@ def handle_support_reply(ctx: JobContext) -> dict:
         product_slug=slug, version=version,
         case_id=int(case_id) if case_id is not None else None)
 
+    # #257: the anti-gating guard reads every draft before it can go anywhere, and #18: the
+    # case records how long the answer took. Both act on the case itself.
+    checked = _check_and_time_reply(ctx, case_id=case_id, customer=customer,
+                                    question=question, reply=reply)
     ctx.audit("support.replied", artifact=f"{slug}@{version}" if slug else None,
               detail={"specialist": reply.specialist, "escalated": reply.escalated,
-                      "sent": reply.sent, "case_id": case_id})
-    return {**reply.to_dict(), "case_id": case_id}
+                      "sent": reply.sent, "case_id": checked["case_id"],
+                      "copy_ok": checked["copy"]["ok"],
+                      "response_minutes": checked["timing"].get("minutes")})
+    out = {**reply.to_dict(), "case_id": checked["case_id"],
+           "copy_check": checked["copy"], "timing": checked["timing"]}
+    if not checked["copy"]["ok"]:
+        out["body"] = ""
+        out["escalated"] = True
+    return out
+
+
+def _check_and_time_reply(ctx: JobContext, *, case_id, customer: str, question: str,
+                          reply) -> dict:
+    """Refuse a draft that gates a review (#257) and time the case (#18).
+
+    A draft carrying one of `reviews.GATING_PHRASES` is not held for sending: its body is
+    removed from the case and the case is escalated to a person with the phrase named, since
+    a support answer the buyer was owed may never carry a request for a rating. The response
+    time is recorded on the case -- as `draft_ready` while shadow mode holds every reply,
+    because a held draft is not a response anybody received.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import desc, select
+
+    from ..commerce.reviews import check_support_copy
+    from ..core.models import SupportCase
+    from ..support import service
+
+    copy = check_support_copy(reply.body or "")
+    with ctx.db.session() as s:
+        if case_id is not None:
+            case = s.get(SupportCase, int(case_id))
+        else:
+            case = s.scalar(select(SupportCase).where(
+                SupportCase.customer_ref == customer, SupportCase.question == question)
+                .order_by(desc(SupportCase.id)).limit(1))
+        if case is None:
+            return {"case_id": case_id, "copy": copy,
+                    "timing": {"recorded": False, "why": "no stored case to time"}}
+        cid = int(case.id)
+        at = case.at if case.at.tzinfo else case.at.replace(tzinfo=timezone.utc)
+        already = "response_minutes" in (case.detail or {})
+        if not copy["ok"]:
+            case.answer = ""
+            case.escalated = True
+            case.resolved = False
+            case.detail = {**dict(case.detail or {}), "draft_refused": copy["found"],
+                           "escalation_reason": ("the draft asked for a rating attached to "
+                                                 "support the buyer was owed")}
+    minutes = max(0.0, (datetime.now(timezone.utc) - at).total_seconds() / 60.0)
+    if already:
+        timing = {"recorded": False, "why": "this case's response time is already recorded"}
+    else:
+        timing = {"recorded": True, **service.record_response(
+            ctx.db, cid, minutes=round(minutes, 2), from_canonical=not reply.escalated,
+            measured_as="sent" if reply.sent else "draft_ready")}
+    if not copy["ok"]:
+        ctx.audit("support.draft_refused", artifact=f"case:{cid}",
+                  detail={"found": copy["found"], "why": copy["why"]})
+    return {"case_id": cid, "copy": copy, "timing": timing}
 
 
 @handlers.register("support.triage")
@@ -2615,9 +2815,26 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     outstanding = [r.key for r in readiness.outstanding]
     if off_device["status"] != autonomy.PROVEN:
         outstanding.append(autonomy.LAUNCH_ITEM_KEY)
+    # #259: the four before-the-first-customer priorities are launch items, each with the
+    # blocker its evidence names. #17: whether paid traffic may be bought is read here too, so
+    # the launch report says whether the shop is finished enough for ads, not only for buyers.
+    from ..commerce import first_hundred, trust
+
+    before = first_hundred.before_the_first_customer(db=ctx.db)
+    outstanding += [f"first_hundred:{p}" for p in before["outstanding"]]
+    paid = trust.may_scale_ads(ctx.db, disclosure_ok=not any(
+        p == "truthful_expectations" for p in before["outstanding"]))
+    ctx.audit("launch.first_customer", detail={
+        "outstanding": before["outstanding"],
+        "blockers": {r["priority"]: r["blocker"] for r in before["priorities"]
+                     if not r["ready"]},
+        "paid_traffic_may_scale": paid["may_scale"], "paid_traffic_blocking": paid["blocking"]})
     return {"ready": ready, "owner_actions_added": len(queued),
             "owner_actions_closed": closed,
             "outstanding": outstanding,
+            "first_customer": {"outstanding": before["outstanding"],
+                               "ready": before["ready"], "of": before["of"]},
+            "paid_traffic": {"may_scale": paid["may_scale"], "blocking": paid["blocking"]},
             "blocking_items": [{"key": off_device["key"], "status": off_device["status"],
                                 "unmet": off_device["unmet"], "why": off_device["why"]}]}
 
@@ -2652,10 +2869,28 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     from ..gates.certificate import DOC_VERSION
     from .pipeline import _engineered_cir
 
+    # A request that names products (growth.steer's fast lane, #291: `slugs`) is scoped to
+    # them. It used to fall through to the whole-catalogue scan, so "start this admitted
+    # product's chain now" quietly meant "re-examine every release" (Codex G03). A request
+    # naming products none of which exist is an error to record, not a scan.
+    requested = ctx.job.inputs.get("slugs")
+    scope = set(requested) if requested else None
+
     with ctx.db.session() as s:
         products = {p.id: p.slug for p in s.scalars(select(Product))}
+        if scope is not None:
+            known = set(products.values())
+            unknown = sorted(scope - known)
+            if unknown and not (scope & known):
+                ctx.audit("chain.rebuild_refused", detail={
+                    "reason": "requested slugs name no product", "slugs": sorted(scope),
+                    "source": ctx.job.inputs.get("source")})
+                return {"started": [], "scope": sorted(scope), "unknown": unknown,
+                        "refused": "requested slugs name no product"}
+            products = {pid: sl for pid, sl in products.items() if sl in scope}
         certified = [pv for pv in s.scalars(
-            select(PatternVersion).where(PatternVersion.certified == True))]  # noqa: E712
+            select(PatternVersion).where(PatternVersion.certified == True))  # noqa: E712
+            if pv.product_id in products]
         # Current, not merely present. An earlier version of this looked only for *missing*
         # listings and so left every stale one exactly as it was: the fix reached nothing, and
         # a stuttering title stayed on every shipped product through two deploys.
@@ -4535,6 +4770,13 @@ def handle_capacity_review(ctx: JobContext) -> dict:
     reading = weekly.solve(ctx.db, today=today, qa=qa)
     plan = reading["allocation"]
     stored = weekly.record(ctx.db, reading)
+    # #262: next week's forecast is written before the week starts, so that a later solve
+    # can score it and lower confidence if the model has been optimistic.
+    from ..scale import evidence as scale_evidence
+    from ..scale.runrate import observe as _observe
+
+    forecast = scale_evidence.record_forecast(
+        ctx.db, _observe(ctx.db, today=today)["observed"], today=today)
     detail = {
         "mix": plan["mix"],
         "phase": plan["phase"],
@@ -4557,6 +4799,14 @@ def handle_capacity_review(ctx: JobContext) -> dict:
         "winners_declarable": reading["bundle_attribution"]["winners_declarable"],
         "confidence": reading["confidence"]["probability"],
         "resilience": reading["confidence"]["resilience_rung"]["evidence"].get("stress_test"),
+        "conditions_met": reading["confidence"]["conditions_met"],
+        "calibration_ceiling": reading["confidence"]["calibration_ceiling"],
+        "forecast_recorded": forecast.get("recorded"),
+        "scenario_conversion": reading["scenarios"]["conversion_source"],
+        "cac_split": {k: (reading["cac_split"][k].get("value")
+                          if isinstance(reading["cac_split"][k], dict) else None)
+                      for k in ("new_customer_cac_cad", "blended_cac_cad",
+                                "contribution_after_ads_cad")},
     }
     ctx.audit("ops.capacity", detail=detail)
     return detail

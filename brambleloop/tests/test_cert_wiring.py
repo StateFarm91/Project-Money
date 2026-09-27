@@ -242,22 +242,41 @@ def test_follow_on_work_is_enqueued_at_its_band_too():
     """#187 says customer incidents and truth defects go first. A band applied only at the
     scheduler leaves every handler-enqueued job (gate.certify, finance.challenge, the whole
     release chain) at the queue default, below housekeeping."""
+    from brambleloop.runtime.growth_ops import STEER_CREDIT
+
     db = drained()["db"]
-    # A job may move UP inside its band -- a starved production lane's queued work is
-    # boosted by at most LANE_STARVED_BOOST (C-68, #5) -- but never out of it: bands are at
-    # least ten apart and every boost is bounded below that, so housekeeping can never
-    # outrank a customer incident by accumulating boosts.
-    def in_band(j) -> bool:
+    # Two bounded movements exist, both recorded: a starved production lane's queued work is
+    # boosted inside its band by at most LANE_STARVED_BOOST (C-68, #5), and growth.steer moves
+    # a job by STEER_CREDIT (a war-room winner, the week's reallocation, a season gaining or
+    # losing capacity) or 2*STEER_CREDIT (a fast-lane admission, #291) -- which may cross into
+    # the adjacent band, because an admitted seasonal product IS a deadline (#187). What may
+    # never happen: work outranking the truth-defect band unless it is itself a truth defect
+    # or a customer incident, or a priority nobody can trace to a band (the 999 of C-73).
+    truth = orchestrate.BAND_BY_KIND["truth_defect"]
+    protected = {orchestrate.BAND_BY_KIND["customer_incident"], truth}
+    floor_move = 2 * STEER_CREDIT + LANE_STARVED_BOOST
+
+    def bounded(j) -> bool:
         band = orchestrate.priority_for(j.job_type)
-        return band - LANE_STARVED_BOOST <= j.priority <= band
+        if band in protected:
+            return band - LANE_STARVED_BOOST <= j.priority <= band + STEER_CREDIT
+        return max(truth, band - floor_move) <= j.priority <= band + STEER_CREDIT
 
     wrong = sorted({(j.job_type, j.priority, orchestrate.priority_for(j.job_type))
-                    for j in _jobs(db) if not in_band(j)})
+                    for j in _jobs(db) if not bounded(j)})
     assert not wrong, f"job type, enqueued priority, its band: {wrong}"
-    # The boost may at most TIE the band above (customer_incident and truth_defect are five
-    # apart), never pass it: a boosted truth defect cannot outrank a customer incident.
+    # A lane boost may at most TIE the band above (customer_incident and truth_defect are five
+    # apart), never pass it.
     gaps = [b - a for (a, _k, _w), (b, _k2, _w2) in zip(orchestrate.BANDS, orchestrate.BANDS[1:])]
     assert min(gaps) >= LANE_STARVED_BOOST, (gaps, LANE_STARVED_BOOST)
+    # And every steered job left a receipt saying why (a moved priority is traceable).
+    with db.session() as s:
+        steered = list(s.scalars(select(AuditLog).where(AuditLog.action == "growth.steered")))
+    moved = [j for j in _jobs(db) if j.priority != orchestrate.priority_for(j.job_type)
+             and not (orchestrate.priority_for(j.job_type) - LANE_STARVED_BOOST <= j.priority
+                      < orchestrate.priority_for(j.job_type))]
+    if moved:
+        assert steered, f"{len(moved)} jobs moved across their band with no growth.steered receipt"
 
 
 def test_swarm_handlers_reach_their_runtime_functions():
@@ -499,8 +518,10 @@ def test_no_row_whose_wiring_failed_here_is_still_claimed_covered():
     observed = {
         41: bool(st["at_drain"]["disclosure_check"]),
         144: bool(st["at_drain"]["radar.memory"]),
-        187: all(orchestrate.priority_for(j.job_type) - LANE_STARVED_BOOST <= j.priority
-                 <= orchestrate.priority_for(j.job_type) for j in _jobs(db)),
+        187: all(j.priority >= min(orchestrate.BAND_BY_KIND["truth_defect"],
+                                   orchestrate.priority_for(j.job_type))
+                 and j.priority <= orchestrate.priority_for(j.job_type) + 10
+                 for j in _jobs(db)),
     }
     status = {rid: reqs.get(rid).status for rid in WIRING_ROWS}
     print("      registry status of the 17 wiring rows:", status)

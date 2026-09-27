@@ -124,10 +124,21 @@ def solve(db, *, today: date | None = None, qa: dict | None = None) -> dict:
     report = mix.report(db)
     evidence = portfolio_evidence(db)
     conversion = observed.conversion
+    # C-60 (#27, #262, #273, #275): the matrix on observed conversion, the qualitative
+    # conditions derived from rows, and the forecast-calibration ceiling -- all passed, so the
+    # >=75% band can open on evidence and an optimistic model is capped automatically.
+    from ..scale import evidence as scale_evidence
+
+    matrix = scale_evidence.scenarios(observed, listings=int(observed.listings or 0))
+    derived = scale_evidence.derive_conditions(db, got, stress=report["stress_test"],
+                                               scenarios=matrix, today=today)
+    calibrated = scale_evidence.calibration(db, today=today)
     probability = confidence.probability(
         db, stress=report["stress_test"],
         observed_conversion=conversion or 0.0,
         conversion_sample=(observed.visits or 0) if conversion is not None else 0,
+        conditions=derived["conditions"],
+        calibration_ceiling=calibrated.get("ceiling"),
         **evidence)
     resilience = next(r for r in probability["ladder"]
                       if r["layer"] == "portfolio_resilience")
@@ -160,7 +171,20 @@ def solve(db, *, today: date | None = None, qa: dict | None = None) -> dict:
         "confidence": {"probability": probability["probability"],
                        "weakest_critical_layer": probability["weakest_critical_layer"],
                        "capped_by": probability["capped_by"],
-                       "resilience_rung": resilience},
+                       "resilience_rung": resilience,
+                       "conditions_met": derived["met"],
+                       "conditions_unmet": derived["unmet"],
+                       "calibration_ceiling": calibrated.get("ceiling")},
+        # #273: required visits derived from observed conversion wherever it exists.
+        "scenarios": {"conversion_source": matrix["conversion_source"],
+                      "evidence_supported_paths": matrix["evidence_supported_paths"],
+                      "scenarios": [{k: sc[k] for k in ("name", "required_visits",
+                                                         "conversion", "contribution_cad")}
+                                    for sc in matrix["scenarios"]]},
+        "conditions": derived,
+        "calibration": calibrated,
+        # #243: new-customer CAC, blended CAC and contribution after advertising.
+        "cac_split": scale_evidence.cac(db, today=today),
     }
 
 

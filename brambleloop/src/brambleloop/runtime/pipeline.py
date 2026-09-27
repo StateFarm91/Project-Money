@@ -1537,6 +1537,7 @@ def handle_plan_strategy(ctx: JobContext) -> dict:
 from . import release  # noqa: E402,F401
 from . import commerce_readings  # noqa: E402,F401  (C-59: gated machinery, run daily)
 from . import orders  # noqa: E402,F401  (C-64: order ingest and everything that reads orders)
+from . import growth_ops  # noqa: E402,F401  (C-60: growth, ads, journey, steer)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

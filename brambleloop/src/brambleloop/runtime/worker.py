@@ -359,6 +359,13 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("order_readings", "cfo", "commerce.order_readings", 24 * 60 * 60),
     ("trajectory_nightly", "orchestrator", "scale.trajectory", 24 * 60 * 60),
     ("creative_north_star", "creative_director", "creative.north_star", 24 * 60 * 60),
+    # C-60 (#17 #19 #238 #239 #242-#251 #255 #258-#261 #264 #267 #276 #291 #294 #295): paid
+    # media planned behind the owner's ad gate, distribution and the buyer journey read from
+    # the database daily, and the week's reallocation applied to the queue hourly.
+    ("ads_review", "ads", "ads.adjust", 24 * 60 * 60),
+    ("growth_distribution", "growth", "growth.distribution", 24 * 60 * 60),
+    ("growth_journey", "growth", "growth.journey", 24 * 60 * 60),
+    ("growth_steer", "swarm_steward", "growth.steer", 60 * 60),
     # #265 / #266 experiments concluded daily; #34 the thrash sweep hourly; the seasonal
     # engine daily (#33 #38 #131 #267 #286 #287 #289 #290 #291).
     ("growth_conclude", "experiment_steward", "growth.conclude", 24 * 60 * 60),

@@ -205,6 +205,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),
+    # C-60 (#17): the proof sweep attaches each tester pass and sale once; pruning a row
+    # would re-attach it and double-count the trust base.
+    "trust.proof": ("lifetime_total",
+                    "runtime.growth_ops.proof_sweep reads every attached proof to attach "
+                    "each row once"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(
