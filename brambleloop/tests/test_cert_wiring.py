@@ -283,18 +283,25 @@ def test_retrospective_reaches_cells_and_reports_the_new_sections():
 
 
 def test_listing_draft_actually_runs_the_disclosure_check():
-    """#41's closure: 'disclosure_check runs on every listing draft'. Measured on the real
-    chain order: listing.draft runs before listing.seo writes the copy, so the check reads
-    no Listing row and returns UNMEASURED without ever calling disclosure_check."""
+    """#41's closure: 'disclosure_check runs on every listing'. Measured on the real chain
+    order. Against 63f2493 the check ran in listing.draft, before listing.seo writes the copy,
+    so it read no Listing row and returned UNMEASURED without ever calling disclosure_check
+    (C-47). The repair measures where the copy exists: every listing.seo must run
+    disclosure_check on the persisted copy and record the reading; a draft-time UNMEASURED is
+    no longer the whole story."""
     st = drained()
-    drafts = [j for j in _jobs(st["db"], "listing.draft") if j.status is JobStatus.DONE]
-    assert drafts, "no listing.draft ran"
-    unchecked = [j.inputs.get("slug") for j in drafts
+    seos = [j for j in _jobs(st["db"], "listing.seo") if j.status is JobStatus.DONE]
+    assert seos, "no listing.seo ran"
+    unchecked = [j.inputs.get("slug") for j in seos
                  if not (j.outputs or {}).get("disclosures", {}).get("checked")]
     assert st["at_drain"]["disclosure_check"], (
-        f"buyer_trust.disclosure_check was never called across {len(drafts)} listing drafts; "
+        f"buyer_trust.disclosure_check was never called across {len(seos)} listings; "
         f"unchecked: {unchecked}")
     assert not unchecked, unchecked
+    with st["db"].session() as s:
+        recorded = {r.artifact for r in s.scalars(select(AuditLog).where(
+            AuditLog.action.in_(("listing.disclosure_checked", "listing.disclosure_finding"))))}
+    assert len(recorded) >= len(seos), (recorded, [j.inputs.get("slug") for j in seos])
 
 
 def test_growth_experiments_calls_launch_pack_for_every_drafted_listing():

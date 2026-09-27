@@ -8,7 +8,7 @@ observed, and a product nobody has rendered. Both are UNKNOWN, and UNKNOWN block
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +21,14 @@ from brambleloop.creative import blind_review as R  # noqa: E402
 from brambleloop.visual import parity  # noqa: E402
 
 KEY = "mjs_off_the_hook_designs"
+
+
+
+# Relative to the run, not a calendar day: the review refuses benchmark sets older than its
+# staleness window (C-45 / #67), so fixed dates would start failing a few weeks after they
+# were written -- the same frozen-date defect the certification found in wave2 (Q).
+_BASE = (datetime.now(timezone.utc) - timedelta(days=5)).replace(hour=0, minute=0, second=0,
+                                                                 microsecond=0)
 
 
 def _db() -> Database:
@@ -44,7 +52,7 @@ def _observed_pod(db, pod: str = "blankets", listings: int = 4, images: int = 3,
             for rank in range(images):
                 s.add(BenchmarkObservation(
                     benchmark_key=KEY, listing_ref=ref, kind="gallery_image_observation",
-                    at=datetime(2026, 9, 20 + i, tzinfo=timezone.utc),
+                    at=_BASE + timedelta(days=i),
                     detail={"image": {"rank": rank + 1},
                             "observation": {
                                 "shot_type": shots[rank % len(shots)],
@@ -151,7 +159,7 @@ def test_a_single_hero_against_deep_observed_galleries_is_materially_inferior():
     assert {"gallery_depth", "shot_variety", "video"} <= behind
     # The verdict cites the rows it was drawn from, dated.
     assert len(result["evidence"]["observation_ids"]) == 12
-    assert result["evidence"]["observation_dates"]["oldest"].startswith("2026-09-20")
+    assert result["evidence"]["observation_dates"]["oldest"].startswith(_BASE.date().isoformat())
     assert result["evidence"]["listing_refs"] == [f"blankets-{i}" for i in range(4)]
 
     out = parity.assess(
