@@ -101,7 +101,8 @@ check("a parked row with a live built half exists to test the reopening on", par
 if parked:
     row = C.classify(parked, gate_open={parked.parked_on: True})
     check("an opened gate returns its requirement to OPEN rather than leaving it parked", row["state"] == C.OPEN and "opened" in row["why"])
-check("the closeout bar is open == 0 and is reported as a boolean, not a percentage", m["closed_out"] == (m["counts"][C.OPEN] == 0))
+check("the closeout bar is open == 0 AND gates read live; with no database it is indeterminate, never met (C-65/P03)",
+      m["closed_out"] is False and m["closeout_indeterminate"] is True and m["gates_checked_live"] is False)
 print("     matrix:", m["counts"], "closed_out:", m["closed_out"])
 
 # the route reports the same matrix, with gates checked live against the database
@@ -116,4 +117,31 @@ with TestClient(_main.app) as _c:
     _j = _r.json() if _r.status_code == 200 else {}
 check("/api/closure serves the matrix with gates checked live", _r.status_code == 200 and _j.get("gates_checked_live") is True and _j.get("gates_unchecked") is None and sum(_j.get("counts", {}).values()) == 320, str(_r.status_code))
 check("/api/closure agrees with the module on every state count except gate-opened rows", set(_j.get("counts", {})) == set(m["counts"]))
+# C-65 (Codex P01): the executor gate table does not park a row; only an explicit parked_on does.
+_reopened_in_table = R.Requirement(id=992, title="t", body="b", version="v", section="s",
+                                   status=R.PARTIAL, note="", parked_on="",
+                                   proof="commerce/kill_table.py tests/test_kill_table.py")
+_orig_gf = C.executor.gate_for
+C.executor.gate_for = lambda i: "ad_authority" if i == 992 else _orig_gf(i)
+try:
+    _rt = C.classify(_reopened_in_table, gate_open={"ad_authority": False})
+    check("a reopened partial row the gate table still lists is OPEN, not parked",
+          _rt["state"] == C.OPEN and _rt["gate_table"] == "ad_authority" and "does not park" in _rt["why"], str(_rt))
+    _explicit = R.Requirement(id=992, title="t", body="b", version="v", section="s",
+                              status=R.PARTIAL, note="", parked_on="ad_authority",
+                              proof="commerce/kill_table.py tests/test_kill_table.py")
+    _ex = C.classify(_explicit, gate_open={"ad_authority": False})
+    check("the same row explicitly parked on the owner gate is OWNER-GATED",
+          _ex["state"] == C.OWNER_GATED and _ex["gate"] == "ad_authority", str(_ex))
+finally:
+    C.executor.gate_for = _orig_gf
+# The twenty rows the 9434c53 audit reopened that the table still lists must all read OPEN.
+_twenty = [39, 61, 64, 104, 116, 147, 165, 208, 210, 211, 243, 244, 245, 250, 277, 278, 281, 294, 295, 304]
+_states = {r["id"]: r["state"] for r in m["rows"] if r["id"] in _twenty}
+_still_parked = {i: s_ for i, s_ in _states.items() if s_ != C.OPEN
+                 and not (R.get(i).parked_on or "").strip()}
+check("no reopened row without an explicit park is counted as gated (the C-65/P01 twenty)",
+      not _still_parked, str(_still_parked))
+
+
 print(f"\n  {PASSED} passing, {FAILED} failing"); sys.exit(1 if FAILED else 0)

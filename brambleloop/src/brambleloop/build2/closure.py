@@ -164,15 +164,31 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
         row["why"] = (f"machinery exists ({proof['existing'][0]}); needs customers, orders or "
                       f"traffic that cannot exist before launch")
         return row
-    gate = executor.gate_for(requirement.id)
-    if requirement.status == reg.OWNER_GATED and gate is None:
-        row["state"] = OPEN
-        row["why"] = "owner_gated with no checkable gate -- nobody can say what would open it"
-        return row
+    # C-65 (Codex P01): only an EXPLICIT park -- `parked_on` written by whoever last audited
+    # the row -- parks it. The executor's gate table lists whole requirements a gate once
+    # stood in front of; when an audit reopens a row it clears `parked_on`, and the table
+    # must not quietly re-park it. Twenty reopened rows read as gated that way at 9434c53.
+    # A row registered owner_gated is parked whole, and the registry forbids `parked_on` on
+    # it, so its gate is the table's. A PARTIAL row is parked only by its own `parked_on`.
+    table_gate = executor.gate_for(requirement.id)
+    row["gate_table"] = table_gate
+    if requirement.status == reg.OWNER_GATED:
+        gate = table_gate
+        if gate is None:
+            row["state"] = OPEN
+            row["why"] = "owner_gated with no checkable gate -- nobody can say what would open it"
+            return row
+    else:
+        gate = (requirement.parked_on or "").strip() or None
     if gate is None:
         row["state"] = OPEN
-        row["why"] = "executable work Build 2 still owes"
+        row["why"] = ("executable work Build 2 still owes"
+                      + (f" (reopened: no explicit park; the gate table's {table_gate} does "
+                         "not park a row by itself)" if table_gate else ""))
         return row
+    if gate not in _known_gates() | set(EXTERNAL_GATES) | DATA_GATES | OWNER_GATES:
+        raise ClosureRefused(f"requirement {requirement.id} is parked on {gate!r}, which is "
+                             f"not a gate the executor can check")
     row["gate"] = gate
     # C-59: a partly built row parked on a gate must have its built half running. When the
     # note or `proof` names machinery that exists, at least one module of it must be reached.
@@ -234,7 +250,11 @@ def matrix(db=None, *, env=None) -> dict:
         "as_of": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "total": len(rows),
         "counts": counts,
-        "closed_out": counts[OPEN] == 0,
+        # C-65 (Codex P03): closed out means zero OPEN *with every gate read live*. With no
+        # database the gate half of the classification is the registry's word, so the bar
+        # is indeterminate, not met.
+        "closed_out": counts[OPEN] == 0 and gate_open is not None,
+        "closeout_indeterminate": gate_open is None,
         "gates_checked_live": gate_open is not None,
         # C-65: explicit when the gates were not read, and which parked rows that leaves
         # resting on the registry's word rather than on a live check.
