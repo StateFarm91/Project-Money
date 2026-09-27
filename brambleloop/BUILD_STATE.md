@@ -9818,3 +9818,10 @@ directives; the 17 were reclassified partial and then made true in the runtime.
    Consequence: the 17 production incidents and the dead-letter re-drive stay as they are.
 4. Standing, unchanged: Etsy identity/payout/shop activation, paid-media authority,
    benchmark purchases, owned surfaces, a physical sample or paid tester.
+
+**Verification (2026-09-27):** full suite on `b80c31a` — **TOTAL PASSING: 4,615 ; suites
+failing: 0** (previous closeout run on `de1f491`: 4,605 / 0; the recovery snapshot `a49f1df`
+had 4,395 / 5 failing, all since fixed). The previously date-dependent
+`test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling` now passes on its
+frozen date. `research/v1grad/test_v1grad.py` 40/0 unchanged. Deployed service (read-only):
+`/api/verify` 12/12 at `fcb982d`.
