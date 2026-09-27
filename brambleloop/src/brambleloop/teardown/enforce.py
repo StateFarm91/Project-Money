@@ -182,35 +182,129 @@ def requirements(db, *, consumer: str | None = None) -> list[dict]:
     return out
 
 
+# ---- self-audits are bound to the release they audited (C-66 / C-67, Codex M07) -----------
+#
+# A self-audit under `brambleloop:<slug>` is a reading of one release's documents. Read by slug
+# alone it would certify whatever release the slug carries today, including one the audit
+# never saw. So every self-audit is stamped with the release hash it was recorded against,
+# and every reader here asks for the product's *current* release: an audit bound to an
+# earlier release is stale evidence, reported as such, and never a score.
+
+BOUND_TO = "bound_to"
+
+
+def current_release(db, slug: str) -> dict | None:
+    """The newest certified release of this product: its hash and version, or None."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        if product is None:
+            return None
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id, PatternVersion.certified == True)  # noqa: E712
+            .order_by(desc(PatternVersion.id)).limit(1))
+        if pv is None:
+            return None
+        return {"release_hash": pv.release_hash or "", "version": pv.version}
+
+
+def bind_self_audit(db, finding_ids: list[int], slug: str) -> dict:
+    """Stamp self-audit findings with the release they were recorded against."""
+    from ..core.models import TeardownFinding
+
+    release = current_release(db, slug)
+    with db.session() as s:
+        for fid in finding_ids:
+            row = s.get(TeardownFinding, fid)
+            if row is None or not row.benchmark_ref.startswith(SELF_PREFIX):
+                continue
+            row.detail = {**(row.detail or {}), BOUND_TO: {
+                **(release or {"release_hash": None, "version": None}),
+                "at": datetime.now(timezone.utc).isoformat()}}
+    return {"bound": list(finding_ids), "release": release}
+
+
+def _bound_hash(row) -> str | None:
+    bound = (row.detail or {}).get(BOUND_TO) or {}
+    return bound.get("release_hash") if bound else None
+
+
+def _applies(row, release: dict | None) -> bool:
+    """Does this self-audit speak about the product's current release?
+
+    With a certified release on record, only an audit bound to that release's hash applies;
+    one bound to another release, or to none, is stale. With no certified release yet there is
+    nothing to bind to, and an unbound audit is read as the product's own.
+    """
+    bound = _bound_hash(row)
+    if release is None or not release.get("release_hash"):
+        return bound in (None, "")
+    return bound == release["release_hash"]
+
+
 def our_scores(db, slug: str) -> dict[str, float]:
-    """This product's newest self-audit score per requirement key."""
+    """This product's newest self-audit score per requirement key, bound to its release."""
+    return {k: v["score"] for k, v in our_scores_detail(db, slug).items()
+            if v.get("score") is not None}
+
+
+def our_scores_detail(db, slug: str) -> dict[str, dict]:
+    """Per requirement key: the applicable score, or the stale audits that no longer apply."""
     from sqlalchemy import select
 
     from ..core.models import TeardownFinding
 
     ref = f"{SELF_PREFIX}{slug}"
-    out: dict[str, tuple[int, float]] = {}
+    release = current_release(db, slug)
+    current: dict[str, tuple[int, float]] = {}
+    stale: dict[str, list[dict]] = {}
     with db.session() as s:
         for r in s.scalars(select(TeardownFinding).where(TeardownFinding.benchmark_ref == ref)):
             key = _key(r)[0]
-            if key not in out or r.id > out[key][0]:
-                out[key] = (r.id, _score(r))
-    return {k: v for k, (_i, v) in out.items()}
+            if _applies(r, release):
+                if key not in current or r.id > current[key][0]:
+                    current[key] = (r.id, _score(r))
+            else:
+                stale.setdefault(key, []).append({"finding": r.id, "score": _score(r),
+                                                  "bound_to": _bound_hash(r)})
+    out: dict[str, dict] = {}
+    for key, (fid, score) in current.items():
+        out[key] = {"score": score, "finding": fid,
+                    "release_hash": (release or {}).get("release_hash")}
+    for key, rows in stale.items():
+        out.setdefault(key, {"score": None, "finding": None,
+                             "release_hash": (release or {}).get("release_hash")})
+        out[key]["stale"] = rows
+    return out
 
 
 def catalogue_scores(db, key: str, *, after: datetime | None = None) -> list[tuple[int, float]]:
-    """(finding id, score) for every product's newest self-audit on one key, optionally since."""
+    """(finding id, score) for every product's newest self-audit on one key, optionally since.
+
+    Only audits bound to each product's current release count: a floor adopted or a trial
+    read from an audit of a release that no longer ships would be a standard measured on
+    something else.
+    """
     from sqlalchemy import select
 
     from ..core.models import TeardownFinding
 
     latest: dict[str, tuple[int, float]] = {}
+    releases: dict[str, dict | None] = {}
     with db.session() as s:
-        for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id)):
-            if not r.benchmark_ref.startswith(SELF_PREFIX) or _key(r)[0] != key:
-                continue
+        rows = [r for r in s.scalars(select(TeardownFinding).order_by(TeardownFinding.id))
+                if r.benchmark_ref.startswith(SELF_PREFIX) and _key(r)[0] == key]
+        for r in rows:
             at = r.at if r.at.tzinfo else r.at.replace(tzinfo=timezone.utc)
             if after is not None and at <= after:
+                continue
+            slug = r.benchmark_ref[len(SELF_PREFIX):]
+            if slug not in releases:
+                releases[slug] = current_release(db, slug)
+            if not _applies(r, releases[slug]):
                 continue
             latest[r.benchmark_ref] = (r.id, _score(r))
     return sorted(latest.values())
@@ -226,32 +320,61 @@ def support_text_evidence() -> dict[str, bool]:
             for element, words in SUPPORT_EVIDENCE.items()}
 
 
-def _judge(req: dict, ours: float | None, automated: bool | None) -> tuple[str, str]:
+# What kind of evidence a verdict rests on (Codex M07). A keyword found in the shop package
+# is a *structural* check: the text has words for the element. Whether those words are clear
+# is a semantic question only an independent reading (a self-audit of this release) answers.
+STRUCTURAL = "structural_keyword"
+SEMANTIC = "self_audit"
+
+
+def _judge(req: dict, ours: float | None, automated: bool | None,
+           stale: list[dict] | None = None) -> tuple[str, str, str | None]:
+    """(verdict, why, evidence_kind) for one requirement against our own reading."""
     bench = float(req["benchmark_score"])
+    staleness = (f"; {len(stale)} earlier self-audit(s) are bound to another release of this "
+                 f"product and no longer apply -- re-audit this release" if stale else "")
     if req.get("adopted_floor") is not None and ours is not None and ours < req["adopted_floor"]:
         return "unmet", (f"fell below the floor {req['adopted_floor']} this company reached "
-                         f"and promoted (#164)")
+                         f"and promoted (#164)"), SEMANTIC
     if req["kind"] == "exceed":
         if ours is None:
-            return "unmeasured", "no self-audit of this product on this element"
+            return ("unmeasured",
+                    "no self-audit of this product's current release on this element" + staleness,
+                    None)
         if ours > bench or (bench >= 5 and ours >= 5):
-            return "met", f"ours {ours} against the best benchmark's {bench}"
+            return "met", f"ours {ours} against the best benchmark's {bench}", SEMANTIC
         return "unmet", (f"ours {ours} does not exceed {req['from_benchmark']}'s {bench} "
-                         f"({SCALE.get(int(bench), '')})")
+                         f"({SCALE.get(int(bench), '')})"), SEMANTIC
     if req["kind"] == "prevent":
+        if ours is not None:
+            if ours >= COMPETENT:
+                return ("met", f"ours {ours}: competent or better where a benchmark scored "
+                               f"{bench}", SEMANTIC)
+            return ("unmet", f"ours {ours}: the trap a benchmark fell into is present in ours",
+                    SEMANTIC)
         if automated:
-            return "met", "addressed in the text this company publishes"
-        if ours is None:
-            return "unmeasured", "no self-audit shows this trap is prevented in our product"
-        if ours >= COMPETENT:
-            return "met", f"ours {ours}: competent or better where a benchmark scored {bench}"
-        return "unmet", f"ours {ours}: the trap a benchmark fell into is present in ours"
-    # clarify
-    if automated or (ours is not None and ours >= STRONG):
-        return "met", "unambiguous in what this company publishes"
-    if ours is None and automated is None:
-        return "unmeasured", "benchmarks disagree here and nothing shows ours is clear"
-    return "unmet", "benchmarks disagree here and ours does not settle it"
+            return ("met", ("the shop package we publish has text for this element "
+                            "(structural keyword check: it shows the trap is addressed, not "
+                            "that the wording is clear)"), STRUCTURAL)
+        return ("unmeasured",
+                "no self-audit shows this trap is prevented in our product" + staleness, None)
+    # clarify: the requirement is that ours is unambiguous, which is a reading of meaning.
+    # A keyword in the text shows the element is mentioned; it cannot show it is clear.
+    if ours is not None and ours >= STRONG:
+        return "met", f"a self-audit of this release reads ours {ours}: unambiguous", SEMANTIC
+    if ours is not None:
+        return ("unmet", f"benchmarks disagree here and a self-audit reads ours {ours}, which "
+                         f"does not settle it", SEMANTIC)
+    if automated:
+        return ("unmeasured", ("the shop package mentions this element (structural keyword "
+                               "check) and nothing independent shows the wording is "
+                               "unambiguous; a self-audit of this release decides" + staleness),
+                STRUCTURAL)
+    if automated is None:
+        return ("unmeasured",
+                "benchmarks disagree here and nothing shows ours is clear" + staleness, None)
+    return ("unmet", "benchmarks disagree here and our shop package has no text for it",
+            STRUCTURAL)
 
 
 def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
@@ -259,7 +382,9 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
     """Whether this product meets every requirement its consumers enforce."""
     reqs = [r for r in requirements(db)
             if consumers is None or set(r["consumers"]) & set(consumers)]
-    ours = our_scores(db, slug)
+    detail = our_scores_detail(db, slug)
+    ours = {k: v["score"] for k, v in detail.items() if v.get("score") is not None}
+    release = current_release(db, slug)
     support = support_text_evidence() if any("support" in r["consumers"] for r in reqs) else {}
     if has_video is None:
         has_video = product_has_video(db, slug)
@@ -271,13 +396,19 @@ def check(db, slug: str, *, consumers: tuple[str, ...] | None = None,
             continue
         automated = (support.get(r["element"]) if "support" in r["consumers"]
                      and r["element"] else None)
-        verdict, why = _judge(r, ours.get(r["key"]), automated)
-        rows.append({**r, "ours": ours.get(r["key"]), "verdict": verdict, "why": why})
+        stale = (detail.get(r["key"]) or {}).get("stale") or []
+        verdict, why, evidence = _judge(r, ours.get(r["key"]), automated, stale)
+        rows.append({**r, "ours": ours.get(r["key"]), "verdict": verdict, "why": why,
+                     "evidence": evidence, "stale_self_audits": [x["finding"] for x in stale],
+                     "release_hash": (release or {}).get("release_hash")})
         if verdict in ("unmet", "unmeasured") and r["binding"]:
             reasons.append(f"teardown requirement {r['key']} ({r['kind']}, "
                            f"{'/'.join(r['consumers'])}): {verdict} -- {why}")
     return {"product": slug, "requirements": len(reqs),
+            "release": release,
             "met": sum(1 for r in rows if r["verdict"] == "met"),
+            "met_structurally_only": [r["key"] for r in rows
+                                      if r["verdict"] == "met" and r.get("evidence") == STRUCTURAL],
             "unmet": [r["key"] for r in rows if r["verdict"] == "unmet"],
             "unmeasured": [r["key"] for r in rows if r["verdict"] == "unmeasured"],
             "provisional": [r["key"] for r in rows if not r["binding"]],

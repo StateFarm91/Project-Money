@@ -552,6 +552,75 @@ def test_a_teardown_trap_is_enforced_routed_to_pattern_help_and_promoted_on_our_
             Incident.signature == f"improve-rollback:{iid}")) is not None
 
 
+def test_self_audits_bind_to_the_release_they_read_and_keywords_are_only_structural():
+    """C-66 / C-67 (Codex M07): a self-audit certifies the release it audited and nothing
+    later; a keyword in the shop package is a structural check, never semantic clarity."""
+    from brambleloop.core.models import PatternVersion, TeardownFinding
+    from brambleloop.teardown import enforce, lab
+    from brambleloop.teardown.audits import BY_KEY
+
+    db = _db()
+    _benchmark_and_product(db)
+    lab.record_audit(db, "bench-1", "beginner_experience", _beginner(1), confidence=0.9)
+    # Our self-audit of release a...: the gate stops refusing on the trap.
+    rec = lab.record_audit(db, "brambleloop:fixture-good", "beginner_experience", _beginner(4))
+    with db.session() as s:
+        bound = s.get(TeardownFinding, rec["findings_recorded"][0]).detail["bound_to"]
+    assert bound["release_hash"] == "a" * 64 and bound["version"] == "1.0.0"
+    assert not any("error_recovery" in r for r in _publish_gate_reasons(db, "fixture-good"))
+    row = next(r for r in enforce.check(db, "fixture-good")["rows"]
+               if r["key"] == "beginner_experience:error_recovery")
+    assert row["verdict"] == "met" and row["evidence"] == "self_audit"
+
+    # The dependency changes: a new release of the same slug. The audit of release a... is
+    # stale evidence, the requirement reads unmeasured with the reason, and publish refuses.
+    with db.session() as s:
+        s.scalar(select(PatternVersion)).release_hash = "b" * 64
+    reasons = _publish_gate_reasons(db, "fixture-good")
+    assert any("error_recovery" in r and "unmeasured" in r and "another release" in r
+               for r in reasons), reasons
+    row = next(r for r in enforce.check(db, "fixture-good")["rows"]
+               if r["key"] == "beginner_experience:error_recovery")
+    assert row["stale_self_audits"] == rec["findings_recorded"] and row["ours"] is None
+    # ...and the sandbox/monitor reader stops reading it too, so no floor rests on it.
+    assert enforce.catalogue_scores(db, "beginner_experience:error_recovery") == []
+    # A self-audit of the new release binds to it and applies again.
+    lab.record_audit(db, "brambleloop:fixture-good", "beginner_experience", _beginner(4))
+    assert not any("error_recovery" in r for r in _publish_gate_reasons(db, "fixture-good"))
+    assert len(enforce.catalogue_scores(db, "beginner_experience:error_recovery")) == 1
+
+    # Support and rights: benchmarks disagree about the FAQ (5 against 1) so ours must be
+    # unambiguous. The shop package has a FAQ -- a keyword hit -- which is structural evidence
+    # and cannot settle a clarity requirement: unmeasured, blocking, until a self-audit of
+    # this release reads it strong.
+    from brambleloop.core.models import BenchmarkProduct
+
+    with db.session() as s:
+        s.add(BenchmarkProduct(ref="bench-2", seller="OtherShop", category="blanket",
+                               files=[{"name": "p.pdf", "role": "pattern_pdf", "bytes": 3,
+                                       "sha256": "1" * 64}]))
+    support = {e: 3 for e in BY_KEY["support_rights"].element_keys}
+    lab.record_audit(db, "bench-1", "support_rights", {**support, "faq": {
+        "score": 5, "mechanism": "every likely question is answered before purchase"}},
+        confidence=0.9)
+    lab.record_audit(db, "bench-2", "support_rights", {**support, "faq": {
+        "score": 1, "mechanism": "no questions are answered anywhere in the package"}},
+        confidence=0.9)
+    assert enforce.support_text_evidence()["faq"] is True, "the keyword check does fire"
+    row = next(r for r in enforce.check(db, "fixture-good", consumers=("support",))["rows"]
+               if r["key"] == "support_rights:faq" and r["kind"] == "clarify")
+    assert row["verdict"] == "unmeasured" and row["evidence"] == "structural_keyword", row
+    assert any("support_rights:faq (clarify" in r and "structural keyword" in r
+               for r in _publish_gate_reasons(db, "fixture-good"))
+    lab.record_audit(db, "brambleloop:fixture-good", "support_rights", {**support, "faq": {
+        "score": 4, "mechanism": "our FAQ answers each disputed question in one sentence"}})
+    row = next(r for r in enforce.check(db, "fixture-good", consumers=("support",))["rows"]
+               if r["key"] == "support_rights:faq" and r["kind"] == "clarify")
+    assert row["verdict"] == "met" and row["evidence"] == "self_audit", row
+    assert not any("support_rights:faq (clarify" in r
+                   for r in _publish_gate_reasons(db, "fixture-good"))
+
+
 def test_owner_veto_and_competitive_standard_block_at_the_gates():
     from brambleloop.core.models import (AuditLog, CompetitiveStandard, ListingAsset)
     from brambleloop.intel import mission_runtime
