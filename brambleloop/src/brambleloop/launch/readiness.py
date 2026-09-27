@@ -558,31 +558,68 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # benchmark torn down, the challenge is unrunnable and therefore unpassed.
     from ..teardown.pipeline import challenge as benchmark_challenge
 
-    from ..core.models import BenchmarkProduct, Product
+    from ..core.models import Product
     from ..teardown.pipeline import ChallengeRefused
 
-    with db.session() as s:
-        representative = ""
-        for product in s.scalars(select(Product).order_by(Product.slug)):
-            if any(v.certified for v in product.versions):
-                representative = product.slug
-                break
-        # #168 asks for a *category-matched* comparison, and this catalogue does not yet
-        # carry a category per product. Matching on the slug family is the nearest honest
-        # thing: `hearthside-throw` matches a benchmark filed under `hearthside` only if
-        # somebody filed one there. Comparing against every benchmark regardless of category
-        # would be the silent degradation of the requirement rather than the meeting of it.
-        family = representative.split("-")[0] if representative else ""
-        category = family if s.scalar(select(BenchmarkProduct).where(
-            BenchmarkProduct.category == family)) is not None else ""
+    # Certification C-40 (#168). Two things made this unrunnable that were never the owner's
+    # to fix: products carried no category, so the challenge matched on a slug family that
+    # no benchmark is ever filed under; and our own scores were passed as {}, so even a torn
+    # down benchmark had nothing to be compared against. The category now comes from the
+    # concept seed the product was engineered from, one representative per category is
+    # challenged (the requirement says products, plural), and our scores are read from the
+    # audits recorded against `brambleloop:<slug>` -- unscored stays unscored, never neutral.
+    from ..runtime.pipeline import _seed_for
+    from ..teardown.scorecard import SELF_PREFIX
 
-    try:
-        challenge_result = benchmark_challenge(
-            db, product_slug=representative, category=category, our_scores={})
-    except ChallengeRefused as e:
-        challenge_result = {"verdict": "unavailable", "comparable": False,
-                            "blocks_release": True, "product": representative,
-                            "category": category, "reason": str(e), "rows": []}
+    from ..core.models import TeardownFinding
+
+    representatives: dict[str, str] = {}
+    uncategorised: list[str] = []
+    with db.session() as s:
+        for product in s.scalars(select(Product).order_by(Product.slug)):
+            if not any(v.certified for v in product.versions):
+                continue
+            seed = _seed_for(product.slug)
+            category = (seed.category if seed is not None else "") or ""
+            if not category:
+                uncategorised.append(product.slug)
+                continue
+            representatives.setdefault(category, product.slug)
+        ours_by_slug: dict[str, dict] = {}
+        for slug in representatives.values():
+            scores: dict[str, float] = {}
+            for f in s.scalars(select(TeardownFinding).where(
+                    TeardownFinding.benchmark_ref == f"{SELF_PREFIX}{slug}")
+                    .order_by(TeardownFinding.id)):
+                scores[f.dimension] = float(f.score)   # latest recorded audit wins
+            ours_by_slug[slug] = scores
+
+    challenges = []
+    for category, slug in sorted(representatives.items()):
+        try:
+            result = benchmark_challenge(db, product_slug=slug, category=category,
+                                         our_scores=ours_by_slug.get(slug, {}))
+        except ChallengeRefused as e:
+            result = {"verdict": "unavailable", "comparable": False, "blocks_release": True,
+                      "product": slug, "category": category, "reason": str(e), "rows": []}
+        challenges.append(result)
+    if not challenges:
+        challenges.append({"verdict": "unavailable", "comparable": False,
+                           "blocks_release": True, "product": "", "category": "",
+                           "reason": "no certified product carries a category to be matched",
+                           "rows": []})
+    blocking = [c for c in challenges if c["blocks_release"]]
+    challenge_result = {
+        "verdict": "passed" if not blocking else blocking[0]["verdict"],
+        "comparable": all(c["comparable"] for c in challenges),
+        "blocks_release": bool(blocking),
+        "product": ", ".join(c["product"] for c in challenges),
+        "category": ", ".join(c["category"] for c in challenges),
+        "reason": blocking[0].get("reason", "") if blocking else "",
+        "rows": [r for c in challenges for r in c.get("rows", [])],
+        "per_category": challenges,
+        "uncategorised": uncategorised,
+    }
     # The owner's MJs protocol, enforced rather than remembered: *do not ask me to purchase
     # the benchmark set until the complete intake and analysis path is verified ready*. So
     # the purchase request is withheld while our own laboratory cannot read a page. An

@@ -97,6 +97,12 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
         jobs = [(j.job_type, _aware(j.finished_at), j.status, j.last_error or "")
                 for j in s.scalars(select(Job).where(
                     Job.finished_at.is_not(None), Job.finished_at >= since))]
+        # #195 asks for restart/recovery evidence. A job that finished on a second or later
+        # attempt was retried or reclaimed from a lease its worker stopped renewing -- the
+        # restart case -- and still completed; that is recovery, counted from the rows.
+        recovered = [(j.job_type, int(j.attempts or 0)) for j in s.scalars(select(Job).where(
+            Job.finished_at.is_not(None), Job.finished_at >= since,
+            Job.status == JobStatus.DONE, Job.attempts > 1))]
         audit_hours = _cadence_hours(s, since)
         incidents = int(s.scalar(select(func.count(Incident.id)).where(
             Incident.at >= since)) or 0)
@@ -167,6 +173,14 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
             "expected_publish_refusals": len(expected_refusals),
             "incidents_opened": incidents,
             "operating_cost_cad": round(float(costs), 4),
+            "restart_recovery": {
+                "recovered_jobs": len(recovered),
+                "recovered_types": sorted({t for t, _a in recovered}),
+                "max_attempts_to_recover": max((a for _t, a in recovered), default=0),
+                "why": ("jobs that completed on a second or later attempt: retried after a "
+                        "failure or reclaimed after their worker stopped renewing its lease. "
+                        "Zero is a window with no restart to recover from, not a failure"),
+            },
         },
         "note": ("'Online' means useful work is progressing, not that HTTP returns 200 "
                  "(#185). A container answering health checks with a stalled queue passes "
@@ -175,6 +189,48 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
                  if not passed else
                  f"{len(completed)} jobs across {len(distinct_types)} types in "
                  f"{active_hours} separate hours, unattended (#195)."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# #195 as a launch gate
+#
+# The proof existed and was reachable only from an endpoint: a launch readiness report could
+# say "ready" while the one acceptance test the requirement calls launch-blocking had never
+# passed. `launch_item` is the proof in the shape the readiness report carries, and it has two
+# states only. PROVEN is a window the rows show was worked unattended; anything else --
+# including a proof that could not be computed -- is NOT PROVEN, never a pass by default.
+
+LAUNCH_ITEM_KEY = "off_device_autonomy_proof"
+PROVEN = "PROVEN"
+NOT_PROVEN = "NOT PROVEN"
+
+
+def launch_item(db, *, window_hours: int = WINDOW_HOURS,
+                now: datetime | None = None) -> dict:
+    """The off-device proof as a launch-blocking readiness item (#195)."""
+    try:
+        proof = off_device_proof(db, window_hours=window_hours, now=now)
+    except Exception as exc:  # noqa: BLE001 - an uncomputable proof is not a proven one
+        return {"key": LAUNCH_ITEM_KEY, "blocking": True, "status": NOT_PROVEN,
+                "passed": False, "unmet": ["proof_not_computable"], "evidence": {},
+                "why": (f"the proof could not be computed ({type(exc).__name__}: "
+                        f"{str(exc)[:200]}), and a proof nobody could run is not proven")}
+    passed = bool(proof.get("passed"))
+    return {
+        "key": LAUNCH_ITEM_KEY,
+        "blocking": True,
+        "status": PROVEN if passed else NOT_PROVEN,
+        "passed": passed,
+        "window_hours": proof["window_hours"],
+        "from": proof["from"], "to": proof["to"],
+        "unmet": list(proof["unmet"]),
+        "evidence": proof["evidence"],
+        "why": (f"the last {proof['window_hours']} hours were worked unattended: "
+                f"{proof['note']}" if passed else
+                f"NOT PROVEN: {', '.join(proof['unmet'])} unmet over the last "
+                f"{proof['window_hours']} hours. #195 is launch-blocking, so launch is not "
+                f"ready until a full window passes every condition"),
     }
 
 

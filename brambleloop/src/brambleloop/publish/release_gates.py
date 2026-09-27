@@ -211,8 +211,16 @@ def dimension_audit(db, *, slug: str, version: str, twin, frames, listing) -> di
 
 # ---- #66: the set as a shopper meets it --------------------------------------------------
 
-def mobile_contexts(db, *, slug: str, version: str, frames, candidates, store_root=None) -> dict:
-    """Render the four contexts from the approved frame bytes, store them, and judge them."""
+def mobile_contexts(db, *, slug: str, version: str, frames, candidates, store_root=None,
+                    store_renders: bool = False) -> dict:
+    """Render the four contexts from the approved frame bytes and judge them.
+
+    The renders are stored by the QA stage (`launch.plan`, `store_renders=True`). Every other
+    caller -- store.publish above all, which must not write storage before its Shadow Mode
+    refusal -- re-renders deterministically and accepts a context only if that exact render
+    is already in the store. A render that was never stored is `not_rendered`, which blocks.
+    """
+    import hashlib
     from PIL import Image
 
     from ..core.artifacts import ArtifactMissing, ArtifactStore
@@ -244,22 +252,27 @@ def mobile_contexts(db, *, slug: str, version: str, frames, candidates, store_ro
         def _put(name, image):
             buf = io.BytesIO()
             image.save(buf, format="PNG")
-            return store.put(f"{slug}/{version}/qa/{name}.png", buf.getvalue(),
-                             "image/png").sha256
+            data = buf.getvalue()
+            if store_renders:
+                return store.put(f"{slug}/{version}/qa/{name}.png", data, "image/png").sha256
+            digest = hashlib.sha256(data).hexdigest()
+            return digest if store.exists(digest) else ""
 
         first = sorted(images)[:mobile.BEFORE_SCROLL]
         thumb = ordered[0].resize((mobile.MOBILE_THUMB_PX, mobile.MOBILE_THUMB_PX))
         phone = _sheet([images[p] for p in first], 390)
-        renders = [
-            mobile.ContextRender(mobile.SEARCH_THUMBNAIL, _put("search_thumbnail", thumb), 1,
-                                 mobile.MOBILE_THUMB_PX, ink[sorted(images)[0]]),
-            mobile.ContextRender(mobile.PHONE_GALLERY, _put("phone_gallery", phone),
-                                 len(first), 390, max(ink[p] for p in first)),
-            mobile.ContextRender(mobile.FIRST_THREE, _put("first_three", phone),
-                                 len(first), 390, max(ink[p] for p in first)),
-            mobile.ContextRender(mobile.FULL_GALLERY, _put("full_gallery", _sheet(ordered, 200)),
-                                 len(ordered), 200, max(ink.values())),
+        specs = [
+            (mobile.SEARCH_THUMBNAIL, _put("search_thumbnail", thumb), 1,
+             mobile.MOBILE_THUMB_PX, ink[sorted(images)[0]]),
+            (mobile.PHONE_GALLERY, _put("phone_gallery", phone),
+             len(first), 390, max(ink[p] for p in first)),
+            (mobile.FIRST_THREE, _put("first_three", phone),
+             len(first), 390, max(ink[p] for p in first)),
+            (mobile.FULL_GALLERY, _put("full_gallery", _sheet(ordered, 200)),
+             len(ordered), 200, max(ink.values())),
         ]
+        # A context whose render is not on file is left out, so `qa` reports it not_rendered.
+        renders = [mobile.ContextRender(*spec) for spec in specs if spec[1]]
     if not candidates:
         return {"ok": False, "complete": False, "not_rendered": list(mobile.CONTEXTS),
                 "why": "no frame carries a valid job, so the set cannot be judged",
@@ -273,7 +286,8 @@ def mobile_contexts(db, *, slug: str, version: str, frames, candidates, store_ro
 # ---- #58 / #65 / #80 / #70: the set ------------------------------------------------------
 
 def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = True,
-                cir=None, release_hash: str | None = None) -> dict:
+                cir=None, release_hash: str | None = None,
+                store_renders: bool = False) -> dict:
     """Every frame through the four gates, the set through #65/#66/#80, and a certificate."""
     if cir is None:
         cir, release_hash = _release(db, slug, version)
@@ -321,7 +335,8 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
     dim = dimension_audit(db, slug=slug, version=version, twin=twin, frames=frames,
                           listing=listing)
     mob = mobile_contexts(db, slug=slug, version=version, frames=frames,
-                          candidates=candidates, store_root=store_root)
+                          candidates=candidates, store_root=store_root,
+                          store_renders=store_renders)
     first_three_ok = bool(mob.get("first_three", {}).get("ok"))
     thumb_problem = (mob.get("contexts", {}).get(mobile.SEARCH_THUMBNAIL, {}) or {}).get("problem")
 

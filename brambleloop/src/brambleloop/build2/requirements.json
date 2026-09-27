@@ -1637,12 +1637,13 @@
   {
     "body": "Before live Etsy launch, select representative Brambleloop products and compare the full purchase experience against category-matched purchased benchmarks: listing promise, download packaging, PDF, charts, instructions, visual polish, support and perceived value. If Brambleloop is materially inferior on a critical dimension without a deliberate tradeoff, release is blocked for remediation.",
     "id": 168,
-    "note": "pipeline.challenge() compares a product against the best category-matched benchmark on seven critical dimensions and blocks release, and launch readiness carries it as a requirement. Unrunnable until benchmarks are purchased, and products do not yet carry a benchmark category. Parked on the benchmark_purchases gate: the note already said unrunnable until benchmarks are purchased, and a note is not a park.",
+    "note": "pipeline.challenge() compares a product against the best category-matched benchmark on seven critical dimensions and blocks release, and launch readiness carries it as a requirement. Unrunnable until benchmarks are purchased, and products do not yet carry a benchmark category. Parked on the benchmark_purchases gate: the note already said unrunnable until benchmarks are purchased, and a note is not a park.\n\nCertification repair 2026-09-27: the two software gaps are closed. Launch readiness now challenges one certified representative per category, using the concept seed's category (not a slug family nobody files benchmarks under), and scores our side from audits recorded against brambleloop:<slug>; an unaudited critical dimension blocks. What remains is data only this gate can supply: purchased benchmarks intaken and torn down in the category. Stays parked on benchmark_purchases.",
     "parked_on": "benchmark_purchases",
     "section": "Competitive product teardown laboratory",
     "status": "partial",
     "title": "Pre-Launch Benchmark Challenge",
-    "version": "v1.3.8"
+    "version": "v1.3.8",
+    "proof": "launch/readiness.py teardown/pipeline.py tests/test_cert_benchmark_challenge.py"
   },
   {
     "body": "Add an internal question to every teardown and Brambleloop QA: 'After paying, does this feel better than expected?' Measure the mechanisms that create delight: clarity, bonus utility, navigation, polish, support, customization and confidence. Brambleloop should engineer positive surprise without bloating products with useless filler.",

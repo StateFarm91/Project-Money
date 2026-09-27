@@ -415,6 +415,68 @@ def retirement_candidates(db, *, now: datetime | None = None) -> dict:
     return {"cells": reviewed, "waiting_for_data": waiting}
 
 
+RETIREMENT_CARD_PREFIX = "improve.retirement:"
+
+
+def route_retirements(db, review: dict) -> dict:
+    """Put each merge or retire recommendation in front of the owner, once (#192).
+
+    The weekly review computed recommendations and nothing acted on them. Acting on one
+    automatically is the wrong remedy: a cell is a department, and disabling the agent behind
+    it would turn every cadence it runs into a dead letter while the knowledge it built sits
+    unread. So each recommendation becomes one card in the single owner queue carrying the
+    reason and the lessons to preserve first, restated rather than duplicated while it
+    stands, and closed when the next review no longer recommends it. Nothing is disabled,
+    merged or retired here.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    wanted: dict[str, dict] = {}
+    for move, rows in (("retire", review.get("retire") or []),
+                       ("merge", review.get("merge") or [])):
+        for r in rows:
+            key = f"{RETIREMENT_CARD_PREFIX}{move}:{r['cell']}"
+            preserve = list(r.get("preserve") or [])
+            target = f" into {r['into']}" if move == "merge" and r.get("into") else ""
+            wanted[key] = {
+                "action": (f"Decide whether to {move} the {r['cell']} improvement cell{target}. "
+                           f"The weekly review recommends it: {r['reason']}. Before either, "
+                           f"preserve {len(preserve)} lesson(s) it recorded"
+                           + (f" (lesson ids {preserve[:10]})" if preserve else "")
+                           + ". Nothing has been disabled; declining keeps the cell running"),
+                "reason": (f"#192: redundant or consistently idle cells are merged or retired, "
+                           f"and retiring one is a change to how the company is organised, "
+                           f"which is the owner's decision rather than the loop's"),
+                "max_cost_cad": 0.0, "minutes": 10,
+                "consequence_of_delay": ("the cell keeps its standing cost and its cadences "
+                                         "keep running; nothing breaks while this waits"),
+                "blocks": f"cell:{r['cell']}"}
+    queued, restated, closed = [], [], []
+    with db.session() as s:
+        open_rows = {a.requirement_key: a for a in s.scalars(select(OwnerAction).where(
+            OwnerAction.done == False))  # noqa: E712
+            if (a.requirement_key or "").startswith(RETIREMENT_CARD_PREFIX)}
+        for key, fields in wanted.items():
+            row = open_rows.get(key)
+            if row is None:
+                s.add(OwnerAction(requirement_key=key, **fields))
+                queued.append(key)
+            elif any(getattr(row, k) != v for k, v in fields.items()):
+                for k, v in fields.items():
+                    setattr(row, k, v)
+                restated.append(key)
+        for key, row in open_rows.items():
+            if key not in wanted:
+                row.done = True
+                closed.append(key)
+    return {"queued": queued, "restated": restated, "closed": closed,
+            "open": sorted(wanted), "disabled": [],
+            "note": ("recommendations are routed to the owner and never enacted here: "
+                     "disabling an agent would dead-letter its scheduled work")}
+
+
 def state(db) -> dict:
     found = conflicts(db)
     return {

@@ -808,8 +808,162 @@ def lane_batch(db, agent: str, *, now: datetime | None = None) -> dict:
     lane = alloc["lanes"].get(agent)
     if lane is None:
         return {"known": False, "batch": None, "why": f"no lane for {agent!r}"}
+    # The batch bounds a handler that takes many units in one run; the concurrency bounds how
+    # many of the lane's jobs run at once, and is what `lane_hold` enforces at the claim.
     return {"known": True, "batch": lane["batch"], "active": lane["active"],
+            "concurrency": max(MIN_SPECIALISTS, int(lane.get("granted") or 0)),
             "allocation_id": alloc["allocation_id"]}
+
+
+# ---------------------------------------------------------------------------
+# #175 at the claim: the allocation decides how many of a lane's jobs run at once
+#
+# `allocate` sized every lane and `lane_batch` read it back, and nothing between the queue and
+# a handler ever asked either of them: a lane granted one specialist ran as many of its jobs at
+# once as there were workers to claim them. The enforcement belongs at the claim, because that
+# is the one point every job passes through. A lane's specialists *are* its concurrency, so a
+# lane granted N may have N of its jobs running at once; a lane the governor has found to be
+# duplicating rather than adding throughput is held to one. Nothing here raises a ceiling or
+# spends: it only decides whether a claimed job runs now or goes back to the queue.
+
+# The allocator's own work is never held by the allocation it produces. A lane sized at zero
+# would otherwise stop `swarm.allocate` from ever running again to resize it.
+LANE_EXEMPT_PREFIXES: tuple[str, ...] = ("swarm.",)
+# How long a job held back by its lane waits before it is claimable again. Short: the lane
+# frees as soon as one of its running jobs finishes, and the hold is not a penalty.
+LANE_HOLD_SECONDS = 60
+# The audit action the governor's cadence writes its parallelism advice under (#188).
+GOVERNOR_ACTION = "finance.governor"
+LANE_HELD_ACTION = "swarm.lane_held"
+
+
+def parallelism_advice(db, *, now: datetime | None = None) -> dict | None:
+    """The governor's latest parallelism verdict, when it is young enough to act on."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == GOVERNOR_ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        if row is None or now - _aware(row.at) > ALLOCATION_MAX_AGE:
+            return None
+        advice = dict((row.detail or {}).get("parallelism") or {})
+    if not advice:
+        return None
+    return {"advice": advice.get("advice"), "why": advice.get("why"),
+            "compared": advice.get("compared")}
+
+
+def lane_concurrency(db, agent: str, *, now: datetime | None = None) -> dict:
+    """How many of this lane's jobs may run at once, per the latest allocation."""
+    alloc = latest_allocation(db, now=now)
+    if alloc is None:
+        return {"known": False, "limit": None,
+                "why": ("no allocation in the last six hours, so the lane is UNMEASURED and "
+                        "the claim is not held on it. The ceilings at dispatch still refuse "
+                        "any spend they do not cover")}
+    lane = (alloc.get("lanes") or {}).get(agent)
+    if lane is None:
+        return {"known": False, "limit": None, "allocation_id": alloc["allocation_id"],
+                "why": f"allocation {alloc['allocation_id']} has no lane for {agent!r}"}
+    granted = int(lane.get("granted") or 0)
+    limit = max(MIN_SPECIALISTS, granted)
+    advice = parallelism_advice(db, now=now)
+    why = (f"allocation {alloc['allocation_id']} granted {agent} {granted} specialist(s); "
+           f"a lane's specialists are its concurrency, with a floor of {MIN_SPECIALISTS} so "
+           f"work that spends nothing is never starved by a spending budget")
+    if advice and advice.get("advice") == "scale_down":
+        limit = MIN_SPECIALISTS
+        why += (". The governor found added workers only duplicated work "
+                f"({advice.get('why')}), so the lane runs one job at a time")
+    return {"known": True, "limit": limit, "granted": granted,
+            "allocation_id": alloc["allocation_id"],
+            "parallelism": (advice or {}).get("advice"), "why": why}
+
+
+def _running_in_lane(db, agent: str, *, now: datetime,
+                     exclude_job_id: int | None = None) -> int:
+    """This lane's jobs running on a live lease right now, excluding the one being decided."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    with db.session() as s:
+        rows = s.execute(select(Job.id, Job.job_type, Job.lease_expires_at).where(
+            Job.agent == agent, Job.status == JobStatus.RUNNING)).all()
+    return sum(1 for jid, jt, lease in rows
+               if jid != exclude_job_id
+               and not jt.startswith(LANE_EXEMPT_PREFIXES)
+               and (lease is None or _aware(lease) > now))
+
+
+def claim_decision(db, agent_name: str, *, job_type: str = "", job_id: int | None = None,
+                   now: datetime | None = None) -> dict:
+    """Whether this lane may run one more job now, and the reading behind the answer."""
+    now = now or datetime.now(timezone.utc)
+    if job_type and job_type.startswith(LANE_EXEMPT_PREFIXES):
+        return {"may_claim": True, "agent": agent_name, "job_type": job_type,
+                "why": "the allocator's own work is never held by the allocation it produces"}
+    lane = lane_concurrency(db, agent_name, now=now)
+    if not lane["known"]:
+        return {"may_claim": True, "agent": agent_name, "job_type": job_type,
+                "lane": lane, "why": lane["why"]}
+    running = _running_in_lane(db, agent_name, now=now, exclude_job_id=job_id)
+    ok = running < lane["limit"]
+    return {"may_claim": ok, "agent": agent_name, "job_type": job_type,
+            "running": running, "limit": lane["limit"], "lane": lane,
+            "why": (f"{running} of {agent_name}'s jobs already running against a lane of "
+                    f"{lane['limit']}: " + ("room for this one" if ok else
+                                            "held until one of them finishes"))}
+
+
+def may_claim(db, agent_name: str, *, job_type: str = "", job_id: int | None = None,
+              now: datetime | None = None) -> bool:
+    """True when the latest allocation leaves this lane room for one more running job (#175)."""
+    return claim_decision(db, agent_name, job_type=job_type, job_id=job_id,
+                          now=now)["may_claim"]
+
+
+def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
+    """Give a just-claimed job back to the queue if its lane is full. True when it was held.
+
+    The single call the worker makes after `claim` and before running anything. The job goes
+    back exactly as it was -- pending, unleased, its attempt not counted -- and becomes
+    claimable again after `LANE_HOLD_SECONDS`, so a held job never moves toward a dead letter.
+    The write is conditional on this worker still holding the lease; a job it has already
+    lost is left alone and reported as not held.
+    """
+    from sqlalchemy import update
+
+    from ..core.models import AuditLog, Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    decision = claim_decision(db, job.agent, job_type=job.job_type, job_id=job.id, now=now)
+    if decision["may_claim"]:
+        return False
+    values = {"status": JobStatus.PENDING, "leased_by": None, "lease_expires_at": None,
+              "attempts": Job.attempts - 1,
+              "run_after": now + timedelta(seconds=LANE_HOLD_SECONDS)}
+    if int(job.attempts or 0) <= 1:
+        values["started_at"] = None            # the claim was its first; it has not started
+    with db.session() as s:
+        res = s.execute(update(Job).where(
+            Job.id == job.id, Job.status == JobStatus.RUNNING, Job.leased_by == worker,
+            Job.attempts == job.attempts).values(**values)
+            .execution_options(synchronize_session=False))
+        if res.rowcount != 1:
+            return False
+        s.add(AuditLog(actor="swarm_steward", action=LANE_HELD_ACTION,
+                       artifact=job.job_type, job_id=job.id,
+                       detail={"agent": job.agent, "worker": worker,
+                               "running": decision.get("running"),
+                               "limit": decision.get("limit"),
+                               "allocation_id": (decision.get("lane") or {}).get(
+                                   "allocation_id"),
+                               "hold_seconds": LANE_HOLD_SECONDS, "why": decision["why"]}))
+    return True
 
 
 # ---------------------------------------------------------------------------

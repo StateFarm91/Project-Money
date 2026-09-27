@@ -86,7 +86,79 @@ def register_routing_incumbents(db) -> dict:
             incumbent=True)
         (unchanged if out.get("unchanged") else registered).append(
             {"key": key, "config_id": out["id"], "version": out["version"]})
+        if out.get("unchanged"):
+            _follow_code(db, out["id"], source="gateway.routing.TASKS")
     return {"registered": registered, "unchanged": unchanged}
+
+
+def _follow_code(db, config_id: int, *, source: str) -> bool:
+    """Make the version the code runs the incumbent, when it already exists as a challenger.
+
+    `league.register` returns an existing row for an identical payload without touching its
+    incumbent flag. So when the code is changed to what a league challenger proposed -- the
+    only way a code-mirrored configuration can be promoted -- the registry would keep naming
+    the old version as running. The registry follows the code, never the other way round.
+    """
+    from ..core.models import ConfigVersion
+
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        if row is None or row.incumbent:
+            return False
+    league.promote(db, config_id, evidence_ref=f"code:{source}",
+                   outcome={"why": f"the running code ({source}) now uses this version",
+                            "promoted_by": "code"})
+    return True
+
+
+# ---- challengers (#95, #180) ------------------------------------------------------------
+
+# The cheaper tier a task could be answered by. A cost optimiser's challenger is the same task
+# one tier down: the only challenger that can be written without inventing a prompt, and the
+# one #188's marginal-value question most needs answered.
+CHEAPER_TIER: dict[str, str] = {"deep": "standard", "standard": "cheap"}
+
+
+def register_routing_challengers(db) -> dict:
+    """One challenger per model task that is not already on the cheapest tier.
+
+    Registered, never run: `league.cycle` compares it only on recorded runs, and producing a
+    run is a model call. Idempotent on content, so the nightly and league sweeps add nothing
+    once each challenger exists, and a routing change in code produces a new challenger for
+    the new incumbent rather than leaving the old one pointing at a tier nothing runs.
+    """
+    from ..gateway import routing
+
+    registered, unchanged, skipped = [], [], []
+    for key, task in routing.TASKS.items():
+        cheaper = CHEAPER_TIER.get(task.tier)
+        if cheaper is None or cheaper not in routing.TIERS:
+            skipped.append({"key": key, "why": f"{task.tier} is already the cheapest tier"})
+            continue
+        tier = routing.TIERS[cheaper]
+        payload = json.dumps({"task": task.key, "tier": cheaper, "model": tier.model,
+                              "max_output_tokens": task.max_output_tokens,
+                              "typical_input_tokens": task.typical_input_tokens,
+                              "cacheable": task.cacheable}, sort_keys=True)
+        try:
+            cost = tier.cost_cad(task.typical_input_tokens, task.max_output_tokens)
+        except Exception:  # noqa: BLE001 - an unpriced tier is a finding, not a stop
+            cost = 0.0
+        out = league.register(
+            db, kind=ROUTING_KIND, key=f"{ROUTING_KEY_PREFIX}{key}", payload=payload,
+            why_changed=(f"cost optimiser challenger for {key}: the same task routed one tier "
+                         f"cheaper, to {cheaper} ({tier.model}). It is compared with the "
+                         f"incumbent on the incumbent's shared task set and a holdout before "
+                         f"anything switches, and it switches only by a change to "
+                         f"gateway.routing.TASKS the owner approves"),
+            tests_run=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
+            affected_departments=TASK_DEPARTMENTS.get(key, DEFAULT_DEPARTMENTS),
+            incumbent=False)
+        (unchanged if out.get("unchanged") else registered).append(
+            {"key": key, "config_id": out["id"], "version": out["version"],
+             "tier": cheaper})
+    return {"registered": len(registered), "unchanged": len(unchanged),
+            "skipped": len(skipped), "new": registered}
 
 
 def _provider_payload(provider) -> str:
@@ -113,6 +185,8 @@ def register_image_incumbent(db) -> dict:
         tests_run=("tests/test_provider_trial.py",),
         cost_per_call_cad=round(provider.usd_per_image / routing.USD_PER_CAD, 6),
         affected_departments=("creative_assets",), incumbent=True)
+    if out.get("unchanged"):
+        _follow_code(db, out["id"], source="visual.provider_trial.INCUMBENT")
     return {"registered": not out.get("unchanged"), "config_id": out["id"],
             "version": out["version"], "provider": provider.key}
 
