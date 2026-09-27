@@ -72,6 +72,12 @@ NON_REDERIVABLE = (
     "culture_observations",
     # A policy reading cannot be re-derived: it is what the platform said on a day.
     "policy_snapshots",
+    # What a buyer actually bought (#42) and the experiments registered before their results
+    # were known (#241/#265): both are facts about a moment, and a restore that lost them
+    # could not answer "which version did this order get" or show an experiment was pre-
+    # registered rather than chosen after the fact.
+    "order_versions",
+    "registered_experiments",
     # Neither can a price point or a cohort arm: both are a window of real behaviour, and a
     # restore that lost them would lose the only evidence price or ads ever produced.
     "price_observations",

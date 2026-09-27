@@ -146,6 +146,16 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "ops.requeued_for_commit": ("latest", "runtime.pipeline reads the last re-drive"),
     "improve.nightly": ("latest", "runtime.release reads the last nightly"),
     "improve.promoted": ("windowed", "improve.tiers and improve.roi read recent promotions"),
+    "assets.built": ("lifetime_total",
+                     "runtime.pipeline._certified_pdf_hashes reads the certified PDF hashes "
+                     "of a release at publish time and refuses PDF_HASH_DRIFT without them; "
+                     "pruning the row would make a certified release unpublishable"),
+    "creative.expedition": ("windowed",
+                            "creative.audit reads expeditions after its own last cursor, and "
+                            "unit_cost counts recent ones; history behind the cursor is spent"),
+    "store.pdf_hash_verified": ("latest",
+                                "commerce.first_hundred reads the latest verification to "
+                                "say whether the delivery path is proven"),
     "creative.tournament": ("lifetime_total",
                             "improve.measure scores product_creativity over every recorded "
                             "tournament (survival rate beside the research kill rate); a "

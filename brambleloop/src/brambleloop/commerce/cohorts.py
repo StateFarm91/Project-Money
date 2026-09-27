@@ -161,7 +161,17 @@ def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
         if category and category not in (customer.interests or []):
             customer.interests = list(customer.interests or []) + [category]
         s.commit()
-        return {"created": True, "order_id": order.id, "is_repeat": order.is_repeat}
+        result = {"created": True, "order_id": order.id, "is_repeat": order.is_repeat}
+    # #42: which version this buyer received, written at sale time -- the one record that
+    # cannot be reconstructed later. Only when the order names a version; an order that does
+    # not is recorded as bought-version-unknown by the absence of a row, never guessed.
+    if version:
+        from . import buyer_trust
+
+        result["version_recorded"] = buyer_trust.record_sale_version(
+            db, order_ref=external_ref, product_slug=product_slug, version=version,
+            sold_at=when)
+    return result
 
 
 # ---------------------------------------------------------------------------

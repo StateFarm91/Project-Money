@@ -132,11 +132,13 @@ def test_the_order_path_writes_the_version_and_support_answers_from_it():
     db = _db()
     _product(db, "fir", {"1.0.0": "a" * 64})
     cohorts.record_customer(db, "fixture-buyer", first_product_slug="fir")
-    cohorts.record_order(db, "fixture-buyer", "order-1", product_slug="fir", version="1.0.0",
-                         price_cad=12.0, contribution_cad=9.0)
-    written = bt.record_sale_version(db, order_ref="order-1", product_slug="fir",
-                                     version="1.0.0")
+    order = cohorts.record_order(db, "fixture-buyer", "order-1", product_slug="fir",
+                                 version="1.0.0", price_cad=12.0, contribution_cad=9.0)
+    # The order path itself writes the version at sale time (#42); nobody has to remember to.
+    written = order["version_recorded"]
     assert written["created"] and written["release_hash"] == "a" * 64
+    assert bt.record_sale_version(db, order_ref="order-1", product_slug="fir",
+                                  version="1.0.0")["created"] is False
     assert bt.record_sale_version(db, order_ref="order-1", product_slug="fir",
                                   version="9.9.9")["created"] is False
 
