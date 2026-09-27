@@ -370,6 +370,22 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     "reasons": gate["reasons"][:5], "unmeasured": gate["unmeasured"],
                     "consequence": gate["consequence"], "effects": effects}
 
+    creative = (isinstance(ctx.job.inputs.get("concept"), dict)
+                and not preengineering.established(ctx.db, slug))
+    if creative:
+        # #3: a new creative concept is engineered only when the staged funnel carried it to
+        # prototype. Asked of the recorded run behind this slug's winner intake, never of the
+        # job's own inputs, so a caller cannot enqueue its way past the tournament.
+        from ..creative import intake as winner_intake
+
+        funnel = winner_intake.verify_funnel(ctx.db, slug)
+        if not funnel["carried"]:
+            ctx.audit("cir.draft_refused", artifact=slug,
+                      detail={"reason": funnel["why"][:400], "gate": "funnel.may_engineer"})
+            return {"artifact": slug, "drafted": False, "gate": "funnel",
+                    "reasons": [funnel["why"][:300]]}
+        return _draft_creative(ctx, slug)
+
     engineered = _engineered_cir(slug)
     if engineered is not None:
         ctx.audit("cir.drafted", artifact=f"{engineered.slug}@{engineered.version}",
@@ -394,6 +410,38 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "rows": len(cir.components[0].rows)}
+
+
+def _draft_creative(ctx: JobContext, slug: str) -> dict:
+    """Author the CIR a tournament winner describes, deterministically (C-61).
+
+    The geometry is computed, never asked for: a garment is a graded design from sourced body
+    tables (`creative.garment_design`), everything else is authored from its form's finished
+    size and the yarn's published gauge (`creative.prototype.author`). A form or
+    construction the engine has no rule for is refused by name.
+    """
+    from ..creative.concept import Concept as CreativeConcept
+    from ..creative.prototype import PrototypeRefused, author
+
+    raw = dict(ctx.job.inputs["concept"])
+    concept = CreativeConcept(**{k: v for k, v in raw.items()
+                                 if k in CreativeConcept.__dataclass_fields__})
+    try:
+        cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"))
+    except PrototypeRefused as exc:
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": str(exc)[:400], "gate": "engine"})
+        return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
+    cir = CIR.from_dict({**cir.to_dict(), "slug": slug, "title": concept.title})
+    ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
+              detail={"source": "tournament winner", "form": concept.form,
+                      "construction": cir.construction, "pod": concept.pod,
+                      "mjs_event_id": ctx.job.inputs.get("mjs_event_id"),
+                      "rows": sum(len(c.rows) for c in cir.components)})
+    ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+    return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
+            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components)}
 
 
 @handlers.register("cir.compile")

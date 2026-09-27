@@ -43,12 +43,14 @@ PASSED, REFUSED, WAITING, EXEMPT = "passed", "refused", "waiting", "exempt"
 PASS, FAIL, UNMEASURED, NOT_APPLICABLE = "pass", "fail", "unmeasured", "not_applicable"
 
 CHECKS: tuple[str, ...] = ("premise_thumbnail", "jury", "novelty", "silhouette",
-                           "motif_grammar", "wow", "top_decile", "grid_tournament")
+                           "motif_grammar", "wow", "top_decile", "grid_tournament",
+                           "emotional_promise", "half_life")
 
 # Which requirement each check is the runtime form of.
 REQUIREMENT: dict[str, int] = {
     "premise_thumbnail": 88, "jury": 83, "novelty": 87, "silhouette": 108,
     "motif_grammar": 110, "wow": 115, "top_decile": 125, "grid_tournament": 126,
+    "emotional_promise": 109, "half_life": 290,
 }
 
 # #126: "before CIR engineering for *expensive* concepts". Expensive is the make lane, which
@@ -76,7 +78,7 @@ _EVENT_OF_OCCASION: dict[str, str] = {
 BRIEF_FIELDS: tuple[str, ...] = (
     "thumbnail_storyboard", "silhouette_qualifiers", "motifs", "wow_mechanism",
     "wow_grounding", "strength_score", "strength_score_source", "benchmark_scores",
-    "board_image", "techniques", "season",
+    "board_image", "techniques", "season", "trend_domain",
 )
 
 _CONCEPT_FIELDS: tuple[str, ...] = (
@@ -391,6 +393,100 @@ def _grid(db, concept: Concept, brief: dict) -> dict:
                    needs="image_vision", request_grid=bool(board) and not found)
 
 
+# #109: the emotional promise, executed in the object. Which part of the object carries the
+# feeling is read from the premise's own words, first match wins; a premise naming none of
+# them delivers it through what it depicts. The table is the rule, stated.
+EXECUTION_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("texture", ("bobble", "bobbles", "cable", "cables", "cabled", "ribbed", "rib",
+                 "textured", "texture", "relief", "puff", "popcorn", "pile", "waffle",
+                 "bumps", "loops")),
+    ("colour_relationship", ("stripe", "stripes", "striped", "band", "bands", "banding",
+                             "colourwork", "colorwork", "contrast", "ombre", "gradient",
+                             "blocked", "blocking")),
+    ("scale", ("oversized", "giant", "tiny", "miniature", "mini", "huge", "chunky")),
+    ("finish", ("edging", "edge", "trim", "button", "buttons", "border", "fringe", "tassel",
+                "tassels", "pompom", "picot", "scallop", "scalloped")),
+    ("structure", ("fold", "folds", "folded", "pocket", "pockets", "pleat", "yoke", "panel",
+                   "panels", "unfold", "unfolds", "opens", "nest", "nests", "stack",
+                   "stacks", "reversible", "transforms", "converts", "hood", "cuff",
+                   "collar", "cropped", "silhouette", "shaped")),
+)
+
+
+def execution_of(concept: Concept) -> str:
+    """Which part of the object delivers the feeling, read from the premise (#109)."""
+    words = _WORD.findall((concept.premise or "").lower())
+    motif_words = set(_specific(concept.motif))
+    for word in words:
+        if word in motif_words:
+            return "motif"
+        for execution, needles in EXECUTION_WORDS:
+            if word in needles:
+                return execution
+    return "motif"
+
+
+def promise_for(concept: Concept):
+    """The concept's emotional promise and the physical thing that delivers it (#109).
+
+    Raises `InventionRefused` when the premise is listing copy rather than an object -- the
+    failure the requirement names ("cosy" achieved by writing *cosy*).
+    """
+    from .invention import promise
+
+    return promise(concept.feeling, execution_of(concept), concept.premise)
+
+
+def _emotional_promise(concept: Concept, brief: dict) -> dict:
+    """#109: the promise must be visible in the object, not added as listing copy."""
+    from .invention import InventionRefused
+
+    try:
+        made = promise_for(concept)
+    except InventionRefused as exc:
+        return _result(FAIL, [str(exc)], feeling=concept.feeling)
+    return _result(PASS, **made.to_dict())
+
+
+# #290: the occasions that are calendar events. A concept for one of these is a recurring
+# seasonal product; anything else is evergreen unless it was translated from a trend, in
+# which case the trend's own domain decides (a film moment is not a recurring season).
+SEASONAL_OCCASIONS: frozenset[str] = frozenset({
+    "christmas", "halloween", "easter", "valentines", "thanksgiving", "mothers_day",
+    "fathers_day", "back_to_school", "graduation"})
+
+
+def half_life_for(concept: Concept, brief: dict) -> dict:
+    """The half-life class of this concept, with its basis (#290)."""
+    from ..seasonal.fastlane import FastLaneRefused, classify_half_life
+
+    domain = str(brief.get("trend_domain") or "").strip()
+    try:
+        if domain:
+            return classify_half_life(domain=domain)
+        if concept.occasion in SEASONAL_OCCASIONS:
+            return classify_half_life(domain="", season=concept.occasion)
+        return classify_half_life(domain="", evergreen=True)
+    except FastLaneRefused as exc:
+        return {"half_life": None, "basis": f"unclassified trend domain {domain!r}",
+                "why": str(exc)}
+
+
+def _half_life(concept: Concept, brief: dict) -> dict:
+    """#290: no flagship engineering on a trend likely to expire before a maker finishes."""
+    from ..seasonal.calendar import CalendarRefused, check_half_life
+
+    got = half_life_for(concept, brief)
+    if got.get("half_life") is None:
+        return _result(FAIL, [got.get("why") or "an unclassified trend gets whatever effort "
+                              "somebody felt like spending"], **got)
+    try:
+        check_half_life(got["half_life"], concept.make_lane)
+    except CalendarRefused as exc:
+        return _result(FAIL, [str(exc)], make_lane=concept.make_lane, **got)
+    return _result(PASS, make_lane=concept.make_lane, **got)
+
+
 # ---------------------------------------------------------------------------
 # The gate
 
@@ -427,6 +523,8 @@ def gate_concept(db, concept, *, brief: dict | None = None, catalogue: list | No
         checks["wow"] = _wow(built, brief)
         checks["top_decile"] = _top_decile(built, brief)
         checks["grid_tournament"] = _grid(db, built, brief)
+        checks["emotional_promise"] = _emotional_promise(built, brief)
+        checks["half_life"] = _half_life(built, brief)
 
     failed = [n for n in CHECKS if checks[n]["status"] == FAIL]
     unmeasured = [n for n in CHECKS if checks[n]["status"] == UNMEASURED]

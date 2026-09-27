@@ -746,6 +746,8 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
     that a confident wrong answer fails loudly.
     """
     from .concept import CONSTRUCTIONS, FEELINGS, OCCASIONS, RECIPIENTS, ConceptRefused
+    from .invention import InventionRefused
+    from .preengineering import promise_for
 
     occasion = occasion_for(slot.arena.event)
     buildable = sorted(FORM_CONSTRUCTIONS.get(slot.form) or CONSTRUCTIONS)
@@ -793,6 +795,14 @@ def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
                 notes=str(row.get("wow") or "").strip()[:300])
         except ConceptRefused as e:
             refused.append(f"{key}: {e}"[:220])
+            continue
+        # #109: the emotional promise has to be executed in the object. A premise that
+        # delivers its feeling only as listing copy is refused here, at generation, like any
+        # other structural failure -- not left for a later stage to notice.
+        try:
+            promise_for(concept)
+        except InventionRefused as e:
+            refused.append(f"{key}: no emotional promise in the object: {e}"[:220])
             continue
         out.append(Candidate(concept=concept, slot=slot))
     return out, refused
@@ -1218,9 +1228,26 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
             # rather than a skipped stage.
             examined=len(entrants))
 
+    # #112: the research jury judges the window at the arena's real distance to its event,
+    # so a make the buyer can no longer finish dies here as `shopping_window`.
+    days_to_event = None
+    if only is not None:
+        match = [a for a in arenas(db, today=today) if (a.event, a.pod) == tuple(only)]
+        days_to_event = match[0].days_away if match else None
     screened = screen(candidates, catalogue=catalogue,
                       benchmark=benchmark_comparables(db),
-                      days_to_event=None)
+                      days_to_event=days_to_event)
+    # ... and shifts late-window capacity toward the makes a buyer can still finish: the
+    # survivors are graded against the window and ideation's selection prefers the ones
+    # that continue over the ones that need a hurry.
+    window = None
+    if days_to_event is not None and screened["survivor_objects"]:
+        from ..seasonal.uncertainty import sample_count
+        from .family import shift_capacity
+
+        window = shift_capacity([c.concept for c in screened["survivor_objects"]],
+                                days_to_event=days_to_event, samples=sample_count(db),
+                                today=today)
     survivors = [c.concept.key for c in screened["survivor_objects"]]
     killed = {}
     for candidate in candidates:
@@ -1324,6 +1351,15 @@ def tournament(db, *, gateway, target: int = 80, today: date | None = None,
 
     return {
         "arena": f"{only[0]}/{only[1]}" if only else "",
+        "days_to_event": days_to_event,
+        "window": window,
+        # #3: the funnel as it ran, with each stage's survivors by key, so `may_engineer`
+        # can be asked of this exact run later -- by `creative.intake` before it queues a
+        # CIR, and by `cir.draft` before it drafts one. The object itself is never stored.
+        "funnel_objects": run,
+        "funnel_rounds": [{"stage": r.stage, "survived": list(r.survived),
+                           "killed": dict(r.killed), "examined": r.examined,
+                           "entered": r.entered} for r in run.rounds],
         "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
         "prototype": {k: v for k, v in built.items() if k != "survivors"},
         "release": {k: v for k, v in shipped.items() if k != "survivors"},

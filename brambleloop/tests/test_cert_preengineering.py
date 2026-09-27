@@ -328,7 +328,13 @@ def test_a_grid_that_cannot_be_built_leaves_the_concept_waiting():
     assert not v["engineer"]
 
 
-def test_a_passed_concept_is_engineered_through_cir_draft():
+def test_a_passed_concept_enqueued_directly_is_refused_by_the_funnel():
+    """C-61 / #3 strengthened this test. It used to assert that a concept which passes every
+    gate check is engineered when `cir.draft` is enqueued with it directly. The funnel's
+    `may_engineer` now stands at the same entry: a concept reaches engineering only as a
+    tournament winner the staged funnel carried to prototype (the positive path is proved
+    through `creative.tournament` in test_cert_design_pipeline.py). The gate still runs first
+    and passes here -- the refusal names the funnel, not the gate."""
     db = _db()
     _benchmarks(db)
     restore = _fixture_judges(0.8)
@@ -343,8 +349,9 @@ def test_a_passed_concept_is_engineered_through_cir_draft():
         "title": GOOD["title"], "category": "stocking",
         "stitch_repeat": [["sc", 2], ["dc", 2]], "width_stitches": 40, "rows": 8,
         "colors": {"pine": "#244A3A", "ember": "#C49545"}}, key="pass")
-    assert out.get("artifact", "").startswith(GOOD["key"]), out
-    assert _jobs(db, "cir.compile"), "a concept that passed every check was not engineered"
+    assert out["drafted"] is False and out["gate"] == "funnel", out
+    assert "winner intake" in out["reasons"][0]
+    assert not _jobs(db, "cir.compile"), "a concept reached engineering outside the funnel"
 
 
 def test_the_release_side_grid_verdict_is_recorded_per_product():

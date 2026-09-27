@@ -401,6 +401,39 @@ def culture(db, forms) -> dict:
                        "develop" if live else "the culture engine holds no live candidate")}
 
 
+def vision(db, pod: str) -> dict:
+    """#278: judged competitor photography for this department, as concept evidence.
+
+    Read from `gallery_image_observation` rows the vision pods recorded. With none, the state
+    says UNMEASURED and nothing is invented -- absence of a reading is not a reading.
+    """
+    from .intake import vision_readings
+
+    return vision_readings(db, pod)
+
+
+SKILL_GAP_ACTION = "radar.skill_gap"
+
+
+def skill_gap(db) -> dict:
+    """#114: the radar's latest measured skill gap for the wave, consumed as a brief."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == SKILL_GAP_ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        if row is None:
+            return {"source": None, "missing": [], "over": [],
+                    "reason": "the radar has not measured a skill gap in any wave"}
+        detail = dict(row.detail or {})
+        return {"source": f"radar.skill_gap row {row.id}",
+                "missing": list(detail.get("missing") or []),
+                "over": list(detail.get("over") or []),
+                "brief": detail.get("brief", ""), "as_of": detail.get("as_of")}
+
+
 # ---------------------------------------------------------------------------
 # The plan
 
@@ -432,6 +465,8 @@ def plan(db, *, kind: str, event: str, pod: str, forms, cycle: int,
         "role": role(db),
         "floor": floor,
         "culture": culture(db, forms),
+        "vision": vision(db, pod),
+        "skill_gap": skill_gap(db),
     }
     out["briefs"] = _rotation(out)
     return out
@@ -482,6 +517,20 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
     lines.append(f"- portfolio role: {r['role']} -- {r['brief']}")
     for h in p["white_space"]["hypotheses"][:1]:
         lines.append(f"- buyers say: {h['proposal']}")
+    seen = p.get("vision") or {}
+    if seen.get("judged_images"):
+        # #278: what this department's competitor photography was judged to show. Evidence
+        # of what sells, never a photograph or a design to reproduce.
+        lines.append("- observed in this department's competitor photography (evidence of "
+                     "what sells; never copy a photograph or a design): "
+                     + "; ".join(f"{k.replace('_', ' ')}: {', '.join(v[:3])}"
+                                 for k, v in sorted((seen.get("attributes") or {}).items())
+                                 if v)[:600])
+    gap = p.get("skill_gap") or {}
+    if gap.get("missing"):
+        # #114: the radar measured the wave and found a skill level missing.
+        lines.append(f"- this seasonal wave is missing {', '.join(gap['missing'])} work; a "
+                     f"concept that fills it is preferred")
     for form, angle in sorted(p["saturation"]["angles"].items()):
         lines.append(f"- if the form is {form.replace('_', ' ')}, enter only on this angle: "
                      f"{angle}")
@@ -599,8 +648,14 @@ def quotas(ordered: list, *, share: float = universe.DOMINANCE_ALARM) -> dict:
             "fixed_by_arena": [a for a in universe.DIVERSITY_AXES if a not in varied]}
 
 
-def select(ideation_plan: dict, *, candidates: list, survivors: list) -> dict:
-    """Apply the floor, the quotas and the role to what survived, and name the winner."""
+def select(ideation_plan: dict, *, candidates: list, survivors: list,
+           window: dict | None = None) -> dict:
+    """Apply the floor, the quotas and the role to what survived, and name the winner.
+
+    `window` is `family.shift_capacity` over the survivors at the arena's real days to the
+    event (#112): a survivor whose buyer can still comfortably finish it is preferred over one
+    that needs a hurry, and the radar's missing skill level (#114) is preferred next.
+    """
     field_diversity = universe.diversity([_entrant(c) for c in candidates])
     required = ideation_plan["floor"]["floor"]
     below = [c for c in survivors if c.nearest_distance < required]
@@ -610,7 +665,16 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list) -> dict:
     admitted = quota["admitted"]
     lanes = ideation_plan["role"]["lanes"]
     fitting = [c for c in admitted if c.concept.make_lane in lanes]
-    winner = (fitting or admitted or [None])[0]
+    pool = fitting or admitted
+    hurry = {g["concept"] for g in ((window or {}).get("hurry") or [])}
+    comfortable = [c for c in pool if c.concept.key not in hurry]
+    if comfortable:
+        pool = comfortable
+    from .preengineering import skill_level_for_make_lane
+
+    missing = set((ideation_plan.get("skill_gap") or {}).get("missing") or [])
+    filling = [c for c in pool if skill_level_for_make_lane(c.concept.make_lane) in missing]
+    winner = (filling or pool or [None])[0]
     return {
         "field_diversity": field_diversity,
         "shortlist_diversity": universe.diversity([_entrant(c) for c in admitted]),
@@ -626,12 +690,16 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list) -> dict:
                     "form": winner.concept.form, "make_lane": winner.concept.make_lane,
                     "novelty_distance": winner.nearest_distance,
                     "role": ideation_plan["role"]["role"],
-                    "role_fit": winner.concept.make_lane in lanes}
+                    "role_fit": winner.concept.make_lane in lanes,
+                    "fills_skill_gap": bool(filling) and winner in filling,
+                    "window_hurry": winner.concept.key in hurry}
                    if winner is not None else None),
+        "window_deferred": sorted(hurry & {c.concept.key for c in admitted}),
     }
 
 
-def pre_engineering_gate(db, winner, *, ctx=None, source: str = "ideation") -> dict:
+def pre_engineering_gate(db, winner, *, ctx=None, source: str = "ideation",
+                         brief: dict | None = None) -> dict:
     """Present the winner to the pre-engineering gate before anything reaches engineering.
 
     ### PRE-ENGINEERING GATE CALL SITE ###
@@ -664,7 +732,11 @@ def pre_engineering_gate(db, winner, *, ctx=None, source: str = "ideation") -> d
                 "reason": ("creative.*.gate_concept does not exist yet; the winner is held "
                            "and is not sent to engineering")}
     try:
-        verdict = gate(db, winner.concept)
+        # The brief (#88 storyboard, #110 motifs, #115 wow, #108 qualifiers, #290 trend
+        # domain) is generated deterministically from the winner by `creative.intake`; a
+        # gate called without one fails its brief checks by absence, which is C-61.
+        verdict = (gate(db, winner.concept, brief=brief) if brief is not None
+                   else gate(db, winner.concept))
     except Exception as e:  # noqa: BLE001 - a gate that errors blocks, it does not pass
         return {"gate": f"creative.{where}.gate_concept", "cleared_for_engineering": False,
                 "error": f"{type(e).__name__}: {e}"[:300]}

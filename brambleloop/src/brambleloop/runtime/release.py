@@ -2715,9 +2715,16 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway.model_gateway import ModelGateway
 
+    # C-61: winners that waited on a vision judgement are re-presented first, so a judgement
+    # recorded since the last run reaches engineering without waiting for a new winner.
+    from ..creative import intake as winner_intake
+
+    regated = winner_intake.regate_held(ctx)
+
     found = prospecting.arenas(ctx.db)
     if not found:
-        return {"ran": False, "reason": "no benchmark listing has been observed yet"}
+        return {"ran": False, "reason": "no benchmark listing has been observed yet",
+                "regated": regated}
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
     arena = prospecting.choose(found, cycle=week)
@@ -2730,7 +2737,13 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     breakthrough = inputs if inputs.get("lane") == BREAKTHROUGH_LANE else None
     if breakthrough:
         match = [a for a in found if a.pod == breakthrough.get("pod")]
-        if match:
+        # The mission names the seasonal event its response is for (#309: demand and season
+        # fit). When that event is one of the pod's proven arenas it is the arena; the wheel
+        # only chooses when the mission named none it can still reach.
+        targeted = [a for a in match if a.event == breakthrough.get("seasonal_target")]
+        if targeted:
+            arena = targeted[0]
+        elif match:
             # The same chooser as the wheel, over the release's pod only, so an arena whose
             # event can no longer be made in time is not picked just because it matched.
             arena = prospecting.choose(match, cycle=week) or arena
@@ -2765,13 +2778,20 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                 "reason": str(e)[:200]}
 
     selection = ideation.select(plan, candidates=result.get("candidate_objects") or [],
-                                survivors=result.get("survivor_objects") or [])
-    # The single call into the pre-engineering gate: nothing reaches engineering from here
-    # without it, and while the gate does not exist the winner is recorded as held.
-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
-                                         source="creative.tournament")
+                                survivors=result.get("survivor_objects") or [],
+                                window=result.get("window"))
+    # C-61: the winner is taken into engineering intake -- a brief generated from it and its
+    # evidence, the funnel asked whether it was carried to prototype (#3), the
+    # pre-engineering gate run with that brief, and `cir.draft` queued only for a winner
+    # that clears both. Nothing reaches engineering from here any other way.
+    gate, took = _winner_intake(ctx, selection, plan, gateway=gateway, arena=arena,
+                                source="creative.tournament",
+                                funnel_rounds=result.get("funnel_rounds") or [],
+                                mjs_event_id=inputs.get("mjs_event_id"))
     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
                                          gate=gate)
+    result["intake"] = took
+    result["regated"] = regated
 
     with ctx.db.session() as s:
         from ..core.models import AuditLog
@@ -2779,6 +2799,15 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                        artifact=f"{arena.event}/{arena.pod}",
                        detail={k: v for k, v in result.items()
                                if not k.endswith("_objects")}))
+
+    # #309: the MJs response this tournament answers moves along its pipeline now, rather
+    # than at the next daily sentinel.
+    pipeline_moves = None
+    if inputs.get("mjs_event_id"):
+        from ..intel import mission_runtime
+
+        pipeline_moves = mission_runtime.advance_pipeline(
+            ctx.db, event_ids=[int(inputs["mjs_event_id"])])
 
     generated = result["field"]["generated"]
     attempted = generated > 0 or result["cost_cad"] > 0
@@ -2794,6 +2823,8 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
             "winner": result["ideation"]["winner"],
             "role": plan["role"]["role"],
             "cleared_for_engineering": gate["cleared_for_engineering"],
+            "intake": took, "days_to_event": result.get("days_to_event"),
+            "pipeline": pipeline_moves,
             **({} if attempted else
                {"reason": "every batch came back malformed; nothing was generated or spent"})}
 
@@ -2838,6 +2869,9 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
                                               cycle=week)
     if plan is None:
         return moved_from
+    from ..creative import intake as winner_intake
+
+    winner_intake.regate_held(ctx)
     # #117: the expedition's arena loses its saturated, angle-less forms before slots exist.
     arena = ideation.restrict(arena, plan["saturation"]["excluded_forms"])
 
@@ -2861,10 +2895,13 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     # survivors are objects here, so the field diversity is measured over what it proposed
     # and survived, and says so through `entrants`.
     selection = ideation.select(plan, candidates=survivors, survivors=survivors)
-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
-                                         source="creative.expedition")
+    # An expedition is discovery, not the staged funnel: its winner gets the same generated
+    # brief and gate, and `may_engineer` refuses it engineering (#3) -- recorded, not skipped.
+    gate, took = _winner_intake(ctx, selection, plan, gateway=gateway, arena=arena,
+                                source="creative.expedition", funnel_rounds=None)
     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
                                          gate=gate)
+    result["intake"] = took
 
     prospecting.store(ctx.db, result)
 
@@ -2878,11 +2915,33 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
             "proposed": result["proposed"], "survivors": len(result["survivors"]),
             "forms": result["forms_discovered"], "cost_cad": result["cost_cad"],
             "answered_the_arena": result["answered_the_arena"],
-            "winner": result["ideation"]["winner"],
+            "winner": result["ideation"]["winner"], "intake": took,
             "role": plan["role"]["role"],
             "cleared_for_engineering": gate["cleared_for_engineering"],
             **({} if attempted else
                {"reason": "every field came back malformed; nothing was proposed or spent"})}
+
+
+def _winner_intake(ctx: JobContext, selection: dict, plan: dict, *, gateway, arena,
+                   source: str, funnel_rounds, mjs_event_id=None) -> tuple[dict, dict | None]:
+    """The winner through `creative.intake`, as the gate block `ideation.record` stores."""
+    from ..creative import intake as winner_intake
+
+    winner = selection.get("winner_object")
+    if winner is None:
+        return ({"gate": "not_called", "reason": "no winner",
+                 "cleared_for_engineering": False}, None)
+    took = winner_intake.intake(
+        ctx, candidate=winner, plan=plan, source=source, arena=arena,
+        funnel_rounds=funnel_rounds, mjs_event_id=mjs_event_id,
+        culture_id=gateway.culture_origin(winner.concept.title))
+    call = took.pop("gate_call")
+    if selection.get("winner"):
+        selection["winner"]["design_slug"] = took["slug"]
+    gate = {**call, "cleared_for_engineering": took["decision"] == winner_intake.ENGINEERING,
+            "gate_cleared": bool(call.get("cleared_for_engineering")),
+            "funnel_carried": took["funnel"], "intake_decision": took["decision"]}
+    return gate, took
 
 
 def _ideation_arena(ctx: JobContext, found: list, arena, *, kind: str, cycle: int):
