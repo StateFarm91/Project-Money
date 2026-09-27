@@ -60,6 +60,9 @@ OWNER_GATES = frozenset({
     "image_generation", "canonical_model", "benchmark_purchases", "offsite_storage",
     "owned_surfaces", "live_listings", "physical_proof", "second_market_benchmark",
     "culture_feed", "ad_authority", "image_vision",
+    # Certification C-40: the owner pastes Shop Manager Insights readings; the owner rules on
+    # the browser/vision acceptance wording. Both need a person, so both are owner gates.
+    "insights_access", "acceptance_ruling",
 })
 
 
