@@ -179,8 +179,9 @@ def test_each_deterministic_check_refuses_on_its_own():
 def test_novelty_refuses_a_concept_indistinguishable_from_an_observed_listing():
     db = _db()
     _benchmarks(db)
-    # What the fixture titles state, read the way the comparables reader reads them.
-    twin = _judged(key="their-stocking", recipient="self", occasion="everyday",
+    # What the fixture titles state, read the way the comparables reader reads them. The
+    # titles say "Christmas"; before C-55 the reader misread that as "everyday".
+    twin = _judged(key="their-stocking", recipient="self", occasion="christmas",
                    feeling="festive")
     v = pe.gate_concept(db, {"concept": twin, "brief": GOOD_BRIEF}, today=TODAY)
     assert "novelty" in v["failed"], v["checks"]["novelty"]

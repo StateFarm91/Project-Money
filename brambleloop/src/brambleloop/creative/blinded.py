@@ -219,11 +219,18 @@ _RECIPIENT_WORDS: tuple[tuple[str, str], ...] = (
 
 def _read(words: frozenset[str], phrase: str,
           table: tuple[tuple[str, str], ...]) -> str:
+    # Certification C-55: `pods.signals` singularises every word ("christmas" -> "christma"),
+    # so a table term compared raw could never match its own plural-looking spelling and every
+    # Christmas title read as "everyday". The table goes through the same normaliser as the
+    # title, so the two sides of the comparison are spelled the same way.
     for term, value in table:
-        if " " in term:
-            if f" {term} " in phrase:
+        norm = " ".join(pods._words(term))
+        if not norm:
+            continue
+        if " " in norm:
+            if f" {norm} " in phrase:
                 return value
-        elif term in words:
+        elif norm in words:
             return value
     return ""
 

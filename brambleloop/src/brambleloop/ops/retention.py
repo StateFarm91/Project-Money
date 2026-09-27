@@ -159,6 +159,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "improve.mine": ("latest", "improve.mine reads its own last run as the watermark"),
     "improve.monitor": ("latest", "improve.monitor reads its own last run as the watermark"),
     "creative.style_learning": ("latest", "the style learner's latest pass is its reading"),
+    "creative.white_space": ("latest", "creative.ideation reads the latest white-space "
+                             "hypotheses into every tournament/expedition brief"),
+    "creative.four_season": ("latest", "creative.ideation reads the latest four-season "
+                             "programme row for the current season"),
     "creative.outcome_learning": ("latest", "the outcome learner's latest pass is its reading"),
     "seasonal.harvest": ("latest", "the harvest pass; SeasonHarvest rows hold the history"),
     "creative.tournament": ("lifetime_total",

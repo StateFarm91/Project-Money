@@ -731,6 +731,16 @@ def test_the_grid_judges_stop_on_the_ceiling_and_the_grid_stays_unjudged():
     assert out["verdict"] == "fail" and out["panel"]["stopped_by"]
 
 
+
+def test_a_christmas_title_reads_as_christmas_not_everyday():
+    """Certification C-55: the title words are singularised ("christma"), and the occasion
+    table was compared unnormalised, so every Christmas listing read as "everyday" and the
+    pre-engineering twin check could not see a Christmas benchmark."""
+    card = B.from_listing({"title": "Festive Christmas Stocking Crochet Pattern",
+                                 "listing_ref": "bench-x"})
+    assert card.occasion == "christmas", card.occasion
+    assert card.form == "stocking"
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

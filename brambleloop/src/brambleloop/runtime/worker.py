@@ -331,6 +331,13 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("style_learning", "creative_director", "creative.style_learning", 24 * 60 * 60),
     ("outcome_learning", "creative_director", "creative.outcome_learning", 24 * 60 * 60),
     ("season_harvest", "orchestrator", "seasonal.harvest", 24 * 60 * 60),
+    # #5 / #43: every certified release is routed to its lane, its owed gates checked, and
+    # tester demand planned against the roster.
+    ("production_lanes", "quality_director", "gate.lanes", 24 * 60 * 60),
+    # #118 / #121: weekly white-space discovery and the four-season programme feed every
+    # tournament and expedition brief.
+    ("white_space_discovery", "creative_director", "creative.white_space", 7 * 24 * 60 * 60),
+    ("four_season_programme", "creative_director", "creative.four_season", 7 * 24 * 60 * 60),
     # Build 2 closeout (2026-09-27): the runtime halves of libraries that had none.
     # #174-#176, #186, #192: the swarm reviews agent quality, sizes lanes, resolves orphaned
     # work and feeds an idle queue from the standing backlog -- GREEN only, never spending.

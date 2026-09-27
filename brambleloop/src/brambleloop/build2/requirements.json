@@ -41,12 +41,12 @@
   {
     "body": "Operate two production queues after core QA stabilizes. FAST LANE: lower-complexity Class A/B products such as ornaments, coasters, mug rugs, selected hats, simple decor and suitable simple amigurumi for rapid learning/search coverage. FLAGSHIP LANE: premium blankets, major collections, selected garments and sophisticated seasonal products for authority, content depth and AOV. Both retain all applicable quality gates.",
     "id": 5,
-    "note": "commerce/lanes.py operates both queues. A pod says which queue a product may be considered for and the product's own measurements decide, so a garment cannot be argued into the fast lane by typing one component onto it under a deadline. Flagship is never merely 'not fast': substance is proved (a MEDIUM-or-heavier premium form, or a set of three patterns that holds together, plus real size depth where a pod's buyers are a range of bodies), and a product that is neither simple enough to buy learning rate nor substantial enough to buy authority is routed to neither queue and told why. Both floors are enforced because the fast lane eats the flagship lane one defensible week at a time and a flagship-only catalogue learns four things a year; the mix is a share of making capacity, never a count of products. 'Both retain all applicable quality gates' is structural: the list is the release chain's own CANONICAL_STAGES, and applicable_gates() takes the product and has no lane argument at all -- a test asserts that by signature rather than by example. check_release takes gate runs rather than a set of names that passed, because a verdict computed from the absence of failures passes a chain that never ran. 'After core QA stabilizes' is read from the records (regression corpus and run, certified releases, unresolved halting incidents) and an unread signal is its own refusal; until then one queue, running the same gates. A Class B fast-lane product says out loud that a physical sample sets its wall clock, which is why the trend lane (#291) takes Class A only -- and a test holds #291 at least as strict as this one so it cannot become an exemption in a second costume. /api/lanes. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: lanes.assign/check_release never run; no product is routed to a lane. Executable Build 2 work.",
+    "note": "commerce/lanes.py operates both queues. A pod says which queue a product may be considered for and the product's own measurements decide, so a garment cannot be argued into the fast lane by typing one component onto it under a deadline. Flagship is never merely 'not fast': substance is proved (a MEDIUM-or-heavier premium form, or a set of three patterns that holds together, plus real size depth where a pod's buyers are a range of bodies), and a product that is neither simple enough to buy learning rate nor substantial enough to buy authority is routed to neither queue and told why. Both floors are enforced because the fast lane eats the flagship lane one defensible week at a time and a flagship-only catalogue learns four things a year; the mix is a share of making capacity, never a count of products. 'Both retain all applicable quality gates' is structural: the list is the release chain's own CANONICAL_STAGES, and applicable_gates() takes the product and has no lane argument at all -- a test asserts that by signature rather than by example. check_release takes gate runs rather than a set of names that passed, because a verdict computed from the absence of failures passes a chain that never ran. 'After core QA stabilizes' is read from the records (regression corpus and run, certified releases, unresolved halting incidents) and an unread signal is its own refusal; until then one queue, running the same gates. A Class B fast-lane product says out loud that a physical sample sets its wall clock, which is why the trend lane (#291) takes Class A only -- and a test holds #291 at least as strict as this one so it cannot become an exemption in a second costume. /api/lanes. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: lanes.assign/check_release never run; no product is routed to a lane. Executable Build 2 work.\n\nCertification repair 2026-09-27: production_lanes cadence -> gate.lanes -> lanes.route_certified assigns fast/flagship lanes and checks each lane's owed gates; a skipped gate withdraws the listing (gate.lane_release_refused).",
     "section": "Core commercial upgrades",
-    "status": "partial",
+    "status": "covered",
     "title": "Fast Lane and Flagship Lane",
     "version": "v1.3",
-    "parked_on": ""
+    "proof": "commerce/lanes.py runtime/release.py runtime/worker.py tests/test_cert_preengineering.py tests/test_lanes.py"
   },
   {
     "body": "As soon as real Market Radar is available, score Christmas micro-markets immediately: ornaments, stockings, tree skirts, blankets, pillows, runners, gift bags, hats, amigurumi, quick gifts and bundles. Select from current evidence. Do not allow infrastructure perfectionism to consume the seasonal making window.",
@@ -413,12 +413,13 @@
   {
     "body": "Treat physical testing as a schedulable constrained resource. Forecast upcoming Class B/C testing demand, maintain tester reliability/specialty scores, avoid one tester becoming a bottleneck, and schedule seasonal products early enough that physical QA does not miss the making window.",
     "id": 43,
-    "note": "quality/testers.py forecasts testing demand from the seasonal calendar rather than the request queue, scores reliability as completed against accepted, flags a specialty resting on one tester, and refuses an assignment outside a specialty Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: tester forecast/capacity/assign uncalled. Executable Build 2 work.",
+    "note": "quality/testers.py forecasts testing demand from the seasonal calendar rather than the request queue, scores reliability as completed against accepted, flags a specialty resting on one tester, and refuses an assignment outside a specialty Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: tester forecast/capacity/assign uncalled. Executable Build 2 work.\n\nCertification repair 2026-09-27: gate.lanes -> testers.plan forecasts demand, capacity and in-specialty assignment, written as quality.tester_plan; with no recorded testers every B/C demand is unassigned. Remainder parked on tester_roster.",
     "section": "Adversarial commercial + policy audit",
     "status": "partial",
     "title": "Tester Capacity Marketplace",
     "version": "v1.3.2",
-    "parked_on": ""
+    "parked_on": "tester_roster",
+    "proof": "quality/testers.py runtime/release.py tests/test_cert_preengineering.py"
   },
   {
     "body": "The recurring fictional model is one brand asset, not the brand itself. Build recognizable Brambleloop signatures: editorial layout, naming architecture, photography language, chart style, tutorial voice, collection families, customer-support experience and distinctive original design grammar. The shop must remain recognizable even on product-first listings without the model.",
@@ -801,12 +802,12 @@
   {
     "body": "A technically feasible concept does not deserve CIR engineering merely because it fills a keyword/category slot. Before expensive engineering, independently score visual hook, emotional hook, functional hook, distinctiveness, giftability/occasion fit, thumbnail concept, collection potential, physical plausibility and competitive novelty. Concepts below threshold are killed or returned for ideation.",
     "id": 83,
-    "note": "creative/jury.py is a pre-engineering hard gate whose best verdict without a vision model is needs_taste, never approved: structural critics are real and cannot tell whether a thing is desirable, so a concept reaching engineering on structural cleanliness alone is exactly what this requirement forbids. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: the jury does not gate engineering: radar.score enqueues cir.draft with no verdict. Executable Build 2 work.",
+    "note": "creative/jury.py is a pre-engineering hard gate whose best verdict without a vision model is needs_taste, never approved: structural critics are real and cannot tell whether a thing is desirable, so a concept reaching engineering on structural cleanliness alone is exactly what this requirement forbids. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: the jury does not gate engineering: radar.score enqueues cir.draft with no verdict. Executable Build 2 work.\n\nCertification repair 2026-09-27: radar.score and cir.draft run preengineering.gate_concept on every new (non-catalogue) concept; the jury is one of its checks; a refusal writes an autopsy and returns the idea to ideation, and cir.draft is never enqueued unless the verdict is passed. With model_provider/image_vision CLOSED the best jury verdict is needs_taste, so no new concept passes today -- it waits, it is not waved through.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Design Desirability Is a Pre-Engineering Hard Gate",
     "version": "v1.3.5",
-    "parked_on": ""
+    "proof": "creative/jury.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "For each commercially promising opportunity, generate a diverse field of materially different concepts before selecting one. Target approximately 12-25 concepts when economics justify it. Do not accept superficial colour/name variants as diversity. The tournament should include different forms, transformations, storage/presentation ideas, motif systems, emotional tones, construction approaches and bundle/collection possibilities.",
@@ -821,12 +822,12 @@
   {
     "body": "Create a Creativity Director responsible for concept quality, plus independent critic agents that attack sameness, genericness, weak emotional appeal, derivative thinking, poor thumbnail potential and unnecessary complexity. The proposing agent may not be the sole judge of its own concept. Jury feedback becomes structured training memory for future ideation.",
     "id": 85,
-    "note": "six independent critics attacking sameness, genericness, weak emotional appeal, derivative thinking, thumbnail potential and unnecessary complexity. Each can only reject -- a scoring jury averages the fatal objection away, the same arithmetic mistake as averaging the confidence ladder. One rejection ends the concept. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: creative/jury.py, creative/tournament.py, creative/audit.py (tests: tests/test_creative.py). Gap: No Creativity Director component exists; creative/audit.autopsy() is computed per request and never persisted, so jury feedback does not become training memory. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the Creativity Director persists jury autopsies as routed Lessons (self-judged fields refused as memory) and the creative brief reads them back with design provenance recorded.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: worker:failure_mine -> release improve.mine -> mine -> audit.creativity_director. Gap: Lessons are persisted, but brief_lessons is read only by /api/creative-reference, not by the ideation handlers (creative.tournament/expedition).",
+    "note": "six independent critics attacking sameness, genericness, weak emotional appeal, derivative thinking, thumbnail potential and unnecessary complexity. Each can only reject -- a scoring jury averages the fatal objection away, the same arithmetic mistake as averaging the confidence ladder. One rejection ends the concept. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: creative/jury.py, creative/tournament.py, creative/audit.py (tests: tests/test_creative.py). Gap: No Creativity Director component exists; creative/audit.autopsy() is computed per request and never persisted, so jury feedback does not become training memory. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the Creativity Director persists jury autopsies as routed Lessons (self-judged fields refused as memory) and the creative brief reads them back with design provenance recorded.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: worker:failure_mine -> release improve.mine -> mine -> audit.creativity_director. Gap: Lessons are persisted, but brief_lessons is read only by /api/creative-reference, not by the ideation handlers (creative.tournament/expedition).\n\nCertification repair 2026-09-27: weekly product_tournament / arena_expedition cadences run creative.tournament / .expedition, which build ideation.plan: brief_lessons (jury autopsies and lessons) go into every model brief, and design provenance records the lesson ids.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Creativity Director + Adversarial Creative Jury",
     "version": "v1.3.5",
-    "proof": "creative/audit.py improve/mine.py creative/reference.py tests/test_mine.py tests/test_improve_handlers.py"
+    "proof": "improve/bus.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Continuously study legitimate current market examples across categories to learn abstract commercial attributes: clever transformation, strong silhouette, recognisable motif, cute characterisation, premium minimalism, gift narrative, modularity, low-sew appeal, surprising function and collection logic. Store attributes and outcomes, not copied protected expression.",
@@ -842,24 +843,22 @@
   {
     "body": "Before engineering, compare a candidate against observed competitor concepts and Brambleloop's own catalogue. Reject near-clones, trivial recolours and ideas whose primary appeal depends on reproducing another seller's distinctive expression. Require a defensible Brambleloop creative contribution.",
     "id": 87,
-    "note": "novelty distance against both our own catalogue and observed benchmark concepts, with a clone threshold tuned against the pair this company already has. Entering the same broad arena stays explicitly allowed (#215, #306); what is refused is a concept whose distinctiveness collapses to one seller's execution. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: novelty is not checked before engineering on the engineered path. Executable Build 2 work.",
+    "note": "novelty distance against both our own catalogue and observed benchmark concepts, with a clone threshold tuned against the pair this company already has. Entering the same broad arena stays explicitly allowed (#215, #306); what is refused is a concept whose distinctiveness collapses to one seller's execution. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: novelty is not checked before engineering on the engineered path. Executable Build 2 work.\n\nCertification repair 2026-09-27: same gate: catalogue distance under 0.45 or a benchmark twin refuses; no observations on file is UNMEASURED and waits.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Novelty Distance / Anti-Clone Gate",
     "version": "v1.3.5",
-    "proof": "creative/jury.py creative/concept.py tests/test_creative.py tests/test_family.py",
-    "parked_on": ""
+    "proof": "creative/concept.py creative/prospecting.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "Every finalist must have a one-sentence visual premise and a thumbnail storyboard before CIR work. Ask: if seller name, reviews, badges and price vanished, would the product idea itself still create curiosity or desire at mobile-grid size? If not, return to ideation.",
     "id": 88,
-    "note": "a one-sentence visual premise is required at construction time, and a premise built only from generic tokens is refused by the genericness critic: if the seller name, price and reviews vanished, nothing in it would create curiosity. The thumbnail critic catches small objects whose appeal is fine detail. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: CIR work starts without a premise/thumbnail precondition. Executable Build 2 work.",
+    "note": "a one-sentence visual premise is required at construction time, and a premise built only from generic tokens is refused by the genericness critic: if the seller name, price and reviews vanished, nothing in it would create curiosity. The thumbnail critic catches small objects whose appeal is fine detail. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: CIR work starts without a premise/thumbnail precondition. Executable Build 2 work.\n\nCertification repair 2026-09-27: same gate: a concept with no premise/storyboard is refused back to ideation; thumbnail legibility waits on image_vision.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Idea-to-Thumbnail Test",
     "version": "v1.3.5",
-    "proof": "creative/jury.py creative/concept.py tests/test_creative.py",
-    "parked_on": ""
+    "proof": "creative/concept.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "After launch, connect concept attributes to real outcomes: impressions, CTR, favourites, conversion, reviews, repeat purchase, support burden and contribution. Learn which kinds of originality create demand for Brambleloop. Do not equate novelty with success; optimize useful/desirable originality.",
@@ -983,12 +982,12 @@
   {
     "body": "Brambleloop must not repeatedly start from generic model intelligence. Persist structured lessons from every product, competitor scan, experiment, incident, support case and sale. New designs should demonstrably use accumulated Brambleloop knowledge while remaining original. The expected creative bar rises as the evidence base grows.",
     "id": 101,
-    "note": "improve/roi.design_provenance records which accumulated lessons a specific new design drew on, refusing a citation of a lesson the company does not have; compounding_report() reports the share of designs standing on accumulated knowledge and says restarting-from-generic-intelligence by name when that share is zero. Unmeasurable until designs record it, rather than reported as zero. /api/roi. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no design generator consumes lessons at runtime. Executable Build 2 work.",
+    "note": "improve/roi.design_provenance records which accumulated lessons a specific new design drew on, refusing a citation of a lesson the company does not have; compounding_report() reports the share of designs standing on accumulated knowledge and says restarting-from-generic-intelligence by name when that share is zero. Unmeasurable until designs record it, rather than reported as zero. /api/roi. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no design generator consumes lessons at runtime. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path: lessons and reference primitives are consumed by the generator brief at runtime, with provenance recording which lessons were used.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Compounding Knowledge Requirement",
     "version": "v1.3.5",
-    "parked_on": ""
+    "proof": "improve/bus.py improve/roi.py creative/reference.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "The system may autonomously improve code, prompts, scoring, workflows and agent configuration within tested, reversible and spend-authorized bounds. It may never autonomously weaken policy gates, fabricate evidence/reviews, bypass owner-only legal/KYC/spend gates, erase audit history, or promote an untested change directly to production.",
@@ -1020,12 +1019,12 @@
   {
     "body": "Replace narrow holiday keyword generation with a permanent Seasonal Creative Universe. Every holiday, season and gift occasion maintains an evolving taxonomy of product forms, motifs, emotions, recipients, rooms/use contexts, skill levels, make-times, price bands and gifting narratives. Christmas alone must span stockings, ornaments, wreaths, tree skirts, garlands, advent pieces, tableware, kitchen decor, blankets, pillows, baskets, gift bags, amigurumi, wearables, nursery, pet, door decor and original hybrids.",
     "id": 105,
-    "note": "creative/universe.UNIVERSE holds a department taxonomy per occasion -- sixteen for Christmas -- and cells() crosses it with eighteen contexts, so a brief is generated against a cell rather than a keyword Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: ideation never generates against universe cells. Executable Build 2 work.",
+    "note": "creative/universe.UNIVERSE holds a department taxonomy per occasion -- sixteen for Christmas -- and cells() crosses it with eighteen contexts, so a brief is generated against a cell rather than a keyword Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: ideation never generates against universe cells. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path: universe cells for the occasion, filtered to the arena's departments, unbriefed first; each call briefed against one cell; cells_briefed persisted and rotated next run.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Seasonal Creative Universe",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/universe.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "For every seasonal opportunity, deliberately combine two or more dimensions that do not normally appear together: motif x function, holiday x storage, character x household utility, wearable x personalization, amigurumi x organization, decor x interaction, nursery x keepsake, tableware x character, modularity x gifting. The purpose is to create new product premises rather than another recoloured commodity.",
@@ -1048,12 +1047,12 @@
   {
     "body": "At mobile-grid scale, the product should have a recognisable silhouette or visual structure whenever the category permits. Generic circles, rectangles and tubes require an exceptional texture, motif, transformation or use-case to survive. A concept that needs its title to explain why it is interesting is weak.",
     "id": 108,
-    "note": "invention.silhouette() knows which forms are shapes rather than outlines and enforces #108's own sentence literally: the premise is read with the title's words removed Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: silhouette gate uncalled. Executable Build 2 work.",
+    "note": "invention.silhouette() knows which forms are shapes rather than outlines and enforces #108's own sentence literally: the premise is read with the title's words removed Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: silhouette gate uncalled. Executable Build 2 work.\n\nCertification repair 2026-09-27: same gate: invention.silhouette refuses.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Product Silhouette Gate",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/invention.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "Creative generation must explicitly choose and execute an emotional promise: magical, nostalgic, whimsical, cozy, elegant, funny, adorable, heirloom, rustic, modern, playful, premium, surprising or gift-worthy. The emotional promise must be visible in the object itself, not merely added as listing copy.",
@@ -1067,12 +1066,12 @@
   {
     "body": "Maintain a broad motif grammar per season without collapsing into cliches. Christmas includes trees, stockings, bows, candy, gingerbread, snow, woodland, stars, ornaments, Santa, reindeer, wreaths and more; fall includes leaves, mushrooms, acorns, pumpkins, woodland and harvest; Halloween includes ghosts, bats, monsters, witches and haunted architecture; spring/Easter includes florals, chicks, rabbits, eggs and garden life. Agents must recombine, stylize and abstract motifs into original Brambleloop design language.",
     "id": 110,
-    "note": "invention.MOTIF_GRAMMAR holds 10-20 motifs per season, SATURATED names the clichés, and a selection built only from them is reported as the commodity by construction Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: motif grammar never checked on generated selections. Executable Build 2 work.",
+    "note": "invention.MOTIF_GRAMMAR holds 10-20 motifs per season, SATURATED names the clichés, and a selection built only from them is reported as the commodity by construction Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: motif grammar never checked on generated selections. Executable Build 2 work.\n\nCertification repair 2026-09-27: same gate: a missing, unknown or all-cliche motif selection refuses.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Seasonal Motif Grammar",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/invention.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "Before engineering a strong seasonal concept, ask whether it can seed a coherent family: hero product, quick-make companion, bundle, giftable mini, decor variant, wearable/accessory or adjacent room/use case. Prefer ideas that can become collections without forcing low-quality derivatives.",
@@ -1104,22 +1103,22 @@
   {
     "body": "Each major seasonal wave should contain intentional beginner/quick-win, intermediate and advanced/heirloom opportunities. Do not let the portfolio become entirely complex flagship work or entirely trivial quick makes. Skill level is part of market segmentation and gifting/make-time strategy.",
     "id": 114,
-    "note": "universe.skill_portfolio() measures the three levels against healthy shares: a wave of only flagships has no beginner entry and one of only quick makes has nothing anybody keeps Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: skill_portfolio uncalled. Executable Build 2 work.",
+    "note": "universe.skill_portfolio() measures the three levels against healthy shares: a wave of only flagships has no beginner entry and one of only quick makes has nothing anybody keeps Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: skill_portfolio uncalled. Executable Build 2 work.\n\nCertification repair 2026-09-27: radar.scan computes the wave's skill portfolio and writes radar.skill_gap with an ideation brief when a level is missing or over its share.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Skill-Level Portfolio",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/universe.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "Every flagship concept must contain at least one explicit WOW mechanism: surprising transformation, exceptional motif composition, dimensional construction, unusual but useful function, strong character system, modular reveal, personalization architecture, striking texture, premium silhouette or collection-scale storytelling. 'Clean and correct' is not enough.",
     "id": 115,
-    "note": "invention.wow() requires a flagship to declare one of ten mechanisms and to ground it in something about the object; an ungrounded mechanism is a checkbox Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no flagship required to declare a WOW mechanism at runtime. Executable Build 2 work.",
+    "note": "invention.wow() requires a flagship to declare one of ten mechanisms and to ground it in something about the object; an ungrounded mechanism is a checkbox Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no flagship required to declare a WOW mechanism at runtime. Executable Build 2 work.\n\nCertification repair 2026-09-27: same gate: a flagship without a grounded WOW mechanism refuses.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Wow-Factor Requirement",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/invention.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "When studying high-performing products, decompose why they work into non-copying primitives: silhouette, motif density, dimensionality, palette role, prop/context, function, emotional tone, construction novelty, personalization, bundle logic and thumbnail readability. Store the decomposition, not a replica prompt.",
@@ -1134,62 +1133,63 @@
   {
     "body": "Detect when a concept archetype is overcrowded. If dozens of nearly interchangeable pumpkin coasters, granny stockings or basic wreaths dominate results, Brambleloop must either find a meaningful unmet angle or move to a less saturated creative territory. Popularity alone does not justify imitation.",
     "id": 117,
-    "note": "discovery.may_enter() refuses a crowded archetype without a named unmet angle: popularity is evidence it sells and evidence the next one is invisible, and only the second has arithmetic behind it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: saturation never measured or enforced. Executable Build 2 work.",
+    "note": "discovery.may_enter() refuses a crowded archetype without a named unmet angle: popularity is evidence it sells and evidence the next one is invisible, and only the second has arithmetic behind it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: saturation never measured or enforced. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path: SerpSnapshot counts feed saturation; a crowded form with no mined angle is excluded from generation, the run moves arena, or blocks with an audit row; unmeasured where no snapshot exists.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Creative Saturation Detector",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/discovery.py creative/prospecting.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Create an agent dedicated to asking what buyers plausibly want that current search results do not satisfy. It mines review complaints, missing variants, awkward construction, poor styling, weak personalization, excessive sewing, bad sizing, low giftability and absent combinations. White-space hypotheses feed the Concept Tournament.",
     "id": 118,
-    "note": "discovery.white_space() mines eight closed complaint kinds into ranked hypotheses, and reports that it has nothing to mine rather than proposing from the category Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no white-space agent runs. Executable Build 2 work.",
+    "note": "discovery.white_space() mines eight closed complaint kinds into ranked hypotheses, and reports that it has nothing to mine rather than proposing from the category Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no white-space agent runs. Executable Build 2 work.\n\nCertification repair 2026-09-27: weekly creative.white_space cadence mines review themes and support cases into hypotheses; ideation injects the strongest and uses its angle to unlock crowded forms; no data proposes nothing.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "White-Space Discovery Agent",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/discovery.py runtime/worker.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "A concept tournament cannot be dominated by one construction or motif. Enforce diversity across product form, function, emotional tone, construction method, motif family, recipient and make-time. The objective is exploration breadth before exploitation.",
     "id": 119,
-    "note": "universe.diversity() measures dominance per axis, because breadth in one axis is not breadth and the entrant count is what makes a narrow tournament look wide Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: tournament fields not checked per axis. Executable Build 2 work.",
+    "note": "universe.diversity() measures dominance per axis, because breadth in one axis is not breadth and the entrant count is what makes a narrow tournament look wide Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: tournament fields not checked per axis. Executable Build 2 work.\n\nCertification repair 2026-09-27: ideation.select records per-axis diversity for field and shortlist and defers survivors that would dominate a varied axis.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Creative Diversity Quotas",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/universe.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Seasonal learning must transfer abstractly. If modular character pockets convert at Halloween, Christmas/Easter agents may explore the mechanism with original themes. If quick low-sew minis outperform late in a season, future seasonal allocation learns that timing rule. Transfer mechanisms, not designs.",
     "id": 120,
-    "note": "discovery.transfer() carries one of seven abstract mechanisms and refuses a design or a reused theme -- the distinction that collapses first under a deadline Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no mechanism transfer occurs. Executable Build 2 work.",
+    "note": "discovery.transfer() carries one of seven abstract mechanisms and refuses a design or a reused theme -- the distinction that collapses first under a deadline Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no mechanism transfer occurs. Executable Build 2 work.\n\nCertification repair 2026-09-27: discovery.transfer carries a mechanism detected in prior survivors at other holidays into the brief with a new theme; evidence is gauntlet survival, and conversion-based transfer is UNMEASURED until sales exist. Data-gated on customers.",
     "section": "Deep seasonal creativity audit",
     "status": "partial",
     "title": "Holiday-to-Holiday Learning Transfer",
     "version": "v1.3.6",
-    "parked_on": ""
+    "parked_on": "customers",
+    "proof": "creative/discovery.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Maintain Spring, Summer, Fall and Winter creative programs independent of named holidays. Examples include garden/floral, cottage/beach, harvest/woodland, cozy/winter-neutral, home refresh, outdoor entertaining and seasonal wardrobe opportunities. Revenue should not collapse between major holidays.",
     "id": 121,
-    "note": "universe.FOUR_SEASON_PROGRAMS holds seven programs across the four seasons, independent of any named holiday Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no seasonal programme operated. Executable Build 2 work.",
+    "note": "universe.FOUR_SEASON_PROGRAMS holds seven programs across the four seasons, independent of any named holiday Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no seasonal programme operated. Executable Build 2 work.\n\nCertification repair 2026-09-27: weekly creative.four_season cadence writes the season programme row; ideation reads it into every brief.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Four-Season Engine",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/universe.py runtime/worker.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Continuously explore birthdays, baby showers, nursery, weddings, housewarming, teacher gifts, graduation, pet gifts, hostess gifts and family keepsakes. These provide evergreen/event demand that complements the holiday calendar.",
     "id": 122,
-    "note": "universe.NON_HOLIDAY_OCCASIONS holds #122's ten evergreen and event occasions with what each one actually is Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no non-holiday occasion explored. Executable Build 2 work.",
+    "note": "universe.NON_HOLIDAY_OCCASIONS holds #122's ten evergreen and event occasions with what each one actually is Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no non-holiday occasion explored. Executable Build 2 work.\n\nCertification repair 2026-09-27: non-holiday occasions rotated into every brief and assigned by the four-season handler.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Non-Holiday Occasion Engine",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/universe.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "For each occasion, maintain research start, concept freeze, engineering start, physical-test deadline, creative-production deadline, listing/indexing date, promotional ramp, peak window, last practical make date and clearance/evergreen transition. Missed dates are portfolio failures and feed retrospective learning.",
@@ -1203,33 +1203,34 @@
   {
     "body": "Set a moving minimum creative threshold based on Brambleloop's trailing cohorts and current category benchmarks. A concept that would have passed six months ago can fail today if the company has learned enough to demand better. Continuous improvement must literally raise the release bar.",
     "id": 124,
-    "note": "standard.floor() derives the bar from the trailing cohort's median, so a concept that would have passed six months ago can fail today, with an absolute floor underneath so a bad quarter cannot lower it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no moving creative floor applied. Executable Build 2 work.",
+    "note": "standard.floor() derives the bar from the trailing cohort's median, so a concept that would have passed six months ago can fail today, with an absolute floor underneath so a bad quarter cannot lower it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no moving creative floor applied. Executable Build 2 work.\n\nCertification repair 2026-09-27: standard.floor over the trailing survivor-novelty cohort; survivors below it are cut and the winner must clear it; a weak cohort cannot drop it below 0.45.",
     "section": "Deep seasonal creativity audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Creativity Floor Rises Over Time",
     "version": "v1.3.6",
-    "parked_on": ""
+    "proof": "creative/standard.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Competitive parity is the floor. Flagship creative should target the top decile of current category presentation and concept strength, and experiments should attempt to exceed it. The system should ask 'what would make this the most memorable result on the page?' while preserving originality, truth and feasibility.",
     "id": 125,
-    "note": "standard.aspiration() targets the category's ninetieth percentile for flagships and refuses to estimate a decile from fewer than five benchmark scores Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no flagship scored against a top-decile target. Executable Build 2 work.",
+    "note": "standard.aspiration() targets the category's ninetieth percentile for flagships and refuses to estimate a decile from fewer than five benchmark scores Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no flagship scored against a top-decile target. Executable Build 2 work.\n\nCertification repair 2026-09-27: same gate: a flagship below the top-decile target refuses; with no judged score it is UNMEASURED and waits. Remainder parked on model_provider (the judged score).",
     "section": "Deep seasonal creativity audit",
     "status": "partial",
     "title": "Top-Decile Aspiration, Not Average Parity",
     "version": "v1.3.6",
-    "parked_on": ""
+    "parked_on": "model_provider",
+    "proof": "creative/standard.py creative/preengineering.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "Before CIR engineering for expensive concepts and again before release, render concept boards/thumbnails into a simulated Etsy-style grid beside a current category-matched benchmark set with seller/review signals hidden. Independent judges rank attention, comprehension, desire and distinctiveness. Brambleloop must clear the defined threshold without brand favoritism.",
     "id": 126,
-    "note": "search-grid blind tournament; needs benchmark evidence Closed 2026-09-27 (Build 2 closeout): the search-grid tournament renders a seeded, blinded Etsy-style grid of our renders beside the category-matched benchmark thumbnails with seller/review signals hidden, and an independent panel of three vision judges ranks attention, comprehension, desire and distinctiveness (median; each judge in its own order; a silent judge leaves the grid unjudged); the grid clears only above the threshold. Weekly cadence creative.grid_tournament, budget-checked before every call. Correction 2026-09-27: live production reads image_vision, image_generation and model_provider CLOSED (the Anthropic credit balance is exhausted -- owner action on file). The engineering is complete and proven by tests; the production runs of this path wait on that funding, and each run is refused before spending, not failed. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: the grid-tournament verdict gates neither engineering nor release. Executable Build 2 work.",
+    "note": "search-grid blind tournament; needs benchmark evidence Closed 2026-09-27 (Build 2 closeout): the search-grid tournament renders a seeded, blinded Etsy-style grid of our renders beside the category-matched benchmark thumbnails with seller/review signals hidden, and an independent panel of three vision judges ranks attention, comprehension, desire and distinctiveness (median; each judge in its own order; a silent judge leaves the grid unjudged); the grid clears only above the threshold. Weekly cadence creative.grid_tournament, budget-checked before every call. Correction 2026-09-27: live production reads image_vision, image_generation and model_provider CLOSED (the Anthropic credit balance is exhausted -- owner action on file). The engineering is complete and proven by tests; the production runs of this path wait on that funding, and each run is refused before spending, not failed. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: the grid-tournament verdict gates neither engineering nor release. Executable Build 2 work.\n\nCertification repair 2026-09-27: a waiting expensive concept queues creative.grid_tournament with its board; the verdict gates engineering (pass/refuse/wait). Release side recorded per product and read by gate.lanes; blocking at store.publish is being wired. Judging needs model_provider/image_vision.",
     "section": "Deep seasonal creativity audit",
     "status": "partial",
     "title": "Search-Grid Blind Tournament",
     "version": "v1.3.6",
-    "parked_on": "",
-    "proof": "creative/blinded.py runtime/release.py tests/test_blinded.py"
+    "parked_on": "model_provider",
+    "proof": "creative/blinded.py creative/preengineering.py runtime/release.py runtime/pipeline.py tests/test_cert_preengineering.py"
   },
   {
     "body": "Every rejected or underperforming concept receives a structured autopsy: generic form, weak silhouette, no emotional hook, over-saturated motif, poor function, too complex, wrong timing, weak thumbnail, derivative distance, or merchandising mismatch. These autopsies directly update future ideation constraints.",
@@ -1340,13 +1341,12 @@
   {
     "body": "When a cultural signal is strong, generate a broad set of original translations across blankets, stockings, ornaments, coasters, wreaths, garlands, tableware, amigurumi, wearables, bags, pillows, nursery, pet, kitchen and interactive/transforming products. Require materially different premises and run the same desirability/novelty/grid gates as other concepts.",
     "id": 138,
-    "note": "translate.white_space() measures families and distinct premises rather than a count, which is what the jury cannot see reading one at a time Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no cultural translation tournament. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep runs white_space_tournament and persists CultureConcept candidates; still partial until creative development consumes them through the jury/desirability/grid gates (ideation wiring).",
+    "note": "translate.white_space() measures families and distinct premises rather than a count, which is what the jury cannot see reading one at a time Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no cultural translation tournament. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep runs white_space_tournament and persists CultureConcept candidates; still partial until creative development consumes them through the jury/desirability/grid gates (ideation wiring).\n\nCertification repair 2026-09-27: live CultureConcept candidates are briefed to the generator for matching forms, screened by the same gauntlet, floor, quotas and the pre-engineering gate; culture_origin recorded on the winner.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Cultural White-Space Tournament",
     "version": "v1.3.7",
-    "parked_on": "",
-    "proof": "culture/translate.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
+    "proof": "culture/engine.py culture/translate.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Treat famous dialogue, lyrics, slogans and catchphrases as a distinct rights-sensitive asset class. The radar may record them as evidence of the underlying humour or cultural moment, but customer-facing direct use requires clearance. Otherwise generate original language and product concepts expressing the same broad emotional territory without copying the phrase.",
@@ -1380,12 +1380,12 @@
   {
     "body": "Build durable original territories around recurring cultural emotions: chaotic family holiday, over-the-top decorating, awkward relatives, winter road trip, office holiday party, cozy movie night, magical childhood Christmas, retro toy-shop winter, spooky-cute Halloween, romantic-comedy Valentine mood and similar themes. These become reusable Brambleloop IP rather than dependence on external franchises.",
     "id": 142,
-    "note": "translate.THEMES holds ten durable franchise-free territories; a theme invented per signal is refused as a franchise with the name filed off Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: themes unused by ideation. Executable Build 2 work.",
+    "note": "translate.THEMES holds ten durable franchise-free territories; a theme invented per signal is refused as a franchise with the name filed off Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: themes unused by ideation. Executable Build 2 work.\n\nCertification repair 2026-09-27: THEMES mapped per occasion and rotated into every brief.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Recurring Franchise-Free Occasion Themes",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/translate.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "A strong cultural territory should spawn a coherent original collection when justified: flagship, quick-make, giftable mini, decor, wearable/accessory and bundle. Maintain consistent Brambleloop visual language while varying form and price point.",
@@ -2240,12 +2240,12 @@
   {
     "body": "Assign each SKU a portfolio role: HERO traffic/revenue driver, CORE reliable evergreen/seasonal earner, ENTRY low-friction acquisition product, BUNDLE/AOV builder, CROSS-SELL attachment product, EXPERIMENT learning vehicle or RETIRE candidate. Product creation is guided by portfolio gaps rather than raw listing count.",
     "id": 232,
-    "note": "seven declared roles, and an invented one is refused. Roles are declared so a gap is something the system can see, which is what lets product creation follow portfolio gaps rather than listing count.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only via /api/growth. Gap: Roles never guide product creation.",
+    "note": "seven declared roles, and an invented one is refused. Roles are declared so a gap is something the system can see, which is what lets product creation follow portfolio gaps rather than listing count.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only via /api/growth. Gap: Roles never guide product creation.\n\nCertification repair 2026-09-27: mix.next_role over catalogue positions plus roles pending on earlier winners goes into the brief; winner selection prefers role-fit lanes and records winner.role.",
     "section": "CA$5K/month scale architecture",
-    "status": "partial",
+    "status": "covered",
     "title": "Hero / Core / Long-Tail SKU Roles",
     "version": "v1.4.1",
-    "proof": "growth/mix.py tests/test_growth.py"
+    "proof": "growth/mix.py creative/ideation.py runtime/release.py tests/test_cert_ideation.py"
   },
   {
     "body": "Engineer an intentional value ladder: free/low-friction content -> entry pattern -> premium single -> mini bundle -> flagship collection -> repeat seasonal/collection purchase. Measure movement between tiers, attach rate, contribution and customer lifetime value. Avoid discounts that train customers to ignore regular pricing.",

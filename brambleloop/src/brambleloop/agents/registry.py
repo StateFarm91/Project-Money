@@ -92,6 +92,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "creative.tournament",
                             # #82 / #89: read-only learners over recorded outcomes.
                             "creative.style_learning", "creative.outcome_learning",
+                            # #118 / #121: white-space discovery and the four-season programme.
+                            "creative.white_space", "creative.four_season",
                             # The image-provider benchmark (owner decision 2026-09-20).
                             # It is the one job here that can spend double figures in a
                             # sitting, which is why it carries its own daily ceiling below.
@@ -129,7 +131,9 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["cir.compile", "cir.twin", "cir.reverse"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="quality_director", description="Owns release certificates; can veto",
-         allowed_job_types=["gate.quality", "gate.certify", "physical.record"],
+         allowed_job_types=["gate.quality", "gate.certify", "physical.record",
+                            # #5 / #43: fast/flagship lane routing and tester plan.
+                            "gate.lanes"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="asset_truth", description="Blocks imagery that misrepresents the pattern",
