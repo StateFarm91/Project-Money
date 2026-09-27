@@ -91,6 +91,24 @@ def _op(node):
             getattr(node, "times", None))
 
 
+
+def test_rows_that_differ_only_in_their_loop_are_not_one_instruction():
+    """Same counts, different fabric: a loop-blind signature collapsed back-loop rows into
+    plain ones, and the document then printed the plain row for all of them."""
+    rows = [Row(i, [Op("sc", 10, loop="back" if 5 <= i <= 8 else "both")],
+                declared_count=10, turning_chain=1) for i in range(1, 13)]
+    assert detect_cycle(rows) is None
+    plain = [Row(i, [Op("sc", 10)], declared_count=10, turning_chain=1) for i in range(1, 13)]
+    assert detect_cycle(plain) is not None
+
+
+def test_an_expanded_row_keeps_its_skips():
+    rows = [Row(i, [Op("sc", 10)], declared_count=10, turning_chain=1, skips=2)
+            for i in range(1, 9)]
+    cycle = detect_cycle(rows)
+    assert cycle is not None
+    assert all(r.skips == 2 for r in expand(rows[:cycle.end], cycle))
+
 def test_a_cycle_that_would_save_too_little_is_not_worth_it():
     rows = [Row(index=i, ops=[Op("sc", 10)], declared_count=10, turning_chain=1)
             for i in range(1, 9)]

@@ -64,12 +64,15 @@ def _signature(row: Row) -> tuple:
         row.into,
         row.allow_remainder,
         (row.note or "").strip(),
+        row.skips,
     )
 
 
 def _shape(node: OpNode) -> tuple:
+    # Loop included: two rows with the same counts worked into different loops are two
+    # different instructions, and collapsing one into the other would print the wrong fabric.
     if isinstance(node, Op):
-        return ("op", node.stitch, node.count)
+        return ("op", node.stitch, node.count, node.loop)
     return ("rep", node.times, tuple(_shape(o) for o in node.ops))
 
 
@@ -132,7 +135,8 @@ def expand(rows: list[Row], cycle: RowCycle) -> list[Row]:
                            turning_chain=row.turning_chain,
                            turning_chain_counts=row.turning_chain_counts,
                            color=row.color, into=row.into,
-                           allow_remainder=row.allow_remainder, note=row.note))
+                           allow_remainder=row.allow_remainder, note=row.note,
+                           skips=row.skips))
             next_index += 1
     return out
 

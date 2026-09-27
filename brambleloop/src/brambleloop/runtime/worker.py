@@ -56,6 +56,14 @@ class JobContext:
     def audit(self, action: str, **kw) -> None:
         self.registry.audit(self.job.agent, action, job_id=self.job.id, phase=self.phase, **kw)
 
+    def heartbeat(self) -> None:
+        """Extend this job's lease. A handler that legitimately runs longer than the lease
+        -- a render, a paged scan, a restore -- calls this between steps, so it is not
+        reclaimed and run twice while it is still working. Since completions are fenced on
+        the lease holder, a long handler that never heartbeats would also have its own
+        result refused once another worker reclaimed the job."""
+        self.queue.heartbeat(self.job.id)
+
 
 class HandlerRegistry:
     def __init__(self) -> None:
@@ -142,7 +150,7 @@ class Worker:
             self.agents.authorize(job.agent, job.job_type)
         except PermissionDenied as e:
             # Never retry a permission failure: it will never spontaneously become allowed.
-            self.queue.fail(job.id, f"permission denied: {e}", retry=False)
+            self.queue.fail(job.id, f"permission denied: {e}", retry=False, worker=self.name)
             self.agents.audit(job.agent, "job.denied", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.denied += 1
@@ -150,7 +158,8 @@ class Worker:
 
         handler = self.handlers.get(job.job_type)
         if handler is None:
-            self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False)
+            self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False,
+                            worker=self.name)
             self.stats.skipped += 1
             return True
 
@@ -194,31 +203,36 @@ class Worker:
             # build did exactly that: `built: false`, the provider's own sentence in `why`,
             # a green job, and nobody told.
             _note_funding(self.db, self._funding_text(outputs))
-            self.queue.complete(job.id, outputs)
+            if not self.queue.complete(job.id, outputs, worker=self.name):
+                # The lease was reclaimed while this handler ran. The queue recorded the
+                # refusal; the job's outcome belongs to the worker that holds it now.
+                self.stats.skipped += 1
+                return True
             self.agents.audit(job.agent, f"job.completed:{job.job_type}",
                               artifact=str(outputs.get("artifact") or job.job_type),
                               job_id=job.id, phase=self.phase)
             self.stats.completed += 1
         except CapabilityNotEnabled as e:
-            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False)
+            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False, worker=self.name)
             self.agents.audit(job.agent, "job.capability_not_enabled", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except BudgetExceeded as e:
-            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False)
+            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False, worker=self.name)
             self.agents.audit(job.agent, "job.budget_exceeded", job_id=job.id,
                               phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except provenance.ProvenanceRefused as e:
             # Terminal, like a capability gate: a handler that cannot say what made its
             # artefact will not be able to say so on the next attempt either.
-            self.queue.fail(job.id, f"provenance refused: {e}", retry=False)
+            self.queue.fail(job.id, f"provenance refused: {e}", retry=False, worker=self.name)
             self.agents.audit(job.agent, "job.provenance_refused", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)[:500]})
             self.stats.failed += 1
         except Exception as e:  # noqa: BLE001 - a worker must survive any handler
             _note_funding(self.db, str(e))
-            self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}")
+            self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}",
+                            worker=self.name)
             self.agents.audit(job.agent, "job.failed", job_id=job.id, phase=self.phase,
                               detail={"error": str(e)})
             self.stats.failed += 1

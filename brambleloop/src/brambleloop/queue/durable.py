@@ -202,24 +202,69 @@ class JobQueue:
         return None
 
     # ---- completing ----------------------------------------------------
-    def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0) -> None:
+    # ---- fencing ---------------------------------------------------------
+    #
+    # A lease that expired was reclaimed, and the job now belongs to whoever reclaimed it.
+    # The original worker does not know that: it was slow, not dead, and when its handler
+    # returns it will try to mark the job done -- over the top of the second run, which may
+    # still be executing, and with outputs from a run the queue had already given up on.
+    # That is two writers believing they own one row, which is the exact thing a lease is
+    # for preventing. So a completion or failure names the worker it comes from, and one
+    # from a worker that no longer holds the lease is refused and recorded rather than
+    # applied. `worker=None` is the unfenced path kept for administrative callers that act
+    # on a job nobody is running.
+    def _fenced(self, s: Session, job: Job, worker: str | None, what: str) -> bool:
+        """True when `worker` may write this job's outcome; audits and refuses otherwise."""
+        if worker is None:
+            return True
+        # Held by this worker, or held by nobody while still running (a row written before
+        # leases carried a name). A job that is no longer RUNNING was finished or re-queued
+        # by somebody else, and a late report from this worker would overwrite that.
+        if job.status == JobStatus.RUNNING and (not job.leased_by or job.leased_by == worker):
+            return True
+        from ..core.models import AuditLog
+
+        s.add(AuditLog(actor="queue", action="queue.stale_lease_refused",
+                       artifact=job.job_type, job_id=job.id,
+                       detail={"attempted_by": worker, "lease_held_by": job.leased_by,
+                               "attempted": what, "status": getattr(job.status, "value",
+                                                                     str(job.status)),
+                               "why": ("this worker's lease expired and the job was "
+                                       "reclaimed; its outcome belongs to the current "
+                                       "holder, not to a run the queue already gave up on")}))
+        return False
+
+    def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0,
+                 *, worker: str | None = None) -> bool:
+        """Mark a job done. Returns False, changing nothing, when `worker` has lost the lease."""
         with self.db.session() as s:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
+            if not self._fenced(s, job, worker, "complete"):
+                return False
             job.status = JobStatus.DONE
             job.outputs = outputs or {}
             job.finished_at = utcnow()
             job.leased_by = None
             job.lease_expires_at = None
             job.cost_cad = (job.cost_cad or 0.0) + cost_cad
+        return True
 
-    def fail(self, job_id: int, error: str, *, retry: bool = True) -> Job:
-        """Record a failure and either schedule a backed-off retry or dead-letter the job."""
+    def fail(self, job_id: int, error: str, *, retry: bool = True,
+             worker: str | None = None) -> Job | None:
+        """Record a failure and either schedule a backed-off retry or dead-letter the job.
+
+        Returns None, changing nothing, when `worker` no longer holds the lease: a failure
+        reported by a run the queue already reclaimed must not dead-letter or back off the
+        run that replaced it.
+        """
         with self.db.session() as s:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
+            if not self._fenced(s, job, worker, "fail"):
+                return None
             job.last_error = error[:4000]
             job.leased_by = None
             job.lease_expires_at = None

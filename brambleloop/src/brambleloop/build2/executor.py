@@ -378,6 +378,47 @@ def _culture_feed_connected(db, env) -> bool:
     return any((row.source or "").strip() for row in rows)
 
 
+def _model_bearing_render_proven(db, env) -> bool:
+    """Whether a frame with the canonical model in it has actually cleared every floor.
+
+    Read from the `assets.model_photography` audit rows -- the record
+    `publish.model_photography.sequence()` returns and the daily handler files -- and from
+    nothing else. The condition is a filed record that is `made`, `carries_model`, is
+    `usable_as_listing_asset`, and whose `floors` say `pass` for all six of
+    `model_photography.FLOORS`: face identity, whole-person morphology, product truth,
+    photographic realism (the photoreal floor), asset truth and styling. Any one of them
+    missing is not a pass, so a record written by an earlier method with fewer floors
+    cannot open this.
+
+    `assets.owned_photography` rows are deliberately not read: those are product-first
+    frames with nobody in them, and a product-first frame passing proves nothing about a
+    model-bearing one. Neither is `visual.parity`'s verdict, because parity reads these
+    same frames and would be a second opinion about one record.
+
+    Why a gate at all: the render path exists, and every attempt so far has failed the
+    product-truth floor on the provider's side (DECISION_LOG and `closure.EXTERNAL_GATES`).
+    #72, #130 and #202 are the requirements that need a model-bearing frame to exist, and
+    they are waiting on a provider rather than on any work this build can do next.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..publish import model_photography
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog.detail).where(
+            AuditLog.action == model_photography.ACTION)
+            .order_by(desc(AuditLog.id)).limit(200)))
+    for detail in rows:
+        detail = detail or {}
+        floors = detail.get("floors") or {}
+        if (detail.get("made") and detail.get("carries_model")
+                and detail.get("usable_as_listing_asset") is True
+                and all(floors.get(name) == "pass" for name in model_photography.FLOORS)):
+            return True
+    return False
+
+
 def _ads_authorised(db, env) -> bool:
     """Advertising authority is a spend limit the owner set, not a sentence in a chat."""
     from sqlalchemy import select
@@ -608,6 +649,20 @@ GATES: tuple[Gate, ...] = (
          (133, 140, 147),
          "at least one CultureObservation row names the source it came from. An observation "
          "with no source is the same unverifiable thing as no observation"),
+    # Added 2026-09-26. #72, #130 and #202 each said in prose "waits on the model-bearing
+    # render path", and nothing parked them, so they sat in the ready queue as work somebody
+    # could start. The path is built; what it has never produced is a frame that clears all
+    # six floors, and the floor it fails is the provider's rendering of a certified
+    # structure. `closure.EXTERNAL_GATES` names this key and says why it is external.
+    Gate("model_bearing_render",
+         "a model-bearing listing frame that clears every floor -- identity, morphology, "
+         "product truth, photographic realism, asset truth and styling -- which no image "
+         "provider has yet rendered",
+         _model_bearing_render_proven,
+         (),
+         "an assets.model_photography audit row that is made, carries the model, is usable "
+         "as a listing asset and reads `pass` on all six model_photography.FLOORS. "
+         "`unverifiable` is not a pass, and a product-first frame does not count"),
     Gate("ad_authority", "an approved advertising budget",
          _ads_authorised,
          (242, 243, 244, 245, 294, 295),
@@ -1066,42 +1121,61 @@ def release(db, requirement_id: int, *, worker: str, why: str) -> dict:
 # The watchdog
 
 
+AWAITING_BUILD_SESSION = "awaiting_build_session"
+STALLED = "stalled"
+
+
 def watchdog(db, *, now: datetime | None = None,
              idle_alarm_hours: int = IDLE_ALARM_HOURS) -> dict:
     """Is the build actually moving, and if not, is that legitimate?
 
-    The two idle states need opposite responses and look identical from outside. Idle with
-    ready work is a stalled loop and is an incident. Idle with everything parked is the
-    system working correctly and waiting on a person, and raising an incident for it would
-    train everybody to ignore the channel — so it reports, names the capability, and does
-    not alarm.
-    """
-    from sqlalchemy import select
+    Three idle states, and they need three different responses.
 
-    from ..core.models import BuildEvent
+    **Everything parked** is the system working correctly and waiting on a person. Raising
+    an incident for it would train everybody to ignore the channel.
+
+    **Ready work, and nobody has claimed any** is `awaiting_build_session`. The deployed
+    worker never writes code: `build.tick` syncs, queues and watches, and a requirement
+    completes when a session does the work and moves the registry. So "nothing completed in
+    six hours" with no claim in the window measures how often a session has been opened, not
+    whether the loop is broken -- and an incident for it is an alarm about the calendar. It
+    is reported with the top ready requirement named, so the next session knows where to
+    start, and it does not alarm.
+
+    **Ready work that somebody claimed and did not finish** is `stalled`, and that is the
+    incident: a claim is a promise to make progress, and a claim with no completion in the
+    window is a worker that took the task and stopped.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import BuildEvent, BuildTask
 
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=idle_alarm_hours)
 
     def _aware(value):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value if value is None or value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     with db.session() as s:
-        completions = [_aware(e.at) for e in s.scalars(select(BuildEvent).where(
-            BuildEvent.kind == "complete"))]
+        recent = int(s.scalar(select(func.count(BuildEvent.id)).where(
+            BuildEvent.kind == "complete", BuildEvent.at >= cutoff)) or 0)
+        last = _aware(s.scalar(select(func.max(BuildEvent.at)).where(
+            BuildEvent.kind == "complete")))
+        claims = int(s.scalar(select(func.count(BuildEvent.id)).where(
+            BuildEvent.kind == "claim", BuildEvent.at >= cutoff)) or 0)
+        held = [(t.requirement_id, t.claimed_by) for t in s.scalars(
+            select(BuildTask).where(BuildTask.state == IN_PROGRESS))]
 
-    recent = [c for c in completions if c >= cutoff]
     snapshot = queue(db)
-    last = max(completions) if completions else None
 
     if recent:
-        return {"moving": True, "completions_in_window": len(recent),
+        return {"moving": True, "completions_in_window": recent,
                 "window_hours": idle_alarm_hours,
                 "last_completion": last.isoformat() if last else None,
                 "ready_total": snapshot["ready_total"],
-                "verdict": "moving"}
+                "verdict": "moving", "alarm": False}
 
-    if snapshot["ready_total"] == 0:
+    if snapshot["ready_total"] == 0 and not held:
         return {
             "moving": False,
             "completions_in_window": 0,
@@ -1117,19 +1191,40 @@ def watchdog(db, *, now: datetime | None = None,
                      "train everybody to ignore the channel."),
         }
 
+    if not claims and not held:
+        top = snapshot["next"] or {}
+        return {
+            "moving": False,
+            "completions_in_window": 0,
+            "claims_in_window": 0,
+            "window_hours": idle_alarm_hours,
+            "last_completion": last.isoformat() if last else None,
+            "ready_total": snapshot["ready_total"],
+            "next": snapshot["next"],
+            "verdict": AWAITING_BUILD_SESSION,
+            "alarm": False,
+            "note": (f"{snapshot['ready_total']} requirements are ready and none has been "
+                     f"claimed in {idle_alarm_hours} hours. The deployed worker does not "
+                     f"write code, so this is waiting for a build session rather than a "
+                     f"broken loop. Start with #{top.get('requirement_id')}: "
+                     f"{top.get('title') or ''}".rstrip(": ")),
+        }
+
     return {
         "moving": False,
         "completions_in_window": 0,
+        "claims_in_window": claims,
+        "in_progress": [{"requirement_id": rid, "claimed_by": who} for rid, who in held],
         "window_hours": idle_alarm_hours,
         "last_completion": last.isoformat() if last else None,
         "ready_total": snapshot["ready_total"],
         "next": snapshot["next"],
-        "verdict": "stalled",
+        "verdict": STALLED,
         "alarm": True,
-        "note": (f"{snapshot['ready_total']} requirements are ready and nothing has been "
-                 f"completed in {idle_alarm_hours} hours. Idle with ready work is a stalled "
-                 f"loop; idle with everything parked is correct. They look identical from "
-                 f"outside, which is why this distinguishes them."),
+        "note": (f"work was claimed ({claims} claim(s) in the window, {len(held)} task(s) "
+                 f"in progress) and nothing has been completed in {idle_alarm_hours} hours. "
+                 f"A claim is a promise to make progress; a claim with no completion is a "
+                 f"worker that took the task and stopped."),
     }
 
 

@@ -1713,10 +1713,7 @@ def handle_build_tick(ctx: JobContext) -> dict:
     GREEN by the authority matrix: it reads the registry, writes its own tables and may open
     an incident. It publishes nothing, spends nothing and contacts nobody.
     """
-    from sqlalchemy import select
-
     from ..build2 import executor
-    from ..core.models import Incident
 
     synced = executor.sync(ctx.db)
     snapshot = executor.queue(ctx.db)
@@ -1738,42 +1735,63 @@ def handle_build_tick(ctx: JobContext) -> dict:
             detail={"requirement_ids": synced["unparked"],
                     "gates_open": synced["gates_open"]})
 
-    if health.get("alarm"):
-        signature = "build.stalled"
-        with ctx.db.session() as s:
-            existing = s.scalar(select(Incident).where(
-                Incident.signature == signature, Incident.resolved == False))  # noqa: E712
-            if existing is None:
-                s.add(Incident(
-                    severity="P2", signature=signature,
-                    summary=(f"The build loop has completed nothing in "
-                             f"{health['window_hours']} hours while "
-                             f"{health['ready_total']} requirements are ready. Idle with "
-                             f"ready work is a stalled loop; idle with everything parked "
-                             f"would be correct, and the two look identical from outside."),
-                    halts_publication=False,
-                    detail={"watchdog": health, "next": health.get("next")}))
-    else:
-        # A loop that started moving again resolves its own stall, rather than leaving a red
-        # row somebody has to notice and close.
-        with ctx.db.session() as s:
-            stale = s.scalar(select(Incident).where(
-                Incident.signature == "build.stalled",
-                Incident.resolved == False))  # noqa: E712
-            if stale is not None and health.get("moving"):
-                stale.resolved = True
+    # Three verdicts, three responses. Only a claimed task that made no progress is an
+    # incident. Ready work nobody has claimed is waiting for a build session -- the deployed
+    # worker does not write code -- so it becomes an operator note naming where to start,
+    # not a P2 about how often somebody opens a session. Every other verdict closes a stall
+    # that is open, and says why it closed.
+    from ..ops import incident_lifecycle
+
+    operator_note = None
+    lifecycle: dict = {}
+    with ctx.db.session() as s:
+        if health.get("alarm"):
+            held = health.get("in_progress") or []
+            incident_lifecycle.open_or_restate(
+                s, signature="build.stalled", severity="P2",
+                summary=(f"Build work was claimed and nothing has been completed in "
+                         f"{health['window_hours']} hours "
+                         f"({health.get('claims_in_window', 0)} claim(s) in the window, "
+                         f"{len(held)} task(s) in progress: "
+                         f"{[h['requirement_id'] for h in held][:10]}). A claim is a "
+                         f"promise to make progress; a claim with no completion is a "
+                         f"worker that took the task and stopped."),
+                detail={"watchdog": health, "next": health.get("next")})
+        else:
+            verdict = health.get("verdict")
+            top = (health.get("next") or {}).get("requirement_id")
+            if verdict == executor.AWAITING_BUILD_SESSION:
+                operator_note = (f"{health['ready_total']} requirements are ready and none "
+                                 f"is claimed; the next build session should start with "
+                                 f"#{top}.")
+            reason = {
+                "moving": (f"the loop is moving: {health.get('completions_in_window')} "
+                           f"completion(s) in the last {health.get('window_hours')} hours"),
+                executor.AWAITING_BUILD_SESSION: (
+                    f"no task is claimed, so nothing is stalled: {health.get('ready_total')} "
+                    f"requirements are ready and waiting for a build session (the deployed "
+                    f"worker does not write code). Top ready: #{top}"),
+                "waiting_on_owner": ("nothing is ready: every remaining requirement is "
+                                     "parked on a gate, which is waiting rather than a stall"),
+                "finished": "nothing is ready, parked or in progress: the queue is empty",
+            }.get(verdict, f"watchdog verdict is {verdict!r}, which is not a stall")
+            lifecycle = incident_lifecycle.reconcile(
+                s, "build.stalled", lambda _row: False, resolution=reason)
 
     ctx.audit("build.ticked", detail={
         "ready": snapshot["ready_total"], "parked": snapshot["parked_total"],
         "blocked": snapshot["blocked_total"], "done": snapshot["done_total"],
         "unparked": synced["unparked"], "verdict": health["verdict"],
-        "next": (snapshot["next"] or {}).get("requirement_id")})
+        "next": (snapshot["next"] or {}).get("requirement_id"),
+        "operator_note": operator_note,
+        "stall_resolved": lifecycle.get("resolved") or []})
 
     return {"ready": snapshot["ready_total"], "parked": snapshot["parked_total"],
             "blocked": snapshot["blocked_total"], "done": snapshot["done_total"],
             "parked_by_gate": snapshot["parked_by_capability"],
             "unparked": synced["unparked"],
-            "next": snapshot["next"], "watchdog": health}
+            "next": snapshot["next"], "watchdog": health,
+            "operator_note": operator_note}
 
 
 @handlers.register("creative.blinded")

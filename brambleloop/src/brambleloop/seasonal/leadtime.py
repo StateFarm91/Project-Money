@@ -591,6 +591,44 @@ def sentinel(plans: list[LaunchPlan], today: date) -> dict:
     }
 
 
+# What occasion a product is for, and the value that means "none".
+EVERGREEN = "evergreen"
+UNASSIGNED = "unassigned"
+
+
+def occasion_for(slug: str) -> str:
+    """The seasonal event a product is merchandised for, read from its concept seed.
+
+    The seed is the only place a product's occasion is written: `ConceptSeed.season` names
+    a `SeasonalEvent`, and `evergreen` (or no season at all) means the product is for no
+    occasion. Matched on the same rule the listing and collection handlers use to find a
+    product's seed, so the three cannot disagree about what a product is.
+
+    A slug with no seed is `unassigned`, which is not the same as evergreen: nothing says
+    what it is for, and scheduling it against every event is how a Valentine's garland came
+    to be reported at risk for Halloween.
+    """
+    from ..radar.opportunity import POOL
+
+    seed = next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
+    if seed is None:
+        return UNASSIGNED
+    if seed.season:
+        return seed.season
+    return EVERGREEN
+
+
+def next_occurrence(event_date: date, today: date) -> date:
+    """The event's next date on or after today. Events are listed once; the calendar rolls."""
+    when = event_date
+    while when < today:
+        try:
+            when = when.replace(year=when.year + 1)
+        except ValueError:  # pragma: no cover - 29 February
+            when = when + timedelta(days=365)
+    return when
+
+
 def catalogue_plans(db, today: date | None = None,
                     assumptions: Assumptions | None = None) -> dict:
     """Every certified pattern against every seasonal event, as a war room (#296, #311).
@@ -628,27 +666,64 @@ def catalogue_plans(db, today: date | None = None,
             products.append({"slug": product.slug, "version": version.version,
                              "estimate": estimate.to_dict()})
 
+    # A product is scheduled against the occasion it is for, and only that one. Every
+    # certified product used to be scheduled against every event, so an evergreen placemat
+    # and a Valentine's garland were both reported "at risk" for Halloween -- rows nobody
+    # could act on, which is the noise that trains everybody to stop reading the channel.
     rows: list[dict] = []
+    evergreen: list[str] = []
+    unassigned: list[str] = []
     for entry in products:
         if "estimate" not in entry:
             continue
+        occasion = occasion_for(entry["slug"])
+        entry["occasion"] = occasion
+        if occasion == EVERGREEN:
+            evergreen.append(entry["slug"])
+            continue
+        if occasion == UNASSIGNED:
+            unassigned.append(entry["slug"])
+            continue
         for event in SEASONAL_EVENTS:
-            if event.event_date < today:
+            if event.name != occasion:
                 continue
-            plan = compile_launch(event.name, event.event_date,
+            # The next occurrence, so an occasion that has passed is scheduled for next
+            # year rather than dropping out of the room until somebody edits a date.
+            when = next_occurrence(event.event_date, today)
+            plan = compile_launch(event.name, when,
                                   make_hours=entry["estimate"]["hours"], assumptions=base)
             action, why = plan.recommendation(today)
-            rows.append({"slug": entry["slug"], **plan.to_dict(),
-                         "status": plan.status(today),
-                         "days_to_preferred": plan.days_to_preferred(today),
-                         "days_to_latest": plan.days_to_latest(today),
-                         "recommendation": action, "because": why})
+            row = {"slug": entry["slug"], **plan.to_dict(),
+                   "event_year": when.year,
+                   "status": plan.status(today),
+                   "days_to_preferred": plan.days_to_preferred(today),
+                   "days_to_latest": plan.days_to_latest(today),
+                   "recommendation": action, "because": why}
+            if row["status"] == MISSED:
+                # What the missed window turns into: the same product against the next
+                # occurrence, so "missed" arrives with the date that is still reachable.
+                try:
+                    following = when.replace(year=when.year + 1)
+                except ValueError:  # pragma: no cover - 29 February
+                    following = when + timedelta(days=365)
+                nxt = compile_launch(event.name, following,
+                                     make_hours=entry["estimate"]["hours"],
+                                     assumptions=base)
+                row["next_window"] = {
+                    "event_date": following.isoformat(),
+                    "preferred_launch": nxt.preferred_launch.isoformat(),
+                    "latest_effective_launch": nxt.latest_effective_launch.isoformat()}
+            rows.append(row)
 
     rows.sort(key=lambda r: (r["event_date"], r["latest_effective_launch"]))
     return {
         "today": today.isoformat(),
         "calibration": calibration,
         "products_scheduled": sum(1 for p in products if "estimate" in p),
+        # Certified products with no occasion are not scheduled against any event; listed
+        # so an empty room is distinguishable from a room nobody could fill.
+        "products_evergreen": evergreen,
+        "products_unassigned": unassigned,
         "products_unreadable": [p for p in products if "error" in p],
         "counts": {state: sum(1 for r in rows if r["status"] == state)
                    for state in (ON_TRACK, PAST_PREFERRED, AT_RISK, MISSED)},

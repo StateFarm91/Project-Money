@@ -148,6 +148,39 @@ def test_grading_a_component_moves_the_counts_and_not_the_construction():
     assert all(r.declared_count == large.stitches for r in resized.rows)
 
 
+
+def test_a_graded_component_compiles_at_every_size():
+    """The old version moved the declared counts and left the ops: nothing it built compiled."""
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.model import CIR, Component, Gauge, Op, Row
+
+    component = Component(
+        name="body", construction="flat_rows", foundation=100,
+        rows=[Row(index=1, ops=[Op("dc", 100)], declared_count=100, turning_chain=3),
+              Row(index=2, ops=[Op("dc", 100)], declared_count=100, turning_chain=3)])
+    for size in g.grade(_run(), stitches_per_10cm=16, rows_per_10cm=18, motif_width=8):
+        resized = g.grade_component(component, size, motif_width=8)
+        cir = CIR(slug="s", title="S", version="1", construction="flat_rows",
+                  components=[resized], gauge=Gauge(16, 18))
+        result = compile_cir(cir)
+        assert result.ok, (size.spec.name, [str(f) for f in result.errors])
+        assert result.counts("body") == [size.stitches, size.stitches]
+
+
+def test_a_shaped_row_is_refused_rather_than_silently_left_at_the_old_size():
+    from brambleloop.cir.model import Component, Op, Row
+
+    component = Component(
+        name="sleeve", construction="flat_rows", foundation=40,
+        rows=[Row(index=1, ops=[Op("inc", 1), Op("sc", 38), Op("inc", 1)], declared_count=42)])
+    size = g.grade(_run(), stitches_per_10cm=16, rows_per_10cm=18)[0]
+    try:
+        g.grade_component(component, size)
+    except g.GradingRefused as e:
+        assert "function of size" in str(e)
+    else:
+        raise AssertionError("a shaped row was regraded by changing one number")
+
 def test_the_size_table_says_the_two_things_a_maker_needs_to_know():
     """Gauge governs the outcome, and no size was rounded to fit."""
     graded = g.grade(_run(), stitches_per_10cm=16, rows_per_10cm=18, motif_width=8)

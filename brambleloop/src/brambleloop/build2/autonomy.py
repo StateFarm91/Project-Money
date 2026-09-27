@@ -52,6 +52,30 @@ def _aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+def _cadence_hours(session, since: datetime) -> int:
+    """Distinct hours in which the scheduler enqueued a cadence, counted by the database.
+
+    `Scheduler.tick` is the only writer of `cadence:<name>:<window>` idempotency keys, so a
+    job carrying one is the scheduler's own evidence of having fired. The previous reading
+    counted hours containing *any* audit row, which the health sweep, a hand-driven session
+    or a single retrying job all produce -- a scheduler could have stopped and the proof
+    would not have noticed.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.db import is_postgres
+    from ..core.models import Job
+
+    bind = session.get_bind()
+    if is_postgres(bind):
+        bucket = func.date_trunc("hour", Job.created_at)
+    else:
+        bucket = func.strftime("%Y-%m-%d %H", Job.created_at)
+    return int(session.scalar(
+        select(func.count(func.distinct(bucket))).where(
+            Job.idempotency_key.like("cadence:%"), Job.created_at >= since)) or 0)
+
+
 def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
                      now: datetime | None = None) -> dict:
     """Did this company work, unattended, for the whole window? (#195)
@@ -59,23 +83,25 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
     Returns the evidence whether it passes or fails, because a failed proof is the useful
     one: it says which of the five conditions was not met, and those have different fixes.
     """
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
-    from ..core.models import AuditLog, CostEntry, Incident, Job, JobStatus
+    from ..core.models import CostEntry, Incident, Job, JobStatus
 
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(hours=window_hours)
 
     with db.session() as s:
+        # Bounded in SQL. This loaded every job, every audit row, every incident and every
+        # cost entry the company had ever written and filtered them in Python -- on an
+        # endpoint the console polls, against tables growing by thousands of rows a day.
         jobs = [(j.job_type, _aware(j.finished_at), j.status, j.last_error or "")
-                for j in s.scalars(select(Job).where(Job.finished_at.is_not(None)))
-                if _aware(j.finished_at) >= since]
-        scheduler_ticks = [_aware(a.at) for a in s.scalars(select(AuditLog))
-                           if _aware(a.at) >= since]
-        incidents = [i for i in s.scalars(select(Incident))
-                     if _aware(i.at) >= since]
-        costs = sum(c.amount_cad for c in s.scalars(select(CostEntry))
-                    if _aware(c.at) >= since)
+                for j in s.scalars(select(Job).where(
+                    Job.finished_at.is_not(None), Job.finished_at >= since))]
+        audit_hours = _cadence_hours(s, since)
+        incidents = int(s.scalar(select(func.count(Incident.id)).where(
+            Incident.at >= since)) or 0)
+        costs = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                               .where(CostEntry.at >= since)) or 0.0)
 
     unattended = [j for j in jobs if j[0] not in ATTENDED_JOB_TYPES]
     completed = [j for j in unattended if j[2] == JobStatus.DONE]
@@ -94,8 +120,6 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
 
     active_hours = len({c[1].replace(minute=0, second=0, microsecond=0) for c in completed})
     distinct_types = sorted({c[0] for c in completed})
-    audit_hours = len({a.replace(minute=0, second=0, microsecond=0)
-                       for a in scheduler_ticks})
 
     conditions = {
         "jobs_completed": {
@@ -114,7 +138,10 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
         "scheduler_alive": {
             "have": audit_hours, "need": MIN_SCHEDULER_WINDOWS,
             "met": audit_hours >= MIN_SCHEDULER_WINDOWS,
-            "why": "the system drove itself across the day rather than replaying one burst"},
+            "why": ("the scheduler enqueued cadence work in this many distinct hours -- "
+                    "counted from `cadence:` idempotency keys, which only `Scheduler.tick` "
+                    "writes, so hand-enqueued work and the system's own audit chatter "
+                    "cannot stand in for a scheduler that stopped")},
         "no_unexpected_dead_letters": {
             "have": len(dead), "need": 0, "met": not dead,
             "types": sorted({d[0] for d in dead}),
@@ -138,7 +165,7 @@ def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
             "audit_hours": audit_hours,
             "dead_letters": len(dead),
             "expected_publish_refusals": len(expected_refusals),
-            "incidents_opened": len(incidents),
+            "incidents_opened": incidents,
             "operating_cost_cad": round(float(costs), 4),
         },
         "note": ("'Online' means useful work is progressing, not that HTTP returns 200 "
@@ -167,9 +194,9 @@ def health(db, *, now: datetime | None = None) -> dict:
 
     with db.session() as s:
         pending = list(s.scalars(select(Job).where(Job.status == JobStatus.PENDING)))
-        recent_done = [j for j in s.scalars(select(Job).where(
-            Job.status == JobStatus.DONE)) if j.finished_at
-            and _aware(j.finished_at) >= hour_ago]
+        recent_done = list(s.scalars(select(Job).where(
+            Job.status == JobStatus.DONE, Job.finished_at.is_not(None),
+            Job.finished_at >= hour_ago)))
 
     oldest_pending = min((_aware(j.created_at) for j in pending), default=None)
     queue_age_hours = (round((now - oldest_pending).total_seconds() / 3600.0, 2)

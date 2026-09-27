@@ -297,6 +297,85 @@ def test_worker_survives_a_handler_that_hangs_then_is_reclaimed():
     assert q.claim("healthy-worker") is not None
 
 
+def test_a_reclaimed_jobs_original_worker_cannot_complete_it():
+    """Lease fencing. The first worker was slow, not dead: its lease expired, a second
+    worker reclaimed the job, and the first one's late completion must be refused rather
+    than written over the run that replaced it."""
+    db = boot()
+    q = JobQueue(db, lease_seconds=1)
+    job = q.enqueue("validator", "cir.compile", {})
+    assert q.claim("slow-worker").id == job.id
+    with db.session() as s:
+        s.get(Job, job.id).lease_expires_at = utcnow() - timedelta(seconds=1)
+    assert q.claim("second-worker").id == job.id
+
+    assert q.complete(job.id, {"from": "slow"}, worker="slow-worker") is False
+    assert q.fail(job.id, "late failure", worker="slow-worker") is None
+    held = q.get(job.id)
+    assert held.status == JobStatus.RUNNING and held.leased_by == "second-worker"
+    assert held.outputs in (None, {}), held.outputs
+    with db.session() as s:
+        refused = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "queue.stale_lease_refused")))
+    assert len(refused) == 2
+    assert refused[0].detail["attempted_by"] == "slow-worker"
+    assert refused[0].detail["lease_held_by"] == "second-worker"
+
+    # The holder completes normally, and afterwards the slow worker still cannot overwrite.
+    assert q.complete(job.id, {"from": "second"}, worker="second-worker") is True
+    assert q.complete(job.id, {"from": "slow"}, worker="slow-worker") is False
+    assert q.get(job.id).outputs == {"from": "second"}
+    # The unfenced administrative path is unchanged.
+    assert q.complete(job.id, {"from": "admin"}) is True
+
+
+def test_a_worker_whose_lease_was_reclaimed_mid_handler_does_not_record_completion():
+    """End to end through `Worker.run_once`: the handler outlives its lease, another worker
+    takes the job, and the original worker's result is refused and not audited as done."""
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    db = boot()
+    registry = HandlerRegistry()
+    allow(db, "orchestrator", "chaos.slow")
+
+    def slow(ctx):
+        # Simulate the lease expiring and being reclaimed while this handler runs.
+        with db.session() as s:
+            s.get(Job, ctx.job.id).lease_expires_at = utcnow() - timedelta(seconds=1)
+        assert JobQueue(db).claim("thief") is not None
+        return {"late": True}
+
+    registry.register("chaos.slow")(slow)
+    job = JobQueue(db).enqueue("orchestrator", "chaos.slow", {})
+    worker = Worker(db, "original", registry=registry)
+    assert worker.run_once() is True
+    assert worker.stats.completed == 0 and worker.stats.skipped == 1
+    held = JobQueue(db).get(job.id)
+    assert held.status == JobStatus.RUNNING and held.leased_by == "thief"
+    with db.session() as s:
+        done = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "job.completed:chaos.slow")))
+    assert not done
+
+
+def test_a_heartbeat_keeps_a_long_handler_from_being_reclaimed():
+    from brambleloop.runtime.worker import JobContext
+
+    db = boot()
+    q = JobQueue(db, lease_seconds=300)
+    job = q.enqueue("validator", "cir.compile", {})
+    claimed = q.claim("long-worker")
+    with db.session() as s:
+        s.get(Job, job.id).lease_expires_at = utcnow() + timedelta(seconds=2)
+    ctx = JobContext(job=claimed, db=db, queue=q, registry=Registry(db), phase=None)
+    ctx.heartbeat()
+    extended = q.get(job.id).lease_expires_at
+    if extended.tzinfo is None:
+        from datetime import timezone
+        extended = extended.replace(tzinfo=timezone.utc)
+    assert extended > utcnow() + timedelta(seconds=200)
+
+
 # ---- budget exhaustion ---------------------------------------------------
 
 

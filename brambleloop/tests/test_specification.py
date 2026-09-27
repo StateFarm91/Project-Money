@@ -117,6 +117,42 @@ def test_every_existing_catalogue_product_is_reconstructible():
     assert not bad, f"certified products that cannot be reconstructed: {bad}"
 
 
+
+# ---- a benchmark in our clothes: numeric containment ---------------------------------------
+
+
+def test_the_benchmark_relabelled_as_brambleloop_is_refused_at_every_size():
+    for size in B.SIZES:
+        cardigan = B.cardigan(size)
+        cardigan.authored = "brambleloop"
+        cardigan.slug, cardigan.title = "our-new-cardigan", "Our New Cardigan"
+        try:
+            S.refuse_a_benchmark_in_our_clothes(cardigan)
+        except S.BenchmarkDerived as e:
+            assert size in str(e) and "never a source" in str(e)
+        else:
+            raise AssertionError(f"size {size} passed as Brambleloop's own")
+
+
+def test_renaming_the_pieces_does_not_launder_the_counts():
+    from brambleloop.cir.model import Provenance
+    cardigan = B.cardigan("L")
+    cardigan.authored = "brambleloop"
+    cardigan.provenance = Provenance("fresh-idea", "x", ("grading",), ())
+    for i, comp in enumerate(cardigan.components):
+        comp.name = f"piece_{i}"
+    cardigan.assembly = []
+    assert S.benchmark_matches(cardigan)
+
+
+def test_the_benchmark_itself_passes_because_it_is_what_it_says_it_is():
+    S.refuse_a_benchmark_in_our_clothes(B.cardigan("M"))
+
+
+def test_no_catalogue_product_matches_a_benchmark():
+    for slug in sorted(CATALOGUE):
+        assert S.benchmark_matches(for_slug(slug)) == [], slug
+
 if __name__ == "__main__":
     import traceback
     fails = 0

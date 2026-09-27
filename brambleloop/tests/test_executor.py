@@ -468,13 +468,36 @@ def test_a_released_requirement_is_not_a_finished_one():
 
 
 def test_idle_with_ready_work_is_a_stall_and_idle_with_everything_parked_is_not():
-    """They need opposite responses and look identical from outside."""
+    """They need opposite responses and look identical from outside.
+
+    Refined 2026-09-26: ready work that nobody has *claimed* is not a stall. The deployed
+    worker never writes code, so "nothing completed in six hours" with no claim measures how
+    often a session was opened. That is `awaiting_build_session`, names the top ready
+    requirement, and does not alarm. A claim with no completion is the stall.
+    """
     db = _synced_with_ready_work()
+    awaiting = E.watchdog(db)
+    assert awaiting["verdict"] == E.AWAITING_BUILD_SESSION
+    assert awaiting["alarm"] is False
+    assert awaiting["next"] is not None
+    assert f"#{awaiting['next']['requirement_id']}" in awaiting["note"]
+
+    target = E.next_ready(db)["requirement_id"]
+    E.claim(db, target, worker="session-1")
     stalled = E.watchdog(db)
-    assert stalled["verdict"] == "stalled"
+    assert stalled["verdict"] == E.STALLED
     assert stalled["alarm"] is True
-    assert stalled["next"] is not None
-    assert "look identical from outside" in stalled["note"]
+    assert stalled["claims_in_window"] == 1
+    assert {"requirement_id": target, "claimed_by": "session-1"} in stalled["in_progress"]
+    assert "took the task and stopped" in stalled["note"]
+
+    # A claim older than the window is still a stall while the task is held.
+    later = datetime.now(timezone.utc) + timedelta(hours=E.IDLE_ALARM_HOURS + 1)
+    assert E.watchdog(db, now=later)["verdict"] == E.STALLED
+    E.release(db, target, worker="session-1", why="test")
+    assert E.watchdog(db, now=later)["verdict"] == E.AWAITING_BUILD_SESSION
+
+    db = _synced_with_ready_work()
 
     # Park everything, and the same silence becomes correct rather than alarming.
     from sqlalchemy import select
@@ -550,7 +573,10 @@ def test_never_idle_is_measured_in_completions_rather_than_ticks():
     for _ in range(5):
         E.sync(db, env={})
     assert E.watchdog(db)["completions_in_window"] == 0
-    assert E.watchdog(db)["verdict"] == "stalled"
+    # Five syncs are not progress: the loop is not "moving". Nobody claimed anything, so it
+    # is waiting for a build session rather than stalled.
+    assert E.watchdog(db)["moving"] is False
+    assert E.watchdog(db)["verdict"] == E.AWAITING_BUILD_SESSION
 
 
 # ---- the off-device proof (#195) -------------------------------------------
@@ -713,7 +739,18 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     opened = ticked[-1].detail
     assert opened["ready"] > 0, "the gate released no work, so this proves nothing"
     assert opened["next"] is not None
-    assert opened["verdict"] == "stalled"
+    # Ready and unclaimed: waiting for a build session, which is an operator note naming the
+    # top ready requirement, not a P2 about how often somebody opens a session.
+    assert opened["verdict"] == E.AWAITING_BUILD_SESSION
+    assert f"#{opened['next']}" in (opened["operator_note"] or "")
+    assert not stalls, [i.summary[:80] for i in stalls]
+
+    # A claim that makes no progress is the stall, and two ticks are still one row.
+    E.claim(db, opened["next"], worker="session-9")
+    tick("build-4")
+    tick("build-5")
+    dead, ticked, stalls = state()
+    assert ticked[-1].detail["verdict"] == E.STALLED
     # Two ticks, one incident: a loop that raises a fresh row every hour is a loop nobody
     # reads.
     #
@@ -724,7 +761,22 @@ def test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation():
     # change that was the system working. The property was never about the increment -- it
     # is that however many ticks pass, one stall is one row.
     assert len(stalls) == 1, [i.summary[:80] for i in stalls]
-    assert "look identical from outside" in stalls[-1].summary
+    assert "took the task and stopped" in stalls[-1].summary
+    assert stalls[-1].resolved is False
+    assert stalls[-1].report_count >= 2 and stalls[-1].detail.get("last_seen")
+
+    # Released: nothing is claimed, so the stall closes itself and says why.
+    E.release(db, opened["next"], worker="session-9", why="test")
+    with db.session() as s:
+        from brambleloop.core.models import BuildEvent
+        for e in s.scalars(select(BuildEvent).where(BuildEvent.kind == "claim")):
+            e.at = e.at - timedelta(hours=E.IDLE_ALARM_HOURS + 1)
+    tick("build-6")
+    dead, ticked, stalls = state()
+    assert len(stalls) == 1 and stalls[0].resolved is True
+    assert "waiting for a build session" in stalls[0].detail["resolution"]
+    assert stalls[0].detail["resolved_at"]
+    assert ticked[-1].detail["stall_resolved"] == ["build.stalled"]
 
 
 # ---- the registry may park its own remainder ------------------------------
@@ -1002,6 +1054,85 @@ def test_the_reconciliation_is_actually_called_by_the_report():
     report = E.report(db, env={})
     assert "reconciliation" in report
     assert report["reconciliation"]["balances"] is True
+
+
+def test_the_model_bearing_render_gate_opens_only_on_a_frame_that_cleared_every_floor():
+    """#72, #130 and #202 wait on a model-bearing frame that passes all six floors.
+
+    The gate reads `assets.model_photography` records. A frame that failed photographic
+    realism, one with an `unverifiable` floor, one written with fewer floors than the current
+    six, and a product-first `assets.owned_photography` frame must all leave it closed.
+    """
+    from brambleloop.build2 import closure
+    from brambleloop.core.models import AuditLog
+    from brambleloop.publish import model_photography, owned_photography
+
+    gate = E.GATE_BY_KEY["model_bearing_render"]
+    assert closure.kind_of("model_bearing_render"), "the gate is not classified by closure"
+    assert "model_bearing_render" in closure.EXTERNAL_GATES
+
+    db = _db()
+    assert gate.open(db) is False
+
+    passing = {name: "pass" for name in model_photography.FLOORS}
+    near_misses = [
+        {**passing, "photographic_realism": "fail"},
+        {**passing, "product_truth": "unverifiable"},
+        {k: v for k, v in passing.items() if k != "styling"},
+    ]
+    with db.session() as s:
+        for floors in near_misses:
+            s.add(AuditLog(actor="publishing", action=model_photography.ACTION, detail={
+                "made": True, "carries_model": True, "floors": floors,
+                "usable_as_listing_asset": all(v == "pass" for v in floors.values())}))
+        # A product-first frame that passed its own floors proves nothing about her.
+        s.add(AuditLog(actor="publishing", action=owned_photography.ACTION, detail={
+            "made": True, "carries_model": False, "floors": passing,
+            "usable_as_listing_asset": True}))
+        # And a record that says usable without carrying the model is not one.
+        s.add(AuditLog(actor="publishing", action=model_photography.ACTION, detail={
+            "made": True, "carries_model": False, "floors": passing,
+            "usable_as_listing_asset": True}))
+    assert gate.open(db) is False
+
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action=model_photography.ACTION, detail={
+            "made": True, "carries_model": True, "floors": passing,
+            "usable_as_listing_asset": True}))
+    assert gate.open(db) is True
+
+
+def test_the_scheduler_condition_counts_cadences_rather_than_any_audit_row():
+    """`scheduler_alive` read every audit row in the window, so a burst of hand-driven work
+    -- or the health sweep writing about itself -- could stand in for a scheduler that had
+    stopped. It counts hours in which a cadence was enqueued."""
+    from brambleloop.build2 import autonomy
+    from brambleloop.core.models import AuditLog, Job, JobStatus
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for h in range(20):
+            s.add(AuditLog(actor="orchestrator", action="ops.health",
+                           at=now - timedelta(hours=h)))
+    proof = autonomy.off_device_proof(db, now=now)
+    assert proof["conditions"]["scheduler_alive"]["have"] == 0
+    assert proof["conditions"]["scheduler_alive"]["met"] is False
+
+    with db.session() as s:
+        for h in range(14):
+            s.add(Job(agent="orchestrator", job_type="ops.heartbeat", status=JobStatus.DONE,
+                      idempotency_key=f"cadence:infra_heartbeat:{h}",
+                      created_at=now - timedelta(hours=h, minutes=5),
+                      finished_at=now - timedelta(hours=h)))
+        # Hand-enqueued work in the same hours does not count as the scheduler.
+        for h in range(20, 23):
+            s.add(Job(agent="orchestrator", job_type="build.tick", status=JobStatus.DONE,
+                      idempotency_key=f"manual:{h}", created_at=now - timedelta(hours=h),
+                      finished_at=now - timedelta(hours=h)))
+    alive = autonomy.off_device_proof(db, now=now)["conditions"]["scheduler_alive"]
+    assert alive["have"] == 14, alive
+    assert alive["met"] is True
 
 
 if __name__ == "__main__":

@@ -117,6 +117,102 @@ def test_uk_terminology_round_trips():
     assert compare(cir, uk, terminology="UK") == []
 
 
+
+# ---- texture: which loop the hook enters -------------------------------------------------
+
+
+def _textured():
+    from brambleloop.cir.model import CIR, Component, Gauge, Op, Repeat, Row
+    return CIR(
+        slug="ridge", title="Ridge swatch", version="1", construction="flat_rows",
+        gauge=Gauge(16, 12, stitch_type="hdc"),
+        components=[Component("body", "flat_rows", foundation=12, rows=[
+            Row(1, [Op("hdc", 12)], declared_count=12, turning_chain=1),
+            Row(2, [Op("hdc", 12, loop="back")], declared_count=12, turning_chain=1),
+            Row(3, [Repeat([Op("hdc", loop="front"), Op("hdc", loop="back")], times=6)],
+                declared_count=12, turning_chain=1),
+            Row(4, [Op("dec", 1, loop="back"), Op("hdc", 10, loop="front")],
+                declared_count=11, turning_chain=1),
+        ])])
+
+
+def test_the_loop_is_written_and_read_back_in_both_terminologies():
+    cir = _textured()
+    us, uk = _text(cir), _text(cir, "UK")
+    assert "hdc in back loop of next 12 sts" in us
+    assert "htr in back loop of next 12 sts" in uk
+    assert "dec in back loop over next 2 sts" in us
+    for text, term in ((us, "US"), (uk, "UK")):
+        assert compare(cir, text, terminology=term) == [], term
+        loops = [op.loop for r in parse_pattern(text, term) for op in r.ops
+                 if hasattr(op, "loop")]
+        assert "back" in loops, term
+
+
+def test_a_flipped_loop_is_a_mismatch_not_a_nuance():
+    """Count-neutral, so the only thing that can catch it is the reverse compiler."""
+    cir = _textured()
+    text = _text(cir)
+    flipped = text.replace("hdc in back loop of next 12 sts", "hdc in front loop of next 12 sts")
+    assert flipped != text
+    assert "REVERSE_MISMATCH" in codes(compare(cir, flipped))
+    plain = text.replace("hdc in back loop of next 12 sts", "hdc in next 12 sts")
+    assert "REVERSE_MISMATCH" in codes(compare(cir, plain))
+
+
+def test_the_benchmark_back_loop_rib_round_trips():
+    from brambleloop.cir import benchmarks as B  # read-only fixture use
+    cir = B.cardigan("M")
+    text = _text(cir)
+    assert "in back loop of next" in text
+    assert compare(cir, text) == []
+
+
+# ---- multi-piece documents: row scope resets per piece ------------------------------------
+
+
+def _two_pieces():
+    from brambleloop.cir.model import CIR, Component, Gauge, Op, Row
+
+    def piece(name, n, rows, make=1):
+        body = [Row(1, [Op("sc", n)], declared_count=n, turning_chain=1)]
+        body += [Row(i, [Op("sc", n, loop="back" if i % 2 else "both")], declared_count=n,
+                     turning_chain=1) for i in range(2, rows + 1)]
+        return Component(name, "flat_rows", foundation=n, rows=body, make=make)
+    return CIR(slug="pair", title="Pair", version="1", construction="flat_rows",
+               gauge=Gauge(16, 18),
+               components=[piece("front", 20, 13), piece("sleeve", 12, 9, make=2)])
+
+
+def test_a_row_cycle_is_read_inside_its_own_piece():
+    """"Repeat rows 2-5" under the sleeve used to find the front's rows 2-5 too."""
+    cir = _two_pieces()
+    text = _text(cir)
+    assert text.count("Repeat rows") == 2, text
+    assert compare(cir, text) == []
+    parsed = parse_pattern(text)
+    assert [p.component for p in parsed].count("sleeve") == 9
+
+
+def test_a_dropped_piece_or_a_wrong_make_count_is_caught():
+    cir = _two_pieces()
+    text = _text(cir)
+    assert "REVERSE_MAKE" in codes(compare(cir, text.replace("(make 2)", "(make 3)")))
+    head, _, _ = text.partition("## sleeve")
+    tail = text[text.index("## Finishing"):]
+    missing = compare(cir, head + tail)
+    assert {"REVERSE_COMPONENTS", "REVERSE_ROW_COUNT"} <= codes(missing)
+
+
+def test_a_hold_and_its_resume_are_read_back():
+    from tests.test_division import yoke
+    cir = yoke()
+    text = _text(cir)
+    assert compare(cir, text) == []
+    moved = text.replace("(sts 21-28)", "(sts 22-29)")
+    assert moved != text
+    assert "REVERSE_HOLD" in codes(compare(cir, moved))
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

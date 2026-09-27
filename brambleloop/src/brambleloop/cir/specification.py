@@ -17,6 +17,7 @@ design: `benchmark` may be incomplete and is reported as such, `brambleloop` may
 """
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 
 
@@ -116,3 +117,90 @@ def refuse_an_underspecified_design(cir) -> None:
             f"{cir.slug} cannot be reconstructed from what it states: {lines}. A Brambleloop "
             f"design must say everything its finished object's geometry depends on, because "
             f"we control its specification and a photograph is not a specification")
+
+
+# ---- a benchmark in our clothes ------------------------------------------------------------
+#
+# Purchased and benchmark patterns are studied for demand and merchandising intelligence and
+# are NEVER a source for a Brambleloop design (Execution Directive; CLAUDE.md). A declared
+# `Provenance` records what a design was built from, but a declaration is only a claim. This
+# is the numeric check behind it: a design whose stitch-count tables contain a benchmark's is
+# a benchmark with our name on it, whatever its provenance says, and it is refused.
+#
+# Numeric containment rather than text similarity, because renaming a piece, rewording a
+# note or retitling the pattern changes nothing a maker works -- the counts are the design.
+
+# A piece shorter than this is too generic to identify anything: a 7-stitch band worked for a
+# dozen rows exists in half the patterns ever written, and refusing on it would refuse our own
+# designs for coinciding with arithmetic nobody owns.
+MIN_IDENTIFYING_ROWS = 10
+
+
+class BenchmarkDerived(ValueError):
+    """A Brambleloop-authored design whose stitch tables are a benchmark's."""
+
+
+def _count_tables(cir) -> dict[str, tuple[int, ...]]:
+    """Per piece: (foundation, stitch count of every row), the numbers a maker works."""
+    from .compiler import compile_cir
+
+    result = compile_cir(cir)
+    out: dict[str, tuple[int, ...]] = {}
+    for comp in cir.components:
+        counts = tuple(r.produced for r in result.rows if r.component == comp.name)
+        out[comp.name] = (comp.foundation,) + counts
+    return out
+
+
+def _contains(haystack: tuple[int, ...], needle: tuple[int, ...]) -> bool:
+    n = len(needle)
+    return any(haystack[i:i + n] == needle for i in range(len(haystack) - n + 1))
+
+
+@functools.lru_cache(maxsize=1)
+def _benchmark_tables() -> tuple[tuple[str, dict[str, tuple[int, ...]]], ...]:
+    """Every benchmark size's tables, computed once: the benchmarks are fixed records."""
+    from . import benchmarks  # read-only: the comparison set, never a source
+
+    return tuple((size, _count_tables(benchmarks.cardigan(size)))
+                 for size in benchmarks.SIZES)
+
+
+def benchmark_matches(cir) -> list[dict]:
+    """Every benchmark size whose identifying pieces all appear, count for count, in `cir`.
+
+    A benchmark size matches when each of its pieces of at least `MIN_IDENTIFYING_ROWS` rows
+    has its whole table -- foundation and every row's count, in order -- contained in some
+    piece of this design. Whole-table containment of every identifying piece is what makes
+    this a finding rather than a coincidence: one 64-stitch rectangle is arithmetic, the
+    body, the sleeve and the pocket of one size together is that size.
+    """
+    ours = list(_count_tables(cir).values())
+    matches: list[dict] = []
+    for size, theirs in _benchmark_tables():
+        identifying = {name: t for name, t in theirs.items()
+                       if len(t) - 1 >= MIN_IDENTIFYING_ROWS}
+        if not identifying:
+            continue
+        found = {name: any(_contains(o, t) for o in ours) for name, t in identifying.items()}
+        if all(found.values()):
+            matches.append({"benchmark": "cardigan", "size": size,
+                            "pieces": sorted(identifying)})
+    return matches
+
+
+def refuse_a_benchmark_in_our_clothes(cir) -> None:
+    """The gate. A `brambleloop` design may not carry a benchmark's stitch tables.
+
+    Benchmarks themselves pass: they are allowed to be exactly what they are.
+    """
+    if getattr(cir, "authored", "brambleloop") != "brambleloop":
+        return
+    matches = benchmark_matches(cir)
+    if matches:
+        where = "; ".join(f"{m['benchmark']} size {m['size']} ({', '.join(m['pieces'])})"
+                          for m in matches)
+        raise BenchmarkDerived(
+            f"{cir.slug} is authored as Brambleloop's own but its stitch tables contain a "
+            f"purchased benchmark's: {where}. Benchmarks are for demand and merchandising "
+            f"intelligence only and are never a source for a Brambleloop design")

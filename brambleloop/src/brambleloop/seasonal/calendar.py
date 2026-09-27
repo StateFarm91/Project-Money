@@ -320,15 +320,80 @@ MILESTONES: tuple[tuple[str, int, str], ...] = (
 )
 
 
+# What proves each milestone happened, as audit actions whose `artifact` names the product
+# (`slug` or `slug@version`). Evidence is read per product that targets the occasion, so a
+# Christmas milestone is not satisfied by work on a Halloween garland.
+#
+# The peak window and the last practical make date are dates rather than work; what the
+# company owes by each is to be live, so both read the same publication evidence as the
+# indexing date. `clearance_or_evergreen` is the post-occasion re-merchandising review.
+MILESTONE_EVIDENCE: dict[str, tuple[str, ...]] = {
+    "research_start": ("radar.scored",),
+    "concept_freeze": ("cir.drafted",),
+    "engineering_start": ("cir.drafted", "cir.compiled"),
+    "physical_test_deadline": ("physical.recorded",),
+    "creative_production_deadline": ("assets.built", "assets.listing_images_built"),
+    "listing_indexing_date": ("store.published",),
+    "promotional_ramp": ("marketing.scheduled",),
+    "peak_window_opens": ("store.published",),
+    "last_practical_make_date": ("store.published",),
+    "clearance_or_evergreen": ("seasonal.remerchandising",),
+}
+
+
+def milestone_evidence(db, *, slugs, event_date: date,
+                       today: date | None = None) -> dict[str, str]:
+    """Milestones with recorded evidence for this occasion's products, and the first date.
+
+    Only evidence inside this occurrence's cycle counts -- from a year before the event up
+    to today -- so last Christmas's listing does not complete this Christmas's milestone.
+    Returns `{milestone: first_evidence_date_iso}`.
+    """
+    from sqlalchemy import func, or_, select
+
+    from ..core.models import AuditLog
+
+    slugs = sorted({s for s in slugs if s})
+    if not slugs:
+        return {}
+    today = today or date.today()
+    start = event_date - timedelta(days=365)
+    actions = sorted({a for names in MILESTONE_EVIDENCE.values() for a in names})
+    matches = or_(*[or_(AuditLog.artifact == slug, AuditLog.artifact.like(f"{slug}@%"))
+                    for slug in slugs])
+    with db.session() as s:
+        rows = s.execute(
+            select(AuditLog.action, func.min(AuditLog.at))
+            .where(AuditLog.action.in_(actions), matches,
+                   AuditLog.at >= start,
+                   AuditLog.at < today + timedelta(days=1))
+            .group_by(AuditLog.action)).all()
+    first = {action: when for action, when in rows if when is not None}
+    out: dict[str, str] = {}
+    for milestone, names in MILESTONE_EVIDENCE.items():
+        dates = [first[n] for n in names if n in first]
+        if dates:
+            out[milestone] = min(dates).date().isoformat()
+    return out
+
+
 def collection_calendar(event_name: str, event_date: date,
                         today: date | None = None,
-                        completed: dict[str, str] | None = None) -> dict:
+                        completed: dict[str, str] | None = None,
+                        not_before: date | None = None) -> dict:
     """Every dated commitment for one occasion, and which have been missed (#123).
 
     A missed milestone is reported as a portfolio failure with the reason it matters, not as
     an amber row. The failure mode this exists for is silent: a phase that slips does not
     announce itself, it simply becomes the next phase, and the first visible symptom is a
     product that lists in December.
+
+    `completed` is `{milestone: date}` from recorded evidence (`milestone_evidence`); with
+    none, nothing is done, which is the honest reading. `not_before` is the day the first
+    product for this occasion existed: a milestone due before then was not missed by anybody
+    -- there was nothing to do it for -- and is reported `preceded` rather than as a failure
+    this company could have avoided. Without it, a company created in September reads as
+    having missed every milestone from research onward for every event, forever.
     """
     today = today or date.today()
     completed = completed or {}
@@ -339,6 +404,7 @@ def collection_calendar(event_name: str, event_date: date,
         due = event_date - timedelta(days=days_before)
         done_on = completed.get(key)
         state = ("done" if done_on else
+                 "preceded" if not_before is not None and due < not_before else
                  "missed" if due < today else
                  "due" if (due - today).days <= 14 else "ahead")
         row = {"milestone": key, "due": due.isoformat(), "days_from_today": (due - today).days,

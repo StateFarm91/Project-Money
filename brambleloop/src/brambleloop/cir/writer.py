@@ -31,12 +31,21 @@ def write_op(op: Op, terminology: str = "US") -> str:
         # `code`, not the literal. This returned "sk" in both terminologies because it ran
         # before the mapping was consulted -- the UK entry existed and was dead.
         return f"{code} next {n} sts" if n > 1 else f"{code} next st"
+    # Which loop the hook enters. Count-neutral, so the arithmetic never noticed it was
+    # missing -- and a back-loop row written as plain "hdc in next 12 sts" is a different
+    # fabric that passes every count check. The loop is stated in the same regular grammar
+    # so the reverse compiler reads it back and a flipped loop is a mismatch, not a nuance.
+    # "back loop"/"front loop" are the same words in US and UK terms.
+    loop = getattr(op, "loop", "both")
+    where = f" in {loop} loop" if loop in ("front", "back") else ""
     if st.consumes > 1:
         # Decreases consume two; a 2-over-2 cable crossing consumes four. Both are "over
         # next N sts", and hardcoding the two meant the first stitch that consumed more
         # would have been written as though it consumed one.
-        base = f"{code} over next {st.consumes} sts"
+        base = f"{code}{where} over next {st.consumes} sts"
         return f"{base} x {n}" if n > 1 else base
+    if where:
+        return f"{code}{where} of next {n} sts" if n > 1 else f"{code}{where} of next st"
     return f"{code} in next {n} sts" if n > 1 else f"{code} in next st"
 
 

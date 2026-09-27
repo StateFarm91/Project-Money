@@ -16,7 +16,9 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from ..cir.compiler import ERROR, Finding, compile_cir
+from ..cir import assembly as _assembly
+from ..cir import specification as _specification
+from ..cir.compiler import ERROR, WARNING, Finding, compile_cir
 from ..cir.model import CIR
 from ..cir.reverse import compare as reverse_compare
 from ..cir.twin import TwinModel, build_twin
@@ -110,8 +112,8 @@ def _release_hash(cir: CIR, pattern_text: str) -> str:
 # without reimplementing it: the fast lane (#291) shortens the queue and never this list, and
 # a copy of the list somewhere else is how that guarantee would quietly stop being true.
 CANONICAL_STAGES: tuple[str, ...] = (
-    "compile", "twin", "geometry", "write", "reverse", "originality", "asset_truth",
-    "policy", "physical_test", "confidence",
+    "compile", "specification", "twin", "assembly", "geometry", "write", "reverse",
+    "originality", "asset_truth", "policy", "physical_test", "confidence",
 )
 
 CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
@@ -140,14 +142,36 @@ def certify(
         return ReleaseCertificate(cir.slug, cir.version, False, None, findings, stages,
                                   platform_policy=platform_policy)
 
-    # 2. Digital twin.
-    twin: TwinModel = build_twin(cir, result, calibration=calibration)
+    # 1b. Specification. A Brambleloop design must state every fact its finished object
+    #     depends on, and must not be somebody else's stitch tables under our name. Both
+    #     functions existed and ran nowhere in the chain until 2026-09-26, so a design with
+    #     reconstructive gaps -- or a benchmark relabelled as ours -- could be certified.
+    #     Benchmarks pass through: they are records of someone else's work, never products.
+    findings.extend(specification_findings(cir))
+    stages.append("specification")
+
+    # 2. Digital twin -- one per piece. Only the first component used to be modelled, so a
+    #    sleeve's yarn was never counted and a garment's pieces were never measured at all.
+    twins: dict[str, TwinModel] = {
+        comp.name: build_twin(cir, result, component=comp.name, calibration=calibration)
+        for comp in cir.components}
+    twin: TwinModel = twins[cir.components[0].name]
     stages.append("twin")
-    if twin.geometry is not None:
+
+    # 2b. Assembly: every piece placed and every join measured on both sides. A garment
+    #     whose sleeve top is not the length of its armhole is correct pieces that do not
+    #     sew together, and no per-piece check can see it.
+    geo = _assembly.assemble(cir, twins)
+    findings.extend(assembly_findings(cir, geo))
+    stages.append("assembly")
+
+    if any(t.geometry is not None for t in twins.values()):
         # What the fabric does with the shaping: a round that has to gather, and therefore a
         # shape no diameter describes. Warnings, not errors -- a frill is a legitimate design.
         # The protection is that the twin refuses the dimensions, not that the release stops.
-        findings.extend(twin.geometry.findings)
+        for t in twins.values():
+            if t.geometry is not None:
+                findings.extend(t.geometry.findings)
         stages.append("geometry")
 
     # 3. Written pattern, then an independent reverse compile of that exact text.
@@ -244,18 +268,76 @@ def certify(
         platform_policy=platform_policy,
         pattern_text=pattern_text if granted else None,
         confidence=profile.to_dict(),
-        twin_summary={
-            "stitch_total": twin.stitch_total,
-            "width_cm": twin.width_cm,
-            "height_cm": twin.height_cm,
-            "shape": twin.shape,
-            "circumference_cm": twin.circumference_cm,
-            "size_refusal": twin.size_refusal,
-            "colors": sorted(twin.colors_used),
-            "stitches": sorted(twin.stitch_types_used),
-            "yarn_metres": twin.yarn_metres_by_color,
-            "yardage_tolerance": twin.yardage_tolerance,
-        },
+        twin_summary=twin_summary(cir, twins, geo),
         physical_test_required=physical_required,
         physical_test_passed=physical_test_passed,
     )
+
+
+def specification_findings(cir: CIR) -> list[Finding]:
+    """The specification gate as findings: gaps, and a benchmark in our clothes."""
+    out: list[Finding] = []
+    try:
+        _specification.refuse_an_underspecified_design(cir)
+    except _specification.SpecificationIncomplete as exc:
+        out.append(Finding(ERROR, "SPECIFICATION_INCOMPLETE", str(exc)))
+    try:
+        _specification.refuse_a_benchmark_in_our_clothes(cir)
+    except _specification.BenchmarkDerived as exc:
+        out.append(Finding(ERROR, "BENCHMARK_DERIVED", str(exc)))
+    return out
+
+
+def assembly_findings(cir: CIR, geo) -> list[Finding]:
+    """A join that does not sew together blocks; one that cannot be checked is flagged.
+
+    `partially_placed` is a warning rather than an error because the specification stage
+    already refuses a Brambleloop design whose joins do not name their edges; what is left
+    is a join whose lengths fall inside a stated chain-gauge uncertainty, which is a
+    measurement limit, not a defect.
+    """
+    if geo.verdict == "does_not_assemble":
+        return [Finding(ERROR, "ASSEMBLY_MISMATCH", geo.why)]
+    if geo.verdict == "partially_placed":
+        return [Finding(WARNING, "ASSEMBLY_PARTIAL", geo.why)]
+    if geo.verdict == "unmeasurable" and cir.assembly:
+        return [Finding(WARNING, "ASSEMBLY_UNMEASURABLE", geo.why)]
+    return []
+
+
+def twin_summary(cir: CIR, twins: dict, geo) -> dict:
+    """The certificate's twin block.
+
+    Backwards compatible: the top-level size fields are still the first piece's, which is
+    what every existing reader was written against and what a one-piece product has always
+    reported. Yardage is the whole pattern -- every piece, times the number of copies each
+    is made -- because a buyer buys yarn for the whole garment, not for its first panel.
+    `pieces` carries the per-piece figures.
+    """
+    first = twins[cir.components[0].name]
+    yarn: dict[str, float] = {}
+    for t in twins.values():
+        for colour, metres in t.yarn_metres_by_color.items():
+            yarn[colour] = round(yarn.get(colour, 0.0) + metres, 1)
+    return {
+        "stitch_total": first.stitch_total,
+        "width_cm": first.width_cm,
+        "height_cm": first.height_cm,
+        "shape": first.shape,
+        "circumference_cm": first.circumference_cm,
+        "size_refusal": first.size_refusal,
+        "colors": sorted(set().union(*(t.colors_used for t in twins.values()))),
+        "stitches": sorted(set().union(*(t.stitch_types_used for t in twins.values()))),
+        "yarn_metres": yarn,
+        "yardage_tolerance": first.yardage_tolerance,
+        "pieces": {
+            comp.name: {
+                "make": comp.make,
+                "stitch_total": twins[comp.name].stitch_total,
+                "width_cm": twins[comp.name].width_cm,
+                "height_cm": twins[comp.name].height_cm,
+                "shape": twins[comp.name].shape,
+                "yarn_metres": twins[comp.name].yarn_metres_by_color,
+            } for comp in cir.components},
+        "assembly": geo.verdict,
+    }

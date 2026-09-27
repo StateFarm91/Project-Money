@@ -24,6 +24,12 @@ _NOTE_RE = re.compile(r"\s+--\s+.*$")
 _UK_TO_US = {
     "dc": "sc", "htr": "hdc", "tr": "dc", "dtr": "tr", "ss": "slst", "miss": "sk",
     "dc inc": "inc", "dc dec": "dec", "tr inc": "dc_inc", "tr dec": "dc_dec",
+    # The post stitches, the half-treble increase and the named star stitches. Absent until
+    # 2026-09-26, so a UK document of the cable throw raised an unknown-stitch crash instead
+    # of either round-tripping or reporting a parse problem.
+    "fptr": "fpdc", "bptr": "bpdc", "htr inc": "hdc_inc",
+    "beg star st": "beg_star_st", "star st": "star_st", "end star st": "end_star_st",
+    "3 htr in next st": "hdc3",
 }
 
 
@@ -35,6 +41,74 @@ class ParsedRow:
     declared_count: int | None = None
     turning_chain: int = 0
     color: str | None = None
+    # The piece this row belongs to, from the nearest "## name" heading above it. None for a
+    # one-piece pattern the writer prints without a heading.
+    component: str | None = None
+
+
+# "## sleeve (make 2)". A heading starts a new piece, and row numbers restart with it, so
+# nothing below one heading may be read as belonging to the piece above it.
+_HEADING_RE = re.compile(r"^##\s+(.+?)(?:\s+\(make\s+(\d+)\))?\s*$", re.I)
+# Headings that are sections of the document rather than pieces of the object.
+_SECTION_HEADINGS = {"assembly", "finishing"}
+_HOLD_RE = re.compile(r"(\d+)\s+sts\s+\(sts\s+(\d+)-(\d+)\)\s+for\s+([a-z0-9 _]+?)(?=,|\s+on\s+a)",
+                      re.I)
+_RESUME_RE = re.compile(r"^Rejoin yarn to the sts held for (.+?) and work", re.I)
+
+
+@dataclass
+class ParsedPiece:
+    """What the document says about one piece beyond its rows."""
+
+    name: str
+    make: int = 1
+    holds: list[tuple[str, int, int, int]] = field(default_factory=list)  # name,row,count,from
+    resumes: str | None = None
+
+
+def parse_pieces(text: str) -> dict[str | None, ParsedPiece]:
+    """Every piece the document names, with its make count, holds and resume, in order.
+
+    Its own reading of the headings and the division sentences, sharing nothing with the
+    writer. The hold sentence follows the row it belongs to, so the row number is the last
+    row read above it in the same piece.
+    """
+    pieces: dict[str | None, ParsedPiece] = {None: ParsedPiece(name="")}
+    current: str | None = None
+    last_row: int | None = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        h = _HEADING_RE.match(line)
+        if h:
+            name = h.group(1).strip()
+            if name.lower() in _SECTION_HEADINGS:
+                current, last_row = "\x00section", None
+                continue
+            if name in pieces:
+                raise ParseProblem(f"the piece {name!r} is headed twice", line)
+            current, last_row = name, None
+            pieces[name] = ParsedPiece(name=name, make=int(h.group(2) or 1))
+            continue
+        if current == "\x00section":
+            continue
+        m = _ROW_RE.match(_NOTE_RE.sub("", line))
+        if m:
+            last_row = int(m.group(2))
+            continue
+        r = _RESUME_RE.match(line)
+        if r:
+            pieces[current].resumes = " ".join(r.group(1).split())
+            continue
+        if line.lower().startswith("place ") and "stitch holder" in line.lower():
+            if last_row is None:
+                raise ParseProblem("stitches are placed on hold before any row", line)
+            for count, a, b, name in _HOLD_RE.findall(line):
+                count, a, b = int(count), int(a), int(b)
+                if b - a + 1 != count:
+                    raise ParseProblem(
+                        f"the text holds {count} sts but numbers them {a}-{b}", line)
+                pieces[current].holds.append((" ".join(name.split()), last_row, count, a - 1))
+    return pieces
 
 
 @dataclass
@@ -47,14 +121,39 @@ class ParseProblem(Exception):
 
 
 def _norm_code(code: str, terminology: str) -> str:
-    code = code.strip().lower()
+    code = " ".join(code.strip().lower().split())
     if terminology.upper() == "UK":
-        return _UK_TO_US.get(code, code)
+        code = _UK_TO_US.get(code, code)
+    try:
+        stitches.get(code)
+    except KeyError:
+        # A stitch nobody defined is a document problem, reported like any other, rather
+        # than an exception that takes the whole release chain down with it.
+        raise ParseProblem(f"unknown stitch {code!r}") from None
     return code
+
+
+# "hdc in back loop of next 12 sts", "dec in front loop over next 2 sts". Read with its own
+# pattern rather than the writer's: the loop is count-neutral, so a document that lost it
+# would pass every count check while describing a different fabric.
+_LOOP_RE = re.compile(
+    r"([a-z_0-9 ]+?)\s+in\s+(back|front)\s+loops?(?:\s+only)?\s+(of|over)\s+(next\s+.+)",
+    re.I)
 
 
 def _parse_op(text: str, terminology: str) -> Op:
     t = " ".join(text.split())
+
+    m = _LOOP_RE.fullmatch(t)
+    if m:
+        code, loop, joiner, rest = m.group(1), m.group(2).lower(), m.group(3).lower(), m.group(4)
+        # Re-read as the plain instruction, then carry the loop. "of next" is how a
+        # one-for-one stitch is written; "over next" is a stitch consuming several.
+        plain = _parse_op(f"{code} {'in' if joiner == 'of' else 'over'} {rest}", terminology)
+        if plain.stitch in ("ch", "sk"):
+            raise ParseProblem(f"a {plain.stitch} is not worked into a loop: {t!r}")
+        plain.loop = loop
+        return plain
 
     m = re.fullmatch(r"ch\s+(\d+)", t, re.I)
     if m:
@@ -326,20 +425,33 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
     """
     rows: list[ParsedRow] = []
     carried_color: str | None = None
+    # Row numbers restart with every piece, so a repeat instruction refers to the rows of the
+    # piece it is written in. Reading "repeat rows 3-8" against every row above it -- the
+    # body's rows 3-8 *and* the sleeve's -- found twelve rows where six were meant and
+    # refused every multi-piece pattern with a row cycle.
+    current: str | None = None
     for raw in text.splitlines():
+        heading = _HEADING_RE.match(raw.strip())
+        if heading:
+            name = heading.group(1).strip()
+            current = None if name.lower() in _SECTION_HEADINGS else name
+            carried_color = None
+            continue
         repeat = parse_row_repeat(raw)
         if repeat is not None:
             start, end, times = repeat
-            block = [r for r in rows if start <= r.index <= end]
+            scope = [r for r in rows if r.component == current]
+            block = [r for r in scope if start <= r.index <= end]
             if len(block) != end - start + 1:
                 raise ParseProblem(
                     f"the text says to repeat rows {start}-{end}, but only "
                     f"{len(block)} of those rows appear above it")
-            next_index = rows[-1].index + 1 if rows else 1
+            next_index = scope[-1].index + 1 if scope else 1
             for _ in range(times):
                 for r in block:
                     rows.append(ParsedRow(r.label, next_index, list(r.ops),
-                                          r.declared_count, r.turning_chain, r.color))
+                                          r.declared_count, r.turning_chain, r.color,
+                                          current))
                     next_index += 1
             continue
 
@@ -372,7 +484,7 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
             e.line = raw
             raise
 
-        rows.append(ParsedRow(label, index, ops, count, tc, carried_color))
+        rows.append(ParsedRow(label, index, ops, count, tc, carried_color, current))
     return rows
 
 
@@ -380,8 +492,10 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
 
 
 def _shape(node: OpNode) -> tuple:
+    # The loop is part of the instruction: a back-loop row and a both-loops row have the
+    # same counts and different fabric, and a comparison blind to it passes the wrong one.
     if isinstance(node, Op):
-        return ("op", node.stitch, node.count)
+        return ("op", node.stitch, node.count, node.loop)
     return ("rep", node.times, tuple(_shape(o) for o in node.ops))
 
 
@@ -458,23 +572,63 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
             f"finishing differs from the validated design: CIR has {expected_steps}, "
             f"customer text has {steps}"))
 
-    canonical = [(c, r) for c, r in cir.iter_rows()]
-    by_index: dict[int, ParsedRow] = {}
-    for p in parsed:
-        if p.index in by_index and len(canonical) > len(parsed):
-            pass
-        by_index.setdefault(p.index, p)
+    # Piece by piece. Row numbers restart with each piece, so rows are compared within the
+    # piece the document heads them under; zipping every row of the pattern against every
+    # row of the CIR compared the sleeve's row 1 against whatever happened to sit at that
+    # position and could not tell a missing piece from a short one.
+    try:
+        pieces = parse_pieces(text)
+    except ParseProblem as e:
+        return [Finding(ERROR, "REVERSE_PARSE", f"customer text could not be parsed: {e}")]
+    headed = len(cir.components) > 1 or cir.components[0].name != "body"
+    named = [n for n in pieces if n is not None]
+    if headed:
+        expected_names = [c.name for c in cir.components]
+        if named != expected_names:
+            findings.append(Finding(
+                ERROR, "REVERSE_COMPONENTS",
+                f"the document names the pieces {named}, but the validated design has "
+                f"{expected_names}"))
+        stray = [p for p in parsed if p.component is None]
+        if stray:
+            findings.append(Finding(
+                ERROR, "REVERSE_ROW_COUNT",
+                f"customer text has {len(stray)} rows outside any piece"))
+    pairs: list[tuple] = []
+    total_parsed = 0
+    for comp in cir.components:
+        key = comp.name if headed else None
+        mine = [p for p in parsed if p.component == key]
+        total_parsed += len(mine)
+        if len(mine) != len(comp.rows):
+            findings.append(Finding(
+                ERROR, "REVERSE_ROW_COUNT",
+                f"customer text has {len(mine)} rows for {comp.name} but the CIR has "
+                f"{len(comp.rows)}", comp.name))
+        pairs.extend(((comp, row), p) for row, p in zip(comp.rows, mine))
+        piece = pieces.get(key)
+        if piece is None:
+            continue
+        if headed and piece.make != comp.make:
+            findings.append(Finding(
+                ERROR, "REVERSE_MAKE",
+                f"the document says to make {piece.make} of {comp.name}; the validated "
+                f"design makes {comp.make}", comp.name))
+        want_holds = sorted((" ".join(h.name.replace("_", " ").split()), h.at_row, h.count,
+                             h.from_stitch) for h in comp.holds)
+        if sorted(piece.holds) != want_holds:
+            findings.append(Finding(
+                ERROR, "REVERSE_HOLD",
+                f"stitches held differ from the validated design: CIR holds {want_holds}, "
+                f"customer text holds {sorted(piece.holds)}", comp.name))
+        want_resume = comp.resumes.replace("_", " ") if comp.resumes else None
+        if piece.resumes != want_resume:
+            findings.append(Finding(
+                ERROR, "REVERSE_HOLD",
+                f"the document resumes {piece.resumes!r}; the validated design resumes "
+                f"{want_resume!r}", comp.name))
 
-    if len(parsed) != len(canonical):
-        findings.append(
-            Finding(
-                ERROR,
-                "REVERSE_ROW_COUNT",
-                f"customer text has {len(parsed)} rows but the CIR has {len(canonical)}",
-            )
-        )
-
-    for (comp, row), p in zip(canonical, parsed):
+    for (comp, row), p in pairs:
         if p.index != row.index:
             findings.append(
                 Finding(
