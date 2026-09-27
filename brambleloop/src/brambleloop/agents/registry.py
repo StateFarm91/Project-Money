@@ -86,7 +86,7 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="creative_director",
          description="Blinded creative benchmarking and product discovery (#94, #104, #3)",
          allowed_job_types=["creative.blinded", "creative.expedition",
-                            "creative.blind_review",
+                            "creative.blind_review", "creative.grid_tournament",
                             "creative.tournament",
                             # The image-provider benchmark (owner decision 2026-09-20).
                             # It is the one job here that can spend double figures in a

@@ -630,6 +630,81 @@ def test_judgements_are_read_against_the_threshold_and_a_partial_judging_still_f
     assert half["verdict"] == "fail" and set(half["unjudged"]) == set(B.GRID_JUDGE_FIELDS)
 
 
+class _Response:
+    def __init__(self, text):
+        self.text, self.input_tokens, self.output_tokens = text, 1200, 300
+
+
+class _JudgeProvider:
+    """A stand-in vision judge. It sees only the thumbnail URLs it is handed, like the real
+    one, and scores our renders `ours_score` and every benchmark thumbnail `theirs_score`."""
+    name, model = "anthropic", "claude-sonnet-5"
+    cost_per_1k_input_cad, cost_per_1k_output_cad = 0.004, 0.02
+
+    def __init__(self, ours_score, theirs_score, *, silent_judge=""):
+        self.ours, self.theirs, self.silent, self.calls = ours_score, theirs_score, silent_judge, []
+
+    def see(self, system, prompt, urls, *, max_tokens):
+        import json as _json
+        import re as _re
+        self.calls.append((system, list(urls)))
+        if self.silent and self.silent in system:
+            return _Response("I cannot rank these.")
+        labels = _re.search(r"in this order: ([^.]+)\.", prompt).group(1).split(", ")
+        rows = []
+        for label, url in zip(labels, urls):
+            v = self.ours if url.startswith("artifacts/") else self.theirs
+            rows.append({"cell": label, "attention": v, "comprehension": v, "desire": v,
+                         "distinctiveness": v})
+        return _Response(_json.dumps({"cells": rows}))
+
+
+def test_the_grid_is_judged_by_an_independent_panel_blinded_to_side():
+    db = _db()
+    _audited_pod(db)
+    judge = _JudgeProvider(0.8, 0.4)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=judge, seed=7)
+    assert out["verdict"] == "clear", out["why"]
+    assert all(v == 0.8 for v in out["our_scores"].values())
+    assert "key" not in out, "the side key must not travel with the judged result"
+    assert out["panel"]["judged_by"] == sorted(j for j, _ in B.GRID_JUDGES)
+    # Each judge saw every cell, in its own order, and never a side or a ref.
+    orders = [urls for _, urls in judge.calls]
+    assert len({tuple(o) for o in orders}) > 1, "every judge saw the same order"
+    assert out["panel"]["cost_cad"] > 0
+
+
+def test_weak_renders_fail_the_grid_on_the_panel_median():
+    db = _db()
+    _audited_pod(db)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=_JudgeProvider(0.2, 0.9))
+    assert out["verdict"] == "fail" and set(out["below_threshold"]) == set(B.GRID_JUDGE_FIELDS)
+
+
+def test_a_judge_that_does_not_answer_leaves_the_grid_unjudged_not_averaged():
+    db = _db()
+    _audited_pod(db)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets",
+                            provider=_JudgeProvider(0.9, 0.1, silent_judge="gift"))
+    assert out["verdict"] == "fail" and out["unjudged"], out
+    assert "unjudged" in out["why"]
+
+
+def test_the_grid_judges_stop_on_the_ceiling_and_the_grid_stays_unjudged():
+    from brambleloop.core.models import CostEntry
+    from brambleloop.finance import spend_policy
+
+    db = _db()
+    _audited_pod(db)
+    with db.session() as s:
+        s.add(CostEntry(agent="gateway", amount_cad=spend_policy.CEILING_CAD, kind="llm",
+                        purpose="test"))
+    judge = _JudgeProvider(0.9, 0.1)
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=judge)
+    assert judge.calls == [], "a judge was called past the ceiling"
+    assert out["verdict"] == "fail" and out["panel"]["stopped_by"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

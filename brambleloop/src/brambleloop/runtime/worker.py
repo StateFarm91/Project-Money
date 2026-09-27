@@ -319,6 +319,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # #75 COMPETITIVE and #222/#320: the blind review and the acceptance runner read stored
     # evidence only; neither fetches or spends.
     ("blind_review", "creative_director", "creative.blind_review", 24 * 60 * 60),
+    # #126: weekly, judged by a vision panel inside the ceiling; refused pods are recorded.
+    ("grid_tournament", "creative_director", "creative.grid_tournament", 7 * 24 * 60 * 60),
     ("intel_acceptance", "market_radar", "intel.acceptance", 24 * 60 * 60),
     # #171: lineage backfilled only where a job, audit or hash proves it; idempotent.
     ("provenance_backfill", "orchestrator", "ops.provenance_backfill", 24 * 60 * 60),

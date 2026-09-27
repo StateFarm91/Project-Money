@@ -355,6 +355,7 @@ JOB_BANDS: dict[str, str] = {
     # Unproven, possibly valuable.
     "radar.score": "new_opportunity",
     "creative.expedition": "new_opportunity",
+    "creative.grid_tournament": "new_opportunity",
     "creative.tournament": "new_opportunity",
     "plan.cycle": "new_opportunity",
     "pricing.experiment": "new_opportunity",

@@ -11,7 +11,7 @@
   {
     "body": "Score each micro-market using demand, competition/listing density, quality of current offers, pricing/AOV, season timing, Brambleloop differentiation, machine verifiability, support burden and expected contribution. Explicitly hunt meaningful demand where competitors have weak thumbnails, poor PDFs, no video, confusing instructions, weak branding/bundles, stale aesthetics, limited sizes or recurring complaints.",
     "id": 2,
-    "note": "radar/arbitrage.py scores a micro-market on the nine dimensions the requirement names, and an unmeasured dimension leaves the arithmetic and is named rather than being filled with a neutral value that keeps the number's shape and loses its meaning. Each score carries the share of its weight that was measured; below 40% it is reported and never ranked; and markets scored more than 15 points apart in confidence are refused a ranking outright, because a caveat is read once and a ranking is read every week. The requirement's own weakness list is eight items and all eight are now accounted for. Thin media closed 2026-09-19 with the benchmark credential: 413 of 438 observed listings carry fewer than five images. Video and recurring complaints closed 2026-09-20 from endpoints already in the sanctioned allowlist -- the deep audit records has_video per listing, and mjs.reviews reads the shop's reviews weekly and counts recurring themes, counts only, never a review's text, a reviewer or a quotation, with a floor of three because one customer's bad day is not a theme. Deliverable clarity, limited sizes and weak bundles closed the same day: intel/deliverable.py reads the listing description that was already arriving with every catalogue page and nothing was reading, and stores eight booleans -- whether the listing states its format, delivery, extent, contents, stitch terms, finished size, yarn and hook -- and a size count, never the seller's copy, on the same rule the review reader follows. Size is asked only of departments where size is a variable, and a size letter is read only from a clause that says 'size', because a bare s, m or l is one of the commonest characters in a pattern listing and a matcher that read '1200 m' of yarn as a size range would manufacture the weakness it was written to find. A bundle is read from the incumbent's own title. Every one of these is measured only where it has been observed: an unread description is excluded, never counted unclear, because our backlog is not their weakness, and the description backfill reaches unchanged listings for no extra request so the whole map closes on one scan. The two the requirement names that no text can answer -- branding coherence and whether the styling looks like this year -- are reported under needs_vision with what they would need, rather than dropped from the list so it could be called complete. score_observed() closes the other half: score_market() was correct arithmetic that had never been called with anything, which is the same defect as a credential nobody has used. It now feeds the four dimensions first-party observation genuinely supports -- demand from observed favourites, the opening in the incumbents' offers from the weakness hunt, what the market charges from observed prices, and machine-verifiability from the share of the department's observed forms the compiler can build -- which is 52% of the weight, above the floor and comparable across departments because every department is scored from the same source. Demand and price are each a department's median against the strongest department in the one catalogue observed, and are named as relative wherever they surface, because there is no absolute scale for either that this company can reach. Listing density stays unmeasured rather than being taken from a single shop's shelf space; season timing belongs to a chosen occasion; differentiation is a claim about us; support burden and expected contribution need orders. A department with fewer than five observed listings is not scored, because two medians are two sellers' decisions. Remaining: weak branding and stale aesthetics, plus listing density, which needs search-result pages rather than one shop's shelf space. Parked on rendered_pages -- Etsy exposes no sanctioned endpoint for search results or Marketplace Insights, so these need a page rendered as a buyer sees it. Split out of browser_vision on 2026-09-20, because the photograph half of that gate needs no browser and this half does. /api/arbitrage?pod= and /api/arbitrage/departments.",
+    "note": "radar/arbitrage.py scores a micro-market on the nine dimensions the requirement names, and an unmeasured dimension leaves the arithmetic and is named rather than being filled with a neutral value that keeps the number's shape and loses its meaning. Each score carries the share of its weight that was measured; below 40% it is reported and never ranked; and markets scored more than 15 points apart in confidence are refused a ranking outright, because a caveat is read once and a ranking is read every week. The requirement's own weakness list is eight items and all eight are now accounted for. Thin media closed 2026-09-19 with the benchmark credential: 413 of 438 observed listings carry fewer than five images. Video and recurring complaints closed 2026-09-20 from endpoints already in the sanctioned allowlist -- the deep audit records has_video per listing, and mjs.reviews reads the shop's reviews weekly and counts recurring themes, counts only, never a review's text, a reviewer or a quotation, with a floor of three because one customer's bad day is not a theme. Deliverable clarity, limited sizes and weak bundles closed the same day: intel/deliverable.py reads the listing description that was already arriving with every catalogue page and nothing was reading, and stores eight booleans -- whether the listing states its format, delivery, extent, contents, stitch terms, finished size, yarn and hook -- and a size count, never the seller's copy, on the same rule the review reader follows. Size is asked only of departments where size is a variable, and a size letter is read only from a clause that says 'size', because a bare s, m or l is one of the commonest characters in a pattern listing and a matcher that read '1200 m' of yarn as a size range would manufacture the weakness it was written to find. A bundle is read from the incumbent's own title. Every one of these is measured only where it has been observed: an unread description is excluded, never counted unclear, because our backlog is not their weakness, and the description backfill reaches unchanged listings for no extra request so the whole map closes on one scan. The two the requirement names that no text can answer -- branding coherence and whether the styling looks like this year -- are reported under needs_vision with what they would need, rather than dropped from the list so it could be called complete. score_observed() closes the other half: score_market() was correct arithmetic that had never been called with anything, which is the same defect as a credential nobody has used. It now feeds the four dimensions first-party observation genuinely supports -- demand from observed favourites, the opening in the incumbents' offers from the weakness hunt, what the market charges from observed prices, and machine-verifiability from the share of the department's observed forms the compiler can build -- which is 52% of the weight, above the floor and comparable across departments because every department is scored from the same source. Demand and price are each a department's median against the strongest department in the one catalogue observed, and are named as relative wherever they surface, because there is no absolute scale for either that this company can reach. Listing density stays unmeasured rather than being taken from a single shop's shelf space; season timing belongs to a chosen occasion; differentiation is a claim about us; support burden and expected contribution need orders. A department with fewer than five observed listings is not scored, because two medians are two sellers' decisions. Remaining: weak branding and stale aesthetics, plus listing density, which needs search-result pages rather than one shop's shelf space. Parked on rendered_pages -- Etsy exposes no sanctioned endpoint for search results or Marketplace Insights, so these need a page rendered as a buyer sees it. Split out of browser_vision on 2026-09-20, because the photograph half of that gate needs no browser and this half does. /api/arbitrage?pod= and /api/arbitrage/departments. Re-audited 2026-09-27 (Build 2 closeout): The competitive-weakness half is now measured: weak_branding and stale_aesthetics are scored from recorded brand_coherence / aesthetic_currency vision observations (radar/arbitrage.py, tests/test_arbitrage.py). What remains is listing density, which needs Etsy search pages that return HTTP 403 to automated readers (rendered_pages, EXTERNAL-BLOCKED).",
     "parked_on": "rendered_pages",
     "section": "Core commercial upgrades",
     "status": "partial",
@@ -98,7 +98,7 @@
   {
     "body": "Treat the first 100 legitimate buyers as a deliberate validation cohort. Track acquisition source, search term where available, product, price, conversion context, support issue, refund, review, repeat purchase and cross-sell. The goal is to discover what real Brambleloop buyers value and which acquisition loops repeat.",
     "id": 11,
-    "note": "needs real customers; schema and cohort machinery buildable now",
+    "note": "needs real customers; schema and cohort machinery buildable now Re-audited 2026-09-27 (Build 2 closeout): commerce/cohorts.py builds Customer/Order tables and cohort metrics that refuse below a stated minimum n (tests/test_cohorts.py); order data needs customers and the transactions_r scope.",
     "section": "Core commercial upgrades",
     "status": "data_gated",
     "title": "First 100 Customers Program",
@@ -107,7 +107,7 @@
   {
     "body": "Track first product, subsequent purchases, category affinity, time to repeat, AOV and lifetime contribution where platform/data rules permit. Segment owned audiences by demonstrated interest. Optimize customer lifetime contribution, not only single-listing revenue.",
     "id": 12,
-    "note": "needs real customers; schema and cohort machinery buildable now",
+    "note": "needs real customers; schema and cohort machinery buildable now Re-audited 2026-09-27 (Build 2 closeout): LTV and cohort arithmetic exist and refuse below minimum n (commerce/cohorts.py, commerce/ladder.py; tests/test_cohorts.py).",
     "section": "Core commercial upgrades",
     "status": "data_gated",
     "title": "Customer LTV and Cohorts",
@@ -214,7 +214,7 @@
   {
     "body": "Learn baselines for CTR, conversion, contribution per visitor, refund/support rate and paid CAC. Weak CTR -> thumbnail/title intervention. Strong CTR/weak conversion -> offer/trust/price. Strong conversion/low traffic -> distribution investment. High sales/high support -> QA before scaling. Learn thresholds from real data.",
     "id": 23,
-    "note": "numeric scale/kill framework; thresholds need real baselines",
+    "note": "numeric scale/kill framework; thresholds need real baselines Re-audited 2026-09-27 (Build 2 closeout): commerce/kill_table.py routes weak CTR / weak conversion / low traffic / high support load deterministically with every threshold marked UNLEARNED (tests/test_kill_table.py); inputs need traffic and orders.",
     "section": "Core commercial upgrades",
     "status": "data_gated",
     "title": "Numeric Scale/Kill Framework",
@@ -381,22 +381,24 @@
   {
     "body": "Design digital-product messaging to prevent mistaken purchases: prominent 'DIGITAL CROCHET PATTERN — NOT A FINISHED ITEM', skill level, required materials, terminology and download/support instructions. Track confusion-driven contacts/refunds as a conversion-quality defect. Customer Experience prioritizes resolution before Etsy's case window where applicable.",
     "id": 41,
-    "note": "six closed purchase-protecting disclosures with the digital-not-finished one required in the title, and confusion contacts counted as a listing defect rather than a cost of doing business Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: commerce/buyer_trust.py (tests: tests/test_buyer_trust.py). Gap: disclosure_check() and confusion_rate() have no caller in the listing or support path, and nothing implements 'resolve before Etsy's case window'. Reclassified partial; the remaining work is executable.",
+    "note": "six closed purchase-protecting disclosures with the digital-not-finished one required in the title, and confusion contacts counted as a listing defect rather than a cost of doing business Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: commerce/buyer_trust.py (tests: tests/test_buyer_trust.py). Gap: disclosure_check() and confusion_rate() have no caller in the listing or support path, and nothing implements 'resolve before Etsy's case window'. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): disclosure_check runs on every listing draft (a missing owed disclosure is audited as listing.disclosure_finding) and confusion_rate feeds support readings; the case-window deadline is UNKNOWN because no recorded policy reading states a day count, and nothing computes one.",
     "section": "Adversarial commercial + policy audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Refund / Chargeback / Case Prevention",
     "version": "v1.3.2",
-    "proof": "commerce/buyer_trust.py tests/test_buyer_trust.py"
+    "proof": "commerce/buyer_trust.py runtime/pipeline.py tests/test_trust_wiring.py tests/test_buyer_trust.py",
+    "parked_on": ""
   },
   {
     "body": "Every sold product maps order -> pattern_id -> purchased version -> current safe version. When a material correction occurs, identify affected buyers and prepare policy-compliant update communication. Support always answers against the buyer's version and can explain migration to the corrected version.",
     "id": 42,
-    "note": "VersionMap records order to purchased version at sale time, affected_by() names exactly which buyers a correction applies to, and correction_notice() prepares the communication without sending it Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: commerce/buyer_trust.py, support/concierge.py (tests: tests/test_buyer_trust.py). Gap: VersionMap is an in-memory dataclass with no table, no writer at sale time and no 'current safe version' column; nothing links an order to a version. Reclassified partial; the remaining work is executable.",
+    "note": "VersionMap records order to purchased version at sale time, affected_by() names exactly which buyers a correction applies to, and correction_notice() prepares the communication without sending it Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: commerce/buyer_trust.py, support/concierge.py (tests: tests/test_buyer_trust.py). Gap: VersionMap is an in-memory dataclass with no table, no writer at sale time and no 'current safe version' column; nothing links an order to a version. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the order path (cohorts.record_order) writes the version a buyer received into the order_versions table at sale time; the concierge answers 'which version did I buy' from it and correction_notice reads affected buyers from it. The table is non-rederivable in continuity.",
     "section": "Adversarial commercial + policy audit",
-    "status": "partial",
+    "status": "covered",
     "title": "Pattern Version Delivery System",
     "version": "v1.3.2",
-    "proof": "commerce/buyer_trust.py support/concierge.py tests/test_buyer_trust.py"
+    "proof": "commerce/buyer_trust.py commerce/cohorts.py support/concierge.py tests/test_trust_wiring.py",
+    "parked_on": ""
   },
   {
     "body": "Treat physical testing as a schedulable constrained resource. Forecast upcoming Class B/C testing demand, maintain tester reliability/specialty scores, avoid one tester becoming a bottleneck, and schedule seasonal products early enough that physical QA does not miss the making window.",
@@ -620,11 +622,13 @@
   {
     "body": "Before release, compare the listing set against a current sample of strong products in the same micro-market on measurable dimensions: finished-result clarity, thumbnail stop-power, proof, information density, consistency, video/support proposition and visual polish. Do not copy competitor creative; use the benchmark to reject obviously substandard presentation.",
     "id": 67,
-    "note": "competitive creative benchmark needs browser/vision",
+    "note": "competitive creative benchmark needs browser/vision Closed 2026-09-27 (Build 2 closeout): a dated category-matched benchmark set per pod (intel/benchmark_set.py, refuses below its stated minimum) and a deterministic comparison of our listing set against it on the recorded vision vocabulary (creative/blind_review.py); parity blocks release on inferior or unknown. This runs on the sanctioned API + image-vision path, which is open -- no rendered page is needed.",
     "section": "Visual asset production audit",
-    "status": "owner_gated",
+    "status": "covered",
     "title": "Competitive Creative Benchmark",
-    "version": "v1.3.3"
+    "version": "v1.3.3",
+    "parked_on": "",
+    "proof": "intel/benchmark_set.py creative/blind_review.py visual/parity.py tests/test_benchmark_set.py tests/test_blind_review.py"
   },
   {
     "body": "Track clipping, confusing dimensions, misleading visualization, weak hero, unreadable chart and redundant frames as named defect classes. Every production-discovered visual defect gets a regression fixture, just like compiler defects. Asset-system quality should improve monotonically rather than rediscovering the same layout failures.",
@@ -656,11 +660,13 @@
   {
     "body": "Brambleloop does not ship customer-facing listing creative that is materially weaker than the strongest current listings in the same Etsy micro-market. Technical correctness, completed rendering, or internal approval does not satisfy this gate. If a blind side-by-side review would make Brambleloop look amateur, synthetic, confusing or obviously inferior, the listing remains blocked.",
     "id": 71,
-    "note": "creative parity gate needs current benchmark evidence (browser)",
+    "note": "creative parity gate needs current benchmark evidence (browser) Closed 2026-09-27 (Build 2 closeout): the competitive blind review writes the creative.blind_review verdict parity reads before store.publish; materially inferior or unknown blocks the listing. Technical correctness alone cannot pass it.",
     "section": "Creative parity + model hard gate",
-    "status": "owner_gated",
+    "status": "covered",
     "title": "Creative Parity Is a Release-Blocking Gate",
-    "version": "v1.3.4"
+    "version": "v1.3.4",
+    "parked_on": "",
+    "proof": "creative/blind_review.py visual/parity.py runtime/pipeline.py tests/test_blind_review.py tests/test_parity.py"
   },
   {
     "body": "For appropriate wearables and model-led accessories, the approved fictional Brambleloop adult model is mandatory in the customer-facing gallery unless Policy Gate or product context specifically rules it out. Maintain one recognizable identity across listings: stable facial structure, light eyes, dark brunette hair, approximate age, proportions and editorial character. Wardrobe, pose, season and environment may vary. Material identity drift is a QA failure.",
@@ -706,11 +712,13 @@
   {
     "body": "Creative Director maintains a dated benchmark set from strong legitimate listings in each target micro-market. Wearables compare with wearables; mosaic blankets with comparable blankets; amigurumi with comparable amigurumi. Benchmark dimensions include thumbnail clarity, realism, styling, crop, lighting, product prominence, gallery storytelling, information cards, video/support proposition and brand consistency. Learn standards, never copy protected expression.",
     "id": 76,
-    "note": "benchmark set must be current; needs browser/vision",
+    "note": "benchmark set must be current; needs browser/vision Closed 2026-09-27 (Build 2 closeout): the Creative Director's benchmark set is dated, per pod (wearables with wearables), carries the named dimensions from recorded observations and refuses a thin set.",
     "section": "Creative parity + model hard gate",
-    "status": "owner_gated",
+    "status": "covered",
     "title": "Benchmark Set Must Be Current and Category-Matched",
-    "version": "v1.3.4"
+    "version": "v1.3.4",
+    "parked_on": "",
+    "proof": "intel/benchmark_set.py tests/test_benchmark_set.py"
   },
   {
     "body": "The autonomous system may not lower the visual standard because an asset was AI-assisted. If the available generator cannot achieve benchmark quality and product truth simultaneously, route to a stronger permitted model/tool, change the composition, use deterministic/physical proof, or block the asset. 'Best the current model could do' is not a release criterion.",
@@ -754,12 +762,13 @@
   {
     "body": "When Creative Parity fails: regenerate with constrained brief -> change composition/environment -> change permitted image model/tool -> use stronger deterministic representation -> acquire tester/physical proof -> hold listing. Never solve a failed parity gate by relaxing the threshold.",
     "id": 81,
-    "note": "six-rung escalation ladder in cost order, ending at hold_listing. Lowering the standard is not a rung, and the exhausted case says so explicitly: #77 is that the bar does not drop because an asset was AI-assisted, so the remaining option is not to publish. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: visual/gallery.py, visual/parity.py (tests: tests/test_visual.py, tests/test_departments.py). Gap: gallery.escalate() has no caller; a failed parity gate goes straight to blocks_release, so rungs 1-5 (regenerate, recompose, change tool, deterministic render, physical proof) are never attempted. Reclassified partial; the remaining work is executable.",
+    "note": "six-rung escalation ladder in cost order, ending at hold_listing. Lowering the standard is not a rung, and the exhausted case says so explicitly: #77 is that the bar does not drop because an asset was AI-assisted, so the remaining option is not to publish. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: visual/gallery.py, visual/parity.py (tests: tests/test_visual.py, tests/test_departments.py). Gap: gallery.escalate() has no caller; a failed parity gate goes straight to blocks_release, so rungs 1-5 (regenerate, recompose, change tool, deterministic render, physical proof) are never attempted. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): a failed parity dimension walks the escalation ladder as a recorded plan: generation rungs recorded as gated on image_generation, physical proof on physical_proof, the deterministic render taken when available; gated rungs are never executed here, and release stays blocked.",
     "section": "Creative parity + model hard gate",
-    "status": "partial",
+    "status": "covered",
     "title": "Creative Failure Escalation Ladder",
     "version": "v1.3.4",
-    "proof": "visual/gallery.py visual/parity.py tests/test_visual.py tests/test_departments.py"
+    "proof": "visual/gallery.py visual/parity.py tests/test_gallery_escalation.py",
+    "parked_on": ""
   },
   {
     "body": "After launch, measure search-grid CTR, first-frame engagement where available, listing conversion and creative experiment outcomes by asset style. High-performing creative patterns become brand knowledge, but performance never overrides Product Truth, policy or identity continuity. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.5 - Creativity Engine + Autonomous Continuous Improvement Added after comparing early generated concepts with current market creative. This upgrade makes product desirability a pre-engineering gate and establishes a permanent, controlled self-improvement organization so Brambleloop compounds knowledge and capability instead of remaining static.",
@@ -792,21 +801,24 @@
   {
     "body": "Create a Creativity Director responsible for concept quality, plus independent critic agents that attack sameness, genericness, weak emotional appeal, derivative thinking, poor thumbnail potential and unnecessary complexity. The proposing agent may not be the sole judge of its own concept. Jury feedback becomes structured training memory for future ideation.",
     "id": 85,
-    "note": "six independent critics attacking sameness, genericness, weak emotional appeal, derivative thinking, thumbnail potential and unnecessary complexity. Each can only reject -- a scoring jury averages the fatal objection away, the same arithmetic mistake as averaging the confidence ladder. One rejection ends the concept. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: creative/jury.py, creative/tournament.py, creative/audit.py (tests: tests/test_creative.py). Gap: No Creativity Director component exists; creative/audit.autopsy() is computed per request and never persisted, so jury feedback does not become training memory. Reclassified partial; the remaining work is executable.",
+    "note": "six independent critics attacking sameness, genericness, weak emotional appeal, derivative thinking, thumbnail potential and unnecessary complexity. Each can only reject -- a scoring jury averages the fatal objection away, the same arithmetic mistake as averaging the confidence ladder. One rejection ends the concept. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: creative/jury.py, creative/tournament.py, creative/audit.py (tests: tests/test_creative.py). Gap: No Creativity Director component exists; creative/audit.autopsy() is computed per request and never persisted, so jury feedback does not become training memory. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the Creativity Director persists jury autopsies as routed Lessons (self-judged fields refused as memory) and the creative brief reads them back with design provenance recorded.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Creativity Director + Adversarial Creative Jury",
     "version": "v1.3.5",
-    "proof": "creative/jury.py creative/tournament.py creative/audit.py tests/test_creative.py"
+    "proof": "creative/audit.py improve/mine.py creative/reference.py tests/test_mine.py tests/test_improve_handlers.py",
+    "parked_on": ""
   },
   {
     "body": "Continuously study legitimate current market examples across categories to learn abstract commercial attributes: clever transformation, strong silhouette, recognisable motif, cute characterisation, premium minimalism, gift narrative, modularity, low-sew appeal, surprising function and collection logic. Store attributes and outcomes, not copied protected expression.",
     "id": 86,
-    "note": "creativity benchmark memory; needs market observation",
+    "note": "creativity benchmark memory; needs market observation Closed 2026-09-27 (Build 2 closeout): the observation vocabulary now records the abstract commercial attributes the body names (transformation, characterisation, minimalism, gift narrative, modularity, brand coherence, aesthetic currency) from legitimate current listings, stored as attributes -- never copied expression -- and linked to outcomes through intel/learning; outcomes for our own products arrive with sales.",
     "section": "Creativity engine + continuous improvement",
-    "status": "owner_gated",
+    "status": "covered",
     "title": "Creativity Benchmark Memory",
-    "version": "v1.3.5"
+    "version": "v1.3.5",
+    "parked_on": "",
+    "proof": "intel/vision.py intel/mechanisms.py intel/learning.py tests/test_learning.py tests/test_arbitrage.py"
   },
   {
     "body": "Before engineering, compare a candidate against observed competitor concepts and Brambleloop's own catalogue. Reject near-clones, trivial recolours and ideas whose primary appeal depends on reproducing another seller's distinctive expression. Require a defensible Brambleloop creative contribution.",
@@ -849,32 +861,33 @@
   {
     "body": "Each major department receives an improvement cell: Product Creativity, Pattern Engineering, QA, Market Radar, Pricing, Creative Assets, SEO/Search, Growth/Ads, Customer Experience, Portfolio, Finance and Runtime. Cells maintain their own defect/opportunity backlog, experiments, baselines and improvement history while a central Improvement Director prevents conflicting local optimizations.",
     "id": 91,
-    "note": "twelve cells, one per department, each owning a single metric AND the statement of where the number comes from -- a rating a cell assigns itself is not a measurement, so every cell names its source in rows. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: improve/cells.py, improve/governance.py (tests: tests/test_improve.py). Gap: No per-cell backlog/experiment set and no Improvement Director logic detecting conflicting local optimisations; governance only protects named gates. Reclassified partial; the remaining work is executable.",
+    "note": "twelve cells, one per department, each owning a single metric AND the statement of where the number comes from -- a rating a cell assigns itself is not a measurement, so every cell names its source in rows. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: improve/cells.py, improve/governance.py (tests: tests/test_improve.py). Gap: No per-cell backlog/experiment set and no Improvement Director logic detecting conflicting local optimisations; governance only protects named gates. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): per-cell backlogs and experiments, and an Improvement Director that blocks both sides of a conflict (shared surface or opposed metrics) until someone who proposed neither resolves it.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Department Improvement Cells",
     "version": "v1.3.5",
-    "proof": "improve/cells.py improve/governance.py tests/test_improve.py"
+    "proof": "improve/director.py improve/cells.py tests/test_improve_director.py",
+    "parked_on": ""
   },
   {
     "body": "Self-improvement follows a controlled loop: observe evidence -> identify constraint -> form explicit hypothesis -> implement in sandbox/branch -> run regression/adversarial tests -> compare against baseline -> promote if better -> monitor -> rollback if worse -> record lesson. Production code/prompts/rules may not self-modify blindly.",
     "id": 92,
-    "note": "observe -> hypothesise -> sandbox -> test -> promote -> monitor. The baseline is captured at proposal time, never after: a result compared against a number measured afterwards is compared with itself, which makes every promotion a success and the loop decorative. A first measurement becomes the baseline rather than a win.",
+    "note": "observe -> hypothesise -> sandbox -> test -> promote -> monitor. The baseline is captured at proposal time, never after: a result compared against a number measured afterwards is compared with itself, which makes every promotion a success and the loop decorative. A first measurement becomes the baseline rather than a win. Strengthened 2026-09-27 (Build 2 closeout): proposer, approver and promoter are separate roles in code (cells.approve refuses the proposer; promote enforces separation of duties) and the self-review queue persists real proposals.",
     "section": "Creativity engine + continuous improvement",
     "status": "covered",
     "title": "Learn -> Hypothesize -> Sandbox -> Test -> Promote Loop",
     "version": "v1.3.5",
-    "proof": "improve/cells.py tests/test_improve.py"
+    "proof": "improve/cells.py tests/test_improve.py improve/cells.py improve/profiles.py tests/test_improve_director.py"
   },
   {
     "body": "Every promoted improvement stores previous version, test evidence, expected metric effect and rollback path. If post-promotion quality, cost, reliability, policy compliance or commercial KPI materially degrades, automatically revert within defined authority. Safety/policy/financial gates cannot be weakened by the learning system.",
     "id": 93,
-    "note": "a rollback reference is required before a hypothesis can be recorded, and monitor() reverts a degrading promotion automatically rather than escalating it -- a regression that waits to be agreed is a regression that stays deployed over a weekend. The post-promotion observation is kept either way.",
+    "note": "a rollback reference is required before a hypothesis can be recorded, and monitor() reverts a degrading promotion automatically rather than escalating it -- a regression that waits to be agreed is a regression that stays deployed over a weekend. The post-promotion observation is kept either way. Strengthened 2026-09-27 (Build 2 closeout): monitor reverts a promoted change that reads below its baseline, opens an idempotent improve-rollback incident and publishes a lesson.",
     "section": "Creativity engine + continuous improvement",
     "status": "covered",
     "title": "Immutable Baselines and Automatic Rollback",
     "version": "v1.3.5",
-    "proof": "improve/cells.py tests/test_improve.py"
+    "proof": "improve/cells.py tests/test_improve.py improve/monitor.py improve/cells.py tests/test_improve_handlers.py"
   },
   {
     "body": "Track creative capability over time using blinded human/agent benchmark comparisons, concept diversity, novelty distance, desirability scores, percentage of concepts surviving the tournament, market CTR/conversion, winner rate and repeated-theme fatigue. The objective is demonstrable improvement in idea quality, not simply more generated ideas.",
@@ -897,12 +910,12 @@
   {
     "body": "Version every material prompt, model, tool and decision policy. Record why it changed, tests, cost, measured outcome and affected departments. Improvement agents may recommend switching providers/tools when evidence supports it, subject to existing owner spend/credential gates.",
     "id": 96,
-    "note": "ConfigVersion records every prompt, model, tool and policy version with why it changed, the tests run, its cost and the departments it affects; an incumbent with no measured outcome is reported as running because it was first",
+    "note": "ConfigVersion records every prompt, model, tool and policy version with why it changed, the tests run, its cost and the departments it affects; an incumbent with no measured outcome is reported as running because it was first Strengthened 2026-09-27 (Build 2 closeout): the routing incumbents and the image-provider incumbent are registered idempotently; no challenger runs, so nothing spends.",
     "section": "Creativity engine + continuous improvement",
     "status": "covered",
     "title": "Prompt / Model / Tool Evolution Registry",
     "version": "v1.3.5",
-    "proof": "improve/league.py core/models.py tests/test_league.py"
+    "proof": "improve/league.py core/models.py tests/test_league.py improve/bootstrap.py improve/league.py tests/test_league.py"
   },
   {
     "body": "A lesson discovered in one department must be routable to others. Example: customers strongly prefer low-sew construction -> Market Radar scores low-sew opportunities higher, Creativity explores low-sew concepts, Pattern Engineering prioritizes suitable primitives, Listings surface the benefit, and Support tracks whether it reduces confusion.",
@@ -934,12 +947,13 @@
   {
     "body": "On a scheduled cadence, the Improvement Director produces an internal machine-readable retrospective: what improved, what regressed, what was learned, current bottleneck, experiments completed, experiments killed, department health, top next upgrades and STOP-doing list. It should execute approved low-risk improvements rather than merely write reports.",
     "id": 100,
-    "note": "the weekly retrospective reports what regressed as prominently as what improved, names the bottleneck, and counts the cells that have no measurement at all -- improvement in those is unclaimable rather than unproven. Scheduled as a weekly cadence. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: improve/cells.py, runtime/release.py, runtime/worker.py (tests: tests/test_improve.py). Gap: retrospective() has no STOP-doing list, no top-next-upgrades, no experiments completed/killed; the weekly handler executes nothing. Reclassified partial; the remaining work is executable.",
+    "note": "the weekly retrospective reports what regressed as prominently as what improved, names the bottleneck, and counts the cells that have no measurement at all -- improvement in those is unclaimable rather than unproven. Scheduled as a weekly cadence. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: improve/cells.py, runtime/release.py, runtime/worker.py (tests: tests/test_improve.py). Gap: retrospective() has no STOP-doing list, no top-next-upgrades, no experiments completed/killed; the weekly handler executes nothing. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the retrospective carries experiments completed/killed, a stop-doing list, top next upgrades, what was learned and department health; the weekly handler executes only scoring-tier changes that are tested and independently approved, and queues the rest for authority.",
     "section": "Creativity engine + continuous improvement",
-    "status": "partial",
+    "status": "covered",
     "title": "Weekly Autonomous Business Retrospective",
     "version": "v1.3.5",
-    "proof": "improve/cells.py runtime/release.py runtime/worker.py tests/test_improve.py"
+    "proof": "improve/cells.py improve/director.py runtime/release.py tests/test_improve_handlers.py tests/test_improve_director.py",
+    "parked_on": ""
   },
   {
     "body": "Brambleloop must not repeatedly start from generic model intelligence. Persist structured lessons from every product, competitor scan, experiment, incident, support case and sale. New designs should demonstrably use accumulated Brambleloop knowledge while remaining original. The expected creative bar rises as the evidence base grows.",
@@ -1169,11 +1183,13 @@
   {
     "body": "Before CIR engineering for expensive concepts and again before release, render concept boards/thumbnails into a simulated Etsy-style grid beside a current category-matched benchmark set with seller/review signals hidden. Independent judges rank attention, comprehension, desire and distinctiveness. Brambleloop must clear the defined threshold without brand favoritism.",
     "id": 126,
-    "note": "search-grid blind tournament; needs benchmark evidence",
+    "note": "search-grid blind tournament; needs benchmark evidence Closed 2026-09-27 (Build 2 closeout): the search-grid tournament renders a seeded, blinded Etsy-style grid of our renders beside the category-matched benchmark thumbnails with seller/review signals hidden, and an independent panel of three vision judges ranks attention, comprehension, desire and distinctiveness (median; each judge in its own order; a silent judge leaves the grid unjudged); the grid clears only above the threshold. Weekly cadence creative.grid_tournament, budget-checked before every call.",
     "section": "Deep seasonal creativity audit",
-    "status": "owner_gated",
+    "status": "covered",
     "title": "Search-Grid Blind Tournament",
-    "version": "v1.3.6"
+    "version": "v1.3.6",
+    "parked_on": "",
+    "proof": "creative/blinded.py runtime/release.py tests/test_blinded.py"
   },
   {
     "body": "Every rejected or underperforming concept receives a structured autopsy: generic form, weak silhouette, no emotional hook, over-saturated motif, poor function, too complex, wrong timing, weak thumbnail, derivative distance, or merchandising mismatch. These autopsies directly update future ideation constraints.",
@@ -1332,12 +1348,13 @@
   {
     "body": "Persist every observed signal, source/date, concept translations, rejected ideas, launch outcomes and decay curve. Future agents should know which cultural territories recur annually, which were one-week fads, which translated well into crochet, and which produced poor economics.",
     "id": 144,
-    "note": "culture_signals and culture_observations persist every signal, source, exit reason and lesson, are non-rederivable in the continuity export, and memory() names which territories recur annually Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: culture/radar.py, core/continuity.py, core/models.py (tests: tests/test_culture.py, tests/test_continuity.py). Gap: radar.memory() decides recurring_annually by first_seen age (300-400 days) alone, never by a second sighting. Reclassified partial; the remaining work is executable.",
+    "note": "culture_signals and culture_observations persist every signal, source, exit reason and lesson, are non-rederivable in the continuity export, and memory() names which territories recur annually Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: culture/radar.py, core/continuity.py, core/models.py (tests: tests/test_culture.py, tests/test_continuity.py). Gap: radar.memory() decides recurring_annually by first_seen age (300-400 days) alone, never by a second sighting. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): recurring_annually now needs a second sighting in a later year (300-400 days apart) and returns the evidence; a single old sighting is 'seen once'.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Cultural Trend Memory",
     "version": "v1.3.7",
-    "proof": "culture/radar.py core/continuity.py core/models.py tests/test_culture.py tests/test_continuity.py"
+    "proof": "culture/radar.py tests/test_culture.py",
+    "parked_on": ""
   },
   {
     "body": "Do not keep producing into a cultural trend after the window closes. Detect declining search momentum, rising copycat density, poor CTR/conversion or insufficient remaining make-time. Shift capacity to the next seasonal/cultural wave and record the exit lesson.",
@@ -1614,32 +1631,35 @@
   {
     "body": "Do not impose an arbitrary small-agent architecture. The system may use dozens or hundreds of logical specialist agents/cells when parallel specialization improves quality, coverage or speed. Agent count is not a success metric: each agent must have a defined responsibility, inputs, outputs, authority, budget, quality metric and retirement condition.",
     "id": 174,
-    "note": "fan-out is bounded by spend rather than by a headcount constant -- the ceiling that matters is money, and a number in the code is exactly the artificial scarcity this requirement objects to. 400 items of open work justifies fifty specialists at CA$25 remaining and eight at CA$0.40. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py, agents/registry.py (tests: tests/test_swarm.py, tests/test_access.py). Gap: Agents carry responsibility, job types, authority and budget but no quality metric or retirement condition; fan_out() yields a number nothing acts on. Reclassified partial; the remaining work is executable.",
+    "note": "fan-out is bounded by spend rather than by a headcount constant -- the ceiling that matters is money, and a number in the code is exactly the artificial scarcity this requirement objects to. 400 items of open work justifies fifty specialists at CA$25 remaining and eight at CA$0.40. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py, agents/registry.py (tests: tests/test_swarm.py, tests/test_access.py). Gap: Agents carry responsibility, job types, authority and budget but no quality metric or retirement condition; fan_out() yields a number nothing acts on. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): every agent has a quality metric (success rate from job outcomes, 30-day window) and a retirement condition, evaluated by the swarm.review cadence; retirement is a recommendation, never automatic.",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "partial",
+    "status": "covered",
     "title": "Agent Abundance, Not Artificial Scarcity",
     "version": "v1.3.9",
-    "proof": "swarm/orchestrate.py agents/registry.py tests/test_swarm.py tests/test_access.py"
+    "proof": "swarm/orchestrate.py agents/registry.py runtime/release.py tests/test_swarm_runtime.py",
+    "parked_on": ""
   },
   {
     "body": "Use an orchestrator to create or activate specialist workers based on queue depth, category, season, opportunity value and bottleneck. A large catalogue scan may fan out across many workers; quiet periods scale down. Prefer elastic logical agents over 500 permanently running paid processes when identical coverage can be achieved more reliably and cheaply.",
     "id": 175,
-    "note": "capacity is computed from queue depth and deadline pressure, so a catalogue baseline fans out and a quiet Tuesday does not. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py, intel/capacity.py (tests: tests/test_swarm.py, tests/test_mission.py). Gap: fan_out()/allocate() compute a headcount no orchestrator uses to create, activate or scale down workers; only capacity.describe() reads it. Reclassified partial; the remaining work is executable.",
+    "note": "capacity is computed from queue depth and deadline pressure, so a catalogue baseline fans out and a quiet Tuesday does not. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py, intel/capacity.py (tests: tests/test_swarm.py, tests/test_mission.py). Gap: fan_out()/allocate() compute a headcount no orchestrator uses to create, activate or scale down workers; only capacity.describe() reads it. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): swarm.allocate (hourly) sizes each agent's lane from work_that_fits and records a SwarmAllocation row; idle feeding respects inactive lanes; nothing spends.",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "partial",
+    "status": "covered",
     "title": "Elastic Agent Swarms",
     "version": "v1.3.9",
-    "proof": "swarm/orchestrate.py intel/capacity.py tests/test_swarm.py tests/test_mission.py"
+    "proof": "swarm/orchestrate.py runtime/release.py tests/test_swarm_runtime.py",
+    "parked_on": ""
   },
   {
     "body": "Every material task, defect, opportunity, benchmark, listing, experiment, customer issue and improvement must have an accountable agent/cell and an explicit state. The orchestrator detects orphaned work and reassigns it. 'Everyone has a job' is enforced through ownership records, not assumed.",
     "id": 176,
-    "note": "orphans() is a query with a name rather than a report somebody remembers to run, because unowned work is precisely the work nobody is watching. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py (tests: tests/test_swarm.py). Gap: orphans() has no caller and no WorkItem is built from Job, Incident or Improvement rows, so ownership is not enforced over real work. Reclassified partial; the remaining work is executable.",
+    "note": "orphans() is a query with a name rather than a report somebody remembers to run, because unowned work is precisely the work nobody is watching. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py (tests: tests/test_swarm.py). Gap: orphans() has no caller and no WorkItem is built from Job, Incident or Improvement rows, so ownership is not enforced over real work. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): swarm.orphans builds WorkItems from Job, Incident and Improvement rows; misrouted work moves only to a GREEN agent holding the permission, otherwise it becomes a P2 incident with evidence; idempotent.",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "partial",
+    "status": "covered",
     "title": "No Unowned Work",
     "version": "v1.3.9",
-    "proof": "swarm/orchestrate.py tests/test_swarm.py"
+    "proof": "swarm/orchestrate.py runtime/release.py tests/test_swarm_runtime.py",
+    "parked_on": ""
   },
   {
     "body": "Each agent/cell maintains a versioned capability profile: objective, baseline metrics, mistakes, lessons, successful tactics, rejected tactics, current prompt/policy/tool versions and challenger experiments. Agents regularly review their own outcomes and propose evidence-backed improvements.",
@@ -1728,22 +1748,24 @@
   {
     "body": "When no urgent queue exists, agents should not sit idle merely to satisfy a 24/7 slogan. They should consume a prioritized backlog: market research, competitor change detection, creative tournaments, benchmark analysis, catalogue QA, SEO experiments, learning replays, documentation, cost optimization and improvement experiments. Avoid pointless token-burning loops.",
     "id": 186,
-    "note": "an idle agent takes the highest-value standing backlog item rather than polling to look alive, which spends money to produce a heartbeat, or stopping, which makes the 24/7 claim false. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py (tests: tests/test_swarm.py). Gap: next_work() is called only with an empty list for a console field; the worker never consumes STANDING_BACKLOG when idle. Reclassified partial; the remaining work is executable.",
+    "note": "an idle agent takes the highest-value standing backlog item rather than polling to look alive, which spends money to produce a heartbeat, or stopping, which makes the 24/7 claim false. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py (tests: tests/test_swarm.py). Gap: next_work() is called only with an empty list for a console field; the worker never consumes STANDING_BACKLOG when idle. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): swarm.backlog enqueues standing-backlog items only when the queue is idle: at most two per tick, GREEN only, never spending.",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "partial",
+    "status": "covered",
     "title": "Work-Conserving Autonomy",
     "version": "v1.3.9",
-    "proof": "swarm/orchestrate.py tests/test_swarm.py"
+    "proof": "swarm/orchestrate.py runtime/release.py tests/test_swarm_runtime.py",
+    "parked_on": ""
   },
   {
     "body": "Allocate autonomous capacity by expected business value and deadlines: customer incidents and truth defects first; imminent seasonal windows next; proven high-value product opportunities; listing/creative bottlenecks; experiments; background research. Prevent 500 low-value agents from starving one critical release.",
     "id": 187,
-    "note": "eight priority bands, and a band is never traded away for value: a CA$5,000 opportunity with a one-day deadline does not outrank a customer incident. Deadline and value decide within a band only. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py (tests: tests/test_swarm.py). Gap: WorkItem/schedule() are never constructed from the runtime queue; Job.priority is 50 or 100 by cadence period, not the eight bands. Reclassified partial; the remaining work is executable.",
+    "note": "eight priority bands, and a band is never traded away for value: a CA$5,000 opportunity with a one-day deadline does not outrank a customer incident. Deadline and value decide within a band only. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py (tests: tests/test_swarm.py). Gap: WorkItem/schedule() are never constructed from the runtime queue; Job.priority is 50 or 100 by cadence period, not the eight bands. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): every job type maps to one of the eight priority bands and the scheduler enqueues at priority_for(job_type) instead of 50/100 by cadence period.",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "partial",
+    "status": "covered",
     "title": "Priority Scheduler",
     "version": "v1.3.9",
-    "proof": "swarm/orchestrate.py tests/test_swarm.py"
+    "proof": "swarm/orchestrate.py runtime/worker.py tests/test_swarm_runtime.py tests/test_persistence.py",
+    "parked_on": ""
   },
   {
     "body": "Large swarms require centralized budget control. Track cost per agent, task, product, department and experiment; enforce daily/monthly ceilings, anomaly detection and marginal-value thresholds. Scale parallelism up when it materially improves throughput/quality and down when it only duplicates work.",
@@ -1784,12 +1806,13 @@
   {
     "body": "More agents are allowed, but redundant or consistently weak agents are merged, retrained or retired. Preserve useful specialist knowledge before retirement. This prevents organizational bloat while keeping the owner's 'never too many specialists' principle focused on actual performance.",
     "id": 192,
-    "note": "retirement review merges redundant cells and retires idle ones, and every recommendation carries the lessons to preserve first -- discarding what a cell learned costs more than the cell did. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py, improve/weekly.py (tests: tests/test_swarm.py, tests/test_weekly.py). Gap: retirement_review() has no caller and the improve.weekly handler passes changes=[] to weekly.cycle, so no cell is ever merged or retired. Reclassified partial; the remaining work is executable.",
+    "note": "retirement review merges redundant cells and retires idle ones, and every recommendation carries the lessons to preserve first -- discarding what a cell learned costs more than the cell did. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: swarm/orchestrate.py, improve/weekly.py (tests: tests/test_swarm.py, tests/test_weekly.py). Gap: retirement_review() has no caller and the improve.weekly handler passes changes=[] to weekly.cycle, so no cell is ever merged or retired. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the weekly handler calls retirement_review and feeds its merges/retirements to weekly.cycle as real proposals; recommendations only, nothing is retired automatically.",
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
-    "status": "partial",
+    "status": "covered",
     "title": "Agent Retirement / Merge Rule",
     "version": "v1.3.9",
-    "proof": "swarm/orchestrate.py improve/weekly.py tests/test_swarm.py tests/test_weekly.py"
+    "proof": "improve/director.py swarm/orchestrate.py runtime/release.py tests/test_improve_handlers.py",
+    "parked_on": ""
   },
   {
     "body": "At least once per day, run a broad improvement cycle across departments: ingest new evidence, mine failures, update candidate lessons, run challenger evaluations, identify bottlenecks, queue safe improvements and produce a machine-readable delta. Critical learning can happen sooner; nightly is the minimum comprehensive sweep.",
@@ -2029,11 +2052,13 @@
   {
     "body": "For relevant categories, place Brambleloop candidates beside current category-matched MJs benchmark evidence in a blinded comparison. Evaluate concept desirability, distinctiveness, product clarity, thumbnail strength, styling, apparent craftsmanship, giftability and purchase confidence. If Brambleloop looks obviously generic/amateur by comparison, return it to creative development rather than shipping.",
     "id": 218,
-    "note": "MJs challenge gate; needs MJs evidence",
+    "note": "MJs challenge gate; needs MJs evidence Closed 2026-09-27 (Build 2 closeout): Brambleloop candidates are compared blinded against current category-matched MJs evidence (the benchmark set is MJs pods) both deterministically (blind_review) and by the judged grid (#126); obviously inferior returns the product to development through parity's escalation ladder.",
     "section": "Voice session reconciliation (model + MJs)",
-    "status": "owner_gated",
+    "status": "covered",
     "title": "MJs Challenge Gate",
-    "version": "v1.4.0"
+    "version": "v1.4.0",
+    "parked_on": "",
+    "proof": "creative/blind_review.py creative/blinded.py visual/parity.py tests/test_blind_review.py tests/test_blinded.py"
   },
   {
     "body": "MJs is the anchor, not the only teacher. Maintain a changing elite panel including other category leaders and purchased Benchmark Library products. A category specialist should learn from the best available examples across sellers so Brambleloop can combine best-of-breed mechanisms and avoid overfitting to one shop's aesthetic.",
@@ -2065,7 +2090,7 @@
   {
     "body": "Prove end-to-end capability against the canonical benchmark: resolve shop URL; enumerate catalogue; open multiple listings; traverse gallery assets; capture visible listing text/commerce metadata; produce image-level observations; classify into specialist pods; persist evidence; detect a simulated/new change; and trigger a re-audit. Evidence must show each step actually occurred.",
     "id": 222,
-    "note": "the browser/vision acceptance test cannot run without the capability it tests; parked on the browser_vision gate",
+    "note": "the browser/vision acceptance test cannot run without the capability it tests; parked on the browser_vision gate Re-audited 2026-09-27 (Build 2 closeout): The API+vision runner exists and proves each step offline (intel/acceptance.py); whether it satisfies the 'browser/vision' wording needs a recorded owner decision, and the production run needs deployment.",
     "section": "Voice session reconciliation (model + MJs)",
     "status": "owner_gated",
     "title": "Browser/Vision Acceptance Test",
@@ -2203,7 +2228,7 @@
   {
     "body": "Connect Etsy Stats search terms and traffic sources to listing visits, orders, revenue, contribution, support/refund and repeat purchase where data permits. Keyword strategy should optimize profitable customers, not impressions alone.",
     "id": 237,
-    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats",
+    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats Re-audited 2026-09-27 (Build 2 closeout): commerce/attribution.py parses an owner-exported Etsy Stats CSV and joins it, refusing malformed rows (tests/test_benchmarks.py); needs the export.",
     "section": "CA$5K/month scale architecture",
     "status": "data_gated",
     "title": "Search-Term-to-P&L; Attribution",
@@ -2212,7 +2237,7 @@
   {
     "body": "Maintain conversion baselines by category, price band, traffic source, season, shop maturity and listing age. Diagnose listings against comparable cohorts. Etsy itself defines conversion as orders divided by visits and notes photos, price, reviews, titles/descriptions and policies can affect it; Brambleloop tests those factors systematically.",
     "id": 238,
-    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats",
+    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats Re-audited 2026-09-27 (Build 2 closeout): commerce/benchmarks.py cells carry season and listing-age axes (tests/test_benchmarks.py); need conversion data.",
     "section": "CA$5K/month scale architecture",
     "status": "data_gated",
     "title": "Conversion Cohort Benchmarks",
@@ -2221,7 +2246,7 @@
   {
     "body": "For each target micro-market, estimate available buyer demand from first-party/observed evidence, Brambleloop qualified impressions/visits, conversion and resulting revenue. Rank opportunities by expected incremental contribution from improving visibility, CTR, conversion or offer rather than by vanity rank.",
     "id": 239,
-    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats",
+    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats Re-audited 2026-09-27 (Build 2 closeout): opportunity share = arbitrage relative demand x our impressions, UNMEASURED without impressions (tests/test_benchmarks.py).",
     "section": "CA$5K/month scale architecture",
     "status": "data_gated",
     "title": "Search Share-of-Opportunity Dashboard",
@@ -2239,17 +2264,18 @@
   {
     "body": "Every important launch ships with a pre-registered experiment plan: hero variants, price hypothesis, title/tag strategy, bundle/cross-sell, content/Pinterest support and success/failure thresholds. Avoid changing many variables simultaneously without recording confounders.",
     "id": 241,
-    "note": "every launch ships four pre-registered experiments with hypothesis, metric, design, success and failure lines, minimum sample and stop date. An experiment with no sample floor is refused because it concludes on its first data point, and a concluded one cannot be fed more data until it says something nicer. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: growth/experiments.py (tests: tests/test_growth.py). Gap: launch_pack() has no caller in any launch path and experiments live in an in-memory dict; the content/Pinterest experiment the body lists is absent. Reclassified partial; the remaining work is executable.",
+    "note": "every launch ships four pre-registered experiments with hypothesis, metric, design, success and failure lines, minimum sample and stop date. An experiment with no sample floor is refused because it concludes on its first data point, and a concluded one cannot be fed more data until it says something nicer. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: growth/experiments.py (tests: tests/test_growth.py). Gap: launch_pack() has no caller in any launch path and experiments live in an in-memory dict; the content/Pinterest experiment the body lists is absent. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): experiments are persisted write-once with owner, expected value and the decision they can change; launch_pack is called by the growth.experiments cadence; the content/Pinterest experiment is a defined experiment gated on owned_surfaces.",
     "section": "CA$5K/month scale architecture",
-    "status": "partial",
+    "status": "covered",
     "title": "Listing Launch Experiment Pack",
     "version": "v1.4.1",
-    "proof": "growth/experiments.py tests/test_growth.py"
+    "proof": "growth/experiments.py runtime/release.py tests/test_experiment_persistence.py",
+    "parked_on": ""
   },
   {
     "body": "Where practical, obtain enough organic/owned traffic to estimate listing appeal before meaningful paid scaling. Ads can be used as bounded discovery, but a weak listing should not be hidden behind paid traffic. Etsy recommends allowing adequate time for Ads performance data; paid scaling decisions must respect attribution lag.",
     "id": 242,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): commerce/paid_media.may_scale requires a measured organic period before any scaling (tests/test_paid_media_economics.py); ad authority is the owner's.",
     "section": "CA$5K/month scale architecture",
     "status": "owner_gated",
     "title": "Organic-First Proof Before Heavy Ads",
@@ -2258,7 +2284,7 @@
   {
     "body": "Calculate allowable CAC from price, fees, expected refunds, discounts, repeat contribution and margin. Ads may scale only below a risk-adjusted CAC threshold with enough data. Maintain separate new-customer CAC, blended CAC and contribution after advertising.",
     "id": 243,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): scale/runrate.py computes new vs blended CAC and contribution after ads (tests/test_paid_media_economics.py); spend is owner-gated.",
     "section": "CA$5K/month scale architecture",
     "status": "owner_gated",
     "title": "Paid Acquisition Allowable CAC",
@@ -2267,7 +2293,7 @@
   {
     "body": "Track orders attributed to Etsy Offsite Ads separately because fee structure can materially change contribution. Use current Etsy fee/attribution rules rather than hardcoded assumptions, and incorporate any mandatory participation threshold into forecasting.",
     "id": 244,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): the Offsite Ads split imports gates/policy_knowledge READINGS['advertising_rules'] (15%/12% above US$10,000, US$100 cap, 30-day attribution) rather than restating it (tests/test_paid_media_economics.py); orders need the transactions_r scope.",
     "section": "CA$5K/month scale architecture",
     "status": "owner_gated",
     "title": "Offsite Ads Economics Guard",
@@ -2276,7 +2302,7 @@
   {
     "body": "Where Etsy's current Share & Save or successor program is available, compare economics of qualified traffic sent through eligible trackable links versus ordinary marketplace acquisition. Use only official program rules and measure net contribution after any fee benefit.",
     "id": 245,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): Share-and-Save fee-benefit arithmetic exists (tests/test_paid_media_economics.py); a test proves no commerce, runrate or leading module can enqueue or authorise ad spend.",
     "section": "CA$5K/month scale architecture",
     "status": "owner_gated",
     "title": "Share-and-Save / Direct-Link Economics",
@@ -2345,7 +2371,7 @@
   {
     "body": "Measure 30/60/90/180-day repeat rate by first product/category/season. Recommend relevant next projects, matching collections and future-season products. Customer lifetime contribution becomes a first-class growth metric.",
     "id": 252,
-    "note": "repeat purchase engine; needs customers",
+    "note": "repeat purchase engine; needs customers Re-audited 2026-09-27 (Build 2 closeout): commerce/repeat.py recommends next project/collection/season from the catalogue today; the purchase-window arithmetic refuses without orders (tests/test_repeat.py).",
     "section": "CA$5K/month scale architecture",
     "status": "data_gated",
     "title": "Repeat Purchase Engine",
@@ -2414,7 +2440,7 @@
   {
     "body": "During the first 100 customers, prioritize flawless downloads, rapid support, truthful expectations, defect prevention and post-purchase clarity. Do not sacrifice contribution irrationally, but treat early trust as a compounding asset.",
     "id": 259,
-    "note": "commerce/first_hundred.py reframes the sprint, and the reframing is the work. Read as written the requirement produces a plan that starts on the day of the first sale, and that is the wrong day for four of its five priorities. A flawless download is a property of the delivery path and the first buyer either gets the file or does not; truthful expectations are written into a listing before anybody reads it; defect prevention is the release chain, which runs before a product exists to sell; post-purchase clarity is a page and a file, either written or not. Only rapid support genuinely needs customers, because it is a response time and there is nothing to respond to yet. So four priorities are checkable today and are not waiting for anybody -- which matters because the alternative is comfortable: a plan beginning at the first sale lets all four sit unfinished while the shop feels prepared, and the first hundred customers are the review base, the repeat base and the proof base, each arriving exactly once. The sprint ends at a hundred, stated because a permanent sprint is just how the company works and calling it a sprint is how nobody asks when the extra cost stops. 'Do not sacrifice contribution irrationally' reads specifically: the sprint may spend support hours, sample costs and a slower release cadence, and may not spend the price -- a discount teaches the hundred buyers whose repeat behaviour matters most that the price is negotiable, and they are exactly the cohort the value ladder depends on. Remaining and parked on the customers gate: rapid support has nothing to respond to, and the four that do not need a customer are currently all unready.",
+    "note": "commerce/first_hundred.py reframes the sprint, and the reframing is the work. Read as written the requirement produces a plan that starts on the day of the first sale, and that is the wrong day for four of its five priorities. A flawless download is a property of the delivery path and the first buyer either gets the file or does not; truthful expectations are written into a listing before anybody reads it; defect prevention is the release chain, which runs before a product exists to sell; post-purchase clarity is a page and a file, either written or not. Only rapid support genuinely needs customers, because it is a response time and there is nothing to respond to yet. So four priorities are checkable today and are not waiting for anybody -- which matters because the alternative is comfortable: a plan beginning at the first sale lets all four sit unfinished while the shop feels prepared, and the first hundred customers are the review base, the repeat base and the proof base, each arriving exactly once. The sprint ends at a hundred, stated because a permanent sprint is just how the company works and calling it a sprint is how nobody asks when the extra cost stops. 'Do not sacrifice contribution irrationally' reads specifically: the sprint may spend support hours, sample costs and a slower release cadence, and may not spend the price -- a discount teaches the hundred buyers whose repeat behaviour matters most that the price is negotiable, and they are exactly the cohort the value ladder depends on. Remaining and parked on the customers gate: rapid support has nothing to respond to, and the four that do not need a customer are currently all unready. Re-audited 2026-09-27 (Build 2 closeout): before_the_first_customer now gives each pre-customer priority (delivery path, disclosures, release chain, concierge) a ready/not-ready verdict naming its blocker from evidence (commerce/first_hundred.py, tests/test_first_hundred.py). Rapid support and post-purchase clarity need customers (parked on customers).",
     "parked_on": "customers",
     "section": "CA$5K/month scale architecture",
     "status": "partial",
@@ -2454,7 +2480,7 @@
   {
     "body": "Track leading indicators before revenue arrives: qualified impressions, CTR, favourites/cart signals where available, conversion, bundle attach, email/content traffic, creator traffic, search trend direction, support defects and release velocity. Avoid declaring success from leading indicators without orders.",
     "id": 263,
-    "note": "the constraint solver and loop registry expose the leading indicators that exist. Remaining and parked on the live_listings gate: impressions, click-through and favourites are facts about a listing somebody can see, and no credential produces them for a listing that was never published. That gate counts an Etsy listing id rather than reading the phase flag, because a phase is a statement of intent and a listing id is a listing.",
+    "note": "the constraint solver and loop registry expose the leading indicators that exist. Remaining and parked on the live_listings gate: impressions, click-through and favourites are facts about a listing somebody can see, and no credential produces them for a listing that was never published. That gate counts an Etsy listing id rather than reading the phase flag, because a phase is a statement of intent and a listing id is a listing. Re-audited 2026-09-27 (Build 2 closeout): scale/leading.py reports all ten indicators, each measured with its source or UNMEASURED with its reason, and refuses success without orders; /api/leading (tests/test_leading.py). Impressions, CTR and favourites need a live listing (parked on live_listings).",
     "parked_on": "live_listings",
     "section": "CA$5K/month scale architecture",
     "status": "partial",
@@ -2474,12 +2500,13 @@
   {
     "body": "Maintain a diversified experiment portfolio with expected value, cost, duration, sample requirement, owner, stop rule and result. Balance quick low-cost tests with strategic longer tests. Kill experiments that cannot change a decision.",
     "id": 265,
-    "note": "experiments carry expected cost, duration, sample requirement and stop rule, and undersampled results are unclaimable rather than provisional. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: growth/experiments.py (tests: tests/test_growth.py). Gap: Experiment carries cost, duration, sample and stop rule but no owner or expected value, no 'kill if it cannot change a decision' rule, and nothing is persisted. Reclassified partial; the remaining work is executable.",
+    "note": "experiments carry expected cost, duration, sample requirement and stop rule, and undersampled results are unclaimable rather than provisional. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: growth/experiments.py (tests: tests/test_growth.py). Gap: Experiment carries cost, duration, sample and stop rule but no owner or expected value, no 'kill if it cannot change a decision' rule, and nothing is persisted. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): kill_reason kills an experiment whose success and failure lead to the same action, or whose cost exceeds a measured expected value (None = UNMEASURED, never assumed).",
     "section": "CA$5K/month scale architecture",
-    "status": "partial",
+    "status": "covered",
     "title": "Growth Experiment Portfolio",
     "version": "v1.4.1",
-    "proof": "growth/experiments.py tests/test_growth.py"
+    "proof": "growth/experiments.py tests/test_experiment_persistence.py",
+    "parked_on": ""
   },
   {
     "body": "Whenever possible, distinguish incremental revenue from revenue that would have occurred anyway. Use holdouts, staggered rollouts, pre/post controls or channel attribution. Do not credit a discount, ad or creator with all observed sales merely because it was active.",
@@ -2521,12 +2548,13 @@
   {
     "body": "Model loss of the top SKU, top seasonal event or top traffic channel. If CA$5K collapses under one plausible failure, create a diversification plan. Breakout exploitation remains aggressive, but resilience becomes part of the confidence score.",
     "id": 270,
-    "note": "three plausible single failures -- top SKU, top family, top three -- each with the shortfall it would leave against the target. Exploiting a winner stays aggressive; this measures what losing it would cost, so resilience is part of the confidence rather than an afterthought. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: growth/mix.py, scale/confidence.py (tests: tests/test_growth.py, tests/test_scale.py). Gap: stress_test() names fragile scenarios but produces no diversification plan, and models neither loss of the top seasonal event nor of the top traffic channel. Reclassified partial; the remaining work is executable.",
+    "note": "three plausible single failures -- top SKU, top family, top three -- each with the shortfall it would leave against the target. Exploiting a winner stays aggressive; this measures what losing it would cost, so resilience is part of the confidence rather than an afterthought. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: growth/mix.py, scale/confidence.py (tests: tests/test_growth.py, tests/test_scale.py). Gap: stress_test() names fragile scenarios but produces no diversification plan, and models neither loss of the top seasonal event nor of the top traffic channel. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): stress_test models loss of the top seasonal event and top traffic channel (UNMEASURED where revenue is unattributed) and diversification_plan names what to develop next and why; served at /api/growth.",
     "section": "CA$5K/month scale architecture",
-    "status": "partial",
+    "status": "covered",
     "title": "Revenue Concentration Stress Test",
     "version": "v1.4.1",
-    "proof": "growth/mix.py scale/confidence.py tests/test_growth.py tests/test_scale.py"
+    "proof": "growth/mix.py tests/test_growth.py",
+    "parked_on": ""
   },
   {
     "body": "Maintain a registry of growth loops with evidence strength: Etsy organic, Pinterest, Google/SEO, creators, email/repeat, paid ads, bundles/cross-sells, free tools/content. Record cost, latency, scalability, contribution and confidence. CA$5K confidence rises as independent loops become proven.",
@@ -2926,12 +2954,13 @@
   {
     "body": "After full baseline, perform frequent lightweight checks for catalogue/listing changes and immediately deep-audit new or materially changed listings. Adapt cadence to MJs observed release behavior and seasonal urgency. The goal is fast awareness without repeatedly paying to reprocess identical content.",
     "id": 313,
-    "note": "frequent lightweight checks with adaptive cadence, and a changed listing triggers an immediate deep re-audit. Cost stays bounded because an unchanged listing opens no galleries. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: intel/observe.py, runtime/worker.py (tests: tests/test_intel.py, tests/test_deploy.py). Gap: The cadence is a fixed six-hourly interval; runtime/worker.py's own comment says an adaptive cadence 'is still to build'. Reclassified partial; the remaining work is executable.",
+    "note": "frequent lightweight checks with adaptive cadence, and a changed listing triggers an immediate deep re-audit. Cost stays bounded because an unchanged listing opens no galleries. Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: intel/observe.py, runtime/worker.py (tests: tests/test_intel.py, tests/test_deploy.py). Gap: The cadence is a fixed six-hourly interval; runtime/worker.py's own comment says an adaptive cadence 'is still to build'. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): adaptive_interval derives the scan interval from the benchmark's posting history (2-24 h bounds, 6 h fallback with the reason when history is thin); the cadence offers a scan every 2 h and scan_or_explain defers any scan that is not due before a request is made.",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "partial",
+    "status": "covered",
     "title": "MJs Change Detection Is High Priority",
     "version": "v1.4.3",
-    "proof": "intel/observe.py runtime/worker.py tests/test_intel.py tests/test_deploy.py"
+    "proof": "intel/observe.py runtime/worker.py tests/test_intel.py",
+    "parked_on": ""
   },
   {
     "body": "Every meaningful MJs product arena lacking a competitive Brambleloop response enters a prioritized gap queue scored by apparent demand, seasonal timing, search opportunity, make-time, expected contribution, creative potential and portfolio fit. The queue must distinguish 'uncovered', 'concepting', 'engineering', 'certified', 'launched', 'validated winner' and 'not pursuing + reason'.",
@@ -2945,11 +2974,12 @@
   {
     "body": "For relevant products, compare Brambleloop's finished offer against category-matched current MJs evidence on product desirability, visual appeal, thumbnail strength, fit/proportion where applicable, seasonal relevance, pattern deliverables, clarity, value, trust and merchandising. If Brambleloop is visibly generic/amateur or materially weaker, return it to development.",
     "id": 315,
-    "note": "MJs quality challenge; needs MJs evidence",
+    "note": "MJs quality challenge; needs MJs evidence Re-audited 2026-09-27 (Build 2 closeout): the visual, merchandising and desirability half is built (blind_review + judged grid, #218). The deliverable half -- pattern deliverables, clarity, value and trust against MJs's actual patterns -- needs purchased MJs patterns recorded through teardown intake (observations only, never the text); the purchases and their intake are the owner's (benchmark_purchases).",
     "section": "MJsOffTheHookDesigns priority mission",
-    "status": "owner_gated",
+    "status": "partial",
     "title": "MJs Quality Challenge Is Release-Blocking",
-    "version": "v1.4.3"
+    "version": "v1.4.3",
+    "parked_on": "benchmark_purchases"
   },
   {
     "body": "All observations, Brambleloop launches, failures, owner vetoes, conversion data and customer outcomes update the MJs specialist pods' versioned learning memory. Challenger agents should repeatedly test better ways to interpret MJs market signals, generate stronger seasonal responses and improve commercial execution.",
@@ -2991,7 +3021,7 @@
   {
     "body": "Build 2 is blocked until a production-capable demonstration uses the stored MJs URL, resolves the named shop, discovers listings, opens representative individual listings, traverses accessible gallery images and visible listing information, routes evidence to category pods, identifies an upcoming seasonal adaptation, computes maker-aware launch timing, produces multiple Brambleloop concept responses, and records the resulting action in the MJs Coverage Matrix. Browser/access limitations must be reported honestly rather than silently downgraded.",
     "id": 320,
-    "note": "MJs end-to-end acceptance test -- blocked on browser/vision",
+    "note": "MJs end-to-end acceptance test -- blocked on browser/vision Re-audited 2026-09-27 (Build 2 closeout): The acceptance runner (intel/acceptance.py, tests/test_acceptance.py) now proves all thirteen steps the body names from stored evidence -- resolve through re-audit, then seasonal adaptation, launch timing, multiple concept responses and a recorded coverage-matrix action -- filing a graded mission report per step with access limitations stated. Two things only the owner can supply remain: the production demonstration needs this build deployed (deployment is outside this closeout's authority), and whether an API+vision traversal satisfies the 'browser/vision' wording needs a recorded decision (B-105 does not decide it).",
     "section": "MJsOffTheHookDesigns priority mission",
     "status": "owner_gated",
     "title": "MJs Mission End-to-End Acceptance Test",

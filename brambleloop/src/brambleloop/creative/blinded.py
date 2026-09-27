@@ -823,3 +823,171 @@ def render_grid(db, ours: list[dict], *, pod: str, seed: int = 0,
                  "here. The judges are still to be appointed; until they rank it, this "
                  "grid fails (#126)"),
     }
+
+
+# ---------------------------------------------------------------------------
+# #126: the grid's judges.
+#
+# `render_grid` refused to clear until somebody ranked it, and nobody was appointed, so the
+# tournament could only ever fail -- honestly, but uselessly. These are the judges: several
+# independent vision-model readings of the same blinded grid, each from a different buyer's
+# point of view and each seeing the cells in its own shuffled order, so no single prompt's
+# taste or position bias decides the verdict. A cell's score on a field is the MEDIAN across
+# judges, and a cell a judge did not answer is unjudged -- never averaged over the ones that
+# did. Every call is budget-checked and reserved before it is made, like gallery vision.
+
+GRID_JUDGES: tuple[tuple[str, str], ...] = (
+    ("browsing_shopper",
+     "You are an Etsy shopper scrolling a search results page for crochet patterns on a phone. "
+     "You glance at each thumbnail for about a second."),
+    ("experienced_maker",
+     "You are an experienced crocheter choosing your next pattern. You judge whether the "
+     "finished object is clear and whether the design is worth making."),
+    ("gift_buyer",
+     "You are buying a crochet pattern to make a gift. You care whether the finished object "
+     "looks desirable and different from what everyone else sells."),
+)
+GRID_JUDGE_TASK = "search_grid_tournament"
+GRID_JUDGE_MAX_TOKENS = 700
+GRID_JUDGE_AGENT = "creative_director"
+
+
+class GridJudgeRefused(Exception):
+    pass
+
+
+def grid_judge_prompt(cells: list[dict]) -> str:
+    labels = ", ".join(c["cell"] for c in cells)
+    return (
+        "The images are thumbnails from one simulated Etsy search results page, in this order: "
+        f"{labels}. Seller, price, reviews and titles are hidden. For EACH image score, from 0 "
+        "to 1 relative to the other images on this page: attention (would it stop your "
+        "scroll), comprehension (is the finished object immediately clear), desire (do you "
+        "want it) and distinctiveness (does it look different from the rest). Answer with JSON "
+        'only: {"cells": [{"cell": "<label>", "attention": 0.0, "comprehension": 0.0, '
+        '"desire": 0.0, "distinctiveness": 0.0}]}')
+
+
+def _parse_grid_answer(text: str, expected: set[str]) -> dict[str, dict]:
+    import json as _json
+    import re as _re
+
+    match = _re.search(r"\{.*\}", text or "", _re.S)
+    if not match:
+        return {}
+    try:
+        data = _json.loads(match.group(0))
+    except ValueError:
+        return {}
+    out: dict[str, dict] = {}
+    for row in data.get("cells") or []:
+        cell = str(row.get("cell") or "")
+        if cell not in expected:
+            continue
+        scores = {}
+        for field_name in GRID_JUDGE_FIELDS:
+            try:
+                v = float(row.get(field_name))
+            except (TypeError, ValueError):
+                v = None
+            scores[field_name] = v if v is not None and 0.0 <= v <= 1.0 else None
+        out[cell] = scores
+    return out
+
+
+def judge_grid(db, grid: dict, *, provider, judges: tuple[tuple[str, str], ...] = GRID_JUDGES,
+               agent: str = GRID_JUDGE_AGENT, job_id: int | None = None,
+               seed: int = 0) -> dict:
+    """Rank a rendered grid with independent judges. Returns per-cell median judgements.
+
+    The judges receive `grid["cells"]` only -- never `grid["key"]` -- so they cannot know
+    which cells are ours. A call the budget refuses stops the tournament and is reported;
+    the grid then stays unjudged and fails, which is the honest result of not looking.
+    """
+    from statistics import median
+
+    from ..finance import spend_report
+    from ..gateway import anthropic as gw
+
+    cells = [c for c in grid.get("cells") or [] if c.get("thumbnail")]
+    if not cells:
+        raise GridJudgeRefused("the grid has no cells with a thumbnail to show a judge")
+    if any(k in c for c in cells for k in ("side", "ref")):
+        raise GridJudgeRefused("a cell handed to a judge carries its side or ref")
+    expected = {c["cell"] for c in cells}
+    per_judge: dict[str, dict[str, dict]] = {}
+    problems: list[str] = []
+    spent = 0.0
+    stopped_by = ""
+    batch = max(1, gw.MAX_IMAGES_PER_CALL)
+
+    for j_index, (judge, persona) in enumerate(judges):
+        order = list(cells)
+        random.Random(f"{seed}:{judge}:{j_index}").shuffle(order)
+        answers: dict[str, dict] = {}
+        for start in range(0, len(order), batch):
+            chunk = order[start:start + batch]
+            prompt = grid_judge_prompt(chunk)
+            try:
+                reservation = gw.check_budget(
+                    db, model=provider.model,
+                    input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE * len(chunk),
+                    max_tokens=GRID_JUDGE_MAX_TOKENS, uncommitted_cad=spent,
+                    agent=agent, purpose=GRID_JUDGE_TASK, job_id=job_id)
+            except gw.BudgetExceeded as exc:
+                stopped_by = type(exc).__name__
+                problems.append(f"{judge}: {str(exc)[:160]}")
+                break
+            held = reservation["reservation_id"]
+            try:
+                response = provider.see(persona, prompt, [c["thumbnail"] for c in chunk],
+                                        max_tokens=GRID_JUDGE_MAX_TOKENS)
+            except Exception as exc:  # noqa: BLE001 - a judge that fails leaves cells unjudged
+                gw.release_reservation(db, held)
+                problems.append(f"{judge}: {type(exc).__name__}: {str(exc)[:160]}")
+                continue
+            cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                         + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+            gw.release_reservation(db, held, actual_cad=cost)
+            spent += cost
+            spend_report.record(db, agent=agent, amount_cad=cost, purpose=GRID_JUDGE_TASK,
+                                provider=getattr(provider, "name", ""), model=provider.model,
+                                estimated_cad=reservation.get("estimate_cad", 0.0),
+                                tokens_in=response.input_tokens,
+                                tokens_out=response.output_tokens, job_id=job_id)
+            answers.update(_parse_grid_answer(response.text, {c["cell"] for c in chunk}))
+        per_judge[judge] = answers
+        if stopped_by:
+            break
+
+    judgements: dict[str, dict] = {}
+    for cell in expected:
+        row = {}
+        for field_name in GRID_JUDGE_FIELDS:
+            got = [per_judge[j][cell][field_name] for j, _ in judges
+                   if j in per_judge and cell in per_judge[j]
+                   and per_judge[j][cell].get(field_name) is not None]
+            # Every judge must have answered: a median of the judges who happened to reply
+            # is a smaller panel wearing the full panel's name.
+            row[field_name] = round(median(got), 4) if len(got) == len(judges) else None
+        judgements[cell] = row
+    return {"judgements": judgements, "judges": [j for j, _ in judges],
+            "judged_by": sorted(per_judge), "problems": problems, "stopped_by": stopped_by,
+            "cost_cad": round(spent, 6), "method": "median of independent judges, each "
+            "seeing its own shuffled order, blinded to side and seller"}
+
+
+def grid_tournament(db, ours: list[dict], *, pod: str, provider, seed: int = 0,
+                    benchmark_key: str = "", job_id: int | None = None) -> dict:
+    """Render the blinded grid, have it judged, and re-render it with the judgements.
+
+    The same seed is used both times, so the cell ids the judges scored are the cells the
+    verdict reads. Refusals (too few benchmarks, nothing of ours) propagate as GridRefused.
+    """
+    grid = render_grid(db, ours, pod=pod, seed=seed, benchmark_key=benchmark_key)
+    panel = judge_grid(db, grid, provider=provider, job_id=job_id, seed=seed)
+    judged = render_grid(db, ours, pod=pod, seed=seed, benchmark_key=benchmark_key,
+                         judgements=panel["judgements"])
+    judged.pop("key", None)
+    judged["panel"] = {k: v for k, v in panel.items() if k != "judgements"}
+    return judged

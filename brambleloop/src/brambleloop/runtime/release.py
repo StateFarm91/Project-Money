@@ -3297,6 +3297,45 @@ def handle_blind_review(ctx: JobContext) -> dict:
     return {"ran": True, **{k: result[k] for k in ("reviewed", "counts", "method_version")}}
 
 
+@handlers.register("creative.grid_tournament")
+def handle_grid_tournament(ctx: JobContext) -> dict:
+    """#126: the search-grid blind tournament, judged by an independent panel.
+
+    For each pod with enough audited benchmark thumbnails and at least one render of ours,
+    render the blinded grid, have three vision judges rank it (median, each in its own
+    shuffled order, never told which cells are ours), and record the verdict. A pod that
+    cannot be gridded is recorded as refused with its reason, not skipped silently.
+
+    YELLOW-light spend inside the ceiling: every judge call is budget-checked and reserved
+    before it is made, like gallery vision, and the run stops on the ceiling.
+    """
+    from ..creative import blind_review, blinded
+    from ..gateway import anthropic as gw
+    from ..publish import listing_asset
+
+    provider = gw.provider_for("gallery_observation")
+    by_pod: dict[str, list[dict]] = {}
+    for slug, title in blind_review.catalogue_slugs():
+        frames = listing_asset.frames_for(ctx.db, slug=slug)
+        hero = [dict(f, slug=slug) for f in frames if (f.get("role") or "hero") == "hero"][:1]
+        if hero:
+            by_pod.setdefault(blind_review.pod_for(slug, title), []).extend(hero)
+    results = {}
+    for pod, ours in sorted(by_pod.items()):
+        try:
+            out = blinded.grid_tournament(ctx.db, ours, pod=pod, provider=provider,
+                                          seed=ctx.job.id or 0, job_id=ctx.job.id)
+            results[pod] = {k: out[k] for k in ("verdict", "why", "our_scores",
+                                                  "benchmark_cells", "our_cells")}
+            results[pod]["panel"] = out["panel"]
+        except (blinded.GridRefused, blinded.GridJudgeRefused) as exc:
+            results[pod] = {"verdict": "refused", "why": str(exc)[:300]}
+        if (results[pod].get("panel") or {}).get("stopped_by"):
+            break
+    ctx.audit("creative.grid_tournament", detail={"pods": results})
+    return {"ran": True, "pods": {k: v["verdict"] for k, v in results.items()}}
+
+
 @handlers.register("intel.acceptance")
 def handle_intel_acceptance(ctx: JobContext) -> dict:
     """Run the API+vision acceptance checklist offline against the DB (#222, #320).

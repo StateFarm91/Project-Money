@@ -168,6 +168,7 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                          "forecast; pruning a forecast would flatter the finance cell"),
     "creative.blinded": ("latest", "runtime.release reads the last blinded run"),
     "creative.blind_review": ("latest", "runtime.release reads the last review"),
+    "creative.grid_tournament": ("latest", "the #126 verdict is read from the last run"),
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),
     "seasonal.cycle_proof": ("latest", "runtime.release reads the last cycle proof"),
     "etsy.probe": ("latest", "intel.etsy_public reads the last probe"),
