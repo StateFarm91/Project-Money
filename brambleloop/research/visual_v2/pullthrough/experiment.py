@@ -193,4 +193,3 @@ def main():
     save(out/"result.json",summary)
     print(json.dumps({k:v for k,v in summary.items() if k not in ("cases","files","source_hashes")},indent=2))
 if __name__=="__main__":main()
-

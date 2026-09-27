@@ -33,7 +33,7 @@ The bound is specific and checkable: all corresponding moving vertices are affin
 - Spatial instrument: two positive controls and four negative controls behave as specified.
 - Existing `visual.linkage.linking_number`: returns **zero** for the whole closed bight both inside and outside the target rings. A folded bight has oppositely signed passages and can withdraw; zero is the correct invariant. Requiring nonzero linking of the whole bight would be the wrong certificate. Existing SC/HDC gates use selected strand relations and were not changed.
 - Saved-artifact checks: nine hashes pass, Product Truth unchanged, deliberate geometry-byte mutation detected.
-- Generation/measurement runtime: 2.809 seconds in the final run; geometry byte hash unchanged after source/manifest reproducibility repair. Saved verification is a separate invocation.
+- Generation/measurement runtime: 2.846 seconds in the final run; geometry byte hash unchanged after source/manifest reproducibility repair. Saved verification is a separate invocation.
 
 ## Why local PASS cannot become a stitch PASS
 

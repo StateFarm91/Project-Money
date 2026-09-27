@@ -68,4 +68,3 @@ def main():
       "nominal_required_feed_mm":measurements[0]["required_material_supply_mm"],
       "unexplained_live_loop_restage_mm":shift},indent=2))
 if __name__=="__main__":main()
-

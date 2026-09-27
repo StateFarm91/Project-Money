@@ -10,7 +10,7 @@
   "photographic_realism": "UNKNOWN",
   "full_product_emission": "BLOCKED",
   "spend_usd": 0,
-  "seconds": 2.809,
+  "seconds": 2.846,
   "cases": [
     {
       "tag": "stage1_two_of_three",
@@ -168,7 +168,7 @@
     "diagnostic.svg": "600011de2a3a343657edd7b9069dc4386b64ad9d0a532efd74532920c33f60d0"
   },
   "source_hashes": {
-    "research\\visual_v2\\pullthrough\\experiment.py": "36e8cccb2a1183595c3906b7e92be1082bcf7d09a02bea40e848aabe1d6616d8",
+    "research\\visual_v2\\pullthrough\\experiment.py": "34156c12069a9cf9d16fd567b463612d738ea3a84be3a013613eb0ba828bb237",
     "src\\brambleloop\\visual\\linkage.py": "435f28943c8715f6fbe2a2e61ebeea504076b0ed4514154d23fcbdfb2f221f69",
     "research\\visual_v2\\coupon\\verify_coupon.py": "a2dce01fd74b264c10835a0e27671ecd8e22e7552a6130a3a570d8643480d0e8"
   }
