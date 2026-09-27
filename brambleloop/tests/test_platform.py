@@ -38,7 +38,8 @@ def test_enqueue_and_claim_roundtrip():
     claimed = q.claim("worker-1")
     assert claimed and claimed.id == job.id
     assert claimed.status == JobStatus.RUNNING and claimed.leased_by == "worker-1"
-    q.complete(claimed.id, {"found": 12})
+    # C-12: a write to a claimed job names the worker that holds the lease.
+    q.complete(claimed.id, {"found": 12}, worker="worker-1")
     assert q.get(job.id).status == JobStatus.DONE
     assert q.get(job.id).outputs == {"found": 12}
 
@@ -90,7 +91,7 @@ def test_retry_uses_backoff_then_dead_letters():
     job = q.enqueue("market_radar", "radar.scan", max_attempts=3)
 
     c1 = q.claim("w")
-    failed = q.fail(c1.id, "provider timeout")
+    failed = q.fail(c1.id, "provider timeout", worker="w")
     assert failed.status == JobStatus.FAILED
     assert failed.run_after > utcnow()  # backed off, not retried instantly
 
@@ -100,7 +101,7 @@ def test_retry_uses_backoff_then_dead_letters():
             s.get(Job, job.id).run_after = utcnow() - timedelta(seconds=1)
         c = q.claim("w")
         assert c is not None
-        q.fail(c.id, "provider timeout")
+        q.fail(c.id, "provider timeout", worker="w")
 
     dead = q.get(job.id)
     assert dead.status == JobStatus.DEAD
@@ -112,7 +113,7 @@ def test_permanent_failure_skips_retries():
     q = JobQueue(fresh())
     job = q.enqueue("validator", "cir.compile", max_attempts=5)
     c = q.claim("w")
-    q.fail(c.id, "CIR is structurally invalid", retry=False)
+    q.fail(c.id, "CIR is structurally invalid", retry=False, worker="w")
     assert q.get(job.id).status == JobStatus.DEAD
 
 

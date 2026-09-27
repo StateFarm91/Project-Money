@@ -1174,6 +1174,13 @@ def _difficulty(twin, cir) -> str:
     return difficulty(cir, twin)
 
 
+# How a bundle waits for its members (see the deferral in `handle_collection_assemble`).
+COLLECTION_IMMEDIATE_DEFERRALS = 20
+COLLECTION_MAX_DEFERRALS = 28
+COLLECTION_DEFERRAL_DELAY_SECONDS = 6 * 60 * 60
+COLLECTION_WAIT_PRIORITY = 999  # behind every band, so queued member work runs first
+
+
 @handlers.register("collection.assemble")
 def handle_collection_assemble(ctx: JobContext) -> dict:
     """Build a collection listing out of its members' real, certified releases.
@@ -1183,14 +1190,16 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     listed once every one of them has a certificate, because a bundle is a promise to deliver
     each of those patterns.
 
-    When the members are not ready yet this raises a transient error rather than assembling a
-    partial collection. The queue's backoff then retries it, which is exactly right: the
-    bundle is not broken, it is early.
+    When the members are not ready yet it defers rather than assembling a partial collection:
+    it re-enqueues itself behind the queued work (and later on a delay), bounded and keyed,
+    and completes with a recorded `waiting` result. The bundle is not broken, it is early --
+    and a retry budget spent in six seconds made it look broken (it went DEAD).
     """
+    from datetime import datetime, timedelta, timezone
+
     from sqlalchemy import select
 
     from ..core.models import Collection, Listing, PatternVersion, Product
-    from ..core.resilience import TransientError
     from ..brand import bible
 
     slug = ctx.job.inputs["slug"]
@@ -1219,12 +1228,34 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     ready = {c[0] for c in certified}
     members = [m for m in members if m.slug in ready]
     if len(members) < 2:
+        # An honest deferral, not a death. Under band priority (C-46) this job can be claimed
+        # before its members' certification jobs, and raising here spent three retries in six
+        # seconds and dead-lettered a bundle that was merely early. So it re-enqueues itself,
+        # deduplicated by its chain key and a deferral count, and bounded: first behind all
+        # current work (members still in the queue certify first), then on a delay once the
+        # queue has nothing left that could certify them, then not at all -- recorded, with
+        # `chain.rebuild` as the path that tries again.
         waiting = sorted(ready)
-        ctx.audit("collection.waiting", artifact=slug,
-                  detail={"certified_members": waiting})
-        raise TransientError(
-            f"{slug} cannot be listed yet: only {len(members)} of its patterns are certified. "
-            f"A bundle is a promise to deliver each of its patterns, so it waits for them.")
+        deferrals = int(ctx.job.inputs.get("deferrals") or 0)
+        follow = None
+        if deferrals < COLLECTION_MAX_DEFERRALS:
+            delayed = deferrals >= COLLECTION_IMMEDIATE_DEFERRALS
+            follow = ctx.enqueue(
+                "listing", "collection.assemble",
+                {"slug": slug, "family": family, "deferrals": deferrals + 1},
+                priority=COLLECTION_WAIT_PRIORITY,
+                run_after=(datetime.now(timezone.utc)
+                           + timedelta(seconds=COLLECTION_DEFERRAL_DELAY_SECONDS)
+                           if delayed else None),
+                idempotency_key=(chain_key("collection", slug, "collection")
+                                 + f":wait{deferrals + 1}"))
+        detail = {"certified_members": waiting, "deferrals": deferrals,
+                  "requeued": follow is not None,
+                  "exhausted": deferrals >= COLLECTION_MAX_DEFERRALS}
+        ctx.audit("collection.waiting", artifact=slug, detail=detail)
+        return {"slug": slug, "waiting": True, **detail,
+                "why": (f"only {len(members)} of {slug}'s patterns are certified. A bundle is "
+                        f"a promise to deliver each of its patterns, so it waits for them")}
 
     prices = [m.price_cad for m in members]
     verdict = pricing_mod_intel.price_bundle(prices)

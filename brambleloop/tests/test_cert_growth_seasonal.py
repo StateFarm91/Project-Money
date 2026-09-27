@@ -607,6 +607,41 @@ def test_remerchandising_handler_runs_the_transformation_engine():
         assert audit is not None and audit.detail["routed"] == 2
 
 
+
+def test_a_bundle_waiting_for_members_defers_and_does_not_die():
+    """Regression (C-46): claimed before its members certify, the job must not go DEAD."""
+    from brambleloop.runtime.release import COLLECTION_MAX_DEFERRALS
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    _certify(db, "nordic-star-ornaments")  # one of four members: not yet a collection
+    JobQueue(db).enqueue("listing", "collection.assemble",
+                         {"slug": "nordic-forest-bundle", "family": "nordic-forest"},
+                         idempotency_key="bundle-early")
+    worker = Worker(db, "w6-bundle")
+    for _ in range(COLLECTION_MAX_DEFERRALS + 5):
+        if not worker.run_once():
+            break
+    with db.session() as s:
+        jobs = list(s.scalars(select(Job).where(Job.job_type == "collection.assemble")))
+        assert jobs and not [j for j in jobs if j.status in (JobStatus.DEAD,
+                                                             JobStatus.FAILED)]
+        # Bounded: the immediate deferrals ran, the next one waits on a delay, and every
+        # re-enqueue is keyed so a duplicate cannot be created.
+        assert len(jobs) <= COLLECTION_MAX_DEFERRALS + 1
+        assert any(j.status == JobStatus.PENDING for j in jobs), "deferral chain was dropped"
+        assert len({j.idempotency_key for j in jobs}) == len(jobs)
+        waits = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "collection.waiting")))
+        assert waits and waits[-1].detail["requeued"] is True
+
+    # And once a second member certifies, the next run assembles the collection.
+    _certify(db, "nordic-forest-stocking")
+    out = _run(db, "collection.assemble",
+               {"slug": "nordic-forest-bundle", "family": "nordic-forest"}, agent="listing")
+    assert out.get("waiting") is None and len(out["members"]) == 2
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

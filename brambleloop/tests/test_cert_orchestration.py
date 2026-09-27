@@ -164,6 +164,17 @@ def test_renewal_keeps_a_long_handler_lease_and_nobody_steals_it():
     w = Worker(db, "long-1", registry=reg, lease_seconds=3)
     t = threading.Thread(target=w.run_once)
     t.start()
+    # The theft attempts start only once the job is RUNNING under long-1: before that a
+    # "thief" claiming the still-pending job is ordinary scheduling, not a stolen lease, and
+    # the test would pass or fail on thread start-up order rather than on renewal.
+    held_by = time.monotonic() + 5.0
+    while time.monotonic() < held_by:
+        row = _job(db, j.id)
+        if row.status == JobStatus.RUNNING and row.leased_by == "long-1":
+            break
+        time.sleep(0.02)
+    else:
+        raise AssertionError("long-1 never took the job")
     stolen = []
     deadline = time.monotonic() + 5.5
     while t.is_alive() and time.monotonic() < deadline:
@@ -174,7 +185,7 @@ def test_renewal_keeps_a_long_handler_lease_and_nobody_steals_it():
     t.join()
     assert not stolen, f"a renewed lease was reclaimed mid-handler: {stolen}"
     assert runs[j.id] == 1 and _job(db, j.id).status == JobStatus.DONE
-    assert w.stats.completed == 1
+    assert w.stats.completed == 1 and w.stats.claimed == 1
 
 
 def test_renewal_cap_stops_renewing_so_a_hung_handler_becomes_reclaimable():

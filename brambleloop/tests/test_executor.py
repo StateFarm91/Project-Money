@@ -132,7 +132,10 @@ def test_every_executable_requirement_is_either_ready_or_parked():
     # Nothing the owner has to unblock may appear as work this build can pick up.
     assert balance["owner_gated_but_ready"] == []
     # And the gap between the two numbers is exactly the half-built-but-gated set.
-    assert balance["ready"] + len(balance["executable_parked"]) == balance["executable"]
+    # Blocked (waiting on an unfinished dependency) is the third honest place; it was always
+    # empty until the Build 2 certification reopened rows other rows depend on (#26 on #25).
+    assert (balance["ready"] + len(balance["executable_parked"]) + balance["blocked"]
+            == balance["executable"])
     assert balance["executable_parked"], "nothing is half-built and gated; this proves little"
 
 
@@ -243,8 +246,10 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # the queue exactly the requirements that are parked and not one more.
     reconciled = E.reconciliation(db)
     assert reconciled["balances"] is True, reconciled
+    # Blocked on an unfinished dependency is the third accounted place (see the invariant
+    # test above); it was empty until the certification reopened rows others depend on.
     assert reconciled["ready"] == reconciled["executable"] - len(
-        reconciled["executable_parked"]), reconciled
+        reconciled["executable_parked"]) - reconciled["blocked"], reconciled
     # Zero ready is a legitimate state and a stalled queue is not, and the difference is
     # whether the zero is accounted for. "ready > 0" stood here until the day it stopped
     # being true, which is the failure mode the comment above already names and this file
@@ -252,15 +257,22 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # every size is that every executable requirement is either ready or parked on a named
     # gate, so a queue at zero can say which of the two it is.
     if reconciled["ready"] == 0:
-        assert len(reconciled["executable_parked"]) == reconciled["executable"], \
+        assert (len(reconciled["executable_parked"]) + reconciled["blocked"]
+                == reconciled["executable"]), \
             "the queue is empty and the parked set does not account for it"
     # Parked, ready and blocked are reported together: a queue showing only ready work looks
     # identical whether fourteen requirements are parked on a browser or none are.
     assert "rendered_pages" in q["parked_by_capability"]
     # C-38 (2026-09-27) split what rendered_pages used to hold across the gates each
     # requirement actually waits on; the same work must still all be reported as parked.
-    split = ("rendered_pages", "insights_access", "acceptance_ruling")
-    assert sum(len(q["parked_by_capability"].get(k, [])) for k in split) >= 10
+    # C-40 then completed #2 and #15 through the API search index, so they left the browser
+    # gate as finished work rather than moving to another park. Asserted by membership, not a
+    # count, so a row silently moving between gates is caught too.
+    pbc = q["parked_by_capability"]
+    assert pbc["rendered_pages"] == [39], pbc["rendered_pages"]
+    assert {1, 37, 236} <= set(pbc.get("insights_access", [])), pbc
+    assert {189, 221, 222, 320} <= set(pbc.get("acceptance_ruling", [])), pbc
+    assert not {2, 15} & {r for rows in pbc.values() for r in rows}, "2/15 are done, not parked"
     assert "reported together" in q["note"]
 
     # The next thing to do is named when there is one, and it is never a parked one. There
@@ -881,9 +893,16 @@ def test_a_remainder_that_needs_orders_has_somewhere_to_wait():
     assert gate.open(shut, {}) is True
 
     E.sync(shut, env={})
-    ready = {r["requirement_id"] for r in E.queue(shut, limit=400)["ready"]}
+    q = E.queue(shut, limit=400)
+    ready = {r["requirement_id"] for r in q["ready"]}
+    blocked = {r["requirement_id"] for r in q["blocked"]}
+    after = q["parked_by_capability"].get("customers", [])
     for rid in parked["customers"]:
-        assert rid in ready, f"{rid} did not come back when the first sale landed"
+        # The sale releases the customers park. A row that also depends on unfinished work
+        # (#26 on #25 since the certification reopened #25) moves to blocked, which is where
+        # it belongs -- it must never stay parked on customers once customers exist.
+        assert rid not in after, f"{rid} is still parked on customers after the first sale"
+        assert rid in ready or rid in blocked, f"{rid} did not come back when the first sale landed"
 
 
 def test_a_remainder_that_needs_a_published_listing_has_somewhere_to_wait():
