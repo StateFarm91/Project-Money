@@ -207,6 +207,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                         "restart from a deploy"),
     # C-60 (#17): the proof sweep attaches each tester pass and sale once; pruning a row
     # would re-attach it and double-count the trust base.
+    # C-75: growth.steer reads the last fortnight's receipts for its steer-once set; the ids
+    # live in the receipt, so pruning inside the window would let a job be steered again.
+    "growth.steered": ("windowed",
+                       "runtime.growth_ops.steer reads 14 days of receipts (job_ids) so a "
+                       "steered job is never moved twice"),
     "trust.proof": ("lifetime_total",
                     "runtime.growth_ops.proof_sweep reads every attached proof to attach "
                     "each row once"),

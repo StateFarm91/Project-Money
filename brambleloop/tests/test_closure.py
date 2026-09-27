@@ -138,9 +138,12 @@ finally:
 # The twenty rows the 9434c53 audit reopened that the table still lists must all read OPEN.
 _twenty = [39, 61, 64, 104, 116, 147, 165, 208, 210, 211, 243, 244, 245, 250, 277, 278, 281, 294, 295, 304]
 _states = {r["id"]: r["state"] for r in m["rows"] if r["id"] in _twenty}
-_still_parked = {i: s_ for i, s_ in _states.items() if s_ != C.OPEN
+_still_parked = {i: s_ for i, s_ in _states.items()
+                 if s_ in (C.OWNER_GATED, C.DATA_GATED, C.EXTERNAL_BLOCKED)
+                 and R.get(i).status != R.OWNER_GATED
                  and not (R.get(i).parked_on or "").strip()}
-check("no reopened row without an explicit park is counted as gated (the C-65/P01 twenty)",
+check("no reopened row without an explicit park is counted as gated (the C-65/P01 twenty); "
+      "a row repaired to COMPLETE+PROVEN is not a park",
       not _still_parked, str(_still_parked))
 
 

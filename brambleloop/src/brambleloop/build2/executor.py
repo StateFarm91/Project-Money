@@ -309,6 +309,18 @@ def _owned_surface_probed(db, env) -> bool:
         return bool(row is not None and (row.detail or {}).get("ok") is True)
 
 
+def _transactions_readable(db, env) -> bool:
+    """The order source may read: the ingest's own gate (scope granted + probe recorded)."""
+    try:
+        from ..commerce import orders_ingest
+    except ImportError:
+        return False
+    try:
+        return bool(orders_ingest.gate(db)["open"])
+    except Exception:  # noqa: BLE001 - an unreadable gate is a closed gate, said so
+        return False
+
+
 def _insights_recorded(db, env) -> bool:
     """At least one owner-recorded Marketplace Insights reading exists.
 
@@ -604,6 +616,14 @@ GATES: tuple[Gate, ...] = (
          (35, 39),
          "a recorded browser.probe fetched a real rendered page -- a configured worker URL "
          "is a string, and Etsy answers 403 to a great many of them"),
+    Gate("transactions_r",
+         "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts "
+         "can be read (C-64: the order source)",
+         _transactions_readable,
+         (11, 12),
+         "the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; "
+         "the scope is added only by the owner in a browser (owner action "
+         "reauthorise_transactions_r), and the ingest makes no network call while closed"),
     Gate("insights_access",
          "owner-recorded Marketplace Insights readings exist",
          _insights_recorded,
