@@ -52,6 +52,7 @@ from brambleloop.runtime import pipeline  # noqa: E402,F401  (registers handlers
 from brambleloop.runtime import worker as worker_mod  # noqa: E402
 from brambleloop.runtime.worker import CADENCES, Scheduler, Worker, handlers  # noqa: E402
 from brambleloop.swarm import orchestrate  # noqa: E402
+from brambleloop.runtime.release import LANE_STARVED_BOOST  # noqa: E402
 
 # The 17 rows closed as wiring, and the job types their closure notes name.
 WIRING_ROWS = (41, 42, 81, 85, 91, 100, 144, 174, 175, 176, 186, 187, 192, 241, 265, 270, 313)
@@ -178,6 +179,7 @@ WIRING_FAILURE_MARKERS = ("permission denied", "no handler registered", "ModuleN
 
 # ---- tests ---------------------------------------------------------------
 
+
 def test_every_target_is_scheduled_handled_and_permitted_statically():
     reg = Registry(drained()["db"])
     for jt in TARGET_JOB_TYPES:
@@ -241,10 +243,19 @@ def test_follow_on_work_is_enqueued_at_its_band_too():
     scheduler leaves every handler-enqueued job (gate.certify, finance.challenge, the whole
     release chain) at the queue default, below housekeeping."""
     db = drained()["db"]
+    # A job may move UP inside its band -- a starved production lane's queued work is
+    # boosted by at most LANE_STARVED_BOOST (C-68, #5) -- but never out of it: bands are at
+    # least ten apart and every boost is bounded below that, so housekeeping can never
+    # outrank a customer incident by accumulating boosts.
+    def in_band(j) -> bool:
+        band = orchestrate.priority_for(j.job_type)
+        return band - LANE_STARVED_BOOST <= j.priority <= band
+
     wrong = sorted({(j.job_type, j.priority, orchestrate.priority_for(j.job_type))
-                    for j in _jobs(db)
-                    if j.priority != orchestrate.priority_for(j.job_type)})
+                    for j in _jobs(db) if not in_band(j)})
     assert not wrong, f"job type, enqueued priority, its band: {wrong}"
+    gaps = [b - a for (a, _k, _w), (b, _k2, _w2) in zip(orchestrate.BANDS, orchestrate.BANDS[1:])]
+    assert min(gaps) > LANE_STARVED_BOOST, (gaps, LANE_STARVED_BOOST)
 
 
 def test_swarm_handlers_reach_their_runtime_functions():
@@ -486,7 +497,8 @@ def test_no_row_whose_wiring_failed_here_is_still_claimed_covered():
     observed = {
         41: bool(st["at_drain"]["disclosure_check"]),
         144: bool(st["at_drain"]["radar.memory"]),
-        187: all(j.priority == orchestrate.priority_for(j.job_type) for j in _jobs(db)),
+        187: all(orchestrate.priority_for(j.job_type) - LANE_STARVED_BOOST <= j.priority
+                 <= orchestrate.priority_for(j.job_type) for j in _jobs(db)),
     }
     status = {rid: reqs.get(rid).status for rid in WIRING_ROWS}
     print("      registry status of the 17 wiring rows:", status)

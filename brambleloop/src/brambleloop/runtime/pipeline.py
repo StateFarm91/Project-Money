@@ -475,7 +475,20 @@ def handle_certify(ctx: JobContext) -> dict:
               detail={"granted": cert.granted, "reasons": cert.blocking_reasons[:5]})
 
     if cert.granted:
+        previous_hash = _stored_release_hash(ctx, cir)
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
+        # #42 (C-64): a correcting release finds the buyers who hold what it corrects, from
+        # the version map written at sale time, and prepares their notice. Sending it is the
+        # owner's (an owner action is raised); nothing is sent from here.
+        from ..commerce import buyer_trust
+
+        correction = buyer_trust.on_certified(
+            ctx.db, product_slug=cir.slug, version=cir.version,
+            release_hash=cert.release_hash or "", previous_release_hash=previous_hash)
+        if correction["affected_count"]:
+            ctx.audit("buyer_trust.correction_prepared", artifact=f"{cir.slug}@{cir.version}",
+                      detail={k: correction[k] for k in ("affected_count", "affected_orders",
+                                                         "owner_action")})
         # #70: a revision that changes geometry or claims invalidates the listing-set
         # certificate issued against the old ones, recomputed here rather than remembered,
         # and the affected frames lose their approval until the chain re-certifies them.
@@ -612,6 +625,16 @@ def _flatten_stitches(ops) -> list:
         else:
             out.append(o)
     return out
+
+
+def _stored_release_hash(ctx: JobContext, cir: CIR) -> str:
+    """The release hash already stored for this product and version, or ""."""
+    from sqlalchemy import select
+
+    with ctx.db.session() as s:
+        row = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == cir.slug, PatternVersion.version == cir.version))
+        return (row.release_hash or "") if row is not None else ""
 
 
 def _persist_release(ctx: JobContext, cir: CIR, certificate: dict, release_hash: str) -> None:
@@ -1255,13 +1278,75 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
             if inc.product_slug and inc.severity in ("P0", "P1"):
                 p1[inc.product_slug] = p1.get(inc.product_slug, 0) + 1
 
-    # Impressions, clicks and orders are all zero and stay zero until something is published.
-    # They are read from the ledger rather than assumed, so that the day they are non-zero
-    # this code needs no change.
+    # #47 (C-64): impressions, clicks (visits), favourites and orders are read from the rows
+    # that record them -- listing outcomes and ingested orders -- so the ladder diagnoses the
+    # stage that is failing the day there is exposure, and says NO_EVIDENCE only while there
+    # is none. Days live are counted from the product's published listing.
+    from datetime import datetime, timezone
+
+    from ..core.models import Listing, ListingOutcome, Order
+
+    with ctx.db.session() as s:
+        exposure: dict[str, dict] = {}
+        for r in s.scalars(select(ListingOutcome)):
+            e = exposure.setdefault(r.product_slug, {"impressions": 0, "clicks": 0,
+                                                     "favourites": 0})
+            e["impressions"] += int(r.impressions or 0)
+            e["clicks"] += int(r.visits or 0)
+            e["favourites"] += int(r.favourites or 0)
+        sold: dict[str, dict] = {}
+        for o in s.scalars(select(Order)):
+            x = sold.setdefault(o.product_slug, {"orders": 0, "revenue": 0.0, "refunds": 0})
+            if o.refunded:
+                x["refunds"] += 1
+            else:
+                x["orders"] += 1
+                x["revenue"] += float(o.revenue_cad or 0.0)
+        live_since: dict[str, datetime] = {}
+        for r in s.scalars(select(Listing).where(Listing.state == "published")):
+            at = r.created_at if r.created_at.tzinfo else r.created_at.replace(
+                tzinfo=timezone.utc)
+            if r.product_slug not in live_since or at < live_since[r.product_slug]:
+                live_since[r.product_slug] = at
+    now = datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
     metrics = [SkuMetrics(slug=p.slug, support_cases=cases.get(p.slug, 0),
-                          open_p1_incidents=p1.get(p.slug, 0))
+                          open_p1_incidents=p1.get(p.slug, 0),
+                          impressions=exposure.get(p.slug, {}).get("impressions", 0),
+                          clicks=exposure.get(p.slug, {}).get("clicks", 0),
+                          favourites=exposure.get(p.slug, {}).get("favourites", 0),
+                          orders=sold.get(p.slug, {}).get("orders", 0),
+                          revenue_cad=round(sold.get(p.slug, {}).get("revenue", 0.0), 2),
+                          refunds=sold.get(p.slug, {}).get("refunds", 0),
+                          days_live=(max(0, (now - live_since[p.slug]).days)
+                                     if p.slug in live_since else 0))
                for p in products]
     verdict = review_portfolio(metrics, today=today)
+
+    # #13 (C-64): a design is never retired or reworked on one offer's evidence. Every
+    # discard-shaped verdict consults `offers.may_retire` over the offers the orders show it
+    # has worn; a refusal replaces the discard with the cheapest untried offer.
+    from ..commerce import offers as offers_mod
+    from ..commerce.order_readings import offer_results
+    from ..growth.portfolio import APPEAL_PROBLEM, LADDERS, RETIRE, REWORK
+
+    results = offer_results(ctx.db)
+    offer_guard = []
+    for c in verdict.classifications:
+        if c.label not in (RETIRE, REWORK, APPEAL_PROBLEM):
+            continue
+        ruling = offers_mod.may_retire(c.slug, [r for r in results
+                                                if r.design_slug == c.slug])
+        offer_guard.append({"slug": c.slug, "label": c.label, **ruling})
+        if not ruling["may_retire"]:
+            nxt = (ruling.get("try_next") or {}).get("offer")
+            c.interventions = ([f"fix the offer before discarding the design: try {nxt}"
+                                if nxt else "fix the offer before discarding the design"]
+                               + [i for i in LADDERS[c.label] if "retire" not in i.lower()])
+            c.evidence["offer_guard"] = ruling["reasons"]
+            verdict.actions.append(
+                f"{c.slug}: {c.label} is a verdict about an offer until it has worn "
+                f"{offers_mod.MIN_OFFER_FAMILIES_BEFORE_RETIRING} offer families -- "
+                f"{'try ' + nxt if nxt else 'fix the offer'} before discarding it (#13).")
 
     missing = sorted(should_exist - built)
     off_portfolio = sorted(built - should_exist)
@@ -1281,6 +1366,9 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
         "constraints_met": portfolio.constraints_met,
         "classifications": verdict.summary(),
         "evidence_available": verdict.evidence_available,
+        "offer_guard": offer_guard,
+        "exposure_read": {"listing_outcomes": sum(1 for m in metrics if m.impressions),
+                          "selling": sum(1 for m in metrics if m.orders)},
     })
     for slug in missing:
         ctx.enqueue("market_radar", "radar.score",
@@ -1292,7 +1380,7 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
             "constraints_met": portfolio.constraints_met,
             "classifications": verdict.summary(),
             "evidence_available": verdict.evidence_available,
-            "actions": verdict.actions}
+            "actions": verdict.actions, "offer_guard": offer_guard}
 
 
 @handlers.register("finance.reconcile")
@@ -1448,6 +1536,7 @@ def handle_plan_strategy(ctx: JobContext) -> dict:
 # job-context helpers from this module's neighbours, and a top-of-file import would be a cycle.
 from . import release  # noqa: E402,F401
 from . import commerce_readings  # noqa: E402,F401  (C-59: gated machinery, run daily)
+from . import orders  # noqa: E402,F401  (C-64: order ingest and everything that reads orders)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

@@ -1204,6 +1204,8 @@ class GrowthLoop(Base):
     latency_days: Mapped[int] = mapped_column(Integer, default=0)
     scalable: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str] = mapped_column(Text, default="")
+    # #271: what the loop's orders left after fees, read from the orders it brought.
+    contribution_cad: Mapped[float] = mapped_column(Float, default=0.0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -1848,6 +1850,21 @@ class Order(Base):
     support_case_id: Mapped[int | None] = mapped_column(ForeignKey("support_cases.id"),
                                                         nullable=True)
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # #269: the transaction as it happened, preserved beside its CAD normalisation. The
+    # currency and amount are the receipt's own; the rate carries the date it was taken and
+    # whether it was measured (a settlement) or assumed, because a converted figure whose
+    # rate is invisible is indistinguishable from a measured one.
+    currency: Mapped[str] = mapped_column(String(3), default="CAD")
+    amount_original: Mapped[float] = mapped_column(Float, default=0.0)
+    fx_usd_per_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fx_taken_on: Mapped[str] = mapped_column(String(10), default="")
+    fx_measured: Mapped[bool] = mapped_column(Boolean, default=False)
+    fees_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    # #13: which offer shape this order bought (commerce.offers keys).
+    offer: Mapped[str] = mapped_column(String(40), default="single_pattern", index=True)
+    # Where the row came from ("etsy_receipts"), so an ingested order is never confused with
+    # a hand-entered one.
+    source: Mapped[str] = mapped_column(String(40), default="", index=True)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
 
 

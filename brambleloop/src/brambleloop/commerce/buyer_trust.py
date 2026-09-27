@@ -734,3 +734,82 @@ def gallery_proof_on_file(db, *, slug: str) -> dict:
     return {"on_file": True, "has_physical_proof_reading": physical,
             "images": sum(len(r.get("images") or []) for r in rows[:1]),
             "note": rows[0].get("proof", {}).get("note")}
+
+
+# ---------------------------------------------------------------------------
+# #42 in the runtime: a correcting version certifies, and its buyers are found (C-64)
+
+CORRECTION_ACTION_PREFIX = "correction_notice:"
+
+
+def _version_key(v: str) -> tuple:
+    return tuple(int(p) if p.isdigit() else 0 for p in (v or "").split("."))
+
+
+def on_certified(db, *, product_slug: str, version: str, release_hash: str = "",
+                 previous_release_hash: str = "") -> dict:
+    """Called by `gate.certify` when a release certifies (#42).
+
+    A newer certified version corrects every older one a buyer holds; a re-certification of
+    the same version under a different release hash corrects the buyers who received the
+    old hash. Either way the affected orders are read from `order_versions` (written at sale
+    time), every affected row's `current_safe_version` moves to the new version, the notice
+    is prepared with `correction_notice` and kept on the row, and sending it -- messaging
+    customers, which shadow mode refuses and the owner authorises -- becomes one owner
+    action per correction. No affected buyer, no notice and no action.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import OrderVersion, OwnerAction
+
+    with db.session() as s:
+        rows = list(s.scalars(select(OrderVersion).where(
+            OrderVersion.product_slug == product_slug)))
+        held = [(r.order_ref, r.version, r.release_hash) for r in rows]
+    older = sorted({v for _ref, v, _h in held
+                    if _version_key(v) < _version_key(version)})
+    same_old_hash = sorted({ref for ref, v, h in held
+                            if v == version and previous_release_hash
+                            and h == previous_release_hash and h != release_hash})
+    if not older and not same_old_hash:
+        return {"product_slug": product_slug, "version": version, "affected_count": 0,
+                "notice": None,
+                "why": ("no recorded buyer holds a version this release corrects"
+                        if held else "no order of this product has been recorded")}
+
+    what = (f"Version {version} of this pattern was certified after yours and replaces "
+            f"{', '.join(older + ([version] if same_old_hash else []))}: work started from "
+            f"your copy should be checked against the corrected pattern from the first "
+            f"differing row.")
+    affected = affected_orders(db, product_slug=product_slug, corrected_from=tuple(older))
+    if same_old_hash:
+        with db.session() as s:
+            affected += [_row(r) for r in s.scalars(select(OrderVersion).where(
+                OrderVersion.order_ref.in_(same_old_hash)))]
+    notice = correction_notice(product_slug=product_slug,
+                               from_versions=tuple(older or [version]),
+                               to_version=version, what_changed=what, affected=affected)
+    refs = [r["order_ref"] for r in affected]
+    now = datetime.now(timezone.utc).isoformat()
+    with db.session() as s:
+        for r in s.scalars(select(OrderVersion).where(OrderVersion.order_ref.in_(refs))):
+            r.current_safe_version = version
+            r.detail = {**(r.detail or {}),
+                        "correction_notice": {"to_version": version, "prepared_at": now,
+                                              "sent": False}}
+        key = f"{CORRECTION_ACTION_PREFIX}{product_slug}@{version}"
+        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
+            s.add(OwnerAction(
+                requirement_key=key,
+                action=(f"Approve sending the prepared correction notice for {product_slug} "
+                        f"{version} to {len(refs)} buyer(s)"),
+                reason=notice["body"][:500], max_cost_cad=0.0, minutes=5,
+                consequence_of_delay=("buyers keep working from a version with a known "
+                                      "correction; support answers against their version "
+                                      "meanwhile"),
+                blocks="#42 correction notice"))
+    return {"product_slug": product_slug, "version": version,
+            "affected_count": len(refs), "affected_orders": refs,
+            "notice": notice, "owner_action": key}

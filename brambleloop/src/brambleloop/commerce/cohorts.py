@@ -80,7 +80,7 @@ def _aware(at: datetime | None) -> datetime:
 
 
 # ---------------------------------------------------------------------------
-# Writing. Nothing calls these today; they exist so the first real order has somewhere to go.
+# Writing. Called by `commerce.orders_ingest` for every receipt line it reads (C-64).
 
 
 def record_customer(db, customer_ref: str, *, at: datetime | None = None,
@@ -132,7 +132,12 @@ def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
                  price_cad: float = 0.0, revenue_cad: float | None = None,
                  contribution_cad: float = 0.0, acquisition_source: str = "unknown",
                  search_term: str = "", offsite_ad_attributed: bool = False,
-                 cross_sell_of: str = "", refunded: bool = False) -> dict:
+                 cross_sell_of: str = "", refunded: bool = False,
+                 currency: str = "CAD", amount_original: float | None = None,
+                 fx_usd_per_cad: float | None = None, fx_taken_on: str = "",
+                 fx_measured: bool = False, fees_cad: float = 0.0,
+                 offer: str = "single_pattern", source: str = "",
+                 detail: dict | None = None) -> dict:
     """One order against a recorded customer. Refuses an order for nobody."""
     if price_cad < 0 or contribution_cad > max(price_cad, revenue_cad or 0.0) + 1e-9:
         raise CohortRefused(
@@ -156,6 +161,11 @@ def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
             contribution_cad=contribution_cad, acquisition_source=acquisition_source,
             search_term=search_term, offsite_ad_attributed=offsite_ad_attributed,
             is_repeat=bool(prior), cross_sell_of=cross_sell_of, refunded=refunded,
+            currency=(currency or "CAD").upper(),
+            amount_original=price_cad if amount_original is None else amount_original,
+            fx_usd_per_cad=fx_usd_per_cad, fx_taken_on=fx_taken_on, fx_measured=fx_measured,
+            fees_cad=fees_cad, offer=offer or "single_pattern", source=source,
+            detail=dict(detail or {}),
         )
         s.add(order)
         if category and category not in (customer.interests or []):

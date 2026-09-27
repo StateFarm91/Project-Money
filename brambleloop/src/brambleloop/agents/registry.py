@@ -42,7 +42,8 @@ class BudgetExceeded(Exception):
 # listed here, so widening authority is a visible, reviewable change.
 DEFAULT_AGENTS: list[dict] = [
     dict(name="orchestrator", description="CEO/Orchestrator: sets priorities, schedules work",
-         allowed_job_types=["plan.cycle", "portfolio.review", "ops.heartbeat",
+         allowed_job_types=["scale.trajectory",  # C-64 / #26: nightly scenario analysis
+                            "plan.cycle", "portfolio.review", "ops.heartbeat",
                             "ops.queue_check", "plan.strategy", "launch.readiness",
                             "ops.continuity", "seasonal.sentinel",
                             "improve.retrospective", "ops.policy_watch", "build.tick",
@@ -96,7 +97,8 @@ DEFAULT_AGENTS: list[dict] = [
     # consume a day's whole model allowance is a measurement nobody can afford to repeat.
     dict(name="creative_director",
          description="Blinded creative benchmarking and product discovery (#94, #104, #3)",
-         allowed_job_types=["creative.blinded", "creative.expedition",
+         allowed_job_types=["creative.north_star",  # C-64 / #104 #132
+                            "creative.blinded", "creative.expedition",
                             "creative.blind_review", "creative.grid_tournament",
                             "creative.tournament",
                             # #82 / #89: read-only learners over recorded outcomes.
@@ -205,6 +207,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "finance.governor",
                             # C-59: daily readings of the gated commerce machinery (read-only).
                             "commerce.readings",
+                            # C-64: the order ingest (behind the transactions_r gate) and
+                            # everything that reads orders.
+                            "commerce.orders_ingest", "commerce.order_readings",
                             # The four-fifths escalation as a job rather than a page view:
                             # `spend_policy.escalation` was computed only when somebody
                             # fetched /api/spend-report, so a month that reached 80% with
