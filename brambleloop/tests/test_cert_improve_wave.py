@@ -194,6 +194,118 @@ def test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back():
     assert orchestrate.priority_policy(db)["config_id"] == replaced
 
 
+def _promote_replay_challenger(db) -> tuple[int, int, int]:
+    """Replay, sandbox and promote one job-priority challenger; (improvement, new, old)."""
+    _seed_contention(db)
+    out = _run(db, "improve.replay")
+    iid = out["proposed"][0]["improvement"]
+    sandbox = _run(db, "improve.sandbox")
+    assert [x["improvement"] for x in sandbox["promoted"]] == [iid], sandbox
+    _state, ev, _b, _r = _improvement(db, iid)
+    return iid, int(ev["change"]["config_id"]), int(ev["change"]["replaces"])
+
+
+def _fresh_worse_runs(db, replaced: int, challenger: int, *, tag: str = "fresh") -> None:
+    """Runs on a window observed after the promotion where the promoted policy reads worse."""
+    from brambleloop.improve import league
+
+    league.record_run(db, replaced, tasks={"day:x1": 0.9, "day:x2": 0.9}, cost_cad=0.0,
+                      reliability=1.0, run_ref=f"replay:aaaaaaaaaaaa:{tag}..{tag}:20",
+                      recorded_by="prompt_tool_challenger")
+    league.record_run(db, challenger, tasks={"day:x1": 0.4, "day:x2": 0.4}, cost_cad=0.0,
+                      reliability=1.0, run_ref=f"replay:bbbbbbbbbbbb:{tag}..{tag}:20",
+                      recorded_by="prompt_tool_challenger")
+
+
+def test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost():
+    """C-81 (Codex M01): REVERTED is written only after the rollback effect is verified.
+
+    The process is killed twice -- once before the executor runs, once after it ran but
+    before verification -- and each restart resumes the pending rollback. Until the active
+    policy is shown restored the row stays PROMOTED with `rollback_pending`, the incident
+    stays open, and nothing re-judges or re-executes the promotion.
+    """
+    from brambleloop.core.models import ConfigVersion, Incident
+    from brambleloop.improve import runner
+    from brambleloop.swarm import orchestrate
+
+    db = _db()
+    iid, challenger, replaced = _promote_replay_challenger(db)
+    _fresh_worse_runs(db, replaced, challenger)
+    signature = f"improve-rollback:{iid}"
+
+    def _rollback_state():
+        state, ev, _b, _r = _improvement(db, iid)
+        with db.session() as s:
+            inc = s.scalar(select(Incident).where(Incident.signature == signature))
+            active = s.get(ConfigVersion, challenger).incumbent
+        return state, ev.get("rollback_pending"), ev.get("rollback"), inc, active
+
+    real = runner.ROLLBACKS["league_replay"]
+
+    def killed_before_executing(db_, iid_, *, why):
+        raise RuntimeError("killed before the rollback executor ran")
+
+    def killed_after_executing(db_, iid_, *, why):
+        real(db_, iid_, why=why)
+        raise RuntimeError("killed after the executor and before verification")
+
+    # Kill 1: decided, incident opened, executor never ran.
+    runner.ROLLBACKS["league_replay"] = killed_before_executing
+    try:
+        try:
+            _run(db, "improve.monitor")
+        except RuntimeError:
+            pass
+        state, pending, done, inc, active = _rollback_state()
+        assert state == "promoted" and done is None, "REVERTED was written before the effect"
+        assert pending and pending["attempts"] == 1 and pending["because"]
+        assert active is True, "the challenger is still the incumbent; nothing rolled back"
+        assert inc is not None and inc.resolved is False
+        assert inc.detail["rollback_state"] == "pending"
+
+        # Restart 1, same fault: resumed (attempt 2), not re-judged, still pending.
+        windows_before = _improvement(db, iid)[1].get("monitored_windows")
+        try:
+            _run(db, "improve.monitor")
+        except RuntimeError:
+            pass
+        state, pending, done, inc, active = _rollback_state()
+        assert state == "promoted" and pending["attempts"] == 2 and active is True
+        assert _improvement(db, iid)[1].get("monitored_windows") == windows_before
+
+        # Kill 2: the executor restored the previous version, then the process died before
+        # verification. The effect is there, the row still honestly says pending.
+        runner.ROLLBACKS["league_replay"] = killed_after_executing
+        try:
+            _run(db, "improve.monitor")
+        except RuntimeError:
+            pass
+        state, pending, done, inc, active = _rollback_state()
+        assert state == "promoted" and pending["attempts"] == 3 and inc.resolved is False
+        assert active is False, "the executor did run before the kill"
+    finally:
+        runner.ROLLBACKS["league_replay"] = real
+
+    # Restart 2, healthy: the idempotent executor finds the version already restored, the
+    # verifier reads the registry and the live policy, and only now is REVERTED written.
+    mon = _run(db, "improve.monitor")
+    assert iid in mon["reverted"] and iid not in mon["rollback_pending"], mon
+    state, pending, done, inc, active = _rollback_state()
+    assert state == "reverted" and pending is None
+    assert done["attempts"] == 4 and done["verified"]["verified"] is True
+    assert done["verified"]["active_config_id"] == replaced
+    assert inc.resolved is True and inc.detail["rollback_state"] == "verified"
+    assert active is False
+    orchestrate.clear_policy_cache()
+    assert orchestrate.priority_policy(db)["config_id"] == replaced
+
+    # Idempotent: another pass has nothing to resume and reverts nothing.
+    again = _run(db, "improve.monitor")
+    assert again["reverted"] == [] and again["rollback_pending"] == []
+    assert _improvement(db, iid)[0] == "reverted"
+
+
 def test_the_nightly_sweep_runs_challenger_evaluations_rather_than_counting_them():
     _scheduled("improve.nightly", "orchestrator")
     from brambleloop.core.models import AuditLog

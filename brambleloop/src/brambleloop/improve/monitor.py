@@ -62,6 +62,10 @@ def _rollback_proposal(db, improvement_id: int, cell: str, outcome: dict) -> dic
                f"(observed {outcome.get('observed')} against {outcome.get('expected')} at "
                f"promotion, baseline {outcome.get('baseline')}). Roll back via "
                f"{outcome.get('rollback_ref')!r}")
+    # The row's state at the moment the incident is opened. A trial rollback is opened while
+    # the row is still PROMOTED and the rollback pending (C-81); the incident stays open until
+    # `_rollback_resolved` records the verified effect.
+    state = "pending" if outcome.get("action") == "rollback_pending" else "proposed"
     with db.session() as s:
         existing = s.scalar(select(Incident).where(Incident.signature == signature))
         if existing is None:
@@ -71,10 +75,13 @@ def _rollback_proposal(db, improvement_id: int, cell: str, outcome: dict) -> dic
                                    "rollback_ref": outcome.get("rollback_ref"),
                                    "observed": outcome.get("observed"),
                                    "expected": outcome.get("expected"),
-                                   "baseline": outcome.get("baseline")}))
+                                   "baseline": outcome.get("baseline"),
+                                   "rollback_state": state}))
             opened = True
         else:
             opened = False
+            if existing.resolved is False and existing.detail.get("rollback_state") != state:
+                existing.detail = {**dict(existing.detail or {}), "rollback_state": state}
     lesson = bus.publish(
         db, origin_cell=cell, subject="defect",
         statement=(f"A promoted change to {cell} regressed below what won its promotion and "
@@ -83,6 +90,29 @@ def _rollback_proposal(db, improvement_id: int, cell: str, outcome: dict) -> dic
         evidence_ref=f"rollback:improvement:{improvement_id}", confidence="measured")
     return {"incident": signature, "opened": opened, "lesson": lesson,
             "rollback_ref": outcome.get("rollback_ref")}
+
+
+def _rollback_resolved(db, improvement_id: int, verified: dict) -> dict:
+    """Close the rollback incident once -- and only once -- the effect has been verified.
+
+    The incident is retained while the rollback is pending, however many passes that takes,
+    so an interrupted rollback is a visible open defect and not a row that quietly says
+    reverted. Resolution records what was checked and what it read.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    signature = f"{ROLLBACK_SIGNATURE}:{improvement_id}"
+    with db.session() as s:
+        existing = s.scalar(select(Incident).where(Incident.signature == signature))
+        if existing is None:
+            return {"incident": signature, "resolved": False, "why": "no incident on record"}
+        existing.detail = {**dict(existing.detail or {}), "rollback_state": "verified",
+                           "rollback_verified": dict(verified),
+                           "resolved_at": datetime.now(timezone.utc).isoformat()}
+        existing.resolved = True
+    return {"incident": signature, "resolved": True}
 
 
 def last_seen(db) -> dict[str, int]:

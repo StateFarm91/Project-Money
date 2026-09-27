@@ -4612,6 +4612,7 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
     trials = runner.monitor_trials(ctx.db)
     ctx.audit("improve.monitor_trials", detail={
         "judged": trials["judged"], "reverted": trials["reverted"],
+        "rollback_pending": trials["rollback_pending"],
         "waiting": len(trials["waiting"])})
     return {"ran": True, "promoted": out["promoted"], "judged": out["judged"],
             "held": len(out["held"]),
@@ -4622,6 +4623,9 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             "trial_monitoring": {"judged": len(trials["judged"]),
                                  "reverted": trials["reverted"],
                                  "waiting": len(trials["waiting"])},
+            # C-81: a rollback decided and not yet verified complete stays on the PROMOTED
+            # row and is resumed next pass; it is never reported as reverted.
+            "rollback_pending": [r["improvement"] for r in trials["rollback_pending"]],
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 

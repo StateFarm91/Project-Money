@@ -330,18 +330,38 @@ def adopt_floor(db, finding_id: int, *, floor: float, improvement_id: int) -> di
 
 
 def drop_floor(db, finding_id: int, *, why: str) -> dict:
+    """Remove an adopted floor. Idempotent: a floor already gone is reported, not re-dropped,
+    so a rollback resumed after an interruption (C-81) changes nothing the first run did."""
     from ..core.models import TeardownFinding
 
     with db.session() as s:
         row = s.get(TeardownFinding, finding_id)
         if row is None:
-            return {"dropped": False}
+            return {"dropped": False, "why": f"no finding {finding_id}"}
         detail = dict(row.detail or {})
         prior = detail.pop("adopted", None)
+        if prior is None:
+            return {"dropped": False, "finding": finding_id, "already": True,
+                    "why": "no floor is adopted on this finding"}
         detail["floor_dropped"] = {"was": prior, "why": why,
                                    "at": datetime.now(timezone.utc).isoformat()}
         row.detail = detail
     return {"dropped": True, "finding": finding_id}
+
+
+def floor_absent(db, finding_id: int) -> dict:
+    """The rollback verifier for an adopted floor: is the requirement free of it now?"""
+    from ..core.models import TeardownFinding
+
+    with db.session() as s:
+        row = s.get(TeardownFinding, finding_id)
+        detail = dict(row.detail or {}) if row is not None else {}
+    adopted = detail.get("adopted")
+    verified = row is not None and not adopted
+    return {"verified": verified, "check": "self_audit.floor_absent", "finding": finding_id,
+            "why": ("no floor is adopted on the finding" if verified else
+                    f"finding {finding_id} still carries floor {adopted}" if row is not None
+                    else f"no finding {finding_id}")}
 
 
 def sweep(db) -> dict:

@@ -515,6 +515,40 @@ def rollback(db, improvement_id: int, *, why: str) -> dict:
     return out
 
 
+def rollback_verified(db, improvement_id: int) -> dict:
+    """Is the version this promotion replaced the *active* policy again? Read, not assumed.
+
+    Two readings have to agree before a rollback counts as done (C-81): the registry names
+    the replaced version as the incumbent and the promoted challenger as not, and
+    `swarm.orchestrate.priority_policy` -- what the next enqueue actually reads -- resolves
+    to that same version. A rollback that flipped a flag the runtime does not read has not
+    rolled anything back.
+    """
+    from ..core.models import ConfigVersion, Improvement
+    from ..swarm.orchestrate import clear_policy_cache, priority_policy
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        change = dict((row.evidence or {}).get("change") or {}) if row is not None else {}
+        replaces = int(change.get("replaces") or 0)
+        promoted = int(change.get("config_id") or 0)
+        target = s.get(ConfigVersion, replaces) if replaces else None
+        challenger = s.get(ConfigVersion, promoted) if promoted else None
+        registry_ok = (target is not None and target.incumbent is True
+                       and (challenger is None or challenger.incumbent is False))
+    clear_policy_cache()
+    active = priority_policy(db)
+    active_ok = active.get("config_id") == replaces
+    verified = bool(replaces) and registry_ok and active_ok
+    return {"verified": verified, "check": "league_replay.rollback",
+            "registry_incumbent_is_replaced": registry_ok,
+            "active_config_id": active.get("config_id"), "expected_config_id": replaces,
+            "why": ("the replaced version is the registry incumbent and the policy the "
+                    "runtime reads" if verified else
+                    f"registry restored: {registry_ok}; active policy reads config "
+                    f"{active.get('config_id')} where {replaces} is expected")}
+
+
 def state() -> dict:
     kind, key = _policy_key()
     return {"action": ACTION, "policy": f"{kind}/{key}", "author": AUTHOR,

@@ -219,6 +219,15 @@ def _rollback_self_audit(db, iid: int, *, why: str) -> dict:
     return enforce.drop_floor(db, int(change["finding"]), why=why)
 
 
+def _verify_self_audit(db, iid: int) -> dict:
+    from ..core.models import Improvement
+    from ..teardown import enforce
+
+    with db.session() as s:
+        change = dict((s.get(Improvement, iid).evidence or {}).get("change") or {})
+    return enforce.floor_absent(db, int(change["finding"]))
+
+
 def _monitor_league_replay(db, iid: int) -> dict:
     from . import replay
 
@@ -231,12 +240,25 @@ def _rollback_league_replay(db, iid: int, *, why: str) -> dict:
     return replay.rollback(db, iid, why=why)
 
 
+def _verify_league_replay(db, iid: int) -> dict:
+    from . import replay
+
+    return replay.rollback_verified(db, iid)
+
+
 EXECUTORS: dict[str, Callable[..., dict]] = {
     "league_replay": _execute_league_replay, "self_audit": _execute_self_audit}
 MONITORS: dict[str, Callable[..., dict]] = {
     "league_replay": _monitor_league_replay, "self_audit": _monitor_self_audit}
+# Rollback executors are idempotent: run twice, the second run finds the previous version
+# already the incumbent (or the floor already gone) and changes nothing. That is what lets a
+# rollback interrupted at any point be resumed by the next pass (C-81).
 ROLLBACKS: dict[str, Callable[..., dict]] = {
     "league_replay": _rollback_league_replay, "self_audit": _rollback_self_audit}
+# What each rollback must be shown to have done before the row may say REVERTED: the active
+# job-priority configuration is the version it replaced; the adopted floor is gone.
+VERIFIERS: dict[str, Callable[..., dict]] = {
+    "league_replay": _verify_league_replay, "self_audit": _verify_self_audit}
 
 # Which trial answers which self-review proposal kind.
 TRIAL_FOR_KIND: dict[str, str] = {"declining_capability": "counterfactual_rollback"}
@@ -566,12 +588,21 @@ def monitor_trials(db, *, now: datetime | None = None) -> dict:
     from . import monitor as monitor_mod
 
     with db.session() as s:
-        rows = [(r.id, r.cell, (r.evidence or {}).get("sandbox_trial"))
+        rows = [(r.id, r.cell, (r.evidence or {}).get("sandbox_trial"),
+                 bool((r.evidence or {}).get(cells.ROLLBACK_PENDING)))
                 for r in s.scalars(select(Improvement).where(
                     Improvement.state == cells.PROMOTED))
                 if (r.evidence or {}).get("sandbox_trial") in MONITORS]
-    judged, reverted, waiting = [], [], []
-    for iid, cell, trial in rows:
+    judged, reverted, waiting, pending = [], [], [], []
+    for iid, cell, trial, has_pending in rows:
+        if has_pending:
+            # A rollback decided on an earlier pass and not yet verified complete -- the
+            # process died between deciding and executing, or between executing and
+            # verifying. It is resumed, never re-judged: the decision stands until the effect
+            # is shown (C-81).
+            done = _complete_rollback(db, iid, cell, trial)
+            (reverted if done["state"] == cells.REVERTED else pending).append(done)
+            continue
         seen = MONITORS[trial](db, iid)
         if not seen.get("judged"):
             waiting.append({"improvement": iid, "why": seen.get("why")})
@@ -580,14 +611,45 @@ def monitor_trials(db, *, now: datetime | None = None) -> dict:
             judged.append({"improvement": iid, "observed": seen.get("observed"),
                            "action": "held"})
             continue
-        outcome = cells.revert(db, iid, because=seen["why"], observed=seen.get("observed"))
-        undone = ROLLBACKS[trial](db, iid, why=seen["why"])
-        incident = monitor_mod._rollback_proposal(db, iid, cell, outcome)
-        reverted.append({"improvement": iid, "observed": seen.get("observed"),
-                         "rollback": {k: v for k, v in undone.items()
-                                      if isinstance(v, (str, int, float, bool, type(None)))},
-                         "incident": incident["incident"]})
-    return {"judged": judged, "reverted": reverted, "waiting": waiting}
+        # 1. Decide, durably, on the still-PROMOTED row; 2. open the incident so the pending
+        # rollback is visible even if nothing below runs; 3. execute, verify, and only then
+        # write REVERTED.
+        outcome = cells.mark_rollback_pending(db, iid, because=seen["why"],
+                                              observed=seen.get("observed"))
+        monitor_mod._rollback_proposal(db, iid, cell, outcome)
+        done = _complete_rollback(db, iid, cell, trial)
+        (reverted if done["state"] == cells.REVERTED else pending).append(done)
+    return {"judged": judged, "reverted": reverted, "waiting": waiting,
+            "rollback_pending": pending}
+
+
+def _complete_rollback(db, iid: int, cell: str, trial: str) -> dict:
+    """Run the idempotent rollback executor, verify its effect, then complete the revert.
+
+    Every step is durable before the next: the attempt is counted before the executor runs,
+    the executor's own writes commit as they happen, and REVERTED is written last -- with
+    the verifier's reading on the row -- so a crash at any point leaves a PROMOTED row with
+    `rollback_pending` that the next pass resumes. The incident opened when the rollback was
+    decided is resolved here, and nowhere earlier.
+    """
+    from . import monitor as monitor_mod
+
+    pending = cells.rollback_pending(db, iid) or {}
+    because = str(pending.get("because") or "monitor judged the promotion worse")
+    attempts = cells.note_rollback_attempt(db, iid, executor=trial)
+    undone = ROLLBACKS[trial](db, iid, why=because)
+    check = VERIFIERS[trial](db, iid)
+    flat = {k: v for k, v in undone.items() if isinstance(v, (str, int, float, bool, type(None)))}
+    if not check.get("verified"):
+        return {"improvement": iid, "state": cells.PROMOTED, "action": "rollback_pending",
+                "attempts": attempts, "rollback": flat, "verification": check,
+                "observed": pending.get("observed"),
+                "why": f"rollback executed and not verified: {check.get('why')}"}
+    cells.revert(db, iid, because=because, observed=pending.get("observed"), verified=check)
+    incident = monitor_mod._rollback_resolved(db, iid, check)
+    return {"improvement": iid, "state": cells.REVERTED, "action": "reverted",
+            "attempts": attempts, "observed": pending.get("observed"), "rollback": flat,
+            "verification": check, "incident": incident["incident"]}
 
 
 def _promote_or_route(db, iid: int, *, now: datetime) -> dict:
