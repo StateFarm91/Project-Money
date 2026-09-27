@@ -798,6 +798,89 @@ def test_an_omitted_priority_is_the_job_types_band_not_below_every_band():
     reply = q.enqueue("a", "support.reply", {})
     assert q.claim("w").id == reply.id
 
+
+def test_a_permanent_error_is_terminal_on_its_first_attempt():
+    """C-51: PDF hash drift (a PermanentError) sat FAILED at 1/3 and was re-rendered and
+    refused again. A permanent error is the same on the next attempt."""
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    db = boot(f"sqlite:///{tempfile.mkdtemp()}/perm.sqlite")
+    allow(db, "orchestrator", "chaos.perm")
+    allow(db, "orchestrator", "chaos.corrupt")
+    allow(db, "orchestrator", "chaos.transient")
+    reg = HandlerRegistry()
+    reg.register("chaos.perm")(lambda ctx: (_ for _ in ()).throw(
+        PermanentError("PDF_HASH_DRIFT: re-render differs from the certified hash")))
+    reg.register("chaos.corrupt")(lambda ctx: (_ for _ in ()).throw(
+        CorruptArtifact("stored bytes do not match")))
+    reg.register("chaos.transient")(lambda ctx: (_ for _ in ()).throw(
+        TransientError("provider 503")))
+    q = JobQueue(db)
+    perm = q.enqueue("orchestrator", "chaos.perm", {}, max_attempts=3)
+    corrupt = q.enqueue("orchestrator", "chaos.corrupt", {}, max_attempts=3)
+    transient = q.enqueue("orchestrator", "chaos.transient", {}, max_attempts=3)
+    w = Worker(db, "w", registry=reg)
+    for _ in range(3):
+        w.run_once()
+    for job in (perm, corrupt):
+        row = q.get(job.id)
+        assert row.status == JobStatus.DEAD and row.attempts == 1, (row.status, row.attempts)
+    # A transient error still backs off and retries.
+    assert q.get(transient.id).status == JobStatus.FAILED
+
+
+def test_the_provenance_backstop_is_windowed_to_this_attempt():
+    """C-52: `started_at` is the FIRST attempt's; a retried job's backstop counted every
+    artefact other jobs wrote in between and dead-lettered it for them."""
+    from brambleloop.ops import artefacts as provenance
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    db = boot(f"sqlite:///{tempfile.mkdtemp()}/window.sqlite")
+    allow(db, "orchestrator", "chaos.retry")
+    reg = HandlerRegistry()
+    calls = {"n": 0}
+
+    @reg.register("chaos.retry")
+    def _h(ctx):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TransientError("bundle not yet certified")
+        return {}
+
+    seen = []
+    real = provenance.assert_instrumented
+
+    def spy(s, *, since, job_id=None):
+        seen.append(since)
+        return real(s, since=since, job_id=job_id)
+
+    q = JobQueue(db)
+    job = q.enqueue("orchestrator", "chaos.retry", {}, max_attempts=3)
+    w = Worker(db, "w", registry=reg)
+    provenance.assert_instrumented = spy
+    try:
+        w.run_once()
+        with db.session() as s:
+            s.get(Job, job.id).run_after = utcnow() - timedelta(seconds=1)
+        before_second = utcnow()
+        w.run_once()
+    finally:
+        provenance.assert_instrumented = real
+    row = q.get(job.id)
+    assert row.status == JobStatus.DONE and row.attempts == 2
+    first = row.started_at if row.started_at.tzinfo else row.started_at.replace(
+        tzinfo=before_second.tzinfo)
+    assert seen, "the backstop never ran"
+    since = seen[-1] if seen[-1].tzinfo else seen[-1].replace(tzinfo=before_second.tzinfo)
+    assert since >= before_second > first, (since, before_second, first)
+
+    # And the claim says so for any caller, not only the worker.
+    q2 = JobQueue(db)
+    j2 = q2.enqueue("orchestrator", "chaos.retry", {"n": 2})
+    t0 = utcnow()
+    got = q2.claim("x", ["chaos.retry"])
+    assert got.id == j2.id and got.attempt_started_at >= t0
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

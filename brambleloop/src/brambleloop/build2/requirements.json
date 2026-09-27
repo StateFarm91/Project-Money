@@ -1300,52 +1300,53 @@
   {
     "body": "For every strong signal, decompose the demand into non-protected commercial primitives: emotion, setting, era, humour type, colour language, object category, ritual, character archetype, visual motif class and gifting context. Feed those primitives into Brambleloop's Concept Tournament to invent original crochet products rather than simply reproducing source material.",
     "id": 134,
-    "note": "culture/translate.py decomposes into the ten primitives #134 names and check_free_of() proves the protected token did not survive: decomposition nobody checks is a paraphrase Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: signals never decomposed into primitives. Executable Build 2 work.",
+    "note": "culture/translate.py decomposes into the ten primitives #134 names and check_free_of() proves the protected token did not survive: decomposition nobody checks is a paraphrase Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: signals never decomposed into primitives. Executable Build 2 work.\n\nCertification repair 2026-09-27: culture_sweep cadence -> culture.sweep -> engine.process_signal -> translate.decompose; primitives persisted on CultureSignal, unreadable topics recorded untranslated (never invented).",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Culture-to-Product Translation Engine",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/translate.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Maintain a separate lane for public-domain, licensed, permissioned or otherwise cleared material. Direct names, characters, dialogue, logos or distinctive protected expression may enter production only when the rights/policy gate records the basis for use. Unclear rights route to the original-concept lane rather than silently blocking the entire cultural opportunity.",
     "id": 135,
-    "note": "culture/rights.py routes unclear rights to the original lane rather than blocking the opportunity, and a direct reference needs a recorded basis with evidence behind it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no clearance lane at runtime. Executable Build 2 work.",
+    "note": "culture/rights.py routes unclear rights to the original lane rather than blocking the opportunity, and a direct reference needs a recorded basis with evidence behind it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no clearance lane at runtime. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep routes each signal through rights; protected titles go to the original lane; POST /api/culture/clearance (owner token) records a clearance basis and re-routes; a basis that is only a hope is refused.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Direct-Reference Clearance Lane",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/rights.py culture/engine.py runtime/release.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Score cultural signals on search momentum, recurrence, nostalgia durability, seasonal fit, crochet translatability, giftability, visual recognisability, product-family potential, competition density, make-time window and rights feasibility. This prevents chasing every meme while still reacting quickly to unusually strong opportunities.",
     "id": 136,
-    "note": "culture/score.py scores the eleven components; rights feasibility and the make-time window are gates rather than weights, and an unobserved component is absent rather than zero Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: signals never scored. Executable Build 2 work.",
+    "note": "culture/score.py scores the eleven components; rights feasibility and the make-time window are gates rather than weights, and an unobserved component is absent rather than zero Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: signals never scored. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep -> engine.observations_for -> score.score -> CultureSignal.score with evidence weight; the score gates the tournament and rapid cell; unmeasured components stay absent.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Cultural Moment Opportunity Score",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/score.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Treat eras as reusable demand territories independent of franchises: retro suburban Christmas, 1980s holiday maximalism, 1990s family Christmas, vintage ski lodge, mid-century holiday, classic storybook winter, retro Halloween, cottage summer and similar aesthetics. Combine era signals with original Brambleloop forms, functions and motifs.",
     "id": 137,
-    "note": "translate.ERAS holds nine reusable territories; an era invented per signal is refused because the value of an era is that it recurs Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no era territory combined with concepts. Executable Build 2 work.",
+    "note": "translate.ERAS holds nine reusable territories; an era invented per signal is refused because the value of an era is that it recurs Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no era territory combined with concepts. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep -> engine.era_combinations -> one CultureConcept row per era territory.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Nostalgia Era Engine",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/translate.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "When a cultural signal is strong, generate a broad set of original translations across blankets, stockings, ornaments, coasters, wreaths, garlands, tableware, amigurumi, wearables, bags, pillows, nursery, pet, kitchen and interactive/transforming products. Require materially different premises and run the same desirability/novelty/grid gates as other concepts.",
     "id": 138,
-    "note": "translate.white_space() measures families and distinct premises rather than a count, which is what the jury cannot see reading one at a time Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no cultural translation tournament. Executable Build 2 work.",
+    "note": "translate.white_space() measures families and distinct premises rather than a count, which is what the jury cannot see reading one at a time Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no cultural translation tournament. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep runs white_space_tournament and persists CultureConcept candidates; still partial until creative development consumes them through the jury/desirability/grid gates (ideation wiring).",
     "section": "Culture & nostalgia opportunity engine",
     "status": "partial",
     "title": "Cultural White-Space Tournament",
     "version": "v1.3.7",
-    "parked_on": ""
+    "parked_on": "",
+    "proof": "culture/translate.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Treat famous dialogue, lyrics, slogans and catchphrases as a distinct rights-sensitive asset class. The radar may record them as evidence of the underlying humour or cultural moment, but customer-facing direct use requires clearance. Otherwise generate original language and product concepts expressing the same broad emotional territory without copying the phrase.",
@@ -1369,12 +1370,12 @@
   {
     "body": "Create a small autonomous cell for time-sensitive cultural opportunities. It may accelerate research, concept tournament, feasibility and creative prototyping, but it cannot bypass CIR, Product Truth, Creative Parity, policy, spend or release gates. Speed comes from prioritization and parallelism, not lower standards.",
     "id": 141,
-    "note": "culture/rapid.py names what may be accelerated and what may never be bypassed as two closed lists, and its forbidden list covers the Improvement Department's protected gates Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no rapid-response cell. Executable Build 2 work.",
+    "note": "culture/rapid.py names what may be accelerated and what may never be bypassed as two closed lists, and its forbidden list covers the Improvement Department's protected gates Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no rapid-response cell. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep -> rapid_response for actionable dated signals -> rapid.check (no bypass) -> priority rapid candidates; nothing passes creative_development.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Rapid Response Creative Cell",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/rapid.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Build durable original territories around recurring cultural emotions: chaotic family holiday, over-the-top decorating, awkward relatives, winter road trip, office holiday party, cozy movie night, magical childhood Christmas, retro toy-shop winter, spooky-cute Halloween, romantic-comedy Valentine mood and similar themes. These become reusable Brambleloop IP rather than dependence on external franchises.",
@@ -1389,42 +1390,42 @@
   {
     "body": "A strong cultural territory should spawn a coherent original collection when justified: flagship, quick-make, giftable mini, decor, wearable/accessory and bundle. Maintain consistent Brambleloop visual language while varying form and price point.",
     "id": 143,
-    "note": "translate.collection() reports the six roles' shape rather than declaring a collection from a product count Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no collection architected from a territory. Executable Build 2 work.",
+    "note": "translate.collection() reports the six roles' shape rather than declaring a collection from a product count Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no collection architected from a territory. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep -> collection_plans -> translate.collection per theme.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Culture-Informed Collection Architecture",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/translate.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Persist every observed signal, source/date, concept translations, rejected ideas, launch outcomes and decay curve. Future agents should know which cultural territories recur annually, which were one-week fads, which translated well into crochet, and which produced poor economics.",
     "id": 144,
-    "note": "culture_signals and culture_observations persist every signal, source, exit reason and lesson, are non-rederivable in the continuity export, and memory() names which territories recur annually Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: culture/radar.py, core/continuity.py, core/models.py (tests: tests/test_culture.py, tests/test_continuity.py). Gap: radar.memory() decides recurring_annually by first_seen age (300-400 days) alone, never by a second sighting. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): recurring_annually now needs a second sighting in a later year (300-400 days apart) and returns the evidence; a single old sighting is 'seen once'.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: worker:culture_sweep -> release culture.sweep -> radar/feeds. Gap: radar.exit_signal (rejected ideas/lessons) has no caller; concept translations and launch outcomes are not persisted.",
+    "note": "culture_signals and culture_observations persist every signal, source, exit reason and lesson, are non-rederivable in the continuity export, and memory() names which territories recur annually Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: culture/radar.py, core/continuity.py, core/models.py (tests: tests/test_culture.py, tests/test_continuity.py). Gap: radar.memory() decides recurring_annually by first_seen age (300-400 days) alone, never by a second sighting. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): recurring_annually now needs a second sighting in a later year (300-400 days apart) and returns the evidence; a single old sighting is 'seen once'.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: worker:culture_sweep -> release culture.sweep -> radar/feeds. Gap: radar.exit_signal (rejected ideas/lessons) has no caller; concept translations and launch outcomes are not persisted.\n\nCertification repair 2026-09-27: sweep persists translations, rejected/withdrawn ideas and exit_signal lessons, reads radar.memory() into the recurrence score (C-53), and records launch outcomes (empty until something launches).",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Cultural Trend Memory",
     "version": "v1.3.7",
-    "proof": "culture/radar.py tests/test_culture.py"
+    "proof": "culture/radar.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Do not keep producing into a cultural trend after the window closes. Detect declining search momentum, rising copycat density, poor CTR/conversion or insufficient remaining make-time. Shift capacity to the next seasonal/cultural wave and record the exit lesson.",
     "id": 145,
-    "note": "radar.exit_check() treats any one of declining interest, copycat density, poor conversion or insufficient make time as sufficient, and unmeasured conversion is not read as failure Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no trend exit detected. Executable Build 2 work.",
+    "note": "radar.exit_check() treats any one of declining interest, copycat density, poor conversion or insufficient make time as sufficient, and unmeasured conversion is not read as failure Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no trend exit detected. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep -> radar.exit_check on the reference channel and days-to-occasion -> exit_signal and candidates withdrawn; conversion unmeasured, never read as failure.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Cultural Saturation & Timing Exit",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/radar.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Use cultural observation as raw material to build Brambleloop-owned recurring characters, motifs, jokes, traditions and collection worlds. The long-term goal is not permanent dependence on external pop culture; it is to develop recognizable original seasonal IP that customers return for.",
     "id": 146,
-    "note": "culture/cast.py holds what translate.owned_territories() could only count. Two refusals carry the requirement. Recurrence cannot be declared: 'customers return for it' is a claim about the second time, so an element is proposed until it has appeared in three releases across two seasons, and there is no status field, flag or argument that promotes it -- a roster that can be populated by writing names in it measures enthusiasm, and eight appearances in one season is a collection rather than IP. And originality is checked on the primitives, never the name: the dangerous failure is not a product that borrows openly, which is routed by culture.rights and recorded as borrowed, but a character with an original name whose design is a recognisable external one -- it looks like an asset, carries the full legal risk of what it resembles, and cannot be defended because nobody wrote down what it was derived from. propose() runs rights.check_free_of over the name, the description and every derived primitive rather than implementing a second containment check, since the more permissive of two would get used. A collection world must answer can_host() for an object category it has never seen; a world that admits nothing is a retrospective label for a bundle, and an undecided category is a decision to make rather than a yes. dependence() refuses a single reading because the requirement's goal is a direction -- not permanent dependence -- and a dependence nobody trends is one nobody notices growing. The roster is empty today, which is the correct state for a company that has released nothing: filling it now with invented names is precisely the failure the module refuses, and the elements will be earned as products are designed rather than batched. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no original IP element proposed. Executable Build 2 work.",
+    "note": "culture/cast.py holds what translate.owned_territories() could only count. Two refusals carry the requirement. Recurrence cannot be declared: 'customers return for it' is a claim about the second time, so an element is proposed until it has appeared in three releases across two seasons, and there is no status field, flag or argument that promotes it -- a roster that can be populated by writing names in it measures enthusiasm, and eight appearances in one season is a collection rather than IP. And originality is checked on the primitives, never the name: the dangerous failure is not a product that borrows openly, which is routed by culture.rights and recorded as borrowed, but a character with an original name whose design is a recognisable external one -- it looks like an asset, carries the full legal risk of what it resembles, and cannot be defended because nobody wrote down what it was derived from. propose() runs rights.check_free_of over the name, the description and every derived primitive rather than implementing a second containment check, since the more permissive of two would get used. A collection world must answer can_host() for an object category it has never seen; a world that admits nothing is a retrospective label for a bundle, and an undecided category is a decision to make rather than a yes. dependence() refuses a single reading because the requirement's goal is a direction -- not permanent dependence -- and a dependence nobody trends is one nobody notices growing. The roster is empty today, which is the correct state for a company that has released nothing: filling it now with invented names is precisely the failure the module refuses, and the elements will be earned as products are designed rather than batched. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: no original IP element proposed. Executable Build 2 work.\n\nCertification repair 2026-09-27: sweep -> propose_ip -> cast.propose -> CultureIPElement rows, status proposed only.",
     "section": "Culture & nostalgia opportunity engine",
-    "status": "partial",
+    "status": "covered",
     "title": "Original Brambleloop Cultural IP",
     "version": "v1.3.7",
-    "parked_on": ""
+    "proof": "culture/cast.py culture/engine.py runtime/release.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Culture & Nostalgia Radar findings flow into Market Radar, Creativity, SEO, Content, Seasonal Planning and Improvement Department. Post-launch outcomes update cultural scoring weights so the system becomes better at distinguishing commercially useful cultural signals from noise. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.8 - Competitive Product Teardown Laboratory This upgrade adds a controlled post-purchase benchmark laboratory. Purchased competitor files remain a separate benchmark library; Brambleloop learns abstract customer-experience mechanisms and raises its standards without treating competitor patterns as generation source material.",
@@ -1467,123 +1468,122 @@
   {
     "body": "Compare what the Etsy listing promised with what the customer actually receives: file count, PDF depth, charts, photos, diagrams, video/tutorial links, sizing, materials, skill level, terminology, bonuses, support, printability and update/version information. Score expectation alignment and identify over/under-delivery.",
     "id": 151,
-    "note": "promise_audit() compares the listing's promises against what the download actually contains, and judges only what the manifest can settle: promises about sizing depth or troubleshooting quality are reported as unverifiable from filenames rather than guessed, which is the blank-hero mistake this company has already made once. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: intake never runs promise_audit. Executable Build 2 work.",
+    "note": "promise_audit() compares the listing's promises against what the download actually contains, and judges only what the manifest can settle: promises about sizing depth or troubleshooting quality are reported as unverifiable from filenames rather than guessed, which is the blank-hero mistake this company has already made once. Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: intake never runs promise_audit. Executable Build 2 work.\n\nCertification repair 2026-09-27: POST /api/teardown/intake -> intake.receive -> scorecard.promise_audit; alignment in the result and an audit row.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Promise-to-Delivery Audit",
     "version": "v1.3.8",
-    "proof": "teardown/scorecard.py tests/test_teardown.py",
-    "parked_on": ""
+    "proof": "teardown/intake.py teardown/scorecard.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Analyze cover, table of contents, quick-start, materials, gauge, sizing, abbreviations, technique explanations, construction overview, row/round instructions, charts, assembly, finishing, blocking, troubleshooting, credits, rights/use terms, support and cross-sell. Record information architecture rather than copying prose.",
     "id": 152,
-    "note": "audits.PDF_ARCHITECTURE records the nineteen sections #152 enumerates as presence rather than prose: information architecture transfers, the competitor's words never do Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: teardown audits cannot be recorded (observe/record/prefill uncalled). Executable Build 2 work.",
+    "note": "audits.PDF_ARCHITECTURE records the nineteen sections #152 enumerates as presence rather than prose: information architecture transfers, the competitor's words never do Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: teardown audits cannot be recorded (observe/record/prefill uncalled). Executable Build 2 work.\n\nCertification repair 2026-09-27: intake prefills every schedule; POST /api/teardown/audit (owner token) -> audits.observe -> audits.record -> TeardownFinding. Audits of purchased benchmarks are performed by a reader; purchased files are never committed.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "PDF Information Architecture Teardown",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Score scanability, repeat notation, row grouping, stitch-count visibility, terminology consistency, size grading, colour-change clarity, assembly clarity and cognitive load. Identify mechanisms that make instructions easier or harder to follow. Convert winning mechanisms into Brambleloop publishing requirements.",
     "id": 153,
-    "note": "audits.INSTRUCTION_CLARITY scores the nine mechanisms #153 names, and publishing_requirements() converts each winning one into a Brambleloop requirement to exceed it rather than match it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.INSTRUCTION_CLARITY scores the nine mechanisms #153 names, and publishing_requirements() converts each winning one into a Brambleloop requirement to exceed it rather than match it Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Instruction Clarity Benchmark",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Evaluate chart legibility, symbols, legends, colour independence, pagination, row numbering, motif boundaries, print quality, scale, schematics, assembly diagrams and correspondence with written instructions. Brambleloop should target clearer charts and stronger written/chart cross-validation than the best benchmark.",
     "id": 154,
-    "note": "audits.CHART_BENCHMARK scores all twelve chart elements including colour independence and written/chart correspondence; the derived requirement is to beat the best benchmark, per #154's own wording Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.CHART_BENCHMARK scores all twelve chart elements including colour independence and written/chart correspondence; the derived requirement is to beat the best benchmark, per #154's own wording Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Chart and Diagram Benchmark",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Audit assumptions about prior knowledge, technique links, photo/video support, error recovery, terminology variants, tips, progress checkpoints and confidence-building. Determine what an anxious or inexperienced buyer would struggle with. Feed findings into Pattern Help and PDF generation.",
     "id": 155,
-    "note": "audits.BEGINNER_EXPERIENCE scores the eight things an anxious buyer meets; traps convert into checklist obligations for Pattern Help and PDF generation Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.BEGINNER_EXPERIENCE scores the eight things an anxious buyer meets; traps convert into checklist obligations for Pattern Help and PDF generation Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Beginner Experience Benchmark",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Score typography, spacing, hierarchy, photography, brand consistency, editorial polish, file naming, cover quality, navigation, hyperlinks, print-friendly options, bonus content and overall perceived value. Brambleloop's Premium Product Standard should be benchmarked against the best purchased experience, not the average.",
     "id": 156,
-    "note": "audits.PREMIUM_EXPERIENCE scores thirteen elements and the standard is taken from the best purchased experience, never the average Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.PREMIUM_EXPERIENCE scores thirteen elements and the standard is taken from the best purchased experience, never the average Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Premium Experience Benchmark",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Where purchased products include video/tutorial support, record structure, chaptering, technique coverage, pacing, correspondence to pattern sections, accessibility and whether video materially reduces ambiguity. Do not copy footage/scripts. Translate useful mechanisms into Brambleloop video requirements.",
     "id": 157,
-    "note": "audits.VIDEO_TEARDOWN applies only where the manifest records video, so a pattern that never promised video is refused rather than scored zero Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.VIDEO_TEARDOWN applies only where the manifest records video, so a pattern that never promised video is refused rather than scored zero Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152; the coverage check now reads has_video as intake stores it (it read only video_included, so the video audit was never outstanding).",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Video / Tutorial Teardown",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Compare how competitors specify yarn, fibre, colour quantities, hooks, notions, gauge, substitutions and expected finished dimensions. Use observations to improve Brambleloop explanation and validation, not to import their design's material constants into unrelated patterns.",
     "id": 158,
-    "note": "audits.MATERIALS_AUDIT compares the eight specification elements; observations improve our explanation and validation and no material constant is imported Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.MATERIALS_AUDIT compares the eight specification elements; observations improve our explanation and validation and no material constant is imported Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Materials / Yardage / Substitution Audit",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Record number of files, filenames, versions, print versus screen editions, charts, bonus files, language variants, file sizes and organization. Design Brambleloop's delivery bundle to be easier to understand immediately after purchase.",
     "id": 159,
-    "note": "audits.DELIVERY_PACKAGING is half answered from the intake manifest (#170) and half by the analyst; the rest is refused until answered Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.DELIVERY_PACKAGING is half answered from the intake manifest (#170) and half by the analyst; the rest is refused until answered Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Digital Delivery Packaging Audit",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Inspect support instructions, FAQ, update policy, errata/version handling, finished-item permissions, redistribution language and contact path. Convert inconsistencies across benchmarks into a clearer Brambleloop customer experience. Legal enforceability remains subject to appropriate review.",
     "id": 160,
-    "note": "audits.SUPPORT_RIGHTS scores the seven support and rights elements; legal enforceability stays subject to review Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.",
+    "note": "audits.SUPPORT_RIGHTS scores the seven support and rights elements; legal enforceability stays subject to review Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: same as #152. Executable Build 2 work.\n\nCertification repair 2026-09-27: same path as #152.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Support and Rights Experience Audit",
     "version": "v1.3.8",
-    "parked_on": ""
+    "proof": "teardown/audits.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Score each benchmark on Product Creativity, Pattern Correctness Evidence, Instruction Clarity, Chart Quality, Beginner Support, Premium Presentation, Video Support, Materials Clarity, Delivery Packaging, Support Experience, Listing Promise Alignment and Perceived Value. Preserve raw notes and confidence.",
     "id": 161,
-    "note": "the twelve dimensions #161 names, scored 0-5 on a described scale rather than a feeling, with the unscored dimensions listed so a teardown that looked at two things cannot outrank one that looked at twelve.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: scorecard.record/audits.record have no caller in app or runtime; nothing can ever write a TeardownFinding.",
+    "note": "the twelve dimensions #161 names, scored 0-5 on a described scale rather than a feeling, with the unscored dimensions listed so a teardown that looked at two things cannot outrank one that looked at twelve.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: scorecard.record/audits.record have no caller in app or runtime; nothing can ever write a TeardownFinding.\n\nCertification repair 2026-09-27: POST /api/teardown/finding and /audit -> scorecard.record / audits.record write TeardownFinding.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Benchmark Scorecard",
     "version": "v1.3.8",
-    "proof": "teardown/scorecard.py tests/test_teardown.py"
+    "proof": "teardown/scorecard.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Do not copy one seller wholesale. Construct Brambleloop Premium Product Standard from the strongest mechanisms observed across the entire library: best chart practice from one benchmark, strongest navigation from another, best beginner support from another, etc., combined with Brambleloop's own engineering, version-aware support and brand system.",
     "id": 162,
-    "note": "composite_standard() takes each dimension's target from whichever benchmark did it best and reports single_source until more than one contributes. Ties keep every contributor: resolving one by insertion order would bias the composite toward whatever was torn down first, which is the single-source failure arriving by accident.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only (acceptable: computation on request) app/main:/api/teardown -> composite_standard. Gap: The computation is reachable, but the table it reads has no production writer (#161).",
+    "note": "composite_standard() takes each dimension's target from whichever benchmark did it best and reports single_source until more than one contributes. Ties keep every contributor: resolving one by insertion order would bias the composite toward whatever was torn down first, which is the single-source failure arriving by accident.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only (acceptable: computation on request) app/main:/api/teardown -> composite_standard. Gap: The computation is reachable, but the table it reads has no production writer (#161).\n\nCertification repair 2026-09-27: the audit/finding routes now write the table composite_standard reads; Brambleloop's own findings are excluded from the competitor composite.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Best-of-Breed Composite Standard",
     "version": "v1.3.8",
-    "proof": "teardown/scorecard.py tests/test_teardown.py tests/test_teardown_audits.py"
+    "proof": "teardown/scorecard.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Benchmark parity is insufficient. For each product class, identify at least one meaningful Brambleloop advantage beyond what purchased competitors provide: stronger deterministic validation, clearer charts, better diagrams, version-aware AI help, superior print edition, colour planner, customization tool, better video, better troubleshooting or other genuine benefit.",
@@ -1598,12 +1598,12 @@
   {
     "body": "Competitive Teardown findings flow into the Improvement Department as structured observations. Improvement cells form hypotheses, implement in sandbox, run regression/customer-experience tests, compare against the current Brambleloop standard and promote only measurable improvements.",
     "id": 164,
-    "note": "pipeline.promote() routes a finding into improve.cells.propose, so the governance boundary and the pre-change baseline both apply; pipeline.status() counts measured improvements rather than filed findings\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: teardown.pipeline.promote has zero callers; only status() is served.",
+    "note": "pipeline.promote() routes a finding into improve.cells.propose, so the governance boundary and the pre-change baseline both apply; pipeline.status() counts measured improvements rather than filed findings\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: teardown.pipeline.promote has zero callers; only status() is served.\n\nCertification repair 2026-09-27: every new finding -> lab.promote_finding -> pipeline.promote -> improve.cells.propose (proposed_by=teardown, so it is promotable only through independent approval); governance refusals recorded on the finding.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Teardown-to-Improvement Pipeline",
     "version": "v1.3.8",
-    "proof": "teardown/pipeline.py improve/cells.py tests/test_teardown_audits.py"
+    "proof": "teardown/pipeline.py teardown/lab.py improve/cells.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "The library is not frozen at launch. Periodically acquire a small number of strategically selected benchmarks when a new category, unusually strong competitor, new product format or major market shift warrants it. Avoid indiscriminate spending and duplicate information.",
@@ -1657,11 +1657,12 @@
   {
     "body": "When the owner supplies purchased files, automatically generate BENCHMARK_MANIFEST.md plus a structured database import, teardown queue and gap report. Do not require the owner to manually explain every file if listing references and filenames provide enough context; ask only for genuinely missing identification. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.9 - 24/7 Cloud Autonomy, Agent Swarms & Continuous Learning This upgrade converts the owner's requirements into operational architecture: no artificial cap on specialist agents, every agent continuously improves under controlled testing, stale artifacts cannot survive upstream changes, and Brambleloop must operate autonomously in the cloud with all owner computers turned off.",
     "id": 170,
-    "note": "library.scan() infers seller, file roles, counts, chart/video/print/bonus presence, sizes and hashes from filenames alone -- never opening a file -- and asks the owner only for what it genuinely cannot infer. manifest_markdown() generates BENCHMARK_MANIFEST.md, led by the sentence about what these files may never be used for.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: app/main:POST /api/teardown/intake -> intake.receive -> library.scan. Gap: manifest_markdown (BENCHMARK_MANIFEST.md) has zero callers.",
+    "note": "library.scan() infers seller, file roles, counts, chart/video/print/bonus presence, sizes and hashes from filenames alone -- never opening a file -- and asks the owner only for what it genuinely cannot infer. manifest_markdown() generates BENCHMARK_MANIFEST.md, led by the sentence about what these files may never be used for.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: app/main:POST /api/teardown/intake -> intake.receive -> library.scan. Gap: manifest_markdown (BENCHMARK_MANIFEST.md) has zero callers.\n\nCertification repair 2026-09-27: intake -> lab.write_manifest writes BENCHMARK_MANIFEST.md into the quarantined library (never the repository); POST /api/teardown/manifest.",
     "section": "Competitive product teardown laboratory",
-    "status": "partial",
+    "status": "covered",
     "title": "Benchmark Library Manifest Deliverable",
-    "version": "v1.3.8"
+    "version": "v1.3.8",
+    "proof": "teardown/library.py teardown/intake.py teardown/lab.py app/main.py tests/test_cert_culture_teardown.py"
   },
   {
     "body": "Every derived artifact must be tied to immutable fingerprints of the upstream evidence that created it. A CIR/design change automatically invalidates all dependent twins, geometry proofs, reverse-compiler results, certificates, PDFs, charts, visual-truth packages, listing copy, SEO, pricing assumptions, support knowledge, marketing assets and release bundles. A stable slug must never make stale output appear current.",

@@ -465,6 +465,24 @@ def handle_certify(ctx: JobContext) -> dict:
         # certificate issued against the old ones, recomputed here rather than remembered,
         # and the affected frames lose their approval until the chain re-certifies them.
         _recheck_listing_certificates(ctx, cir)
+
+        # #163 / #169: the teardown lab's QA of our own product. A product class that can
+        # name no evidenced advantage beyond the purchased benchmarks is withheld here, with
+        # the reason audited, before anything downstream is built for it.
+        from ..teardown import lab as teardown_lab
+
+        seed = _seed_for(cir.slug)
+        teardown = teardown_lab.product_qa(
+            ctx.db, cir.slug,
+            product_class=(getattr(cir, "category", "") or (seed.category if seed else "")))
+        if teardown.get("blocks_release"):
+            ctx.audit("gate.release_withheld", artifact=f"{cir.slug}@{cir.version}",
+                      detail={"reason": "teardown QA (#163): "
+                                        + str(teardown["unique_value"].get("reason", ""))[:300],
+                              "product_class": teardown.get("product_class")})
+            return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
+                    "release_hash": cert.release_hash, "withheld": True,
+                    "reasons": [teardown["unique_value"].get("reason", "")][:1]}
         from .release import chain_key
 
         ctx.enqueue("listing", "listing.draft",
@@ -769,17 +787,6 @@ def handle_store_publish(ctx: JobContext) -> dict:
                   detail={"reason": refusal})
         raise ShadowModeRefusal(refusal)
 
-    # The release-chain gates, enforced before anything is rendered, stored or sent. An
-    # audited, reasoned block rather than an exception: the job completes, says it did not
-    # publish and why, and the reasons are what a rebuild or re-certification has to clear.
-    if release_gates["blocks_release"]:
-        ctx.audit("store.publish_blocked", artifact=f"{slug}@{version}",
-                  detail={"reasons": release_gates["reasons"][:10],
-                          "certificate": (release_gates.get("listing_set") or {})
-                          .get("certificate")})
-        return {"slug": slug, "version": version, "published": False, "blocked": True,
-                "reasons": release_gates["reasons"]}
-
     # Enforced here: after every question about whether this system may publish at all,
     # and before anything is sent. Phase, credentials and the authority matrix are
     # capability gates and stay outermost; parity is the question of whether *this listing*
@@ -811,6 +818,12 @@ def handle_store_publish(ctx: JobContext) -> dict:
         return {"slug": slug, "version": version, "published": False,
                 "etsy_listing_id": already, "reason": "already published"}
 
+    # C-49: both names live in their own modules; importing them here is what lets a
+    # non-shadow publish run at all rather than die with NameError on its first line.
+    from ..cir.twin import build_twin
+    from ..quality.physical import calibration_from_db
+    from .release import _load_cir
+
     cir = _load_cir(ctx, slug, version)
     payload = build_payload(materials=[m.name for m in cir.materials], **copy)
 
@@ -821,7 +834,9 @@ def handle_store_publish(ctx: JobContext) -> dict:
     from ..publish.pdf import TERMINOLOGIES, build_pattern_pdf, pattern_filename
 
     result = compile_cir(cir)
-    twin = build_twin(cir, result)
+    # C-50: the calibration `assets.build` rendered with, or the yardage lines differ and the
+    # certified file and the uploaded file are two different documents.
+    twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
     # Pinned to the release date, not to the day of the upload. This render is the file the
     # customer actually downloads, and `assets.build` recorded a hash for it earlier; left to
     # default, the release date printed on the cover would be today's and the two would be
@@ -843,6 +858,18 @@ def handle_store_publish(ctx: JobContext) -> dict:
                   detail={"reason": str(e)[:500], "code": "PDF_HASH_DRIFT"})
         raise
     ctx.audit("store.pdf_hash_verified", artifact=f"{slug}@{version}", detail=hash_check)
+    # The release-chain gates, enforced after the file to be uploaded
+    # has been shown to be the certified one and before anything is stored or sent. An
+    # audited, reasoned block rather than an exception: the job completes, says it did not
+    # publish and why, and the reasons are what a rebuild or re-certification has to clear.
+    if release_gates["blocks_release"]:
+        ctx.audit("store.publish_blocked", artifact=f"{slug}@{version}",
+                  detail={"reasons": release_gates["reasons"][:10],
+                          "certificate": (release_gates.get("listing_set") or {})
+                          .get("certificate")})
+        return {"slug": slug, "version": version, "published": False, "blocked": True,
+                "reasons": release_gates["reasons"]}
+
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     stored_by_terminology = {
         t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,

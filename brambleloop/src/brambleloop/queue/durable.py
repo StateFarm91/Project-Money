@@ -286,6 +286,11 @@ class JobQueue:
                     job = s.get(Job, taken, populate_existing=True)
                     s.flush()
                     s.expunge(job)
+                    # When THIS attempt's lease began. `started_at` is the first attempt's
+                    # (coalesced), so anything windowed on "what did this run do" -- the
+                    # provenance backstop -- reads this instead (C-52). Not a column: it
+                    # describes the claim that returned this object, nothing persisted.
+                    job.attempt_started_at = now
                     return job
             return None
 

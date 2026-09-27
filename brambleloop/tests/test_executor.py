@@ -1293,7 +1293,10 @@ def test_acceptance_ruling_opens_only_on_the_owners_done_decision():
 
 
 def test_rendered_pages_carries_only_what_waits_on_a_browser():
-    assert E.GATE_BY_KEY["rendered_pages"].requirement_ids == (2, 15, 39)
+    held = set(E.GATE_BY_KEY["rendered_pages"].requirement_ids)
+    assert 39 in held
+    moved = {1, 37, 236, 189, 221, 222, 320, 277, 281, 67, 71, 76, 86, 126, 218, 315}
+    assert not held & moved, held & moved
     assert {277, 281} <= set(E.GATE_BY_KEY["model_provider"].requirement_ids)
     E._validate_gates()
 

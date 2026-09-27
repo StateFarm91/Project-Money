@@ -150,7 +150,10 @@ def promote(db, finding_id: int, *, touches: tuple[str, ...], rollback_ref: str,
 
     improvement_id = cells.propose(
         db, cell=owner, hypothesis=hypothesis, expected_effect=effect,
-        rollback_ref=rollback_ref, touches=tuple(touches))
+        rollback_ref=rollback_ref, touches=tuple(touches),
+        # C-17/C-18: a proposal with no recorded proposer can never be promoted, and the
+        # teardown laboratory is the author of every improvement it files.
+        proposed_by="teardown")
 
     with db.session() as s:
         row = s.get(TeardownFinding, finding_id)

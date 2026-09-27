@@ -22,12 +22,12 @@ that candidate and repaired in an explicit follow-up commit.
 | C-14 | Medium | refusal classification | `deliberate_refusal` (health/verify/retention) and `requeue_dead` disagree for capability refusals outside store.publish | pending |
 | C-15 | Medium | starvation | claim order `(priority, run_after, id)` has no aging; a band-200 job waited through 200 band-10 claims | pending |
 | C-16 | Medium | build executor | `executor.complete` accepts completion of a PARKED/unclaimed task or one claimed by another worker | pending |
-| C-17 | High | learning authority | `cells.promote` never requires an approval | pending |
-| C-18 | High | learning authority | separation of duties skipped when `proposed_by` is empty | pending |
-| C-19 | Medium | learning authority | actor names not normalised ('Listing', 'listing ') | pending |
-| C-20 | High | governance | 10 gate/Product-Truth weakening phrasings and touches pass `governance.check` (verb forms, synonyms, distance, numeric constant edits, plain-words Product Truth, touch spelling) | pending |
-| C-21 | High | tiers | 11 of 12 protected gates tier as `code`, not `gate`: a product_truth change promotes without owner approval | pending |
-| C-22 | Medium | director | conflict detection compares raw touch strings ('Weights ' vs 'weights') | pending |
+| C-17 | High | learning authority | `cells.promote` never requires an approval | FIXED: promote requires a recorded proposer and an independent recorded approval, rechecks the result beat the baseline (test_cert_learning 15/15) |
+| C-18 | High | learning authority | separation of duties skipped when `proposed_by` is empty | FIXED: an unattributed proposal is recorded but can never be promoted |
+| C-19 | Medium | learning authority | actor names not normalised ('Listing', 'listing ') | FIXED: governance.normalise_actor applied at every identity comparison |
+| C-20 | High | governance | 10 gate/Product-Truth weakening phrasings and touches pass `governance.check` (verb forms, synonyms, distance, numeric constant edits, plain-words Product Truth, touch spelling) | FIXED: governance.check structural rules first; protected constants read by ast; inflected/synonym weakening and plain-words Product Truth detected (10/10 evasions refused) |
+| C-21 | High | tiers | 11 of 12 protected gates tier as `code`, not `gate`: a product_truth change promotes without owner approval | FIXED: every protected gate in the gate tier; test and owner-approval evidence must be recorded, not asserted |
+| C-22 | Medium | director | conflict detection compares raw touch strings ('Weights ' vs 'weights') | FIXED: director normalises touches in conflicts and execution |
 | C-23 | Medium | identity | `model_registry.gate_frames` passes a model frame with no `conditioned_on` hashes (should be unverifiable) | pending |
 | C-24 | Medium | identity | superseded body frame bytes returned as reference when the pack is unhashed; no manifest superseded check | pending |
 | C-25 | Low | identity | redesign approval truncates non-integer versions, never validates `at` | pending |
@@ -67,4 +67,4 @@ Clean detached checkout of `63f2493` (tree `dbb99ff`), `run_tests.sh` with the p
 | C-50 | Medium | commerce chain | `assets.build` renders with `calibration_from_db` but `store.publish` re-renders with no calibration: once one passing PhysicalTest exists, every publish is refused `PDF_HASH_DRIFT` (US and UK) | pending |
 | C-51 | Low-Med | orchestration | a `PermanentError` (e.g. PDF hash drift) leaves the job FAILED 1/3 and it is retried; the worker does not treat it as terminal | pending |
 | C-52 | High | provenance / orchestration | a retried job's provenance backstop counts artefacts since its FIRST attempt (`claim` keeps `coalesce(started_at, now)`), so `collection.assemble` is killed DEAD for 113 certificates other products' `gate.certify` jobs wrote in between | pending |
-| C-53 | Low | culture | no job reads `culture.radar.memory()` (only GET /api/culture) -- part of #144, already reopened | pending |
+| C-53 | Low | culture | no job reads `culture.radar.memory()` (only GET /api/culture) -- part of #144, already reopened | FIXED: culture.engine reads radar.memory() into the recurrence score on every sweep |

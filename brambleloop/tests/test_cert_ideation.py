@@ -404,43 +404,94 @@ def test_an_invented_role_cannot_be_pending():
 # ---- the pre-engineering gate -------------------------------------------------------
 
 
-def test_without_the_gate_the_winner_is_held_and_not_cleared():
-    from brambleloop.creative import ideation
-
-    got = ideation.pre_engineering_gate(None, _cand("w"))
-    if got["gate"] == "absent":
-        assert got["cleared_for_engineering"] is False
+def test_the_winner_meets_the_real_pre_engineering_gate_and_is_not_cleared_unmeasured():
     db = _db()
-    result, _ = _run(db, "creative.expedition")
-    block = _ideation(db, "creative.expedition")
-    assert "pre_engineering_gate" in block
-    if block["winner"] and block["pre_engineering_gate"]["gate"] == "absent":
-        assert result["cleared_for_engineering"] is False
+    result, _ = _run(db, "creative.tournament")
+    block = _ideation(db)
+    gate = block["pre_engineering_gate"]
+    if block["winner"] is None:
+        assert gate["gate"] == "not_called" and result["cleared_for_engineering"] is False
+        return
+    assert gate["gate"] == "creative.preengineering.gate_concept", gate
+    # Vision and model judgements are CLOSED, so the honest verdict is not "passed".
+    assert gate["verdict"]["decision"] in ("waiting", "refused"), gate["verdict"]
+    assert result["cleared_for_engineering"] is False
+    with db.session() as s:
+        verdicts = [r.artifact for r in s.scalars(select(AuditLog))
+                    if r.action.startswith("concept.gate_")]
+    assert block["winner"]["key"] in verdicts, "the gate verdict was not recorded"
 
 
 def test_the_gate_is_called_with_the_winner_and_a_raising_gate_blocks():
-    from brambleloop.creative import ideation, standard
+    from brambleloop.creative import ideation, preengineering
 
     seen = []
-    had = hasattr(standard, "gate_concept")
-    saved = getattr(standard, "gate_concept", None)
+    saved = preengineering.gate_concept
     try:
-        standard.gate_concept = lambda db, concept: seen.append(concept.key) or {"passes": True}
+        preengineering.gate_concept = (
+            lambda db, concept: seen.append(concept.key) or {"engineer": True})
         got = ideation.pre_engineering_gate(None, _cand("winner-1"))
-        if got["gate"] == "creative.standard.gate_concept":
-            assert seen == ["winner-1"] and got["cleared_for_engineering"] is True
+        assert got["gate"] == "creative.preengineering.gate_concept"
+        assert seen == ["winner-1"] and got["cleared_for_engineering"] is True
 
         def boom(db, concept):
             raise RuntimeError("gate unavailable")
-        standard.gate_concept = boom
+        preengineering.gate_concept = boom
         got = ideation.pre_engineering_gate(None, _cand("winner-2"))
-        if got["gate"] == "creative.standard.gate_concept":
-            assert got["cleared_for_engineering"] is False and "gate unavailable" in got["error"]
+        assert got["cleared_for_engineering"] is False and "gate unavailable" in got["error"]
     finally:
-        if had:
-            standard.gate_concept = saved
-        else:
-            del standard.gate_concept
+        preengineering.gate_concept = saved
+
+
+# ---- #138: culture-engine candidates are a concept source -------------------------
+
+
+def _culture(db, *, family, slug, premise):
+    from brambleloop.core.models import CultureConcept
+
+    with db.session() as s:
+        row = CultureConcept(signal_key="fixture-signal", slug=slug, family=family,
+                             premise=premise, era="mid_century_holiday",
+                             theme="cozy_movie_night", status="candidate")
+        s.add(row)
+        s.flush()
+        return row.id
+
+
+def test_live_culture_candidates_are_developed_and_meet_the_same_gates():
+    db = _db()
+    wanted = _culture(db, family="wearable", slug="fixture-brass-lamp-beanie",
+                      premise="a beanie in the mid century holiday territory carrying the "
+                              "safety of a blanket and a screen")
+    ignored = _culture(db, family="pet", slug="fixture-pet-bed",
+                       premise="a pet bed in the mid century holiday territory")
+
+    def generator(values, n):
+        assert "fixture-brass-lamp-beanie" in values["brief"], "the candidate was not briefed"
+        want = int(values.get("count") or 1)
+        return {"concepts": [{
+            "title": f"Brass Lamp Beanie {n}-{i}",
+            "premise": (f"a beanie whose crown is banded like a {MOTIFS[i % len(MOTIFS)]} "
+                        f"lamp shade so it reads mid century from across a room"),
+            "construction": "in_the_round", "motif": MOTIFS[i % len(MOTIFS)],
+            "palette_story": "brass and walnut", "recipient": RECIPIENTS[i % 4],
+            "occasion": "christmas", "feeling": "nostalgic",
+            "function": "keeps a head warm on a cold walk to a movie",
+            "wow": "a banded crown that holds its shape"} for i in range(want)]}
+
+    result, asked = _run(db, "creative.tournament", generator=generator)
+    assert asked, "the generator was never asked"
+    block = _ideation(db)
+    assert block["culture"]["available"] == 2
+    assert [c["id"] for c in block["culture"]["matching"]] == [wanted]
+    assert block["culture_briefed"] == [wanted] and ignored not in block["culture_briefed"]
+    # Same gauntlet: the developed concepts entered the field and were screened like any
+    # other, and the one that won met the same pre-engineering gate.
+    assert result["generated"] > 0 and result["stages_run"][:2] == ["ideation", "research"]
+    if block["winner"]:
+        assert block["winner"]["culture_origin"] == wanted
+        assert block["pre_engineering_gate"]["gate"] == "creative.preengineering.gate_concept"
+        assert result["cleared_for_engineering"] is False
 
 
 def test_both_standing_agents_are_registered_handlers():

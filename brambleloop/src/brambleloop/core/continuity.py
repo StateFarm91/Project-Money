@@ -89,6 +89,10 @@ NON_REDERIVABLE = (
     # C-40: what the search index ranked on a day, and what the owner read off Shop Manager.
     "serp_snapshots",
     "insights_snapshots",
+    # #134-#146: the concept candidates the culture engine derived and the original IP it
+    # proposed are decisions on the day's readings, and the readings move on.
+    "culture_concepts",
+    "culture_ip_elements",
     "cohorts",
     # The build loop's own state. Re-derivable from the registry only in part: the claims,
     # the completion evidence and the decision history are not in any file, and losing them

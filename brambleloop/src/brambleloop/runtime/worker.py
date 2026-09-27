@@ -194,8 +194,12 @@ class Worker:
             # instrumentation nobody had fitted is a different problem from a stale artefact.
             try:
                 with self.db.session() as s:
-                    gap = provenance.assert_instrumented(s, since=job.started_at,
-                                                         job_id=job.id)
+                    # This attempt's window, not the job's first attempt (C-52): a retried
+                    # job was otherwise blamed for every artefact other jobs wrote between
+                    # its first attempt and this one.
+                    gap = provenance.assert_instrumented(
+                        s, since=getattr(job, "attempt_started_at", None) or job.started_at,
+                        job_id=job.id)
                     enforce = bool(gap["missing"]) and provenance.may_enforce_unproven(
                         s, ignoring=gap["missing"])["may_enforce_unproven"]
             except Exception as exc:  # noqa: BLE001 - the check must not break what it checks
@@ -254,8 +258,13 @@ class Worker:
         except Exception as e:  # noqa: BLE001 - a worker must survive any handler
             renewal.stop()
             _note_funding(self.db, str(e))
+            # A PermanentError is terminal (C-51): hash drift, a corrupt artefact, a refusal in
+            # the provider's own words will be the same on the next attempt, so retrying it
+            # only spends the attempts and delays the dead letter somebody has to read.
+            from ..core.resilience import PermanentError
+
             self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}",
-                            worker=self.name)
+                            retry=not isinstance(e, PermanentError), worker=self.name)
             self.agents.audit(job.agent, "job.failed", job_id=job.id, phase=self.phase,
                               detail={"error": str(e)})
             self.stats.failed += 1

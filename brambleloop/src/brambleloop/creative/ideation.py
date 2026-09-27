@@ -361,6 +361,46 @@ def history(db) -> list[standard.Scored]:
     return scored
 
 
+# Which concept forms a culture-engine family can be developed as (#138). The culture engine
+# names families (`culture.translate.TRANSLATION_FAMILIES`); the generator is asked per form.
+CULTURE_FAMILY_FORMS: dict[str, tuple[str, ...]] = {
+    "blanket": ("rectangle_throw",), "stocking": ("stocking",), "ornament": ("ornament",),
+    "coaster": ("coaster",), "wreath": ("wreath",), "garland": ("garland",),
+    "tableware": ("runner", "coaster"), "amigurumi": ("toy",),
+    "wearable": ("hat", "scarf", "fitted_garment", "draped_garment"),
+    "bag": ("bag", "pouch"), "pillow": ("pillow",), "nursery": ("rectangle_throw", "toy"),
+    "pet": ("toy", "tube"), "kitchen": ("coaster", "tube"), "interactive": ("toy",),
+}
+
+
+def culture(db, forms) -> dict:
+    """#138: live culture-engine candidates, as a concept source beside the universe cells.
+
+    A candidate is a translated premise, not a concept: it has no construction, recipient or
+    feeling, and inventing those here would be fabricating the fields the jury judges. So a
+    candidate is handed to the generator as the thing to develop, and what comes back is an
+    ordinary concept that meets the same vocabulary refusals, the same jury and gauntlet, the
+    same floor and quotas, and the same pre-engineering gate as every other entrant.
+    """
+    from ..culture.engine import candidates
+
+    try:
+        live = candidates(db, status="candidate")
+    except Exception as e:  # noqa: BLE001 - a missing table is reported, not fatal
+        return {"available": 0, "matching": [], "reason": f"{type(e).__name__}: {e}"[:200]}
+    wanted = set(forms)
+    matching = [{"id": c["id"], "slug": c["slug"], "family": c["family"],
+                 "premise": str(c["premise"])[:300], "theme": c["theme"], "era": c["era"],
+                 "forms": [f for f in CULTURE_FAMILY_FORMS.get(c["family"], ())
+                           if f in wanted]}
+                for c in live]
+    matching = [m for m in matching if m["forms"]]
+    return {"available": len(live), "matching": matching[:24],
+            "reason": ("" if matching else
+                       "no live culture candidate is in a family this arena's forms can "
+                       "develop" if live else "the culture engine holds no live candidate")}
+
+
 # ---------------------------------------------------------------------------
 # The plan
 
@@ -391,6 +431,7 @@ def plan(db, *, kind: str, event: str, pod: str, forms, cycle: int,
         "transfer": transfer(db, event=event, theme=chosen_themes[0], cycle=cycle),
         "role": role(db),
         "floor": floor,
+        "culture": culture(db, forms),
     }
     out["briefs"] = _rotation(out)
     return out
@@ -470,9 +511,34 @@ class BriefingGateway:
     def complete_json(self, ref, *, agent, values, required=None):
         values = dict(values or {})
         text, assignment = constraints_text(self._plan, len(self.sent))
+        form = str(values.get("form") or "").replace(" ", "_")
+        # #138: a live culture candidate whose family this form can develop, rotated so the
+        # field spreads across candidates rather than developing the first one repeatedly.
+        fits = [c for c in (self._plan.get("culture") or {}).get("matching") or []
+                if form in c["forms"]]
+        chosen = None
+        if fits:
+            used = sum(1 for b in self.sent if b.get("culture_id"))
+            chosen = fits[used % len(fits)]
+            text += (f"\n- develop this Brambleloop cultural concept (culture candidate "
+                     f"{chosen['slug']}): {chosen['premise']}")
         values["brief"] = f'{values.get("brief", "")}\n\n{text}'
-        self.sent.append({**assignment, "form": values.get("form")})
-        return self._inner.complete_json(ref, agent=agent, values=values, required=required)
+        entry = {**assignment, "form": values.get("form"),
+                 "culture_id": chosen["id"] if chosen else None}
+        self.sent.append(entry)
+        answer = self._inner.complete_json(ref, agent=agent, values=values, required=required)
+        # The titles this call produced, so a survivor can be traced to the culture
+        # candidate it developed without trusting the model to report its own origin.
+        entry["titles"] = [str(r.get("title") or "").strip()
+                           for r in ((answer or {}).get("concepts") or [])
+                           if isinstance(r, dict)][:24]
+        return answer
+
+    def culture_origin(self, title: str) -> int | None:
+        for entry in self.sent:
+            if entry.get("culture_id") and title in (entry.get("titles") or []):
+                return entry["culture_id"]
+        return None
 
     def __getattr__(self, name):
         return getattr(self._inner, name)
@@ -555,7 +621,7 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list) -> dict:
     }
 
 
-def pre_engineering_gate(db, winner) -> dict:
+def pre_engineering_gate(db, winner, *, ctx=None, source: str = "ideation") -> dict:
     """Present the winner to the pre-engineering gate before anything reaches engineering.
 
     ### PRE-ENGINEERING GATE CALL SITE ###
@@ -572,10 +638,16 @@ def pre_engineering_gate(db, winner) -> dict:
         return {"gate": "not_called", "reason": "no winner", "cleared_for_engineering": False}
     gate = None
     where = ""
-    for info in pkgutil.iter_modules(package.__path__):
-        module = importlib.import_module(f"{package.__name__}.{info.name}")
+    # The owner module first; the scan only matters if the gate ever moves.
+    names = ["preengineering"] + [i.name for i in pkgutil.iter_modules(package.__path__)
+                                  if i.name != "preengineering"]
+    for name in names:
+        try:
+            module = importlib.import_module(f"{package.__name__}.{name}")
+        except ImportError:
+            continue
         if hasattr(module, "gate_concept"):
-            gate, where = module.gate_concept, info.name
+            gate, where = module.gate_concept, name
             break
     if gate is None:
         return {"gate": "absent", "cleared_for_engineering": False,
@@ -586,10 +658,26 @@ def pre_engineering_gate(db, winner) -> dict:
     except Exception as e:  # noqa: BLE001 - a gate that errors blocks, it does not pass
         return {"gate": f"creative.{where}.gate_concept", "cleared_for_engineering": False,
                 "error": f"{type(e).__name__}: {e}"[:300]}
-    passed = bool(verdict.get("passes", verdict.get("passed", False))
-                  if isinstance(verdict, dict) else verdict)
+    if isinstance(verdict, dict):
+        passed = bool(verdict.get("engineer", verdict.get("passes", False)))
+    else:
+        passed = bool(verdict)
+    effects = None
+    if ctx is not None and isinstance(verdict, dict) and "checks" in verdict:
+        # The gate owner's own recorder: every verdict audited, a refusal returned to
+        # creative development with an autopsy, a waiting concept's grid requested.
+        from . import preengineering
+
+        if hasattr(preengineering, "record"):
+            try:
+                effects = preengineering.record(ctx, verdict, source=source)
+            except Exception as e:  # noqa: BLE001 - recording failure is reported
+                effects = {"error": f"{type(e).__name__}: {e}"[:200]}
+    summary = ({k: verdict.get(k) for k in ("decision", "engineer", "failed", "unmeasured",
+                                             "waiting_on", "reasons")}
+               if isinstance(verdict, dict) else {"result": bool(verdict)})
     return {"gate": f"creative.{where}.gate_concept", "cleared_for_engineering": passed,
-            "verdict": verdict if isinstance(verdict, dict) else {"result": bool(verdict)}}
+            "verdict": summary, "effects": effects}
 
 
 def restrict(arena, excluded_forms) -> object:
@@ -602,6 +690,10 @@ def record(ideation_plan: dict, *, gateway: BriefingGateway | None,
            selection: dict | None, gate: dict | None) -> dict:
     """The JSON-safe `ideation` block stored in the run's audit row."""
     sent = gateway.sent if gateway is not None else []
+    if selection and selection.get("winner") and gateway is not None:
+        selection = {**selection, "winner": {
+            **selection["winner"],
+            "culture_origin": gateway.culture_origin(selection["winner"]["title"])}}
     return {
         **{k: v for k, v in ideation_plan.items() if k != "briefs"},
         "calls_briefed": len(sent),
@@ -609,6 +701,7 @@ def record(ideation_plan: dict, *, gateway: BriefingGateway | None,
         "cells_briefed": sorted({b["cell"] for b in sent if b.get("cell")}),
         "themes_briefed": sorted({b["theme"] for b in sent}),
         "occasions_briefed": sorted({b["non_holiday_occasion"] for b in sent}),
+        "culture_briefed": sorted({b["culture_id"] for b in sent if b.get("culture_id")}),
         **({k: v for k, v in selection.items() if k != "winner_object"} if selection else
            {"winner": None}),
         "pre_engineering_gate": gate or {"gate": "not_called",

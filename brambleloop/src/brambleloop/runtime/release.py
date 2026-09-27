@@ -878,14 +878,35 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         "warnings": plan.warnings[:3]})
 
     i["launch"] = plan.to_dict()
+
+    # #297: finished engineering is not a reason to launch under a seasonal premise the
+    # customer can no longer meet. The same decision the seasonal sentinel audits, enforced
+    # here: a missed window neither schedules seasonal marketing nor queues publication, and
+    # the decision (pivot / simplify / hold) is recorded with its reason.
+    from ..publish.release_gates import window_decision
+
+    decision = window_decision(ctx.db, slug=slug, version=i["version"], today=today,
+                               positioning=i.get("positioning"))
+    i["window_decision"] = decision
+    if not decision["may_launch_seasonally"]:
+        ctx.audit("launch.held", artifact=f"{slug}@{i['version']}", detail=decision)
+        out = plan.to_dict()
+        out.update({"held": True, "window_decision": decision})
+        return out
+
+    publish_inputs = {"slug": slug, "version": i["version"]}
+    for carried in ("as_of", "positioning"):
+        if i.get(carried):
+            publish_inputs[carried] = i[carried]
     ctx.enqueue("growth", "marketing.schedule", i,
                 idempotency_key=chain_key("content", slug, i["version"],
                                           i.get("release", ""), i.get("rebuild", "")))
-    ctx.enqueue("store_operator", "store.publish",
-                {"slug": slug, "version": i["version"]},
+    ctx.enqueue("store_operator", "store.publish", publish_inputs,
                 idempotency_key=chain_key("publish", slug, i["version"],
                                           i.get("release", ""), i.get("rebuild", "")))
-    return plan.to_dict()
+    out = plan.to_dict()
+    out["window_decision"] = decision
+    return out
 
 
 @handlers.register("marketing.schedule")
@@ -904,6 +925,24 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     seed = _seed_for(slug)
     listing = i.get("listing") or {}
     launch_on = date.fromisoformat(i["launch"]["launch_on"])
+
+    # #173 and #297 before anything is scheduled: a product with an open publication-halting
+    # incident (the stale-artefact sentinel raises one), a descendant still built from a
+    # moved input, or a missed seasonal window gets no content drafted under that premise.
+    # An audited, reasoned block; nothing is written.
+    from ..publish.release_gates import for_marketing
+
+    gate = for_marketing(ctx.db, slug=slug, version=version,
+                         today=date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
+                         positioning=i.get("positioning"))
+    if gate["blocks"]:
+        ctx.audit("marketing.blocked", artifact=f"{slug}@{version}",
+                  detail={"reasons": gate["reasons"][:5], "published": False,
+                          "window": gate["window"],
+                          "halted": gate["staleness"]["halted"],
+                          "rebuild_outstanding": gate["staleness"]["rebuild"]["outstanding"][:10]})
+        return {"slug": slug, "version": version, "pieces": 0, "blocked": True,
+                "problems": gate["reasons"], "published": False}
 
     cir = _load_cir(ctx, slug, version)
     twin = build_twin(cir, compile_cir(cir),
@@ -2574,7 +2613,8 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                                 survivors=result.get("survivor_objects") or [])
     # The single call into the pre-engineering gate: nothing reaches engineering from here
     # without it, and while the gate does not exist the winner is recorded as held.
-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"])
+    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
+                                         source="creative.tournament")
     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
                                          gate=gate)
 
@@ -2666,7 +2706,8 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     # survivors are objects here, so the field diversity is measured over what it proposed
     # and survived, and says so through `entrants`.
     selection = ideation.select(plan, candidates=survivors, survivors=survivors)
-    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"])
+    gate = ideation.pre_engineering_gate(ctx.db, selection["winner_object"], ctx=ctx,
+                                         source="creative.expedition")
     result["ideation"] = ideation.record(plan, gateway=gateway, selection=selection,
                                          gate=gate)
 
@@ -3654,10 +3695,44 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
     ctx.audit("ops.sentinel", detail=detail)
 
     # A stale artefact is re-derivable, so the sentinel asks for the rebuild rather than
-    # only reporting it. The rebuild is the existing chain stage; nothing new publishes.
-    for slug in report["rebuild"]:
-        ctx.enqueue("listing", "chain.rebuild", {"product_slug": slug},
-                    idempotency_key=f"sentinel-rebuild:{slug}:{current.get(f'cir:{slug}', '')}")
+    # only reporting it -- through the dependency graph (#172), not per slug: the refs that
+    # moved give the exact downstream rebuild set in topological order, enqueued once per
+    # (product, new fingerprint) with the old and new fingerprints and the reason on the
+    # job. Publication stays blocked until every descendant's provenance matches again
+    # (`rebuild_graph.publication_gate`, read by store.publish and marketing.schedule).
+    from ..ops import rebuild_graph
+
+    changed: dict[str, str] = {}
+    for v in report.get("verdicts", []):
+        if v.get("state") == provenance.STALE:
+            for ref in v.get("moved") or []:
+                if ref in current:
+                    changed[ref] = current[ref]
+    detail["rebuild_enqueued"] = []
+    detail["rebuild_already_queued"] = []
+    if changed:
+        from sqlalchemy import select
+
+        from ..core.models import ArtefactProvenance
+
+        with ctx.db.session() as session:
+            previous: dict[str, str] = {}
+            for row in session.scalars(select(ArtefactProvenance)):
+                for ref, fp in (row.inputs or {}).items():
+                    if ref in changed and fp != changed[ref]:
+                        previous.setdefault(ref, fp)
+            queued = rebuild_graph.enqueue(
+                session, ctx.queue, changed=changed, per="product", previous=previous,
+                reason=(f"stale-artefact sentinel: {sorted(changed)} moved under "
+                        f"{report['stale']} recorded artefact(s)"))
+        detail["rebuild_enqueued"] = queued["enqueued"][:50]
+        detail["rebuild_already_queued"] = queued["already_queued"][:50]
+        detail["rebuild_order"] = [r["key"] for r in queued["plan"]["rebuild"]][:50]
+        detail["fingerprints"] = {ref: {"old": previous.get(ref), "new": fp}
+                                  for ref, fp in sorted(changed.items())}
+        ctx.audit("ops.rebuild_propagated", detail={
+            k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
+                                   "rebuild_order", "fingerprints")})
     return detail
 
 
