@@ -279,3 +279,71 @@ def report(frames, *, text_positions: tuple[int, ...] = ()) -> dict:
                  "dominant colour rather than assumed from the palette. Every rule here is a "
                  "statement about the picture rather than about the code that drew it (#59)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Bounding boxes (C-69, #59): the rules only the renderer's own boxes can decide.
+#
+# `listing_assets` records every line of type and every pasted graphic as it draws them
+# (`image.info["layout"]`). These rules read those boxes: a line of type outside the safe
+# area is truncated or clipped, type that overlaps a chart or a fabric render is a collision,
+# the lowest line (the footer) overlapping anything above it is a footer overlap, and a line
+# set in a face smaller than the minimum is too small to read at listing scale. An image with
+# no recorded layout is reported, never passed.
+
+MIN_TEXT_PT = 16
+# Overlap below this many square pixels is anti-aliasing touching, not a collision.
+MIN_OVERLAP_PX = 60
+
+
+def _intersection(a, b) -> int:
+    w = min(a[2], b[2]) - max(a[0], b[0])
+    h = min(a[3], b[3]) - max(a[1], b[1])
+    return max(0, w) * max(0, h)
+
+
+def check_layout(image, *, position: int, safe_margin: float = SAFE_MARGIN) -> list[str]:
+    layout = list((getattr(image, "info", None) or {}).get("layout") or [])
+    if not layout:
+        return [f"LAYOUT_UNRECORDED: frame {position} carries no recorded layout, so title "
+                f"truncation, collisions and footer overlap cannot be measured on it"]
+    w, h = image.size
+    m_x, m_y = int(w * safe_margin), int(h * safe_margin)
+    problems: list[str] = []
+    texts = [e for e in layout if e.get("kind") == "text" and str(e.get("text", "")).strip()]
+    graphics = [e for e in layout if e.get("kind") != "text"]
+    for e in texts:
+        x0, y0, x1, y1 = e["box"]
+        if x0 < m_x or y0 < m_y or x1 > w - m_x or y1 > h - m_y:
+            problems.append(
+                f"LAYOUT_TEXT_OUTSIDE_SAFE_AREA: frame {position}: {e['text']!r} spans "
+                f"{e['box']} against a safe area of {m_x}..{w - m_x} x {m_y}..{h - m_y}; a "
+                f"title past the edge is a truncated title")
+        if e.get("pt") is not None and e["pt"] < MIN_TEXT_PT:
+            problems.append(
+                f"LAYOUT_TEXT_TOO_SMALL: frame {position}: {e['text']!r} is set at "
+                f"{e['pt']}pt against a minimum of {MIN_TEXT_PT}")
+        for g in graphics:
+            if _intersection(e["box"], g["box"]) > MIN_OVERLAP_PX:
+                problems.append(
+                    f"LAYOUT_TEXT_GRAPHIC_COLLISION: frame {position}: {e['text']!r} "
+                    f"overlaps the {g['kind']} at {g['box']}")
+    for i, a in enumerate(texts):
+        for b in texts[i + 1:]:
+            if _intersection(a["box"], b["box"]) > MIN_OVERLAP_PX:
+                footer = max((a, b), key=lambda e: e["box"][3])
+                code = ("LAYOUT_FOOTER_OVERLAP" if footer is max(texts, key=lambda e: e["box"][3])
+                        else "LAYOUT_TEXT_COLLISION")
+                problems.append(f"{code}: frame {position}: {a['text']!r} and {b['text']!r} "
+                                f"overlap")
+    return problems
+
+
+def check_listing_frames(frames, *, text_positions: tuple[int, ...] = ()) -> list[str]:
+    """#59 on every listing frame: pixel rules plus the box rules, each frame by position."""
+    problems = check_frames(frames, text_positions=text_positions)
+    for frame in frames:
+        image = getattr(frame, "image", None)
+        if image is not None:
+            problems.extend(check_layout(image, position=getattr(frame, "position", 0)))
+    return problems

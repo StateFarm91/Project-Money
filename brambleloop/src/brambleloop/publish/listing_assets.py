@@ -87,9 +87,40 @@ class Frame:
 # ---- drawing helpers -------------------------------------------------------
 
 
+class _RecordingDraw(ImageDraw.ImageDraw):
+    """A draw that writes down where every line of type landed (C-69, #59).
+
+    Layout QA measures boxes, not pixels, for the rules only boxes can decide: a title that
+    ran past the safe area, a label drawn over the chart, a footer overlapping the line above
+    it. The boxes are the renderer's own, recorded as it draws, onto the image's `info`."""
+
+    def __init__(self, im):
+        super().__init__(im)
+        self._im = im
+        im.info.setdefault("layout", [])
+
+    def text(self, xy, text, fill=None, font=None, *args, **kwargs):  # noqa: D401
+        out = super().text(xy, text, fill, font, *args, **kwargs)
+        try:
+            box = self.textbbox(xy, text, font=font)
+            size = getattr(font, "size", None)
+            self._im.info["layout"].append({"kind": "text", "box": list(box),
+                                            "text": str(text)[:60], "pt": size})
+        except Exception:  # noqa: BLE001 - measuring must never stop a render
+            pass
+        return out
+
+
+def _paste(img: Image.Image, part: Image.Image, xy: tuple[int, int], kind: str) -> None:
+    """Paste a graphic and record its box, so type drawn over it is a measured collision."""
+    img.paste(part, xy)
+    img.info.setdefault("layout", []).append(
+        {"kind": kind, "box": [xy[0], xy[1], xy[0] + part.width, xy[1] + part.height]})
+
+
 def _canvas(size: int = CANVAS) -> tuple[Image.Image, ImageDraw.ImageDraw]:
     img = Image.new("RGB", (size, size), CREAM)
-    return img, ImageDraw.Draw(img)
+    return img, _RecordingDraw(img)
 
 
 def _safe(size: int = CANVAS) -> int:
@@ -216,7 +247,8 @@ def _hero(cir: CIR, twin: TwinModel) -> Frame:
     scale = min(box_w / fabric.width, box_h / fabric.height)
     fabric = fabric.resize((max(1, int(fabric.width * scale)),
                             max(1, int(fabric.height * scale))), Image.LANCZOS)
-    img.paste(fabric, ((size - fabric.width) // 2, top + (box_h - fabric.height) // 2))
+    _paste(img, fabric, ((size - fabric.width) // 2, top + (box_h - fabric.height) // 2),
+           "fabric")
 
     d.text((m, int(size * 0.095)), "BRAMBLELOOP STUDIO", font=_font(int(size * 0.024)),
            fill=MUTED)
@@ -454,7 +486,7 @@ def _chart_frame(cir: CIR, twin: TwinModel) -> Frame:
     scale = min(box / chart.width, (size * 0.62) / chart.height)
     chart = chart.resize((int(chart.width * scale), int(chart.height * scale)),
                          Image.LANCZOS)
-    img.paste(chart, ((size - chart.width) // 2, y))
+    _paste(img, chart, ((size - chart.width) // 2, y), "chart")
     return Frame(position=6, role="chart", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
                  caption=caption, image=img,
                  depicts_stitches=sorted(twin.stitch_types_used),
@@ -512,6 +544,10 @@ def _collection_frame(cir: CIR, siblings: list[str]) -> Frame | None:
 
 
 # ---- the plan --------------------------------------------------------------
+
+
+# The whitespace floor for a text frame (#59): below this share of ink the frame is empty.
+TEXT_FRAME_MIN_INK = 0.005
 
 
 def build_frames(cir: CIR, twin: TwinModel, *, pattern_text: str,
@@ -597,6 +633,31 @@ def check_frame_plan(frames: list[Frame]) -> list[str]:
                 "LISTING_HERO_IS_AN_INFOGRAPHIC: charts, stitch maps and size cards belong "
                 "later in the gallery. The hero answers 'what will I have made', and a "
                 "diagram answers 'how' to somebody who has not decided to care yet")
+
+    # #59 on every frame, not only the hero (C-69). The pixel rules run on each rendered
+    # frame at listing and thumbnail scale, and the box rules on the layout the renderer
+    # recorded -- title past the safe area, type over the chart, a footer over the line above
+    # it, type set too small. A text frame is mostly paper by design, so the hero's
+    # one-colour rule is replaced there by the whitespace rule: a frame with almost no ink.
+    from . import layout_qa as _lq
+
+    rendered = [f for f in frames if f.image is not None]
+    for f in rendered:
+        if not f.is_hero:
+            measured = _lq.inspect(f.image, position=f.position, expect_text=True)
+            for problem in measured.problems:
+                if problem.startswith("FRAME_FLAT") and measured.ink_share >= TEXT_FRAME_MIN_INK:
+                    continue
+                problems.append(f"LISTING_FRAME_{f.position}_{problem}")
+            if measured.ink_share < TEXT_FRAME_MIN_INK:
+                problems.append(
+                    f"LISTING_FRAME_{f.position}_FRAME_EMPTY: {measured.ink_share:.2%} ink; a "
+                    f"frame this empty says nothing at any size")
+        for problem in _lq.check_layout(f.image, position=f.position):
+            problems.append(f"LISTING_{problem}")
+    ratios = {round(f.image.size[0] / f.image.size[1], 2) for f in rendered if f.image.size[1]}
+    if len(ratios) > 1:
+        problems.append(f"LISTING_FRAME_RATIOS_DISAGREE: {sorted(ratios)}")
 
     if not frames:
         # Appended rather than returned alone: a render that failed *and* produced no frames

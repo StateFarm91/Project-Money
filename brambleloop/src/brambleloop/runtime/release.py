@@ -307,12 +307,23 @@ def handle_assets_build(ctx: JobContext) -> dict:
               | {"brief": flow["brief"]})
 
     stored_frames = []
+    frame_paths: dict[int, str] = {}
     for frame in frames:
         art = store.put(f"{slug}/{version}/frame-{frame.position}.png", frame.png(),
                         "image/png", artefact_class="visual_truth", lineage=lineage)
         stored_frames.append({"position": frame.position, "role": frame.role,
                               "asset_class": frame.asset_class.value,
                               "sha256": art.sha256})
+        frame_paths[frame.position] = str(art.path)
+
+    # #61 (C-69): independent visual review of every listing frame -- the finished-result
+    # frame, the size card, the chart preview and the rest -- not only the hero. A model that
+    # never sees the caption describes each frame and deterministic code compares that with
+    # what the frame's role claims. It runs when the vision gate is open; otherwise every
+    # frame is recorded UNREVIEWED, which the publish path reads as not passed. A frame the
+    # review blocks stops the chain here.
+    review = _review_frames(ctx, slug, version, frames, frame_paths)
+    blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
     # simulated, AI-assisted or not, the pattern version it depicts and its colourway.
@@ -694,6 +705,76 @@ def select_incident(Incident, signature: str):
 
     return select(Incident).where(Incident.signature == signature,
                                   Incident.resolved.is_(False))
+
+
+FRAME_REVIEW_ACTION = "assets.frame_review"
+# What each frame's role claims, in the closed vocabulary `visual.inspect.compare` checks.
+ROLE_CLAIMS: dict[str, dict] = {
+    "hero": {"shows_finished_object": True},
+    "size": {"shows_size_reference": True},
+    "chart": {"shows_chart_preview": True},
+    "pattern_preview": {"shows_text": True},
+}
+
+
+def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict) -> dict:
+    from ..visual import inspect as inspection_mod
+    from ..visual.gallery import gates_now
+
+    vision_open = gates_now(ctx.db, keys=("image_vision",)).get("image_vision", False)
+    verdicts: dict[int, dict] = {}
+    blocking: list[str] = []
+    for frame in frames:
+        claim = ROLE_CLAIMS.get(frame.role, {})
+        if not vision_open:
+            verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
+                                        "why": "image_vision gate closed: no model has "
+                                               "been proven to look at a picture"}
+            continue
+        try:
+            got = inspection_mod.inspect_image(paths[frame.position], db=ctx.db, claim=claim)
+            verdict = inspection_mod.gate(got)
+        except Exception as exc:  # noqa: BLE001 - a review that failed is unmade, not passed
+            verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
+                                        "why": f"{type(exc).__name__}: {exc}"[:200]}
+            continue
+        # A deterministic render has no realism to judge; the semantic comparison and the
+        # marks are the review. Unmade realism on a render is not a failure of the frame.
+        if verdict["verdict"] == "unjudged" and got.get("described"):
+            verdict = {"verdict": "clear", "why": "described and compared; realism not "
+                                                  "applicable to a deterministic render"}
+        verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
+                                    "why": verdict.get("why"),
+                                    "semantic": (got.get("semantic") or {}).get("problems")}
+        if verdict["verdict"] == "blocked":
+            blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
+                            f"does not communicate what it claims: "
+                            f"{(got.get('semantic') or {}).get('problems')}"[:400])
+    ctx.audit(FRAME_REVIEW_ACTION, artifact=f"{slug}@{version}",
+              detail={"vision_open": vision_open,
+                      "frames": {str(k): v for k, v in verdicts.items()},
+                      "unreviewed": sorted(k for k, v in verdicts.items()
+                                           if v["verdict"] == "unreviewed")})
+    return {"verdicts": verdicts, "blocking": blocking, "vision_open": vision_open}
+
+
+def frame_review_state(db, slug: str, version: str) -> dict:
+    """The latest independent review of this release's frames, for the publish path."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == FRAME_REVIEW_ACTION,
+                                              AuditLog.artifact == f"{slug}@{version}")
+                       .order_by(desc(AuditLog.id)).limit(1))
+    if row is None:
+        return {"reviewed": False, "why": "no independent frame review is on record (#61)"}
+    frames = (row.detail or {}).get("frames") or {}
+    bad = {k: v["verdict"] for k, v in frames.items() if v.get("verdict") != "clear"}
+    return {"reviewed": not bad, "not_clear": bad,
+            "why": ("every frame was independently reviewed and communicates its claim"
+                    if not bad else f"frames not independently cleared (#61): {bad}")}
 
 
 def _stored_frames(db, slug: str, version: str) -> list[dict]:

@@ -669,27 +669,9 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                           "copyable; a brand that is only the model is a brand with a "
                           "week's lead (#44)")}))
 
-    out.append(Requirement(
-        key="rollback_plan",
-        description="a way to withdraw everything published, without losing the evidence",
-        ready=True,
-        blocked_by=None,
-        evidence={"mechanism": ("every listing is withdrawable from its own state machine "
-                               "and the release certificate is retained, so a withdrawal is "
-                               "reversible and auditable rather than a deletion"),
-                  "proved_by": "the shadow-mode publish refusal, exercised on every run"}))
-
-    analytics_ready = bool(listings)
-    out.append(Requirement(
-        key="analytics_baseline",
-        description=("a pre-launch baseline exists, so a change after launch can be read as "
-                     "a change"),
-        ready=analytics_ready,
-        blocked_by=None if analytics_ready else BLOCKED_BUILD,
-        evidence={"listings_with_a_baseline": len(listings),
-                  "why": ("a baseline taken after the change is the change measured against "
-                          "itself, which is the failure the improvement department is built "
-                          "around and it applies to launches too")}))
+    # C-69 (#54): the items the gate listed and never checked, each read from what the chain
+    # actually produced for every listing -- never a constant.
+    out.extend(_launch_package_items(db, listings))
 
     out.append(Requirement(
         key="phase",
@@ -700,6 +682,96 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         owner_request=None if phase.lower() not in ("shadow", "staging") else GRADUATION))
 
     return Readiness(requirements=out)
+
+
+# How recent the continuity restore proof must be for the rollback plan to count as proved.
+ROLLBACK_PROOF_MAX_AGE_DAYS = 3
+
+
+def _launch_package_items(db, listings) -> list[Requirement]:
+    """#54's digital disclosure, support knowledge, FAQ, pricing/promotion plan, launch
+    calendar, analytics baseline and rollback plan, each measured per listing."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import desc, select
+
+    from ..commerce.buyer_trust import listing_disclosure_finding
+    from ..core.models import (ArtefactProvenance, AuditLog, OperatingReading,
+                               PatternVersion, Product)
+    from ..ops import artefacts as provenance
+
+    releases = sorted({(l.product_slug, l.version) for l in listings})
+    have = bool(releases)
+    now = datetime.now(timezone.utc)
+
+    def aware(v):
+        return v if v is None or v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+    with db.session() as s:
+        prov = {(r.artefact_class, r.artefact_key): r.validation_status for r in s.scalars(
+            select(ArtefactProvenance).where(ArtefactProvenance.artefact_class.in_(
+                ("support_knowledge", "release_bundle", "certificate"))))}
+        current = provenance.current_from_db(s)
+        fresh = {(v.artefact_class, v.artefact_key) for v in provenance.check(s, current=current)
+                 if v.state == provenance.FRESH}
+        audits: dict[str, set[str]] = {}
+        for action in ("pricing.positioned", "launch.planned", "launch.held"):
+            audits[action] = {str(r.artifact or "") for r in s.scalars(
+                select(AuditLog).where(AuditLog.action == action))}
+        restore = s.scalar(select(AuditLog).where(AuditLog.action == "continuity.verified")
+                           .order_by(desc(AuditLog.id)).limit(1))
+        restore_at = aware(restore.at) if restore is not None else None
+        baseline = s.scalar(select(OperatingReading).order_by(OperatingReading.id).limit(1))
+        certs = {p.slug: bool(pv.certificate) for pv, p in s.execute(
+            select(PatternVersion, Product).join(Product, Product.id == PatternVersion.product_id))}
+
+    undisclosed = [f"{slug}@{v}" for slug, v in releases
+                   if listing_disclosure_finding(db, slug=slug, version=v).get("finding")
+                   or not listing_disclosure_finding(db, slug=slug, version=v).get("checked")]
+    no_support = [f"{slug}@{v}" for slug, v in releases
+                  if prov.get(("support_knowledge", f"{slug}@{v}#support")) != "passed"
+                  or ("support_knowledge", f"{slug}@{v}#support") not in fresh]
+    unpriced_plan = [l.product_slug for l in listings
+                     if l.price_cad <= 0 or l.product_slug not in audits["pricing.positioned"]]
+    uncalendared = [l.product_slug for l in listings
+                    if l.product_slug not in audits["launch.planned"]]
+    no_baseline = [l.product_slug for l in listings if not (l.seo_score or 0) > 0]
+    uncertified = [l.product_slug for l in listings if not certs.get(l.product_slug)]
+    restore_ok = restore_at is not None and now - restore_at <= timedelta(
+        days=ROLLBACK_PROOF_MAX_AGE_DAYS)
+
+    def req(key, description, bad, evidence):
+        ready = have and not bad
+        return Requirement(key=key, description=description, ready=ready,
+                           blocked_by=None if ready else BLOCKED_BUILD,
+                           evidence={**evidence, "listings": len(releases)})
+
+    return [
+        req("digital_disclosure", "every listing says, where a buyer reads first, that it is a "
+            "digital pattern and not a finished item", undisclosed,
+            {"missing_or_misplaced": undisclosed[:8]}),
+        req("support_knowledge", "every listed release has a current, version-keyed support "
+            "knowledge pack", no_support, {"without": no_support[:8]}),
+        req("faq", "every listed release's FAQ was produced and checked against its PDF and "
+            "listing (#40)", no_support, {"not_checked": no_support[:8]}),
+        req("pricing_promotion_plan", "every listing was priced by the pricing stage, which "
+            "refuses a fake discount; promotions are proposed only through the promotion "
+            "rules", unpriced_plan, {"unplanned": unpriced_plan[:8]}),
+        req("launch_calendar", "every listing has a launch date planned against its buying "
+            "window", uncalendared, {"uncalendared": uncalendared[:8]}),
+        req("analytics_baseline", "a pre-launch baseline exists: each listing's search "
+            "coverage recorded at drafting, and a weekly operating reading taken",
+            no_baseline + ([] if baseline is not None else ["no operating reading"]),
+            {"listings_without_search_baseline": no_baseline[:8],
+             "first_operating_reading": (aware(baseline.at).isoformat()
+                                         if baseline is not None else None)}),
+        req("rollback_plan", "a way to withdraw everything published without losing the "
+            "evidence: every listing's certificate retained and the continuity restore proved "
+            f"within {ROLLBACK_PROOF_MAX_AGE_DAYS} days",
+            uncertified + ([] if restore_ok else ["continuity restore unproven"]),
+            {"without_retained_certificate": uncertified[:8],
+             "last_restore_proof": restore_at.isoformat() if restore_at else None}),
+    ]
 
 
 def render(readiness: Readiness) -> str:

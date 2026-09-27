@@ -1515,6 +1515,16 @@ def _listing_parity(ctx: JobContext) -> dict:
                   detail={"failed": verdict.get("failed"), "rung": escalation["taken"],
                           **escalation["enqueued"]})
 
+    # #61 (C-69): every listing frame must have been independently reviewed and cleared.
+    # Unreviewed (the vision gate is closed) is not a pass.
+    from .release import frame_review_state
+
+    review = frame_review_state(ctx.db, slug, version)
+    verdict["frame_review"] = review
+    if not review["reviewed"]:
+        verdict["blocks_release"] = True
+        verdict["why"] = f"{verdict['why']}; {review['why']}"
+
     # #41 re-checked at publish: an owed purchase disclosure missing from the stored copy
     # blocks export, whatever parity says. UNMEASURED (no copy) is reported; publication
     # itself refuses a listing that was never drafted.

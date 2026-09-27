@@ -202,6 +202,14 @@ def compare(description: dict, claim: dict) -> dict:
         problems.append({"check": "size_reference", "claim": "a scale reference",
                          "seen": description.get("object_count"),
                          "why": "a size card that cannot be counted communicates no size"})
+    if claim.get("shows_chart_preview") and description.get("chart_or_diagram") is not True:
+        problems.append({"check": "chart_preview", "claim": "a chart preview",
+                         "seen": description.get("object_shown"),
+                         "why": "a chart preview must look like a chart preview (#61)"})
+    if claim.get("shows_text") and description.get("text_present") is False:
+        problems.append({"check": "pattern_text", "claim": "the written pattern",
+                         "seen": "no text",
+                         "why": "a pattern-preview frame with no legible text previews nothing"})
     if description.get("clarity") == "unreadable":
         problems.append({"check": "clarity", "claim": "anything at all",
                          "seen": "unreadable",

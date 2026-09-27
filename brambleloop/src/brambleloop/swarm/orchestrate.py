@@ -307,22 +307,215 @@ def thrash_sweep(db, *, now: datetime | None = None,
                        f"loop has stopped working and started spending; its queued retries "
                        f"were cancelled and it needs a changed hypothesis before it runs "
                        f"again (#34).")
+            # C-68/#34: a tripped loop is *suspended*, not only reported. The scheduler will
+            # not re-enqueue this job type while the suspension stands, and it stands until
+            # the hypothesis changes -- which, for a deployed system, is a different build
+            # (the root-cause fix) -- so the next cadence window cannot restart the loop.
+            suspension = {"kind": SUSPENDED, "job_type": entry["job_type"],
+                          "code_commit": _commit(), "since": now.isoformat()}
             if row is None:
                 s.add(Incident(severity="P2", signature=signature, summary=summary,
                                detail={"job_type": entry["job_type"],
                                        "inputs": entry["inputs"], "result": entry["result"],
-                                       "job_ids": entry["job_ids"][-20:]}))
+                                       "job_ids": entry["job_ids"][-20:],
+                                       "suspension": suspension}))
             else:
                 row.report_count = (row.report_count or 1) + 1
                 row.summary = summary
+                row.detail = {**dict(row.detail or {}), "suspension": suspension}
             incidents.append(signature)
+
+        progress = _progress(s, since=since)
+        backoffs = _free_poll_backoff(s, progress, now=now)
     return {"observed": observed, "window_hours": window_hours,
             "tripped": len(tripped), "incidents": incidents, "cancelled": cancelled,
             "limit": THRASH_LIMIT,
+            "progress": progress, "backoff": backoffs,
+            "suspended": sorted(suspended_job_types(db, now=now)),
             "note": ("no loop: no failing or paid call repeated an identical result three "
                      "times" if not tripped else
                      f"{len(tripped)} loop(s) broken: incidents raised and queued retries "
                      f"cancelled")}
+
+
+# ---------------------------------------------------------------------------
+# #34 (C-68): progress per iteration and per dollar, backoff for unchanged polling, and
+# suspension until the hypothesis changes.
+
+SUSPENDED = "suspended"
+BACKOFF = "backoff"
+BACKOFF_SIGNATURE_PREFIX = "thrash:backoff:"
+# Three identical states without progress is the requirement's own number.
+IDENTICAL_STATES = THRASH_LIMIT
+# Backoff doubles per unchanged sweep, capped: a poll slowed to a week is a poll abandoned.
+MAX_BACKOFF_FACTOR = 32
+# Watchdogs whose whole job is to keep looking: liveness, the queue, the allocator, the
+# sweeps themselves. Backing these off would blind the system to the change they exist to
+# notice, and they cost nothing.
+LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
+    "ops.heartbeat", "ops.health", "ops.queue_check", "ops.thrash", "build.tick",
+    "swarm.allocate", "swarm.orphans", "swarm.backlog", "swarm.review", "ops.sentinel",
+    "finance.governor", "finance.escalation_check", "ops.retention", "support.triage",
+})
+_VOLATILE_KEYS = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
+                  "allocation_id", "reading_id", "job_id", "audit_id", "id")
+
+
+def _commit() -> str:
+    from ..core.build import commit
+
+    return commit()
+
+
+def _state_of(outputs) -> str:
+    """A job's result with its clocks and row ids removed: what state did it observe?"""
+    def strip(v):
+        if isinstance(v, dict):
+            return {k: strip(x) for k, x in sorted(v.items())
+                    if k not in _VOLATILE_KEYS and not k.endswith("_at")}
+        if isinstance(v, list):
+            return [strip(x) for x in v]
+        return v
+    blob = json.dumps(strip(outputs or {}), sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+
+def _progress(session, *, since: datetime) -> dict:
+    """Per job type over the window: iterations, dollars, distinct states and the ratios."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    by: dict[str, dict] = {}
+    for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE)
+                               .order_by(Job.id)):
+        finished = job.finished_at
+        if finished is None or _aware(finished) < since:
+            continue
+        row = by.setdefault(job.job_type, {"iterations": 0, "cost_cad": 0.0, "states": [],
+                                           "cadence": bool((job.inputs or {}).get("cadence"))})
+        row["iterations"] += 1
+        row["cost_cad"] += float(job.cost_cad or 0.0)
+        row["states"].append(_state_of(job.outputs))
+    out = {}
+    for jt, row in by.items():
+        states = row["states"]
+        changes = sum(1 for a, b in zip(states, states[1:]) if a != b)
+        tail = states[-IDENTICAL_STATES:]
+        out[jt] = {
+            "iterations": row["iterations"], "cost_cad": round(row["cost_cad"], 6),
+            "state_changes": changes,
+            "progress_per_iteration": round(changes / row["iterations"], 4),
+            "progress_per_dollar": (round(changes / row["cost_cad"], 4)
+                                    if row["cost_cad"] > 0 else None),
+            "identical_tail": (len(tail) == IDENTICAL_STATES and len(set(tail)) == 1),
+            "cadence": row["cadence"],
+        }
+    return out
+
+
+def _free_poll_backoff(session, progress: dict, *, now: datetime) -> dict:
+    """Unchanged polling backs off exponentially; progress lifts the backoff (#34)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..runtime.worker import CADENCES
+
+    period_of = {jt: period for _n, _a, jt, period in CADENCES}
+    applied, lifted = [], []
+    for jt, row in sorted(progress.items()):
+        if jt in LIVENESS_JOB_TYPES or jt not in period_of or not row["cadence"]:
+            continue
+        signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
+        open_row = session.scalar(select(Incident).where(Incident.signature == signature,
+                                                         Incident.resolved.is_(False)))
+        if not row["identical_tail"]:
+            if open_row is not None:
+                open_row.resolved = True
+                lifted.append(jt)
+            continue
+        level = int(((open_row.detail or {}).get("suspension") or {}).get("level", 0)) + 1 \
+            if open_row is not None else 1
+        factor = min(MAX_BACKOFF_FACTOR, 2 ** level)
+        until = now + timedelta(seconds=period_of[jt] * factor)
+        suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
+                      "suspend_until": until.isoformat(), "code_commit": _commit()}
+        summary = (f"{jt} observed {IDENTICAL_STATES} identical states in a row without "
+                   f"progress; polling backs off to every {factor}x its period (#34)")
+        if open_row is None:
+            session.add(Incident(severity="P3", signature=signature, summary=summary,
+                                 halts_publication=False,
+                                 detail={"suspension": suspension, "progress": row}))
+        else:
+            open_row.detail = {**dict(open_row.detail or {}), "suspension": suspension,
+                               "progress": row}
+            open_row.summary = summary
+            open_row.report_count = (open_row.report_count or 1) + 1
+        applied.append({"job_type": jt, "factor": factor, "until": until.isoformat()})
+    return {"applied": applied, "lifted": lifted}
+
+
+def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
+    """Job types the scheduler must not enqueue now, with the reason (#34).
+
+    A paid loop tripped by the breaker stays suspended until the running build differs from
+    the one it was suspended under (a changed hypothesis) or somebody resolves the incident;
+    an unchanged poll is suspended until its backoff expires."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    now = now or datetime.now(timezone.utc)
+    commit = _commit()
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(
+                Incident.resolved.is_(False),
+                Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}%"))):
+            sus = (inc.detail or {}).get("suspension") or {}
+            jt = sus.get("job_type")
+            if not jt:
+                continue
+            if sus.get("kind") == SUSPENDED:
+                if sus.get("code_commit") and sus["code_commit"] != commit:
+                    continue                      # a new build is a changed hypothesis
+                out[jt] = {"kind": SUSPENDED, "incident": inc.signature,
+                           "why": "a loop spending without progress; waits for a changed "
+                                  "hypothesis (a new build) or a resolved incident"}
+            elif sus.get("kind") == BACKOFF:
+                until = datetime.fromisoformat(sus["suspend_until"])
+                if until > now:
+                    out[jt] = {"kind": BACKOFF, "until": sus["suspend_until"],
+                               "factor": sus.get("factor"), "incident": inc.signature}
+    return out
+
+
+def retry_allowed(db, job) -> dict:
+    """A retry of a call the breaker tripped needs a changed hypothesis (#34).
+
+    Deployment retries included: re-driving the same call under the same build is the same
+    hypothesis, and the answer will be the same. Allowed once the running build differs from
+    the one the loop was caught under, or the incident has been resolved by somebody."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    call = _thrash_call(job)
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(
+                Incident.resolved.is_(False),
+                Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}{job.job_type}:%"))):
+            detail = inc.detail or {}
+            same = json.dumps({"job_type": detail.get("job_type"),
+                               "inputs": detail.get("inputs") or {}},
+                              sort_keys=True, default=str) == call
+            sus = detail.get("suspension") or {}
+            if same and sus.get("code_commit", _commit()) == _commit():
+                return {"allowed": False, "incident": inc.signature,
+                        "why": ("this exact call tripped the thrash breaker under this build; "
+                                "a retry needs a changed hypothesis -- a root-cause fix "
+                                "deployed, or the incident resolved (#34)")}
+    return {"allowed": True}
 
 
 # ---------------------------------------------------------------------------

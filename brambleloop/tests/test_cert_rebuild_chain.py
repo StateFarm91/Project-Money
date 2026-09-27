@@ -122,6 +122,35 @@ def test_terms_are_checked_on_the_produced_pdf_listing_and_faq():
     assert detail["consistent"] is True, detail["divergences"]
 
 
+def test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced():
+    """#54 (C-69): digital disclosure, support knowledge, FAQ, pricing plan, launch calendar,
+    analytics baseline and rollback plan, each read per listing -- none of them a constant."""
+    from brambleloop.core.models import OperatingReading
+
+    st = chain()
+    db = st["db"]
+
+    from brambleloop.launch.readiness import assess
+
+    by = {r.key: r for r in assess(db, phase="shadow").requirements}
+    for key in ("digital_disclosure", "support_knowledge", "faq", "pricing_promotion_plan",
+                "launch_calendar"):
+        assert by[key].ready is True, (key, by[key].evidence)
+    # nothing recorded a baseline reading or proved a restore: honestly not ready
+    assert by["analytics_baseline"].ready is False
+    assert by["rollback_plan"].ready is False
+    assert "continuity restore unproven" in str(by["rollback_plan"].evidence) or \
+        by["rollback_plan"].evidence["last_restore_proof"] is None
+    with db.session() as s:
+        s.add(OperatingReading(kind="growth.weekly", period_key="2026-W39", payload={}))
+        s.add(AuditLog(actor="orchestrator", action="continuity.verified", detail={}))
+    by = {r.key: r for r in assess(db, phase="shadow").requirements}
+    assert by["analytics_baseline"].ready is True, by["analytics_baseline"].evidence
+    assert by["rollback_plan"].ready is True, by["rollback_plan"].evidence
+    job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-1")
+    assert job.status == JobStatus.DONE, job.last_error
+
+
 def test_a_divergent_listing_is_refused_and_halts_publication():
     from brambleloop.core.models import Incident
     from brambleloop.runtime import release

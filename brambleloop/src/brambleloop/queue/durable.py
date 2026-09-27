@@ -540,6 +540,15 @@ class JobQueue:
                     skipped.append({"id": job.id, "job_type": job.job_type,
                                     "reason": "refused on purpose, not a failure"})
                     continue
+                # #34: a call the thrash breaker tripped is not retried under the same
+                # hypothesis (the same build).
+                from ..swarm.orchestrate import retry_allowed
+
+                gate = retry_allowed(self.db, job)
+                if not gate["allowed"]:
+                    skipped.append({"id": job.id, "job_type": job.job_type,
+                                    "reason": gate["why"]})
+                    continue
                 job.status = JobStatus.PENDING
                 job.leased_by = None
                 job.lease_expires_at = None

@@ -656,7 +656,18 @@ class Scheduler:
         """Enqueue any cadence whose window has opened. Safe to call as often as you like."""
         now = now or utcnow()
         enqueued: list[str] = []
+        # #34: a loop the thrash breaker suspended, or a poll it backed off, is not re-enqueued
+        # by the next cadence window.
+        try:
+            from ..swarm.orchestrate import suspended_job_types
+
+            suspended = suspended_job_types(self.db, now=now)
+        except Exception:  # noqa: BLE001 - a failed read must never stop the scheduler
+            suspended = {}
+        self.suspended = suspended
         for name, agent, job_type, period in CADENCES:
+            if job_type in suspended:
+                continue
             window = int(now.timestamp() // period)
             key = f"cadence:{name}:{window}"
             try:
