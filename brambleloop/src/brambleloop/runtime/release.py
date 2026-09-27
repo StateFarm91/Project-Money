@@ -1442,12 +1442,10 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
                          today=date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
                          positioning=i.get("positioning"))
     outstanding = list(gate["staleness"]["rebuild"]["outstanding"] or [])
-    if (gate["blocks"] and i.get("rebuild") and outstanding
-            and all(k.startswith("marketing_asset:") for k in outstanding)
-            and not gate["staleness"]["halted"]
-            and all("#172" in r for r in gate["reasons"])):
+    if gate["blocks"] and i.get("rebuild") and gate.get("only_own_marketing_stale"):
         # C-69: the only thing outstanding is the content this rebuild exists to remake.
         # Blocking it on its own staleness would make a stale marketing asset unrebuildable.
+        # C-80 defect 11: read from the gate's structured flag, not from reason wording.
         gate = {**gate, "blocks": False, "reasons": [],
                 "rebuilding": outstanding}
     if gate["blocks"]:
@@ -3163,7 +3161,31 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         return {"targeted": True, "slug": slug, "version": version, "withheld": True,
                 "rebuilt": []}
 
-    fresh = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
+    fresh_now = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
+
+    # C-80 defect 12 (Codex P10): completion evidence is bound to *this* attempt. A row counts
+    # as rebuilt only when (a) for every requested reference the row's recorded input equals
+    # the fingerprint the request said it must become, and (b) on a verify pass, the row was
+    # written by the stage job this attempt enqueued or a job enqueued after it -- never by
+    # whatever happened to leave the row fresh before the request.
+    def binding(k) -> dict:
+        facts = row_facts.get(k) or {}
+        inputs = facts.get("inputs") or {}
+        mismatched = sorted(ref for ref, fp in fingerprints.items()
+                            if isinstance(fp, dict) and fp.get("new")
+                            and inputs.get(ref) != fp["new"])
+        after = i.get("stage_job") or i.get("requested_by")
+        row_job = facts.get("job_id")
+        job_bound = (not verify) or (after is not None and row_job is not None
+                                     and int(row_job) >= int(after))
+        return {"fingerprints_match": not mismatched, "mismatched_refs": mismatched,
+                "stage_job": i.get("stage_job"), "requested_by": i.get("requested_by"),
+                "row_job": row_job, "job_bound": job_bound,
+                "bound": not mismatched and job_bound}
+
+    bindings = {k: binding(k) for k in fresh_now}
+    fresh = [k for k in fresh_now if bindings[k]["bound"]]
+    unbound = [k for k in fresh_now if not bindings[k]["bound"]]
     stale = [k for k in keys if k not in fresh]
 
     if verify:
@@ -3171,7 +3193,14 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
             ctx.audit("chain.rebuild_completed", artifact=k, detail={
                 "product_slug": slug, "version": version, "reason": reason,
                 "fingerprints": fingerprints, "evidence": row_facts.get(k),
-                "verified_on_check": verify})
+                "bound": bindings[k], "verified_on_check": verify})
+        for k in unbound:
+            ctx.audit("chain.rebuild_unbound", artifact=k, detail={
+                "product_slug": slug, "version": version, "reason": reason,
+                "fingerprints": fingerprints, "evidence": row_facts.get(k),
+                "bound": bindings[k], "check": verify,
+                "why": "the row reads fresh but was not produced by this attempt's stage "
+                       "job, or its inputs are not the fingerprints the request named"})
         if stale and verify < REBUILD_VERIFY_ATTEMPTS:
             ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale,
                                                      "verify": verify + 1},
@@ -3193,9 +3222,9 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                 else:
                     inc.report_count += 1
         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
-            "completed": fresh, "outstanding": stale, "check": verify})
+            "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify})
         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
-                "outstanding": stale}
+                "outstanding": stale, "unbound": unbound}
 
     classes = {k.split(":", 1)[0] for k in stale}
     unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
@@ -3246,13 +3275,17 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         ctx.audit("chain.rebuild_completed", artifact=k, detail={
             "product_slug": slug, "version": version, "reason": reason,
             "fingerprints": fingerprints, "evidence": row_facts.get(k),
-            "already_fresh": True})
+            "bound": bindings[k], "already_fresh": True})
     if stale:
-        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1},
+        # the verify pass carries the attempt it must bind completion to
+        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1,
+                                                 "stage_job": getattr(stage_job, "id", None),
+                                                 "requested_by": ctx.job.id},
                     idempotency_key=f"rebuild-verify:{slug}:{ctx.job.id}:1",
                     run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
     return {"targeted": True, "slug": slug, "version": version, "reason": reason,
             "requested": stale, "already_fresh": fresh, "stage": stage,
+            "fresh_but_unbound": unbound,
             "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
 
 

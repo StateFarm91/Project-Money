@@ -142,7 +142,8 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                           "a missing row reads as unproven, which blocks publication"),
     "model.probe": ("latest", "gateway.anthropic.provider_usable reads a successful call"),
     "model.analysis": ("windowed", "gateway.routing reads recent analyses"),
-    "ops.health": ("latest", "runtime.release reads the last sweep"),
+    "ops.health": ("windowed", "runtime.release reads the last sweep; ops.dependencies reads "
+                               "the 24h record as the host probe (C-80)"),
     "ops.requeued_for_commit": ("latest", "runtime.pipeline reads the last re-drive"),
     "improve.nightly": ("latest", "runtime.release reads the last nightly"),
     "improve.promoted": ("windowed", "improve.tiers and improve.roi read recent promotions"),

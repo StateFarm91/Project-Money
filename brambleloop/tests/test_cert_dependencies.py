@@ -72,6 +72,48 @@ def test_failed_probes_and_an_unproved_recovery_are_raised_and_resolve_when_fixe
     assert "dependency:postgres" not in _open(db, "dependency:")
 
 
+def test_the_railway_probe_reads_the_health_record_or_says_unknown():
+    """C-80 defect 9: the host probe was a constant `ok: True`. Off Railway it is UNKNOWN;
+    on Railway a gap in the ops.health record fails it and opens the incident, and a
+    continuous record resolves it -- all through the daily sweep on the worker."""
+    import os
+
+    db = _db()
+    for marker in ("RAILWAY_ENVIRONMENT", "RAILWAY_GIT_COMMIT_SHA", "RAILWAY_SERVICE_ID",
+                   "RAILWAY_PROJECT_ID"):
+        os.environ.pop(marker, None)
+    out = _run(db, "orchestrator", "ops.dependencies")
+    assert out["probes"]["railway"]["ok"] is None and "UNKNOWN" in out["probes"]["railway"]["why"]
+    assert "railway" in out["unknown"] and "dependency:railway" not in _open(db, "dependency:")
+
+    os.environ["RAILWAY_ENVIRONMENT"] = "production"
+    try:
+        # on Railway with no sweep yet: still UNKNOWN, not healthy
+        out = _run(db, "orchestrator", "ops.dependencies")
+        assert out["probes"]["railway"]["ok"] is None and out["probes"]["railway"]["on_railway"]
+        # a five-hour hole in the last day's health record: the host let the container die
+        now = utcnow()
+        with db.session() as s:
+            for minutes in (20 * 60, 19 * 60, 18 * 60, 5 * 60, 30, 10):
+                s.add(AuditLog(actor="orchestrator", action="ops.health", detail={},
+                               at=now - timedelta(minutes=minutes)))
+        out = _run(db, "orchestrator", "ops.dependencies")
+        railway = out["probes"]["railway"]
+        assert railway["ok"] is False and railway["max_gap_minutes"] >= 12 * 60, railway
+        assert "railway" in out["failing"] and "dependency:railway" in _open(db, "dependency:")
+        # a continuous record since: the probe recovers and the incident resolves
+        with db.session() as s:
+            for minutes in range(15, 20 * 60, 15):
+                s.add(AuditLog(actor="orchestrator", action="ops.health", detail={},
+                               at=now - timedelta(minutes=minutes)))
+        out = _run(db, "orchestrator", "ops.dependencies")
+        assert out["probes"]["railway"]["ok"] is True
+        assert "dependency:railway" in out["resolved"]
+        assert "dependency:railway" not in _open(db, "dependency:")
+    finally:
+        os.environ.pop("RAILWAY_ENVIRONMENT", None)
+
+
 def test_a_billed_provider_the_map_does_not_name_is_raised():
     db = _db()
     with db.session() as s:

@@ -205,16 +205,69 @@ PROBE_GATES: dict[str, str] = {"model_provider": "model_provider", "etsy_account
                                "tester_network": "tester_roster"}
 
 
-def probe(db) -> dict:
+# The health sweep's cadence (runtime.worker CADENCES: ops.health every 15 minutes) is the
+# evidence the container is being kept running; a gap of this many minutes between sweeps in
+# the last day is an outage the host let happen.
+HEALTH_SWEEP_MINUTES = 15
+RAILWAY_MAX_GAP_MINUTES = 120
+RAILWAY_ENV_MARKERS = ("RAILWAY_ENVIRONMENT", "RAILWAY_GIT_COMMIT_SHA", "RAILWAY_SERVICE_ID",
+                       "RAILWAY_PROJECT_ID")
+
+
+def _railway_probe(session, env: dict, now) -> dict:
+    """Whether the host has kept the container running, from the health sweep's own rows.
+
+    C-80 defect 9: this was `{"ok": True, "why": "this probe is running on it"}`, a constant.
+    Now: not on Railway at all (no RAILWAY_* marker in the environment) is UNKNOWN, not
+    healthy; on Railway, the `ops.health` sweep rows of the last 24 hours are the evidence --
+    none yet is UNKNOWN, a gap longer than RAILWAY_MAX_GAP_MINUTES is a failed probe, and a
+    continuous record is ok.
+    """
+    from datetime import timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    markers = sorted(m for m in RAILWAY_ENV_MARKERS if (env or {}).get(m))
+    if not markers:
+        return {"ok": None, "on_railway": False,
+                "why": "no RAILWAY_* environment marker: this process is not running on "
+                       "Railway, so the host cannot be probed from here; UNKNOWN, not healthy"}
+    since = now - timedelta(hours=24)
+    stamps = sorted((r if r.tzinfo else r.replace(tzinfo=timezone.utc)) for r in
+                    session.scalars(select(AuditLog.at).where(AuditLog.action == "ops.health",
+                                                              AuditLog.at >= since)))
+    if not stamps:
+        return {"ok": None, "on_railway": True, "markers": markers, "health_rows_24h": 0,
+                "why": "on Railway, but no ops.health sweep has been recorded in 24h yet; "
+                       "UNKNOWN until the first sweep"}
+    gaps = [(b - a).total_seconds() / 60 for a, b in zip(stamps, stamps[1:])]
+    latest_age = (now - stamps[-1]).total_seconds() / 60
+    max_gap = max(gaps + [latest_age])
+    ok = max_gap <= RAILWAY_MAX_GAP_MINUTES
+    return {"ok": ok, "on_railway": True, "markers": markers, "health_rows_24h": len(stamps),
+            "max_gap_minutes": round(max_gap, 1), "latest_sweep_age_minutes": round(latest_age, 1),
+            "why": (f"the health sweep ran {len(stamps)} time(s) in 24h with no gap over "
+                    f"{RAILWAY_MAX_GAP_MINUTES} min: the host kept the container running"
+                    if ok else
+                    f"a {max_gap:.0f}-minute gap in the health sweep's 24h record (cadence "
+                    f"{HEALTH_SWEEP_MINUTES} min): the host did not keep the container running")}
+
+
+def probe(db, env: dict[str, str] | None = None) -> dict:
     """Each dependency checked against the database: reachable, proven, or UNKNOWN."""
+    import os
     from datetime import datetime, timedelta, timezone
 
     from sqlalchemy import desc, select, text
 
     from ..core.models import AuditLog, CostEntry
 
+    env = dict(os.environ) if env is None else env
     now = datetime.now(timezone.utc)
     out: dict[str, dict] = {}
+    railway = None
     try:
         with db.session() as s:
             s.execute(text("select 1"))
@@ -223,6 +276,7 @@ def probe(db) -> dict:
             providers = sorted({(c.provider or "").strip() for c in s.scalars(
                 select(CostEntry).where(CostEntry.at >= now - timedelta(days=30)))
                 if (c.provider or "").strip()})
+            railway = _railway_probe(s, env, now)
         reachable = True
     except Exception as exc:  # noqa: BLE001 - an unreachable database is the finding
         reachable, restore, providers = False, None, []
@@ -237,7 +291,8 @@ def probe(db) -> dict:
                                    "proved recently" if proved else
                                    "reachable, but its recovery strategy has not been proved "
                                    f"within {RESTORE_PROOF_MAX_AGE_DAYS} days")}
-    out["railway"] = {"ok": True, "why": "this probe is running on it"}
+    out["railway"] = railway or {"ok": None, "why": "the database was unreachable, so the "
+                                                      "health record could not be read; UNKNOWN"}
     from ..build2 import executor
 
     for key, gate_key in PROBE_GATES.items():
@@ -261,7 +316,7 @@ def sweep(db, env: dict[str, str] | None = None) -> dict:
     from ..core.models import Incident
 
     state = map_state(db, env)
-    live = probe(db)
+    live = probe(db, env)
     mapped = {d.key for d in DEPENDENCIES}
     # A provider the company is paying that the map does not name is a dependency nobody
     # planned a recovery for -- found from the cost ledger, not remembered.
