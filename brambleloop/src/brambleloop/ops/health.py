@@ -89,6 +89,14 @@ QUEUE_STALLED_AFTER_S = 60 * 60
 # nothing new across two full cycles of its fastest meaningful work is visible as stalled.
 EVIDENCE_WINDOW_S = 12 * 60 * 60
 
+# Job types whose results are readings of the system itself -- counters, ages, timestamps --
+# and therefore differ on every run whether or not anything was learned. `ops.heartbeat`
+# reports live queue counts and `ops.health` reports this sweep's own readings, so both
+# looked "fresh" every fifteen minutes and kept `evidence_freshness` green on a system that
+# had produced nothing new. They are excluded from the comparison, not from `progress`:
+# they are real completed work, and none of it is evidence about the business.
+SELF_OBSERVING_JOB_TYPES: frozenset[str] = frozenset({"ops.heartbeat", "ops.health"})
+
 # Completed jobs below this in the window means nothing is being achieved.
 PROGRESS_WINDOW_S = 6 * 60 * 60
 MIN_COMPLETIONS = 1
@@ -777,10 +785,15 @@ def _evidence(db, now) -> tuple[set[str], set[str]]:
         select(Job).where(Job.status == JobStatus.DONE)
         .where(Job.finished_at.is_not(None))
         .where(Job.finished_at >= since)
+        # Excluded in SQL as well, so ninety-six sweeps a day cannot fill the row limit
+        # and push the cadences that do carry evidence out of the sample.
+        .where(Job.job_type.not_in(sorted(SELF_OBSERVING_JOB_TYPES)))
         .order_by(desc(Job.finished_at)).limit(400)))
 
     latest: dict[str, list[str]] = {}
     for job in rows:
+        if job.job_type in SELF_OBSERVING_JOB_TYPES:
+            continue
         seen = latest.setdefault(job.job_type, [])
         if len(seen) < 2:
             seen.append(json.dumps(job.outputs or {}, sort_keys=True, default=str))

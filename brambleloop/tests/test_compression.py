@@ -178,6 +178,30 @@ def test_preparation_starts_before_the_launch_it_serves():
     assert {row["stream"] for row in by_lane} == set(C.PREPARATION_LEADS)
 
 
+def test_a_stream_with_evidence_of_starting_is_not_overdue():
+    """A passed start date says when work had to begin, not that it did not. The daily
+    scan and the SEO drafter ran every day while the sentinel called both streams late."""
+    from datetime import date, timedelta
+
+    late: set = set()
+    for offset in range(0, 90, 3):
+        today = date(2026, 10, 1) + timedelta(days=offset)
+        states = C.lane_states((date(2026, 12, 25) - today).days, today=today)
+        blind = C.preparation(states, today=today)
+        late = {r["stream"] for r in blind if r["overdue"]}
+        if late:
+            break
+    assert late, "no autumn day has an overdue stream, so the test proves nothing"
+
+    started = {stream: (today - timedelta(days=3)).isoformat() for stream in late}
+    seen = C.preparation(states, today=today, started=started)
+    assert not [r for r in seen if r["overdue"]]
+    for row in seen:
+        assert row["started_evidence"] == list(C.PREPARATION_EVIDENCE[row["stream"]])
+        if row["stream"] in late:
+            assert row["started_on"] == started[row["stream"]]
+
+
 def test_search_language_is_mapped_before_the_copy_is_written():
     leads = C.PREPARATION_LEADS
     assert leads["search_language"][0] > leads["listing_copy"][0], (

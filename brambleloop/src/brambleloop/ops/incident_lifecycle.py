@@ -101,9 +101,12 @@ def reconcile(session, signature_prefix: str, still_true: Callable[[Incident], b
     """
     from sqlalchemy import select
 
-    rows = list(session.scalars(select(Incident).where(
+    # LIKE narrows in SQL; `startswith` makes it exact, because `_` and `%` in a prefix
+    # ("seasonal.at_risk:") are LIKE wildcards and would otherwise match their neighbours.
+    rows = [row for row in session.scalars(select(Incident).where(
         Incident.signature.like(f"{signature_prefix}%"),
-        Incident.resolved == False)))  # noqa: E712
+        Incident.resolved == False))  # noqa: E712
+        if row.signature.startswith(signature_prefix)]
     resolved, kept = [], []
     for row in rows:
         if still_true(row):
@@ -129,13 +132,27 @@ def resolve_signatures(session, signatures: Iterable[str], *, resolution: str,
                        now: datetime | None = None) -> list[str]:
     """Resolve specific open rows with one stated reason. A convenience over `reconcile` for
     the case where the detector already knows exactly which rows stopped being true."""
+    from sqlalchemy import select
+
     wanted = set(signatures)
     if not wanted:
         return []
-    prefix = ""
-    out = reconcile(session, prefix, lambda row: row.signature not in wanted,
-                    resolution=resolution, now=now)
-    return out["resolved"]
+    if not str(resolution or "").strip():
+        raise ValueError("refusing to resolve without a resolution")
+    # Only the named rows are touched. Going through `reconcile` with an empty prefix would
+    # restate every other open incident in the table as a side effect.
+    resolved = []
+    for row in session.scalars(select(Incident).where(
+            Incident.signature.in_(sorted(wanted)),
+            Incident.resolved == False)):  # noqa: E712
+        merged = dict(row.detail or {})
+        merged["resolution"] = str(resolution)
+        merged["resolved_at"] = _now_iso(now)
+        merged.setdefault("last_seen", merged.get("first_seen") or row.at.isoformat())
+        row.detail = merged
+        row.resolved = True
+        resolved.append(row.signature)
+    return resolved
 
 
 def _aware(value: datetime) -> datetime:

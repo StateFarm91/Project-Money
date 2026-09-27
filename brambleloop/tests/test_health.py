@@ -505,6 +505,78 @@ def test_one_run_in_the_window_is_new_rather_than_repeated():
         fresh, repeated = health._evidence(s, now)
     assert fresh == {"seasonal.cycle_proof"} and repeated == set()
 
+def test_the_system_reading_itself_is_not_new_evidence():
+    """`ops.heartbeat` and `ops.health` report live counters that differ every run, so they
+    looked fresh every fifteen minutes and kept `evidence_freshness` green on a system that
+    had learned nothing. They are excluded; a repeating business cadence still reads stale."""
+    from brambleloop.core.db import Database
+    from brambleloop.ops import health
+
+    db = Database("sqlite://")
+    db.create_all()
+    now = _now()
+    with db.session() as s:
+        for i in range(6):
+            _job(s, "ops.heartbeat", {"queue": {"pending": i}, "at": i}, 5 + i * 15, now)
+            _job(s, "ops.health", {"state": "idle", "sweep": i}, 7 + i * 15, now)
+        _job(s, "intel.gallery_analysis", {"judged": 25}, 30, now)
+        _job(s, "intel.gallery_analysis", {"judged": 25}, 150, now)
+
+    with db.session() as s:
+        fresh, repeated = health._evidence(s, now)
+    assert fresh == set(), fresh
+    assert repeated == {"intel.gallery_analysis"}
+    assert {"ops.heartbeat", "ops.health"} <= health.SELF_OBSERVING_JOB_TYPES
+
+
+def test_a_health_incident_closes_when_its_signal_recovers_and_says_what_it_read():
+    """`health:<signal>` rows were opened on persistence and never closed, so a queue that
+    drained stayed "bad for three consecutive sweeps" on the incident page indefinitely."""
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import Incident
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401  -- registers handlers
+    from brambleloop.runtime.release import handle_health_sweep
+    from brambleloop.runtime.worker import JobContext
+
+    db = _db()
+    Registry(db).seed_defaults()
+    queue = JobQueue(db)
+    with db.session() as s:
+        stuck = Job(agent="a", job_type="t", status=JobStatus.PENDING, inputs={},
+                    created_at=datetime.now(timezone.utc) - timedelta(hours=5))
+        s.add(stuck)
+        s.flush()
+        stuck_id = stuck.id
+
+    def sweep(i):
+        ctx = JobContext(job=queue.enqueue("orchestrator", "ops.health",
+                                           {"cadence": "health_sweep"},
+                                           idempotency_key=f"r{i}"),
+                         db=db, queue=queue, registry=Registry(db), phase=None)
+        return handle_health_sweep(ctx)
+
+    for i in range(4):
+        out = sweep(i)
+    assert out["recovered"] == []
+    with db.session() as s:
+        row = s.scalar(select(Incident).where(Incident.signature == "health:queue_age"))
+        assert row.resolved is False and row.report_count >= 2
+
+    # The stuck job is drained. The next sweep reads the queue healthy and closes the row.
+    with db.session() as s:
+        s.get(Job, stuck_id).status = JobStatus.DONE
+    out = sweep(9)
+    assert out["recovered"] == ["health:queue_age"]
+    with db.session() as s:
+        row = s.scalar(select(Incident).where(Incident.signature == "health:queue_age"))
+        assert row.resolved is True
+        assert "queue_age read healthy" in row.detail["resolution"]
+        assert row.detail["resolved_at"] and row.detail["last_seen"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

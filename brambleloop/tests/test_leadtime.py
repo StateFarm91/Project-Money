@@ -606,12 +606,13 @@ def test_the_sentinel_checks_the_dated_milestones_as_well_as_the_launch_dates():
     assert "Christmas" in behind
     assert "Halloween" in behind
 
-    # One incident for the worst-affected event, not one per missed milestone: eight rows
-    # about one Christmas is the noise that trains everybody to close the channel.
-    assert len(incidents) == 1
-    assert "collection milestones are already past" in incidents[0].summary
-    assert "becomes the next phase" in incidents[0].summary
-    assert len(incidents[0].detail["behind"]) >= 2
+    # The reading is recorded, but no incident is raised from dates alone: nothing in this
+    # database targets any occasion, so there is no collection whose milestones could have
+    # slipped and nobody who could act on the row. Production held two such rows, raised for
+    # milestones due before the company existed. The case where a product *does* target the
+    # event and is genuinely late is raised -- tests/test_seasonal_incidents.py.
+    assert checked[-1].detail["events_raised"] == []
+    assert not incidents, [i.signature for i in incidents]
 
 
 def test_depth_is_measured_against_the_ecosystem_an_event_actually_spans():
