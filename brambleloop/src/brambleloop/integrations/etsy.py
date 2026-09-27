@@ -760,6 +760,25 @@ class EtsyClient:
         results = body.get("results")
         return list(results) if isinstance(results, list) else []
 
+    def get_shop_receipts(self, *, min_created: int | None = None, limit: int = 100,
+                          offset: int = 0) -> list[dict[str, Any]]:
+        """The shop's receipts, newest first: the order source (C-64, #11, #12, #42).
+
+        `getShopReceipts` requires `transactions_r`; the token provider refuses the call
+        before the request when that scope was not granted, so an ungranted scope is a
+        refusal here rather than a 403 read back from Etsy. `commerce.orders_ingest` checks
+        the scope gate before it constructs this client at all.
+        """
+        creds = self._require(Authority.READ)
+        query: dict[str, Any] = {"limit": limit, "offset": offset}
+        if min_created is not None:
+            query["min_created"] = int(min_created)
+        body = self._call("GET", f"/shops/{creds.shop_id}/receipts",
+                          operation="getShopReceipts", authority=Authority.READ,
+                          query=query).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
     def get_taxonomy_node(self, taxonomy_id: int = TAXONOMY_PATTERNS) -> dict[str, Any]:
         """Find one seller taxonomy node in Etsy's tree, or return {} if it is not there.
 

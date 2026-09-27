@@ -261,6 +261,10 @@ NORTH_STAR: dict[str, tuple[bool, str]] = {
 }
 
 
+# A defect rate that rises is a regression, not an improvement.
+LOWER_IS_BETTER: frozenset[str] = frozenset({"creative_defect_rate"})
+
+
 def north_star(cohorts: dict[str, dict]) -> dict:
     """Is creativity actually getting better, by cohort? (#132)
 
@@ -286,10 +290,11 @@ def north_star(cohorts: dict[str, dict]) -> dict:
                 movement[metric] = {"direction": "unmeasured",
                                     "why": "not present in both cohorts"}
                 continue
+            better = (after < before) if metric in LOWER_IS_BETTER else (after > before)
+            worse = (after > before) if metric in LOWER_IS_BETTER else (after < before)
             movement[metric] = {
                 "before": before, "after": after,
-                "direction": ("improved" if after > before
-                              else "regressed" if after < before else "flat"),
+                "direction": ("improved" if better else "regressed" if worse else "flat"),
             }
 
     improving = [m for m, v in movement.items() if v.get("direction") == "improved"]
@@ -313,6 +318,118 @@ def north_star(cohorts: dict[str, dict]) -> dict:
                  f"average of everything ever made moves too slowly to show that anything "
                  f"changed, which is indistinguishable from nothing changing."),
     }
+
+
+def north_star_cohorts(db) -> dict[str, dict]:
+    """The north-star metrics by monthly cohort, read from the rows that record them (C-64).
+
+    A cohort is the calendar month a concept was generated (tournaments and expeditions) or
+    a product was first recorded. Each metric is present only where its rows exist, so a
+    metric a cohort has no evidence for is absent -- `north_star` reports it unmeasured --
+    and never a zero:
+
+    * concept_to_engineering_survival: tournament survivors / concepts generated;
+    * novelty_distance: mean novelty distance of the month's research survivors;
+    * blind_grid_score: mean of our cells' judged grid scores from `creative.grid_tournament`;
+    * concept_to_launch_survival: the month's products that reached a listing;
+    * creative_defect_rate: the month's certified products that produced a quality incident;
+    * ctr, favourite_rate, conversion, contribution, bestseller_incidence,
+      collection_attach_rate: from listing outcomes and orders of the month's products.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import (AuditLog, Incident, Listing, ListingOutcome, Order,
+                               PatternVersion, Product)
+
+    def month(at) -> str:
+        return at.strftime("%Y-%m") if at is not None else ""
+
+    acc: dict[str, dict[str, list[float]]] = {}
+
+    def add(cohort: str, metric: str, value) -> None:
+        if cohort and isinstance(value, (int, float)):
+            acc.setdefault(cohort, {}).setdefault(metric, []).append(float(value))
+
+    with db.session() as s:
+        for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
+                ("creative.tournament", "creative.expedition", "creative.grid_tournament")))):
+            d = a.detail or {}
+            m = month(a.at)
+            if a.action == "creative.grid_tournament":
+                for pod in (d.get("pods") or {}).values():
+                    for v in ((pod or {}).get("our_scores") or {}).values():
+                        add(m, "blind_grid_score", v)
+                continue
+            generated = int(((d.get("field") or {}).get("generated")) or 0)
+            survivors = d.get("survivors")
+            if a.action == "creative.tournament" and generated > 0 and isinstance(survivors,
+                                                                                  list):
+                add(m, "concept_to_engineering_survival", len(survivors) / generated)
+            for e in (d.get("research_survivors") or d.get("survivors") or []):
+                if isinstance(e, dict):
+                    add(m, "novelty_distance", e.get("novelty_distance"))
+
+        products = list(s.scalars(select(Product)))
+        listed = {r.product_slug for r in s.scalars(select(Listing))}
+        certified = {p.slug for p, _v in s.execute(
+            select(Product, PatternVersion).where(PatternVersion.product_id == Product.id,
+                                                  PatternVersion.certified.is_(True)))}
+        defective = {i.product_slug for i in s.scalars(select(Incident))
+                     if i.product_slug and i.severity in ("P0", "P1")}
+        outcomes: dict[str, list] = {}
+        for r in s.scalars(select(ListingOutcome)):
+            outcomes.setdefault(r.product_slug, []).append(r)
+        orders: dict[str, list] = {}
+        for o in s.scalars(select(Order)):
+            orders.setdefault(o.product_slug, []).append(o)
+        cohort_of = {p.slug: month(p.created_at) for p in products}
+
+    by_cohort: dict[str, list[str]] = {}
+    for slug, m in cohort_of.items():
+        by_cohort.setdefault(m, []).append(slug)
+    for m, slugs in by_cohort.items():
+        add(m, "concept_to_launch_survival", sum(1 for x in slugs if x in listed) / len(slugs))
+        released = [x for x in slugs if x in certified]
+        if released:
+            add(m, "creative_defect_rate",
+                sum(1 for x in released if x in defective) / len(released))
+        imps = sum(int(r.impressions or 0) for x in slugs for r in outcomes.get(x, []))
+        visits = sum(int(r.visits or 0) for x in slugs for r in outcomes.get(x, []))
+        favs = [int(r.favourites) for x in slugs for r in outcomes.get(x, [])
+                if r.favourites is not None]
+        sold = [o for x in slugs for o in orders.get(x, []) if not o.refunded]
+        if imps:
+            add(m, "ctr", visits / imps)
+        if visits:
+            if favs:
+                add(m, "favourite_rate", sum(favs) / visits)
+            add(m, "conversion", len(sold) / visits)
+        if sold:
+            add(m, "contribution", sum(float(o.contribution_cad or 0.0) for o in sold))
+            per = {}
+            for o in sold:
+                per[o.product_slug] = per.get(o.product_slug, 0) + 1
+            add(m, "bestseller_incidence",
+                sum(1 for n in per.values() if n >= 30) / len(slugs))
+            receipts: dict[str, set] = {}
+            for o in sold:
+                rid = (o.detail or {}).get("receipt_id") or o.external_ref
+                receipts.setdefault(rid, set()).add(o.product_slug)
+            add(m, "collection_attach_rate",
+                sum(1 for v in receipts.values() if len(v) > 1) / len(receipts))
+
+    return {m: {k: round(sum(v) / len(v), 4) for k, v in metrics.items()}
+            for m, metrics in sorted(acc.items()) if m}
+
+
+def north_star_from_db(db) -> dict:
+    """`north_star` over the cohorts the database records -- never over an empty dict."""
+    cohorts = north_star_cohorts(db)
+    out = north_star(cohorts)
+    out["by_cohort"] = cohorts
+    out["source"] = ("creative.tournament / creative.expedition / creative.grid_tournament "
+                     "audit rows, products, listings, incidents, listing outcomes and orders")
+    return out
 
 
 # ---------------------------------------------------------------------------

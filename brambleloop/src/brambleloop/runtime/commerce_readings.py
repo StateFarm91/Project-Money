@@ -23,7 +23,7 @@ ACTION = "commerce.readings"
 def read(db, *, today: date | None = None) -> dict:
     from sqlalchemy import select
 
-    from ..commerce import club, kill_table, referral, reviews
+    from ..commerce import club, kill_table, reviews
     from ..core.models import PatternVersion, Product, SupportCase
     from ..intel import insights_budget
     from ..products import personalisation
@@ -67,9 +67,20 @@ def read(db, *, today: date | None = None) -> dict:
     # #253: the club lane. Only the cadence question is answerable without buyers.
     out["club"] = {"research_plan": club.research_plan(), "may_launch": club.may_launch({})}
 
-    # #256: referral outcome, measured only from attributed customers and contribution.
-    out["referral"] = referral.outcome(attributed_customers=None, contribution_cad=None,
-                                       reward_spend_cad=0.0)
+    # #256 (C-64): referral outcome from the customers and orders the ingest wrote, and every
+    # declared mechanic checked against the measured contribution per customer. UNMEASURED
+    # only while the order source has never produced a row -- never hard-coded.
+    from datetime import datetime, timezone
+
+    from ..commerce import order_readings
+
+    rows = order_readings.orders(db)
+    cohort = order_readings.cohort_block(
+        db, as_of=datetime(today.year, today.month, today.day, tzinfo=timezone.utc))
+    block = order_readings.referral_block(
+        db, rows, contribution_per_customer=cohort.get("lifetime_contribution_per_buyer_cad"))
+    out["referral"] = {**block["outcome"], "mechanics": block["mechanics"],
+                       "may_run": block["may_run"], "source_live": block["source_live"]}
 
     # #254: the personalisation catalogue per certified product -- what could be offered,
     # split by what it costs to honour. Nothing is offered until something is listed.

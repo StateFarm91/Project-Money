@@ -382,6 +382,34 @@ def handle_assets_build(ctx: JobContext) -> dict:
     return payload
 
 
+def _pricing_net_inputs(db, slug: str) -> dict:
+    """What `decide_price` needs to decide on net contribution, read from rows (#269)."""
+    from sqlalchemy import select
+
+    from ..core.models import Order, PriceObservation
+    from ..finance import currency
+
+    with db.session() as s:
+        orders = list(s.scalars(select(Order).where(Order.refunded.is_(False))))
+        points = [{"price_cad": float(p.price_cad or 0.0), "visits": int(p.visits or 0),
+                   "contribution_cad": float(p.contribution_cad or 0.0)}
+                  for p in s.scalars(select(PriceObservation).where(
+                      PriceObservation.product_slug == slug, PriceObservation.on_sale.is_(False)))]
+    foreign = None
+    rate = None
+    if orders:
+        foreign = sum(1 for o in orders if (o.currency or "CAD") != "CAD") / len(orders)
+        measured = [o for o in orders if o.fx_measured and o.fx_usd_per_cad]
+        if measured:
+            last = max(measured, key=lambda o: o.fx_taken_on or "")
+            from datetime import date as _d
+
+            rate = currency.Rate(float(last.fx_usd_per_cad),
+                                 _d.fromisoformat(last.fx_taken_on) if last.fx_taken_on
+                                 else _d.today(), measured=True, source="settlement")
+    return {"foreign_share": foreign, "rate": rate, "price_points": points}
+
+
 @handlers.register("pricing.position")
 def handle_pricing_position(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
@@ -400,10 +428,23 @@ def handle_pricing_position(ctx: JobContext) -> dict:
         # caller who might pass anything.
         members = [m.price_cad for m in POOL
                    if m.family == seed.family and not m.is_bundle]
+    # #269 (C-64): the decision reads net contribution from what the orders show -- the share
+    # paid in another currency and the rate recorded with them -- and this product's measured
+    # price points, rather than deciding on the sticker.
+    net_inputs = _pricing_net_inputs(ctx.db, slug)
     decision = pricing_mod.decide_price(
         slug, category_band_cad=band, proposed_cad=proposed,
         has_video=False, sizes_offered=sizes,
-        is_bundle=is_bundle, bundle_members_cad=members)
+        is_bundle=is_bundle, bundle_members_cad=members, **net_inputs)
+    # #233 / #235: the daily order readings' discount guard and promotion verdicts. A product
+    # the guard refused, or whose promotion lost contribution, is priced at full price only.
+    from ..commerce.order_readings import directives
+
+    guard = directives(ctx.db)
+    if slug in guard["discount_refused"] or slug in guard["promotion_do_not_repeat"]:
+        decision.reasons.append(
+            "full price only: the value-ladder discount guard or a measured promotion "
+            "verdict refuses a sale price for this product (#233, #235)")
 
     # The category's standing "50% off" is not available to us; assert that explicitly rather
     # than relying on nobody adding it later.
@@ -1298,6 +1339,24 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     # point; the assessment is recorded with the listing rather than trusted to the name.
     architecture = _collection_architecture(slug, seed, [m.slug for m in members])
     ctx.audit("collection.assessed", artifact=slug, detail=architecture)
+
+    # #234 (C-64): the bundle engine's own test on the members' product facts. A set whose
+    # pairs do not share enough affinities, or that spans too many pods, is a shelf with a
+    # discount rather than a bundle, and is not assembled into a listing.
+    from ..commerce import bundles as bundles_mod
+    from ..commerce.order_readings import bundle_items
+
+    wanted = {m.slug for m in members}
+    items = [i for i in bundle_items(ctx.db) if i.slug in wanted]
+    bundle_check = (bundles_mod.check(items, price_cad=verdict.price_cad)
+                    if len(items) >= 2 else None)
+    if bundle_check is not None:
+        ctx.audit("collection.bundle_check", artifact=slug, detail=bundle_check)
+        incoherent = [r for r in bundle_check["reasons"]
+                      if "holds every pair together" in r or "departments" in r]
+        if incoherent:
+            return {"slug": slug, "assembled": False, "bundle_check": bundle_check,
+                    "why": incoherent[0][:300]}
 
     titles = [m.title for m in members]
     collection_name = (seed.family or slug).replace("-", " ").title()

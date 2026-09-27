@@ -352,6 +352,13 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # C-59 (#23 #236 #253 #254 #256 #257): the machinery of the gated commerce rows runs daily
     # on what the database holds, so the day the data arrives is the day it is read.
     ("commerce_readings", "cfo", "commerce.readings", 24 * 60 * 60),
+    # C-64: the order source (six-hourly, behind the transactions_r gate; no network call
+    # while it is closed), everything that reads orders (daily, and after any ingest that
+    # wrote one), the nightly trajectory (#26) and the creative north star by cohort (#132).
+    ("orders_ingest", "cfo", "commerce.orders_ingest", 6 * 60 * 60),
+    ("order_readings", "cfo", "commerce.order_readings", 24 * 60 * 60),
+    ("trajectory_nightly", "orchestrator", "scale.trajectory", 24 * 60 * 60),
+    ("creative_north_star", "creative_director", "creative.north_star", 24 * 60 * 60),
     # #265 / #266 experiments concluded daily; #34 the thrash sweep hourly; the seasonal
     # engine daily (#33 #38 #131 #267 #286 #287 #289 #290 #291).
     ("growth_conclude", "experiment_steward", "growth.conclude", 24 * 60 * 60),

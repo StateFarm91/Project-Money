@@ -335,6 +335,16 @@ def transfer(db, *, event: str, theme: dict, cycle: int) -> dict:
                                "not a learned transfer")}
 
 
+def commerce_directives(db, *, today: date | None = None) -> dict:
+    """What the daily order readings ask ideation to do (#22, #233): read, never computed here."""
+    try:
+        from ..commerce.order_readings import directives
+
+        return directives(db, today=today)
+    except Exception as exc:  # noqa: BLE001 - a missing reading must not stop ideation
+        return {"replication": None, "ladder_gaps": [], "error": str(exc)[:200]}
+
+
 def role(db) -> dict:
     """#232: the portfolio role this run's winner is created for."""
     from ..growth import mix
@@ -432,6 +442,7 @@ def plan(db, *, kind: str, event: str, pod: str, forms, cycle: int,
         "role": role(db),
         "floor": floor,
         "culture": culture(db, forms),
+        "commerce": commerce_directives(db, today=today),
     }
     out["briefs"] = _rotation(out)
     return out
@@ -495,6 +506,25 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
         if qs:
             q = qs[index % len(qs)]
             lines.append(f"- divergent question ({q.get('axis')}): {q.get('question')}")
+    cd = p.get("commerce") or {}
+    study = cd.get("replication")
+    # #22: a credible winner's study takes its capacity share of the field -- one call in
+    # every round(1/share) -- as adjacent experiments that hold a candidate cause and change
+    # the rest. Never a palette clone.
+    if study and study.get("capacity_share"):
+        every = max(1, round(1 / float(study["capacity_share"])))
+        if index % every == 0:
+            held = [e["dimension"] for e in (study.get("explanations") or [])[:1]]
+            lines.append(
+                f"- replication study of {study['winner']} (until {study['ends']}): an "
+                f"adjacent experiment that holds {held or 'one of its dimensions'} and changes "
+                f"the rest -- never the same product in another palette")
+    # #233: a rung of the value ladder with nothing on it is a place a buyer arrives and
+    # finds nothing.
+    if cd.get("ladder_gaps"):
+        gap = cd["ladder_gaps"][index % len(cd["ladder_gaps"])]
+        lines.append(f"- value ladder: the {gap.replace('_', ' ')} rung is empty; a concept "
+                     f"that could fill it is wanted")
     for lesson in p["lessons"]["in_prompt"]:
         lines.append(f"- learned: {lesson['statement']}")
     prims = p["lessons"]["reference"]["primitives"]

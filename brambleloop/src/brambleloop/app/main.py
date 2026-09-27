@@ -1232,7 +1232,7 @@ def api_invention() -> dict:
         "unmet_angles": discovery.ANGLE_KINDS,
         "complaint_kinds": discovery.COMPLAINT_KINDS,
         "transferable_mechanisms": discovery.TRANSFERABLE,
-        "north_star": standard.north_star({}),
+        "north_star": standard.north_star_from_db(db),
     }
 
 
@@ -3379,7 +3379,12 @@ def api_trajectory() -> dict:
     from ..scale import trajectory
 
     out = trajectory.state()
-    out["tonight"] = trajectory.nightly(None)
+    # C-64: computed from the database -- observed terms from the rows, assumed terms with
+    # their basis -- and the last recorded nightly run beside it.
+    out["tonight"] = trajectory.nightly(db)
+    from ..runtime.orders import TRAJECTORY_KIND, _previous
+
+    out["last_nightly"] = _previous(db, TRAJECTORY_KIND, "9999-12-31")
     return out
 
 

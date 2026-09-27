@@ -53,6 +53,7 @@ class Loop:
     latency_days: int = 0
     scalable: bool = True
     note: str = ""
+    contribution_cad: float = 0.0
 
     def __post_init__(self) -> None:
         if self.strength not in STRENGTHS:
@@ -75,11 +76,29 @@ class Loop:
     def conversion(self) -> float | None:
         return round(self.orders / self.visits, 4) if self.visits else None
 
+    @property
+    def confidence(self) -> float:
+        """How far this loop's evidence goes, derived from its strength and sample (#271).
+
+        Not a probability that the loop works: the share of the evidence bar it has cleared.
+        Untested is 0; attempted is its share of the measured sample, capped below the
+        measured rung; measured and repeatable are 0.6 and 1.0 by construction.
+        """
+        if self.strength == REPEATABLE:
+            return 1.0
+        if self.strength == MEASURED:
+            return 0.6
+        if self.strength == ATTEMPTED:
+            return round(min(0.5, 0.5 * self.visits / MEASURED_SAMPLE), 3)
+        return 0.0
+
     def to_dict(self) -> dict:
         return {"key": self.key, "name": self.name, "strength": self.strength,
                 "visits": self.visits, "orders": self.orders,
                 "cost_per_visit_cad": self.cost_per_visit_cad,
                 "conversion": self.conversion, "latency_days": self.latency_days,
+                "contribution_cad": round(self.contribution_cad, 2),
+                "confidence": self.confidence,
                 "scalable": self.scalable, "counts_as_evidence": self.counts_as_evidence,
                 "note": self.note}
 
@@ -174,7 +193,8 @@ def from_db(db) -> tuple[Loop, ...]:
         return REGISTRY
     return tuple(Loop(key=r.key, name=r.name, strength=r.strength, visits=r.visits,
                       orders=r.orders, cost_cad=r.cost_cad, latency_days=r.latency_days,
-                      scalable=r.scalable, note=r.note) for r in rows)
+                      scalable=r.scalable, note=r.note,
+                      contribution_cad=float(r.contribution_cad or 0.0)) for r in rows)
 
 
 def evidence_summary(loops: tuple[Loop, ...] = REGISTRY) -> dict:
