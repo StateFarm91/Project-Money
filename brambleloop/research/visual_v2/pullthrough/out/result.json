@@ -1,0 +1,175 @@
+{
+  "experiment": "V2-P07",
+  "product_truth_sha256": "cf3b9d1a9e92cff41ca2e461b9795cecbaa12d42d89ddb47420aad6307d85808",
+  "operation_graph": "PASS",
+  "semantic_adversaries_rejected": 7,
+  "local_kinematic_fixtures_passed": 2,
+  "spatial_adversaries_rejected": 4,
+  "draw_through_cancellation_control": "PASS",
+  "structural_truth": "UNKNOWN",
+  "photographic_realism": "UNKNOWN",
+  "full_product_emission": "BLOCKED",
+  "spend_usd": 0,
+  "seconds": 2.809,
+  "cases": [
+    {
+      "tag": "stage1_two_of_three",
+      "intended_targets": [
+        "drawn_up",
+        "wrap"
+      ],
+      "must_remain_unconsumed": [
+        "live_0"
+      ],
+      "frames": 33,
+      "minimum_sampled_clearance_mm": 2.199337401131649,
+      "max_vertex_motion_between_frames_mm": 0.21250000000000058,
+      "continuous_clearance_lower_bound_mm": 1.9868374011316485,
+      "contact_floor_mm": 0.81,
+      "uncompressed_diameter_mm": 1.8,
+      "clearance_at_original_floor": "PASS",
+      "clearance_at_full_diameter": "PASS",
+      "correct_target_passage": "PASS",
+      "local_fixture_status": "PASS",
+      "closed_whole_bight_linking_numbers": {
+        "drawn_up": 0,
+        "wrap": 0,
+        "live_0": 0
+      }
+    },
+    {
+      "tag": "stage2_two_of_two",
+      "intended_targets": [
+        "intermediate",
+        "live_0"
+      ],
+      "must_remain_unconsumed": [],
+      "frames": 33,
+      "minimum_sampled_clearance_mm": 2.199337401131649,
+      "max_vertex_motion_between_frames_mm": 0.21250000000000058,
+      "continuous_clearance_lower_bound_mm": 1.9868374011316485,
+      "contact_floor_mm": 0.81,
+      "uncompressed_diameter_mm": 1.8,
+      "clearance_at_original_floor": "PASS",
+      "clearance_at_full_diameter": "PASS",
+      "correct_target_passage": "PASS",
+      "local_fixture_status": "PASS",
+      "closed_whole_bight_linking_numbers": {
+        "intermediate": 0,
+        "live_0": 0
+      }
+    },
+    {
+      "tag": "miss_second_loop",
+      "intended_targets": [
+        "drawn_up",
+        "wrap"
+      ],
+      "must_remain_unconsumed": [
+        "live_0"
+      ],
+      "frames": 33,
+      "minimum_sampled_clearance_mm": 2.199337401131649,
+      "max_vertex_motion_between_frames_mm": 0.11875000000000058,
+      "continuous_clearance_lower_bound_mm": 2.0805874011316483,
+      "contact_floor_mm": 0.81,
+      "uncompressed_diameter_mm": 1.8,
+      "clearance_at_original_floor": "PASS",
+      "clearance_at_full_diameter": "PASS",
+      "correct_target_passage": "FAIL",
+      "local_fixture_status": "FAIL",
+      "closed_whole_bight_linking_numbers": {
+        "drawn_up": 0,
+        "wrap": 0,
+        "live_0": 0
+      }
+    },
+    {
+      "tag": "consume_third_loop",
+      "intended_targets": [
+        "drawn_up",
+        "wrap"
+      ],
+      "must_remain_unconsumed": [
+        "live_0"
+      ],
+      "frames": 33,
+      "minimum_sampled_clearance_mm": 2.199337401131649,
+      "max_vertex_motion_between_frames_mm": 0.3062500000000008,
+      "continuous_clearance_lower_bound_mm": 1.8930874011316483,
+      "contact_floor_mm": 0.81,
+      "uncompressed_diameter_mm": 1.8,
+      "clearance_at_original_floor": "PASS",
+      "clearance_at_full_diameter": "PASS",
+      "correct_target_passage": "FAIL",
+      "local_fixture_status": "FAIL",
+      "closed_whole_bight_linking_numbers": {
+        "drawn_up": 0,
+        "wrap": 0,
+        "live_0": 0
+      }
+    },
+    {
+      "tag": "outside_targets",
+      "intended_targets": [
+        "drawn_up",
+        "wrap"
+      ],
+      "must_remain_unconsumed": [
+        "live_0"
+      ],
+      "frames": 33,
+      "minimum_sampled_clearance_mm": 2.2,
+      "max_vertex_motion_between_frames_mm": 0.21250000000000058,
+      "continuous_clearance_lower_bound_mm": 1.9874999999999996,
+      "contact_floor_mm": 0.81,
+      "uncompressed_diameter_mm": 1.8,
+      "clearance_at_original_floor": "PASS",
+      "clearance_at_full_diameter": "PASS",
+      "correct_target_passage": "FAIL",
+      "local_fixture_status": "FAIL",
+      "closed_whole_bight_linking_numbers": {
+        "drawn_up": 0,
+        "wrap": 0,
+        "live_0": 0
+      }
+    },
+    {
+      "tag": "rim_collision",
+      "intended_targets": [
+        "drawn_up",
+        "wrap"
+      ],
+      "must_remain_unconsumed": [
+        "live_0"
+      ],
+      "frames": 33,
+      "minimum_sampled_clearance_mm": 4.440892098500626e-16,
+      "max_vertex_motion_between_frames_mm": 0.21250000000000058,
+      "continuous_clearance_lower_bound_mm": -0.21250000000000013,
+      "contact_floor_mm": 0.81,
+      "uncompressed_diameter_mm": 1.8,
+      "clearance_at_original_floor": "FAIL",
+      "clearance_at_full_diameter": "FAIL",
+      "correct_target_passage": "FAIL",
+      "local_fixture_status": "FAIL",
+      "closed_whole_bight_linking_numbers": null
+    }
+  ],
+  "files": {
+    "stage1_two_of_three.json": "66297ec4d975679036bab48e0d7fd40f14811d990dd14f56cb19623d650ce480",
+    "stage2_two_of_two.json": "94cc9e3ed4ee04eef90ebc030ca00fd64d35ed860bade706a6203868e9cedb2c",
+    "miss_second_loop.json": "34b56fa0592096f056ab78c53643ec40cfa1a8c87cfce68b54202c903a869080",
+    "consume_third_loop.json": "ee14d258bf7766bd77aa8272d49ff81375f80b5f70f1bf4cc23da54ddfaf01ce",
+    "outside_targets.json": "4f00c7db17386d2b6c4a474549b0a9bd9d6de49ad5ef844b9b05258e8f4bf84c",
+    "rim_collision.json": "0d54bf27d804f695b22dc962f63eaf2d93ccc6ede250f764bd8d536a0cab9d72",
+    "operation_graph.json": "e9d6691da6b9805ccbc14363b5b82b1c06a5b2f9529bd4db298882504cdabb7a",
+    "geometry.json": "9536a44b5bfb0be99bf3aa5f43cff9b5a9079f15495596269776e18969cda493",
+    "diagnostic.svg": "600011de2a3a343657edd7b9069dc4386b64ad9d0a532efd74532920c33f60d0"
+  },
+  "source_hashes": {
+    "research\\visual_v2\\pullthrough\\experiment.py": "36e8cccb2a1183595c3906b7e92be1082bcf7d09a02bea40e848aabe1d6616d8",
+    "src\\brambleloop\\visual\\linkage.py": "435f28943c8715f6fbe2a2e61ebeea504076b0ed4514154d23fcbdfb2f221f69",
+    "research\\visual_v2\\coupon\\verify_coupon.py": "a2dce01fd74b264c10835a0e27671ecd8e22e7552a6130a3a570d8643480d0e8"
+  }
+}

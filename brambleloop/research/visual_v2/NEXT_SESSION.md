@@ -1,14 +1,13 @@
 # Continue Visual V2 in this thread
 
-Read CURRENT_STATE.md, then DECISIONS.md, EXPERIMENTS.md and coupon/RESULTS.md. Architecture B+C remains recommended; its current coupon implementation failed.
+Read CURRENT_STATE.md's latest-checkpoint section, then pullthrough/RESULTS.md. Consult evidence_coverage/AUDIT.md for the expanded prior evidence; do not repeat the historical investigation.
 
-Branch codex/visual-v2-rnd; isolated repository checkout unchanged. First-pass report checkpoint d38e471; initial P06 trial checkpoint d9d5006. Resolve final pushed tip with git log/status. The current experimental closeout is coupon/out/closeout.json; first-pass out/final_validation.json is historical.
+Branch: codex/visual-v2-rnd, isolated repository checkout. Architecture investigation: d38e471. Failed P06 coupon: 49e5b0a. Evidence coverage audit: 089f78e (pushed), pinned to Claude4edacff. Resolve latest continuation commit with git log/status.
 
-Four local coupon candidates were built and measured. All fail physical yarn clearance despite56/56 local signed post-winding proxies. The route repair removed a51mm erroneous connector but did not make crochet correct. Full frozen contract18 columns/540 crossings preserved; no full throw emitted. Paid spend$0.
+P07 has executed: semantic named-loop graph plus two spatial pull-through controls. Seven semantic adversaries and four spatial adversaries rejected. Nominal conservative clearance1.986837mm exceeds both unchanged0.81mm floor and1.8mm research diameter. Nine saved artifact hashes checked. HOWEVER these are separate closed-ring fixtures, not a real DC:13.6mm unaccounted feed,3mm unmeasured live-loop restaging, intermediate yarn replaced. Structural truthUNKNOWN, photographic realismUNKNOWN, assemblyBLOCKED. No full throw emitted. Spend$0.
 
-Next: one actual DC around a known prior post, driven by explicit fabrication operations and physically validated pull-throughs; then neighbor and turn. Reject decorative-loop substitution. Cable semantics also require an authoritative existing definition; owner clarification was requested, unanswered at this checkpoint. No Product Truth edits permitted.
+Exact next bounded action: replace independent loop fixtures with a single persistent material-coordinate strand and supply ledger. Carry actual stage1 intermediate yarn into stage2, without replacement or unexplained motion. Validate one handoff (length/material conservation, actual target passage, clearance, endpoint motion), then actual prior-post DC construction, neighbor and turn. Independent crochet review staysUNKNOWN. Owner clarification of existing cable attachment/direction remains unanswered.
 
-Do not repeat broad architecture research, provider prompts or blind depth sweeps. No merge/deploy/publish/production/Etsy/Build2 status changes, Claude branch changes or canonical model edits. Current sandbox is read-only; use scoped escalation for authorized research writes. Persist and commit/push bounded results, continue after compaction in this same thread.
+Product Truth hashcf3b9d1a9e92cff41ca2e461b9795cecbaa12d42d89ddb47420aad6307d85808;144x121 cells,18 columns,540 crossings,50mm pitch; original gates and design unchanged. P06 staysFAIL, not rehabilitated by P07 control passes. No paid call needed/requested for next increment.
 
-
-Evidence coverage is now expanded through Claude4edacff. Read evidence_coverage/AUDIT.md once, then its concise CURRENT_STATE entry. All482 original paths are retained in the broader768-path inventory plus four historical E3 depth arrays. No new core generation experiments/hero. Prior mechanical failures and publication cable ambiguity materially refine implementation, not B+C. Next bounded operation-graph/spatial pull-through work must not repeat P06 or old Wave/D experiments.
+Only edit brambleloop/research/visual_v2. No Claude branch/Build2 status changes, merge, deploy, publication, production/Etsy, advertising, canonical-model changes or paid API calls. Current sandbox read-only: use scoped escalation for authorized writes. Commit/push bounded results and continue this same thread after compaction.

@@ -58,3 +58,10 @@ The old151 offline assertions were not rerun because no historical implementatio
 Inventory: 768 selected paths / 1003 blob versions at inspected tips, plus four historical depth arrays; 1401 historical path-change entries. All482 prior entries covered. No central D/E1-E5/Bench1/Bench2/V1grad experiment path changed between0d42f2f and Claude4edacff.
 
 Recovered metadata for four1000x1000 float32 E3 depth arrays from0f7bc237 (all finite); did not restore historical trees or rerun any experiment. SHA256/Git-blob provenance and new/missed-source distinction in evidence_coverage/. Compared against all four durable-state documents at49e5b0a. B+C unchanged; construction constraints strengthened by prior mechanics/linkage failures and publishing QA. Audit checks: all482 prior paths represented; zero core-experiment differences; four historical arrays readable; script syntax valid. No new product/realismPASS and $0 spend.
+
+
+## V2-P07 — ordered operations and spatial pull-through discrimination (executed)
+
+After audit089f78e, built and measured pullthrough/experiment.py and separately verified saved geometry. Two nominal operation fixtures PASS locally, seven semantic and four spatial adversaries rejected. Sampled clearance2.199337mm; conservative continuous bound1.986837mm; both original0.81mm floor and full1.8mm diameter satisfied. Whole-bight signed linking cancels to zero; requiring nonzero is inappropriate for this local primitive. Nine artifact hashes and truth hash verified, byte corruption detected. Final run2.809s, geometry unchanged by source-byte/manifest repair.
+
+Assembly remainsBLOCKED:13.6mm unexplained feed,3mm untracked live-loop restage, no actual parent strands or persistent intermediate between separate controls. Structural truthUNKNOWN; photographic realismUNKNOWN; no DC/product asset emitted. This advances instrumentation, not product certification. [Detailed result](pullthrough/RESULTS.md), raw geometry/cases and validation in pullthrough/out. Spend$0. Next one persistent material handoff; no historical experiment replay.

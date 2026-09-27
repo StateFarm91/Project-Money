@@ -32,3 +32,8 @@ Do not revise earlier observations silently. Append corrections with raw evidenc
 ## V2-D09 - Ingest complete persisted Visual coverage before further construction (2026-09-27)
 
 Audit at Claude4edacff, V2pre-audit49e5b0a; see evidence_coverage/AUDIT.md. The original482-file inventory omitted yarn-slip research, root render artifacts, publishing cable-direction evidence, several reference/photoreal tests and newer integration records; merely hashing Wave2-5 was inadequate ingestion. ArchitectureB+C stays: central provider experiments unchanged and no new hero. Tighten implementation around actual strands, material continuity, identical render/measurement geometry and solver equilibrium. A nonzero linking number for an arbitrary closed subpath is not a universal crochet certificate. Preserve stronger existing instruments with their documented closure limits, do not weaken them. The next operation-graph increment must discriminate semantic loop counts from spatial construction; it cannot certify a full DC by itself.
+
+
+## V2-D10 — Local draw-through controls cannot certify an assembled DC
+
+Executed P07 after audit089f78e. Named loop lifetimes/order distinguish traces that count-only checks accept; spatial target/rim checks distinguish a passage from a miss. But a folded bight has net linking zero, and two independently positioned fixture passes do not preserve material identity. Measured missing feed13.6mm and unexplained live-loop shift3mm require a persistent strand/feed ledger and explicit handoff. Keep construction/realismUNKNOWN and assemblyBLOCKED. Do not promote these controls to a crochet asset, or alter any existing gate. See pullthrough/RESULTS.md.

@@ -46,3 +46,8 @@ Only this directory may change in this lane. No paid API calls, merge, deploymen
 ## Executed next experiment
 
 [V2-P06 results](coupon/RESULTS.md): four explicit yarn coupon hypotheses built, measured and rejected for physical intersections. The current diagnostic is coupon/out/routed_top/diagnostic.png. Follow its reproduction commands and closeout manifest. A successful runner exit does not mean a structural PASS.
+
+
+## Evidence audit and current construction increment
+
+[Evidence coverage](evidence_coverage/AUDIT.md) pins Claude4edacff and adds missed yarn/slip, Wave2-5, publishing and artifact evidence. [P07](pullthrough/RESULTS.md) is the current bounded result: named-loop and spatial operation controls pass, but their assembly is blocked by missing persistent yarn/material handoff. It is not a DC or product render. Follow NEXT_SESSION.md for the next action; do not repeat historical experiments.

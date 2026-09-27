@@ -1,0 +1,95 @@
+{
+  "experiment": "V2-P07",
+  "saved_artifact_hashes": {
+    "stage1_two_of_three.json": true,
+    "stage2_two_of_two.json": true,
+    "miss_second_loop.json": true,
+    "consume_third_loop.json": true,
+    "outside_targets.json": true,
+    "rim_collision.json": true,
+    "operation_graph.json": true,
+    "geometry.json": true,
+    "diagnostic.svg": true
+  },
+  "truth_hash_unchanged": true,
+  "one_byte_or_parameter_mutation_detected": true,
+  "measured_clearance_and_affine_bounds_reproduced": true,
+  "material_measurements": [
+    {
+      "tag": "stage1_two_of_three",
+      "affine_interpolation_error_mm": 2.220446049250313e-15,
+      "first_visible_length_mm": 11.253285223351554,
+      "last_visible_length_mm": 24.853285223351556,
+      "required_material_supply_mm": 13.600000000000001,
+      "endpoint_max_displacement_mm": 0.0,
+      "persistent_material_ids_present": false,
+      "feed_ledger_present": false
+    },
+    {
+      "tag": "stage2_two_of_two",
+      "affine_interpolation_error_mm": 2.220446049250313e-15,
+      "first_visible_length_mm": 11.253285223351554,
+      "last_visible_length_mm": 24.853285223351556,
+      "required_material_supply_mm": 13.600000000000001,
+      "endpoint_max_displacement_mm": 0.0,
+      "persistent_material_ids_present": false,
+      "feed_ledger_present": false
+    },
+    {
+      "tag": "miss_second_loop",
+      "affine_interpolation_error_mm": 1.7763568394002505e-15,
+      "first_visible_length_mm": 11.253285223351554,
+      "last_visible_length_mm": 18.853285223351556,
+      "required_material_supply_mm": 7.600000000000001,
+      "endpoint_max_displacement_mm": 0.0,
+      "persistent_material_ids_present": false,
+      "feed_ledger_present": false
+    },
+    {
+      "tag": "consume_third_loop",
+      "affine_interpolation_error_mm": 3.552713678800501e-15,
+      "first_visible_length_mm": 11.253285223351554,
+      "last_visible_length_mm": 30.853285223351556,
+      "required_material_supply_mm": 19.6,
+      "endpoint_max_displacement_mm": 0.0,
+      "persistent_material_ids_present": false,
+      "feed_ledger_present": false
+    },
+    {
+      "tag": "outside_targets",
+      "affine_interpolation_error_mm": 2.220446049250313e-15,
+      "first_visible_length_mm": 11.253285223351554,
+      "last_visible_length_mm": 24.853285223351556,
+      "required_material_supply_mm": 13.600000000000001,
+      "endpoint_max_displacement_mm": 0.0,
+      "persistent_material_ids_present": false,
+      "feed_ledger_present": false
+    },
+    {
+      "tag": "rim_collision",
+      "affine_interpolation_error_mm": 2.220446049250313e-15,
+      "first_visible_length_mm": 11.253285223351554,
+      "last_visible_length_mm": 24.853285223351552,
+      "required_material_supply_mm": 13.599999999999998,
+      "endpoint_max_displacement_mm": 0.0,
+      "persistent_material_ids_present": false,
+      "feed_ledger_present": false
+    }
+  ],
+  "unexplained_live_loop_restage_mm": 3.0,
+  "asset_gate": {
+    "status": "BLOCKED",
+    "structural_truth": "UNKNOWN",
+    "photographic_realism": "UNKNOWN",
+    "blockers": [
+      "only independent closed-ring fixtures, not actual parent stitch strands",
+      "interstage live_0 restaged without a continuous trajectory",
+      "intermediate bight replaced by an unrelated closed ring",
+      "no material ID/advection/feed ledger for increasing visible yarn length",
+      "no actual prior-post attachment or continuous complete stitch",
+      "self-contact, relaxation, gauge and independent crochet review unqualified"
+    ]
+  },
+  "spend_usd": 0,
+  "verifier_sha256": "cc2a5ecad4f8de19ff0f41ef7c5c311acfcb4633b7f683a69fdd0d696af603d0"
+}

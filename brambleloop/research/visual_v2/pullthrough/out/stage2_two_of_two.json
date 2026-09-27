@@ -1,0 +1,1059 @@
+{
+  "tag": "stage2_two_of_two",
+  "intended_targets": [
+    "intermediate",
+    "live_0"
+  ],
+  "must_remain_unconsumed": [],
+  "frames": 33,
+  "frame_samples": [
+    {
+      "frame": 0,
+      "clearance_mm": {
+        "intermediate": 3.427842648893501,
+        "live_0": 5.835527773902601
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 1,
+      "clearance_mm": {
+        "intermediate": 3.286727830504162,
+        "live_0": 5.648974024215182
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 2,
+      "clearance_mm": {
+        "intermediate": 3.14797875627355,
+        "live_0": 5.46431543311027
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 3,
+      "clearance_mm": {
+        "intermediate": 3.017059407438168,
+        "live_0": 5.281750777800512
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 4,
+      "clearance_mm": {
+        "intermediate": 2.895634792890875,
+        "live_0": 5.1015048667099725
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 5,
+      "clearance_mm": {
+        "intermediate": 2.7783975969388672,
+        "live_0": 4.923807212317835
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 6,
+      "clearance_mm": {
+        "intermediate": 2.670666949785329,
+        "live_0": 4.7471363500574135
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 7,
+      "clearance_mm": {
+        "intermediate": 2.5746018037344482,
+        "live_0": 4.571742365014777
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 8,
+      "clearance_mm": {
+        "intermediate": 2.4841152374304554,
+        "live_0": 4.399609606392033
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 9,
+      "clearance_mm": {
+        "intermediate": 2.408283384326542,
+        "live_0": 4.231148026864957
+      },
+      "crossings": {
+        "intermediate": [],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 10,
+      "clearance_mm": {
+        "intermediate": 2.340901852111691,
+        "live_0": 4.066813871057953
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 32,
+            "t": 0.35154332157040163,
+            "point_mm": [
+              -0.5046339585522237,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 39,
+            "t": 0.6484566784296008,
+            "point_mm": [
+              0.5046339585522237,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 11,
+      "clearance_mm": {
+        "intermediate": 2.2872692528002414,
+        "live_0": 3.906481958487902
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 29,
+            "t": 0.8584075129493626,
+            "point_mm": [
+              -0.7912505105887141,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 42,
+            "t": 0.14159248705063726,
+            "point_mm": [
+              0.7912505105887141,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 12,
+      "clearance_mm": {
+        "intermediate": 2.2458258227930834,
+        "live_0": 3.747341659389831
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 28,
+            "t": 2.7839657899379353e-15,
+            "point_mm": [
+              -0.9526279441628824,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 43,
+            "t": 1.0,
+            "point_mm": [
+              0.9526279441628824,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 13,
+      "clearance_mm": {
+        "intermediate": 2.217241725925954,
+        "live_0": 3.5929859702485962
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 26,
+            "t": 0.387513616919705,
+            "point_mm": [
+              -1.044595546400089,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 45,
+            "t": 0.6124863830802942,
+            "point_mm": [
+              1.044595546400089,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 14,
+      "clearance_mm": {
+        "intermediate": 2.2028867433475825,
+        "live_0": 3.4448279133518347
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 24,
+            "t": 0.8706019972204987,
+            "point_mm": [
+              -1.0918070671480953,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 47,
+            "t": 0.1293980027795033,
+            "point_mm": [
+              1.0918070671480953,
+              0.0,
+              3.469446951953614e-18
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 15,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 3.3032086690446008
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 23,
+            "t": 0.7037037037037032,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 48,
+            "t": 0.29629629629629595,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 16,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 3.163963237990304
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 23,
+            "t": 0.013698630136988422,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 48,
+            "t": 0.9863013698630132,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 17,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 3.0319821222124097
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 22,
+            "t": 0.3627287853577387,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 49,
+            "t": 0.6372712146422622,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 18,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.9095211563033434
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 21,
+            "t": 0.7475728155339835,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 50,
+            "t": 0.25242718446601853,
+            "point_mm": [
+              1.1,
+              0.0,
+              -1.3877787807814457e-17
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 19,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.791861960533807
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 21,
+            "t": 0.16535433070866126,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 50,
+            "t": 0.8346456692913372,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 20,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.682692109929068
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 20,
+            "t": 0.6134969325153361,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 51,
+            "t": 0.3865030674846622,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 21,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.5856563419827245
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 20,
+            "t": 0.08968609865471103,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 51,
+            "t": 0.9103139013452902,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 22,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.4940741616989035
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 19,
+            "t": 0.591836734693881,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 52,
+            "t": 0.40816326530612235,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 23,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.4163695244487684
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 19,
+            "t": 0.11806543385490688,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 52,
+            "t": 0.8819345661450925,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": []
+      }
+    },
+    {
+      "frame": 24,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.348395501984133
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 18,
+            "t": 0.6666666666666666,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 53,
+            "t": 0.33333333333333215,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 32,
+            "t": 0.7443808463489218,
+            "point_mm": [
+              -0.45393897350249257,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 39,
+            "t": 0.25561915365107823,
+            "point_mm": [
+              0.4539389735024924,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 25,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.292621989627757
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 18,
+            "t": 0.23609226594301272,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 53,
+            "t": 0.7639077340569874,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 30,
+            "t": 0.1020598365189138,
+            "point_mm": [
+              -0.7667766376829719,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 41,
+            "t": 0.8979401634810866,
+            "point_mm": [
+              0.766776637682972,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 26,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.2504843224853017
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 17,
+            "t": 0.8249336870026557,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 54,
+            "t": 0.17506631299734662,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 28,
+            "t": 0.2089644549029518,
+            "point_mm": [
+              -0.9359234782148996,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 43,
+            "t": 0.7910355450970512,
+            "point_mm": [
+              0.9359234782148997,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 27,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.2195679603506178
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 17,
+            "t": 0.4319066147859933,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 54,
+            "t": 0.5680933852140072,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 26,
+            "t": 0.5709987431093261,
+            "point_mm": [
+              -1.0361091899285044,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 45,
+            "t": 0.42900125689067253,
+            "point_mm": [
+              1.0361091899285044,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 28,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.2044388051915287
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 17,
+            "t": 0.05583756345177784,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 54,
+            "t": 0.9441624365482233,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 25,
+            "t": 0.04550093019548281,
+            "point_mm": [
+              -1.0893120936937397,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 46,
+            "t": 0.954499069804517,
+            "point_mm": [
+              1.0893120936937397,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 29,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.199337401131649
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 16,
+            "t": 0.6956521739130447,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 55,
+            "t": 0.30434782608695604,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 23,
+            "t": 0.8509316770186347,
+            "point_mm": [
+              -1.1,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 48,
+            "t": 0.14906832298136535,
+            "point_mm": [
+              1.1,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 30,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.199337401131649
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 16,
+            "t": 0.3503649635036487,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 55,
+            "t": 0.6496350364963496,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 23,
+            "t": 0.35766423357664134,
+            "point_mm": [
+              -1.1,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 48,
+            "t": 0.6423357664233573,
+            "point_mm": [
+              1.1,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 31,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.199337401131649
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 16,
+            "t": 0.01907032181168154,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 55,
+            "t": 0.9809296781883184,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 22,
+            "t": 0.8843861740166861,
+            "point_mm": [
+              -1.1,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 49,
+            "t": 0.11561382598331198,
+            "point_mm": [
+              1.1,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "frame": 32,
+      "clearance_mm": {
+        "intermediate": 2.199337401131649,
+        "live_0": 2.199337401131649
+      },
+      "crossings": {
+        "intermediate": [
+          {
+            "segment": 15,
+            "t": 0.7009345794392531,
+            "point_mm": [
+              -1.1,
+              0.0,
+              0.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 56,
+            "t": 0.2990654205607479,
+            "point_mm": [
+              1.1,
+              0.0,
+              0.0
+            ],
+            "sign": -1
+          }
+        ],
+        "live_0": [
+          {
+            "segment": 22,
+            "t": 0.4299065420560747,
+            "point_mm": [
+              -1.1,
+              0.0,
+              3.0
+            ],
+            "sign": 1
+          },
+          {
+            "segment": 49,
+            "t": 0.5700934579439247,
+            "point_mm": [
+              1.1,
+              0.0,
+              3.0
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    }
+  ],
+  "minimum_sampled_clearance_mm": 2.199337401131649,
+  "max_vertex_motion_between_frames_mm": 0.21250000000000058,
+  "continuous_clearance_lower_bound_mm": 1.9868374011316485,
+  "contact_floor_mm": 0.81,
+  "uncompressed_diameter_mm": 1.8,
+  "clearance_at_original_floor": "PASS",
+  "clearance_at_full_diameter": "PASS",
+  "correct_target_passage": "PASS",
+  "local_fixture_status": "PASS",
+  "closed_whole_bight_linking_numbers": {
+    "intermediate": 0,
+    "live_0": 0
+  }
+}

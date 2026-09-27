@@ -1,0 +1,364 @@
+{
+  "status": "PASS",
+  "issues": [],
+  "hook_states_nearest_tip_first": [
+    [
+      "live_0"
+    ],
+    [
+      "wrap",
+      "live_0"
+    ],
+    [
+      "drawn_up",
+      "wrap",
+      "live_0"
+    ],
+    [
+      "intermediate",
+      "live_0"
+    ],
+    [
+      "live_1"
+    ]
+  ],
+  "created_by": {
+    "live_0": "input",
+    "wrap": "yarn_over",
+    "drawn_up": "draw_up",
+    "intermediate": "close_1",
+    "live_1": "close_2"
+  },
+  "consumed_by": {
+    "drawn_up": "close_1",
+    "wrap": "close_1",
+    "intermediate": "close_2",
+    "live_0": "close_2"
+  },
+  "qualification": "semantic operation graph only",
+  "operations": [
+    {
+      "id": "yarn_over",
+      "action": "yarn_over",
+      "creates": "wrap"
+    },
+    {
+      "id": "draw_up",
+      "action": "draw_up",
+      "creates": "drawn_up",
+      "anchor": "prior_post",
+      "face": "front"
+    },
+    {
+      "id": "close_1",
+      "action": "draw_two",
+      "consumes": [
+        "drawn_up",
+        "wrap"
+      ],
+      "creates": "intermediate"
+    },
+    {
+      "id": "close_2",
+      "action": "draw_two",
+      "consumes": [
+        "intermediate",
+        "live_0"
+      ],
+      "creates": "live_1"
+    }
+  ],
+  "semantic_adversaries": {
+    "same_counts_wrong_first_pair": {
+      "status": "FAIL",
+      "issues": [
+        "loop consumed twice",
+        "not the ordered two-stage DC trace",
+        "wrong ordered loop consumption"
+      ],
+      "hook_states_nearest_tip_first": [
+        [
+          "live_0"
+        ],
+        [
+          "wrap",
+          "live_0"
+        ],
+        [
+          "drawn_up",
+          "wrap",
+          "live_0"
+        ],
+        [
+          "intermediate",
+          "live_0"
+        ],
+        [
+          "live_1"
+        ]
+      ],
+      "created_by": {
+        "live_0": "input",
+        "wrap": "yarn_over",
+        "drawn_up": "draw_up",
+        "intermediate": "close_1",
+        "live_1": "close_2"
+      },
+      "consumed_by": {
+        "drawn_up": "close_1",
+        "live_0": "close_2",
+        "intermediate": "close_2"
+      },
+      "qualification": "semantic operation graph only"
+    },
+    "reverse_first_pair": {
+      "status": "FAIL",
+      "issues": [
+        "not the ordered two-stage DC trace",
+        "wrong ordered loop consumption"
+      ],
+      "hook_states_nearest_tip_first": [
+        [
+          "live_0"
+        ],
+        [
+          "wrap",
+          "live_0"
+        ],
+        [
+          "drawn_up",
+          "wrap",
+          "live_0"
+        ],
+        [
+          "intermediate",
+          "live_0"
+        ],
+        [
+          "live_1"
+        ]
+      ],
+      "created_by": {
+        "live_0": "input",
+        "wrap": "yarn_over",
+        "drawn_up": "draw_up",
+        "intermediate": "close_1",
+        "live_1": "close_2"
+      },
+      "consumed_by": {
+        "wrap": "close_1",
+        "drawn_up": "close_1",
+        "intermediate": "close_2",
+        "live_0": "close_2"
+      },
+      "qualification": "semantic operation graph only"
+    },
+    "reuse_consumed_loop": {
+      "status": "FAIL",
+      "issues": [
+        "loop consumed twice",
+        "not the ordered two-stage DC trace",
+        "wrong ordered loop consumption"
+      ],
+      "hook_states_nearest_tip_first": [
+        [
+          "live_0"
+        ],
+        [
+          "wrap",
+          "live_0"
+        ],
+        [
+          "drawn_up",
+          "wrap",
+          "live_0"
+        ],
+        [
+          "intermediate",
+          "live_0"
+        ],
+        [
+          "live_1"
+        ]
+      ],
+      "created_by": {
+        "live_0": "input",
+        "wrap": "yarn_over",
+        "drawn_up": "draw_up",
+        "intermediate": "close_1",
+        "live_1": "close_2"
+      },
+      "consumed_by": {
+        "drawn_up": "close_2",
+        "wrap": "close_1",
+        "live_0": "close_2"
+      },
+      "qualification": "semantic operation graph only"
+    },
+    "wrong_anchor": {
+      "status": "FAIL",
+      "issues": [
+        "wrong attachment target/face"
+      ],
+      "hook_states_nearest_tip_first": [
+        [
+          "live_0"
+        ],
+        [
+          "wrap",
+          "live_0"
+        ],
+        [
+          "drawn_up",
+          "wrap",
+          "live_0"
+        ],
+        [
+          "intermediate",
+          "live_0"
+        ],
+        [
+          "live_1"
+        ]
+      ],
+      "created_by": {
+        "live_0": "input",
+        "wrap": "yarn_over",
+        "drawn_up": "draw_up",
+        "intermediate": "close_1",
+        "live_1": "close_2"
+      },
+      "consumed_by": {
+        "drawn_up": "close_1",
+        "wrap": "close_1",
+        "intermediate": "close_2",
+        "live_0": "close_2"
+      },
+      "qualification": "semantic operation graph only"
+    },
+    "wrong_face": {
+      "status": "FAIL",
+      "issues": [
+        "wrong attachment target/face"
+      ],
+      "hook_states_nearest_tip_first": [
+        [
+          "live_0"
+        ],
+        [
+          "wrap",
+          "live_0"
+        ],
+        [
+          "drawn_up",
+          "wrap",
+          "live_0"
+        ],
+        [
+          "intermediate",
+          "live_0"
+        ],
+        [
+          "live_1"
+        ]
+      ],
+      "created_by": {
+        "live_0": "input",
+        "wrap": "yarn_over",
+        "drawn_up": "draw_up",
+        "intermediate": "close_1",
+        "live_1": "close_2"
+      },
+      "consumed_by": {
+        "drawn_up": "close_1",
+        "wrap": "close_1",
+        "intermediate": "close_2",
+        "live_0": "close_2"
+      },
+      "qualification": "semantic operation graph only"
+    },
+    "one_three_loop_closure": {
+      "status": "FAIL",
+      "issues": [
+        "loop consumed twice",
+        "not the ordered two-stage DC trace",
+        "wrong ordered loop consumption"
+      ],
+      "hook_states_nearest_tip_first": [
+        [
+          "live_0"
+        ],
+        [
+          "wrap",
+          "live_0"
+        ],
+        [
+          "drawn_up",
+          "wrap",
+          "live_0"
+        ],
+        [
+          "intermediate",
+          "live_0"
+        ],
+        [
+          "live_1"
+        ]
+      ],
+      "created_by": {
+        "live_0": "input",
+        "wrap": "yarn_over",
+        "drawn_up": "draw_up",
+        "intermediate": "close_1",
+        "live_1": "close_2"
+      },
+      "consumed_by": {
+        "drawn_up": "close_1",
+        "wrap": "close_1",
+        "live_0": "close_2",
+        "intermediate": "close_2"
+      },
+      "qualification": "semantic operation graph only"
+    },
+    "reuse_loop_id": {
+      "status": "FAIL",
+      "issues": [
+        "loop ID reused",
+        "not the ordered two-stage DC trace",
+        "wrong hook sequence"
+      ],
+      "hook_states_nearest_tip_first": [
+        [
+          "live_0"
+        ],
+        [
+          "wrap",
+          "live_0"
+        ],
+        [
+          "drawn_up",
+          "wrap",
+          "live_0"
+        ]
+      ],
+      "created_by": {
+        "live_0": "input",
+        "wrap": "yarn_over",
+        "drawn_up": "draw_up"
+      },
+      "consumed_by": {},
+      "qualification": "semantic operation graph only"
+    }
+  },
+  "geometry_binding": {
+    "status": "UNKNOWN",
+    "missing": [
+      "prior post insertion/wrap",
+      "actual parent loop strands",
+      "persistent material coordinates between stages",
+      "tightening/contact equilibrium",
+      "connected single yarn with foundation and live end",
+      "independent crochet construction review"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # Visual V2 — durable working memory
 
-Updated 2026-09-27. Read this first after compaction; continue in the same thread. The owner explicitly requested this checkpoint and continued work, not abandonment or a new conversation. The first-pass report is complete. V2-P06 has now run; its current yarn embedding is rejected. See the latest-experiment section below.
+Updated 2026-09-27. Read this first after compaction; continue in the same thread. The owner explicitly requested this checkpoint and continued work, not abandonment or a new conversation. The architecture report and expanded evidence audit are complete. V2-P06 was rejected; V2-P07 now provides local construction instruments but no complete stitch. Read the latest-checkpoint section at the end.
 
 ## Objective, isolation and authority
 
@@ -108,3 +108,12 @@ Inventory: 768 selected paths / 1003 blob versions at inspected tips, plus four 
 Read [evidence_coverage/AUDIT.md](evidence_coverage/AUDIT.md) for extracted facts and [inventory.json](evidence_coverage/inventory.json) for exact blobs/refs. Do not reread all history. Missed inventory: YARN_SLIP_RESEARCH,34 root topology/PBR/yarn/Wave5 artifacts, photoreal/reference-pack tests, publication QA and integration context. Wave2-5/governance were hashed but their findings inadequately extracted. New Claude integration has no new certified renderer. Four E3 depth arrays recoverable from Git do not resolve the missing D PNG/full provider originals.
 
 B+C remains. Material refinements: preserve actual yarn/connector distinction, use physical zero-load controls before drape, distinguish Lagrangian free contact from welded nodes, render measured geometry, validate named actual strands rather than axis winding. Prior independent publishing QA already records missing cable direction. Crochet-specific literature exists but no verified reusable DC/post asset was supplied. Next: one DC fabrication-operation graph and spatial pull-through discrimination, then actual continuous yarn/anchor/contact and independent review. No repeated physics/provider experiments. P06 remains FAIL; realismUNKNOWN; spend$0; all ownership/truth restrictions remain.
+
+
+## Latest checkpoint — V2-P07 executed after evidence audit
+
+Audit089f78e was committed/pushed before continuing. [pullthrough/RESULTS.md](pullthrough/RESULTS.md) is the current experimental result. A named-loop operation graph rejects seven incorrect traces; two local spatial draw-through fixtures pass with conservative clearance1.986837mm; four geometric adversaries fail. Original contact floor0.81mm and research diameter1.8mm unchanged. Existing whole-bight linking numbers cancel to zero for both entered and missed openings; do not mistake that mathematically correct result for stitch validation.
+
+Separate saved-geometry verification finds13.6mm unaccounted material feed and3mm unmodeled restaging of live_0 between the independent fixtures. The stage1 intermediate is replaced by a closed ring in stage2. Therefore these controls are NOT an actual DC asset: structural truthUNKNOWN, realismUNKNOWN, assemblyBLOCKED. Nine hashes and unchanged Product Truth verified; parameter corruption detected. Runtime2.809s. No historical experiment repeated, no providers, total spend$0.
+
+Next: one persistent material-coordinate yarn state with an explicit supply ledger, carrying stage1 output literally into stage2. Validate one handoff's material conservation, target passage, contacts and endpoint motion before full DC/neighbor/turn. Review remainsUNKNOWN and cable clarification unanswered. Full Heirloom rendering stays blocked. Do not turn fixture dimensions into product gauge or independent local passes into a global construction certificate.
