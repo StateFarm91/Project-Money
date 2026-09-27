@@ -60,6 +60,11 @@ EVIDENCE_GRADES: dict[str, str] = {
     # decision the owner's log has not recorded yet (B-105); until it is, this grade is
     # provisional and the acceptance report says so beside every step.
     "api_gallery_traversal": MANDATED,
+    # #116 / #278: a vision model's construction reading of a gallery image -- the same
+    # capability and the same image as `gallery_image_observation`, a different question.
+    # It was ungraded, so `reference.record_reading` refused every call it was ever given;
+    # nothing had called it, which is how that went unnoticed (C-60).
+    "construction_reading": MANDATED,
     # Real, and explicitly named in #221 as things that must not silently replace the above.
     "search_snippet": SUPPORTING,
     "manual_screenshot": SUPPORTING,

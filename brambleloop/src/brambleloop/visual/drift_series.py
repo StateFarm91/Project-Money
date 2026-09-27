@@ -53,7 +53,8 @@ def series(db, *, now: datetime | None = None) -> dict:
                 or (detail.get("identity") or {}).get("observed") or {})
         if not dims:
             continue
-        key = f"job:{job_id}" if job_id else f"row:{rid}"
+        # A batch is the job that rendered it; frames recorded without a job group by day.
+        key = f"job:{job_id}" if job_id else f"day:{(at or now).date().isoformat()}"
         b = batches.setdefault(key, {"at": (at or now).isoformat(), "frames": 0,
                                      "counts": {}})
         b["frames"] += 1
