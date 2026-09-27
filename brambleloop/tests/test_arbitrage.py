@@ -208,6 +208,63 @@ def test_branding_and_aesthetics_are_scored_from_judged_photographs():
     assert A._opportunity(hunt) != without
 
 
+# ---- listing density from the API index count (#2) --------------------------
+
+
+def _snapshot(db, query: str, count: int) -> None:
+    from datetime import datetime, timezone
+
+    from brambleloop.core.models import SerpSnapshot
+
+    with db.session() as s:
+        s.add(SerpSnapshot(query=query, captured_at=datetime.now(timezone.utc),
+                           rank_list=[], total_count=count))
+
+
+def test_listing_density_is_unmeasured_until_a_search_is_captured():
+    density = A.listing_density(_db())
+    assert density["measurable"] is False and density["keywords"] == {}
+    assert "not the same as an empty market" in density["reason"]
+
+
+def test_listing_density_is_the_api_index_count_labelled_and_dated():
+    db = _db()
+    _snapshot(db, "crochet hat pattern", 4000)
+    _snapshot(db, "crochet beanie pattern", 2000)
+    _snapshot(db, "crochet blanket pattern", 12000)
+
+    density = A.listing_density(db)
+    hat = density["keywords"]["crochet hat pattern"]
+    assert hat["count"] == 4000 and hat["label"] == "api_index_count"
+    assert hat["basis"] == "api_index_count" and hat["observed_on"]
+    assert hat["pod"] == "hats"
+    assert density["by_pod"]["hats"]["median_count"] == 3000.0
+
+    # Fewer competing listings is the better number, relative to the densest pod.
+    values = A._density_values(density)
+    assert values["blankets"] == 0.0 and values["hats"] == 0.75
+    # A pod nobody searched stays unmeasured rather than scoring as an empty market.
+    assert "bags" not in values
+
+
+def test_a_measured_density_enters_the_score_and_an_unmeasured_one_does_not():
+    from brambleloop.core.models import BenchmarkListing
+
+    db = _db()
+    with db.session() as s:
+        for pod in ("hats", "bags"):
+            for i in range(6):
+                s.add(BenchmarkListing(benchmark_key="mjs_off_the_hook_designs",
+                                       listing_ref=f"{pod}{i}", title=f"Crochet {pod} {i}",
+                                       pod=pod, media_count=6, price_cad=8.0 + i,
+                                       detail={"num_favorers": 10 + i}))
+    _snapshot(db, "crochet hat pattern", 4000)
+    scored = {c["market"]: c for c in A.score_observed(db)["scored"]}
+    assert "listing_density" in scored["hats"]["measured"]
+    assert scored["hats"]["observed"]["listing_density"]["label"] == "api_index_count"
+    assert "listing_density" in scored["bags"]["unmeasured"]
+
+
 def _run() -> int:
     failures = 0
     for name, fn in sorted(globals().items()):

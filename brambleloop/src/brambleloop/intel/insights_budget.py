@@ -99,14 +99,43 @@ def prior_queries(db) -> dict[str, int]:
     from ..core.models import Keyword
     from . import pods
 
+    from ..core.models import InsightsSnapshot
+
     counts = {pod.key: 0 for pod in pods.PODS}
     with db.session() as s:
         phrases = [str(row.phrase or "") for row in s.scalars(select(Keyword))]
+        # Owner-recorded Marketplace Insights snapshots (#236) are the query store #37
+        # names, and a keyword already read there is one whose answer is on file.
+        phrases += [str(row.keyword or "") for row in s.scalars(select(InsightsSnapshot))]
     for phrase in phrases:
         routed = pods.route(phrase)
         if routed in counts:
             counts[routed] += 1
     return counts
+
+
+def keyword_plan(db, allocation: dict[str, int]) -> dict:
+    """Which keywords each pod's share would be spent on, skipping ones already recorded.
+
+    A keyword with a recent owner-recorded Insights snapshot is on file, so it is skipped
+    rather than asked again (#37). Candidates are the pod's own form vocabulary, most
+    specific first -- the same words the market map routes by.
+    """
+    from . import insights, pods
+
+    done = insights.queried_keywords(db)
+    plan: dict[str, dict] = {}
+    for pod_key, share in allocation.items():
+        pod = pods.BY_KEY.get(pod_key)
+        if pod is None or share <= 0:
+            continue
+        candidates = [f"crochet {kw} pattern" for kw in pod.keywords]
+        skipped = [k for k in candidates if k in done or k.split(" ", 1)[1].rsplit(" ", 1)[0]
+                   in done]
+        fresh = [k for k in candidates if k not in skipped]
+        plan[pod_key] = {"ask": fresh[:share], "skipped_already_recorded": skipped}
+    return {"by_pod": plan, "already_recorded": sorted(done),
+            "basis": insights.BASIS}
 
 
 def allocate(db, *, queries: int = QUERIES_PER_MONTH, benchmark_key: str = "") -> dict:
@@ -157,11 +186,13 @@ def allocate(db, *, queries: int = QUERIES_PER_MONTH, benchmark_key: str = "") -
         "queries": int(queries),
         "gains": [g.to_dict() for g in gains],
         "allocation": allocation,
+        "keywords": keyword_plan(db, allocation),
         "first": gains[0].pod if gains else None,
         "formula": "gain = (1 - confidence) x value / (1 + prior_queries)",
         "inputs": {"confidence": "radar.arbitrage.score_observed, share of weight measured",
                    "value": "the same card's relative score",
-                   "prior_queries": "Keyword snapshots routed to the pod's vocabulary"},
+                   "prior_queries": ("Keyword rows and owner-recorded Insights snapshots "
+                                     "routed to the pod's vocabulary")},
         "departments_too_thin_to_score": scored.get("departments_too_thin_to_score", []),
         "note": ("Highest-uncertainty, highest-value first (#37). Nothing here queries "
                  "anything: Marketplace Insights has no sanctioned endpoint and no browser "

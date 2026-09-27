@@ -62,8 +62,12 @@ class JobContext:
         -- a render, a paged scan, a restore -- calls this between steps, so it is not
         reclaimed and run twice while it is still working. Since completions are fenced on
         the lease holder, a long handler that never heartbeats would also have its own
-        result refused once another worker reclaimed the job."""
-        self.queue.heartbeat(self.job.id)
+        result refused once another worker reclaimed the job.
+
+        Fenced to this job's lease holder (C-13): the name is the one `claim` stamped on the
+        job this context was built from, so a stale context cannot extend a lease another
+        worker now holds."""
+        return self.queue.heartbeat(self.job.id, worker=self.job.leased_by or None)
 
 
 class HandlerRegistry:
@@ -174,7 +178,7 @@ class Worker:
         # its result. Renewing from here covers every handler without each one remembering
         # to. It stops at MAX_HANDLER_SECONDS: a genuinely hung handler must still become
         # reclaimable, which is what the lease exists for.
-        renewal = _LeaseRenewal(self.queue, job.id)
+        renewal = _LeaseRenewal(self.queue, job.id, worker=self.name)
         renewal.start()
         try:
             outputs = handler(ctx) or {}
@@ -549,15 +553,22 @@ MAX_HANDLER_SECONDS = 60 * 60
 
 
 class _LeaseRenewal:
-    """Renews a running job's lease every third of a lease, until stopped or capped."""
+    """Renews a running job's lease every third of a lease, until stopped or capped.
 
-    def __init__(self, queue, job_id: int, *, cap_seconds: int = MAX_HANDLER_SECONDS):
+    Names the worker it renews for (C-13), so the queue refuses to extend a lease somebody
+    else now holds; once refused, this worker has lost the job and the thread stops rather
+    than asking again every interval. `worker=None` keeps the unnamed legacy renewal."""
+
+    def __init__(self, queue, job_id: int, *, worker: str | None = None,
+                 cap_seconds: int = MAX_HANDLER_SECONDS):
         self.queue, self.job_id, self.cap = queue, job_id, cap_seconds
+        self.worker = worker
         self.interval = max(1.0, float(getattr(queue, "lease_seconds", 300)) / 3.0)
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True,
                                         name=f"lease-renewal-{job_id}")
         self.renewals = 0
+        self.lost = False
 
     def start(self) -> None:
         self._thread.start()
@@ -571,10 +582,13 @@ class _LeaseRenewal:
             if time.monotonic() - started >= self.cap:
                 return
             try:
-                self.queue.heartbeat(self.job_id)
-                self.renewals += 1
+                extended = self.queue.heartbeat(self.job_id, worker=self.worker)
             except Exception:  # noqa: BLE001 - a failed renewal must not kill the handler
-                pass
+                continue
+            if extended is False:
+                self.lost = True
+                return
+            self.renewals += 1
 
 from ..swarm.orchestrate import priority_for  # noqa: E402
 

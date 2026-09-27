@@ -2531,6 +2531,79 @@ def api_arbitrage(pod: str = "") -> dict:
     return arbitrage.state(db, pod=pod)
 
 
+@app.get("/api/serp")
+def api_serp() -> dict:
+    """The SERP laboratory: captured snapshots of the API search index, and their basis (#15).
+
+    Rank is the API index's `sort_on=score` order and is directional; counts are the API
+    index's result counts. Neither is the rendered etsy.com search page.
+    """
+    from ..intel import serp
+
+    return serp.state(db)
+
+
+@app.get("/api/insights")
+def api_insights() -> dict:
+    """Owner-recorded Marketplace Insights snapshots (#236). Etsy's figures as read, labelled."""
+    from ..intel import insights
+
+    rows = insights.snapshots(db)
+    return {"snapshots": rows, "recorded": bool(rows), "basis": insights.BASIS,
+            "note": ("Marketplace Insights has no API. These rows are what the owner read in "
+                     "Shop Manager and recorded through POST /api/insights/snapshot"
+                     if rows else
+                     "no Insights reading has been recorded; record one through POST "
+                     "/api/insights/snapshot after reading Shop Manager > Marketing > "
+                     "Marketplace Insights")}
+
+
+@app.post("/api/insights/snapshot")
+async def api_insights_snapshot(request: Request,
+                                authorization: str = Header(default="")) -> JSONResponse:
+    """Record one Marketplace Insights reading from Shop Manager. Authenticated.
+
+    JSON body: `{keyword, recorded_by}` and any of `search_count`, `listing_count`,
+    `related_terms` (list), `trend_direction` (up/down/flat/unknown), `geography`,
+    `observed_on` (ISO date, default today). Nothing here fetches Shop Manager: a person
+    reads their own dashboard and records what it said (#236), and every row is labelled
+    `owner_recorded_shop_manager`.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..intel import insights
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 - any unreadable body is the same 400
+        return JSONResponse({"error": "the body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "the body must be a JSON object"}, status_code=400)
+    terms = body.get("related_terms") or []
+    if not isinstance(terms, list):
+        return JSONResponse({"error": "related_terms must be a list"}, status_code=400)
+    try:
+        result = insights.record(
+            db, keyword=str(body.get("keyword") or ""),
+            search_count=body.get("search_count"), listing_count=body.get("listing_count"),
+            related_terms=[str(t) for t in terms][:50],
+            trend_direction=str(body.get("trend_direction") or "unknown"),
+            geography=str(body.get("geography") or ""),
+            observed_on=str(body.get("observed_on") or ""),
+            recorded_by=str(body.get("recorded_by") or ""))
+    except insights.InsightsRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    Registry(db).audit("orchestrator", "insights.snapshot_recorded", detail={
+        k: result[k] for k in ("id", "keyword", "observed_on", "recorded_by", "basis")})
+    return JSONResponse(result)
+
+
 @app.get("/api/seasonal/cycle")
 def api_seasonal_cycle() -> dict:
     """One seasonal cycle end to end, with every link's evidence (#300, release-blocking).

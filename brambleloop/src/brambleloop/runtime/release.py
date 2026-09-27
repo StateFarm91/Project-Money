@@ -1523,6 +1523,62 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
             "inspected": report["catalogue_coverage"]["listings_inspected"]}
 
 
+# Thumbnail judgements per run. Small on purpose: market_radar's CA$4.00 daily ceiling also
+# pays for the benchmark gallery drain, and a SERP laboratory that ate it would starve the
+# owner's top-priority mandate to judge thumbnails of listings the company does not track.
+SERP_THUMBNAIL_SNAPSHOTS_PER_RUN = 2
+
+
+@handlers.register("intel.serp_capture")
+def handle_serp_capture(ctx: JobContext) -> dict:
+    """Capture the SERP laboratory's target queries from the API search index (#15, #2, #98).
+
+    One `findAllListingsActive` read per target query (sort_on=score) plus a gallery read for
+    the top listings; a query captured within the last twenty hours is skipped. Rank is the
+    API index's order and is directional; counts are `api_index_count`. Where image_vision
+    has been demonstrated, a couple of snapshots per run get their top thumbnails judged by
+    the existing vision path under the same budget checks; where it has not, the refusal is
+    recorded rather than a composition guessed. Then the search_behaviour learning domain
+    is fed from snapshot changes, labelled as a proxy.
+
+    GREEN by the authority matrix: public reads, internal writes, no publication, and model
+    spend only through the ceiling-checked gateway.
+    """
+    from ..intel import learning, serp
+
+    inputs = ctx.job.inputs or {}
+    outcome = serp.capture_targets(ctx.db)
+    if not outcome["ran"]:
+        ctx.audit("serp.capture_blocked", detail={"reason": outcome["reason"][:300]})
+        return {"ran": False, "reason": outcome["reason"][:200]}
+
+    thumbnails: list[dict] = []
+    limit = int(inputs.get("thumbnail_snapshots", SERP_THUMBNAIL_SNAPSHOTS_PER_RUN))
+    for snap in outcome["captured"][:max(0, limit)]:
+        judged = serp.score_thumbnails(ctx.db, snap["id"], job_id=ctx.job.id)
+        thumbnails.append({k: judged.get(k) for k in
+                           ("snapshot", "judged", "refused", "reason", "stopped_by")})
+        if judged.get("refused") or judged.get("stopped_by"):
+            break
+
+    learned = learning.ingest_search_behaviour(ctx.db)
+    if learned.get("recorded"):
+        ctx.audit("learning.ingested", detail=learned)
+
+    ctx.audit("serp.captured", detail={
+        "captured": [{k: c[k] for k in ("id", "query", "total_count", "ranked")}
+                     for c in outcome["captured"]],
+        "skipped_recent": len(outcome["skipped_recent"]),
+        "failures": outcome["failures"][:20], "thumbnails": thumbnails,
+        "basis": outcome["basis"]})
+    return {"ran": True, "captured": len(outcome["captured"]),
+            "skipped_recent": len(outcome["skipped_recent"]),
+            "failures": len(outcome["failures"]),
+            "thumbnails_judged": sum(t.get("judged") or 0 for t in thumbnails),
+            "thumbnails_refused": any(t.get("refused") for t in thumbnails),
+            "search_behaviour_recorded": bool(learned.get("recorded"))}
+
+
 @handlers.register("improve.retrospective")
 def handle_improvement_retrospective(ctx: JobContext) -> dict:
     """The weekly machine-readable business retrospective (#100).
