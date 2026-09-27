@@ -87,8 +87,15 @@ def _act_on_it(db, *, concepts=3, generate_state="ran") -> None:
         {"step": "generate", "state": generate_state,
          "evidence": {"concepts": [f"concept-{i}" for i in range(concepts)]}},
     ]
+    from brambleloop.core.models import Job, JobStatus
     with db.session() as s:
-        s.add(AuditLog(actor="seasonal", action="seasonal.cycle_proof",
+        # The proof as the cycle_proof job leaves it: a completed job of that type and the
+        # audit row it wrote. A row with no job does not count (see the negative test).
+        job = Job(agent="orchestrator", job_type="seasonal.cycle_proof", inputs={},
+                  status=JobStatus.DONE)
+        s.add(job)
+        s.flush()
+        s.add(AuditLog(actor="orchestrator", action="seasonal.cycle_proof", job_id=job.id,
                        detail={"steps": steps}))
     gap = coverage.upsert(db, benchmark_key=KEY, arena="cropped cardigans", pod="garments")
     coverage.advance(db, gap, coverage.CONCEPTING, reason="cycle concept responds to it")
@@ -163,6 +170,33 @@ def test_the_action_links_fail_without_a_recorded_cycle_or_with_one_concept():
     steps = {s.name: s for s in A.evaluate(db)}
     assert steps["seasonal_adaptation"].passed and steps["coverage_matrix"].passed
     assert not steps["concept_responses"].passed, "one concept is not multiple responses"
+
+
+def test_a_cycle_proof_nobody_ran_as_a_job_proves_nothing():
+    """C-1: a hand-written audit row, or one from another job type, must not pass 10-12."""
+    from brambleloop.core.models import AuditLog, Job, JobStatus
+
+    db = _db()
+    steps = [{"step": "choose_event", "state": "ran", "evidence": {"event": "x"}},
+             {"step": "launch_date", "state": "ran", "evidence": {"launch_on": "2027-01-10"}},
+             {"step": "generate", "state": "ran", "evidence": {"concepts": ["a", "b", "c"]}}]
+    with db.session() as s:
+        s.add(AuditLog(actor="someone", action="seasonal.cycle_proof", detail={"steps": steps}))
+        other = Job(agent="orchestrator", job_type="ops.health", inputs={},
+                    status=JobStatus.DONE)
+        s.add(other)
+        s.flush()
+        s.add(AuditLog(actor="orchestrator", action="seasonal.cycle_proof", job_id=other.id,
+                       detail={"steps": steps}))
+        failed = Job(agent="orchestrator", job_type="seasonal.cycle_proof", inputs={},
+                     status=JobStatus.DEAD)
+        s.add(failed)
+        s.flush()
+        s.add(AuditLog(actor="orchestrator", action="seasonal.cycle_proof", job_id=failed.id,
+                       detail={"steps": steps}))
+    got = {s.name: s for s in A.evaluate(db)}
+    for name in ("seasonal_adaptation", "launch_timing", "concept_responses"):
+        assert not got[name].passed, name
 
 
 def test_the_run_returns_what_the_handler_reads_and_latest_reads_it_back():

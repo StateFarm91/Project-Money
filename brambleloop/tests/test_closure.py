@@ -23,7 +23,13 @@ unproven = [r["id"] for r in covered if r["state"] == C.OPEN]
 check("covered rows without proof are OPEN, never silently complete", all(r["why"].startswith("covered, but") for r in covered if r["state"] == C.OPEN))
 print("     covered-without-proof:", len(unproven), unproven[:80])
 check("the external blockers are stated in words with their evidence", all(("403" in v or "0 of 16" in v) for v in m["external_blockers"].values()))
-check("a data-gated row is DATA-GATED", all(r["state"] == C.DATA_GATED for r in m["rows"] if r["status"] == R.DATA_GATED))
+check("a data-gated row is DATA-GATED only when its machinery exists, else OPEN (C-39)",
+      all((r["state"] == C.DATA_GATED) == bool(r["proof"]["existing"])
+          for r in m["rows"] if r["status"] == R.DATA_GATED))
+_fake = R.Requirement(id=999, title="t", body="b", version="v", section="s",
+                      status=R.DATA_GATED, note="needs launch data", parked_on="", proof="")
+check("a data-gated row that names no module is OPEN, not parked on missing data",
+      C.classify(_fake)["state"] == C.OPEN)
 check("a partial row with no gate is OPEN (executable work owed)", all(r["state"] == C.OPEN for r in m["rows"] if r["status"] in R.EXECUTABLE and not executor.gate_for(r["id"])))
 r75 = next(r for r in m["rows"] if r["id"] == 75)
 print("     #75:", r75["state"], r75["gate"], r75["why"][:80])

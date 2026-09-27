@@ -265,12 +265,21 @@ def _latest_cycle(db) -> tuple[int | None, dict]:
     """
     from sqlalchemy import desc, select
 
-    from ..core.models import AuditLog
+    from ..core.models import AuditLog, Job, JobStatus
 
+    # Only a row written by a completed `seasonal.cycle_proof` job counts. An audit row with
+    # no job, or one written by any other job type, is a claim nobody ran -- and until the
+    # certification of 2026-09-27 this reader accepted it (defect C-1).
     with db.session() as s:
-        row = s.scalar(select(AuditLog).where(AuditLog.action == "seasonal.cycle_proof")
-                       .order_by(desc(AuditLog.id)).limit(1))
-        return (row.id, dict(row.detail or {})) if row is not None else (None, {})
+        rows = s.scalars(select(AuditLog).where(AuditLog.action == "seasonal.cycle_proof",
+                                                AuditLog.job_id.is_not(None))
+                         .order_by(desc(AuditLog.id)).limit(20))
+        for row in rows:
+            job = s.get(Job, row.job_id)
+            if (job is not None and job.job_type == "seasonal.cycle_proof"
+                    and job.status == JobStatus.DONE):
+                return row.id, dict(row.detail or {})
+        return None, {}
 
 
 def _action_steps(db, benchmark_key: str) -> list[Step]:

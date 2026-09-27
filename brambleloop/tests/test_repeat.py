@@ -37,6 +37,7 @@ def test_a_recommendation_never_points_at_what_the_buyer_owns():
 def test_future_season_is_a_season_still_ahead_and_not_the_one_bought_for():
     seed = _a_product()
     out = R.recommend(seed.slug, today=date(2026, 3, 1))
+    assert out["future_season"], "an empty list would pass the loop below vacuously"
     for row in out["future_season"]:
         assert row["season"] != seed.season
         assert "opens in" in row["why"]

@@ -392,13 +392,13 @@
   {
     "body": "Every sold product maps order -> pattern_id -> purchased version -> current safe version. When a material correction occurs, identify affected buyers and prepare policy-compliant update communication. Support always answers against the buyer's version and can explain migration to the corrected version.",
     "id": 42,
-    "note": "VersionMap records order to purchased version at sale time, affected_by() names exactly which buyers a correction applies to, and correction_notice() prepares the communication without sending it Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: commerce/buyer_trust.py, support/concierge.py (tests: tests/test_buyer_trust.py). Gap: VersionMap is an in-memory dataclass with no table, no writer at sale time and no 'current safe version' column; nothing links an order to a version. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the order path (cohorts.record_order) writes the version a buyer received into the order_versions table at sale time; the concierge answers 'which version did I buy' from it and correction_notice reads affected buyers from it. The table is non-rederivable in continuity.",
+    "note": "VersionMap records order to purchased version at sale time, affected_by() names exactly which buyers a correction applies to, and correction_notice() prepares the communication without sending it Re-audited 2026-09-26 (Build 2 closeout, 67-row proof audit): OVERSTATED as covered. What exists: commerce/buyer_trust.py, support/concierge.py (tests: tests/test_buyer_trust.py). Gap: VersionMap is an in-memory dataclass with no table, no writer at sale time and no 'current safe version' column; nothing links an order to a version. Reclassified partial; the remaining work is executable. Closed 2026-09-27 (Build 2 closeout): the order path (cohorts.record_order) writes the version a buyer received into the order_versions table at sale time; the concierge answers 'which version did I buy' from it and correction_notice reads affected buyers from it. The table is non-rederivable in continuity. Certification 2026-09-27 (defect C-2): reclassified from covered. The order_versions table, the writer (buyer_trust.record_sale_version, called by commerce.cohorts.record_order) and the concierge's reader are built and tested, but nothing in production calls record_order: no order ingest exists, because reading Etsy receipts needs the transactions_r scope the owner has not granted and no sale has happened. 'Written at sale time' cannot be true before a sale; parked on customers, and the ingest is owed when the scope is granted.",
     "section": "Adversarial commercial + policy audit",
-    "status": "covered",
+    "status": "partial",
     "title": "Pattern Version Delivery System",
     "version": "v1.3.2",
     "proof": "commerce/buyer_trust.py commerce/cohorts.py support/concierge.py tests/test_trust_wiring.py",
-    "parked_on": ""
+    "parked_on": "customers"
   },
   {
     "body": "Treat physical testing as a schedulable constrained resource. Forecast upcoming Class B/C testing demand, maintain tester reliability/specialty scores, avoid one tester becoming a bottleneck, and schedule seasonal products early enough that physical QA does not miss the making window.",
@@ -1203,11 +1203,12 @@
   {
     "body": "When a seasonal product breaks out, decompose the winning mechanism and immediately explore adjacent ORIGINAL opportunities across format, recipient, complexity and bundle position while the window remains open. Do not merely recolour or clone the winner.",
     "id": 128,
-    "note": "seasonal breakout mining; needs sales",
+    "note": "seasonal breakout mining; needs sales Certification 2026-09-27 (C-39): machinery named -- seasonal/engine.breakout allocates within non-bypassable QA limits and commerce/replication decomposes a winner and refuses a clone (adjacent-not-clone); only the data remains.",
     "section": "Deep seasonal creativity audit",
     "status": "data_gated",
     "title": "Seasonal Breakout Mining",
-    "version": "v1.3.6"
+    "version": "v1.3.6",
+    "proof": "seasonal/engine.py commerce/replication.py tests/test_engine.py tests/test_replication.py"
   },
   {
     "body": "Creative output should be judged as if produced by an elite independent crochet designer and merchandiser, not as 'good for AI'. Agents must be able to reject technically valid ideas as boring, obvious or commercially forgettable. The creativity department is rewarded for hit quality and learning, not concept volume.",
@@ -2210,11 +2211,12 @@
   {
     "body": "Where Etsy supports and the buyer is eligible/opted-in, test abandoned-cart, favorited-item, interested-shopper and thank-you offers. Measure incremental conversion, margin and repeat purchase versus baseline; do not assume every discount is accretive. Preserve truthful regular prices and promotion rules.",
     "id": 235,
-    "note": "re-audited 2026-09-19. Targeted offers are seller-dashboard promotions, and the requirement's own measurement -- incremental conversion, margin and repeat purchase versus baseline, do not assume every discount is accretive -- needs orders. With zero sales there is no baseline to be incremental to, so this is data-gated rather than credential-gated, and running a promotion is separately a consequential owner action this system does not take.",
+    "note": "re-audited 2026-09-19. Targeted offers are seller-dashboard promotions, and the requirement's own measurement -- incremental conversion, margin and repeat purchase versus baseline, do not assume every discount is accretive -- needs orders. With zero sales there is no baseline to be incremental to, so this is data-gated rather than credential-gated, and running a promotion is separately a consequential owner action this system does not take. Certification 2026-09-27 (C-39): machinery named -- commerce/promotion.incrementality measures conversion, margin and contribution against a full-price arm and refuses to assume a discount is accretive; only the data remains.",
     "section": "CA$5K/month scale architecture",
     "status": "data_gated",
     "title": "Etsy Targeted-Offer Optimizer",
-    "version": "v1.4.1"
+    "version": "v1.4.1",
+    "proof": "commerce/promotion.py tests/test_promotion.py"
   },
   {
     "body": "Use Etsy Marketplace Insights as first-party demand/competition evidence once accessible. Allocate limited free queries by expected information gain; consider Etsy Plus only through owner approval if unlimited research has positive expected value. Store search count, listing count, related terms, trend direction, date and geography/context.",
@@ -2246,11 +2248,12 @@
   {
     "body": "For each target micro-market, estimate available buyer demand from first-party/observed evidence, Brambleloop qualified impressions/visits, conversion and resulting revenue. Rank opportunities by expected incremental contribution from improving visibility, CTR, conversion or offer rather than by vanity rank.",
     "id": 239,
-    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats Re-audited 2026-09-27 (Build 2 closeout): opportunity share = arbitrage relative demand x our impressions, UNMEASURED without impressions (tests/test_benchmarks.py).",
+    "note": "search-term P&L, conversion cohorts, share-of-opportunity; machinery buildable, needs real stats Re-audited 2026-09-27 (Build 2 closeout): opportunity share = arbitrage relative demand x our impressions, UNMEASURED without impressions (tests/test_benchmarks.py). Certification 2026-09-27 (C-39): machinery named -- commerce/benchmarks.opportunities ranks micro-markets by contribution from improving visibility, CTR and conversion, UNMEASURED without impressions; only the data remains.",
     "section": "CA$5K/month scale architecture",
     "status": "data_gated",
     "title": "Search Share-of-Opportunity Dashboard",
-    "version": "v1.4.1"
+    "version": "v1.4.1",
+    "proof": "commerce/benchmarks.py radar/arbitrage.py tests/test_benchmarks.py tests/test_arbitrage.py"
   },
   {
     "body": "Do not make all products compete for 'crochet pattern'. Build clusters around specific intent, recipient, season, technique, object, aesthetic, skill level and use case. Etsy query matching uses titles/tags/descriptions/categories/attributes; maximize relevant coverage without keyword stuffing.",
@@ -2794,11 +2797,12 @@
   {
     "body": "For each major upcoming event, show days to preferred/latest launch, products by stage, benchmark gaps, search opportunities, projected customer make time, ad learning status, current seasonal revenue/run rate, winner alerts and bottlenecks. The orchestrator reallocates agents toward deadlines and expected contribution.",
     "id": 296,
-    "note": "/api/seasonal is the war room and seasonal.sentinel recomputes it daily, naming the at-risk rows rather than counting them and raising a P2 for the soonest. What remains is seasonal revenue, run rate and ad learning status, each of which is a reading of commerce that has not happened. Unmeasured is not zero, so the war room reports them absent.",
+    "note": "/api/seasonal is the war room and seasonal.sentinel recomputes it daily, naming the at-risk rows rather than counting them and raising a P2 for the soonest. What remains is seasonal revenue, run rate and ad learning status, each of which is a reading of commerce that has not happened. Unmeasured is not zero, so the war room reports them absent. Certification 2026-09-27 (C-39): machinery named -- seasonal/leadtime.catalogue_plans behind /api/seasonal and the seasonal.sentinel cadence show days to launch, stages and at-risk rows; only the data remains.",
     "section": "Proven-trend seasonal capture & lead-time engine",
     "status": "data_gated",
     "title": "Seasonal Revenue War Room",
-    "version": "v1.4.2"
+    "version": "v1.4.2",
+    "proof": "seasonal/leadtime.py app/main.py tests/test_leadtime.py"
   },
   {
     "body": "If a product cannot realistically be discovered, purchased and completed before its intended event, do not launch it under a misleading seasonal premise merely because engineering is finished. Pivot it to evergreen/next-season positioning, simplify into a legitimate quick-make derivative, or hold it for the next cycle.",

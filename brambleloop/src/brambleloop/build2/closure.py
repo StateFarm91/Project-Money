@@ -120,8 +120,19 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
                           "tested; the claim is unverified until it names one")
         return row
     if requirement.status == reg.DATA_GATED:
+        # Only the data may be the gate: the machinery that will read the data must already
+        # exist. A data-gated row naming no module that exists was a requirement nobody had
+        # built, filed where the missing data excused it (certification defect C-39).
+        proof = proof_of(requirement)
+        row["proof"] = proof
+        if not proof["existing"]:
+            row["state"] = OPEN
+            row["why"] = ("data_gated, but no module the note or `proof` names exists: the "
+                          "machinery that will use the data is owed now")
+            return row
         row["state"] = DATA_GATED
-        row["why"] = "needs customers, orders or traffic that cannot exist before launch"
+        row["why"] = (f"machinery exists ({proof['existing'][0]}); needs customers, orders or "
+                      f"traffic that cannot exist before launch")
         return row
     gate = executor.gate_for(requirement.id)
     if requirement.status == reg.OWNER_GATED and gate is None:

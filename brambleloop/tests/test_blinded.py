@@ -636,24 +636,32 @@ class _Response:
 
 
 class _JudgeProvider:
-    """A stand-in vision judge. It sees only the thumbnail URLs it is handed, like the real
-    one, and scores our renders `ours_score` and every benchmark thumbnail `theirs_score`."""
+    """A stand-in vision judge that scores what it is shown by a picture->score table held
+    OUTSIDE anything the system sends (the 'content' of each image), never by where the
+    picture came from. `per_judge` lets judges disagree so the median is actually tested.
+    It records every system prompt and prompt it receives so the tests can assert nothing
+    it was sent names a side, a slug or a listing reference (C-4)."""
     name, model = "anthropic", "claude-sonnet-5"
     cost_per_1k_input_cad, cost_per_1k_output_cad = 0.004, 0.02
 
-    def __init__(self, ours_score, theirs_score, *, silent_judge=""):
+    def __init__(self, ours_score, theirs_score, *, silent_judge="", per_judge=None):
         self.ours, self.theirs, self.silent, self.calls = ours_score, theirs_score, silent_judge, []
+        self.per_judge = per_judge or {}
+        # What each picture looks like, decided by the test, not by the grid.
+        self.content = {f.get("image_ref"): "ours" for f in _our_frames()}
 
     def see(self, system, prompt, urls, *, max_tokens):
         import json as _json
         import re as _re
-        self.calls.append((system, list(urls)))
+        self.calls.append((system, prompt, list(urls)))
         if self.silent and self.silent in system:
             return _Response("I cannot rank these.")
         labels = _re.search(r"in this order: ([^.]+)\.", prompt).group(1).split(", ")
+        judge = next((j for j in self.per_judge if j in system), None)
+        ours_v, theirs_v = self.per_judge.get(judge, (self.ours, self.theirs))
         rows = []
         for label, url in zip(labels, urls):
-            v = self.ours if url.startswith("artifacts/") else self.theirs
+            v = ours_v if self.content.get(url) == "ours" else theirs_v
             rows.append({"cell": label, "attention": v, "comprehension": v, "desire": v,
                          "distinctiveness": v})
         return _Response(_json.dumps({"cells": rows}))
@@ -669,9 +677,27 @@ def test_the_grid_is_judged_by_an_independent_panel_blinded_to_side():
     assert "key" not in out, "the side key must not travel with the judged result"
     assert out["panel"]["judged_by"] == sorted(j for j, _ in B.GRID_JUDGES)
     # Each judge saw every cell, in its own order, and never a side or a ref.
-    orders = [urls for _, urls in judge.calls]
+    orders = [urls for _, _, urls in judge.calls]
     assert len({tuple(o) for o in orders}) > 1, "every judge saw the same order"
     assert out["panel"]["cost_cad"] > 0
+    # Blinding: nothing a judge was sent names a side, one of our slugs or a listing ref.
+    leaks = ("agent", "human", "ours", "theirs", "autumn-oak", "cloudline", "blankets-")
+    for system, prompt, _ in judge.calls:
+        text = (system + " " + prompt).lower()
+        assert not any(word in text for word in leaks), text[:200]
+
+
+def test_the_panel_verdict_is_the_median_not_the_mean_or_the_minimum():
+    """C-4: judges disagree. Two rank our renders 0.6, one outlier ranks them 0.0. The mean
+    (0.4) and the minimum (0.0) would fail the 0.5 threshold; the median (0.6) clears it."""
+    db = _db()
+    _audited_pod(db)
+    judges = [j for j, _ in B.GRID_JUDGES]
+    judge = _JudgeProvider(0.6, 0.3, per_judge={judges[0]: (0.6, 0.3), judges[1]: (0.6, 0.3),
+                                                 judges[2]: (0.0, 0.9)})
+    out = B.grid_tournament(db, _our_frames(), pod="blankets", provider=judge, seed=3)
+    assert all(v == 0.6 for v in out["our_scores"].values()), out["our_scores"]
+    assert out["verdict"] == "clear", out["why"]
 
 
 def test_weak_renders_fail_the_grid_on_the_panel_median():
