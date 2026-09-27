@@ -1092,10 +1092,73 @@ def handle_support_reply(ctx: JobContext) -> dict:
         product_slug=slug, version=version,
         case_id=int(case_id) if case_id is not None else None)
 
+    # #257: the anti-gating guard reads every draft before it can go anywhere, and #18: the
+    # case records how long the answer took. Both act on the case itself.
+    checked = _check_and_time_reply(ctx, case_id=case_id, customer=customer,
+                                    question=question, reply=reply)
     ctx.audit("support.replied", artifact=f"{slug}@{version}" if slug else None,
               detail={"specialist": reply.specialist, "escalated": reply.escalated,
-                      "sent": reply.sent, "case_id": case_id})
-    return {**reply.to_dict(), "case_id": case_id}
+                      "sent": reply.sent, "case_id": checked["case_id"],
+                      "copy_ok": checked["copy"]["ok"],
+                      "response_minutes": checked["timing"].get("minutes")})
+    out = {**reply.to_dict(), "case_id": checked["case_id"],
+           "copy_check": checked["copy"], "timing": checked["timing"]}
+    if not checked["copy"]["ok"]:
+        out["body"] = ""
+        out["escalated"] = True
+    return out
+
+
+def _check_and_time_reply(ctx: JobContext, *, case_id, customer: str, question: str,
+                          reply) -> dict:
+    """Refuse a draft that gates a review (#257) and time the case (#18).
+
+    A draft carrying one of `reviews.GATING_PHRASES` is not held for sending: its body is
+    removed from the case and the case is escalated to a person with the phrase named, since
+    a support answer the buyer was owed may never carry a request for a rating. The response
+    time is recorded on the case -- as `draft_ready` while shadow mode holds every reply,
+    because a held draft is not a response anybody received.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import desc, select
+
+    from ..commerce.reviews import check_support_copy
+    from ..core.models import SupportCase
+    from ..support import service
+
+    copy = check_support_copy(reply.body or "")
+    with ctx.db.session() as s:
+        if case_id is not None:
+            case = s.get(SupportCase, int(case_id))
+        else:
+            case = s.scalar(select(SupportCase).where(
+                SupportCase.customer_ref == customer, SupportCase.question == question)
+                .order_by(desc(SupportCase.id)).limit(1))
+        if case is None:
+            return {"case_id": case_id, "copy": copy,
+                    "timing": {"recorded": False, "why": "no stored case to time"}}
+        cid = int(case.id)
+        at = case.at if case.at.tzinfo else case.at.replace(tzinfo=timezone.utc)
+        already = "response_minutes" in (case.detail or {})
+        if not copy["ok"]:
+            case.answer = ""
+            case.escalated = True
+            case.resolved = False
+            case.detail = {**dict(case.detail or {}), "draft_refused": copy["found"],
+                           "escalation_reason": ("the draft asked for a rating attached to "
+                                                 "support the buyer was owed")}
+    minutes = max(0.0, (datetime.now(timezone.utc) - at).total_seconds() / 60.0)
+    if already:
+        timing = {"recorded": False, "why": "this case's response time is already recorded"}
+    else:
+        timing = {"recorded": True, **service.record_response(
+            ctx.db, cid, minutes=round(minutes, 2), from_canonical=not reply.escalated,
+            measured_as="sent" if reply.sent else "draft_ready")}
+    if not copy["ok"]:
+        ctx.audit("support.draft_refused", artifact=f"case:{cid}",
+                  detail={"found": copy["found"], "why": copy["why"]})
+    return {"case_id": cid, "copy": copy, "timing": timing}
 
 
 @handlers.register("support.triage")
