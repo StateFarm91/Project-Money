@@ -46,3 +46,5 @@ that candidate and repaired in an explicit follow-up commit.
 | C-38 | Medium | gates | `owned_surfaces` opens on an environment variable; `customers` counts any ledger row (an expense); `tester_roster` counts any profile | pending |
 | C-39 | Medium | closure | `closure.classify` accepts any data_gated row with no machinery (#82, #89, #276, #298 had none) | pending |
 | C-40 | Medium | registry | executable work parked as gated: #2, #15, #98 (search half), #236, #168; wrong gates: #1, #37 (owner Insights), #189, #221, #222, #320 (owner ruling), #277, #281 (funding) | pending |
+| C-41 | High | false completion (ids 1-160) | 66 rows claimed COMPLETE are libraries unreachable from the running system (proof-chain audit): 5, 24, 25, 28, 33, 34, 35, 36, 38, 41, 43, 45, 46, 48, 58, 60, 63, 65, 66, 68, 70, 76, 80, 83, 87, 88, 92, 95, 101, 105, 108, 110, 114, 115, 116, 117-122, 124, 125, 126, 131, 134-139, 141-143, 145, 146, 151-160 (#42 already re-parked under C-2); reopened | pending |
+| C-42 | High | support path | `support.reply` / `support.triage` handlers are registered but never enqueued and have no cadence: the concierge path is unreachable | pending |
