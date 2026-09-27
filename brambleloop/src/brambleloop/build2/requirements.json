@@ -790,11 +790,12 @@
   {
     "body": "After launch, measure search-grid CTR, first-frame engagement where available, listing conversion and creative experiment outcomes by asset style. High-performing creative patterns become brand knowledge, but performance never overrides Product Truth, policy or identity continuity. BRAMBLELOOP QUEUED MASTER UPGRADES v1.3.5 - Creativity Engine + Autonomous Continuous Improvement Added after comparing early generated concepts with current market creative. This upgrade makes product desirability a pre-engineering gate and establishes a permanent, controlled self-improvement organization so Brambleloop compounds knowledge and capability instead of remaining static.",
     "id": 82,
-    "note": "creative performance learning; needs launch data",
+    "note": "creative performance learning; needs launch data\n\nCertification 2026-09-27 (C-39 repair): machinery now exists and runs -- the daily creative.style_learning cadence tags every frame by source/model/shot, records sourced outcomes and reports CTR/first-frame/conversion per style as UNMEASURED below 200 impressions / 3 listings; promotion needs a measured +10% lift and refuses any rule touching Product Truth, policy or identity. Data-gated on customers: no listing, order or season has produced data yet.",
     "section": "Creative parity + model hard gate",
     "status": "data_gated",
     "title": "Creative Performance Learning",
-    "version": "v1.3.4"
+    "version": "v1.3.4",
+    "proof": "creative/style_learning.py runtime/release.py tests/test_style_learning.py"
   },
   {
     "body": "A technically feasible concept does not deserve CIR engineering merely because it fills a keyword/category slot. Before expensive engineering, independently score visual hook, emotional hook, functional hook, distinctiveness, giftability/occasion fit, thumbnail concept, collection potential, physical plausibility and competitive novelty. Concepts below threshold are killed or returned for ideation.",
@@ -862,11 +863,12 @@
   {
     "body": "After launch, connect concept attributes to real outcomes: impressions, CTR, favourites, conversion, reviews, repeat purchase, support burden and contribution. Learn which kinds of originality create demand for Brambleloop. Do not equate novelty with success; optimize useful/desirable originality.",
     "id": 89,
-    "note": "creativity outcome learning; needs launch data",
+    "note": "creativity outcome learning; needs launch data\n\nCertification 2026-09-27 (C-39 repair): machinery now exists and runs -- the daily creative.outcome_learning cadence joins concept attributes and novelty to listing outcomes and orders; UNMEASURED below 3 concepts per value / 200 visits / 20 orders. Data-gated on customers: no listing, order or season has produced data yet.",
     "section": "Creativity engine + continuous improvement",
     "status": "data_gated",
     "title": "Creativity Outcome Learning",
-    "version": "v1.3.5"
+    "version": "v1.3.5",
+    "proof": "creative/outcome_learning.py runtime/release.py tests/test_outcome_learning.py"
   },
   {
     "body": "Create a permanent autonomous Improvement Department whose only mission is to make Brambleloop and every department measurably better over time. It observes incidents, experiments, customer feedback, market changes, agent performance, cost, latency, product quality, creative quality and commercial outcomes; proposes bounded improvements; tests them; and promotes only evidence-backed upgrades.",
@@ -2661,11 +2663,12 @@
   {
     "body": "Once real sales exist, create a permanent CEO/CFO/Growth/Product war-room view showing current monthly run rate, 30-day forecast, gap to CA$5K, primary constraint, top five actions by expected incremental contribution, experiments in flight, winner alerts, risk concentration and owner approvals. Agents execute from this board continuously. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.2 - Proven-Trend Seasonal Capture & Lead-Time Engine NON-NEGOTIABLE owner requirement: aggressively learn from proven benchmark product markets and visual merchandising, transform those opportunities for upcoming seasons/holidays, and release early enough that customers can buy AND physically make the project before the intended event. Brambleloop independently engineers its patterns and creates its own listing assets.",
     "id": 276,
-    "note": "CA$5K war room; needs real sales",
+    "note": "CA$5K war room; needs real sales\n\nCertification 2026-09-27 (C-39 repair): machinery now exists and runs -- GET /api/war-room computes the nine war-room fields from the ledger, orders and registered experiments, each measured or UNMEASURED with the n it needs (forecast: 20 orders over 60 days). Data-gated on customers: no listing, order or season has produced data yet.",
     "section": "CA$5K/month scale architecture",
     "status": "data_gated",
     "title": "$5K War Room",
-    "version": "v1.4.1"
+    "version": "v1.4.1",
+    "proof": "scale/war_room.py app/main.py tests/test_war_room.py"
   },
   {
     "body": "Brambleloop must continuously observe MJsOffTheHookDesigns and the elite benchmark panel for commercially successful product concepts, silhouettes, product families, merchandising mechanisms, palette directions and seasonal movement. Proven demand is an instruction to compete, not a reason to avoid the category. The system should enter the same broad/generic product market aggressively while engineering Brambleloop's own pattern and producing its own visual assets.",
@@ -2867,11 +2870,12 @@
   {
     "body": "After every major event, analyze which concepts, palettes, categories, thumbnails, search terms, prices, bundles and channels actually worked. Feed evidence into next year's calendar immediately, including when demand began/peaked/decayed and actual customer make-time/support signals.",
     "id": 298,
-    "note": "post-season learning harvest; needs a season of data",
+    "note": "post-season learning harvest; needs a season of data\n\nCertification 2026-09-27 (C-39 repair): machinery now exists and runs -- the daily seasonal.harvest cadence refuses an event that has not passed or has under 20 orders, otherwise breaks the season down and stores a SeasonHarvest; seasonal/leadtime.catalogue_plans applies harvest.adjusted_assumptions, which only ever raises buffers. Data-gated on customers: no listing, order or season has produced data yet.",
     "section": "Proven-trend seasonal capture & lead-time engine",
     "status": "data_gated",
     "title": "Post-Season Learning Harvest",
-    "version": "v1.4.2"
+    "version": "v1.4.2",
+    "proof": "seasonal/harvest.py seasonal/leadtime.py runtime/release.py tests/test_harvest.py"
   },
   {
     "body": "For each major event and department, maintain a matrix of elite-benchmark product markets versus Brambleloop coverage: benchmark concept/category, observed merchandising mechanisms, upcoming seasonal adaptation opportunities, our competing products, quality-gate result, launch date, traffic, conversion and revenue. Use it to expose unserved proven markets.",

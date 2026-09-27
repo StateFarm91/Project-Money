@@ -81,6 +81,11 @@ NON_REDERIVABLE = (
     # Neither can a price point or a cohort arm: both are a window of real behaviour, and a
     # restore that lost them would lose the only evidence price or ads ever produced.
     "price_observations",
+    # #82 / #89 / #298: a listing's outcome in a period, what the brand learned, and a
+    # season's harvest are facts about a moment; none can be recomputed after a restore.
+    "listing_outcomes",
+    "brand_knowledge",
+    "season_harvests",
     "cohorts",
     # The build loop's own state. Re-derivable from the registry only in part: the claims,
     # the completion evidence and the decision history are not in any file, and losing them

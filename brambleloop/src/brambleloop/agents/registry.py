@@ -52,6 +52,8 @@ DEFAULT_AGENTS: list[dict] = [
                             # #97) and the provenance backfill (#171): read-only against the
                             # business, writing only their own rows.
                             "improve.measure", "improve.mine", "improve.monitor",
+                            # #298: the post-season harvest (reads orders, writes its own row).
+                            "seasonal.harvest",
                             "ops.provenance_backfill",
                             # The three gates that stopped reading environment variables
                             # need something to keep asking whether the capability still
@@ -88,6 +90,8 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["creative.blinded", "creative.expedition",
                             "creative.blind_review", "creative.grid_tournament",
                             "creative.tournament",
+                            # #82 / #89: read-only learners over recorded outcomes.
+                            "creative.style_learning", "creative.outcome_learning",
                             # The image-provider benchmark (owner decision 2026-09-20).
                             # It is the one job here that can spend double figures in a
                             # sitting, which is why it carries its own daily ceiling below.

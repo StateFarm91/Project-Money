@@ -227,6 +227,104 @@ class ThrashDetector:
         self.seen.pop(self.signature(call, result), None)
 
 
+# How far back the runtime sweep reads, and the statuses it reads. A dead job repeating the
+# same error, or a paid job returning the same output, is a loop; a free job answering the
+# same way every hour is a heartbeat, and the sweep leaves it alone.
+THRASH_WINDOW_HOURS = 72
+THRASH_SIGNATURE_PREFIX = "thrash:"
+
+
+def _thrash_call(job) -> str:
+    return json.dumps({"job_type": job.job_type, "inputs": job.inputs or {}},
+                      sort_keys=True, default=str)
+
+
+def thrash_sweep(db, *, now: datetime | None = None,
+                 window_hours: int = THRASH_WINDOW_HOURS) -> dict:
+    """Run `ThrashDetector` over recent job history and break the loops it finds (#34).
+
+    The observation is (job type + inputs, result), where the result is the final error of a
+    dead job (retries exhausted) and the outputs of a job that spent money. A job still
+    retrying is not yet an observation: waiting for something, like a bundle waiting for its
+    members, is not a loop until the retries run out. Three identical
+    observations trip the breaker: an incident is opened (or restated) under a stable
+    signature, and any retry of that same call still waiting in the queue is cancelled, so
+    the loop stops spending rather than being reported while it continues. A free job whose
+    answer never changes is not observed at all -- that is a heartbeat, not a loop.
+    """
+    from sqlalchemy import and_, or_, select
+
+    from ..core.models import Incident, Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(hours=window_hours)
+    detector = ThrashDetector()
+    tripped: dict[str, dict] = {}
+    observed = 0
+    with db.session() as s:
+        jobs = list(s.scalars(select(Job).where(or_(
+            Job.status == JobStatus.DEAD,
+            and_(Job.status == JobStatus.DONE, Job.cost_cad > 0))).order_by(Job.id)))
+        for job in jobs:
+            created = job.created_at if job.created_at.tzinfo else \
+                job.created_at.replace(tzinfo=timezone.utc)
+            if created < since:
+                continue
+            if job.status == JobStatus.DEAD:
+                result = {"error": (job.last_error or "")[:500]}
+            elif job.status == JobStatus.DONE and float(job.cost_cad or 0.0) > 0:
+                result = {"outputs": job.outputs}
+            else:
+                continue
+            observed += 1
+            call = _thrash_call(job)
+            verdict = detector.observe(call, result)
+            if not verdict["continue"]:
+                entry = tripped.setdefault(verdict["signature"], {
+                    "signature": verdict["signature"], "job_type": job.job_type,
+                    "inputs": job.inputs or {}, "result": result, "job_ids": [],
+                    "why": verdict["why"]})
+                entry["job_ids"].append(job.id)
+
+        cancelled: list[int] = []
+        incidents: list[str] = []
+        for sig, entry in tripped.items():
+            call = json.dumps({"job_type": entry["job_type"], "inputs": entry["inputs"]},
+                              sort_keys=True, default=str)
+            for job in s.scalars(select(Job).where(Job.job_type == entry["job_type"],
+                                                   Job.status == JobStatus.FAILED)):
+                if _thrash_call(job) == call:
+                    job.status = JobStatus.CANCELLED
+                    job.last_error = ((job.last_error or "")
+                                      + " | cancelled by the thrash breaker (#34): three "
+                                        "identical observations; re-plan before retrying")[:4000]
+                    cancelled.append(job.id)
+            signature = f"{THRASH_SIGNATURE_PREFIX}{entry['job_type']}:{sig}"[:200]
+            row = s.scalar(select(Incident).where(Incident.signature == signature,
+                                                  Incident.resolved == False))  # noqa: E712
+            summary = (f"{entry['job_type']} repeated an identical call with an identical "
+                       f"result {len(entry['job_ids']) + 2} times in {window_hours}h. The "
+                       f"loop has stopped working and started spending; its queued retries "
+                       f"were cancelled and it needs a changed hypothesis before it runs "
+                       f"again (#34).")
+            if row is None:
+                s.add(Incident(severity="P2", signature=signature, summary=summary,
+                               detail={"job_type": entry["job_type"],
+                                       "inputs": entry["inputs"], "result": entry["result"],
+                                       "job_ids": entry["job_ids"][-20:]}))
+            else:
+                row.report_count = (row.report_count or 1) + 1
+                row.summary = summary
+            incidents.append(signature)
+    return {"observed": observed, "window_hours": window_hours,
+            "tripped": len(tripped), "incidents": incidents, "cancelled": cancelled,
+            "limit": THRASH_LIMIT,
+            "note": ("no loop: no failing or paid call repeated an identical result three "
+                     "times" if not tripped else
+                     f"{len(tripped)} loop(s) broken: incidents raised and queued retries "
+                     f"cancelled")}
+
+
 # ---------------------------------------------------------------------------
 # Retirement and merge (#192)
 
@@ -320,6 +418,8 @@ JOB_BANDS: dict[str, str] = {
     "ops.policy_watch": "truth_defect",
     # A window closes and cannot be reopened.
     "seasonal.sentinel": "seasonal_deadline",
+    # #311: an MJs-derived opportunity's window closes exactly like a certified product's.
+    "mjs.seasonal_sentinel": "seasonal_deadline",
     "seasonal.remerchandising": "seasonal_deadline",
     "launch.plan": "seasonal_deadline",
     "launch.readiness": "seasonal_deadline",
@@ -345,6 +445,7 @@ JOB_BANDS: dict[str, str] = {
     # The named benchmark moved, or might have.
     "mjs.scan": "benchmark_change",
     "mjs.reviews": "benchmark_change",
+    "intel.benchmark_health": "benchmark_change",
     "etsy.probe": "benchmark_change",
     "intel.gallery_analysis": "benchmark_change",
     "intel.acceptance": "benchmark_change",
@@ -375,10 +476,14 @@ JOB_BANDS: dict[str, str] = {
     "improve.nightly": "exploration",
     "improve.weekly": "exploration",
     "improve.retrospective": "exploration",
+    "intel.pod_learning": "exploration",
     "improve.role_work": "exploration",
     "improve.measure": "exploration",
     "improve.mine": "exploration",
     "improve.monitor": "exploration",
+    "creative.style_learning": "exploration",
+    "creative.outcome_learning": "exploration",
+    "seasonal.harvest": "exploration",
     "plan.strategy": "exploration",
     "portfolio.review": "exploration",
     # Keeps the system honest, urgent to nobody.
@@ -600,6 +705,7 @@ def allocate(db, *, now: datetime | None = None,
     from ..agents.registry import Registry
     from ..core.models import Authority, SwarmAllocation
     from ..finance.spend_policy import work_that_fits
+    from ..intel import capacity as mission_capacity
 
     now = now or datetime.now(timezone.utc)
     open_jobs = _open_jobs(db)
@@ -625,6 +731,22 @@ def allocate(db, *, now: datetime | None = None,
             "active": fo["granted"] > 0,
             "green": agent.authority == Authority.GREEN,
         }
+        # #302: the benchmark mission's lane holds a reserved floor generic research cannot
+        # draw below. Sized for the reserve plus the generic draw and bounded only by what
+        # the lane's own ceiling affords, so the reservation never raises a ceiling.
+        if agent.name == mission_capacity.MISSION_AGENT:
+            mission_open = sum(1 for _i, a, t, _s in open_jobs
+                               if a == agent.name and mission_capacity.is_mission_work(t))
+            reserve = mission_capacity.reserve_lane(
+                mission_open=mission_open, generic_open=pending - mission_open,
+                granted=fo["granted"],
+                affordable=int(fits["cad_available_now"] / LANE_UNIT_COST_CAD),
+                work_per_specialist=WORK_PER_SPECIALIST)
+            lane = lanes[agent.name]
+            lane["granted"] = reserve["total"]
+            lane["active"] = reserve["total"] > 0
+            lane["batch"] = reserve["mission_batch"] + reserve["generic_batch"]
+            lane["mjs_reserve"] = reserve
 
     idle = not open_jobs
     backlog_lanes = sorted(name for name, lane in lanes.items()
@@ -638,6 +760,7 @@ def allocate(db, *, now: datetime | None = None,
         "active_lanes": sorted(k for k, v in lanes.items() if v["active"]),
         "inactive_lanes": sorted(k for k, v in lanes.items() if not v["active"]),
         "backlog_batch": backlog_batch, "backlog_lanes": backlog_lanes,
+        "mjs_reserve": (lanes.get(mission_capacity.MISSION_AGENT) or {}).get("mjs_reserve"),
         "spend_increase_cad": 0.0,
         "note": ("Allocation reads existing ceilings and never raises one. An inactive lane "
                  "is one whose ceiling has no room for another run; the standing backlog "

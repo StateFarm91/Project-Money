@@ -205,11 +205,16 @@ class Worker:
                                   job_id=job.id, phase=self.phase,
                                   detail={"count": len(gap["missing"]),
                                           "missing": [list(m) for m in gap["missing"]][:50],
+                                          # rows that exist but lack this job's lineage
+                                          # (certification C-27): a bare `record()` row
+                                          # does not instrument an artefact
+                                          "incomplete": list(gap.get("incomplete") or [])[:50],
                                           "enforcing": enforce})
                 if enforce:
                     raise provenance.ProvenanceRefused(
                         f"{job.job_type} wrote {len(gap['missing'])} derived artefact(s) "
-                        f"with no provenance row: {gap['missing'][:3]}. The backlog is "
+                        f"with no lineage-complete provenance row from this job: "
+                        f"{gap['missing'][:3]}. The backlog is "
                         f"closed, so an absent row is a defect rather than an unfitted "
                         f"instrument, and a job that leaves one does not complete")
             # A handler that caught a spent balance and recorded it honestly still completes,
@@ -311,6 +316,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirement 93. Daily: every promoted change judged once per new production reading,
     # and a regression becomes a revert plus a rollback incident rather than a quiet row.
     ("promotion_monitor", "orchestrator", "improve.monitor", 24 * 60 * 60),
+    # Certification 2026-09-27 (#82, #89, #298): the learners run daily and report UNMEASURED
+    # with the minimum n until listings produce outcomes; the harvest refuses a season that
+    # has not passed or has fewer than 20 orders.
+    ("style_learning", "creative_director", "creative.style_learning", 24 * 60 * 60),
+    ("outcome_learning", "creative_director", "creative.outcome_learning", 24 * 60 * 60),
+    ("season_harvest", "orchestrator", "seasonal.harvest", 24 * 60 * 60),
     # Build 2 closeout (2026-09-27): the runtime halves of libraries that had none.
     # #174-#176, #186, #192: the swarm reviews agent quality, sizes lanes, resolves orphaned
     # work and feeds an idle queue from the standing backlog -- GREEN only, never spending.

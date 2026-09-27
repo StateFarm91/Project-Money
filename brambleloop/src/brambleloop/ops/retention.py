@@ -158,6 +158,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                 "say whether the delivery path is proven"),
     "improve.mine": ("latest", "improve.mine reads its own last run as the watermark"),
     "improve.monitor": ("latest", "improve.monitor reads its own last run as the watermark"),
+    "creative.style_learning": ("latest", "the style learner's latest pass is its reading"),
+    "creative.outcome_learning": ("latest", "the outcome learner's latest pass is its reading"),
+    "seasonal.harvest": ("latest", "the harvest pass; SeasonHarvest rows hold the history"),
     "creative.tournament": ("lifetime_total",
                             "improve.measure scores product_creativity over every recorded "
                             "tournament (survival rate beside the research kill rate); a "

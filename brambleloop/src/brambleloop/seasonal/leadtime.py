@@ -690,8 +690,11 @@ def catalogue_plans(db, today: date | None = None,
             # The next occurrence, so an occasion that has passed is scheduled for next
             # year rather than dropping out of the room until somebody edits a date.
             when = next_occurrence(event.event_date, today)
+            # #298: a harvested season may raise this event's planning buffers (never lower).
+            from .harvest import adjusted_assumptions
+            event_base = adjusted_assumptions(db, event.name, base)
             plan = compile_launch(event.name, when,
-                                  make_hours=entry["estimate"]["hours"], assumptions=base)
+                                  make_hours=entry["estimate"]["hours"], assumptions=event_base)
             action, why = plan.recommendation(today)
             row = {"slug": entry["slug"], **plan.to_dict(),
                    "event_year": when.year,
@@ -708,7 +711,7 @@ def catalogue_plans(db, today: date | None = None,
                     following = when + timedelta(days=365)
                 nxt = compile_launch(event.name, following,
                                      make_hours=entry["estimate"]["hours"],
-                                     assumptions=base)
+                                     assumptions=event_base)
                 row["next_window"] = {
                     "event_date": following.isoformat(),
                     "preferred_launch": nxt.preferred_launch.isoformat(),
