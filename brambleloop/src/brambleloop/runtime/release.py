@@ -5564,7 +5564,7 @@ def _lane_capacity(ctx: JobContext, lanes) -> dict:
             for job in s.scalars(select(Job).where(
                     Job.status.in_((JobStatus.PENDING, JobStatus.FAILED)),
                     Job.job_type.in_(sorted(cap.ENGINEERING_JOB_TYPES)))):
-                slug = str((job.inputs or {}).get("slug") or "")
+                slug = cap.slug_of(job)          # cir.compile/gate.certify carry inputs.cir
                 if cap.product_lane(ctx.db, slug) not in starved:
                     continue
                 floor = max(0, priority_for(job.job_type) - LANE_STARVED_BOOST)

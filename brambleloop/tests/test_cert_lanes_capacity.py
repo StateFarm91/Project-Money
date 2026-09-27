@@ -109,6 +109,66 @@ def test_the_mix_is_work_conserving_when_nothing_else_waits():
     assert _status(db, infra) == JobStatus.DONE
 
 
+def test_a_function_over_its_measured_share_yields_while_the_pool_is_in_use():
+    """C-80 defect 4: at pool 3 every slot budget is one, so the mix must bind on measured
+    job-seconds. Infrastructure has run the whole window; with the pool in use, its next job
+    yields to distribution's waiting work even though it holds no slot yet."""
+    db = _db()
+    _capacity_reading(db, dict(mixmod.BUILD_MIX))
+    now = utcnow()
+    with db.session() as s:
+        for i in range(3):
+            s.add(Job(agent="orchestrator", job_type="ops.dependencies", inputs={},
+                      status=JobStatus.DONE, started_at=now - timedelta(hours=i + 2),
+                      finished_at=now - timedelta(hours=i + 1)))
+    _running(db, "market_radar", "radar.scan")          # the pool is in use
+    infra = _enqueue(db, "orchestrator", "ops.queue_check", {}, 0, "infra-window")
+    dist = _enqueue(db, "support", "support.triage", {}, 50, "dist-window")
+
+    w = Worker(db, "pool-1")
+    assert w.run_once()
+    held = _held(db)
+    assert [h.job_id for h in held] == [infra], [h.detail for h in held]
+    assert held[0].detail["hold_kind"] == "function_share"
+    share = held[0].detail["share"]
+    assert share["running_by_function"]["infrastructure"] == 0, "no slot was held: the window bound"
+    assert share["window"]["status"] == "MEASURED"
+    assert share["window"]["shares"]["infrastructure"] == 1.0
+    assert "job-seconds" in held[0].detail["why"] and "distribution" in held[0].detail["why"]
+    assert _status(db, infra) == JobStatus.PENDING
+    assert w.run_once()
+    assert _status(db, dist) == JobStatus.DONE
+
+
+def test_the_measured_share_does_not_reorder_an_idle_pool():
+    """With nothing else running, the one worker runs the job priority gave it: the window
+    shares capacity, it does not replace the queue order (and a serial drain never stalls)."""
+    db = _db()
+    _capacity_reading(db, dict(mixmod.BUILD_MIX))
+    now = utcnow()
+    with db.session() as s:
+        s.add(Job(agent="orchestrator", job_type="ops.dependencies", inputs={},
+                  status=JobStatus.DONE, started_at=now - timedelta(hours=2),
+                  finished_at=now - timedelta(hours=1)))
+    infra = _enqueue(db, "orchestrator", "ops.queue_check", {}, 0, "infra-idle")
+    _enqueue(db, "support", "support.triage", {}, 50, "dist-idle")
+    assert Worker(db, "pool-1").run_once()
+    assert not _held(db)
+    assert _status(db, infra) == JobStatus.DONE
+
+
+def test_function_budgets_share_the_pool_by_largest_remainder():
+    """Slot budgets: at least one each, the rest of the pool to the most under-served share."""
+    assert cap.function_budgets(mixmod.BUILD_MIX, 3) == {
+        "product_qa": 1, "market_intelligence": 1, "distribution": 1, "infrastructure": 1}
+    # 3.15/1.4/1.4/1.05 -> floors 3/1/1/1 and the seventh slot to the largest remainder;
+    # market intelligence and distribution tie, and distribution wins the tie (#30's point)
+    assert cap.function_budgets(mixmod.BUILD_MIX, 7) == {
+        "product_qa": 3, "market_intelligence": 1, "distribution": 2, "infrastructure": 1}
+    assert cap.function_budgets(mixmod.MATURE_MIX, 10) == {
+        "product_qa": 3, "market_intelligence": 3, "distribution": 3, "infrastructure": 1}
+
+
 # ---- #5: the production lanes split making capacity --------------------------------------
 
 
@@ -142,6 +202,39 @@ def test_a_lane_over_its_engineering_share_is_held_while_the_other_lane_waits():
     assert len(_held(db)) == 1
 
 
+def test_certification_jobs_carrying_the_cir_are_counted_against_their_lane():
+    """C-80 defect 3: cir.compile and gate.certify carry {"cir": {...}}, not a bare slug, and
+    were never lane-counted. A running gate.certify on a fast product fills the fast lane, and
+    the next fast cir.compile is held while flagship engineering waits."""
+    db = _db()
+    _route(db, "fast-a", "fast")
+    _route(db, "fast-b", "fast")
+    _route(db, "flag-c", "flagship")
+    running = _running(db, "quality_director", "gate.certify", {"cir": {"slug": "fast-a"}})
+    with db.session() as s:
+        assert cap.slug_of(s.get(Job, running)) == "fast-a"
+    fast_next = _enqueue(db, "crochet_engineer", "cir.compile", {"cir": {"slug": "fast-b"}},
+                         0, "fb-cir")
+    flag_next = _enqueue(db, "publishing", "assets.build", {"slug": "flag-c"}, 50, "fc-cir")
+
+    assert Worker(db, "pool-2").run_once()
+    held = _held(db)
+    assert [h.job_id for h in held] == [fast_next], [h.detail for h in held]
+    assert held[0].detail["hold_kind"] == "lane_share"
+    assert held[0].detail["share"]["lane"] == "fast"
+    assert held[0].detail["share"]["lane_running"] == 1, "the running gate.certify was counted"
+    assert _status(db, fast_next) == JobStatus.PENDING
+    Worker(db, "pool-2").run_once()
+    with db.session() as s:
+        assert s.get(Job, flag_next).attempts >= 1
+    # the measured split reads the same inputs
+    with db.session() as s:
+        s.add(Job(agent="quality_director", job_type="gate.certify",
+                  inputs={"cir": {"slug": "flag-c"}}, status=JobStatus.DONE,
+                  started_at=utcnow() - timedelta(minutes=10), finished_at=utcnow()))
+    assert cap.measured_lane_split(db)["seconds"].get("flagship", 0) > 0
+
+
 def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_the_split():
     from tests.test_cert_preengineering import _certify, _ctx
 
@@ -161,9 +254,14 @@ def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_th
         assert routed[slug]["profile"]["pattern_count"] == 2, routed[slug]["profile"]
         assert routed[slug]["profile"]["sizes"] == 1
     assert routed["autumn-oak-mosaic-throw"]["profile"]["pattern_count"] == 1
-    # lanes.allocate's split, recorded for the claim; nothing run yet is UNMEASURED
+    # lanes.allocate's split, recorded for the claim. The three gate.certify runs above carry
+    # the CIR (inputs.cir.slug) and are now counted (C-80 defect 3), so the split run so far
+    # is measured -- strengthened from the earlier UNMEASURED, which was the uncounted bug.
     assert capacity["shares"] == {"fast": 0.6, "flagship": 0.4}
-    assert capacity["measured_status"] == "UNMEASURED" and capacity["boosted_jobs"] == []
+    assert capacity["measured_status"] == "measured", capacity["measured"]
+    assert capacity["measured"]["total"] > 0 and set(capacity["measured"]["seconds"]) <= {
+        "fast", "flagship"}
+    assert capacity["boosted_jobs"] == [], "nothing was queued, so nothing is moved"
     assert out["lane_capacity"]["units"]
 
 

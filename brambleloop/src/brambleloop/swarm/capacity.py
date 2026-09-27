@@ -114,8 +114,58 @@ def latest_mix(db, *, now: datetime | None = None) -> dict:
 
 
 def function_budgets(mix: dict[str, float], workers: int) -> dict[str, int]:
-    """Workers each function may hold at once: its share of the pool, at least one."""
-    return {f: max(1, math.floor(share * workers + 1e-9)) for f, share in mix.items()}
+    """Workers each function may hold at once: the pool shared by largest remainder.
+
+    Every function keeps at least one slot (liveness: a starved function's own work must be
+    able to start), and the pool's remaining slots go to the functions whose share was most
+    under-served by the floor -- so at pool 5 the build mix reads {2, 1, 1, 1} and at pool 7
+    {3, 2, 1, 1}, where a plain floor gave every function one. At pool 3 every function still
+    holds one slot, which is why the mix is *also* enforced on measured job-seconds
+    (`function_share_window`): the slots keep the pool live, the window keeps the mix.
+    """
+    if not mix:
+        return {}
+    quotas = {f: float(share) * workers for f, share in mix.items()}
+    budgets = {f: math.floor(q + 1e-9) for f, q in quotas.items()}
+    remaining = max(0, workers - sum(budgets.values()))
+    by_remainder = sorted(mix, key=lambda f: (-(quotas[f] - budgets[f]), f))
+    for f in by_remainder[:remaining]:
+        budgets[f] += 1
+    return {f: max(1, b) for f, b in budgets.items()}
+
+
+# The rolling window over which each function's *run* share is measured at the claim (#30).
+# A slot budget cannot tell 45/20/20/15 from 30/30/30/10 with three workers; job-seconds can.
+FUNCTION_WINDOW = timedelta(hours=24)
+# A function is over its share when it has run this much more than its target share of the
+# window's job-seconds. Small enough to bind within a day, large enough not to flap.
+FUNCTION_SHARE_TOLERANCE = 0.05
+
+
+def function_share_window(db, *, now: datetime | None = None,
+                          window: timedelta = FUNCTION_WINDOW) -> dict:
+    """Job-seconds run per #30 function over the window, from finished jobs (bounded query)."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    since = now - window
+    seconds: dict[str, float] = {}
+    with db.session() as s:
+        rows = [(j.agent, j.started_at, j.finished_at) for j in s.scalars(select(Job).where(
+            Job.status == JobStatus.DONE, Job.finished_at >= since))]
+    for agent, started, finished in rows:
+        if started is None or finished is None:
+            continue
+        f = function_of(agent)
+        seconds[f] = seconds.get(f, 0.0) + max(1.0, (_aware(finished) - _aware(started))
+                                               .total_seconds())
+    total = sum(seconds.values())
+    return {"seconds": {k: round(v, 3) for k, v in seconds.items()}, "total": round(total, 3),
+            "shares": ({k: round(v / total, 4) for k, v in seconds.items()} if total else None),
+            "hours": round(window.total_seconds() / 3600, 3),
+            "status": "MEASURED" if total else "UNMEASURED"}
 
 
 def product_lane(db, slug: str) -> str | None:
@@ -151,9 +201,18 @@ def lane_limits(db, engineering_workers: int) -> dict:
             "limits": {k: max(1, math.floor(v + 1e-9)) for k, v in plan["units"].items()}}
 
 
-def _slug(job) -> str:
+def slug_of(job) -> str:
+    """The product an engineering job works on, wherever its inputs carry it.
+
+    `cir.compile` and `gate.certify` carry the whole CIR (`inputs["cir"]["slug"]`), not a
+    bare slug; reading only `slug`/`product_slug` left both uncounted against their lane.
+    """
     inputs = job.inputs if isinstance(job.inputs, dict) else {}
-    return str(inputs.get("slug") or inputs.get("product_slug") or "")
+    cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
+    return str(inputs.get("slug") or inputs.get("product_slug") or cir.get("slug") or "")
+
+
+_slug = slug_of
 
 
 def _live_running(rows, now):
@@ -205,6 +264,28 @@ def share_decision(db, job, *, now: datetime | None = None, exempt=("swarm.",)) 
                 "why": (f"{mine} already runs {held_by[mine]} of {workers} workers against a "
                         f"share of {budgets[mine]}, while {starved} have runnable work below "
                         f"their share (#30: the mix is enforced on work, not reported)")}
+    # The same mix on measured job-seconds: with a small pool every slot budget is one, so
+    # the mix itself binds here -- a function that has run more than its target share of the
+    # window yields to a function that has run less and has work waiting. Only while the
+    # pool is in use (another job is running): a lone worker holding its only job would be
+    # reordering a queue that priority already orders, not sharing capacity.
+    window = function_share_window(db, now=now) if running else {
+        "shares": None, "hours": FUNCTION_WINDOW.total_seconds() / 3600, "status": "IDLE"}
+    measured = window["shares"] or {}
+    out["window"] = {"shares": measured, "hours": window["hours"], "status": window["status"]}
+    if measured:
+        target = mix["mix"]
+        under = sorted(f for f in budgets if f != mine
+                       and measured.get(f, 0.0) < float(target.get(f, 0.0))
+                       and any(function_of(j.agent) == f for j in waiting))
+        over_by = measured.get(mine, 0.0) - float(target.get(mine, 0.0))
+        if over_by > FUNCTION_SHARE_TOLERANCE and under:
+            return {**out, "hold": True, "kind": "function_share",
+                    "why": (f"{mine} has run {measured.get(mine, 0.0):.0%} of the last "
+                            f"{window['hours']:g}h of job-seconds against a target share of "
+                            f"{float(target.get(mine, 0.0)):.0%}, while {under} are below "
+                            f"their share and have runnable work (#30: the mix is enforced "
+                            f"on measured work, not on a report)")}
 
     if job.job_type in ENGINEERING_JOB_TYPES:
         lane = product_lane(db, _slug(job))
@@ -279,7 +360,9 @@ def measured_lane_split(db, *, days: int = 7, now: datetime | None = None) -> di
                     Job.status == JobStatus.DONE, Job.finished_at >= since,
                     Job.job_type.in_(sorted(ENGINEERING_JOB_TYPES))))]
     for _jt, inputs, started, finished in rows:
-        lane = product_lane(db, str(inputs.get("slug") or inputs.get("product_slug") or ""))
+        cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
+        lane = product_lane(db, str(inputs.get("slug") or inputs.get("product_slug")
+                                    or cir.get("slug") or ""))
         if lane is None or started is None or finished is None:
             continue
         seconds[lane] = seconds.get(lane, 0.0) + max(
