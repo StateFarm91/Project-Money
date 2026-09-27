@@ -74,7 +74,44 @@ def _verdict(ok: bool | None, why: str) -> dict:
             "why": why}
 
 
-def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict:
+def _deterministic_available(frames: list[dict]) -> bool:
+    """Whether a deterministic representation of this product is on file.
+
+    A chart frame, or any frame recorded as deterministic, is a render of the certified CIR
+    rather than a generated picture of it -- the one rung of #81 that costs nothing.
+    """
+    return any(f.get("role") == "chart" or f.get("deterministic") is True
+               or f.get("kind") in ("chart_render", "twin_render") for f in frames)
+
+
+
+def _realism_of(frame: dict) -> dict | None:
+    """The photography-standard verdict a frame carries, wherever its writer put it.
+
+    `model_photography` records a top-level `photographic_realism` block; `owned_photography`
+    (every product-first frame) records the same judgement as named checks under
+    `inspection.realism` and never wrote the top-level field. Parity read only the first, so
+    every flat product read as unjudged and LIFESTYLE_QUALITY could never pass for any of
+    them (found 2026-09-27, Build 2 closeout). The named checks are mapped conservatively:
+    any check failed is `blocked`; `clear` only when the realism judge ran and every check it
+    asked was answered and passed; anything else stays unjudged.
+    """
+    top = frame.get("photographic_realism")
+    if top is not None:
+        return top
+    inspection = frame.get("inspection") or {}
+    checks = inspection.get("realism")
+    if not inspection.get("realism_judged") or not isinstance(checks, dict) or not checks:
+        return None
+    answers = list(checks.values())
+    if any(a is False for a in answers):
+        return {"verdict": "blocked", "from": "inspection.realism", "checks": checks}
+    if all(a is True for a in answers):
+        return {"verdict": "clear", "from": "inspection.realism", "checks": checks}
+    return {"verdict": "unjudged", "from": "inspection.realism", "checks": checks}
+
+def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
+           deterministic_available: bool | None = None) -> dict:
     """Judge all eight from evidence already gathered. Never renders, never asks again.
 
     `frames` are asset records -- what `model_photography.make` and
@@ -149,13 +186,12 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict
         results[MOBILE_GRID] = _verdict(True, "every frame reads at grid scale")
 
     # 5. LIFESTYLE QUALITY -- the natural-photography standard.
-    judged = [f for f in frames if f.get("photographic_realism") is not None]
+    judged = [f for f in frames if _realism_of(f) is not None]
     if not judged:
         results[LIFESTYLE_QUALITY] = _verdict(
             None, "no frame was judged against the photography standard")
     else:
-        states = [str((f.get("photographic_realism") or {}).get("verdict") or "")
-                  for f in judged]
+        states = [str((_realism_of(f) or {}).get("verdict") or "") for f in judged]
         if any(s == "blocked" for s in states):
             results[LIFESTYLE_QUALITY] = _verdict(
                 False, "a frame reads as generated rather than photographed")
@@ -225,7 +261,20 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None) -> dict
 
     failed = [d for d in DIMENSIONS if results[d]["verdict"] == FAIL]
     unjudged = [d for d in DIMENSIONS if results[d]["verdict"] == UNJUDGED]
+
+    # The hand-off to #81. A failure used to stop at `blocks_release`; it now carries the
+    # ladder it walks next, recorded wherever this verdict is. Unjudged is not routed: the
+    # answer to "nobody looked" is to look, not to regenerate.
+    escalation = None
+    if failed:
+        from .gallery import escalation_plan
+
+        available = (deterministic_available if deterministic_available is not None
+                     else _deterministic_available(frames))
+        escalation = escalation_plan(failed, deterministic_available=available)
+
     return {
+        "escalation": escalation,
         "dimensions": results,
         "judged": len(DIMENSIONS) - len(unjudged),
         "of": len(DIMENSIONS),
