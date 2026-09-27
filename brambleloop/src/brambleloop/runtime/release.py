@@ -1985,6 +1985,19 @@ def _run_mjs_mission(ctx: JobContext) -> dict:
     result = mission_runtime.process(ctx.db, enqueue=ctx.enqueue, today=_mjs_today(ctx))
     result["tournaments"] = sorted({e["tournament_job_id"] for e in result["events"]
                                     if e.get("tournament_job_id")})
+    # C-60 (#215): a CONCEPTING gap is consumed -- its same-arena original design starts.
+    concepting = mission_runtime.consume_concepting(ctx.db, enqueue=ctx.enqueue,
+                                                    today=_mjs_today(ctx))
+    result["same_arena_started"] = concepting["started"]
+    # C-60 (#211): the director's company-level view, persisted daily and acted on.
+    standing = mission_runtime.company_standing(ctx.db, enqueue=ctx.enqueue,
+                                                today=_mjs_today(ctx))
+    result["company_standing"] = standing["counts"]
+    if concepting["started"] or standing["photography_requested"]:
+        ctx.audit("mjs.director_actions", detail={
+            "same_arena_started": concepting["started"],
+            "photography_requested": standing["photography_requested"],
+            "counts": standing["counts"]})
     if result["pending"] or result["processed"]:
         ctx.audit("mjs.mission_events", detail={
             "pending": result["pending"], "processed": result["processed"],
@@ -2727,7 +2740,10 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     # carried into every generator brief below.
     from ..creative.breakthrough import BREAKTHROUGH_LANE
     inputs = ctx.job.inputs or {}
-    breakthrough = inputs if inputs.get("lane") == BREAKTHROUGH_LANE else None
+    from ..intel.mission_runtime import SAME_ARENA_LANE
+    # #215: a same-arena response started from a CONCEPTING gap is honoured the same way.
+    breakthrough = (inputs if inputs.get("lane") in (BREAKTHROUGH_LANE, SAME_ARENA_LANE)
+                    else None)
     if breakthrough:
         match = [a for a in found if a.pod == breakthrough.get("pod")]
         if match:
@@ -2743,7 +2759,11 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
         return moved_from
     if breakthrough:
         plan["breakthrough"] = {k: breakthrough.get(k) for k in (
-            "arena", "pod", "objective", "diverged_from", "briefs", "trigger")}
+            "arena", "pod", "objective", "diverged_from", "briefs", "trigger", "lane",
+            "entry_axes", "entry_how")}
+    blocked = _ceiling_gate(ctx, plan, arena, kind="tournament")
+    if blocked is not None:
+        return blocked
 
     _task, tier = routing.route(prospecting.IDEATION_TASK)
     gateway = ideation.BriefingGateway(
@@ -2838,6 +2858,9 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
                                               cycle=week)
     if plan is None:
         return moved_from
+    blocked = _ceiling_gate(ctx, plan, arena, kind="expedition")
+    if blocked is not None:
+        return blocked
     # #117: the expedition's arena loses its saturated, angle-less forms before slots exist.
     arena = ideation.restrict(arena, plan["saturation"]["excluded_forms"])
 
@@ -2883,6 +2906,43 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
             "cleared_for_engineering": gate["cleared_for_engineering"],
             **({} if attempted else
                {"reason": "every field came back malformed; nothing was proposed or spent"})}
+
+
+def _ceiling_gate(ctx: JobContext, plan: dict, arena, *, kind: str) -> dict | None:
+    """#227 on the real brief: every objective this run will send to a generator is checked.
+
+    C-60: `ceiling_check` used to judge a default string the mission wrote for itself, so no
+    agent's actual objective was ever read. Here the checked text is what the model is sent
+    -- each rotation of the constraint paragraph `ideation.constraints_text` appends to a
+    generator call, plus the breakthrough / same-arena objective carried in the job inputs.
+    An objective that names matching a competitor as the goal blocks the run before any
+    spend, and the refusal is audited with the offending text.
+    """
+    from ..creative import ideation
+    from ..intel import panel
+
+    texts: list[str] = []
+    bt = plan.get("breakthrough") or {}
+    if bt.get("objective"):
+        texts.append(str(bt["objective"]))
+    for i in range(max(1, len(plan.get("briefs") or []))):
+        try:
+            texts.append(ideation.constraints_text(plan, i)[0])
+        except Exception:  # noqa: BLE001 - a plan without rotations has only its objective
+            break
+    checked = []
+    for text in texts:
+        verdict = panel.ceiling_check(objective=text)
+        checked.append(verdict["permitted"])
+        if not verdict["permitted"]:
+            ctx.audit(f"creative.{kind}_ceiling_refused", artifact=f"{arena.event}/{arena.pod}",
+                      detail={"objective": text[:1200], "matched": verdict.get("matched"),
+                              "against": verdict.get("against"), "why": verdict["why"]})
+            return {"ran": False, "arena": f"{arena.event}/{arena.pod}",
+                    "reason": f"ceiling_check refused the brief: {verdict['why'][:200]}",
+                    "ceiling_refused": True}
+    plan["ceiling_checked"] = {"objectives": len(checked), "permitted": all(checked)}
+    return None
 
 
 def _ideation_arena(ctx: JobContext, found: list, arena, *, kind: str, cycle: int):
