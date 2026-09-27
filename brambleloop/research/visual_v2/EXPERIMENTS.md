@@ -51,3 +51,10 @@ Resumed d38e471. Full source contract preserved. Built one8x9 diagnostic repeat 
 See [coupon/RESULTS.md](coupon/RESULTS.md). Repaired routed_top removes the51mm foundation return (max connector7.877mm) but has29,483 failing segment pairs, including27,056 body/body. Alternate post-anchor hypothesis has30,003 failing pairs; corresponding cable control points differ by up to9.1069mm. Every candidate retains fixed truth,1.8mm yarn,0.81mm contact floor. All56 signed wrap proxies, nine fixture checks, six negative checks and four analytic distance controls pass; structural truthFAIL, photographic realismUNKNOWN. No stage2. Centerline regeneration matches all four hashes. Neutral Cycles diagnostic13.828s. $0 spend.
 
 The old151 offline assertions were not rerun because no historical implementation changed. New measurements cover the new coupon. Independent crochet and photographic review remainUNKNOWN. Next work is a correctly embedded one-post DC, not a paid generation call or another blind depth sweep.
+
+
+## V2-A01 - Claude/Fable persisted evidence coverage audit (executed)
+
+Inventory: 768 selected paths / 1003 blob versions at inspected tips, plus four historical depth arrays; 1401 historical path-change entries. All482 prior entries covered. No central D/E1-E5/Bench1/Bench2/V1grad experiment path changed between0d42f2f and Claude4edacff.
+
+Recovered metadata for four1000x1000 float32 E3 depth arrays from0f7bc237 (all finite); did not restore historical trees or rerun any experiment. SHA256/Git-blob provenance and new/missed-source distinction in evidence_coverage/. Compared against all four durable-state documents at49e5b0a. B+C unchanged; construction constraints strengthened by prior mechanics/linkage failures and publishing QA. Audit checks: all482 prior paths represented; zero core-experiment differences; four historical arrays readable; script syntax valid. No new product/realismPASS and $0 spend.

@@ -27,3 +27,8 @@ Do not revise earlier observations silently. Append corrections with raw evidenc
 
 | V2-014 | Reject the current hand-shaped DC/chain spatial embedding. | Four trials retain physical intersections; body collisions persist after connector repair. | Do not advance to full throw or material work |
 | V2-015 | Require executable anchor/pull-through semantics, not decorative loops or hook-count labels alone. |56/56 local winding proxies pass all four structurally invalid candidates. | Next target is one physically validated post/DC unit |
+
+
+## V2-D09 - Ingest complete persisted Visual coverage before further construction (2026-09-27)
+
+Audit at Claude4edacff, V2pre-audit49e5b0a; see evidence_coverage/AUDIT.md. The original482-file inventory omitted yarn-slip research, root render artifacts, publishing cable-direction evidence, several reference/photoreal tests and newer integration records; merely hashing Wave2-5 was inadequate ingestion. ArchitectureB+C stays: central provider experiments unchanged and no new hero. Tighten implementation around actual strands, material continuity, identical render/measurement geometry and solver equilibrium. A nonzero linking number for an arbitrary closed subpath is not a universal crochet certificate. Preserve stronger existing instruments with their documented closure limits, do not weaken them. The next operation-graph increment must discriminate semantic loop counts from spatial construction; it cannot certify a full DC by itself.

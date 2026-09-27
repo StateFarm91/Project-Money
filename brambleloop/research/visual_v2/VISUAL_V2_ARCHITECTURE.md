@@ -267,3 +267,12 @@ Reproduction commands, environment versions and artifact inventory are in [READM
 ## 17. Follow-up execution: V2-P06
 
 The stage1 coupon experiment has now run. Four explicit-yarn candidates fail physical clearance; local post winding and source counts alone are insufficient. The routing repair is real, but the DC/chain spatial embedding is rejected and stage2 remains blocked. Construction semantics for the composite cable also need authoritative resolution. See [the executed result](coupon/RESULTS.md), raw measurements and CURRENT_STATE.md. No Product Truth, historical gate or Build2 status changed; paid spend remains$0. This does not certify B+C or disprove deterministic rendering in general.
+
+
+## 18. Complete persisted-evidence coverage correction (2026-09-27)
+
+The [Claude/Fable audit](evidence_coverage/AUDIT.md) extends the original482-file inventory through Claude4edacff and Git history. Inventory: 768 selected paths / 1003 blob versions at inspected tips, plus four historical depth arrays; 1401 historical path-change entries. All482 prior entries covered. No central D/E1-E5/Bench1/Bench2/V1grad experiment path changed between0d42f2f and Claude4edacff.
+
+The earlier architecture analysis underrepresented Waves2-5, yarn-slip literature, root material/drape artifacts and publishing QA. Corrected evidence: plausible displacement was partly solver instability; frame/force/contact/yarn-mask repairs restored equilibrium but not cloth-like drape; prior best yarn pictures differed from measured topology geometry; actual-strand linkage has closure limitations. Frozen cable direction was already a publishing QA gap. Crochet-specific stitch-mesh/CT literature appears in prior research, but does not supply an independently verified local DC/post/cable asset. See the audit table for source locations and measured numbers.
+
+**REPLACE Visual V1 product-redrawing with B+C remains recommended.** This is not a claim those implementation problems have been solved. Use the prior failures to reject welded-node shortcuts, decorative loop substitutes and disconnected render/certification paths. Latest Build2 changes improve lifecycle/QA wiring, not product pixels. No original threshold, product design or certification status was changed.

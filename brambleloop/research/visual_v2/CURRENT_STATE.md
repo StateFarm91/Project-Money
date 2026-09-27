@@ -99,3 +99,12 @@ Construction gap remains: registry crossing=None; written cable method names cab
 Next bounded work: replace the guessed DC loop embedding with a fabrication-operation graph and spatially validated one-post DC coupon (actual two-stage pull-through, self-contact and prior-strand attachment), then neighbor/turn transition. Independent crochet review UNKNOWN. Only after a complete original repeat/edge coupon passes may full144x121/18-column stage2 and six view/light renders proceed. No paid call is needed/requested.
 
 Current authority/environment: read-only sandbox requires scoped escalation for writes/runs. Existing runtime paths above remain valid. All new files are under coupon/ and these ledgers; no Build2, production, original truth/gate or canonical identity edits. External spend$0. Keep this persistent thread; use repository state after compaction. First-pass final_validation.json is historical; the current experiment uses coupon/out/closeout.json.
+
+
+## Persisted Claude/Fable evidence coverage audit (2026-09-27)
+
+Inventory: 768 selected paths / 1003 blob versions at inspected tips, plus four historical depth arrays; 1401 historical path-change entries. All482 prior entries covered. No central D/E1-E5/Bench1/Bench2/V1grad experiment path changed between0d42f2f and Claude4edacff.
+
+Read [evidence_coverage/AUDIT.md](evidence_coverage/AUDIT.md) for extracted facts and [inventory.json](evidence_coverage/inventory.json) for exact blobs/refs. Do not reread all history. Missed inventory: YARN_SLIP_RESEARCH,34 root topology/PBR/yarn/Wave5 artifacts, photoreal/reference-pack tests, publication QA and integration context. Wave2-5/governance were hashed but their findings inadequately extracted. New Claude integration has no new certified renderer. Four E3 depth arrays recoverable from Git do not resolve the missing D PNG/full provider originals.
+
+B+C remains. Material refinements: preserve actual yarn/connector distinction, use physical zero-load controls before drape, distinguish Lagrangian free contact from welded nodes, render measured geometry, validate named actual strands rather than axis winding. Prior independent publishing QA already records missing cable direction. Crochet-specific literature exists but no verified reusable DC/post asset was supplied. Next: one DC fabrication-operation graph and spatial pull-through discrimination, then actual continuous yarn/anchor/contact and independent review. No repeated physics/provider experiments. P06 remains FAIL; realismUNKNOWN; spend$0; all ownership/truth restrictions remain.

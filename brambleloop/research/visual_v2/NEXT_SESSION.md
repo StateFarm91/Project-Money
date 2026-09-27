@@ -9,3 +9,6 @@ Four local coupon candidates were built and measured. All fail physical yarn cle
 Next: one actual DC around a known prior post, driven by explicit fabrication operations and physically validated pull-throughs; then neighbor and turn. Reject decorative-loop substitution. Cable semantics also require an authoritative existing definition; owner clarification was requested, unanswered at this checkpoint. No Product Truth edits permitted.
 
 Do not repeat broad architecture research, provider prompts or blind depth sweeps. No merge/deploy/publish/production/Etsy/Build2 status changes, Claude branch changes or canonical model edits. Current sandbox is read-only; use scoped escalation for authorized research writes. Persist and commit/push bounded results, continue after compaction in this same thread.
+
+
+Evidence coverage is now expanded through Claude4edacff. Read evidence_coverage/AUDIT.md once, then its concise CURRENT_STATE entry. All482 original paths are retained in the broader768-path inventory plus four historical E3 depth arrays. No new core generation experiments/hero. Prior mechanical failures and publication cable ambiguity materially refine implementation, not B+C. Next bounded operation-graph/spatial pull-through work must not repeat P06 or old Wave/D experiments.
