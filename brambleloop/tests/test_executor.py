@@ -286,8 +286,40 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
         assert nxt is None, "nothing is ready and the queue named something anyway"
 
 
+def _parked_on_image_generation():
+    """A context in which one otherwise-ready requirement is parked on `image_generation`.
+
+    C-60 re-classified every live row that sat on this gate (#203 onto the external
+    `model_bearing_render`, #300 onto the chain link that actually stops it), so no registry
+    requirement waits on image generation today. The un-park mechanism is still what these
+    tests prove, so the parking is supplied through the same `_registry_gates` hook the
+    registry uses -- a real requirement id, a real gate, a real opening -- rather than by
+    depending on whatever the live registry happens to park there this week.
+    """
+    import contextlib
+
+    @contextlib.contextmanager
+    def ctx():
+        probe = _synced()
+        ready = [r["requirement_id"] for r in E.queue(probe, limit=400)["ready"]]
+        assert ready, "no ready requirement to park, so this proves nothing"
+        rid = ready[0]
+        real = E._registry_gates
+        E._registry_gates = lambda: {**real(), rid: "image_generation"}
+        try:
+            yield rid
+        finally:
+            E._registry_gates = real
+    return ctx()
+
+
 def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
     """The whole reason parking is a checkable condition rather than a note."""
+    with _parked_on_image_generation():
+        _gate_opening_un_parks()
+
+
+def _gate_opening_un_parks():
     db = _synced()
     before = E.queue(db)
 
@@ -848,6 +880,11 @@ def test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_on
     do it -- the whole reason gates are checked rather than recorded. The registry half must
     behave identically to the table half or it is a quiet way of dropping work.
     """
+    with _parked_on_image_generation():
+        _registry_gate_un_parks()
+
+
+def _registry_gate_un_parks():
     gated = [rid for rid, key in E._registry_gates().items()
              if key == "image_generation"]
     assert gated, "no registry requirement waits on image generation"

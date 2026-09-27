@@ -2581,12 +2581,40 @@ def handle_policy_watch(ctx: JobContext) -> dict:
                         "freshness": report}))
             opened.append(source)
 
+    # #39: a material change -- a digest difference from the previous reading -- opens one
+    # blocking incident per source until somebody records it reviewed and tested. The
+    # incident halts publication; `release_gates.staleness` and `check_new_class` refuse on
+    # the same unreviewed change, so the block is enforced where the workflows run.
+    from ..gates.platform_policy import CHANGE_SIGNATURE, unreviewed_changes
+    from ..ops import incident_lifecycle as lifecycle
+
+    changed = {f"{CHANGE_SIGNATURE}{c['source']}": c for c in unreviewed_changes(ctx.db)}
+    with ctx.db.session() as s:
+        change_life = lifecycle.reconcile(
+            s, CHANGE_SIGNATURE, lambda inc: inc.signature in changed,
+            resolution="the material policy change was reviewed and the affected workflows "
+                       "re-tested (review recorded on the snapshot)")
+        changes_opened = []
+        for signature, c in changed.items():
+            _row, new = lifecycle.open_or_restate(
+                s, signature=signature, severity="P1", halts_publication=True,
+                summary=(f"Etsy {c['source'].replace('_', ' ')} changed materially "
+                         f"(reading {c['checked_on']}, version {c['version']}). "
+                         f"{', '.join(c['affects'])} are blocked until the change is "
+                         f"reviewed and tested (#39)."),
+                detail=c)
+            if new:
+                changes_opened.append(c["source"])
+
     ctx.audit("policy.watched", detail={
+        "changes_opened": changes_opened, "changes_resolved": change_life["resolved"],
         "all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
         "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
         "blocked_workflows": report["blocked_workflows"]})
 
     return {"all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
+            "changes_opened": changes_opened, "changes_unreviewed": sorted(
+                c["source"] for c in changed.values()),
             "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
             "blocked_workflows": report["blocked_workflows"],
             "note": ("This cadence does not fetch: direct retrieval is refused by Etsy's bot "
