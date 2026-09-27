@@ -1,5 +1,73 @@
 # Build 2 certification — RESUME MANIFEST
 
+**Updated 2026-09-27 ~17:10Z at an owner-requested pause.** Build 2 is NOT certified. Safe to resume.
+
+## 0. Delta since the 12d5c5e handoff (read this first)
+
+Pushed checkpoints on `claude/visual-investigation`, in order: 12d5c5e (handoff) → 0d42f2f →
+bb32b3a (**platform cluster merged**) → 9931ebf (**orders cluster merged**) → 24e860e → d4c15b7
+(latest). Integrated branch `claude/repository-setup-nc9x6o` still untouched at fcb982d. No
+deploy, merge to production, publish, ads or spend. Phase shadow.
+
+### Integrated (merged into the working branch, validated)
+| Cluster | Branch head merged | Validation on the merged tree |
+|---|---|---|
+| platform | 76732da (11 commits: C-65 call-graph reachability, C-68 worker pool/lane enforcement, C-69 chain.rebuild, #29 #31 #34 #38 #40 #44 #50 #54 #59 #61 #81 #131 #163 #169) | reachability, closure 22/22→23/23, cert_dependencies, cert_lanes_capacity, cert_listing_frames, cert_rebuild_chain, cert_takeover, cert_thrash, cert_trend_evidence, cert_unique_value, gallery_escalation, moat, cert_culture_teardown, platform, capability_gates, cert_orchestration, cert_growth_seasonal, cert_publish_gates, cert_commerce 13/13, swarm_runtime, swarm, persistence: all pass. test_executor: the same 3 image_generation-park failures (see §4). |
+| orders | 596019d (3 commits: C-64 ingest behind transactions_r, order readings, trajectory/north star from DB; 17 rows) | cert_orders 14/14, cert_commerce_readings 2/2, cost_governance_wave2, swarm_runtime, swarm, persistence pass; closure 23/23 and reachability pass after the fixture repoint (see below); **the rest of the orders validation list (platform, capability_gates, cert_orchestration, cert_commerce, cert_ideation, cert_growth_seasonal, trajectory, buyer_trust, cohorts, ladder, pricing, portfolio, collections) was still running at the pause — log at scratchpad/merge_orders.log if the container survived; otherwise re-run them on d4c15b7.** |
+
+Lead fixes made during integration (all tightening/correcting the measured unit, none weakening):
+- `tests/test_cert_wiring.py`: the #187 band test now allows a job to move UP inside its band by at
+  most `LANE_STARVED_BOOST` (5; platform's C-68 starved-lane boost) and never out of it; asserts every
+  band gap ≥ the boost so a boost can at most tie the band above. Same bound in the #187 registry check.
+- `tests/test_closure.py`, `tests/test_reachability.py`: the "static-route-only library" fixture was
+  `commerce/offers.py`; C-64 wired it (portfolio.review → offers.may_retire), so the fixture is now
+  `commerce/preproduction.py` (#4, in no wave) with the precondition asserted, and offers.py is asserted
+  reached *through a handler*.
+- New `tests/test_cert_claude_independence.py` (4/4 on bb32b3a): production start command boots with a
+  scrubbed env, runs the chain to the shadow `store.publish` refusal (gate exercised, cost 0), is
+  SIGKILLed mid-job, restarts on the same DB, reclaims the orphan (attempts ≥ 2), loses/duplicates
+  nothing, cadences continue from durable state; split entry points do the same. Live Railway restart
+  drill NOT performed (owner-gated; production evidence read-only in `evidence/`).
+
+### Reported, saved, NOT yet merged (reports/*.json hold the per-row JSON)
+| Cluster | Head | Rows | Notes |
+|---|---|---|---|
+| improve | d033e02 (5 commits) | 29 covered, 2 partial (#147 → customers, #194) | `reports/improve.json`. Its `test_cert_wiring` edit (accepts 999 collection wait priority, MAX_WITHIN_BAND=4) conflicts with the lead's C-73 + boost changes: at merge keep the lead's bounded-band form and add improve's "unproven listing work demoted to new_opportunity" assertion. Also asserts publish blocks on owner veto / CompetitiveStandard / binding teardown requirements — verify against cert_publish_gates after merge. |
+| growth | d59bdf4 (7 commits) | 13 covered, 17 owner_gated (ad_authority / owned_surfaces / insights_access / live_listings / tester_roster), 5 data_gated (customers) | `reports/growth.json`. `growth.steer` moves pending jobs −STEER_CREDIT(10)/−20 (fast lane) / +10 across adjacent bands by design ("never lifts exploration above a customer incident"). This WILL fail the lead's within-band wiring test: at merge, restate the #187 invariant as (a) no job outranks the truth_defect band unless its own band is customer_incident/truth_defect, (b) every job within [band − 2·STEER_CREDIT − LANE_STARVED_BOOST, band + STEER_CREDIT]. Do not silently accept arbitrary priorities. |
+
+### Still running at the pause (worktrees are the freshest source if the container survived; patches/ otherwise)
+| Cluster | Head | Uncommitted at pause | Agent (this session only) |
+|---|---|---|---|
+| design | 7195d26 (3 commits) | 8 files modified (agent mid-work) — captured in `patches/design.uncommitted.diff` | a28dca94b6450f155 (resume of a3961c291c36d9c57) |
+| intel | 883697e (9 commits) | 9 files modified (agent mid-work) — `patches/intel.uncommitted.diff` | a774f83bf5938c199 (resume of a512474b485778415); also owns the image_generation reclassification and the 3 test_executor fixes |
+
+If those agents are gone: recover the branch (`git am patches/<c>.mbox`, `git apply patches/<c>.uncommitted.diff`),
+then relaunch ONE agent per cluster with `wave_brief.md` + `wave_<c>.md`, told to continue from the recovered
+branch, finish, run its tests, and report the per-row JSON. The uncommitted diffs are unverified work in progress.
+
+### Integration order remaining
+growth → design → improve → intel (intel last: it settles the executor gate tests). After each: merge,
+run the cluster's tests + `test_closure test_reachability test_platform test_cert_orchestration
+test_capability_gates test_executor test_cert_wiring`, commit, push. Then apply every report to
+`requirements.json` (append note; set status/proof/parked_on; never `covered` without a handler-level
+proof test), recompute closure, mark C-60..C-72 FIXED only with commit + test, and continue §6.
+
+### Honest state at d4c15b7 (registry NOT yet updated from any report; see closure_state.json)
+COMPLETE+PROVEN 116 · OPEN 133 · OWNER-GATED 42 · DATA-GATED 24 · EXTERNAL-BLOCKED 5.
+Under the stricter C-65 rule #4 and #14 moved from OWNER-GATED to OPEN (built half unreached; in no
+wave — assign them). The 20 "reopened-but-gated" rows listed in §2 are still counted gated by executor
+gate tuples; verify after the intel reclassification.
+
+### Production evidence (read-only /api/verify): 13:31Z and 16:25Z, all 12 checks passing, worker and
+scheduler ticking, 0 container starts in 24h, Postgres, shadow, 165 publish refusals, ad spend 0.
+
+### Disk
+The container's writable allowance filled once (leaked `/tmp/tmp*` test dirs from killed agents, ~18 GB).
+Cleaned. If "no space left" recurs: `find /tmp -maxdepth 1 -name 'tmp*' -type d -mmin +5 -exec rm -rf {} +`.
+Agents cleaning `/tmp/tmp*` while another suite runs kills that suite ("no such table: jobs") — rerun it.
+
+---
+
 Written 2026-09-27 at a session-limit handoff. **Build 2 is NOT certified.** Certification is in
 progress and safe to resume from this file.
 

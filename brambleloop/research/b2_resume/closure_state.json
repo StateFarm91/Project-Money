@@ -1,8 +1,8 @@
 {
- "head_basis": "b90e7e1",
+ "head_basis": "d4c15b7 (platform + orders merged; registry NOT yet updated from any cluster report)",
  "counts": {
-  "OWNER-GATED": 44,
-  "OPEN": 131,
+  "OWNER-GATED": 42,
+  "OPEN": 133,
   "COMPLETE+PROVEN": 116,
   "DATA-GATED": 24,
   "EXTERNAL-BLOCKED": 5
@@ -10,10 +10,8 @@
  "ids": {
   "OWNER-GATED": [
    1,
-   4,
    9,
    10,
-   14,
    16,
    37,
    43,
@@ -57,11 +55,13 @@
   "OPEN": [
    2,
    3,
+   4,
    5,
    7,
    11,
    12,
    13,
+   14,
    15,
    17,
    18,
@@ -504,6 +504,7 @@
    304
   ]
  },
+ "note": "Counts still reflect the reopened registry: cluster reports (improve, orders, growth saved under reports/) have NOT been applied to requirements.json yet. Under the C-65 rule #4 and #14 moved OWNER-GATED -> OPEN (their built half is unreached).",
  "open_by_cluster": {
   "design": [
    3,
@@ -649,5 +650,8 @@
    300
   ]
  },
- "open_unclustered": []
+ "open_unclustered": [
+  4,
+  14
+ ]
 }

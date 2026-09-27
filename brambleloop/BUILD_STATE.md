@@ -1,6 +1,6 @@
 # BUILD_STATE
 
-> **2026-09-27 — BUILD 2 CERTIFICATION IN PROGRESS (not certified).** The final independent function-level audit of 9434c53 refuted certification (55 invalid, 96 weak rows; all reopened, defects C-60..C-72), and its fresh full suite was red (C-73, fixed in b90e7e1). Honest state: 116 COMPLETE+PROVEN, 151 effectively OPEN, the rest gated. A six-cluster repair wave is in flight; its unintegrated work is preserved as patches. **Resume from `research/b2_resume/RESUME_MANIFEST.md`.**
+> **2026-09-27 (paused ~17:10Z) — BUILD 2 CERTIFICATION IN PROGRESS (not certified).** The final independent audit of 9434c53 refuted certification (55 invalid, 96 weak; defects C-60..C-72 open, C-73 fixed). Repair wave: platform and orders clusters are merged and validated; improve and growth are reported and saved but not merged; design and intel were still in progress. Claude-independence certification test added (4/4: kill/restart on durable state, no loss, no duplication; live Railway restart drill remains owner-gated). Honest closure at d4c15b7 (registry not yet updated from cluster reports): 116 COMPLETE+PROVEN, 133 OPEN, 42/24/5 gated. **Resume from `research/b2_resume/RESUME_MANIFEST.md` §0.**
 
 
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future

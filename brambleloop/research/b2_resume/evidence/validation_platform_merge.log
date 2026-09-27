@@ -1,0 +1,53 @@
+== test_reachability
+PASS: 0 failing
+== test_closure
+  22 passing, 0 failing
+== test_cert_dependencies
+OK   test_failed_probes_and_an_unproved_recovery_are_raised_and_resolve_when_fixed
+PASS: 0 failing
+== test_cert_lanes_capacity
+PASS: 0 failing
+== test_cert_listing_frames
+PASS: 0 failing
+== test_cert_rebuild_chain
+PASS: 0 failing
+== test_cert_takeover
+PASS: 0 failing
+== test_cert_thrash
+PASS: 0 failing
+== test_cert_trend_evidence
+PASS: 0 failing
+== test_cert_unique_value
+PASS: 0 failing
+== test_gallery_escalation
+OK   test_a_parity_failure_is_routed_through_the_ladder_and_takes_the_free_rung
+== test_moat
+== test_cert_culture_teardown
+0 failed
+== test_platform
+OK   test_permanent_failure_skips_retries
+== test_capability_gates
+OK   test_a_model_answering_the_wrong_question_is_counted_as_a_failure
+OK   test_a_vision_probe_with_no_image_refuses_rather_than_passing
+== test_executor
+FAIL test_a_gate_may_be_satisfied_and_carry_no_requirements AssertionError()
+FAIL test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering AssertionError('this evidence opens nothing, so the test proves nothing')
+FAIL test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_one AssertionError('no registry requirement waits on image generation')
+== test_cert_orchestration
+0 failure(s)
+== test_cert_wiring
+FAIL test_follow_on_work_is_enqueued_at_its_band_too AssertionError: job type, enqueued priority, its band: [('listing.draft', 35, 40)]
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+OK   test_no_row_whose_wiring_failed_here_is_still_claimed_covered
+15/16 passed in 330s
+== test_cert_growth_seasonal
+OK   test_a_team_whose_occasion_has_passed_is_disbanded_not_deleted
+0 failure(s)
+== test_cert_publish_gates
+0 failed
+== test_cert_commerce
+13/13 passed in 347s
+== test_swarm_runtime
+== test_swarm
+== test_persistence
+DONE

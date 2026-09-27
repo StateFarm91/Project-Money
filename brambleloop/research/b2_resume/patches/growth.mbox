@@ -1,7 +1,7 @@
 From 120813c17a5c609d0dff44e7bcbf539f834659f3 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:39:13 +0000
-Subject: [PATCH 1/6] C-60 growth: confidence fed from rows -- derived #27/#275
+Subject: [PATCH 1/7] C-60 growth: confidence fed from rows -- derived #27/#275
  conditions, calibration ceiling, observed-conversion matrix, CAC split
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -610,7 +610,7 @@ index 0000000..4f104fd
 From c211c919a5c4ac161fff12491ba36abb33043c9b Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:40:51 +0000
-Subject: [PATCH 2/6] C-60 growth: support replies timed and gating-checked;
+Subject: [PATCH 2/7] C-60 growth: support replies timed and gating-checked;
  commerce readings read real stars, club answers, referral, and act
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -984,7 +984,7 @@ index 31cc6b2..eac4b04 100644
 From b2726239ba1866cf86d596b1004831f468db883f Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:46:15 +0000
-Subject: [PATCH 3/6] C-60 growth: ads.adjust/ads.campaign behind the owner
+Subject: [PATCH 3/7] C-60 growth: ads.adjust/ads.campaign behind the owner
  gate, growth.distribution, growth.journey, growth.steer on cadence
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -2321,7 +2321,7 @@ index abeb4c7..21bd8be 100644
 From 2d3d6857dde7170795c7e38b0129d8ea2681df6b Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:47:56 +0000
-Subject: [PATCH 4/6] C-60 growth: outcome pricing and per-visitor guard in
+Subject: [PATCH 4/7] C-60 growth: outcome pricing and per-visitor guard in
  pricing, vanity terms in SEO, Stats CSV ingest route, benchmarks from DB,
  launch readiness reads first-customer and trust gates, fast-lane chain
 
@@ -2676,7 +2676,7 @@ index 9432ca1..fbeed68 100644
 From 175633f7c97f33562590ffd79df5ad3839be3b9d Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:53:28 +0000
-Subject: [PATCH 5/6] C-60 growth: handler-level certification tests for ads,
+Subject: [PATCH 5/7] C-60 growth: handler-level certification tests for ads,
  distribution, journey, steer, support, readings, confidence, pricing, routes
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -3280,7 +3280,7 @@ index 0000000..fe519e9
 From 072e8e574d6ef6cd1b60d7fdabbedc3c03d06c08 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:57:01 +0000
-Subject: [PATCH 6/6] C-60 growth: ads job types are handled now, so test_roles
+Subject: [PATCH 6/7] C-60 growth: ads job types are handled now, so test_roles
  no longer declares them unbuilt
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -3304,6 +3304,233 @@ index 11f8b72..06c9354 100644
      "cir.twin", "content.draft", "gate.asset_truth", "gate.policy", "gate.quality",
      "pricing.experiment", "radar.competitor_snapshot", "store.update",
  })
+-- 
+2.43.0
+
+
+From d59bdf4082c9efca6411645a428a71132d035228 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 16:51:25 +0000
+Subject: [PATCH 7/7] C-60 growth: below-cohort listings become incidents,
+ graduable testers become one owner card, SEO refills freed slots from earning
+ terms
+
+The audit's remaining "written but not acted on" halves in this cluster: #238's cohort
+diagnoses now open a P3 incident per below-cohort listing naming the factors to test and
+resolve when the listing recovers (growth.journey); #250's graduation check raises a single
+zero-cost owner card for the offer, once (growth.distribution); #24/#237's vanity-tag swap
+in listing.seo fills a freed slot from the export's earning-per-visit terms before an
+unproven phrase. Handler-level assertions added for all three.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/runtime/growth_ops.py     | 55 ++++++++++++++++++-
+ .../src/brambleloop/runtime/release.py        | 15 +++--
+ brambleloop/tests/test_cert_growth_ops.py     | 27 ++++++++-
+ 3 files changed, 89 insertions(+), 8 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/runtime/growth_ops.py b/brambleloop/src/brambleloop/runtime/growth_ops.py
+index 0a261e8..5970510 100644
+--- a/brambleloop/src/brambleloop/runtime/growth_ops.py
++++ b/brambleloop/src/brambleloop/runtime/growth_ops.py
+@@ -685,11 +685,34 @@ def creators_reading(db) -> dict:
+         graduations.append(creators.may_graduate(creators.Graduation(
+             tester_ref=ref, invited=counts["invited"], delivered=counts["delivered"],
+             testing_terms="", ambassador_terms="", consent_ref=consent)))
++    graduated = [g["tester_ref"] for g in graduations if g["may_graduate"]]
++    # #250: the offer itself is the owner's -- a second, separate agreement with a person --
++    # so a tester the check clears becomes one owner card, once, at no cost. Nothing is sent.
++    from sqlalchemy import select as _select
++
++    from ..core.models import OwnerAction
++
++    cards = []
+     with db.session() as s:
+         roster = creators.roster(s)
++        for ref in graduated:
++            key = f"creators.graduate:{ref}"
++            if s.scalar(_select(OwnerAction).where(OwnerAction.requirement_key == key,
++                                                   OwnerAction.done == False)) is None:  # noqa: E712
++                s.add(OwnerAction(
++                    requirement_key=key,
++                    action=(f"Offer tester {ref} the ambassador relationship under a separate "
++                            f"agreement (their testing terms stay as they are)"),
++                    reason=(f"{ref} delivered every test asked and has recorded consent to a "
++                            f"second relationship; testing compensation and public advocacy "
++                            f"must stay two documents (#250)"),
++                    max_cost_cad=0.0, minutes=10,
++                    consequence_of_delay="their finished projects stay unused as proof",
++                    blocks="#250"))
++                cards.append(key)
+     return {"roster": roster, "portfolio": portfolio,
+             "stopped_collaborations": stopped, "graduations": graduations,
+-            "graduated": [g["tester_ref"] for g in graduations if g["may_graduate"]]}
++            "graduated": graduated, "owner_cards": cards}
+ 
+ 
+ def tools_reading(db, items: dict) -> dict:
+@@ -1058,6 +1081,34 @@ def benchmarks_reading(db) -> dict:
+             "opportunities": benchmarks.opportunities(markets)}
+ 
+ 
++# #238: the factors Etsy names as moving conversion, and so the ones a below-cohort listing is
++# tested on -- systematically, one at a time, never by guessing which one it was.
++CONVERSION_FACTORS = ("photos", "price", "reviews", "title_and_description", "policies")
++
++
++def benchmark_incidents(db, reading: dict) -> dict:
++    """#238: a listing converting below its own cohort's baseline is an incident that names the
++    factors to test, open until the listing converts at or above the cohort again."""
++    from ..ops.incident_lifecycle import open_or_restate, reconcile
++
++    below = [d for d in reading["diagnoses"] if d["verdict"] == "below_cohort"]
++    wanted = {f"benchmark:{d['slug']}:below_cohort" for d in below}
++    with db.session() as s:
++        for d in below:
++            open_or_restate(
++                s, signature=f"benchmark:{d['slug']}:below_cohort", severity="P3",
++                product_slug=d["slug"],
++                summary=(f"{d['slug']} converts at {d['conversion']:.2%} against its cohort's "
++                         f"{d['cell_baseline']:.2%} ({d['cell']})"),
++                detail={**d, "factors_to_test": list(CONVERSION_FACTORS),
++                        "why": ("diagnosed against comparable listings in the same category, "
++                                "traffic source, price band, season, maturity and age, not "
++                                "against the shop average")})
++        closed = reconcile(s, "benchmark:", lambda row: row.signature in wanted,
++                           resolution="the listing converts at or above its cohort again")
++    return {"opened": sorted(wanted), "resolved": closed["resolved"]}
++
++
+ def proof_sweep(db) -> dict:
+     """#17: every passed physical test and every sale ledger row attached as proof, once, via
+     `trust.record_proof` -- which refuses anything without a row behind it."""
+@@ -1101,6 +1152,7 @@ def handle_growth_journey(ctx: JobContext) -> dict:
+         "benchmarks": benchmarks_reading(ctx.db),
+         "proof": proof_sweep(ctx.db),
+     }
++    reading["benchmarks"]["incidents"] = benchmark_incidents(ctx.db, reading["benchmarks"])
+     reading_id = record(ctx.db, JOURNEY_KIND, today.isoformat(), reading)
+     summary = {
+         "reading_id": reading_id,
+@@ -1109,6 +1161,7 @@ def handle_growth_journey(ctx: JobContext) -> dict:
+         "first_customer_outstanding": reading["first_customer"]["before"]["outstanding"],
+         "promotions": len(reading["promotions"]["promotions"]),
+         "benchmark_cells": reading["benchmarks"]["cells"]["occupied"],
++        "below_cohort": reading["benchmarks"]["incidents"]["opened"],
+         "opportunities_ranked": len(reading["benchmarks"]["opportunities"]["ranked"]),
+         "proof_recorded": reading["proof"]["recorded"],
+     }
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index 259a4d2..0e7466e 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -769,16 +769,23 @@ def _drop_vanity_tags(db, queries, tags: list[str]) -> tuple[list[str], dict]:
+         return tags, {"status": "measured", "vanity_dropped": [], "earning_terms": earning[:10],
+                       "export": stats.get("period_key")}
+     kept = [t for t in tags if t.lower() not in vanity]
+-    for q in queries:
++    # #24: a freed slot goes first to a term the export shows earning per visit, and only then
++    # to a phrase nothing has measured yet -- contribution economics, not impressions.
++    refilled_from_earning = []
++    for phrase in list(earning) + [q.phrase for q in queries]:
+         if len(kept) >= len(tags):
+             break
+-        phrase = q.phrase
+-        if phrase.lower() not in vanity and phrase not in kept and len(phrase) <= 20:
++        if (phrase.lower() not in vanity and phrase.lower() not in {k.lower() for k in kept}
++                and len(phrase) <= 20):
+             kept.append(phrase)
++            if phrase in earning:
++                refilled_from_earning.append(phrase)
+     return kept, {"status": "measured", "vanity_dropped": dropped, "earning_terms": earning[:10],
++                  "refilled_from_earning": refilled_from_earning,
+                   "export": stats.get("period_key"),
+                   "why": (f"{len(dropped)} tag(s) were shown and never sold in the owner's "
+-                          f"Stats export; their slots went to unproven phrases instead")}
++                          f"Stats export; their slots went to terms that earned per visit "
++                          f"first, then to unproven phrases")}
+ 
+ 
+ def _quote_screen(db, text: str) -> tuple[list[str], dict]:
+diff --git a/brambleloop/tests/test_cert_growth_ops.py b/brambleloop/tests/test_cert_growth_ops.py
+index fe519e9..f4618a0 100644
+--- a/brambleloop/tests/test_cert_growth_ops.py
++++ b/brambleloop/tests/test_cert_growth_ops.py
+@@ -237,8 +237,13 @@ def test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak
+     assert "t1" in r["creators"]["graduated"]
+     assert r["tools"]["hostable"] and all(f["may_claim_contribution"] for f in r["tools"]["flows"])
+     assert r["interviews"]["gate"]["may_open"] is True
++    # #250 acted on: the graduable tester is one owner card (the offer is the owner's), once.
++    assert r["creators"]["owner_cards"] == ["creators.graduate:t1"]
+     with db.session() as s:
+         assert {c.state for c in s.scalars(select(Collaboration))} == {"stopped"}
++        card = s.scalar(select(OwnerAction).where(
++            OwnerAction.requirement_key == "creators.graduate:t1"))
++        assert card is not None and card.max_cost_cad == 0.0 and "#250" in card.blocks
+ 
+     # The design moves: every video module cut from the old tutorial is re-planned.
+     with db.session() as s:
+@@ -248,6 +253,10 @@ def test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak
+          agent="growth")
+     r2 = _reading(db, growth_ops.DISTRIBUTION_KIND)
+     assert [x["slug"] for x in r2["video"]["stale_replanned"]] == [FLAGSHIP]
++    assert r2["creators"]["owner_cards"] == []           # the card is not raised twice
++    with db.session() as s:
++        assert len(list(s.scalars(select(OwnerAction).where(
++            OwnerAction.requirement_key == "creators.graduate:t1")))) == 1
+ 
+ 
+ # ---- the buyer journey (#17, #19, #238, #239, #259, #261) -----------------------------------
+@@ -267,10 +276,11 @@ def test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof()
+                          result={"full_price_cad": 12.5, "promo_price_cad": 9.0,
+                                  "starts": (TODAY - timedelta(days=20)).isoformat(),
+                                  "ends": (TODAY - timedelta(days=1)).isoformat()}))
++        # Three listings in one cell; the first converts at zero against the cohort's rate.
+         for k in range(3):
+             s.add(ListingOutcome(product_slug=f"bench-{k}", period_start="2026-08-01",
+                                  period_end="2026-08-31", impressions=400, visits=40,
+-                                 orders=1, source="fixture"))
++                                 orders=0 if k == 0 else 1, source="fixture"))
+     done = _work(db, "growth", "growth.journey")
+     assert done.status == JobStatus.DONE, done.last_error
+     r = _reading(db, growth_ops.JOURNEY_KIND)
+@@ -280,12 +290,19 @@ def test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof()
+     promo = r["promotions"]["promotions"][0]
+     assert promo["measurable"] is True and promo["verdict"] != "worth repeating"
+     assert r["benchmarks"]["cells"]["occupied"] >= 1
+-    assert r["benchmarks"]["diagnoses"]
++    verdicts = {d["slug"]: d["verdict"] for d in r["benchmarks"]["diagnoses"]}
++    assert verdicts["bench-0"] == "below_cohort" and verdicts["bench-1"] == "at_or_above"
++    # #238 acted on: the below-cohort listing is an incident naming the factors to test.
++    assert r["benchmarks"]["incidents"]["opened"] == ["benchmark:bench-0:below_cohort"]
+     with db.session() as s:
+         friction = [i.signature for i in s.scalars(select(Incident).where(
+             Incident.signature.like("friction:%"), Incident.resolved == False))]  # noqa: E712
+         assert friction and all(sig.startswith(f"friction:{FLAGSHIP}:") for sig in friction)
+         assert s.scalar(select(Experiment)).state == "not_repeatable"
++        bench = s.scalar(select(Incident).where(
++            Incident.signature == "benchmark:bench-0:below_cohort"))
++        assert bench is not None and not bench.resolved
++        assert "price" in bench.detail["factors_to_test"]
+ 
+     # Re-run: proof is attached once, and friction resolves when the listing no longer has it.
+     with db.session() as s:
+@@ -517,9 +534,13 @@ def test_stats_ingest_benchmarks_and_scale_routes_read_the_database():
+         def __init__(self, phrase):
+             self.phrase = phrase
+ 
++    # #237 / #24: the vanity tag's slot goes to the term the export shows earning per visit
++    # before it goes to an unproven phrase.
+     tags, got = release._drop_vanity_tags(
+         main.db, [Q("mosaic blanket"), Q("nordic throw")], ["mosaic blanket", "xmas"])
+-    assert got["vanity_dropped"] == ["mosaic blanket"] and tags == ["xmas", "nordic throw"]
++    assert got["vanity_dropped"] == ["mosaic blanket"]
++    assert tags == ["xmas", "christmas throw"]
++    assert got["refilled_from_earning"] == ["christmas throw"]
+ 
+ 
+ if __name__ == "__main__":
 -- 
 2.43.0
 

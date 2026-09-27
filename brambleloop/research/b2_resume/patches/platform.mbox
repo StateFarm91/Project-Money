@@ -1,7 +1,7 @@
 From d06928893f4615623023f1708c208e708cb686cb Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:41:52 +0000
-Subject: [PATCH 01/10] C-65: reachability is a call graph from scheduled
+Subject: [PATCH 01/11] C-65: reachability is a call graph from scheduled
  handlers, loops and DB-computing routes; owner_gated built halves checked;
  unchecked gates explicit
 
@@ -1080,7 +1080,7 @@ index 0000000..37c84b1
 From 02cc3a15bb42c3e6f2b2768f0db6162890e27e85 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 12:50:15 +0000
-Subject: [PATCH 02/10] C-68: worker pool activated by the allocation; function
+Subject: [PATCH 02/11] C-68: worker pool activated by the allocation; function
  mix and production-lane split enforced at the claim; parallelism scales both
  ways; experiment spend attributed
 
@@ -2168,7 +2168,7 @@ index 0000000..f31ad00
 From 2c20df59235125da31950c110bb1b170b2b1e236 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:02:50 +0000
-Subject: [PATCH 03/10] C-69: chain.rebuild honours its inputs, remakes exactly
+Subject: [PATCH 03/11] C-69: chain.rebuild honours its inputs, remakes exactly
  the stale artefacts from the earliest stage, writes completion evidence,
  respects the #163 withhold;
  twin/geometry/reverse/support_knowledge/release_bundle provenance; #40
@@ -3010,7 +3010,7 @@ index 0000000..496317f
 From 81ece066a2ceb921ecff921c42aa0be1c0c14960 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:07:21 +0000
-Subject: [PATCH 04/10] #163 compared against purchased benchmarks; #169 ten
+Subject: [PATCH 04/11] #163 compared against purchased benchmarks; #169 ten
  delight drivers measured from artefacts and acted on; teardown QA re-run at
  launch with withhold
 
@@ -3524,7 +3524,7 @@ index 0000000..be2b636
 From 0006b991ceabf3978e33483e67a2e047ad9b506b Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:09:28 +0000
-Subject: [PATCH 05/10] #81: escalation ladder reads live gate state; an opened
+Subject: [PATCH 05/11] #81: escalation ladder reads live gate state; an opened
  gate's rung is attempted
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -3793,7 +3793,7 @@ index aa4d4eb..89701d8 100644
 From 253e71701c2c06a5ddd3db53419fd115768d53d5 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:19:48 +0000
-Subject: [PATCH 06/10] #59/#61 layout QA and independent review on every
+Subject: [PATCH 06/11] #59/#61 layout QA and independent review on every
  listing frame; #54 launch package measured; #34 suspension, backoff, progress
  metrics, changed-hypothesis retries
 
@@ -4754,7 +4754,7 @@ index 496317f..08b40ac 100644
 From cdd61195cd7054ce02d3dbdb60f4c9cd43c01953 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:23:30 +0000
-Subject: [PATCH 07/10] #34 tests; backoff skips suspended loops
+Subject: [PATCH 07/11] #34 tests; backoff skips suspended loops
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
@@ -4951,7 +4951,7 @@ index 0000000..d86c312
 From 10c579265fc02608bd80c06c1826ea178e71ad62 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:25:27 +0000
-Subject: [PATCH 08/10] #38: radar.score discounts stale/mismatched stamped
+Subject: [PATCH 08/11] #38: radar.score discounts stale/mismatched stamped
  evidence; SERP captures stamped
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -5237,7 +5237,7 @@ index 0000000..15ddba5
 From c8bbc3907ccafbad00ec7e0b72486e554640e0f4 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:31:14 +0000
-Subject: [PATCH 09/10] #44 moat from evidence with recognisability; #50/#29
+Subject: [PATCH 09/11] #44 moat from evidence with recognisability; #50/#29
  daily dependency sweep raising incidents; #31 unit cost acted on by the
  governor and the allocation
 
@@ -6032,7 +6032,7 @@ index 57fc072..4214a70 100644
 From df0de796a900747dd0b20400380043a245107baf Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 27 Sep 2026 13:33:14 +0000
-Subject: [PATCH 10/10] #131: takeover executor applies and reverts storefront
+Subject: [PATCH 10/11] #131: takeover executor applies and reverts storefront
  surfaces on schedule
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -6303,6 +6303,44 @@ index 0000000..e02e2b4
 +                print("FAIL", name, repr(e))
 +    print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
 +    sys.exit(1 if fails else 0)
+-- 
+2.43.0
+
+
+From 76732dac738fe87d08844d7823f93297cc263816 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 16:29:39 +0000
+Subject: [PATCH 11/11] C-65: reachability labels a module-constant cadence
+ site plainly
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/build2/reachability.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/build2/reachability.py b/brambleloop/src/brambleloop/build2/reachability.py
+index 75005d5..bd8ca3d 100644
+--- a/brambleloop/src/brambleloop/build2/reachability.py
++++ b/brambleloop/src/brambleloop/build2/reachability.py
+@@ -458,7 +458,7 @@ class _Analysis:
+             cls = qual.split(".")[0] if "." in qual else None
+         nodes = list(_body_nodes(node)) if qual not in ("<module>",) and not qual.startswith(
+             "<expr:") else list(ast.walk(node))
+-        here = f"{_rel_of(mod)}:{qual}"
++        here = f"{_rel_of(mod)}:{'module constant' if qual.startswith('<expr:') else qual}"
+         local = _aliases_in(mod, nodes)
+         audit_only = self._audit_only_nodes(nodes)
+ 
+@@ -492,7 +492,7 @@ class _Analysis:
+                 if isinstance(n, ast.Tuple) and len(n.elts) == 4:
+                     jt = self._job_type_of(mod, n.elts[2], local)
+                     if jt:
+-                        self._schedule(jt, f"cadence in {_rel_of(mod)}:{qual}")
++                        self._schedule(jt, f"cadence in {here}")
+ 
+         if mode == "route":
+             dbn = self._db_names(node)
 -- 
 2.43.0
 
