@@ -333,6 +333,18 @@ QUALITATIVE_CONDITIONS: dict[str, str] = {
     "repeatable_acquisition_channel": "at least one channel that can be run again",
     "improving_trust_base": "a legitimate review and trust base that is growing",
     "no_open_policy_risk": "no unresolved platform-policy exposure",
+    # #27's last clause, missing until the final audit of 9434c53 (C-60).
+    "conservative_scenario_near_target": ("a scenario whose conservative assumptions -- the "
+                                          "lower bound of the observed conversion -- still "
+                                          "approaches the target"),
+    # #275's conditions that were absent from the gate (C-60).
+    "seasonal_evergreen_balance": ("revenue neither wholly seasonal nor wholly evergreen, so "
+                                   "one closed window is not the whole business"),
+    "observed_bundle_aov": "bundle and order-value behaviour observed over real orders",
+    "low_defect_refund_severity": ("refunds, support load and open defects low, measured "
+                                   "rather than assumed"),
+    "downside_near_target": ("the downside scenarios of the stress test remain near the "
+                             "target"),
 }
 
 

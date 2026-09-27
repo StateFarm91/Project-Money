@@ -2249,12 +2249,11 @@ def api_scale() -> dict:
     argued upward. A sophisticated architecture with no customers reports near zero, which is
     the answer #230 exists to insist on.
     """
-    from ..scale import confidence, target
+    # C-60 (#27, #262, #273, #275): the same fed model the weekly solve uses -- conditions
+    # derived from rows, the calibration ceiling, and the matrix on observed conversion.
+    from ..scale import evidence
 
-    return {
-        "probability": confidence.probability(db),
-        "scenarios": target.matrix(),
-    }
+    return evidence.confidence_reading(db)
 
 
 @app.post("/api/seasonal/recompute")

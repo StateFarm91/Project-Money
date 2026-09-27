@@ -4029,6 +4029,13 @@ def handle_capacity_review(ctx: JobContext) -> dict:
     reading = weekly.solve(ctx.db, today=today, qa=qa)
     plan = reading["allocation"]
     stored = weekly.record(ctx.db, reading)
+    # #262: next week's forecast is written before the week starts, so that a later solve
+    # can score it and lower confidence if the model has been optimistic.
+    from ..scale import evidence as scale_evidence
+    from ..scale.runrate import observe as _observe
+
+    forecast = scale_evidence.record_forecast(
+        ctx.db, _observe(ctx.db, today=today)["observed"], today=today)
     detail = {
         "mix": plan["mix"],
         "phase": plan["phase"],
@@ -4051,6 +4058,14 @@ def handle_capacity_review(ctx: JobContext) -> dict:
         "winners_declarable": reading["bundle_attribution"]["winners_declarable"],
         "confidence": reading["confidence"]["probability"],
         "resilience": reading["confidence"]["resilience_rung"]["evidence"].get("stress_test"),
+        "conditions_met": reading["confidence"]["conditions_met"],
+        "calibration_ceiling": reading["confidence"]["calibration_ceiling"],
+        "forecast_recorded": forecast.get("recorded"),
+        "scenario_conversion": reading["scenarios"]["conversion_source"],
+        "cac_split": {k: (reading["cac_split"][k].get("value")
+                          if isinstance(reading["cac_split"][k], dict) else None)
+                      for k in ("new_customer_cac_cad", "blended_cac_cad",
+                                "contribution_after_ads_cad")},
     }
     ctx.audit("ops.capacity", detail=detail)
     return detail
