@@ -608,10 +608,13 @@ def test_remerchandising_handler_runs_the_transformation_engine():
 
 
 
-def test_a_bundle_waiting_for_members_defers_and_does_not_die():
-    """Regression (C-46): claimed before its members certify, the job must not go DEAD."""
-    from brambleloop.runtime.release import COLLECTION_MAX_DEFERRALS
+def test_a_bundle_waiting_for_members_waits_and_does_not_die():
+    """Regression (C-46): claimed before its members certify, the job must not go DEAD.
+    C-73: nor may it spin -- it waits without re-queueing, and a member's certification is
+    what enqueues the next attempt, at the collection's own band."""
+    from brambleloop.runtime.release import enqueue_member_collections
     from brambleloop.runtime.worker import Worker
+    from brambleloop.swarm import orchestrate
 
     db = _db()
     _certify(db, "nordic-star-ornaments")  # one of four members: not yet a collection
@@ -619,28 +622,36 @@ def test_a_bundle_waiting_for_members_defers_and_does_not_die():
                          {"slug": "nordic-forest-bundle", "family": "nordic-forest"},
                          idempotency_key="bundle-early")
     worker = Worker(db, "w6-bundle")
-    for _ in range(COLLECTION_MAX_DEFERRALS + 5):
+    for _ in range(10):
         if not worker.run_once():
             break
     with db.session() as s:
         jobs = list(s.scalars(select(Job).where(Job.job_type == "collection.assemble")))
-        assert jobs and not [j for j in jobs if j.status in (JobStatus.DEAD,
-                                                             JobStatus.FAILED)]
-        # Bounded: the immediate deferrals ran, the next one waits on a delay, and every
-        # re-enqueue is keyed so a duplicate cannot be created.
-        assert len(jobs) <= COLLECTION_MAX_DEFERRALS + 1
-        assert any(j.status == JobStatus.PENDING for j in jobs), "deferral chain was dropped"
-        assert len({j.idempotency_key for j in jobs}) == len(jobs)
+        assert [j.status for j in jobs] == [JobStatus.DONE], [(j.status, j.last_error) for j in jobs]
         waits = list(s.scalars(select(AuditLog).where(
             AuditLog.action == "collection.waiting")))
-        assert waits and waits[-1].detail["requeued"] is True
+        assert waits and waits[-1].detail["requeued"] is False
 
-    # And once a second member certifies, the next run assembles the collection.
+    # A second member certifies: its gate.certify enqueues the assembly (the same function the
+    # handler calls), once per member release, at the band.
     _certify(db, "nordic-forest-stocking")
-    out = _run(db, "collection.assemble",
-               {"slug": "nordic-forest-bundle", "family": "nordic-forest"}, agent="listing")
-    assert out.get("waiting") is None and len(out["members"]) == 2
-
+    queue = JobQueue(db)
+    trigger = queue.enqueue("quality_director", "gate.certify", {}, idempotency_key="t-cert")
+    ctx = JobContext(job=trigger, db=db, queue=queue, registry=Registry(db), phase=Phase.SHADOW)
+    assert enqueue_member_collections(ctx, "nordic-forest-stocking", "h1") == ["nordic-forest-bundle"]
+    assert enqueue_member_collections(ctx, "nordic-forest-stocking", "h1") == []  # keyed
+    with db.session() as s:
+        queued = [j for j in s.scalars(select(Job).where(
+            Job.job_type == "collection.assemble", Job.status == JobStatus.PENDING))]
+        assert len(queued) == 1
+        assert queued[0].priority == orchestrate.priority_for("collection.assemble")
+        queued_id = queued[0].id
+    while worker.run_once():
+        pass
+    with db.session() as s:
+        done = s.get(Job, queued_id)
+        assert done.status == JobStatus.DONE, done.last_error
+        assert done.outputs.get("waiting") is None and len(done.outputs["members"]) == 2
 
 
 # ---- #241: the launch experiment pack ------------------------------------------------------

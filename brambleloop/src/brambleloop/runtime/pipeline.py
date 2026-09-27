@@ -468,6 +468,10 @@ def handle_certify(ctx: JobContext) -> dict:
         # Lane routing for the newly certified release (cadence and grant integrated).
         ctx.enqueue("quality_director", "gate.lanes", {},
                     idempotency_key=f"lanes:{cir.slug}:{cert.release_hash}")
+        # A certified member is the event its collections wait on (C-73).
+        from .release import enqueue_member_collections
+
+        enqueue_member_collections(ctx, cir.slug, cert.release_hash or "")
 
         # #163 / #169: the teardown lab's QA of our own product. A product class that can
         # name no evidenced advantage beyond the purchased benchmarks is withheld here, with

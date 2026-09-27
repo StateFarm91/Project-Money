@@ -301,7 +301,12 @@ def test_listing_draft_actually_runs_the_disclosure_check():
     with st["db"].session() as s:
         recorded = {r.artifact for r in s.scalars(select(AuditLog).where(
             AuditLog.action.in_(("listing.disclosure_checked", "listing.disclosure_finding"))))}
-    assert len(recorded) >= len(seos), (recorded, [j.inputs.get("slug") for j in seos])
+    # Per product, not per job: an evergreen repositioning (launch.plan's pivot) re-runs
+    # listing.seo for the same release, so counting jobs against distinct releases fails for a
+    # correct chain (C-73). Every product whose SEO ran must have its reading recorded.
+    recorded_slugs = {str(a).split("@")[0] for a in recorded}
+    missing = {j.inputs.get("slug") for j in seos} - recorded_slugs
+    assert not missing, (missing, recorded)
 
 
 def test_growth_experiments_calls_launch_pack_for_every_drafted_listing():

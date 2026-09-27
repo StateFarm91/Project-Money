@@ -598,9 +598,10 @@ GATES: tuple[Gate, ...] = (
          # serve a request (`model_provider`); 67, 71, 76, 86, 126, 218 and 315 were closed
          # or re-parked by their own audits and no longer wait here.
          # 2 and 15 left too (C-40): the API search index (findAllListingsActive, api_key
-         # only) now supplies density and a labelled ranking proxy. Only the policy pages of
-         # #39 still need a rendered page.
-         (39,),
+         # only) now supplies density and a labelled ranking proxy. Only the policy pages
+         # still need a rendered page: #39 (policy freshness) and #35, whose class enablement
+         # reads the same current policy pages (parked here in ca38f44; C-73).
+         (35, 39),
          "a recorded browser.probe fetched a real rendered page -- a configured worker URL "
          "is a string, and Etsy answers 403 to a great many of them"),
     Gate("insights_access",

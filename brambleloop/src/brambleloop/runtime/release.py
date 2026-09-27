@@ -1207,11 +1207,31 @@ def _difficulty(twin, cir) -> str:
     return difficulty(cir, twin)
 
 
-# How a bundle waits for its members (see the deferral in `handle_collection_assemble`).
-COLLECTION_IMMEDIATE_DEFERRALS = 20
-COLLECTION_MAX_DEFERRALS = 28
-COLLECTION_DEFERRAL_DELAY_SECONDS = 6 * 60 * 60
-COLLECTION_WAIT_PRIORITY = 999  # behind every band, so queued member work runs first
+def enqueue_member_collections(ctx: JobContext, member_slug: str, release_hash: str) -> list[str]:
+    """A member certified: give every collection it belongs to one assembly attempt.
+
+    Collections assemble on their members' certification rather than by polling. The polling
+    version (C-46 fallout) re-queued a waiting bundle outside every priority band (C-73) and,
+    once put back inside its band, burned its bounded retries before the members' chains
+    finished. An event cannot run early: this fires only when there is something new to
+    assemble from, keyed on the member's release so a re-run of the same certificate adds
+    nothing.
+    """
+    seed = _seed_for(member_slug)
+    if seed is None or seed.is_bundle or not seed.family:
+        return []
+    started = []
+    for bundle in POOL:
+        if not bundle.is_bundle or bundle.family != seed.family:
+            continue
+        job = ctx.enqueue("listing", "collection.assemble",
+                          {"slug": bundle.slug, "family": bundle.family,
+                           "trigger": {"member": member_slug, "release": release_hash}},
+                          idempotency_key=(chain_key("collection", bundle.slug, "collection")
+                                           + f":member:{member_slug}:{(release_hash or '')[:16]}"))
+        if job is not None:
+            started.append(bundle.slug)
+    return started
 
 
 @handlers.register("collection.assemble")
@@ -1223,9 +1243,9 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     listed once every one of them has a certificate, because a bundle is a promise to deliver
     each of those patterns.
 
-    When the members are not ready yet it defers rather than assembling a partial collection:
-    it re-enqueues itself behind the queued work (and later on a delay), bounded and keyed,
-    and completes with a recorded `waiting` result. The bundle is not broken, it is early --
+    When the members are not ready yet it waits rather than assembling a partial collection:
+    it completes with a recorded `waiting` result, and each member's certification enqueues
+    the assembly again (`enqueue_member_collections`). The bundle is not broken, it is early --
     and a retry budget spent in six seconds made it look broken (it went DEAD).
     """
     from datetime import datetime, timedelta, timezone
@@ -1261,30 +1281,15 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     ready = {c[0] for c in certified}
     members = [m for m in members if m.slug in ready]
     if len(members) < 2:
-        # An honest deferral, not a death. Under band priority (C-46) this job can be claimed
-        # before its members' certification jobs, and raising here spent three retries in six
-        # seconds and dead-lettered a bundle that was merely early. So it re-enqueues itself,
-        # deduplicated by its chain key and a deferral count, and bounded: first behind all
-        # current work (members still in the queue certify first), then on a delay once the
-        # queue has nothing left that could certify them, then not at all -- recorded, with
-        # `chain.rebuild` as the path that tries again.
+        # An honest wait, not a death. Under band priority (C-46) this job can be claimed
+        # before its members' certification jobs; raising here spent three retries in six
+        # seconds and dead-lettered a bundle that was merely early. It completes as waiting
+        # and does not re-queue itself: each member's gate.certify enqueues the assembly
+        # again (`enqueue_member_collections`), so the next attempt comes exactly when there
+        # is a new member to assemble from, and `chain.rebuild` remains the path for a rebuild.
         waiting = sorted(ready)
-        deferrals = int(ctx.job.inputs.get("deferrals") or 0)
-        follow = None
-        if deferrals < COLLECTION_MAX_DEFERRALS:
-            delayed = deferrals >= COLLECTION_IMMEDIATE_DEFERRALS
-            follow = ctx.enqueue(
-                "listing", "collection.assemble",
-                {"slug": slug, "family": family, "deferrals": deferrals + 1},
-                priority=COLLECTION_WAIT_PRIORITY,
-                run_after=(datetime.now(timezone.utc)
-                           + timedelta(seconds=COLLECTION_DEFERRAL_DELAY_SECONDS)
-                           if delayed else None),
-                idempotency_key=(chain_key("collection", slug, "collection")
-                                 + f":wait{deferrals + 1}"))
-        detail = {"certified_members": waiting, "deferrals": deferrals,
-                  "requeued": follow is not None,
-                  "exhausted": deferrals >= COLLECTION_MAX_DEFERRALS}
+        detail = {"certified_members": waiting, "requeued": False,
+                  "reassembles_on": "gate.certify of a member"}
         ctx.audit("collection.waiting", artifact=slug, detail=detail)
         return {"slug": slug, "waiting": True, **detail,
                 "why": (f"only {len(members)} of {slug}'s patterns are certified. A bundle is "

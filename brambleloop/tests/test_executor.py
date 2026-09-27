@@ -269,7 +269,8 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # gate as finished work rather than moving to another park. Asserted by membership, not a
     # count, so a row silently moving between gates is caught too.
     pbc = q["parked_by_capability"]
-    assert pbc["rendered_pages"] == [39], pbc["rendered_pages"]
+    # #35's class enablement reads the same current policy pages as #39 (C-73).
+    assert pbc["rendered_pages"] == [35, 39], pbc["rendered_pages"]
     assert {1, 37, 236} <= set(pbc.get("insights_access", [])), pbc
     assert {189, 221, 222, 320} <= set(pbc.get("acceptance_ruling", [])), pbc
     assert not {2, 15} & {r for rows in pbc.values() for r in rows}, "2/15 are done, not parked"
