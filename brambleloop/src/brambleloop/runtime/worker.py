@@ -425,6 +425,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Certification C-40 (#2, #15, #98): daily capture of the API search index for the pod
     # vocabulary, labelled api_index_score_sort -- directional, never the rendered page.
     ("serp_capture", "market_radar", "intel.serp_capture", 24 * 60 * 60),
+    # #206 / #226 / #311: MJs benchmark URL health, pod capability readings, and the seasonal
+    # deadline sentinel for MJs-derived opportunities.
+    ("mjs_benchmark_health", "market_radar", "intel.benchmark_health", 24 * 60 * 60),
+    ("mjs_pod_learning", "market_radar", "intel.pod_learning", 24 * 60 * 60),
+    ("mjs_seasonal_sentinel", "market_radar", "mjs.seasonal_sentinel", 24 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the
     # customer_pain domain without this company having customers. It keeps counts per theme
     # and no review text, reviewer or quotation.

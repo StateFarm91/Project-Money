@@ -465,6 +465,9 @@ def handle_certify(ctx: JobContext) -> dict:
         # certificate issued against the old ones, recomputed here rather than remembered,
         # and the affected frames lose their approval until the chain re-certifies them.
         _recheck_listing_certificates(ctx, cir)
+        # Lane routing for the newly certified release (cadence and grant integrated).
+        ctx.enqueue("quality_director", "gate.lanes", {},
+                    idempotency_key=f"lanes:{cir.slug}:{cert.release_hash}")
 
         # #163 / #169: the teardown lab's QA of our own product. A product class that can
         # name no evidenced advantage beyond the purchased benchmarks is withheld here, with
@@ -858,6 +861,20 @@ def handle_store_publish(ctx: JobContext) -> dict:
                   detail={"reason": str(e)[:500], "code": "PDF_HASH_DRIFT"})
         raise
     ctx.audit("store.pdf_hash_verified", artifact=f"{slug}@{version}", detail=hash_check)
+    # #126, release half (after parity and the hash check, before anything is stored or
+    # sent): the product must have cleared the blind search-grid tournament.
+    # No recorded verdict reads as not cleared -- a threshold cleared by default is the
+    # favouritism the requirement forbids -- and the refusal is an audited block.
+    from ..creative import preengineering
+
+    grid = preengineering.release_grid_verdict(ctx.db, slug)
+    if not grid["cleared"]:
+        ctx.audit("store.publish_blocked", artifact=f"{slug}@{version}",
+                  detail={"reasons": [f"search-grid tournament (#126): {grid.get('why')}"],
+                          "grid": grid})
+        return {"slug": slug, "version": version, "published": False, "blocked": True,
+                "reasons": [f"search-grid tournament (#126): {grid.get('why')}"]}
+
     # The release-chain gates, enforced after the file to be uploaded
     # has been shown to be the certified one and before anything is stored or sent. An
     # audited, reasoned block rather than an exception: the job completes, says it did not

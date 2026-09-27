@@ -75,6 +75,9 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
                             "intel.acceptance",
                             "mjs.scan", "mjs.reviews", "etsy.probe", "intel.serp_capture",
+                            # #206 / #226 / #311: MJs URL health, pod learning, deadlines.
+                            "intel.benchmark_health", "intel.pod_learning",
+                            "mjs.seasonal_sentinel",
                             # A free keyless sanctioned read, and the gallery backlog that
                             # was waiting on a call nobody had written rather than on a
                             # capability anybody had to buy (B-478, B-483).

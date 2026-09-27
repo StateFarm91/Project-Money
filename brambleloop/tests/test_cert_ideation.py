@@ -45,7 +45,7 @@ def _db(listings=8, forms_titles=("Cozy Chunky Crochet Beanie Hat Pattern",)) ->
     return db
 
 
-def _run(db, job_type: str, *, generator=None):
+def _run(db, job_type: str, *, generator=None, inputs=None):
     """Enqueue, then dispatch through the handler registry with a real JobContext."""
     from brambleloop.agents.registry import Registry
     from brambleloop.gateway import model_gateway
@@ -54,7 +54,7 @@ def _run(db, job_type: str, *, generator=None):
     from brambleloop.runtime.worker import JobContext, handlers
 
     q = JobQueue(db)
-    ctx = JobContext(job=q.enqueue("creative_director", job_type, {}), db=db, queue=q,
+    ctx = JobContext(job=q.enqueue("creative_director", job_type, inputs or {}), db=db, queue=q,
                      registry=Registry(db), phase=None)
     handler = handlers.get(job_type)
     assert handler is not None, f"{job_type} has no registered handler"
@@ -492,6 +492,28 @@ def test_live_culture_candidates_are_developed_and_meet_the_same_gates():
         assert block["winner"]["culture_origin"] == wanted
         assert block["pre_engineering_gate"]["gate"] == "creative.preengineering.gate_concept"
         assert result["cleared_for_engineering"] is False
+
+
+def test_a_breakthrough_tournament_uses_its_trigger_arena_and_divergent_briefs():
+    """#216: mjs.scan queues a divergent tournament on a benchmark release. The run must use
+    that job's arena and carry its divergent questions to the model, not the weekly wheel's
+    ordinary brief (found by the MJs wiring: the handler ignored its inputs)."""
+    db = _db()
+    inputs = {"lane": "breakthrough", "arena": "hats", "pod": "hats",
+              "objective": "search for original white space around the hats arena",
+              "diverged_from": "a released pom-pom beanie",
+              "trigger": {"kind": "benchmark_release", "listing_ref": "H0"},
+              "briefs": [{"axis": "recipient", "question": "who is nobody making hats for?",
+                          "claims_market_gap": False, "vocabulary": []}]}
+    result, asked = _run(db, "creative.tournament", inputs=inputs)
+    assert result["ran"] is True, result
+    block = _ideation(db)
+    assert block["breakthrough"]["diverged_from"] == "a released pom-pom beanie"
+    assert asked and all("who is nobody making hats for?" in a["brief"] for a in asked)
+    assert all("diverge from (never reproduce)" in a["brief"] for a in asked)
+    # An ordinary run carries none of it.
+    _r2, asked2 = _run(_db(), "creative.tournament")
+    assert asked2 and not any("breakthrough objective" in a["brief"] for a in asked2)
 
 
 def test_both_standing_agents_are_registered_handlers():

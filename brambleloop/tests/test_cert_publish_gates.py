@@ -104,12 +104,18 @@ def _publish_past_shadow(db, key: str, inputs: dict) -> Job:
     # Parity (#75) is another gate with its own tests; forced to pass so these reach ours.
     pipeline._listing_parity = lambda ctx: {"verdict": "pass", "blocks_release": False,
                                             "why": "forced by test", "dimensions": {}}
+    # So is the #126 search-grid verdict, which blocks before these gates when unjudged.
+    from brambleloop.creative import preengineering
+
+    orig_grid = preengineering.release_grid_verdict
+    preengineering.release_grid_verdict = lambda db, slug: {"cleared": True, "why": "test"}
     try:
         return _run(db, "store_operator", "store.publish", inputs, key,
                     phase=Phase.LIMITED_PRODUCTION)
     finally:
         etsy.EtsyClient, etsy.Credentials.from_env = orig
         pipeline._listing_parity = orig_parity
+        preengineering.release_grid_verdict = orig_grid
 
 
 # ---- computed on every publish attempt, from the persisted rows --------------------------
@@ -401,6 +407,36 @@ def test_a_missed_window_holds_the_launch_and_queues_no_publication():
     v = RG.for_publish(db, slug=st["slug"], version=st["version"],
                        today=date.fromisoformat(late))
     assert any("#297" in r for r in v["reasons"]), v["reasons"]
+
+
+def test_an_unjudged_search_grid_blocks_publish_as_an_audited_refusal():
+    """#126 release half: no grid verdict on file reads as not cleared, and refuses."""
+    st = chain()
+    db = st["db"]
+    from brambleloop.integrations import etsy
+
+    orig = etsy.EtsyClient, etsy.Credentials.from_env, pipeline._listing_parity
+    etsy.EtsyClient = _StubClient
+    etsy.Credentials.from_env = staticmethod(lambda *a, **k: None)
+    pipeline._listing_parity = lambda ctx: {"verdict": "pass", "blocks_release": False,
+                                            "why": "forced by test", "dimensions": {}}
+    try:
+        job = _run(db, "store_operator", "store.publish",
+                   {"slug": st["slug"], "version": st["version"]}, "gates-grid",
+                   phase=Phase.LIMITED_PRODUCTION)
+    finally:
+        etsy.EtsyClient, etsy.Credentials.from_env, pipeline._listing_parity = orig
+    assert job.status == JobStatus.DONE, job.last_error
+    assert job.outputs["blocked"] and "#126" in job.outputs["reasons"][0]
+    assert _audits(db, "store.publish_blocked", job.id)
+
+
+def test_a_granted_certificate_enqueues_lane_routing():
+    st = chain()
+    with st["db"].session() as s:
+        lanes = [j for j in s.scalars(select(Job).where(Job.job_type == "gate.lanes"))
+                 if (j.idempotency_key or "").startswith(f"lanes:{st['slug']}:")]
+    assert lanes, "gate.certify granted and queued no lane routing"
 
 
 def test_an_on_time_launch_still_queues_publication_and_marketing():

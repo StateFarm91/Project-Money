@@ -485,6 +485,16 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
     for form, angle in sorted(p["saturation"]["angles"].items()):
         lines.append(f"- if the form is {form.replace('_', ' ')}, enter only on this angle: "
                      f"{angle}")
+    bt = p.get("breakthrough")
+    if bt:
+        # #216: a divergent run triggered by a benchmark release. Each call carries one of the
+        # divergent questions, so the field explores away from what was released.
+        lines.append(f"- breakthrough objective: {bt.get('objective')}")
+        lines.append(f"- diverge from (never reproduce): {bt.get('diverged_from')}")
+        qs = bt.get("briefs") or []
+        if qs:
+            q = qs[index % len(qs)]
+            lines.append(f"- divergent question ({q.get('axis')}): {q.get('question')}")
     for lesson in p["lessons"]["in_prompt"]:
         lines.append(f"- learned: {lesson['statement']}")
     prims = p["lessons"]["reference"]["primitives"]

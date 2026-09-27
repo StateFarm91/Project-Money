@@ -2688,6 +2688,19 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
     arena = prospecting.choose(found, cycle=week)
+    # #216: a benchmark release queues a divergent ("breakthrough") tournament with its own
+    # arena and briefs. It is honoured rather than replaced by the weekly wheel: the arena the
+    # release happened in is taken when it is a proven arena, and its divergent briefs are
+    # carried into every generator brief below.
+    from ..creative.breakthrough import BREAKTHROUGH_LANE
+    inputs = ctx.job.inputs or {}
+    breakthrough = inputs if inputs.get("lane") == BREAKTHROUGH_LANE else None
+    if breakthrough:
+        match = [a for a in found if a.pod == breakthrough.get("pod")]
+        if match:
+            # The same chooser as the wheel, over the release's pod only, so an arena whose
+            # event can no longer be made in time is not picked just because it matched.
+            arena = prospecting.choose(match, cycle=week) or arena
 
     # Every ideation input is read before anything is generated (#85, #101, #105, #117-#122,
     # #124, #142, #232), and the arena moves if saturation leaves it nothing to enter.
@@ -2695,6 +2708,9 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                                               cycle=week)
     if plan is None:
         return moved_from
+    if breakthrough:
+        plan["breakthrough"] = {k: breakthrough.get(k) for k in (
+            "arena", "pod", "objective", "diverged_from", "briefs", "trigger")}
 
     _task, tier = routing.route(prospecting.IDEATION_TASK)
     gateway = ideation.BriefingGateway(

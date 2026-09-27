@@ -221,6 +221,42 @@ def resolve(spec: BenchmarkSpec, fetch: Fetcher | None = None) -> Resolution:
     return Resolution(spec.key, HEALTHY, final_url, _utcnow())
 
 
+def api_resolve(spec: BenchmarkSpec, reader) -> Resolution:
+    """#206 through the sanctioned read API rather than a rendered page (certification C-40).
+
+    `findShops` with the exact shop name, then the shop URL Etsy itself reports. The same
+    refusals as `resolve`: a near-match is a different seller, and a shop whose own URL names
+    somebody else is `wrong_shop` -- never re-pointed. Labelled with its basis so an API
+    reading is never mistaken for a page someone looked at.
+    """
+    from .etsy_public import NotConfigured, ReadFailed
+
+    basis = {"basis": "etsy_api_findShops"}
+    try:
+        shop = reader.resolve_shop(spec.shop_name)
+    except NotConfigured as e:
+        return Resolution(spec.key, UNVERIFIED, spec.canonical_url,
+                          problem=f"no read credential: {e}", detail=basis)
+    except ReadFailed as e:
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=str(e)[:300], detail=basis)
+    except Exception as e:  # noqa: BLE001 - a transport failure is a health result
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=f"{type(e).__name__}: {e}"[:300], detail=basis)
+    reported = str(shop.get("url") or "").split("?")[0]
+    landed = shop_segment(reported) if reported else None
+    detail = {**basis, "shop_id": shop.get("shop_id"), "reported_url": reported}
+    if landed is None or landed.lower() != spec.shop_name.lower():
+        return Resolution(spec.key, WRONG_SHOP, spec.canonical_url, _utcnow(),
+                          problem=(f"Etsy reports this shop at {reported!r}, which does not "
+                                   f"name {spec.shop_name!r}; not re-pointed"), detail=detail)
+    # Identity, not the URL string: the API reports the shop without the locale segment the
+    # registered URL carries (/ca/shop/...), and reading that difference as a move would make
+    # `record_resolution` re-point the registry for no reason. A move is a redirect question,
+    # which only a rendered fetch can answer.
+    return Resolution(spec.key, HEALTHY, spec.canonical_url, _utcnow(), detail=detail)
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 

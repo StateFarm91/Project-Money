@@ -983,7 +983,8 @@ def cross_category(db) -> list[dict]:
 
 
 def benchmark_health(db, *, fetch: Callable | None = None,
-                     env: dict[str, str] | None = None) -> dict:
+                     env: dict[str, str] | None = None,
+                     reader_factory: Callable | None = None) -> dict:
     """Resolve every registered benchmark and record the result; never re-point to a stranger.
 
     With no proven fetch capability every benchmark reads `unverified`, which is the honest
@@ -993,9 +994,21 @@ def benchmark_health(db, *, fetch: Callable | None = None,
     from ..ops import incident_lifecycle as lifecycle
 
     fetch = fetch if fetch is not None else benchmarks.fetcher_for(db, env)
+    # With no rendered-page capability, the sanctioned read API answers the same question
+    # (C-40): findShops by exact name and the shop URL Etsy reports. Still `unverified` with
+    # no credential; never `healthy` unchecked.
+    reader = None
+    if fetch is None and reader_factory is not None:
+        reader = reader_factory()
+    elif fetch is None:
+        from ..integrations.http import UrllibTransport
+        from .etsy_public import PublicReader, ReadCredential
+        if ReadCredential.from_env(env) is not None:
+            reader = PublicReader(UrllibTransport(), env=env)
     results, problems = [], {}
     for spec in benchmarks.REGISTRY:
-        res = benchmarks.resolve(spec, fetch)
+        res = (benchmarks.api_resolve(spec, reader) if reader is not None
+               else benchmarks.resolve(spec, fetch))
         benchmarks.record_resolution(db, res)
         results.append(res.to_dict())
         if res.state in (benchmarks.WRONG_SHOP, benchmarks.UNREACHABLE):
@@ -1016,7 +1029,8 @@ def benchmark_health(db, *, fetch: Callable | None = None,
             if new:
                 opened.append(signature)
     return {"checked": len(results), "results": results,
-            "capability": "unverified" if fetch is None else "fetcher",
+            "capability": ("fetcher" if fetch is not None else
+                           "etsy_api" if reader is not None else "unverified"),
             "incidents_opened": opened, "incidents_resolved": life["resolved"]}
 
 

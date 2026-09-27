@@ -93,6 +93,12 @@ NON_REDERIVABLE = (
     # proposed are decisions on the day's readings, and the readings move on.
     "culture_concepts",
     "culture_ip_elements",
+    # #211-#228, #316: what the MJs mission decided about each listing, the owner's vetoes,
+    # the competitive standard's history and each pod's capability reading.
+    "mjs_mission_events",
+    "owner_vetoes",
+    "competitive_standards",
+    "pod_capability_readings",
     "cohorts",
     # The build loop's own state. Re-derivable from the registry only in part: the claims,
     # the completion evidence and the decision history are not in any file, and losing them
