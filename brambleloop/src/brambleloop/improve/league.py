@@ -615,8 +615,16 @@ def sandbox_owned(db, config_id: int) -> dict | None:
 
 def record_run(db, config_id: int, *, tasks: dict, cost_cad: float, reliability: float,
                run_ref: str, recorded_by: str, latency_s: float | None = None,
-               holdout: dict | None = None) -> dict:
-    """Record one configuration's measured showing on named tasks. Idempotent on `run_ref`."""
+               holdout: dict | None = None, dataset: dict | None = None,
+               simulator: dict | None = None) -> dict:
+    """Record one configuration's measured showing on named tasks. Idempotent on `run_ref`.
+
+    `dataset` names what the run was scored on -- a content fingerprint of the tasks and the
+    bounds of when they were observed -- and `simulator` the versioned assumptions that
+    produced the scores (C-63 / Codex M02, M03). Both travel with the run so that a later
+    reader can tell a repeated evaluation from new evidence, and two runs of different
+    simulators from one comparison.
+    """
     from sqlalchemy import select
 
     from ..core.models import AuditLog, ConfigVersion
@@ -650,7 +658,9 @@ def record_run(db, config_id: int, *, tasks: dict, cost_cad: float, reliability:
                                  "cost_cad": float(cost_cad),
                                  "reliability": float(reliability),
                                  "latency_s": None if latency_s is None else float(latency_s),
-                                 "run_ref": ref})
+                                 "run_ref": ref,
+                                 **({"dataset": dict(dataset)} if dataset else {}),
+                                 **({"simulator": dict(simulator)} if simulator else {})})
         s.add(audit)
         s.flush()
         return {"run_id": audit.id, "recorded": True, "run_ref": ref}

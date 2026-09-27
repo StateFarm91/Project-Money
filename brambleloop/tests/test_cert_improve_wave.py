@@ -74,7 +74,8 @@ def _scheduled(job_type: str, agent: str) -> None:
     assert job_type in JOB_BANDS, job_type
 
 
-def _seed_contention(db, *, days: int = 5, start_days_ago: int = 6) -> None:
+def _seed_contention(db, *, days: int = 5, start_days_ago: int = 6,
+                     workers: tuple[str, ...] = ("",)) -> None:
     """Each day a burst of ten equal-band jobs: five valuable and unhurried enqueued first,
     five worth nothing with a three-hour deadline behind them. One hour of work each."""
     from brambleloop.core.models import Job, JobStatus
@@ -91,7 +92,19 @@ def _seed_contention(db, *, days: int = 5, start_days_ago: int = 6) -> None:
                            "value_cad": 500})
                 s.add(Job(agent="orchestrator", job_type="improve.nightly", inputs=inputs,
                           priority=85, status=JobStatus.DONE, created_at=t0,
-                          run_after=t0, started_at=t0, finished_at=t0 + timedelta(hours=1)))
+                          run_after=t0, started_at=t0, finished_at=t0 + timedelta(hours=1),
+                          leased_by=workers[i % len(workers)] or None))
+
+
+def _post_promotion_dataset(tag: str, *, days_ahead: int = 1) -> tuple[dict, dict]:
+    """A dataset observed wholly after now, with two whole days of dated tasks."""
+    now = datetime.now(timezone.utc)
+    d1 = (now + timedelta(days=days_ahead)).date().isoformat()
+    d2 = (now + timedelta(days=days_ahead + 1)).date().isoformat()
+    dataset = {"fingerprint": f"fresh-{tag}", "jobs": 20,
+               "bounds": [(now + timedelta(days=days_ahead)).isoformat(),
+                          (now + timedelta(days=days_ahead + 1, hours=6)).isoformat()]}
+    return dataset, {f"day:{d1}": None, f"day:{d2}": None}
 
 
 def _improvement(db, iid):
@@ -176,12 +189,7 @@ def test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back():
     # 5. Monitor: a fresh window replayed since the promotion reads worse -> reverted, the
     #    previous version restored, a rollback incident opened.
     replaced = ev["change"]["replaces"]
-    league.record_run(db, replaced, tasks={"day:x1": 0.9, "day:x2": 0.9}, cost_cad=0.0,
-                      reliability=1.0, run_ref="replay:aaaaaaaaaaaa:fresh..fresh:20",
-                      recorded_by="prompt_tool_challenger")
-    league.record_run(db, challenger, tasks={"day:x1": 0.4, "day:x2": 0.4}, cost_cad=0.0,
-                      reliability=1.0, run_ref="replay:bbbbbbbbbbbb:fresh..fresh:20",
-                      recorded_by="prompt_tool_challenger")
+    _fresh_worse_runs(db, replaced, challenger)
     mon = _run(db, "improve.monitor")
     assert iid in mon["reverted"], mon
     assert _improvement(db, iid)[0] == "reverted"
@@ -205,16 +213,20 @@ def _promote_replay_challenger(db) -> tuple[int, int, int]:
     return iid, int(ev["change"]["config_id"]), int(ev["change"]["replaces"])
 
 
-def _fresh_worse_runs(db, replaced: int, challenger: int, *, tag: str = "fresh") -> None:
-    """Runs on a window observed after the promotion where the promoted policy reads worse."""
-    from brambleloop.improve import league
+def _fresh_worse_runs(db, replaced: int, challenger: int, *, tag: str = "fresh",
+                      old_q: float = 0.9, new_q: float = 0.4) -> None:
+    """Runs on a dataset observed after the promotion where the promoted policy reads worse."""
+    from brambleloop.improve import league, replay
 
-    league.record_run(db, replaced, tasks={"day:x1": 0.9, "day:x2": 0.9}, cost_cad=0.0,
+    dataset, days = _post_promotion_dataset(tag)
+    league.record_run(db, replaced, tasks={d: old_q for d in days}, cost_cad=0.0,
                       reliability=1.0, run_ref=f"replay:aaaaaaaaaaaa:{tag}..{tag}:20",
-                      recorded_by="prompt_tool_challenger")
-    league.record_run(db, challenger, tasks={"day:x1": 0.4, "day:x2": 0.4}, cost_cad=0.0,
+                      recorded_by="prompt_tool_challenger", dataset=dataset,
+                      simulator=replay.SIMULATOR)
+    league.record_run(db, challenger, tasks={d: new_q for d in days}, cost_cad=0.0,
                       reliability=1.0, run_ref=f"replay:bbbbbbbbbbbb:{tag}..{tag}:20",
-                      recorded_by="prompt_tool_challenger")
+                      recorded_by="prompt_tool_challenger", dataset=dataset,
+                      simulator=replay.SIMULATOR)
 
 
 def test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost():
@@ -304,6 +316,116 @@ def test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost():
     again = _run(db, "improve.monitor")
     assert again["reverted"] == [] and again["rollback_pending"] == []
     assert _improvement(db, iid)[0] == "reverted"
+
+
+def test_a_replay_of_unchanged_history_is_never_fresh_post_promotion_evidence():
+    """C-63 (Codex M03): a run timestamped after the promotion is not evidence about it
+    unless its dataset is new, its observations pass the promotion, and a whole day has been
+    observed since. Each non-fresh kind is recorded on the row and reverts nothing."""
+    from brambleloop.core.models import ConfigVersion
+    from brambleloop.improve import league, replay
+
+    db = _db()
+    iid, challenger, replaced = _promote_replay_challenger(db)
+    _state, ev, _b, _r = _improvement(db, iid)
+    judged_fp = ev["change"]["judged_on"]["fingerprint"]
+    assert judged_fp and ev["change"]["simulator"] == replay.SIMULATOR["version"]
+    now = datetime.now(timezone.utc)
+
+    def _record(tag, *, dataset, tasks_old, tasks_new):
+        for cid, tasks, d in ((replaced, tasks_old, "a"), (challenger, tasks_new, "b")):
+            league.record_run(db, cid, tasks=tasks, cost_cad=0.0, reliability=1.0,
+                              run_ref=f"replay:{d * 12}:{tag}:20",
+                              recorded_by="prompt_tool_challenger", dataset=dataset,
+                              simulator=replay.SIMULATOR)
+
+    def _not_reverted(kind):
+        mon = _run(db, "improve.monitor")
+        state, ev, _b, _r = _improvement(db, iid)
+        assert mon["reverted"] == [] and state == "promoted", (kind, mon)
+        assert ev["not_fresh"]["kind"] == kind, ev["not_fresh"]
+        with db.session() as s:
+            assert s.get(ConfigVersion, challenger).incumbent is True
+
+    worse = {"day:x": 0.4}
+    better = {"day:x": 0.9}
+    # 1. The same historical tasks replayed again after the promotion: the same evaluation.
+    _record("again", dataset={"fingerprint": judged_fp,
+                              "bounds": [(now + timedelta(days=1)).isoformat()] * 2},
+            tasks_old=better, tasks_new=worse)
+    _not_reverted("repeated_evaluation")
+    # 2. A new dataset whose every observation predates the promotion.
+    _record("old", dataset={"fingerprint": "older-history",
+                            "bounds": [(now - timedelta(days=9)).isoformat(),
+                                       (now - timedelta(days=8)).isoformat()]},
+            tasks_old=better, tasks_new=worse)
+    _not_reverted("predates_promotion")
+    # 3. A run that says nothing about what it was scored on.
+    for cid, tasks, d in ((replaced, better, "c"), (challenger, worse, "d")):
+        league.record_run(db, cid, tasks=tasks, cost_cad=0.0, reliability=1.0,
+                          run_ref=f"replay:{d * 12}:blank..blank:20",
+                          recorded_by="prompt_tool_challenger")
+    _not_reverted("unbounded")
+    # 4. Fresh bounds, but the only dated task is the promotion day itself: not a whole day.
+    today = f"day:{now.date().isoformat()}"
+    _record("partial", dataset={"fingerprint": "reaches-past",
+                                "bounds": [(now - timedelta(days=1)).isoformat(),
+                                           (now + timedelta(hours=2)).isoformat()]},
+            tasks_old={today: 0.9}, tasks_new={today: 0.4})
+    mon = _run(db, "improve.monitor")
+    assert mon["reverted"] == [] and _improvement(db, iid)[0] == "promoted"
+    # 5. Two whole days observed after the promotion: judged, and worse -> reverted.
+    _fresh_worse_runs(db, replaced, challenger)
+    mon = _run(db, "improve.monitor")
+    assert iid in mon["reverted"], mon
+    state, ev, _b, _r = _improvement(db, iid)
+    assert state == "reverted" and ev["monitoring"]["dataset"] == "fresh-fresh"
+    assert len(ev["monitoring"]["tasks"]) == 2 and ev["monitoring"]["observed"] == 0.4
+
+
+def test_the_replay_scopes_its_claim_to_the_simulator_it_ran():
+    """C-63 / C-68 (Codex M02): the simulator's assumptions are versioned on every run, a
+    history produced by a worker pool the simulator does not model proposes nothing, and a
+    DEAD job keeps its failure meaning."""
+    from brambleloop.core.models import AuditLog, Job, JobStatus
+    from brambleloop.improve import replay
+
+    db = _db()
+    _seed_contention(db, workers=("worker-1", "worker-2"))
+    out = _run(db, "improve.replay")
+    assert out["ran"] and out["simulator"] == replay.SIMULATOR["version"]
+    assert out["dataset"]["workers_observed"] == 2 and out["dataset"]["fingerprint"]
+    assert out["fidelity"]["comparable"] is False and out["fidelity"]["reasons"]
+    assert out["compared"] and any(c["promote"] for c in out["compared"])
+    assert out["proposed"] and "does not model" in out["proposed"][0]["refused"]
+    with db.session() as s:
+        runs = list(s.scalars(select(AuditLog).where(AuditLog.action == "improve.league.run")))
+    assert len(runs) == 7
+    assert all(r.detail["simulator"]["version"] == replay.SIMULATOR["version"]
+               and r.detail["dataset"]["fingerprint"] == out["dataset"]["fingerprint"]
+               for r in runs)
+    sandbox = _run(db, "improve.sandbox")
+    assert sandbox["promoted"] == [] and sandbox["sandboxed"] == []
+
+    # A dead job occupies the worker and is never on time, so the day it died reads worse
+    # than the same day with it finished -- the failure is kept in the metric.
+    db2 = _db()
+    _seed_contention(db2)
+    now = datetime.now(timezone.utc)
+    t0 = (now - timedelta(days=6)).replace(hour=0, minute=30, second=0, microsecond=0)
+    with db2.session() as s:
+        s.add(Job(agent="orchestrator", job_type="improve.nightly",
+                  inputs={"deadline": (t0 + timedelta(days=25)).isoformat()}, priority=85,
+                  status=JobStatus.DEAD, created_at=t0, run_after=t0, started_at=t0,
+                  finished_at=t0 + timedelta(hours=1), last_error="boom"))
+    out2 = _run(db2, "improve.replay")
+    assert out2["dataset"]["dead_jobs"] == 1 and out2["fidelity"]["dead_jobs"] == 1
+    with db2.session() as s:
+        inc_run = next(r for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == "improve.league.run")) if r.detail["config_id"] == out2["incumbent"])
+    day_with_dead = f"day:{t0.date().isoformat()}"
+    other_days = [v for k, v in inc_run.detail["tasks"].items() if k != day_with_dead]
+    assert inc_run.detail["tasks"][day_with_dead] < min(other_days), inc_run.detail["tasks"]
 
 
 def test_the_nightly_sweep_runs_challenger_evaluations_rather_than_counting_them():
@@ -477,12 +599,8 @@ def test_role_work_reports_real_proposals_kept_and_realised_uplift():
     with db.session() as s:
         imp = s.scalar(select(Improvement).where(Improvement.state == "promoted"))
         change = dict(imp.evidence["change"])
-    league.record_run(db, change["replaces"], tasks={"day:y": 0.5}, cost_cad=0.0,
-                      reliability=1.0, run_ref="replay:cccccccccccc:y..y:30",
-                      recorded_by="prompt_tool_challenger")
-    league.record_run(db, change["config_id"], tasks={"day:y": 0.9}, cost_cad=0.0,
-                      reliability=1.0, run_ref="replay:dddddddddddd:y..y:30",
-                      recorded_by="prompt_tool_challenger")
+    _fresh_worse_runs(db, change["replaces"], change["config_id"], tag="held",
+                      old_q=0.5, new_q=0.9)
     _run(db, "improve.monitor")
     again = _run(db, "improve.role_work", agent="prompt_tool_challenger")
     assert again["realised_uplift"] > 0 and again["scorecard"]["reading"] == "measured", again
