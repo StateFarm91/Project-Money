@@ -1126,6 +1126,12 @@ class TeardownFinding(Base):
     improvement: Mapped[str] = mapped_column(Text, default="")
     promoted: Mapped[bool] = mapped_column(Boolean, default=False)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    # #161: "preserve raw notes and confidence". The analyst's own confidence in the score,
+    # 0-1, and the verbatim notes the score was drawn from (derived observations only --
+    # `check_derived` refuses purchased content). A finding recorded without a confidence is
+    # NULL rather than a default, because an unstated confidence is not a high one.
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    raw_notes: Mapped[str] = mapped_column(Text, default="")
 
 
 # ---------------------------------------------------------------------------

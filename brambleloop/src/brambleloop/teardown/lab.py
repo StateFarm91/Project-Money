@@ -115,11 +115,12 @@ def promote_finding(db, finding_id: int) -> dict:
 # #152-#161: recording
 
 
-def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict) -> dict:
+def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict, *,
+                 confidence=None, raw_notes: str = "") -> dict:
     """One complete audit, recorded, promoted, and asked the delight question."""
     inferred = inferred_for(db, benchmark_ref)
     audit = audits.observe(spec_key, benchmark_ref, answers, inferred=inferred)
-    recorded = audits.record(db, audit)
+    recorded = audits.record(db, audit, confidence=confidence, raw_notes=raw_notes)
     promotions = [promote_finding(db, fid) for fid in recorded["findings_recorded"]]
     delight = delight_for(db, benchmark_ref)
     _set_state_after_audit(db, benchmark_ref)
@@ -131,10 +132,11 @@ def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict) -> dict:
 
 
 def record_finding(db, benchmark_ref: str, dimension: str, score: int, mechanism: str,
-                   improvement: str) -> dict:
+                   improvement: str, *, confidence=None, raw_notes: str = "") -> dict:
     """One scorecard finding (#161), recorded and promoted (#164)."""
     inferred_for(db, benchmark_ref)
-    f = scorecard.finding(benchmark_ref, dimension, int(score), mechanism, improvement)
+    f = scorecard.finding(benchmark_ref, dimension, int(score), mechanism, improvement,
+                          confidence=confidence, raw_notes=raw_notes)
     finding_id = scorecard.record(db, f)
     promotion = promote_finding(db, finding_id)
     delight = delight_for(db, benchmark_ref)

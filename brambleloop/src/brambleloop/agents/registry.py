@@ -72,7 +72,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # the main cost under the CA$20/month infrastructure ceiling.
                             # `ops.retention` holds the policy and refuses to run when the
                             # code reads an audit action it has no decision about.
-                            "ops.retention"],
+                            "ops.retention",
+                            # #95 #180 #187: deterministic job replay (the league's runs);
+                            # #153-#161: teardown requirements enforced and routed.
+                            "improve.replay", "teardown.enforce"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",

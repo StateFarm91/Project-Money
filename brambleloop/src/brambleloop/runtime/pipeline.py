@@ -486,6 +486,18 @@ def handle_certify(ctx: JobContext) -> dict:
             return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
                     "release_hash": cert.release_hash, "withheld": True,
                     "reasons": [teardown["unique_value"].get("reason", "")][:1]}
+        # #228: an owner veto on this product withholds it at certification, before anything
+        # downstream is built for it. The owner lifts it by ruling again.
+        from ..intel.mission_runtime import active_veto
+
+        veto = active_veto(ctx.db, cir.slug)
+        if veto["vetoed"]:
+            ctx.audit("gate.release_withheld", artifact=f"{cir.slug}@{cir.version}",
+                      detail={"reason": f"owner veto (#228): {veto['why']}",
+                              "ruling": veto.get("ruling_id")})
+            return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
+                    "release_hash": cert.release_hash, "withheld": True,
+                    "reasons": [f"owner veto (#228): {veto['why']}"]}
         from .release import chain_key
 
         ctx.enqueue("listing", "listing.draft",

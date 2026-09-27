@@ -1208,6 +1208,36 @@ def record_veto(db, *, subject_ref: str, scope: str, reason: str = "", note: str
             "lessons_published": published, "pod_lessons_contradicted": contradicted}
 
 
+def veto_subjects(slug: str) -> tuple[str, ...]:
+    return (slug, f"product:{slug}", f"listing:{slug}", f"flagship:{slug}", f"model:{slug}")
+
+
+def active_veto(db, slug: str) -> dict:
+    """Whether the owner's latest ruling on this product is a veto (#228).
+
+    A veto is read where it has force: the publish gate, certification and the asset gate
+    call this. The latest ruling on the subject decides, so the owner lifts a veto by ruling
+    again with `owner_vetoed=False`, and an evaluator's prediction never lifts one.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerVeto
+
+    subjects = veto_subjects(slug)
+    with db.session() as s:
+        rows = [r for r in s.scalars(select(OwnerVeto).order_by(OwnerVeto.id))
+                if r.subject_ref in subjects or r.subject_ref.startswith(f"asset:{slug}")]
+    if not rows:
+        return {"vetoed": False, "rulings": 0}
+    latest = rows[-1]
+    return {"vetoed": bool(latest.owner_vetoed), "rulings": len(rows),
+            "ruling_id": latest.id, "scope": latest.scope, "reason": latest.reason,
+            "why": (f"the owner vetoed {latest.subject_ref} ({latest.scope}"
+                    f"{': ' + latest.reason if latest.reason else ''}) in ruling {latest.id}"
+                    if latest.owner_vetoed else
+                    f"the owner's latest ruling {latest.id} let {latest.subject_ref} through")}
+
+
 def veto_state(db) -> dict:
     """`veto.memory` and `veto.alignment` over the recorded rulings."""
     from sqlalchemy import select

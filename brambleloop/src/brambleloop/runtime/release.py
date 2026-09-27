@@ -1148,6 +1148,12 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
     from sqlalchemy import select
 
     reasons = list(blocking)
+    # #228: the owner's veto over flagship creative quality holds at the asset gate too.
+    from ..intel.mission_runtime import active_veto
+
+    veto = active_veto(ctx.db, slug)
+    if veto["vetoed"]:
+        reasons.append(f"owner veto (#228): {veto['why']}")
     with ctx.db.session() as s:
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
@@ -3633,13 +3639,25 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
 
     GREEN: reads capability points, may revert an improvement row, writes an audit record.
     """
-    from ..improve import bootstrap, monitor
+    from ..improve import bootstrap, monitor, runner
 
     bootstrap.ensure(ctx.db)
     out = monitor.sweep(ctx.db)
+    # Trial-metric promotions (#92, #164, #180) are judged by re-running their own trial on
+    # data recorded since they won -- and reverted, with the change undone, when it reads worse.
+    trials = runner.monitor_trials(ctx.db)
+    ctx.audit("improve.monitor_trials", detail={
+        "judged": trials["judged"], "reverted": trials["reverted"],
+        "waiting": len(trials["waiting"])})
     return {"ran": True, "promoted": out["promoted"], "judged": out["judged"],
-            "held": len(out["held"]), "reverted": [r["improvement"] for r in out["reverted"]],
-            "rollback_proposals": [r["rollback"]["incident"] for r in out["reverted"]],
+            "held": len(out["held"]),
+            "reverted": ([r["improvement"] for r in out["reverted"]]
+                         + [r["improvement"] for r in trials["reverted"]]),
+            "rollback_proposals": ([r["rollback"]["incident"] for r in out["reverted"]]
+                                   + [r["incident"] for r in trials["reverted"]]),
+            "trial_monitoring": {"judged": len(trials["judged"]),
+                                 "reverted": trials["reverted"],
+                                 "waiting": len(trials["waiting"])},
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
@@ -3661,7 +3679,9 @@ def handle_improve_sandbox(ctx: JobContext) -> dict:
 
     out = runner.run(ctx.db)
     detail = {k: out[k] for k in ("sandboxed", "tested", "approved", "promoted",
-                                  "owner_cards", "held", "cards_closed", "note")}
+                                  "owner_cards", "held", "cards_closed", "note", "anchored",
+                                  "rejected", "executed", "prioritised", "unprioritised",
+                                  "discipline")}
     detail["waiting"] = len(out["waiting"])
     ctx.audit(runner.ACTION, detail=detail)
     return {"ran": True, **detail, "waiting_detail": out["waiting"][:20]}
@@ -3687,6 +3707,68 @@ def handle_improve_league(ctx: JobContext) -> dict:
               "note": out["note"]}
     ctx.audit("improve.league", detail=detail)
     return {"ran": True, **detail}
+
+
+@handlers.register("improve.replay")
+def handle_improve_replay(ctx: JobContext) -> dict:
+    """Replay historical jobs under the job-priority policy and its challengers (#95, #180, #187).
+
+    The league's producer of runs. Deterministic: the historical jobs are the tasks, the
+    newest fifth of the days the holdout, and each configuration's showing is recorded with
+    `league.record_run`. A challenger that beats the incumbent on the shared days and holds on
+    the holdout becomes an improvement hypothesis the sandbox judges (#92); one that does not
+    is retired with its verdict. Too little history is UNMEASURED, never a verdict.
+
+    GREEN: reads jobs, registers configuration versions, records runs and may open an
+    improvement proposal. Calls no model and spends nothing.
+    """
+    from ..improve import replay
+
+    out = replay.cycle(ctx.db)
+    ctx.audit(replay.ACTION, detail={k: out.get(k) for k in (
+        "ran", "reading", "incumbent", "jobs", "days", "runs", "compared", "proposed",
+        "retired", "challengers_registered", "why", "watched")})
+    return out
+
+
+@handlers.register("teardown.enforce")
+def handle_teardown_enforce(ctx: JobContext) -> dict:
+    """Teardown findings as enforced requirements, checked and routed to their consumers.
+
+    #153-#161. Every certified product is checked against the requirements the recorded
+    teardown findings imply (exceed a benchmark's strength, prevent its trap, settle what
+    benchmarks disagree about, never fall below a floor the sandbox promoted); `store.publish`
+    reads the same check through the release gates and refuses on it. Each requirement is
+    published once on the lesson bus to the departments that consume it (Pattern Help,
+    creative assets, quality), whose own handlers read their inboxes and record acting on it.
+
+    GREEN: reads findings and products, writes lessons and an audit record. Spends nothing.
+    """
+    from ..improve import bus
+    from ..teardown import enforce
+
+    out = enforce.sweep(ctx.db)
+    subjects = {"pdf": "instruction_clarity", "pattern_help": "instruction_clarity",
+                "premium_standard": "chart_quality", "video": "delivery_experience",
+                "delivery_bundle": "delivery_experience", "support": "delivery_experience"}
+    published = []
+    for req in enforce.requirements(ctx.db):
+        if not req["binding"]:
+            continue
+        subject = subjects.get(req["consumers"][0], "delivery_experience")
+        lesson = bus.publish(
+            ctx.db, origin_cell="quality", subject=subject,
+            statement=(f"Teardown requirement {req['key']} ({req['kind']}) binds "
+                       f"{'/'.join(req['consumers'])}: {req['requirement'][:220]}"),
+            evidence_ref=f"teardown_requirement:{req['key']}:{req['kind']}",
+            confidence="observed")
+        published.append(lesson)
+    out["lessons"] = sorted(set(published))
+    ctx.audit(enforce.ACTION, detail={k: out[k] for k in (
+        "requirements", "binding", "provisional", "by_consumer", "blocked", "products",
+        "reading", "note", "lessons")} | {"video_specification": out["video_specification"][:20],
+                                           "pattern_help": out["pattern_help"][:20]})
+    return out
 
 
 @handlers.register("finance.governor")

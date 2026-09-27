@@ -491,6 +491,8 @@ JOB_BANDS: dict[str, str] = {
     "improve.monitor": "exploration",
     "improve.sandbox": "exploration",
     "improve.league": "exploration",
+    "improve.replay": "exploration",
+    "teardown.enforce": "benchmark_change",
     "creative.style_learning": "exploration",
     "creative.white_space": "exploration",
     "commerce.readings": "exploration",
@@ -524,14 +526,162 @@ def band_for(job_type: str) -> dict:
             "mapped": mapped}
 
 
-def priority_for(job_type: str) -> int:
-    """The `Job.priority` to enqueue a job type at: its band (#187). Lower is claimed first.
+def priority_for(job_type: str, inputs: dict | None = None, *, db=None,
+                 now: datetime | None = None) -> int:
+    """The `Job.priority` to enqueue a job at: its band, then deadline and value (#187).
 
-    This replaces `50 if period <= 3600 else 100`, which ordered work by how often it was
-    scheduled -- a proxy for nothing -- so an hourly image benchmark outranked a daily
-    seasonal sentinel and a customer reply would have waited behind both.
+    This replaced `50 if period <= 3600 else 100`, which ordered work by how often it was
+    scheduled -- a proxy for nothing. With no inputs it is the job type's band. With inputs it
+    is `priority_decision`: a deadline the job carries and the business value it names move
+    it up *within* its band (never across one), and listing work whose product has earned
+    nothing is not `proven_winner` work.
     """
-    return int(band_for(job_type)["band"])
+    if not inputs and db is None:
+        return int(band_for(job_type)["band"])
+    return int(priority_decision(job_type, inputs, db=db, now=now)["priority"])
+
+
+# ---------------------------------------------------------------------------
+# #187: expected business value and deadlines, within a band
+#
+# The band is the commercial argument and is never traded away. Inside it, a job carrying a
+# deadline that is days away is claimed before one whose window is a quarter off, and a job
+# naming a larger expected value before a smaller one. The weights are a versioned scoring
+# policy (`improve.league`, kind `scoring`): `improve.replay` replays historical jobs under the
+# incumbent and its challengers, and a challenger that meets more deadlines on the replay and
+# its holdout is promoted through the improvement sandbox -- which is what the runtime then
+# reads here.
+
+PRIORITY_POLICY_KIND = "scoring"
+PRIORITY_POLICY_KEY = "policy:job_priority"
+DEFAULT_PRIORITY_POLICY: dict = {"deadline_weight": 2.0, "value_weight": 2.0,
+                                 "horizon_days": 30.0, "value_scale_cad": 500.0}
+# Strictly below the smallest step between two bands (5), so no deadline and no value can
+# carry a job across a band.
+MAX_WITHIN_BAND = 4
+DEADLINE_KEYS: tuple[str, ...] = ("deadline", "latest_launch", "window_closes", "launch_by",
+                                  "due", "preferred_launch", "event_date")
+VALUE_KEYS: tuple[str, ...] = ("value_cad", "expected_value_cad", "expected_revenue_cad")
+LISTING_KINDS_NEEDING_PROOF: frozenset[str] = frozenset({"proven_winner"})
+_POLICY_CACHE: dict = {}
+_POLICY_TTL = timedelta(minutes=5)
+
+
+def clear_policy_cache() -> None:
+    _POLICY_CACHE.clear()
+
+
+def priority_policy(db=None, *, now: datetime | None = None) -> dict:
+    """The incumbent job-priority policy from the registry, or the default when none is."""
+    if db is None:
+        return {**DEFAULT_PRIORITY_POLICY, "config_id": None, "source": "default"}
+    now = now or datetime.now(timezone.utc)
+    key = id(db)
+    hit = _POLICY_CACHE.get(key)
+    if hit is not None and now - hit[0] < _POLICY_TTL:
+        return hit[1]
+    try:
+        from ..improve.league import incumbent_payload
+
+        row = incumbent_payload(db, kind=PRIORITY_POLICY_KIND, key=PRIORITY_POLICY_KEY)
+    except Exception:  # noqa: BLE001 - an unreadable registry is the default policy
+        row = None
+    policy = {**DEFAULT_PRIORITY_POLICY, "config_id": None, "source": "default"}
+    if row is not None and row.get("payload"):
+        try:
+            loaded = json.loads(row["payload"])
+            policy = {**DEFAULT_PRIORITY_POLICY,
+                      **{k: float(v) for k, v in loaded.items() if k in DEFAULT_PRIORITY_POLICY},
+                      "config_id": row["config_id"], "source": f"registry v{row['version']}"}
+        except (ValueError, TypeError):
+            pass
+    _POLICY_CACHE[key] = (now, policy)
+    return policy
+
+
+def _parse_when(value) -> datetime | None:
+    if value in (None, ""):
+        return None
+    try:
+        text = str(value)
+        when = (datetime.fromisoformat(text) if "T" in text or " " in text
+                else datetime.fromisoformat(text + "T23:59:59"))
+    except ValueError:
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
+def deadline_of(inputs: dict | None) -> datetime | None:
+    """The earliest deadline a job's inputs name, or None."""
+    found = [_parse_when((inputs or {}).get(k)) for k in DEADLINE_KEYS]
+    found = [f for f in found if f is not None]
+    return min(found) if found else None
+
+
+def value_of(inputs: dict | None) -> float | None:
+    for k in VALUE_KEYS:
+        v = (inputs or {}).get(k)
+        if v not in (None, ""):
+            try:
+                return max(0.0, float(v))
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def within_band(policy: dict, *, deadline_days: float | None, value_cad: float | None) -> int:
+    """Points a job moves up inside its band, from its deadline and value, capped."""
+    urgency = 0.0
+    if deadline_days is not None:
+        horizon = max(1.0, float(policy["horizon_days"]))
+        urgency = max(0.0, 1.0 - min(max(deadline_days, 0.0), horizon) / horizon)
+    value = 0.0
+    if value_cad is not None:
+        value = min(1.0, value_cad / max(1.0, float(policy["value_scale_cad"])))
+    raw = urgency * float(policy["deadline_weight"]) + value * float(policy["value_weight"])
+    return int(max(0, min(MAX_WITHIN_BAND, round(raw))))
+
+
+def product_proven(db, slug: str) -> bool:
+    """Whether a product has earned anything: a revenue ledger row attributed to it."""
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry
+
+    with db.session() as s:
+        for row in s.scalars(select(LedgerEntry).where(LedgerEntry.gross_cad > 0)):
+            if slug and slug in ((row.evidence_ref or "") + " " + (row.description or "")):
+                return True
+    return False
+
+
+def priority_decision(job_type: str, inputs: dict | None = None, *, db=None,
+                      now: datetime | None = None, policy: dict | None = None) -> dict:
+    """The band, the within-band movement and the reason, for one job about to be enqueued."""
+    now = now or datetime.now(timezone.utc)
+    banded = band_for(job_type)
+    kind = banded["kind"]
+    demoted = ""
+    slug = str((inputs or {}).get("slug") or (inputs or {}).get("product_slug") or "")
+    if kind in LISTING_KINDS_NEEDING_PROOF and slug and db is not None:
+        try:
+            proven = product_proven(db, slug)
+        except Exception:  # noqa: BLE001
+            proven = True
+        if not proven:
+            kind = "new_opportunity"
+            demoted = (f"{slug} has no attributed revenue, so its work is an unproven "
+                       f"opportunity rather than a proven winner")
+    policy = policy or priority_policy(db, now=now)
+    deadline = deadline_of(inputs)
+    days = None if deadline is None else (deadline - now).total_seconds() / 86400.0
+    value = value_of(inputs)
+    moved = within_band(policy, deadline_days=days, value_cad=value)
+    band = BAND_BY_KIND[kind]
+    return {"job_type": job_type, "kind": kind, "band": band, "moved": moved,
+            "priority": band - moved, "deadline_days": None if days is None else round(days, 2),
+            "value_cad": value, "demoted": demoted or None,
+            "policy": {k: policy.get(k) for k in ("config_id", "source")}}
 
 
 # ---------------------------------------------------------------------------

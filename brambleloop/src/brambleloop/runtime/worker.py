@@ -563,6 +563,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # gate reads and refuses to run at all when it finds an audit action nobody has decided
     # about; `ops.retention` carries the reasoning.
     ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
+    # #95 / #180 / #187: the league's producer of runs -- historical jobs replayed under the
+    # job-priority policy and its challengers, newest days held out. Deterministic, no model.
+    ("improve_replay", "orchestrator", "improve.replay", 24 * 60 * 60),
+    # #153-#161: teardown findings checked as enforced requirements and routed to consumers.
+    ("teardown_enforce", "orchestrator", "teardown.enforce", 24 * 60 * 60),
 ]
 
 
