@@ -49,13 +49,23 @@ _dead_data = R.Requirement(id=996, title="t", body="b", version="v", section="s"
 check("a data-gated row whose machinery nothing runs is OPEN (C-59)",
       C.classify(_dead_data)["state"] == C.OPEN)
 # C-65: the three blind spots the 9434c53 audit found in the rule above.
+# The fixture is a library only app/main.py imports (#4's preproduction, in no repair wave).
+# commerce/offers.py served here until the C-64 repair wired it into portfolio.review -- the
+# rule working, not a reason to loosen it. If this precondition fails, pick another static-only
+# module; do not weaken the check.
+from brambleloop.build2 import reachability as _reach
+_pre = _reach.reached("commerce/preproduction.py")
+check("fixture precondition: commerce/preproduction.py is still only statically imported",
+      not _pre["reached"], str(_pre))
 _static = R.Requirement(id=995, title="t", body="b", version="v", section="s",
                         status=R.COVERED, note="", parked_on="",
-                        proof="commerce/offers.py runtime/release.py app/main.py tests/test_offers.py")
+                        proof="commerce/preproduction.py runtime/release.py app/main.py "
+                              "tests/test_preproduction.py")
 _sv = C.classify(_static)
 check("a covered row whose library only a static state() route touches is OPEN, and naming a "
       "runtime root beside it does not count as reach (C-65)",
-      _sv["state"] == C.OPEN and "commerce/offers.py" in _sv["proof"]["unreached"], str(_sv["proof"]))
+      _sv["state"] == C.OPEN and "commerce/preproduction.py" in _sv["proof"]["unreached"],
+      str(_sv["proof"]))
 _orig_gate_for = C.executor.gate_for
 C.executor.gate_for = lambda i: "owned_surfaces" if i in (994, 993) else _orig_gate_for(i)
 try:

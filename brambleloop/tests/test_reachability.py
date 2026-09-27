@@ -191,8 +191,17 @@ def test_the_real_package_still_reaches_its_handlers_libraries():
     R.clear_cache()
     for rel in ("commerce/kill_table.py", "swarm/orchestrate.py", "ops/artefacts.py"):
         assert R.reached(rel)["reached"], R.reached(rel)
-    # and the real static-route-only library the audit named stays unreached
-    assert not R.reached("commerce/offers.py")["reached"]
+    # The library the 9434c53 audit named as static-route-only (commerce/offers.py) was wired
+    # by the C-64 repair: it must now read as reached THROUGH A LIVE ROOT, and the verdict
+    # must say which handler, not merely that a route imports it.
+    offers = R.reached("commerce/offers.py")
+    assert offers["reached"] and "handler " in str(offers.get("why", "")), offers
+    # A library that is still only imported by app/main.py (#4's commerce/preproduction.py,
+    # not in any repair wave yet) stays unreached. If this fires because #4 got wired, that
+    # is the repair working: pick another static-only fixture rather than loosening the rule.
+    static_only = R.reached("commerce/preproduction.py")
+    assert not static_only["reached"], ("fixture wired; choose another static-only module",
+                                        static_only)
 
 
 if __name__ == "__main__":
